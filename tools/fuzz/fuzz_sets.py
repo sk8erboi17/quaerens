@@ -18,6 +18,11 @@ viene ricalcolato qui.
 Con la variabile d'ambiente FUZZ_FOUR=1 gli enunciati sono uguaglianze e
 inclusioni su quattro insiemi; lì l'oracolo prova 1500 modelli a caso invece
 di elencarli tutti.
+
+Con FUZZ_CHECKER=<eseguibile del verificatore> gli stessi enunciati (tranne
+quelli con "esiste") vengono dati anche al verificatore dei certificati, che
+li decide per conto suo: un enunciato accettato deve essere valido per
+l'oracolo, e il controesempio di uno respinto viene ricalcolato qui.
 """
 import itertools
 import os
@@ -238,6 +243,56 @@ def walk(e):
                 yield d
 
 
+PREFIX = {"cup": "union", "cap": "inter", "minus": "diff", "tri": "symdiff", "times": "times", "eq": "=", "sub": "subset",
+          "neq": "neq", "and": "and", "or": "or", "imp": "implies", "iff": "iff", "power": "power", "not": "not"}
+
+
+def prefix(e):
+    """L'enunciato nella notazione dei certificati."""
+    op = e[0]
+    if op == "var":
+        return e[1]
+    if op in ("empty", "only_empty"):
+        return "(%s)" % op.replace("_", "")
+    if op == "sup":
+        return "(subset %s %s)" % (prefix(e[2]), prefix(e[1]))
+    return "(%s %s)" % (PREFIX[op], " ".join(prefix(c) for c in e[1:]))
+
+
+def check_with_checker(checker, cases):
+    """Confronta il verificatore con l'oracolo sugli enunciati senza "esiste"."""
+    plain = [(e, names, bad) for e, names, bad in cases if not has(e, "exists")]
+    path = os.path.join(WORK, "fuzz_sets_%d.cert" % SEED)
+    with open(path, "w", encoding="utf-8") as out:
+        for e, names, bad in plain:
+            out.write("certificate sets\nstatement %s\nend\n\n" % prefix(e))
+    run = subprocess.run([checker, path], capture_output=True, text=True, timeout=1200)
+    lines = [l.split(". ", 1)[1] for l in run.stdout.splitlines() if re.match(r"\s*\d+\. ", l)]
+    if len(lines) != len(plain) or run.returncode not in (0, 1) or "Sanitizer" in run.stderr:
+        print("BUG: the checker answered %d of %d statements (exit %d)\n%s" % (len(lines), len(plain), run.returncode, run.stderr[-2000:]))
+        return
+    tally = {}
+    for (e, names, bad), answer in zip(plain, lines):
+        kind = "accepted" if answer.startswith("ACCETTATO") else "rejected" if answer.startswith("RESPINTO") else "unsupported"
+        key = ("valid" if bad is None else "invalid", kind)
+        tally[key] = tally.get(key, 0) + 1
+        problem = None
+        if kind == "accepted" and bad is not None:
+            problem = "BUG: the checker accepted, but it fails for %s" % dict((k, sorted(v)) for k, v in bad.items())
+        elif kind == "rejected":
+            env = parse_model(answer, names)
+            universe = frozenset().union(*env.values()) | frozenset([98, 99])
+            if holds(e, env, universe):
+                problem = "BUG: the checker rejected, but the statement holds for its counterexample: %s" % answer
+            elif bad is None:
+                problem = "NOTE: the checker's counterexample is right and the oracle's models missed it: %s" % answer
+        elif kind == "unsupported":
+            problem = "NOTE: the checker could not decide (%s)" % answer[:80]
+        if problem:
+            print("%s\n   %s" % (problem, prefix(e)))
+    print("checker, seed %d:" % SEED, ", ".join("%s/%s=%d" % (k[0], k[1], v) for k, v in sorted(tally.items())))
+
+
 def parse_model(detail, names):
     env = dict((n, frozenset()) for n in names)
     for name, body in re.findall(r"(\w) = \{([^}]*)\}", detail):
@@ -281,6 +336,8 @@ def main():
         if problem:
             print("%s\n   %d: %s" % (problem, number, tex(e)))
     print("seed %d:" % SEED, ", ".join("%s/%s=%d" % (k[0], k[1], v) for k, v in sorted(tally.items())))
+    if os.environ.get("FUZZ_CHECKER"):
+        check_with_checker(os.environ["FUZZ_CHECKER"], cases)
 
 
 main()

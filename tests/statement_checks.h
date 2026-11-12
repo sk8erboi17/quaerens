@@ -31,7 +31,7 @@
  * usarne solo alcune senza che il compilatore segnali le altre come inutilizzate.
  */
 
-/* Il programma è un solo file con il proprio main(): lo si include cambiando
+/* Il programma ha il proprio main(), in main.c: lo si include cambiando
  * nome a quel main, così i test possono chiamarne le funzioni interne. */
 #define main mathresearcher_main
 #include "../main.c"

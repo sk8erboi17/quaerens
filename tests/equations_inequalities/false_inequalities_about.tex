@@ -1,0 +1,34 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_inequalities.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_inequalities.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_equations\_inequalities.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 48 false statements. It is the anti-regression of the sign table: none of them may ever be proved, whatever is changed in the engine.
+
+\item \textbf{What it exercises.} The ways a result can be wrong by little. An endpoint counted although the condition fails there, or has no value there; an isolated solution forgotten; an endpoint moved; a statement that fails only at an irrational number, such as $x^{2} < 2 \iff x^{2} \le 2$; an equality that fails only where a side is not defined, such as $x/x = 1$.
+
+\item \textbf{Variety.} The first 18 were written by hand, each with a refuting value of $x$ in mind; the other 30 come from the fuzz script \texttt{tools/fuzz/fuzz\_reals.py}, which alters a true statement and has its independent oracle confirm that the result is false.
+
+\item \textbf{Expected result.} The line \texttt{PASS: 48 of 48 false statements rejected}.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_equations_inequalities \
+    tests/equations_inequalities/test_equations_inequalities.c \
+    && /tmp/test_equations_inequalities
+\end{verbatim}
+\end{enumerate}
+\end{document}

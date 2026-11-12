@@ -1,0 +1,50 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{One real variable: statements decided by a sign table (30)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Every statement below is true. They were produced by the fuzz script \texttt{tools/fuzz/fuzz\_reals.py}, whose independent oracle knows the roots of every factor because it chose them. A comparison counts as false where one of its sides has no value.
+
+\begin{enumerate}
+\item $\displaystyle \exists x \in \mathbb{R}\ \left( \begin{cases} \frac{x - 6}{\left(x - 6\right)^{3}} > 0 \\ \left(3 \cdot x + 0\right) \cdot \left(x + 0\right) \cdot \left(\left(-1\right) \cdot x - 3\right) < 0 \end{cases} \right)$
+\item $\displaystyle \exists x \in \mathbb{Q}\ \left( \begin{cases} \left(\left(-1\right) \cdot x - 5\right) \cdot \left(x^{2} + 0 - 28\right) \cdot \left(x + 5\right)^{3} < 0 \\ \left|x + \frac{5}{3}\right| \ge \left|x + 2\right| \end{cases} \right)$
+\item $\displaystyle \lnot \forall x \in \mathbb{Q}^{+}\ \left( \left(5 \cdot x - 3\right) \cdot \left(x + 1\right) \cdot \left(x^{2} + 2\right)^{3} > 0 \right)$
+\item $\displaystyle \exists x \in \mathbb{Q}\ \left( \left|x - \frac{1}{3}\right| > \left|x - \frac{3}{2}\right| \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \left(2 \cdot x - 2\right) \cdot \left(x - 2\right) > 0 \iff \left( x < 1 \lor x > 2 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \begin{cases} \left|2 \cdot x + 3\right| \le 6 \\ \frac{\left(x - 5\right)^{2}}{x - 4} = 0 \end{cases} \iff \left( 0 = 1 \right) \right)$
+\item $\displaystyle \lnot \exists x \in \mathbb{R}\ \left( \frac{x^{2} - 2}{x^{2} - 2} < 0 \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \left(x + 4\right)^{2} \cdot \left(x - \frac{5}{2}\right)^{2} \cdot \left(x + 3\right)^{3} > 0 \iff \left( \left(x > -3 \land x < \frac{5}{2}\right) \lor x > \frac{5}{2} \right) \right)$
+\item $\displaystyle \exists x \in \mathbb{Q}^{+}\ \left( x - 6 \le 0 \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{\left(2 \cdot x - 6\right) \cdot \left(2 \cdot x - 3\right)}{x - \frac{1}{3}} > 0 \iff \left( \left(x > \frac{1}{3} \land x < \frac{3}{2}\right) \lor x > 3 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{x^{2} + 4}{x - 5} \ge 0 \iff \left( x > 5 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{\left(3 \cdot x - 1\right)^{3} \cdot \left(5 \cdot x + 3\right)}{\left(x + 2\right)^{2} \cdot \left(x^{2} + 1\right)} = 0 \iff \left( x = -\frac{3}{5} \lor x = \frac{1}{3} \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \begin{cases} \left|x + \frac{1}{3}\right| \ge \left|x - \frac{5}{3}\right| \\ \left|x - 1\right| < \left|x + \frac{5}{3}\right| \end{cases} \iff \left( x \ge \frac{2}{3} \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \left|x - \frac{3}{2}\right| > \left|x - \frac{3}{2}\right| \iff \left( 0 = 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}^{+}\ \left( \left(x + 6\right)^{3} \cdot \left(\left(-1\right) \cdot x + 6\right)^{2} \cdot \left(x^{2} + 4 \cdot x - 24\right)^{2} \ge 0 \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \left(x + 2\right) \cdot \left(\left(-2\right) \cdot x + 1\right) \cdot \left(x + 5\right) > 0 \iff \left( x < -5 \lor \left(x > -2 \land x < \frac{1}{2}\right) \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{x^{2} + 5}{\left(x^{2} + 2\right)^{3}} > 0 \iff \left( 0 = 0 \right) \right)$
+\item $\displaystyle \exists x \in \mathbb{R}\ \left( \left(-1\right) \cdot x + 6 < 0 \right)$
+\item $\displaystyle \exists x \in \mathbb{Q}^{+}\ \left( \frac{2 \cdot x - 2}{\left(5 \cdot x + 1\right)^{3}} < 0 \right)$
+\item $\displaystyle \lnot \forall x \in \mathbb{R}\ \left( \left(x + 1\right)^{3} \cdot \left(x^{2} - 2\right) \cdot \left(x + 4\right) \le 0 \right)$
+\item $\displaystyle \exists x \in \mathbb{Q}\ \left( \left|x - \frac{4}{3}\right| \le \left|x + 0\right| \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{x^{2} + 5}{\left(x - 6\right) \cdot \left(x^{2} + 1\right)} \le 0 \iff \left( x < 6 \right) \right)$
+\item $\displaystyle \exists x \in \mathbb{Q}\ \left( \begin{cases} \left|x - 4\right| \neq \left|x - 5\right| \\ x^{2} - 2 \ge 0 \end{cases} \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \begin{cases} \left(x - 6\right) \cdot \left(x + 2\right) < 0 \\ \frac{\left(x - 6\right) \cdot \left(x - 5\right)}{x + 3} < 0 \end{cases} \iff \left( x > 5 \land x < 6 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \left(x - 5\right) \cdot \left(\left(-1\right) \cdot x + 1\right)^{2} < 0 \iff \left( x < 1 \lor \left(x > 1 \land x < 5\right) \right) \right)$
+\item $\displaystyle \lnot \forall x \in \mathbb{Q}^{+}\ \left( \frac{\left(x - 2\right)^{2} \cdot \left(5 \cdot x + 0\right)}{x + 4} < 0 \right)$
+\item $\displaystyle \exists x \in \mathbb{R}^{+}\ \left( \begin{cases} \left|x - 4\right| > \left|x + 2\right| \\ \frac{x + 2}{x^{2} - 6 \cdot x - 36} \le 0 \\ \frac{x + 0}{x + \frac{1}{3}} > 0 \end{cases} \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \begin{cases} \left(x^{2} - 2\right) \cdot \left(x^{2} + 4\right) < 0 \\ \left|1 \cdot x - 3\right| < 0 \\ \left|3 \cdot x - 5\right| \neq 2 \end{cases} \iff \left( 0 = 1 \right) \right)$
+\item $\displaystyle \lnot \forall x \in \mathbb{R}^{+}\ \left( \frac{x - 2}{\left(x^{2} + 2\right) \cdot \left(x^{2} - 2\right)} > 0 \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \left(x - \frac{2}{3}\right)^{3} > 0 \iff \left( x > \frac{2}{3} \right) \right)$
+\end{enumerate}
+\end{document}

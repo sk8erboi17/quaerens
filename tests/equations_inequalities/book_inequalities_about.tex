@@ -1,0 +1,34 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{book\_inequalities.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{book\_inequalities.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_equations\_inequalities.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 64 true statements taken from the exercises of a school textbook: each says that an inequality, or a system of inequalities, in the real variable $x$ holds exactly for the values the book prints as its result. The engine must prove every one of them, so the book's results are checked, not trusted.
+
+\item \textbf{What it exercises.} The sign table (rule 18p): every comparison is brought to the form $N(x)/D(x) \lessgtr 0$, the real roots of the polynomials involved are separated, and the statement is evaluated on every root and on every interval between two consecutive roots. A comparison is false where one of its sides has no value, so the points excluded from the domain are never solutions.
+
+\item \textbf{Variety.} Polynomial inequalities of degree up to eight, rational inequalities, systems written with \texttt{cases}, absolute values (also one inside another), results that are unions of intervals, single points, the empty set and the whole line.
+
+\item \textbf{Expected result.} The line \texttt{PASS: 64 of 64 statements proved, each with a written proof}.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_equations_inequalities \
+    tests/equations_inequalities/test_equations_inequalities.c \
+    && /tmp/test_equations_inequalities
+\end{verbatim}
+\end{enumerate}
+\end{document}

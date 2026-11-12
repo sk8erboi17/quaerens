@@ -17,7 +17,9 @@
  *          fattore + 1        l'enunciato giusto con il passo alterato;
  *
  *   3. una dimostrazione senza certificato dice perché manca;
- *   4. i certificati scritti su file sono quelli verificati, uno per uno.
+ *   4. i certificati scritti su file sono quelli verificati, uno per uno;
+ *   5. ogni certificato dei due file dice anche che l'enunciato è definito
+ *      per ogni n, perché lì il verificatore lo sa ricontrollare.
  *
  * I certificati sbagliati non si tolgono e non si indeboliscono per far
  * passare una modifica: se uno viene accettato, si corregge il verificatore.
@@ -73,7 +75,7 @@ static int check_certificates(const char *path) {
     }
 
     const char *position = text, *item, *end;
-    int total = 0, certified = 0, wrong = 0, wrong_accepted = 0;
+    int total = 0, certified = 0, defined = 0, wrong = 0, wrong_accepted = 0;
     while (next_item(&position, &item, &end)) {
         Verdict verdict = prove_item(item, end);
         total++;
@@ -91,6 +93,7 @@ static int check_certificates(const char *path) {
             continue;
         }
         certified++;
+        if (strstr(verdict.certificate, "\ndefined")) defined++;
 
         /* 2. Le tre alterazioni. */
         for (int kind = 0; kind < 3; kind++) {
@@ -110,6 +113,8 @@ static int check_certificates(const char *path) {
 
     snprintf(summary, sizeof summary, "%d of %d proofs carry a certificate the checker accepts, in %s", certified, total, path);
     int passed = check_result(total > 0 && certified == total, summary);
+    snprintf(summary, sizeof summary, "%d of %d certificates also say the statement is defined for every n, in %s", defined, total, path);
+    passed &= check_result(defined == total, summary);
     snprintf(summary, sizeof summary, "%d of %d altered certificates not accepted for %s", wrong - wrong_accepted, wrong, path);
     return check_result(wrong == 3 * certified && wrong_accepted == 0, summary) && passed;
 }
@@ -170,19 +175,43 @@ static int check_written(const char *path) {
     return check_result(accepted > 0 && others == 0 && accepted == report.certified, summary);
 }
 
+/* Il file path di enunciati sugli insiemi: ognuno è dimostrato, almeno
+ * `expected` hanno un certificato, e ogni certificato riletto è accettato. */
+static int check_sets(const char *path, int expected) {
+    char summary[512];
+    char *text = read_file(path);
+    if (!text) {
+        snprintf(summary, sizeof summary, "cannot read %s", path);
+        return check_result(0, summary);
+    }
+    const char *position = text, *item, *end;
+    int total = 0, certified = 0, broken = 0;
+    while (next_item(&position, &item, &end)) {
+        Verdict verdict = prove_item(item, end);
+        const char *why, *reread = verdict.certificate;
+        total++;
+        if (verdict.outcome != PROVED) broken++;
+        else if (reread && ck_check(&reread, &why) == CK_ACCEPTED) certified++;
+        else if (reread) broken++;
+    }
+    free(text);
+    snprintf(summary, sizeof summary, "%d of %d statements about sets carry a certificate the checker accepts, in %s", certified, total, path);
+    return check_result(total > 0 && broken == 0 && certified >= expected, summary);
+}
+
 int main(void) {
     engine_init();
     int passed = 1;
     passed &= check_certificates("tests/sums_products_inequalities/simple_inductions.tex");
     passed &= check_certificates("tests/sums_products_inequalities/finite_sums_and_products.tex");
-    passed &= check_missing_explained("tests/logs_trig_powers_roots/logs_trig_powers_roots_inductions.tex", 4);
+    passed &= check_missing_explained("tests/logs_trig_powers_roots/logs_trig_powers_roots_inductions.tex", 23);
     passed &= check_written("tests/sums_products_inequalities/simple_inductions.tex");
 
     /* Il testo di un certificato, fissato: è ciò che un lettore confronta
      * con l'enunciato, e ciò che il programma checker deve saper rileggere. */
     Verdict gauss = prove("\\sum_{k=1}^{n} k = \\frac{n\\left(n + 1\\right)}{2}", 'n', 0, 0);
     const char *expected = "certificate induction\nvariable n\nbase 1\n"
-                           "statement (= (sum k 1 n k) (/ (* n (+ n 1)) 2))\nfactor 1\nend\n";
+                           "statement (= (sum k 1 n k) (/ (* n (+ n 1)) 2))\nfactor 1\ndefined\nend\n";
     passed &= check_result(gauss.certificate && strcmp(gauss.certificate, expected) == 0,
                            "the certificate of the sum of the first n integers has the expected text");
 
@@ -194,13 +223,37 @@ int main(void) {
     Verdict fibonacci = prove("\\sum_{k=1}^{n} F_{k} = F_{n + 2} - 1", 'n', 0, 0);
     passed &= check_result(fibonacci.certificate && strstr(fibonacci.certificate, "\nsequence F 2 1 1 0 1\n") != NULL,
                            "the certificate of a Fibonacci sum defines the sequence it uses");
+    /* La voce "defined" porta il punto in cui il motore ha stabilito che
+     * l'enunciato è definito per ogni n; dove il verificatore non sa
+     * ricontrollarlo resta il certificato della sola uguaglianza. */
+    Verdict geometric = prove("\\sum_{k=0}^{n} x^{k} = \\frac{x^{n + 1} - 1}{x - 1}", 'n', 0, 0);
+    passed &= check_result(geometric.certificate && strstr(geometric.certificate, "\ndefined x ") != NULL,
+                           "the certificate of a sum with a parameter says where it is defined for every n");
+    Verdict two_powers = prove("\\sum_{k=1}^{n} \\frac{1}{3^{k} - 2^{k}} = \\sum_{k=1}^{n} \\frac{1}{3^{k} - 2^{k}}", 'n', 0, 0);
+    passed &= check_result(two_powers.outcome == PROVED && two_powers.certificate && strstr(two_powers.certificate, "\ndefined") == NULL,
+                           "where the checker cannot recheck that a divisor never vanishes, the certificate covers the equality only");
+
+    /* Un logaritmo: il certificato porta i fattori in cui il motore ha
+     * scomposto gli argomenti. */
+    Verdict logarithm = prove("\\sum_{k=1}^{n} \\ln\\left(1 + \\frac{1}{k}\\right) = \\ln\\left(n + 1\\right)", 'n', 0, 0);
+    passed &= check_result(logarithm.certificate && strstr(logarithm.certificate, "(ln ") && strstr(logarithm.certificate, "\nbrick "),
+                           "the certificate of a sum of logarithms suggests the factors of their arguments");
+
     Verdict harmonic = prove("\\sum_{k=1}^{n} H_{k} = \\left(n + 1\\right) H_{n} - n", 'n', 0, 0);
     passed &= check_result(harmonic.certificate && strstr(harmonic.certificate, "\ndefine H m (sum j 1 m (/ 1 j))\n") != NULL,
                            "the certificate of a sum of harmonic numbers defines them by their formula");
 
     /* Gli altri metodi non hanno un certificato, e il verdetto lo dice. */
-    Verdict sets = prove("S \\cup T = T \\cup S", 'n', 0, 0);
-    passed &= check_result(sets.outcome == PROVED && !sets.certificate, "a proof about sets has no certificate");
+    /* Insiemi: il certificato è l'enunciato, che il verificatore decide da
+     * capo. "Esiste un insieme" non è nella sua notazione. */
+    Verdict sets = prove("(S \\setminus T) \\setminus V = S \\setminus (T \\cup V)", 'n', 0, 0);
+    passed &= check_result(sets.outcome == PROVED && sets.certificate &&
+                           strcmp(sets.certificate, "certificate sets\nstatement (= (diff (diff S T) V) (diff S (union T V)))\nend\n") == 0,
+                           "the certificate of a statement about sets is the statement, in the checker's notation");
+    Verdict chosen = prove("\\exists V \\left( S \\cup V = S \\right)", 'n', 0, 0);
+    passed &= check_result(chosen.outcome == PROVED && !chosen.certificate, "a statement with \"there is a set\" has no certificate");
+    passed &= check_sets("tests/set_theory/set_operations.tex", 23);
+    passed &= check_sets("tests/set_theory/cartesian_products.tex", 8);
     Verdict quantified = prove("\\forall n \\in \\mathbb{N}\\ \\left(\\sum_{k=1}^{n} k = \\frac{n\\left(n + 1\\right)}{2}\\right)", 'n', 0, 0);
     passed &= check_result(quantified.outcome == PROVED && !quantified.certificate, "a proof with quantifiers has no certificate of its own");
 

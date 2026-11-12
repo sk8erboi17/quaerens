@@ -15,7 +15,7 @@
  *         tests/engine/test_engine.c && /tmp/test_engine
  */
 
-/* Il programma è un solo file con il proprio main(): lo si include cambiando
+/* Il programma ha il proprio main(), in main.c: lo si include cambiando
  * nome a quel main, così il test può chiamarne le funzioni interne. */
 #define main mathresearcher_main
 #include "../../main.c"
@@ -256,10 +256,15 @@ static const Case cases[] = {
     {"a value that would have to depend on the other variable",
      "\\exists x \\in \\mathbb{Z}\\ \\forall y \\in \\mathbb{Z}\\ (x = y)", REFUTED},
 
-    /* Fuori dal linguaggio: va dichiarato. Sui numeri reali la regola delle
-     * radici razionali darebbe per vero x^2 diverso da 2. */
-    {"real numbers are not accepted",
-     "\\forall x \\in \\mathbb{R}\\ (x^{2} \\neq 2)", UNSUPPORTED},
+    /* Sui numeri reali la regola delle radici razionali darebbe per vero
+     * x^2 diverso da 2: per questo i reali un tempo non erano accettati, e
+     * questo enunciato doveva risultare NON SUPPORTATO. Ora li tratta la
+     * tabella dei segni (18p), che trova il controesempio irrazionale. Resta
+     * un'antiregressione: non deve mai risultare dimostrato. */
+    {"a real number that is not rational is a counterexample",
+     "\\forall x \\in \\mathbb{R}\\ (x^{2} \\neq 2)", REFUTED},
+    {"the same statement on the rationals is true",
+     "\\forall x \\in \\mathbb{Q}\\ (x^{2} \\neq 2)", PROVED},
     {"a letter that is not quantified",
      "\\forall x \\in \\mathbb{Z}\\ (x + c = c + x)", UNSUPPORTED},
     {"a letter quantified inside itself",
@@ -406,6 +411,7 @@ static const char *outcome_name(Outcome outcome) {
     case REFUTED:     return "REFUTED";
     case NOT_PROVED:  return "NOT_PROVED";
     case UNSUPPORTED: return "UNSUPPORTED";
+    case SOLVED:      return "SOLVED";
     }
     return "?";
 }
@@ -962,12 +968,19 @@ int main(void) {
     /* La riga del verdetto dice sempre se c'è un certificato verificato dal
      * verificatore indipendente, e se manca, quando si sa, perché. */
     static const char *const lines[][2] = {
-        {"\\sum_{k=1}^{n} k = \\frac{n^{2} + n}{2}", "DIMOSTRATO per induzione su n >= 1; certificato verificato"},
+        {"\\sum_{k=1}^{n} k = \\frac{n^{2} + n}{2}", "DIMOSTRATO per induzione su n >= 1; certificato verificato: definiti e uguali per ogni n"},
+        {"\\sum_{k=0}^{n} x^{k} = \\frac{x^{n + 1} - 1}{x - 1}",
+         "DIMOSTRATO per induzione su n >= 1; certificato verificato: uguali dove sono definiti, e definiti per ogni n con i parametri del certificato"},
+        {"\\sum_{k=1}^{n} \\frac{1}{3^{k} - 2^{k}} = \\sum_{k=1}^{n} \\frac{1}{3^{k} - 2^{k}}",
+         "DIMOSTRATO per induzione su n >= 1; certificato verificato: uguali dove sono definiti"},
         {"x \\prod_{k=1}^{n} \\frac{k + 1}{k} = x \\left(n + 1\\right)",
-         "DIMOSTRATO per induzione su n >= 1; certificato verificato con un'ipotesi in più sui parametri"},
+         "DIMOSTRATO per induzione su n >= 1; certificato verificato: uguali dove sono definiti, e definiti per ogni n con i parametri del certificato, con un'ipotesi in più sui parametri"},
         {"\\sum_{k=1}^{n} \\ln\\left(1 + \\frac{1}{k}\\right) = \\ln\\left(n + 1\\right)",
+         "DIMOSTRATO per induzione su n >= 1; certificato verificato: uguali dove sono definiti"},
+        {"\\sum_{k=1}^{n} \\left(\\sqrt{k} - \\sqrt{k - 1}\\right) = \\sqrt{n}",
          "DIMOSTRATO per induzione su n >= 1; senza certificato (l'enunciato o il passo induttivo usano qualcosa che la notazione dei certificati non ha)"},
-        {"S \\cup T = T \\cup S", "DIMOSTRATO per ogni scelta degli insiemi; senza certificato"},
+        {"S \\cup T = T \\cup S", "DIMOSTRATO per ogni scelta degli insiemi; certificato verificato"},
+        {"\\exists V \\left( S \\cup V = S \\right)", "DIMOSTRATO per ogni scelta degli insiemi; senza certificato"},
         {"\\forall x \\in \\mathbb{Z}\\ (x + 0 = x)", "DIMOSTRATO con le regole sui quantificatori; senza certificato"},
         {"\\sum_{k=1}^{n} k = \\frac{n^{2} + n}{2} + n - 1", "FALSO: non vale per n = 2"},
     };

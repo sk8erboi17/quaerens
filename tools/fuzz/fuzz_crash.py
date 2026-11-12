@@ -25,7 +25,8 @@ TOKENS = ["(", ")", "{", "}", "\\{", "\\}", "\\left(", "\\right)", "\\left|", "\
           "\\frac", "\\sqrt", "\\sum", "\\prod", "\\binom", "\\ln", "\\log", "\\sin", "\\arctan", "\\pi", "\\cdot",
           "\\forall", "\\exists", "\\in", "\\mathbb{N}", "\\mathbb{Z}", "\\mathbb{Q}", "\\mathbb", "\\setminus", "\\colon", "\\to",
           "\\land", "\\lor", "\\implies", "\\iff", "\\lnot", "\\neq", "\\cup", "\\cap", "\\times", "\\mathcal{P}", "\\emptyset",
-          "\\subseteq", "\\triangle", "0", "1", "2", "7", "99999999999999999999", "n", "k", "x", "f", "S", "T", "F_", "\\", "$", " "]
+          "\\subseteq", "\\triangle", "0", "1", "2", "7", "99999999999999999999", "n", "k", "x", "f", "S", "T", "F_", "\\", "$", " ",
+          "\\mathbb{R}", "\\mathbb{R}^{+}", "<", ">", "\\le", "\\ge", "\\mid", ":", "\\begin{cases}", "\\end{cases}", "\\\\", "|"]
 
 
 def corpus(paths):

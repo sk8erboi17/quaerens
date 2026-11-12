@@ -1,0 +1,33 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{document\_statements.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{document\_statements.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_output.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 5 statements, one of each kind the final document written by \texttt{output.c} has to report. The test is about the document, not about the mathematics: the statements are easy on purpose.
+
+\item \textbf{What it exercises.} The writing of an item: the statement as it was read, then the proof or the solutions, or the verdict when there is no proof; and the graph, which becomes a page of the PDF of the graphs and is included in the document by page number.
+
+\item \textbf{Variety.} A proof by induction, which has no graph; a solution set and a statement decided by a sign table, which have one each; a false statement, whose graph still shows where the condition holds; a statement that cannot be read, which has neither proof nor graph.
+
+\item \textbf{Expected result.} The line \texttt{PASS: 25 of 25 output checks passed}.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_output \
+    tests/output/test_output.c && /tmp/test_output
+\end{verbatim}
+\end{enumerate}
+\end{document}

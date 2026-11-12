@@ -6,8 +6,10 @@
  *
  * mathresearcher (main.c) cerca le dimostrazioni. Quando ne trova una per
  * induzione scrive un certificato: l'enunciato e un solo dato in più, che
- * basta a ricontrollare il passo induttivo senza rifare la ricerca. Questo
- * programma legge il certificato e risponde:
+ * basta a ricontrollare il passo induttivo senza rifare la ricerca. Per un
+ * enunciato sugli insiemi il certificato è il solo enunciato, e questo
+ * programma lo decide da capo (capitolo 10; il resto di questo commento
+ * riguarda le induzioni). Questo programma legge il certificato e risponde:
  *
  *   - ACCETTATO: tutti i controlli sono riusciti;
  *   - RESPINTO: un controllo è fallito, il certificato non dimostra nulla;
@@ -43,7 +45,10 @@
  * Le espressioni sono scritte con l'operatore davanti e tutte le parentesi,
  * così leggerle non richiede regole di precedenza (capitolo 6). Le voci
  * facoltative sono "sequence" e "define", che definiscono una successione
- * (per ricorrenza, o con una formula), e "generic", descritta più sotto.
+ * (per ricorrenza, o con una formula), "generic" e "defined", descritte più
+ * sotto, e "brick", che suggerisce un fattore in cui scomporre gli argomenti
+ * dei logaritmi (capitolo 8, 8g): un suggerimento non può far accettare il
+ * falso, perché ogni scomposizione usata è controllata con una divisione.
  *
  * IL TEOREMA CHE UN CERTIFICATO ACCETTATO DIMOSTRA
  *
@@ -52,8 +57,10 @@
  * calcolo dei due membri,
  *
  *   - nessuna divisione ha il divisore nullo (una potenza con esponente
- *     negativo è una divisione), e
- *   - nessuna potenza con l'esponente che dipende da n ha la base nulla.
+ *     negativo è una divisione),
+ *   - nessuna potenza con l'esponente che dipende da n ha la base nulla, e
+ *   - ogni logaritmo (ln a) ha l'argomento positivo; per (lnabs a), il
+ *     logaritmo del valore assoluto, basta che l'argomento non sia zero.
  *
  * Il teorema:
  *
@@ -62,11 +69,31 @@
  *       (b) ogni espressione "generic" è definita e diversa da zero,
  *     vale L = R.
  *
- * Il certificato NON dice che l'enunciato è definito: quella è un'ipotesi
- * del teorema, e resta da stabilire a chi lo usa. (n - 50)/(n - 50) = 1 ha
- * un certificato valido: dice che i due membri sono uguali per n da 1 a 49.
- * Da 50 in su il teorema non dice più nulla, perché in 50 l'enunciato non è
- * definito.
+ * Senza la voce "defined" il certificato NON dice che l'enunciato è
+ * definito: quella è un'ipotesi del teorema, e resta da stabilire a chi lo
+ * usa. (n - 50)/(n - 50) = 1 ha un certificato valido: dice che i due membri
+ * sono uguali per n da 1 a 49. Da 50 in su il teorema non dice più nulla,
+ * perché in 50 l'enunciato non è definito.
+ *
+ * LA VOCE "defined"
+ *
+ *     defined x 2 y (/ 1 2)
+ *
+ * afferma in più: con i parametri a questi valori (x = 2, y = 1/2; senza
+ * parametri la voce è la sola parola) l'enunciato è definito per ogni
+ * intero n >= b, e le espressioni "generic" sono definite e diverse da zero.
+ * Se il certificato è accettato, l'ipotesi del teorema è dunque soddisfatta
+ * in quel punto, e ne segue un enunciato senza riserve:
+ *
+ *     Con i parametri a quei valori, per ogni intero n >= b i due membri
+ *     sono definiti e uguali.
+ *
+ * Per un enunciato senza parametri è tutto ciò che c'è da dire. Con i
+ * parametri dice che il teorema non è vuoto: c'è almeno un punto in cui vale
+ * per ogni n. Come lo si controlla è nel capitolo 9. Se un divisore si
+ * annulla per qualche n il certificato è respinto; se le regole del capitolo
+ * 9 non bastano a decidere, non è controllabile, e chi l'ha scritto può
+ * riproporlo senza la voce.
  *
  * COME LO SI CONTROLLA
  *
@@ -89,6 +116,9 @@
  * Il controllo 3 è ciò che impedisce il trucco più semplice: prendere
  * W = D(n+1)/D(n), che soddisfa sempre il controllo 2 ma ha a denominatore
  * proprio la quantità che l'ipotesi induttiva dice nulla.
+ *
+ * Con i logaritmi la voce "defined" non è ancora controllabile: servirebbe
+ * stabilire il segno degli argomenti.
  *
  * Le somme e le potenze. Una somma fino a n non ha una formula, ma non
  * serve: la si tratta come una lettera X, e la somma fino a n + 1 è X più il
@@ -116,8 +146,10 @@
  *    6. Espressioni: albero e lettura
  *    7. Indeterminate
  *    8. Valutazione
- *    9. Controllo di un certificato
- *   10. main
+ *    9. Definito per ogni n
+ *   10. Enunciati sugli insiemi
+ *   11. Controllo di un certificato
+ *   12. main
  */
 
 /* =============================================================================
@@ -145,6 +177,11 @@
 #define CK_MAX_DEPTH 4000    /* parentesi una dentro l'altra in un'espressione */
 #define CK_MAX_BASE 1000000000LL  /* valore assoluto del caso base */
 #define CK_SPARE_BYTES 256   /* blocco di riserva di ck_alloc() */
+#define CK_MAX_POINT 8       /* parametri a cui la voce "defined" dà un valore */
+#define CK_MAX_DIVISORS 256  /* divisori di cui stabilire che non si annullano */
+#define CK_MAX_SCAN 100000   /* valori di n provati uno a uno per un polinomio */
+#define CK_MAX_BRICKS 32     /* voci "brick" di un certificato */
+#define CK_MAX_FACTORED 1000000000000LL  /* il più grande numero scomposto in fattori primi */
 
 /* La risposta su un certificato. */
 typedef enum { CK_ACCEPTED, CK_REJECTED, CK_UNSUPPORTED } CkAnswer;
@@ -406,8 +443,9 @@ static CkPoly ck_poly_at_sign(CkPoly p, int sign) {
 }
 
 /* Ritorna 1 se b divide a esattamente, cioè se esiste un polinomio q con
- * a = b q. b non è il polinomio nullo, e nessuno dei due contiene
- * l'indeterminata s.
+ * a = b q, e allora mette q in *result se result non è NULL. b non è il
+ * polinomio nullo. Con l'indeterminata s (s^2 = 1) in uno dei due la
+ * risposta "divide" resta certa, ma "non divide" può essere solo prudente.
  *
  * Divisione dei polinomi in più indeterminate: l'ultimo termine di un
  * polinomio, nell'ordine dei monomi, è il suo termine direttivo, e il termine
@@ -416,16 +454,18 @@ static CkPoly ck_poly_at_sign(CkPoly p, int sign) {
  * quello di b: lo si toglie sottraendo il multiplo giusto di b, e si
  * continua. Se a un certo punto non è un multiplo, b non divide a.
  *
- * A ogni passo il termine direttivo del resto scende, quindi il ciclo
- * finisce. Il quoziente viene comunque ricontrollato moltiplicando: così la
- * risposta "divide" non dipende dal ragionamento sul ciclo, solo da un
- * prodotto e da un confronto. */
-static int ck_poly_divides(CkPoly b, CkPoly a) {
+ * Senza s, a ogni passo il termine direttivo del resto scende e il ciclo
+ * finisce; con s la regola sui termini direttivi può cadere, e per questo i
+ * passi hanno un tetto. Il quoziente viene comunque ricontrollato
+ * moltiplicando: così la risposta "divide" non dipende dal ragionamento sul
+ * ciclo, solo da un prodotto e da un confronto. */
+static int ck_poly_divides(CkPoly b, CkPoly a, CkPoly *result) {
     CkPoly rest = a, quotient = ck_poly_number(ck_num_int(0));
     const CkTerm *lead = &b.term[b.count - 1];
-    while (rest.count > 0 && ck_status == CK_ACCEPTED) {
+    for (int step = 0; rest.count > 0 && ck_status == CK_ACCEPTED; step++) {
         CkTerm *piece = ck_alloc(sizeof *piece);
         const CkTerm *top = &rest.term[rest.count - 1];
+        if (step > CK_MAX_TERMS) return 0;
         for (int v = 0; v < CK_MAX_VARS; v++) {
             if (top->e[v] < lead->e[v]) return 0;
             piece->e[v] = (signed char)(top->e[v] - lead->e[v]);
@@ -435,7 +475,9 @@ static int ck_poly_divides(CkPoly b, CkPoly a) {
         quotient = ck_poly_add(quotient, single, 0);
         rest = ck_poly_add(rest, ck_poly_mul(single, b), 1);
     }
-    return ck_status == CK_ACCEPTED && ck_poly_equal(ck_poly_mul(b, quotient), a);
+    if (ck_status != CK_ACCEPTED || !ck_poly_equal(ck_poly_mul(b, quotient), a)) return 0;
+    if (result) *result = quotient;
+    return 1;
 }
 
 /* =============================================================================
@@ -453,6 +495,36 @@ static int ck_poly_divides(CkPoly b, CkPoly a) {
 typedef struct {
     CkPoly num, den;
 } CkRat;
+
+/* Un divisore incontrato nel conto: il numeratore della frazione per cui si
+ * è diviso, e il più piccolo n per cui quella divisione viene fatta. */
+typedef struct {
+    CkPoly value;
+    long long from;
+} CkDivisor;
+
+/* I divisori annotati mentre ck_recording è diverso da zero; ck_record_from
+ * è il valore di `from` da dare ai prossimi. Servono a stabilire che
+ * l'enunciato è definito per ogni n (capitolo 9). */
+static CkDivisor ck_divisors[CK_MAX_DIVISORS];
+static int ck_divisor_count;
+static int ck_recording;
+static long long ck_record_from;
+
+/* Annota un divisore. Una costante non si annota: se è zero è già un errore
+ * per ck_rat_div(), se non lo è non c'è nulla da stabilire. */
+static void ck_record(CkPoly divisor) {
+    if (!ck_recording || ck_poly_is_constant(divisor)) return;
+    if (ck_divisor_count == CK_MAX_DIVISORS) { ck_unsupported("troppi divisori di cui stabilire che non si annullano"); return; }
+    ck_divisors[ck_divisor_count++] = (CkDivisor){divisor, ck_record_from};
+}
+
+/* Come vale la variabile di induzione in questo momento (capitolo 8). Sta
+ * qui perché una divisione per zero si spiega in modo diverso nel caso base. */
+static char ck_variable;   /* il suo nome */
+static int ck_numeric;     /* 1: vale il numero ck_point; 0: vale n + ck_shift */
+static long long ck_point;
+static long long ck_shift;
 
 /* Ritorna la frazione che vale il polinomio p. */
 static CkRat ck_rat_poly(CkPoly p) { return (CkRat){p, ck_poly_number(ck_num_int(1))}; }
@@ -476,9 +548,12 @@ static CkRat ck_rat_mul(CkRat a, CkRat b) { return (CkRat){ck_poly_mul(a.num, b.
  * contiene il numeratore di b, cioè il divisore. */
 static CkRat ck_rat_div(CkRat a, CkRat b) {
     if (b.num.count == 0) {
-        ck_reject("l'enunciato divide per un'espressione che vale sempre zero");
+        ck_reject(ck_recording ? "con i valori dati ai parametri l'enunciato divide per zero"
+                  : ck_numeric ? "nel caso base l'enunciato divide per zero"
+                  : "l'enunciato divide per un'espressione che vale sempre zero");
         return ck_rat_int(0);
     }
+    ck_record(b.num);
     return (CkRat){ck_poly_mul(a.num, b.den), ck_poly_mul(a.den, b.num)};
 }
 
@@ -505,17 +580,33 @@ static CkRat ck_rat_power(CkRat a, long long e) {
  *     (fact a)          fattoriale di a
  *     (binom a b)       coefficiente binomiale "a su b"
  *     (seq F a)         termine di indice a della successione F
+ *     (ln a)            logaritmo naturale di a, che deve essere positivo
+ *     (lnabs a)         logaritmo naturale del valore assoluto di a
+ *
+ * Negli enunciati sugli insiemi (capitolo 10) le lettere sono insiemi, e le
+ * parole sono altre:
+ *
+ *     (empty)  (onlyempty)  (power a)
+ *     (union a b)  (inter a b)  (diff a b)  (symdiff a b)  (times a b)
+ *     (= a b)  (subset a b)  (neq a b)
+ *     (and p q)  (or p q)  (implies p q)  (iff p q)  (not p)
  *
  * Un intero può avere il segno meno davanti. Una lettera è un solo
  * carattere: la variabile di induzione, un parametro, o un indice di somma.
  */
 
 /* Tipi di nodo. */
-typedef enum { CK_NUMBER, CK_LETTER, CK_ADD, CK_SUB, CK_MUL, CK_DIV, CK_NEG, CK_POW, CK_SUM, CK_PROD, CK_FACT, CK_BINOM, CK_SEQ } CkKind;
+typedef enum {
+    CK_NUMBER, CK_LETTER, CK_ADD, CK_SUB, CK_MUL, CK_DIV, CK_NEG, CK_POW, CK_SUM, CK_PROD, CK_FACT, CK_BINOM, CK_SEQ, CK_LN, CK_LNABS,
+    /* Enunciati sugli insiemi (capitolo 10). */
+    CK_EMPTY, CK_ONLYEMPTY, CK_POWER, CK_UNION, CK_INTER, CK_DIFF, CK_SYMDIFF, CK_TIMES,
+    CK_EQ, CK_SUBSET, CK_NEQ, CK_AND, CK_OR, CK_IMPLIES, CK_IFF, CK_NOT
+} CkKind;
 
 /* Un nodo dell'albero di un'espressione. I nodi stanno nell'arena.
  *   NUMBER: value.            LETTER: name.
- *   ADD, SUB, MUL, DIV, POW, BINOM: i due operandi a e b.   NEG, FACT: a.
+ *   ADD, SUB, MUL, DIV, POW, BINOM: i due operandi a e b.
+ *   NEG, FACT, LN, LNABS: a.
  *   SUM, PROD: name è l'indice, a e b gli estremi, c il termine.
  *   SEQ: name è la successione, a l'indice. */
 typedef struct CkNode CkNode;
@@ -570,6 +661,11 @@ static const CkNode *ck_read(void) {
     static const struct { const char *word; CkKind kind; int operands; } table[] = {
         {"+", CK_ADD, 2}, {"-", CK_SUB, 2}, {"*", CK_MUL, 2}, {"/", CK_DIV, 2}, {"^", CK_POW, 2}, {"neg", CK_NEG, 1},
         {"fact", CK_FACT, 1}, {"binom", CK_BINOM, 2}, {"sum", CK_SUM, 3}, {"prod", CK_PROD, 3}, {"seq", CK_SEQ, 1},
+        {"ln", CK_LN, 1}, {"lnabs", CK_LNABS, 1},
+        {"empty", CK_EMPTY, 0}, {"onlyempty", CK_ONLYEMPTY, 0}, {"power", CK_POWER, 1},
+        {"union", CK_UNION, 2}, {"inter", CK_INTER, 2}, {"diff", CK_DIFF, 2}, {"symdiff", CK_SYMDIFF, 2}, {"times", CK_TIMES, 2},
+        {"=", CK_EQ, 2}, {"subset", CK_SUBSET, 2}, {"neq", CK_NEQ, 2},
+        {"and", CK_AND, 2}, {"or", CK_OR, 2}, {"implies", CK_IMPLIES, 2}, {"iff", CK_IFF, 2}, {"not", CK_NOT, 1},
     };
     long long value;
     CkNode *node = ck_node(CK_NUMBER);
@@ -648,6 +744,7 @@ static int ck_same(const CkNode *p, const CkNode *q) {
  *   7d. SIGN: (-1)^n, la lettera s con s^2 = 1.
  *   7e. SEQ: un termine X(a n + c + j) di una successione per ricorrenza,
  *       per j da 0 all'ordine meno uno.
+ *   7f. LN: il logaritmo ln|B| di un numero primo o di un polinomio B.
  *
  * Il riferimento. Per ogni somma serve l'estremo più basso con cui compare,
  * così ogni altra occorrenza si ottiene aggiungendo termini e mai
@@ -657,16 +754,18 @@ static int ck_same(const CkNode *p, const CkNode *q) {
  * seconda fa i conti veri, e non deve più trovarne uno da abbassare.
  */
 
-typedef enum { CK_VAR_LETTER, CK_VAR_BIG, CK_VAR_EXP, CK_VAR_SIGN, CK_VAR_SEQ } CkVarKind;
+typedef enum { CK_VAR_LETTER, CK_VAR_BIG, CK_VAR_EXP, CK_VAR_SIGN, CK_VAR_SEQ, CK_VAR_LN } CkVarKind;
 
 /* Un'indeterminata. I campi usati dipendono da kind:
  *   LETTER: name.
  *   BIG:    node è la somma o il prodotto, dilation e offset dicono il
  *           riferimento dilation * n + offset, lower è l'estremo inferiore.
- *   EXP:    prime è il numero primo che fa da base, oppure 0 e allora la
+ *   EXP, LN: prime è il numero primo che fa da base, oppure 0 e allora la
  *           base è il polinomio `base`, nell'arena.
  *   SEQ:    name è la successione, dilation e offset come per BIG, position
- *           è il j di X(dilation * n + offset + j). */
+ *           è il j di X(dilation * n + offset + j).
+ * stated vale 1 per una somma o un prodotto che compare nell'enunciato
+ * calcolato con i parametri fissati (capitolo 9), e non solo nel fattore. */
 typedef struct {
     CkVarKind kind;
     char name;
@@ -675,6 +774,7 @@ typedef struct {
     long long prime;
     CkPoly base;
     int position;
+    int stated;
 } CkVar;
 
 static CkVar ck_vars[CK_MAX_VARS];
@@ -704,18 +804,13 @@ static int ck_var_sign(void) {
     return ck_sign_var;
 }
 
-/* Ritorna l'indeterminata p^n per il primo p, creandola se manca. */
-static int ck_var_prime(long long p) {
+/* Ritorna l'indeterminata di tipo kind (EXP: B^n; LN: ln|B|) che ha per
+ * base il primo `prime` oppure, se prime è 0, il polinomio base. La crea se
+ * manca. */
+static int ck_var_of_base(CkVarKind kind, long long prime, CkPoly base) {
     for (int i = 0; i < ck_var_count; i++)
-        if (ck_vars[i].kind == CK_VAR_EXP && ck_vars[i].prime == p) return i;
-    return ck_var_new((CkVar){.kind = CK_VAR_EXP, .prime = p});
-}
-
-/* Ritorna l'indeterminata B^n per il polinomio B, creandola se manca. */
-static int ck_var_base(CkPoly base) {
-    for (int i = 0; i < ck_var_count; i++)
-        if (ck_vars[i].kind == CK_VAR_EXP && ck_vars[i].prime == 0 && ck_poly_equal(ck_vars[i].base, base)) return i;
-    return ck_var_new((CkVar){.kind = CK_VAR_EXP, .base = base});
+        if (ck_vars[i].kind == kind && ck_vars[i].prime == prime && (prime || ck_poly_equal(ck_vars[i].base, base))) return i;
+    return ck_var_new((CkVar){.kind = kind, .prime = prime, .base = base});
 }
 
 /* Porta il riferimento dell'indeterminata v a offset, se è più basso di
@@ -728,16 +823,18 @@ static void ck_lower_reference(int v, long long offset) {
 
 /* Ritorna l'indeterminata della somma o del prodotto node con estremo
  * dilation * n + offset, creandola se manca: stessa operazione, stesso
- * indice, stesso estremo inferiore, stesso termine, stessa dilatazione. */
-static int ck_var_big(const CkNode *node, long long lower, long long dilation, long long offset) {
+ * indice, stesso estremo inferiore, stesso termine, stessa dilatazione. Se
+ * stated è diverso da zero annota che compare nell'enunciato. */
+static int ck_var_big(const CkNode *node, long long lower, long long dilation, long long offset, int stated) {
     for (int i = 0; i < ck_var_count; i++) {
         const CkVar *v = &ck_vars[i];
         if (v->kind != CK_VAR_BIG || v->node->kind != node->kind || v->lower != lower || v->dilation != dilation) continue;
         if (v->node->name != node->name || !ck_same(v->node->c, node->c)) continue;
         ck_lower_reference(i, offset);
+        if (stated) ck_vars[i].stated = 1;
         return i;
     }
-    return ck_var_new((CkVar){.kind = CK_VAR_BIG, .node = node, .lower = lower, .dilation = dilation, .offset = offset});
+    return ck_var_new((CkVar){.kind = CK_VAR_BIG, .node = node, .lower = lower, .dilation = dilation, .offset = offset, .stated = stated});
 }
 
 /* =============================================================================
@@ -780,11 +877,21 @@ typedef struct {
 static CkBinding ck_env[CK_MAX_ENV];
 static int ck_env_count;
 
-/* Come vale la variabile di induzione in questo momento. */
-static char ck_variable;   /* il suo nome */
-static int ck_numeric;     /* 1: vale il numero ck_point; 0: vale n + ck_shift */
-static long long ck_point;
-static long long ck_shift;
+/* Un parametro a cui la voce "defined" dà un valore: il nome, il valore
+ * com'è scritto e il numero che è. */
+typedef struct {
+    char name;
+    const CkNode *tree;
+    CkRat value;
+} CkFixed;
+
+/* I parametri fissati dal certificato in corso. Valgono i loro numeri solo
+ * mentre ck_fixing è diverso da zero; altrimenti restano lettere, perché
+ * l'uguaglianza si controlla per tutti i valori dei parametri. */
+static CkFixed ck_fixed[CK_MAX_POINT];
+static int ck_fixed_count;
+static int ck_fixing;
+
 
 static CkRat ck_eval(const CkNode *node);
 
@@ -814,6 +921,12 @@ static CkRat ck_eval_body(const CkNode *node, CkRat index) {
     CkRat value = ck_eval(node->c);
     ck_env_count--;
     return value;
+}
+
+/* Ritorna il valore del termine di node di indice a n + c. */
+static CkRat ck_eval_term(const CkNode *node, long long a, long long c) {
+    CkPoly index = ck_poly_mul(ck_poly_number(ck_num_int(a)), ck_poly_variable(ck_var_letter(ck_variable)));
+    return ck_eval_body(node, ck_rat_poly(ck_poly_add(index, ck_poly_number(ck_num_int(c)), 0)));
 }
 
 /* Valuta una somma o un prodotto.
@@ -848,16 +961,27 @@ static CkRat ck_eval_big(const CkNode *node) {
     for (int i = 0; i < ck_env_count; i++)
         if (ck_env[i].name != node->name && ck_mentions(node->c, ck_env[i].name)) bound = 1;
     if (bound) { ck_unsupported("somma il cui termine dipende dalla variabile di induzione o da un altro indice"); return total; }
-    int v = ck_var_big(node, lower, a, c);
+    int v = ck_var_big(node, lower, a, c, ck_fixing);
     long long reference = ck_vars[v].offset;
     if (c - reference > CK_MAX_EXTRA) { ck_unsupported("troppi termini tra due estremi della stessa somma"); return total; }
     total = ck_rat_poly(ck_poly_variable(v));
-    CkPoly scaled = ck_poly_mul(ck_poly_number(ck_num_int(a)), ck_poly_variable(ck_var_letter(ck_variable)));
     for (long long j = reference + 1; j <= c && ck_status == CK_ACCEPTED; j++) {
-        CkRat value = ck_eval_body(node, ck_rat_poly(ck_poly_add(scaled, ck_poly_number(ck_num_int(j)), 0)));
+        CkRat value = ck_eval_term(node, a, j);
         total = product ? ck_rat_mul(total, value) : ck_rat_add(total, value, 0);
     }
     return total;
+}
+
+/* Toglie da *rest, che è almeno 2, il suo più piccolo fattore primo: lo
+ * ritorna, e mette in *times quante volte lo divideva. Si prova a dividere
+ * per 2, 3, 4, ...: il primo divisore trovato è per forza primo, e se
+ * nessuno fino alla radice quadrata divide, il numero stesso è primo. */
+static long long ck_pop_prime(long long *rest, long long *times) {
+    long long r = 2;
+    while (r * r <= *rest && *rest % r != 0) r++;
+    if (r * r > *rest) r = *rest;
+    for (*times = 0; *rest % r == 0; (*times)++) *rest /= r;
+    return r;
 }
 
 /* Ritorna il valore di (base)^(p n + q), con p diverso da zero, quando la
@@ -883,6 +1007,7 @@ static CkRat ck_eval_power(CkRat base, long long p, long long q) {
     CkRat result = ck_rat_power(base, q);
     CkPoly side[2] = {base.num, base.den};
     if (base.num.count == 0) { ck_unsupported("zero elevato a un esponente che dipende da n"); return result; }
+    ck_record(base.num);
     for (int v = 0; v < ck_var_count; v++) {
         int parameter = ck_vars[v].kind == CK_VAR_LETTER && ck_vars[v].name != ck_variable;
         if (!parameter && (ck_poly_uses(base.num, v) || ck_poly_uses(base.den, v))) {
@@ -895,7 +1020,7 @@ static CkRat ck_eval_power(CkRat base, long long p, long long q) {
     for (int i = 0; i < 2 && ck_status == CK_ACCEPTED; i++, p = -p) {
         if (side[i].count > 1) {
             /* 8d. */
-            result = ck_rat_mul(result, ck_rat_power(ck_rat_poly(ck_poly_variable(ck_var_base(side[i]))), p));
+            result = ck_rat_mul(result, ck_rat_power(ck_rat_poly(ck_poly_variable(ck_var_of_base(CK_VAR_EXP, 0, side[i]))), p));
             continue;
         }
 
@@ -909,21 +1034,136 @@ static CkRat ck_eval_power(CkRat base, long long p, long long q) {
 
         /* I fattori primi di numeratore e denominatore del coefficiente. */
         for (int j = 0; j < 2; j++) {
-            if (part[j] > 1000000000000LL) { ck_unsupported("base troppo grande da scomporre in fattori primi"); return result; }
-            long long rest = (long long)part[j];
-            for (long long r = 2; rest > 1; r++) {
-                long long times = 0;
-                if (r * r > rest) r = rest;
-                while (rest % r == 0) { rest /= r; times++; }
-                if (times) result = ck_rat_mul(result, ck_rat_power(ck_rat_poly(ck_poly_variable(ck_var_prime(r))), (j ? -times : times) * p));
+            if (part[j] > CK_MAX_FACTORED) { ck_unsupported("numero troppo grande da scomporre in fattori primi"); return result; }
+            for (long long rest = (long long)part[j], times; rest > 1;) {
+                int letter = ck_var_of_base(CK_VAR_EXP, ck_pop_prime(&rest, &times), (CkPoly){0, NULL});
+                result = ck_rat_mul(result, ck_rat_power(ck_rat_poly(ck_poly_variable(letter)), (j ? -times : times) * p));
             }
         }
 
         /* I parametri. */
-        for (int v = 0; v < CK_MAX_VARS; v++)
-            if (t->e[v]) result = ck_rat_mul(result, ck_rat_power(ck_rat_poly(ck_poly_variable(ck_var_base(ck_poly_variable(v)))), t->e[v] * p));
+        for (int v = 0; v < CK_MAX_VARS; v++) {
+            if (!t->e[v]) continue;
+            int letter = ck_var_of_base(CK_VAR_EXP, 0, ck_poly_variable(v));
+            result = ck_rat_mul(result, ck_rat_power(ck_rat_poly(ck_poly_variable(letter)), t->e[v] * p));
+        }
     }
     return result;
+}
+
+/* I polinomi delle voci "brick" del certificato in corso: i fattori in cui
+ * provare a scomporre l'argomento di un logaritmo (8g). Hanno il termine
+ * direttivo di coefficiente 1, e si ricalcolano a ogni valutazione. */
+static CkPoly ck_bricks[CK_MAX_BRICKS];
+static int ck_brick_count;
+
+/* Ritorna p, che non è il polinomio nullo, diviso per il coefficiente del
+ * suo termine direttivo; mette quel coefficiente in *lead. */
+static CkPoly ck_poly_monic(CkPoly p, CkNum *lead) {
+    *lead = p.term[p.count - 1].coef;
+    return ck_poly_mul(p, ck_poly_number(ck_num_inv(*lead)));
+}
+
+/* Ritorna ln|p| come polinomio nelle lettere-logaritmo (7f).
+ *
+ * 8g. Il logaritmo. Le regole ln|u v| = ln|u| + ln|v| e ln|u^e| = e ln|u|
+ *     valgono per ogni u e v diversi da zero: per questo si lavora con
+ *     ln|.|, senza dover conoscere il segno dei fattori. Dove l'enunciato è
+ *     definito l'argomento di (ln a) è positivo, quindi ln a = ln|a|.
+ *
+ *     Il polinomio si scompone in fattori, e ogni fattore B dà una lettera,
+ *     ln|B|:
+ *       - il coefficiente del termine direttivo è un numero: va nei suoi
+ *         fattori primi, ln|c| = somma degli e ln p;
+ *       - una lettera x comune a tutti i termini, con esponente e, dà
+ *         e ln|x|. Se la lettera è p^n dà e n ln p, se è B^n dà e n ln|B|,
+ *         se è s = (-1)^n non dà nulla, perché |s| = 1;
+ *       - i fattori che il certificato suggerisce con le voci "brick" si
+ *         provano uno per uno, con la divisione esatta;
+ *       - ciò che resta, se non è 1, è un fattore anche lui.
+ *
+ *     Alla correttezza non importa che la scomposizione sia la migliore:
+ *     ogni passo è un'uguaglianza vera. Importa per riconoscere uguali due
+ *     scritture della stessa quantità, come ln(n + 1) + ln(n + 2) e
+ *     ln(n^2 + 3 n + 2): per questo i fattori li suggerisce chi ha trovato
+ *     la dimostrazione. depth conta le basi una dentro l'altra. */
+static CkPoly ck_ln_poly(CkPoly p, int depth) {
+    const CkPoly none = {0, NULL};
+    CkPoly result = ck_poly_number(ck_num_int(0)), n = ck_poly_variable(ck_var_letter(ck_variable));
+    CkNum lead;
+    if (p.count == 0) { ck_reject("l'enunciato contiene il logaritmo di un'espressione che vale zero"); return result; }
+    if (depth > CK_MAX_ENV) { ck_unsupported("logaritmo che il verificatore non tratta"); return result; }
+
+    /* Il coefficiente direttivo, nei suoi fattori primi. */
+    p = ck_poly_monic(p, &lead);
+    __int128 part[2] = {lead.num < 0 ? -lead.num : lead.num, lead.den};
+    for (int j = 0; j < 2; j++) {
+        if (part[j] > CK_MAX_FACTORED) { ck_unsupported("numero troppo grande da scomporre in fattori primi"); return result; }
+        for (long long rest = (long long)part[j], times; rest > 1;) {
+            int letter = ck_var_of_base(CK_VAR_LN, ck_pop_prime(&rest, &times), none);
+            result = ck_poly_add(result, ck_poly_mul(ck_poly_number(ck_num_int(j ? -times : times)), ck_poly_variable(letter)), 0);
+        }
+    }
+
+    /* Le lettere comuni a tutti i termini. Togliere a tutti lo stesso
+     * esponente non cambia l'ordine dei termini. Le lettere create qui
+     * dentro non compaiono in p: basta guardare quelle che già c'erano. */
+    for (int v = 0, known = ck_var_count; v < known && ck_status == CK_ACCEPTED; v++) {
+        const CkVar *x = &ck_vars[v];
+        int low = p.term[0].e[v];
+        for (int i = 1; i < p.count; i++)
+            if (p.term[i].e[v] < low) low = p.term[i].e[v];
+        if (low == 0) continue;
+        CkTerm *t = ck_alloc(sizeof *t * (size_t)p.count);
+        if (ck_status != CK_ACCEPTED) break;
+        memcpy(t, p.term, sizeof *t * (size_t)p.count);
+        for (int i = 0; i < p.count; i++) t[i].e[v] = (signed char)(t[i].e[v] - low);
+        p.term = t;
+
+        /* ln|lettera|, secondo il tipo. */
+        CkPoly one;
+        if (x->kind == CK_VAR_SIGN) continue;
+        if (x->kind == CK_VAR_EXP && x->prime) one = ck_poly_mul(n, ck_poly_variable(ck_var_of_base(CK_VAR_LN, x->prime, none)));
+        else if (x->kind == CK_VAR_EXP) one = ck_poly_mul(n, ck_ln_poly(x->base, depth + 1));
+        else one = ck_poly_variable(ck_var_of_base(CK_VAR_LN, 0, ck_poly_variable(v)));
+        result = ck_poly_add(result, ck_poly_mul(ck_poly_number(ck_num_int(low)), one), 0);
+    }
+
+    /* I fattori suggeriti: ognuno finché divide. Il grado scende a ogni
+     * divisione, quindi il ciclo finisce; il tetto è una cautela. */
+    for (int i = 0, steps = 0; i < ck_brick_count && ck_status == CK_ACCEPTED; i++) {
+        CkPoly quotient;
+        while (steps++ < 4 * CK_MAX_EXPONENT && !ck_poly_is_constant(p) && ck_poly_divides(ck_bricks[i], p, &quotient)) {
+            p = quotient;
+            result = ck_poly_add(result, ck_poly_variable(ck_var_of_base(CK_VAR_LN, 0, ck_bricks[i])), 0);
+        }
+    }
+
+    /* Ciò che resta: 1, oppure un ultimo fattore. */
+    if (ck_status == CK_ACCEPTED && !ck_poly_is_constant(p))
+        result = ck_poly_add(result, ck_poly_variable(ck_var_of_base(CK_VAR_LN, 0, p)), 0);
+    return result;
+}
+
+/* Ritorna ln|node|, per un argomento diverso da zero.
+ *
+ * Finché l'argomento è scritto come un prodotto, un quoziente, un opposto o
+ * una potenza a esponente intero si applicano le regole di 8g a com'è
+ * scritto, senza svolgere i conti: di (n + 1)^3 si prende 3 ln|n + 1|,
+ * invece di sviluppare il cubo e doverlo poi scomporre di nuovo. Il resto si
+ * calcola, e va a ck_ln_poly(): numeratore meno denominatore. Per "è
+ * definito per ogni n" (capitolo 9) ogni pezzo calcolato conta come un
+ * divisore: non deve annullarsi. */
+static CkPoly ck_ln_node(const CkNode *node) {
+    long long a, c;
+    if (ck_status != CK_ACCEPTED) return ck_poly_number(ck_num_int(0));
+    if (node->kind == CK_MUL || node->kind == CK_DIV) return ck_poly_add(ck_ln_node(node->a), ck_ln_node(node->b), node->kind == CK_DIV);
+    if (node->kind == CK_NEG) return ck_ln_node(node->a);
+    if (node->kind == CK_POW && ck_affine(ck_eval(node->b), &a, &c) && a == 0)
+        return ck_poly_mul(ck_poly_number(ck_num_int(c)), ck_ln_node(node->a));
+    CkRat x = ck_eval(node);
+    ck_record(x.num);
+    return ck_poly_add(ck_ln_poly(x.num, 0), ck_ln_poly(x.den, 0), 1);
 }
 
 /* Ritorna il termine di indice `index` della successione name.
@@ -1008,9 +1248,12 @@ static CkRat ck_eval(const CkNode *node) {
     case CK_NUMBER:
         return ck_rat_int(node->value);
     case CK_LETTER:
-        /* Un indice legato, la variabile di induzione, o un parametro. */
+        /* Un indice legato, un parametro con il suo valore fissato, un
+         * parametro come lettera, o la variabile di induzione. */
         for (int i = ck_env_count - 1; i >= 0; i--)
             if (ck_env[i].name == node->name) return ck_env[i].value;
+        for (int i = 0; i < ck_fixed_count && ck_fixing; i++)
+            if (ck_fixed[i].name == node->name) return ck_fixed[i].value;
         if (node->name != ck_variable) return ck_rat_poly(ck_poly_variable(ck_var_letter(node->name)));
         if (ck_numeric) return ck_rat_int(ck_point);
         return ck_rat_poly(ck_poly_add(ck_poly_variable(ck_var_letter(ck_variable)), ck_poly_number(ck_num_int(ck_shift)), 0));
@@ -1030,6 +1273,11 @@ static CkRat ck_eval(const CkNode *node) {
         return ck_eval_sequence(node->name, ck_eval(node->a));
     case CK_FACT:
         return ck_eval_factorial(node->a);
+    case CK_LN: case CK_LNABS:
+        /* 8g. Per "è definito per ogni n" (capitolo 9) l'argomento di ln
+         * deve essere positivo, e una regola per stabilirlo qui non c'è. */
+        if (ck_fixing && node->kind == CK_LN) { ck_unsupported("non so stabilire che l'argomento di un logaritmo è positivo"); return ck_rat_int(0); }
+        return ck_rat_poly(ck_ln_node(node->a));
     case CK_POW: {
         /* Esponente intero: prodotti ripetuti. Esponente p n + q: le regole
          * delle potenze. */
@@ -1052,19 +1300,65 @@ static CkRat ck_eval(const CkNode *node) {
         gap->b = node->b;
         return ck_rat_div(ck_eval_factorial(node->a), ck_rat_mul(ck_eval_factorial(node->b), ck_eval_factorial(gap)));
     }
+    default:
+        ck_unsupported("una parola degli enunciati sugli insiemi in un certificato di induzione");
     }
     return ck_rat_int(0);
 }
 
 /* =============================================================================
- * 9. CONTROLLO DI UN CERTIFICATO
+ * 9. DEFINITO PER OGNI n
  * ============================================================================
  *
- * I tre controlli descritti in testa al file, più le condizioni che rendono
- * lecito trattare somme e successioni come lettere.
+ * La voce "defined" afferma che, con i parametri ai valori che indica,
+ * l'enunciato è definito per ogni intero n dal caso base b in su. Qui lo si
+ * controlla: è vero se nessun divisore del conto dei due membri vale zero.
+ *
+ * Quali divisori. Sono di due specie.
+ *
+ *   9a. Quelli che si incontrano calcolando i due membri in n, con le somme
+ *       prese come lettere: polinomi in n e nelle altre lettere, che non
+ *       devono annullarsi per nessun n >= b.
+ *   9b. Quelli nascosti nei termini di una somma o di un prodotto. La
+ *       lettera vale la somma fino all'indice a n + r. I termini di indice
+ *       fino ad a b + r si calcolano uno per uno, con i numeri. Ogni altro
+ *       ha indice a n + r - i per un n >= b + 1 e un i tra 0 e a - 1: il suo
+ *       conto, fatto con n lettera, dà divisori che sono polinomi in n e
+ *       non devono annullarsi per nessun n >= b + 1.
+ *
+ * Come si stabilisce che un polinomio non si annulla per nessun n >= m. Le
+ * regole sono poche e nessuna cerca: ciascuna è un conto che finisce.
+ *
+ *   9c. Una lettera che moltiplica tutti i termini si mette da parte, se non
+ *       vale mai zero: la potenza p^n di un primo; un prodotto, se nessuno
+ *       dei suoi fattori è zero (come in 9b, guardando il valore del
+ *       termine invece dei suoi divisori).
+ *   9d. Ciò che resta è un polinomio nella sola n: c_0 + c_1 n + ... +
+ *       c_d n^d. Limite di Cauchy: ogni sua radice reale x soddisfa
+ *       |x| <= 1 + M, dove M è il più grande dei |c_i / c_d|. Infatti se
+ *       |x| > 1 + M allora
+ *
+ *           |c_0 + ... + c_{d-1} x^{d-1}| <= |c_d| M (|x|^d - 1)/(|x| - 1) < |c_d| |x|^d,
+ *
+ *       e il termine di grado più alto non può essere compensato dagli
+ *       altri. Oltre quel limite non ci sono radici; fino a lì gli interi
+ *       sono finiti, e si provano uno per uno.
+ *   9e. Oppure è un polinomio nella sola lettera T = p^n: stesso limite per
+ *       T, e si provano p^m, p^{m+1}, ... finché non lo superano.
+ *   9f. Oppure i suoi termini hanno tutti lo stesso segno e sono fatti di n
+ *       (con m >= 0) e di potenze di primi, e almeno uno non può valere
+ *       zero: una somma di quantità dello stesso segno, di cui una non
+ *       nulla, non è zero.
+ *
+ * La lettera s = (-1)^n si tratta come nel controllo 3: due volte, con 1 e
+ * con -1 al suo posto. Con 1 contano solo gli n pari, con -1 i dispari.
+ *
+ * Le risposte sono tre anche qui: non si annulla mai; si annulla in un n
+ * preciso, e allora la voce "defined" dice il falso; non si sa.
  */
 
-/* Le voci di un certificato, come sono state lette. */
+/* Le voci di un certificato, come sono state lette. I valori della voce
+ * "defined" stanno in ck_fixed[] (capitolo 8). */
 typedef struct {
     char variable;
     long long base;
@@ -1072,7 +1366,401 @@ typedef struct {
     const CkNode *factor;               /* W */
     const CkNode *generic[CK_MAX_GENERIC];
     int generics;
+    const CkNode *brick[CK_MAX_BRICKS]; /* i fattori suggeriti per i logaritmi */
+    int bricks;
+    int defined;                        /* 1 se c'è la voce "defined" */
+    const CkNode *sets;                 /* certificato "sets": l'enunciato; altrimenti NULL */
 } CkCertificate;
+
+static int ck_never_zero(CkPoly q, long long from, long long *where, int depth);
+
+/* 9c. Ritorna 1 se la lettera v non vale zero per nessun n >= from, 0 se
+ * vale zero per n = *where, -1 se non si sa. */
+static int ck_letter_never_zero(int v, long long from, long long *where, int depth) {
+    CkVar x = ck_vars[v];
+    long long last = x.dilation * from + x.offset;
+    if (x.kind == CK_VAR_EXP && x.prime) return 1;
+    if (x.kind != CK_VAR_BIG || x.node->kind != CK_PROD) return -1;
+    if (last - x.lower >= CK_MAX_UNROLL || x.dilation > CK_MAX_EXTRA) return -1;
+
+    /* I fattori di indice fino ad a from + r, uno per uno. Uno nullo
+     * annulla il prodotto già per n = from. */
+    for (long long k = x.lower; k <= last && ck_status == CK_ACCEPTED; k++) {
+        CkRat value = ck_eval_body(x.node, ck_rat_int(k));
+        if (!ck_poly_is_constant(value.num)) return -1;
+        if (value.num.count == 0) { *where = from; return 0; }
+    }
+
+    /* Gli altri, con n lettera. */
+    for (long long i = 0; i < x.dilation && ck_status == CK_ACCEPTED; i++) {
+        int answer = ck_never_zero(ck_eval_term(x.node, x.dilation, x.offset - i).num, from + 1, where, depth + 1);
+        if (answer != 1) return answer;
+    }
+    return 1;
+}
+
+/* Ritorna 1 se il polinomio q non vale zero per nessun intero n >= from, 0
+ * se vale zero per n = *where (che è almeno from), -1 se non si sa. depth
+ * conta i prodotti uno dentro l'altro, per fermare la ricorsione. */
+static int ck_never_zero(CkPoly q, long long from, long long *where, int depth) {
+    int n = ck_var_letter(ck_variable), step = ck_sign_var < 0 ? 1 : 2;
+    if (depth > CK_MAX_ENV) return -1;
+    for (int sign = 1; sign >= (ck_sign_var < 0 ? 1 : -1); sign -= 2) {
+        /* Con s al suo valore contano solo gli n pari, o solo i dispari:
+         * first è il primo. */
+        CkPoly p = ck_poly_at_sign(q, sign);
+        long long first = from + (step == 2 && (from % 2 != 0) != (sign < 0));
+        if (ck_status != CK_ACCEPTED) return -1;
+        if (p.count == 0) { *where = first; return 0; }
+
+        /* 9c. Per ogni lettera l'esponente più basso tra i termini, cioè
+         * quanto è comune a tutti. `main` è la lettera, oltre a n, il cui
+         * esponente cambia da un termine all'altro; `others` quante sono. */
+        signed char low[CK_MAX_VARS] = {0};
+        int main = n, others = 0, uses_n = 0, degree = 0;
+        for (int v = 0; v < ck_var_count; v++) {
+            int high = 0;
+            low[v] = v == n ? 0 : p.term[0].e[v];
+            for (int i = 0; i < p.count; i++) {
+                if (p.term[i].e[v] < low[v]) low[v] = p.term[i].e[v];
+                if (p.term[i].e[v] > high) high = p.term[i].e[v];
+            }
+            if (v == n) { uses_n = high > 0; continue; }
+            if (low[v] > 0) {
+                int answer = ck_letter_never_zero(v, from, where, depth);
+                if (answer != 1) return answer;
+            }
+            if (high > low[v]) { main = v; others++; }
+        }
+
+        /* 9f. Più lettere insieme: termini dello stesso segno. */
+        if (others > 1 || (others == 1 && (uses_n || ck_vars[main].kind != CK_VAR_EXP || !ck_vars[main].prime))) {
+            int plain = from >= 0, certain = 0;
+            for (int i = 0; i < p.count; i++) {
+                int positive = 1;
+                if ((p.term[i].coef.num > 0) != (p.term[0].coef.num > 0)) plain = 0;
+                for (int v = 0; v < ck_var_count; v++) {
+                    if (p.term[i].e[v] == low[v]) continue;
+                    if (v == n) positive = from >= 1;
+                    else if (ck_vars[v].kind != CK_VAR_EXP || !ck_vars[v].prime) plain = 0;
+                }
+                if (positive) certain = 1;
+            }
+            if (!plain || !certain) return -1;
+            continue;
+        }
+
+        /* 9d, 9e. Un polinomio in una sola quantità: i coefficienti per
+         * grado, e il limite di Cauchy. */
+        CkNum c[CK_MAX_EXPONENT + 1], most = ck_num_int(0);
+        for (int i = 0; i <= CK_MAX_EXPONENT; i++) c[i] = ck_num_int(0);
+        for (int i = 0; i < p.count; i++) {
+            int e = p.term[i].e[main] - low[main];
+            c[e] = p.term[i].coef;
+            if (e > degree) degree = e;
+        }
+        for (int i = 0; i < degree; i++) {
+            CkNum size = ck_num_mul(c[i], ck_num_inv(c[degree]));
+            if (size.num < 0) size = ck_num_neg(size);
+            if (ck_num_add(size, ck_num_neg(most)).num > 0) most = size;
+        }
+        __int128 limit = 1 + most.num / most.den;
+        if (ck_status != CK_ACCEPTED) return -1;
+        if (degree == 0) continue;
+
+        /* I valori da provare: n da first in su, finché la quantità (n
+         * stessa, oppure p^n) non supera il limite. */
+        __int128 value = first, prime = ck_vars[main].prime;
+        if (main != n) {
+            if (first < 0) return -1;
+            value = 1;
+            for (long long k = 0; k < first && value <= limit; k++)
+                if (__builtin_mul_overflow(value, prime, &value)) value = limit + 1;
+        } else if (limit - first > (__int128)CK_MAX_SCAN * step) {
+            return -1;
+        }
+        for (long long x = first; value <= limit && ck_status == CK_ACCEPTED; x += step) {
+            /* Schema di Horner, dal grado più alto. */
+            CkNum at = ck_num_int(0);
+            for (int i = degree; i >= 0; i--) at = ck_num_add(ck_num_mul(at, ck_num_make(value, 1)), c[i]);
+            if (ck_status == CK_ACCEPTED && at.num == 0) { *where = x; return 0; }
+            for (int k = 0; k < step && value <= limit; k++) {
+                if (main == n) value++;
+                else if (__builtin_mul_overflow(value, prime, &value)) value = limit + 1;
+            }
+        }
+    }
+    return ck_status == CK_ACCEPTED ? 1 : -1;
+}
+
+/* 9a, 9b. Annota i divisori dell'enunciato calcolato con i parametri ai
+ * valori della voce "defined". È chiamata in tutte e due le valutazioni,
+ * quella di prova compresa: anche questi conti possono abbassare un
+ * riferimento. */
+static void ck_defined_divisors(const CkCertificate *cert) {
+    /* I valori dei parametri: numeri, calcolati una volta sola. */
+    for (int i = 0; i < ck_fixed_count && ck_trial; i++) {
+        ck_fixed[i].value = ck_eval(ck_fixed[i].tree);
+        if (!ck_poly_is_constant(ck_fixed[i].value.num) || !ck_poly_is_constant(ck_fixed[i].value.den))
+            ck_reject("il valore dato a un parametro non è un numero");
+    }
+    ck_fixing = ck_recording = 1;
+    ck_divisor_count = 0;
+
+    /* 9a. I due membri in n. */
+    ck_record_from = cert->base;
+    ck_numeric = 0;
+    ck_shift = 0;
+    ck_eval(cert->left);
+    ck_eval(cert->right);
+
+    /* 9b. I termini nascosti. La tabella può crescere mentre la si scorre:
+     * un termine può contenere un'altra somma. */
+    ck_record_from = cert->base + 1;
+    for (int v = 0; v < ck_var_count && ck_status == CK_ACCEPTED; v++) {
+        CkVar x = ck_vars[v];
+        long long last = x.dilation * cert->base + x.offset;
+        if (x.kind != CK_VAR_BIG || !x.stated) continue;
+        if (last - x.lower >= CK_MAX_UNROLL || x.dilation > CK_MAX_EXTRA) { ck_unsupported("somma con troppi termini da controllare uno per uno"); break; }
+        for (long long k = x.lower; k <= last && ck_status == CK_ACCEPTED; k++) ck_eval_body(x.node, ck_rat_int(k));
+        for (long long i = 0; i < x.dilation && ck_status == CK_ACCEPTED; i++) ck_eval_term(x.node, x.dilation, x.offset - i);
+    }
+
+    /* Le voci "generic": con quei valori devono essere numeri diversi da
+     * zero, o il teorema non si applica al punto. */
+    for (int i = 0; i < cert->generics && ck_status == CK_ACCEPTED; i++) {
+        CkRat g = ck_eval(cert->generic[i]);
+        if (!ck_poly_is_constant(g.num) || !ck_poly_is_constant(g.den) || g.num.count == 0)
+            ck_unsupported("con i valori dati ai parametri una voce generic non è un numero diverso da zero");
+    }
+    ck_fixing = ck_recording = 0;
+}
+
+/* Stabilisce, con le regole da 9c a 9f, che nessun divisore annotato si
+ * annulla. Uno che si annulla rende falsa la voce "defined"; uno di cui non
+ * si sa dire rende il certificato non controllabile. */
+static void ck_defined_decide(void) {
+    static char text[96];
+    ck_fixing = 1;
+    for (int i = 0; i < ck_divisor_count && ck_status == CK_ACCEPTED; i++) {
+        long long where = 0;
+        int answer = ck_never_zero(ck_divisors[i].value, ck_divisors[i].from, &where, 0);
+        if (answer < 0) ck_unsupported("non so stabilire che un divisore dell'enunciato non si annulla mai");
+        if (answer == 0) {
+            snprintf(text, sizeof text, "l'enunciato non è definito per %c = %lld: un divisore vale zero", ck_variable, where);
+            ck_reject(text);
+        }
+    }
+    ck_fixing = 0;
+}
+
+/* =============================================================================
+ * 10. ENUNCIATI SUGLI INSIEMI
+ * ============================================================================
+ *
+ * Un certificato "sets" porta solo l'enunciato:
+ *
+ *     certificate sets
+ *     statement (= (diff (diff S T) V) (diff S (union T V)))
+ *     end
+ *
+ * Non serve altro, perché qui il verificatore non ricontrolla una
+ * dimostrazione: decide l'enunciato da capo, con un conto che finisce.
+ *
+ * IL TEOREMA. Se il certificato è accettato, l'enunciato vale per ogni
+ * scelta degli insiemi indicati dalle lettere. Gli oggetti sono di tre tipi
+ * che non si mescolano: insiemi di elementi (le lettere e ciò che se ne
+ * ottiene con unione, intersezione, differenza); collezioni di insiemi
+ * (l'insieme delle parti, e la collezione che contiene solo l'insieme
+ * vuoto); insiemi di coppie (i prodotti cartesiani).
+ *
+ * COME SI DECIDE. Con k lettere ogni elemento sta in una delle 2^k - 1
+ * "regioni" del diagramma di Venn: quella degli elementi che appartengono
+ * proprio a certe lettere e non alle altre (la regione di chi non appartiene
+ * a nessuna non serve: nessuna espressione la contiene).
+ *
+ *   10a. Un insieme di elementi costruito dalle lettere è un'unione di
+ *        regioni. A = B vale se e solo se ogni regione che sta in uno e non
+ *        nell'altro è vuota; A incluso in B, se ogni regione di A fuori da B
+ *        è vuota. Quindi la verità dell'enunciato dipende solo da QUALI
+ *        regioni sono vuote, e ogni scelta di regioni vuote si realizza
+ *        davvero: basta mettere un elemento in ciascuna delle altre. Provate
+ *        tutte le 2^(2^k - 1) scelte, l'enunciato è deciso.
+ *   10b. Coppie. (a, b) sta in A per B se a sta in A e b in B: conta solo in
+ *        quali regioni stanno a e b. Due insiemi di coppie sono uguali se
+ *        contengono le stesse coppie per ogni scelta di due regioni non
+ *        vuote.
+ *   10c. Collezioni. Un insieme X sta nell'insieme delle parti di A se è
+ *        incluso in A: conta solo quali regioni X tocca, e se ha elementi
+ *        fuori da tutte le lettere (e allora non è incluso in nessuna
+ *        espressione). X può toccare un insieme qualsiasi di regioni non
+ *        vuote; è l'insieme vuoto se non ne tocca nessuna e non ha elementi
+ *        fuori. Due collezioni sono uguali se contengono gli stessi X per
+ *        ogni scelta di regioni toccate.
+ *
+ * "Esiste un insieme" non è trattato: lì conta anche quanti elementi ha una
+ * regione, e il conto è un altro.
+ */
+
+/* Il tipo di ciò che un albero denota. ANY è l'insieme vuoto, che sta al
+ * posto di un oggetto di qualunque tipo. */
+typedef enum { CK_SET_WRONG, CK_SET_ANY, CK_SET_ELEMENTS, CK_SET_FAMILY, CK_SET_PAIRS } CkSetType;
+
+/* Le lettere dell'enunciato in corso: la lettera ck_set_names[i] è l'insieme
+ * di indice i, e la regione r (da 1 a 2^k - 1) è fatta degli elementi che
+ * stanno nell'insieme i esattamente quando il bit i di r è 1. */
+static char ck_set_names[4];
+static int ck_set_count;
+
+/* Mette tra le lettere dell'enunciato quelle dell'albero node. */
+static void ck_set_collect(const CkNode *node) {
+    if (!node) return;
+    if (node->kind == CK_LETTER && !memchr(ck_set_names, node->name, (size_t)ck_set_count)) {
+        if (ck_set_count == 4) { ck_unsupported("più di quattro insiemi in un enunciato"); return; }
+        ck_set_names[ck_set_count++] = node->name;
+    }
+    ck_set_collect(node->a);
+    ck_set_collect(node->b);
+}
+
+/* Ritorna il tipo dell'espressione node, o CK_SET_WRONG se i suoi pezzi sono
+ * di tipi che non stanno insieme. */
+static CkSetType ck_set_type(const CkNode *node) {
+    CkSetType a = node->a ? ck_set_type(node->a) : CK_SET_WRONG, b = node->b ? ck_set_type(node->b) : CK_SET_WRONG;
+    int plain = (a == CK_SET_ELEMENTS || a == CK_SET_ANY) && (b == CK_SET_ELEMENTS || b == CK_SET_ANY || node->kind == CK_POWER);
+    switch (node->kind) {
+    case CK_LETTER:    return CK_SET_ELEMENTS;
+    case CK_EMPTY:     return CK_SET_ANY;
+    case CK_ONLYEMPTY: return CK_SET_FAMILY;
+    case CK_POWER:     return plain ? CK_SET_FAMILY : CK_SET_WRONG;
+    case CK_TIMES:     return plain ? CK_SET_PAIRS : CK_SET_WRONG;
+    case CK_UNION: case CK_INTER: case CK_DIFF: case CK_SYMDIFF:
+        if (a == CK_SET_WRONG || b == CK_SET_WRONG) return CK_SET_WRONG;
+        if (a == CK_SET_ANY) return b;
+        return (b == CK_SET_ANY || a == b) ? a : CK_SET_WRONG;
+    default:           return CK_SET_WRONG;
+    }
+}
+
+/* Ritorna x unito, intersecato, tolto o in differenza simmetrica con y,
+ * secondo kind. Vale bit per bit: per gli insiemi di regioni, e per i valori
+ * 0 e 1 di "appartiene". */
+static unsigned ck_set_combine(CkKind kind, unsigned x, unsigned y) {
+    return kind == CK_UNION ? x | y : kind == CK_INTER ? x & y : kind == CK_DIFF ? x & ~y : x ^ y;
+}
+
+/* 10a. Ritorna le regioni di cui è fatto l'insieme di elementi node: il bit
+ * r - 1 è 1 se la regione r ne fa parte. */
+static unsigned ck_set_regions(const CkNode *node) {
+    if (node->kind == CK_EMPTY) return 0;
+    if (node->kind != CK_LETTER) return ck_set_combine(node->kind, ck_set_regions(node->a), ck_set_regions(node->b));
+    int index = (int)((const char *)memchr(ck_set_names, node->name, (size_t)ck_set_count) - ck_set_names);
+    unsigned regions = 0;
+    for (unsigned r = 1; r < 1u << ck_set_count; r++)
+        if (r >> index & 1) regions |= 1u << (r - 1);
+    return regions;
+}
+
+/* 10b. Ritorna 1 se una coppia con il primo elemento nella regione first e
+ * il secondo nella regione second sta nell'insieme di coppie node. */
+static unsigned ck_set_has_pair(const CkNode *node, unsigned first, unsigned second) {
+    if (node->kind == CK_EMPTY) return 0;
+    if (node->kind == CK_TIMES) return (ck_set_regions(node->a) >> (first - 1) & 1) && (ck_set_regions(node->b) >> (second - 1) & 1);
+    return ck_set_combine(node->kind, ck_set_has_pair(node->a, first, second), ck_set_has_pair(node->b, first, second)) & 1;
+}
+
+/* 10c. Ritorna 1 se un insieme X che tocca proprio le regioni di `touched`,
+ * e che ha elementi fuori da tutte le lettere se outside è 1, sta nella
+ * collezione node. */
+static unsigned ck_set_has_subset(const CkNode *node, unsigned touched, int outside) {
+    if (node->kind == CK_EMPTY) return 0;
+    if (node->kind == CK_ONLYEMPTY) return !outside && touched == 0;
+    if (node->kind == CK_POWER) return !outside && (touched & ~ck_set_regions(node->a)) == 0;
+    return ck_set_combine(node->kind, ck_set_has_subset(node->a, touched, outside), ck_set_has_subset(node->b, touched, outside)) & 1;
+}
+
+/* Ritorna 1 se la relazione node (uguale, incluso, diverso) vale quando le
+ * regioni non vuote sono quelle di alive, 0 se non vale, -1 se i due membri
+ * non sono dello stesso tipo. */
+static int ck_set_relation(const CkNode *node, unsigned alive) {
+    CkSetType a = ck_set_type(node->a), b = ck_set_type(node->b), type = a == CK_SET_ANY ? b : a;
+    int equal = 1, inside = 1;
+    if (a == CK_SET_WRONG || b == CK_SET_WRONG || (b != CK_SET_ANY && b != type)) return -1;
+    if (type == CK_SET_FAMILY) {
+        /* Ogni insieme di regioni non vuote: i sottoinsiemi di alive, dal
+         * più grande al vuoto. */
+        for (unsigned touched = alive;; touched = (touched - 1) & alive) {
+            for (int outside = 0; outside < 2; outside++) {
+                unsigned x = ck_set_has_subset(node->a, touched, outside), y = ck_set_has_subset(node->b, touched, outside);
+                if (x != y) equal = 0;
+                if (x && !y) inside = 0;
+            }
+            if (touched == 0) break;
+        }
+    } else if (type == CK_SET_PAIRS) {
+        for (unsigned first = 1; first < 1u << ck_set_count; first++)
+            for (unsigned second = 1; second < 1u << ck_set_count; second++) {
+                if (!(alive >> (first - 1) & 1) || !(alive >> (second - 1) & 1)) continue;
+                unsigned x = ck_set_has_pair(node->a, first, second), y = ck_set_has_pair(node->b, first, second);
+                if (x != y) equal = 0;
+                if (x && !y) inside = 0;
+            }
+    } else {
+        unsigned x = ck_set_regions(node->a) & alive, y = ck_set_regions(node->b) & alive;
+        equal = x == y;
+        inside = (x & ~y) == 0;
+    }
+    return node->kind == CK_SUBSET ? inside : node->kind == CK_NEQ ? !equal : equal;
+}
+
+/* Ritorna 1 se l'enunciato node è vero quando le regioni non vuote sono
+ * quelle di alive, 0 se è falso, -1 se è scritto male. */
+static int ck_set_truth(const CkNode *node, unsigned alive) {
+    if (node->kind == CK_EQ || node->kind == CK_SUBSET || node->kind == CK_NEQ) return ck_set_relation(node, alive);
+    if (node->kind != CK_AND && node->kind != CK_OR && node->kind != CK_IMPLIES && node->kind != CK_IFF && node->kind != CK_NOT) return -1;
+    int p = ck_set_truth(node->a, alive), q = node->kind == CK_NOT ? 0 : ck_set_truth(node->b, alive);
+    if (p < 0 || q < 0) return -1;
+    switch (node->kind) {
+    case CK_AND:     return p && q;
+    case CK_OR:      return p || q;
+    case CK_IMPLIES: return !p || q;
+    case CK_IFF:     return p == q;
+    default:         return !p;
+    }
+}
+
+/* Decide l'enunciato sugli insiemi statement: lo accetta se vale per ogni
+ * scelta delle regioni vuote, lo respinge se per una non vale. Allora il
+ * motivo descrive insiemi per cui è falso: un elemento, chiamato con il
+ * numero della sua regione, in ogni regione non vuota. */
+static void ck_check_sets(const CkNode *statement) {
+    static char text[256];
+    ck_set_count = 0;
+    ck_set_collect(statement);
+    for (unsigned alive = 0; alive < 1u << ((1u << ck_set_count) - 1) && ck_status == CK_ACCEPTED; alive++) {
+        int truth = ck_set_truth(statement, alive);
+        if (truth < 0) ck_unsupported("enunciato sugli insiemi che il verificatore non sa leggere: tipi diversi, o parole di un altro linguaggio");
+        if (truth != 0) continue;
+
+        /* Gli insiemi del controesempio, una lettera alla volta. */
+        int length = snprintf(text, sizeof text, "l'enunciato sugli insiemi è falso, per esempio con");
+        for (int i = 0; i < ck_set_count; i++) {
+            length += snprintf(text + length, sizeof text - (size_t)length, "%s %c = {", i ? "," : "", ck_set_names[i]);
+            for (unsigned r = 1, listed = 0; r < 1u << ck_set_count; r++)
+                if ((alive >> (r - 1) & 1) && (r >> i & 1)) length += snprintf(text + length, sizeof text - (size_t)length, "%s%u", listed++ ? ", " : "", r);
+            length += snprintf(text + length, sizeof text - (size_t)length, "}");
+        }
+        ck_reject(text);
+    }
+}
+
+/* =============================================================================
+ * 11. CONTROLLO DI UN CERTIFICATO
+ * ============================================================================
+ *
+ * I tre controlli descritti in testa al file, più le condizioni che rendono
+ * lecito trattare somme e successioni come lettere.
+ */
 
 /* Se il testo comincia con la parola word, seguita da uno spazio o dalla
  * fine della riga, la supera e ritorna 1. */
@@ -1091,7 +1779,18 @@ static void ck_read_certificate(CkCertificate *cert) {
     int seen_variable = 0, seen_base = 0, ended = 0, recurrence;
     memset(cert, 0, sizeof *cert);
     while (isspace((unsigned char)*ck_cursor)) ck_cursor++;
-    if (!ck_word("certificate") || !ck_word("induction")) { ck_reject("certificato scritto male: manca l'intestazione"); return; }
+    if (!ck_word("certificate")) { ck_reject("certificato scritto male: manca l'intestazione"); return; }
+
+    /* Un enunciato sugli insiemi: due voci sole, statement ed end. */
+    if (ck_word("sets")) {
+        while (isspace((unsigned char)*ck_cursor)) ck_cursor++;
+        if (!ck_word("statement")) { ck_reject("certificato scritto male: manca l'enunciato"); return; }
+        cert->sets = ck_read();
+        while (isspace((unsigned char)*ck_cursor)) ck_cursor++;
+        if (!ck_word("end")) ck_reject("certificato scritto male: voce sconosciuta o \"end\" mancante");
+        return;
+    }
+    if (!ck_word("induction")) { ck_reject("certificato scritto male: manca l'intestazione"); return; }
     while (ck_status == CK_ACCEPTED && !ended) {
         while (isspace((unsigned char)*ck_cursor)) ck_cursor++;
         if (ck_word("end")) {
@@ -1143,15 +1842,35 @@ static void ck_read_certificate(CkCertificate *cert) {
         } else if (ck_word("factor")) {
             if (cert->factor) ck_reject(twice);
             cert->factor = ck_read();
+        } else if (ck_word("defined")) {
+            /* Coppie "lettera valore", fino alla fine della riga. */
+            if (cert->defined) ck_reject(twice);
+            cert->defined = 1;
+            for (ck_skip(); isalpha((unsigned char)*ck_cursor) && ck_status == CK_ACCEPTED; ck_skip()) {
+                if (ck_fixed_count == CK_MAX_POINT) { ck_unsupported("troppi parametri con un valore"); return; }
+                ck_fixed[ck_fixed_count].name = *ck_cursor++;
+                ck_fixed[ck_fixed_count++].tree = ck_read();
+            }
         } else if (ck_word("generic")) {
             if (cert->generics == CK_MAX_GENERIC) { ck_unsupported("troppe voci generic"); return; }
             cert->generic[cert->generics++] = ck_read();
+        } else if (ck_word("brick")) {
+            if (cert->bricks == CK_MAX_BRICKS) { ck_unsupported("troppe voci brick"); return; }
+            cert->brick[cert->bricks++] = ck_read();
         } else {
             ck_reject("certificato scritto male: voce sconosciuta o \"end\" mancante");
         }
     }
     if (ck_status == CK_ACCEPTED && (!seen_variable || !seen_base || !cert->left || !cert->factor))
         ck_reject("certificato incompleto: servono variable, base, statement e factor");
+
+    /* Un valore si dà a un parametro, una volta sola: non alla variabile di
+     * induzione. */
+    for (int i = 0; i < ck_fixed_count; i++) {
+        if (ck_fixed[i].name == cert->variable) ck_reject("certificato scritto male: la voce defined dà un valore alla variabile di induzione");
+        for (int j = 0; j < i; j++)
+            if (ck_fixed[j].name == ck_fixed[i].name) ck_reject(twice);
+    }
 
     /* La formula di una voce "define" può nominare una lettera sola: il suo
      * parametro, che non deve essere la variabile di induzione.
@@ -1181,6 +1900,18 @@ static CkRat ck_difference(const CkCertificate *cert, long long shift) {
 /* Fa i conti del certificato e i suoi controlli. È chiamata due volte: la
  * prima con ck_trial a 1, solo per fissare i riferimenti (capitolo 7). */
 static void ck_verify(const CkCertificate *cert) {
+    /* I fattori suggeriti per i logaritmi (8g): polinomi non costanti. Sono
+     * solo suggerimenti: uno sbagliato non divide nulla e non ha effetto. */
+    ck_numeric = 0;
+    ck_shift = 0;
+    ck_brick_count = 0;
+    for (int i = 0; i < cert->bricks && ck_status == CK_ACCEPTED; i++) {
+        CkRat brick = ck_eval(cert->brick[i]);
+        CkNum lead;
+        if (!ck_poly_is_constant(brick.den) || ck_poly_is_constant(brick.num)) { ck_reject("una voce brick non è un polinomio non costante"); return; }
+        ck_bricks[ck_brick_count++] = ck_poly_monic(brick.num, &lead);
+    }
+
     /* D(n) = N0/D0, D(n+1) = N1/D1, W = Wn/Wd. */
     CkRat now = ck_difference(cert, 0), next = ck_difference(cert, 1);
     ck_shift = 0;
@@ -1207,6 +1938,7 @@ static void ck_verify(const CkCertificate *cert) {
     ck_point = cert->base;
     CkRat start = ck_rat_add(ck_eval(cert->left), ck_eval(cert->right), 1);
     ck_numeric = 0;
+    if (cert->defined) ck_defined_divisors(cert);
     if (ck_trial || ck_status != CK_ACCEPTED) return;
 
     /* Le lettere stanno per quantità vere solo se queste esistono per ogni
@@ -1242,11 +1974,15 @@ static void ck_verify(const CkCertificate *cert) {
         CkPoly power = ck_poly_number(ck_num_int(1));
         int divides = 0;
         for (int j = 0; j <= CK_MAX_NONZERO && below.count > 0 && !divides && ck_status == CK_ACCEPTED; j++) {
-            divides = ck_poly_divides(below, power);
+            divides = ck_poly_divides(below, power, NULL);
             power = ck_poly_mul(power, factors);
         }
         if (ck_status == CK_ACCEPTED && !divides) ck_reject("il fattore ha un denominatore che può annullarsi dove l'enunciato è definito");
     }
+
+    /* La voce "defined", per ultima: prima ciò che vale per ogni valore dei
+     * parametri, poi ciò che vale nel punto. */
+    if (cert->defined && ck_status == CK_ACCEPTED) ck_defined_decide();
 }
 
 /* Controlla il certificato che comincia in *text e porta *text subito dopo
@@ -1261,13 +1997,18 @@ static CkAnswer ck_check(const char **text, const char **why) {
     ck_sequence_count = 0;
     ck_env_count = 0;
     ck_depth = 0;
+    ck_fixed_count = ck_fixing = ck_recording = ck_divisor_count = 0;
     ck_cursor = *text;
     ck_read_certificate(&cert);
     *text = ck_cursor;
 
-    /* La valutazione di prova e quella vera. Tra l'una e l'altra restano le
-     * indeterminate con i loro riferimenti; i polinomi si ricalcolano. */
-    for (int pass = 0; pass < 2 && ck_status == CK_ACCEPTED; pass++) {
+    /* Un enunciato sugli insiemi si decide con un conto suo. */
+    if (ck_status == CK_ACCEPTED && cert.sets) ck_check_sets(cert.sets);
+
+    /* Un'induzione: la valutazione di prova e quella vera. Tra l'una e
+     * l'altra restano le indeterminate con i loro riferimenti; i polinomi si
+     * ricalcolano. */
+    for (int pass = 0; pass < 2 && ck_status == CK_ACCEPTED && !cert.sets; pass++) {
         ck_trial = pass == 0;
         if (pass == 0) {
             ck_var_count = 0;
@@ -1282,7 +2023,7 @@ static CkAnswer ck_check(const char **text, const char **why) {
 }
 
 /* =============================================================================
- * 10. MAIN
+ * 12. MAIN
  * ============================================================================
  *
  * Il verificatore come programma a sé: legge un file di certificati, uno

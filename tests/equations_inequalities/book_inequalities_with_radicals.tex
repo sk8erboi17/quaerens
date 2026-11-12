@@ -1,0 +1,27 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Inequalities whose printed result contains a square root (7)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Every statement below is true. The result on the right contains a square root: the engine must prove each one, deciding the sign of expressions such as $x - 1 + \sqrt{2}$ exactly.
+
+\begin{enumerate}
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( x^{2}(1 - x) + x^{2}(x - 2)(x + 2) - x^{2} - (x - 1)(x - 2) + 4 < 0 \iff \left( -2 < x < 1 - \sqrt{2} \lor 1 < x < 1 + \sqrt{2} \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \begin{cases} \frac{1 + x^{2}}{3x} \le 0 \\ x < (x + 2)(3 - x) \end{cases} \iff \left( -\sqrt{6} < x < 0 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \begin{cases} (x + 2)\left(1 - \frac{1}{x}\right) + x < 3 - \frac{2}{x} \\ (\sqrt{3} + 1)x^{2} > 2x - 1 \end{cases} \iff \left( x < 1 \land x \neq 0 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \begin{cases} \frac{x^{2} - 1}{2} \ge \frac{2}{x^{2} - 1} \\ \frac{x^{2} + 1}{2} \ge \frac{2}{x^{2} + 1} \end{cases} \iff \left( x \le -\sqrt{3} \lor x \ge \sqrt{3} \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \left|x^{2} - 2x\right| \le 2\left|x\right| - 3 \iff \left( \sqrt{3} \le x \le 3 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( (1 + \left|x\right|)^{2} - 2x - 3 \le 0 \iff \left( 2 - \sqrt{6} \le x \le \sqrt{2} \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \left|\frac{x^{2} - 2x}{x + 1}\right| < 2 \iff \left( 2 - \sqrt{6} < x < 2 + \sqrt{6} \right) \right)$
+\end{enumerate}
+\end{document}
