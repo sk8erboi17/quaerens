@@ -1,0 +1,36 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{False sum and product formulas stated with a quantifier (16)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+$\mathbb{N} = \{1, 2, 3, \ldots\}$, $\mathbb{N}_{0} = \mathbb{N} \cup \{0\}$. No statement below is true: each one is false for some value of the variable, or has a side that is not defined for some value.
+
+\begin{enumerate}
+\item $\displaystyle \forall n \in \mathbb{N}\ \left(\sum_{k=1}^{n} k = n^{2}\right)$
+\item $\displaystyle \forall n \in \mathbb{N}_{0}\ \left(\sum_{k=1}^{n} k = \frac{n\left(n + 1\right)}{2} + 1\right)$
+\item $\displaystyle \forall n \in \mathbb{N}\ \left(\sum_{k=1}^{n} k = \frac{n\left(n + 1\right)}{2} + \prod_{j=1}^{12} \left(n - j\right)\right)$
+\item $\displaystyle \forall n \in \mathbb{N}\ \left(\frac{n - 50}{n - 50} = 1\right)$
+\item $\displaystyle \forall n \in \mathbb{N}_{0}\ \left(\prod_{k=1}^{n} \left(1 + \frac{1}{k}\right) = n\right)$
+\item $\displaystyle \forall n \in \mathbb{Z}\ \left(\sum_{k=1}^{n} k = \frac{n\left(n + 1\right)}{2}\right)$
+\item $\displaystyle \forall n \in \mathbb{N}\ \left(\sum_{k=1}^{n} 2^{k} = 2^{n + 1} - 1\right)$
+\item $\displaystyle \exists n \in \mathbb{N}\ \left(\sum_{k=1}^{n} k = 11\right)$
+\item $\displaystyle \forall n \in \mathbb{N}\ \left(\ln\left(60 - n\right) = \ln\left(60 - n\right)\right)$
+\item $\displaystyle \forall n \in \mathbb{Q}^{+}\ \left(\sum_{k=1}^{n} k = \frac{n\left(n + 1\right)}{2}\right)$
+\item $\displaystyle \forall n \in \mathbb{N}\ \left(\sum_{k=1}^{n} k = \frac{n\left(n + 1\right)}{2}\right) \land \forall m \in \mathbb{N}\ \left(\sum_{k=1}^{m} k^{2} = m^{3}\right)$
+\item $\displaystyle \forall n \in \mathbb{N}_{0}\ \left(\sum_{k=1}^{n} \frac{1}{k} = \frac{2n}{n + 1}\right)$
+\item $\displaystyle \forall x \in \mathbb{Q}\ (x^{-1} = x^{-1})$
+\item $\displaystyle \forall x \in \mathbb{Z}\ (\ln\left(x\right) - \ln\left(x\right) + x = x)$
+\item $\displaystyle \forall x \in \mathbb{Q}\ \left(\sqrt{x} = \sqrt{x}\right)$
+\item $\displaystyle \exists n \in \mathbb{N}\ \left(\ln\left(\cos\left(\pi n\right) - 1\right) = \ln\left(\cos\left(\pi n\right) - 1\right)\right)$
+\end{enumerate}
+\end{document}

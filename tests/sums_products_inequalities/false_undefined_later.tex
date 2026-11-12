@@ -1,0 +1,36 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Statements that stop being defined at a later value of $n$ (16)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Each statement holds for $n = n_0, \ldots, n_0 + 10$, where $n_0$ is its starting value ($1$ unless stated), and algebra finds nothing wrong with it. But at some larger $n$ one of its expressions is not defined: a division by zero. So none of them holds for every $n \ge n_0$.
+
+\begin{enumerate}
+\item $\displaystyle \frac{n - 50}{n - 50} = 1$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{k - 50} - \sum_{k=1}^{n} \frac{1}{k - 50} = 0$
+\item $\displaystyle \frac{n - 12}{n - 12} \sum_{k=1}^{n} k = \frac{n\left(n + 1\right)}{2}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{k - 30}{k - 30} = n$
+\item $\displaystyle \prod_{k=1}^{n} \frac{k - 25}{k - 25} = 1$
+\item $\displaystyle \frac{n^{2} - 400}{n^{2} - 400} \sum_{k=1}^{n} k = \frac{n\left(n + 1\right)}{2}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{\left(k - 100\right)\left(k - 99\right)} = -\frac{1}{99} - \frac{1}{n - 99}$
+\item $\displaystyle \frac{2^{n} - 4096}{2^{n} - 4096} = 1$
+\item $\displaystyle \frac{\prod_{k=1}^{n} \left(k - 50\right)}{\prod_{k=1}^{n - 1} \left(k - 50\right)} = n - 50$ for every integer $n\ge 2$.
+\item $\displaystyle \binom{n}{2} \cdot \frac{n - 15}{n - 15} = \frac{n\left(n - 1\right)}{2}$
+\item $\displaystyle \frac{F_{n} \left(n - 40\right)}{n - 40} = F_{n}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{2^{k} - 1048576}{2^{k} - 1048576} = n$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{\left(2k - 61\right)\left(k - 33\right)} \cdot \left(k - 33\right) = \sum_{k=1}^{n} \frac{1}{2k - 61}$
+\item $\displaystyle \frac{n!}{n! - 479001600} = \frac{n!}{n! - 479001600}$
+\item $\displaystyle \frac{2^{n} - 4096 n}{2^{n} - 4096 n} = 1$
+\item $\displaystyle \frac{3^{n} - 2^{n} - 527345}{3^{n} - 2^{n} - 527345} = 1$
+\end{enumerate}
+\end{document}

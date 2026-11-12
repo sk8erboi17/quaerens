@@ -1,0 +1,38 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_logs\_trig\_powers\_roots\_inductions.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_logs\_trig\_powers\_roots\_inductions.tex} is used for. That file is input for the induction engine in \texttt{main.c}; it is read by the test \texttt{test\_logs\_trig\_powers\_roots\_inductions.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 23 statements about logarithms, trigonometric functions, powers and roots that are false. It is an anti-regression test: the engine must never report any of them as proved. It protects against changes that make the engine prove more statements by making it less strict.
+
+\item \textbf{What the statements are.} Typical mistakes made on true formulas: a cosine in place of a sine, as in $\displaystyle \sum_{k=1}^{n} \sin(k x) = \frac{\sin\frac{n x}{2}\,\cos\frac{(n + 1)x}{2}}{\sin\frac{x}{2}}$; a wrong sign; a wrong angle; a logarithm or a root of $n + 2$ in place of $n + 1$; a missing factor $\frac{1}{2}$; a sum that starts at the wrong index.
+
+\item \textbf{Why they matter for this domain.} The identities the engine relies on here are easy to state too generously: $\sqrt{u v} = \sqrt{u}\,\sqrt{v}$ holds only for non-negative factors, and $\ln(u v) = \ln u + \ln v$ only for positive ones. A rule that is slightly too permissive would prove statements such as $\sqrt{n + 1} + \sqrt{n} = \sqrt{2n + 1}$. Statement 22 is the sharpest case: its right-hand side differs from the true one by exactly $\pi$, so both sides have the same tangent and only a check on the size of the angles can reject it.
+
+\item \textbf{Format expected by the test.} One \texttt{\textbackslash item} per statement, with the formula written as \texttt{\$\textbackslash displaystyle ...\$}. The letters $x$ and $a$ are real parameters.
+
+\item \textbf{How to run it.} It is the third check of the test of this folder:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_logs_trig_powers_roots \
+    tests/logs_trig_powers_roots/test_logs_trig_powers_roots_inductions.c \
+    && /tmp/test_logs_trig_powers_roots
+\end{verbatim}
+
+\item \textbf{Expected result.} The line \texttt{PASS: 23 of 23 false statements rejected}. A false statement reported as proved is printed with its number and makes the test fail.
+
+\item \textbf{Adding statements.} Any new statement must be false for at least one $n \ge 1$ and some value of the parameters. A statement that is true would make this check fail as soon as the engine learns to prove it.
+\end{enumerate}
+\end{document}

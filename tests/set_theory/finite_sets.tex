@@ -1,0 +1,27 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Finite sets (7)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+$\mathbb{N} = \{1, 2, 3, \ldots\}$, $\mathbb{N}_{0} = \mathbb{N} \cup \{0\}$; $f(X) = \{f(x) \mid x \in X\}$, $f^{-1}(Y) = \{x \mid f(x) \in Y\}$; $T^{S} = \{f \mid f \colon S \to T\}$; $\exists! y$: there is exactly one $y$. $|S|$ is the number of elements of $S$.
+
+\begin{enumerate}
+\item $\displaystyle (f \colon \mathbb{Z} \to \mathbb{Z} \land \forall x \in \mathbb{Z}\ (f(x) = 2 + 3x) \land f^{1} = f \land \forall n \in \mathbb{N}\ (f^{n + 1} = f \circ f^{n})) \implies (\forall n \in \mathbb{N}\ \forall x \in \mathbb{Z}\ (f^{n}(x) = (3^{n} - 1) + 3^{n} x))$
+\item $\displaystyle n \in \mathbb{N}_{0} \land |S| = n \implies (|\mathcal{P}(S)| = 2^{n})$
+\item $\displaystyle m, n \in \mathbb{N}_{0} \land |S| = m \land |T| = n \implies (|S \times T| = mn)$
+\item $\displaystyle m, n \in \mathbb{N} \land |S| = m \land |T| = n \implies (|T^{S}| = n^{m})$
+\item $\displaystyle (n \in \mathbb{N} \land \forall i\ (|S_{i}| < \infty) \land \forall i, j\ (i \neq j \implies S_{i} \cap S_{j} = \emptyset)) \implies (|\bigcup_{i=1}^{n} S_{i}| = \sum_{i=1}^{n} |S_{i}|)$
+\item $\displaystyle (n \in \mathbb{N} \land n \ge 2 \land \forall i\ (|S_{i}| < \infty)) \implies (|\bigcup_{i=1}^{n} S_{i}| = \sum_{\emptyset \neq J \subseteq \{1, \ldots, n\}} (-1)^{|J| - 1}\, |\bigcap_{i \in J} S_{i}|)$
+\item $\displaystyle (m, n \in \mathbb{N} \land m \ge n \land |S| = m \land |T| = n) \implies (|\{f \colon S \to T \mid \forall y \in T\ \exists x \in S\ (f(x) = y)\}| = \sum_{i=0}^{n} (-1)^{i} \binom{n}{i} (n - i)^{m})$
+\end{enumerate}
+\end{document}

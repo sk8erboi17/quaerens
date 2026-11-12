@@ -1,0 +1,35 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_map\_statements.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_map\_statements.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_set\_theory.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 32 statements that are not true, about maps between sets of numbers and about numbers in general. The last one gives a rule with a logarithm, $f(n) = \ln n - \ln n + n$, that has no value for $n \le 0$: it does not define a map on $\mathbb{Z}$, so nothing may be proved from it. It is an anti-regression test: the engine must never report any of them as proved. It protects against changes that make the engine prove more statements by making it less strict.
+
+\item \textbf{What the statements are.} Each one is close to a true statement. A property claimed on a set that is too large, as in ``$n \mapsto n^{2}$ is injective on $\mathbb{Z}$'', which is true on $\mathbb{N}_{0}$. A map claimed to reach every element of a codomain that is too large, as for $x \mapsto \frac{x + 1}{x - 1}$ with codomain $\mathbb{Q}$ and not $\mathbb{Q} \setminus \{1\}$. The negation of a true property, as in ``$x \mapsto \frac{x - 2}{2}$ is not injective on $\mathbb{Q}$''. An equation with a solution that is not in the set, as in $\exists x \in \mathbb{N}\ (x + 1 = 1)$.
+
+\item \textbf{How the statements are written.} Every property is written out as a formula, not named: ``$f$ is surjective'' is $\forall y\ \exists x\ (f(x) = y)$.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_set_theory \
+    tests/set_theory/test_set_theory.c && /tmp/test_set_theory
+\end{verbatim}
+
+\item \textbf{Expected result.} The line \texttt{PASS: 32 of 32 false statements rejected}. Today the engine also proves the negation of 30 of them, and prints the numbers that show it, such as $a = 1$, $b = -1$.
+
+\item \textbf{Adding statements.} Any new statement must be false. A statement whose hypotheses cannot be satisfied, such as a rule whose values fall outside the codomain, is not false and does not belong here.
+\end{enumerate}
+\end{document}

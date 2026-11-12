@@ -1,0 +1,50 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{False statements about sums and products (30)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Every statement below is false for some integer $n\ge1$: each one is a typical mistake made on a true formula. The induction engine must never report any of them as proved. Statements 26 to 30 are true for the first values of $n$ and fail later. ($F_n$ Fibonacci numbers with $F_1=F_2=1$; $\binom{a}{b}$ binomial coefficient.)
+
+\begin{enumerate}
+\item $\displaystyle \sum_{k=1}^{n} k = \frac{n^{2}}{2}$
+\item $\displaystyle \sum_{k=1}^{n} k = \frac{n\left(n - 1\right)}{2}$
+\item $\displaystyle \sum_{k=1}^{n} \left(2k - 1\right) = n^{2} + 1$
+\item $\displaystyle \sum_{k=1}^{n} k^{2} = \frac{n\left(n + 1\right)\left(2n + 1\right)}{3}$
+\item $\displaystyle \sum_{k=1}^{n} k^{2} = \frac{n^{2}\left(n + 1\right)}{2}$
+\item $\displaystyle \sum_{k=1}^{n} k^{3} = \frac{n^{2}\left(n + 1\right)^{2}}{2}$
+\item $\displaystyle \sum_{k=1}^{n} k^{3} = \frac{n^{3}\left(n + 1\right)}{4}$
+\item $\displaystyle \sum_{k=1}^{n} k\left(k + 1\right) = \frac{n\left(n + 1\right)\left(n + 2\right)}{2}$
+\item $\displaystyle \sum_{k=1}^{n} 2^{k} = 2^{n + 1} - 1$
+\item $\displaystyle \sum_{k=1}^{n} 2^{k} = 2^{n} - 1$
+\item $\displaystyle \sum_{k=1}^{n} 3^{k} = \frac{3^{n + 1} - 1}{2}$
+\item $\displaystyle \sum_{k=1}^{n} k \cdot 2^{k} = n \cdot 2^{n + 1} + 2$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{k\left(k + 1\right)} = \frac{n}{n + 2}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{k\left(k + 1\right)} = \frac{1}{n + 1}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{\left(2k - 1\right)\left(2k + 1\right)} = \frac{n}{2n - 1}$
+\item $\displaystyle \sum_{k=1}^{n} \left(-1\right)^{k}k = \frac{\left(-1\right)^{n}n}{2}$
+\item $\displaystyle \sum_{k=1}^{n} k k! = \left(n + 1\right)!$
+\item $\displaystyle \sum_{k=1}^{n} \frac{k}{\left(k + 1\right)!} = 1 - \frac{1}{n!}$
+\item $\displaystyle \sum_{k=1}^{n} \binom{k}{2} = \binom{n + 1}{2}$
+\item $\displaystyle \sum_{k=1}^{n} F_{k} = F_{n + 2}$
+\item $\displaystyle \sum_{k=1}^{n} F_{k}^{2} = F_{n}F_{n + 2}$
+\item $\displaystyle \sum_{k=1}^{n} F_{2k} = F_{2n + 1}$
+\item $\displaystyle \sum_{k=1}^{n} \left(2k - 1\right)^{2} = \frac{n\left(4n^{2} + 1\right)}{3}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{2^{k}} = 1 - \frac{1}{2^{n + 1}}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{k}{2^{k}} = 2 - \frac{n + 1}{2^{n}}$
+\item $\displaystyle \sum_{k=1}^{n} k = n^{2} - n + 1$
+\item $\displaystyle \sum_{k=1}^{n} k^{2} = \frac{5n^{2} - 7n + 4}{2}$
+\item $\displaystyle \sum_{k=1}^{n} 2^{k} = n^{2} + n$
+\item $\displaystyle \prod_{k=1}^{n} \left(1 + \frac{1}{k}\right) = 2n$
+\item $\displaystyle \sum_{k=1}^{n} \left(-1\right)^{k} = \frac{\left(-1\right)^{n} - 1}{2} + \left(n - 1\right)\left(n - 2\right)$
+\end{enumerate}
+\end{document}

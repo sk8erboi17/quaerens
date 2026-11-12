@@ -1,0 +1,35 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{cartesian\_products.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{cartesian\_products.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_set\_theory.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 8 statements about Cartesian products, each claimed for every choice of the sets. The test asks the engine to decide each one, to write its proof, and fails if a single statement is left unproved.
+
+\item \textbf{What is being tested.} How the product interacts with the other operations, as in $(S \cap T) \times V = (S \times V) \cap (T \times V)$, and two equivalences that hold only for non-empty sets, as in $S \times T \subseteq V \times W \iff (S \subseteq V \land T \subseteq W)$.
+
+\item \textbf{What the engine needs in order to pass.} Reasoning about pairs $(x, y)$ through their two components, and correct use of the hypotheses that the sets are non-empty: without them the two equivalences are false, and they appear among the false statements of this folder.
+
+\item \textbf{Format expected by the test.} One \texttt{\textbackslash item} per statement, with the formula written as \texttt{\$\textbackslash displaystyle ...\$}. A hypothesis is written as the left-hand side of an implication.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_set_theory \
+    tests/set_theory/test_set_theory.c && /tmp/test_set_theory
+\end{verbatim}
+
+\item \textbf{Expected result.} The line \texttt{PASS: 8 of 8 statements proved, each with a written proof}.
+\end{enumerate}
+\end{document}

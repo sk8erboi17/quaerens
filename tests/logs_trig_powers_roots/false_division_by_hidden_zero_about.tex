@@ -1,0 +1,36 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_division\_by\_hidden\_zero.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_division\_by\_hidden\_zero.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_logs\_trig\_powers\_roots\_inductions.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 12 statements in which an expression is never defined. It is an anti-regression test: the engine must never report any of them as proved.
+
+\item \textbf{What makes them hard.} The divisor is not written as $0$, and the engine's exact algebra does not reduce it to $0$ either: it keeps $\cos\frac{\pi}{3}$ as a power of $e^{i\pi}$ and an arctangent as a symbol of its own. So a division by it looks legitimate. An earlier version of the program accepted any divisor that was not literally the zero polynomial, and reported these statements as proved.
+
+\item \textbf{What the engine must do.} A divisor counts as non-zero only when a rule proves it: a sign that is evident, a polynomial with no integer root, a theorem. ``It does not simplify to zero'' is not a proof. Where the engine's own zero test recognises the identity, as for the arctangents, it must say that the statement is not defined; where it does not, as for the angles that are fractions of $\pi$, it must say that it cannot tell.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_logs_trig_powers_roots \
+    tests/logs_trig_powers_roots/test_logs_trig_powers_roots_inductions.c \
+    && /tmp/test_logs_trig_powers_roots
+\end{verbatim}
+
+\item \textbf{Expected result.} The line \texttt{PASS: 12 of 12 false statements rejected}.
+
+\item \textbf{Adding statements.} The divisor of any new statement must be exactly zero, by an identity that can be checked by hand.
+\end{enumerate}
+\end{document}

@@ -1,0 +1,28 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Cartesian products (8)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Capital letters are arbitrary sets; $S \times T$ is the set of the pairs $(x, y)$ with $x \in S$ and $y \in T$.
+
+\begin{enumerate}
+\item $\displaystyle (S \neq \emptyset \land T \neq \emptyset \land V \neq \emptyset \land W \neq \emptyset) \implies (S \times T \subseteq V \times W \iff (S \subseteq V \land T \subseteq W))$
+\item $\displaystyle (S \cap T) \times V = (S \times V) \cap (T \times V)$
+\item $\displaystyle (S \cup T) \times V = (S \times V) \cup (T \times V)$
+\item $\displaystyle (S \setminus T) \times V = (S \times V) \setminus (T \times V)$
+\item $\displaystyle (S \times T) \cap (V \times W) = (S \cap V) \times (T \cap W)$
+\item $\displaystyle (S \times T) \cup (V \times W) \subseteq (S \cup V) \times (T \cup W)$
+\item $\displaystyle (S \times T) \setminus (V \times W) = ((S \setminus V) \times T) \cup (S \times (T \setminus W))$
+\item $\displaystyle (S \neq \emptyset \land T \neq \emptyset \land V \neq \emptyset) \implies ((S \times T) \cup (T \times S) = V \times V \iff (S = T \land T = V))$
+\end{enumerate}
+\end{document}

@@ -1,0 +1,34 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Sum and product formulas stated with a quantifier (14)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+$\mathbb{N} = \{1, 2, 3, \ldots\}$, $\mathbb{N}_{0} = \mathbb{N} \cup \{0\}$. Every statement below is true.
+
+\begin{enumerate}
+\item $\displaystyle \forall n \in \mathbb{N}_{0}\ \left(\sum_{k=1}^{n} k = \frac{n\left(n + 1\right)}{2}\right)$
+\item $\displaystyle \forall n \in \mathbb{N}\ \left(\sum_{k=1}^{n} k^{2} = \frac{n\left(n + 1\right)\left(2n + 1\right)}{6}\right)$
+\item $\displaystyle \forall m \in \mathbb{N}\ \left(\sum_{k=1}^{m} 2^{k} = 2^{m + 1} - 2\right)$
+\item $\displaystyle \forall n \in \mathbb{N}_{0}\ \left(\sum_{k=0}^{n} 3^{k} = \frac{3^{n + 1} - 1}{2}\right)$
+\item $\displaystyle \forall n \in \mathbb{N}\ \left(\prod_{k=1}^{n} \left(1 + \frac{1}{k}\right) = n + 1\right)$
+\item $\displaystyle \forall n \in \mathbb{N} \setminus \{1\}\ \left(\prod_{k=2}^{n} \left(1 - \frac{1}{k}\right) = \frac{1}{n}\right)$
+\item $\displaystyle \forall n \in \mathbb{N}\ \left(\sum_{k=1}^{n} k \cdot k! = \left(n + 1\right)! - 1\right)$
+\item $\displaystyle \forall n \in \mathbb{N}\ \left(\sum_{k=1}^{n} F_{k} = F_{n + 2} - 1\right)$
+\item $\displaystyle \forall n \in \mathbb{N}\ \left(\sum_{k=1}^{n} \frac{1}{k\left(k + 1\right)} = \frac{n}{n + 1}\right)$
+\item $\displaystyle \forall n \in \mathbb{N}\ \left(\sum_{k=1}^{n} \left(2k - 1\right) = n^{2}\right) \land \forall m \in \mathbb{N}\ \left(\sum_{k=1}^{m} k^{3} = \frac{m^{2}\left(m + 1\right)^{2}}{4}\right)$
+\item $\displaystyle \exists n \in \mathbb{N}\ \left(\sum_{k=1}^{n} k = 55\right)$
+\item $\displaystyle \forall n \in \mathbb{N}_{0}\ \left(\left(n + 1\right)^{2} = n^{2} + 2n + 1\right)$
+\item $\displaystyle \forall n \in \mathbb{N}\ \left(\sum_{k=1}^{n} k = \frac{n\left(n + 1\right)}{2}\right) \land \forall x \in \mathbb{Q}\ (x + 1 \neq x)$
+\item $\displaystyle \forall n \in \mathbb{N}_{0}\ \left(\sum_{k=1}^{n} \left(-1\right)^{k} k = \frac{\left(-1\right)^{n}\left(2n + 1\right) - 1}{4}\right)$
+\end{enumerate}
+\end{document}

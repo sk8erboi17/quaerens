@@ -1,0 +1,416 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[italian]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Induzioni con logaritmi, trigonometria, potenze e radici (200)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Per ciascun esercizio dimostrare l'enunciato per induzione (su $n$). Salvo indicazione contraria $x$ e $a$ sono numeri reali scelti in modo che ogni espressione sia definita: denominatori diversi da zero, argomenti dei logaritmi positivi, radicandi non negativi.
+
+
+\section*{Somme trigonometriche}
+\begin{enumerate}
+\setcounter{enumi}{0}
+\item \[ \sum_{k=1}^{n} \sin\left(k x\right) = \frac{\sin\left(\frac{n x}{2}\right)\,\sin\left(\frac{\left(n + 1\right)x}{2}\right)}{\sin\left(\frac{x}{2}\right)} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \cos\left(k x\right) = \frac{\sin\left(\frac{n x}{2}\right)\,\cos\left(\frac{\left(n + 1\right)x}{2}\right)}{\sin\left(\frac{x}{2}\right)} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \sin\left(\left(2k - 1\right)x\right) = \frac{\sin^{2}\left(n x\right)}{\sin x} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \cos\left(\left(2k - 1\right)x\right) = \frac{\sin\left(2n x\right)}{2\,\sin x} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=0}^{n} \sin\left(\left(2k + 1\right)x\right) = \frac{\sin^{2}\left(\left(n + 1\right)x\right)}{\sin x} \]
+{\small per ogni intero $n\ge 0$.}
+\item \[ \sum_{k=0}^{n} \cos\left(\left(2k + 1\right)x\right) = \frac{\sin\left(\left(2n + 2\right)x\right)}{2\,\sin x} \]
+{\small per ogni intero $n\ge 0$.}
+\item \[ \sum_{k=1}^{n} \sin\left(2k x\right) = \frac{\sin\left(n x\right)\,\sin\left(\left(n + 1\right)x\right)}{\sin x} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \cos\left(2k x\right) = \frac{\sin\left(n x\right)\,\cos\left(\left(n + 1\right)x\right)}{\sin x} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \sin\left(3k x\right) = \frac{\sin\left(\frac{3n x}{2}\right)\,\sin\left(\frac{3\left(n + 1\right)x}{2}\right)}{\sin\left(\frac{3x}{2}\right)} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \cos\left(3k x\right) = \frac{\sin\left(\frac{3n x}{2}\right)\,\cos\left(\frac{3\left(n + 1\right)x}{2}\right)}{\sin\left(\frac{3x}{2}\right)} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \sin\left(k x\right)\,\cos\left(k x\right) = \frac{\sin\left(n x\right)\,\sin\left(\left(n + 1\right)x\right)}{2\,\sin x} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \sin^{2}\left(k x\right) = \frac{n}{2} - \frac{\sin\left(n x\right)\,\cos\left(\left(n + 1\right)x\right)}{2\,\sin x} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \cos^{2}\left(k x\right) = \frac{n}{2} + \frac{\sin\left(n x\right)\,\cos\left(\left(n + 1\right)x\right)}{2\,\sin x} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \sin^{3}\left(k x\right) = \frac{\frac{3\,\sin\left(\frac{n x}{2}\right)\,\sin\left(\frac{\left(n + 1\right)x}{2}\right)}{\sin\left(\frac{x}{2}\right)} - \frac{\sin\left(\frac{3n x}{2}\right)\,\sin\left(\frac{3\left(n + 1\right)x}{2}\right)}{\sin\left(\frac{3x}{2}\right)}}{4} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \sin\left(k x\right)\,\sin\left(\left(k + 1\right)x\right) = \frac{n\,\cos x}{2} - \frac{\sin\left(\left(2n + 2\right)x\right) - \sin\left(2x\right)}{4\,\sin x} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \cos\left(k x\right)\,\cos\left(\left(k + 1\right)x\right) = \frac{n\,\cos x}{2} + \frac{\sin\left(\left(2n + 2\right)x\right) - \sin\left(2x\right)}{4\,\sin x} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} k\,\sin\left(k x\right) = \frac{\sin\left(\left(n + 1\right)x\right)}{4\,\sin^{2}\left(\frac{x}{2}\right)} - \frac{\left(n + 1\right)\,\cos\left(\frac{\left(2n + 1\right)x}{2}\right)}{2\,\sin\left(\frac{x}{2}\right)} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} k\,\cos\left(k x\right) = \frac{\left(n + 1\right)\,\sin\left(\frac{\left(2n + 1\right)x}{2}\right)}{2\,\sin\left(\frac{x}{2}\right)} - \frac{1 - \cos\left(\left(n + 1\right)x\right)}{4\,\sin^{2}\left(\frac{x}{2}\right)} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=0}^{n - 1} \sin\left(a + k x\right) = \frac{\sin\left(\frac{n x}{2}\right)\,\sin\left(a + \frac{\left(n - 1\right)x}{2}\right)}{\sin\left(\frac{x}{2}\right)} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=0}^{n - 1} \cos\left(a + k x\right) = \frac{\sin\left(\frac{n x}{2}\right)\,\cos\left(a + \frac{\left(n - 1\right)x}{2}\right)}{\sin\left(\frac{x}{2}\right)} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \left(-1\right)^{k}\,\sin\left(k x\right) = \frac{\sin\left(\frac{n\left(x + \pi\right)}{2}\right)\,\sin\left(\frac{\left(n + 1\right)\left(x + \pi\right)}{2}\right)}{\cos\left(\frac{x}{2}\right)} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} a^{k}\,\sin\left(k x\right) = \frac{a\,\sin x - a^{n + 1}\,\sin\left(\left(n + 1\right)x\right) + a^{n + 2}\,\sin\left(n x\right)}{1 - 2a\,\cos x + a^{2}} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} a^{k}\,\cos\left(k x\right) = \frac{a\,\cos x - a^{2} - a^{n + 1}\,\cos\left(\left(n + 1\right)x\right) + a^{n + 2}\,\cos\left(n x\right)}{1 - 2a\,\cos x + a^{2}} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=0}^{n} \binom{n}{k}\,\cos\left(k x\right) = 2^{n}\,\cos^{n}\left(\frac{x}{2}\right)\,\cos\left(\frac{n x}{2}\right) \]
+{\small per ogni intero $n\ge 0$.}
+\item \[ \sum_{k=0}^{n} \binom{n}{k}\,\sin\left(k x\right) = 2^{n}\,\cos^{n}\left(\frac{x}{2}\right)\,\sin\left(\frac{n x}{2}\right) \]
+{\small per ogni intero $n\ge 0$.}
+\item \[ \sum_{k=0}^{n} \binom{n}{k}\left(-1\right)^{k}\,\cos\left(k x\right) = \left(2\,\sin\left(\frac{x}{2}\right)\right)^{n}\,\cos\left(\frac{n\left(x - \pi\right)}{2}\right) \]
+{\small per ogni intero $n\ge 0$.}
+\item \[ \sum_{k=0}^{n} \binom{n}{k}\,\cos\left(\left(2k - n\right)x\right) = \left(2\,\cos x\right)^{n} \]
+{\small per ogni intero $n\ge 0$.}
+\item \[ \sum_{k=1}^{n} e^{k a}\,\sin\left(k x\right) = \frac{e^{a}\,\sin x - e^{\left(n + 1\right)a}\,\sin\left(\left(n + 1\right)x\right) + e^{\left(n + 2\right)a}\,\sin\left(n x\right)}{1 - 2e^{a}\,\cos x + e^{2a}} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \sin\left(k x\right)\,\cos\left(\left(k + 1\right)x\right) = \frac{\cos\left(2x\right) - \cos\left(\left(2n + 2\right)x\right)}{4\,\sin x} - \frac{n\,\sin x}{2} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \cos^{3}\left(k x\right) = \frac{\frac{3\,\sin\left(\frac{n x}{2}\right)\,\cos\left(\frac{\left(n + 1\right)x}{2}\right)}{\sin\left(\frac{x}{2}\right)} + \frac{\sin\left(\frac{3n x}{2}\right)\,\cos\left(\frac{3\left(n + 1\right)x}{2}\right)}{\sin\left(\frac{3x}{2}\right)}}{4} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=0}^{n} \left(-1\right)^{k}\,\binom{n}{2k}\,\cos^{n - 2k} x\,\sin^{2k} x = \cos\left(n x\right) \]
+{\small per ogni intero $n\ge 0$.}
+\item \[ \sum_{k=0}^{n} \left(-1\right)^{k}\,\binom{n}{2k + 1}\,\cos^{n - 2k - 1} x\,\sin^{2k + 1} x = \sin\left(n x\right) \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \sin\left(4k x\right) = \frac{\sin\left(2n x\right)\,\sin\left(2\left(n + 1\right)x\right)}{\sin\left(2x\right)} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \cos\left(4k x\right) = \frac{\sin\left(2n x\right)\,\cos\left(2\left(n + 1\right)x\right)}{\sin\left(2x\right)} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} 2\,\sin\left(\frac{x}{2}\right)\,\cos\left(k x\right) = \sin\left(\frac{\left(2n + 1\right)x}{2}\right) - \sin\left(\frac{x}{2}\right) \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} 2\,\sin\left(\frac{x}{2}\right)\,\sin\left(k x\right) = \cos\left(\frac{x}{2}\right) - \cos\left(\frac{\left(2n + 1\right)x}{2}\right) \]
+{\small per ogni intero $n\ge 1$.}
+\end{enumerate}
+
+\section*{Arcotangenti e somme telescopiche trigonometriche}
+\begin{enumerate}
+\setcounter{enumi}{36}
+\item \[ \sum_{k=1}^{n} \arctan\left(\frac{1}{2k^{2}}\right) = \arctan\left(\frac{n}{n + 1}\right) \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \arctan\left(\frac{1}{k^{2} + k + 1}\right) = \arctan\left(\frac{n}{n + 2}\right) \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \arctan\left(\frac{1}{k^{2} - k + 1}\right) = \arctan n \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \arctan\left(\frac{1}{k^{2} + 3k + 3}\right) = \arctan\left(n + 2\right) - \arctan 2 \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \arctan\left(\frac{2}{k^{2}}\right) = \arctan n + \arctan\left(n + 1\right) - \frac{\pi}{4} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \arctan\left(\frac{2}{\left(k + 1\right)^{2}}\right) = \arctan\left(n + 1\right) + \arctan\left(n + 2\right) - \frac{\pi}{4} - \arctan 2 \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \arctan\left(\frac{x}{1 + k\left(k + 1\right)x^{2}}\right) = \arctan\left(\left(n + 1\right)x\right) - \arctan x \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \tan\left(k x\right)\,\tan\left(\left(k + 1\right)x\right) = \frac{\tan\left(\left(n + 1\right)x\right)}{\tan x} - n - 1 \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \frac{1}{\cos\left(\left(k - 1\right)x\right)\,\cos\left(k x\right)} = \frac{\tan\left(n x\right)}{\sin x} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \frac{1}{\sin\left(k x\right)\,\sin\left(\left(k + 1\right)x\right)} = \frac{\cot x - \cot\left(\left(n + 1\right)x\right)}{\sin x} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \frac{\tan\left(\frac{x}{2^{k}}\right)}{2^{k}} = \frac{\cot\left(\frac{x}{2^{n}}\right)}{2^{n}} - \cot x \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=0}^{n - 1} \frac{\tan\left(2^{k}x\right)}{\cos\left(2^{k + 1}x\right)} = \tan\left(2^{n}x\right) - \tan x \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} 3^{k - 1}\,\sin^{3}\left(\frac{x}{3^{k}}\right) = \frac{3^{n}\,\sin\left(\frac{x}{3^{n}}\right) - \sin x}{4} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \frac{1}{\sin\left(2^{k}x\right)} = \cot x - \cot\left(2^{n}x\right) \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \arctan\left(\frac{1}{F_{2k + 1}}\right) = \frac{\pi}{4} - \arctan\left(\frac{1}{F_{2n + 2}}\right) \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \arctan\left(\frac{1}{k^{2} + 5k + 7}\right) = \arctan\left(n + 3\right) - \arctan 3 \]
+{\small per ogni intero $n\ge 1$.}
+\end{enumerate}
+
+\section*{Prodotti trigonometrici}
+\begin{enumerate}
+\setcounter{enumi}{52}
+\item \[ \prod_{k=0}^{n - 1} \cos\left(2^{k}x\right) = \frac{\sin\left(2^{n}x\right)}{2^{n}\,\sin x} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \prod_{k=1}^{n} \cos\left(\frac{x}{2^{k}}\right) = \frac{\sin x}{2^{n}\,\sin\left(\frac{x}{2^{n}}\right)} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \prod_{k=1}^{n} \cos\left(\frac{\pi}{2^{k + 1}}\right) = \frac{1}{2^{n}\,\sin\left(\frac{\pi}{2^{n + 1}}\right)} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \prod_{k=1}^{n} \left(1 + 2\,\cos\left(2 \cdot 3^{k - 1}x\right)\right) = \frac{\sin\left(3^{n}x\right)}{\sin x} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \prod_{k=1}^{n} \left(1 - \tan^{2}\left(\frac{x}{2^{k}}\right)\right) = \frac{2^{n}\,\tan\left(\frac{x}{2^{n}}\right)}{\tan x} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \prod_{k=0}^{n - 1} \left(1 + \cos^{2^{k}} x\right) = \frac{1 - \cos^{2^{n}} x}{1 - \cos x} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \prod_{k=0}^{n - 1} \left(1 + \sin^{2^{k}} x\right) = \frac{1 - \sin^{2^{n}} x}{1 - \sin x} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \prod_{k=1}^{n} \left(1 - \frac{1}{4k^{2}}\right) = \left(2n + 1\right)\left(\frac{\binom{2n}{n}}{4^{n}}\right)^{2} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \prod_{k=0}^{n - 1} \left(1 + a^{2^{k}}\right) = \frac{1 - a^{2^{n}}}{1 - a} \]
+{\small per ogni intero $n\ge 1$.}
+\end{enumerate}
+
+\section*{Logaritmi}
+\begin{enumerate}
+\setcounter{enumi}{61}
+\item \[ \sum_{k=1}^{n} \ln\left(1 + \frac{1}{k}\right) = \ln\left(n + 1\right) \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \log_{2}\left(1 + \frac{1}{k}\right) = \log_{2}\left(n + 1\right) \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \log_{a}\left(1 + \frac{1}{k}\right) = \log_{a}\left(n + 1\right) \]
+{\small per ogni intero $n\ge 1$, con $a>0,\ a\neq1$.}
+\item \[ \sum_{k=2}^{n} \ln\left(1 - \frac{1}{k^{2}}\right) = \ln\left(\frac{n + 1}{2n}\right) \]
+{\small per ogni intero $n\ge 2$.}
+\item \[ \sum_{k=1}^{n} \ln\left(1 + \frac{1}{k\left(k + 2\right)}\right) = \ln\left(\frac{2\left(n + 1\right)}{n + 2}\right) \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \ln\left(1 + \frac{2}{k}\right) = \ln\left(\frac{\left(n + 1\right)\left(n + 2\right)}{2}\right) \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \ln\left(1 + \frac{3}{k}\right) = \ln\left(\frac{\left(n + 1\right)\left(n + 2\right)\left(n + 3\right)}{6}\right) \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \ln\left(1 + \frac{4}{k}\right) = \ln\left(\frac{\left(n + 1\right)\left(n + 2\right)\left(n + 3\right)\left(n + 4\right)}{24}\right) \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=2}^{n} \ln\left(1 - \frac{1}{k}\right) = -\ln n \]
+{\small per ogni intero $n\ge 2$.}
+\item \[ \sum_{k=2}^{n} \ln\left(1 - \frac{2}{k\left(k + 1\right)}\right) = \ln\left(\frac{n + 2}{3n}\right) \]
+{\small per ogni intero $n\ge 2$.}
+\item \[ \sum_{k=2}^{n} \ln\left(\frac{k^{2}}{k^{2} - 1}\right) = \ln\left(\frac{2n}{n + 1}\right) \]
+{\small per ogni intero $n\ge 2$.}
+\item \[ \sum_{k=2}^{n} \ln\left(\frac{k^{3} - 1}{k^{3} + 1}\right) = \ln\left(\frac{2\left(n^{2} + n + 1\right)}{3n\left(n + 1\right)}\right) \]
+{\small per ogni intero $n\ge 2$.}
+\item \[ \sum_{k=1}^{n} \ln\left(\frac{\left(k + 1\right)\left(k + 2\right)}{k\left(k + 3\right)}\right) = \ln\left(\frac{3\left(n + 1\right)}{n + 3}\right) \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \ln\left(\frac{2k}{2k - 1}\right) = \ln\left(\frac{4^{n}\left(n!\right)^{2}}{\left(2n\right)!}\right) \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} k\ln\left(1 + \frac{1}{k}\right) = n\ln\left(n + 1\right) - \ln\left(n!\right) \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \ln\left(k\left(k + 1\right)\right) = \ln\left(n!\left(n + 1\right)!\right) \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \ln k = \ln\left(n!\right) \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=2}^{n} \frac{1}{\log_{k} a} = \log_{a}\left(n!\right) \]
+{\small per ogni intero $n\ge 2$, con $a>0,\ a\neq1$.}
+\item \[ \prod_{k=2}^{n} \log_{k}\left(k + 1\right) = \log_{2}\left(n + 1\right) \]
+{\small per ogni intero $n\ge 2$.}
+\item \[ \prod_{k=1}^{n} \left(1 + \frac{1}{k}\right)^{k} = \frac{\left(n + 1\right)^{n}}{n!} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=0}^{n - 1} \ln\left(1 + a^{2^{k}}\right) = \ln\left(\frac{1 - a^{2^{n}}}{1 - a}\right) \]
+{\small per ogni intero $n\ge 1$, con $0<a<1$.}
+\item \[ \sum_{k=1}^{n} \ln\left(\cos\left(\frac{x}{2^{k}}\right)\right) = \ln\left(\frac{\sin x}{2^{n}\,\sin\left(\frac{x}{2^{n}}\right)}\right) \]
+{\small per ogni intero $n\ge 1$, con $0<x<\pi/2$.}
+\item \[ \sum_{k=0}^{n - 1} \ln\left(\left|\cos\left(2^{k}x\right)\right|\right) = \ln\left(\left|\frac{\sin\left(2^{n}x\right)}{2^{n}\,\sin x}\right|\right) \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \ln\left(1 - \tan^{2}\left(\frac{x}{2^{k}}\right)\right) = \ln\left(\frac{2^{n}\,\tan\left(\frac{x}{2^{n}}\right)}{\tan x}\right) \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=0}^{n - 1} \ln\left(1 + \frac{1}{2^{2^{k}}}\right) = \ln\left(2\left(1 - \frac{1}{2^{2^{n}}}\right)\right) \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \frac{2^{k}}{\left(2^{k} - 1\right)\left(2^{k + 1} - 1\right)} = 1 - \frac{1}{2^{n + 1} - 1} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \frac{2 \cdot 3^{k}}{\left(3^{k} - 1\right)\left(3^{k + 1} - 1\right)} = \frac{1}{2} - \frac{1}{3^{n + 1} - 1} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \frac{2^{k}}{\left(2^{k} + 1\right)\left(2^{k + 1} + 1\right)} = \frac{1}{3} - \frac{1}{2^{n + 1} + 1} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=0}^{n - 1} \frac{a^{2^{k}}}{1 - a^{2^{k + 1}}} = \frac{1}{1 - a} - \frac{1}{1 - a^{2^{n}}} \]
+{\small per ogni intero $n\ge 1$, con $0<a<1$.}
+\item \[ \sum_{k=1}^{n} \ln\left(1 + \frac{5}{k}\right) = \ln\left(\frac{\left(n + 1\right)\left(n + 2\right)\left(n + 3\right)\left(n + 4\right)\left(n + 5\right)}{120}\right) \]
+{\small per ogni intero $n\ge 1$.}
+\end{enumerate}
+
+\section*{Radici}
+\begin{enumerate}
+\setcounter{enumi}{91}
+\item \[ \sum_{k=1}^{n} \frac{1}{\sqrt{k} + \sqrt{k + 1}} = \sqrt{n + 1} - 1 \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \frac{1}{\sqrt{k} + \sqrt{k + 2}} = \frac{\sqrt{n + 1} + \sqrt{n + 2} - 1 - \sqrt{2}}{2} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \frac{1}{\sqrt{k} + \sqrt{k + 3}} = \frac{\sqrt{n + 1} + \sqrt{n + 2} + \sqrt{n + 3} - 1 - \sqrt{2} - \sqrt{3}}{3} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \frac{1}{\sqrt{k + 1} + \sqrt{k - 1}} = \frac{\sqrt{n} + \sqrt{n + 1} - 1}{2} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \frac{1}{\sqrt{2k - 1} + \sqrt{2k + 1}} = \frac{\sqrt{2n + 1} - 1}{2} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \frac{1}{\sqrt{3k - 2} + \sqrt{3k + 1}} = \frac{\sqrt{3n + 1} - 1}{3} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \frac{1}{\sqrt{4k - 3} + \sqrt{4k + 1}} = \frac{\sqrt{4n + 1} - 1}{4} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \frac{1}{\sqrt{5k - 4} + \sqrt{5k + 1}} = \frac{\sqrt{5n + 1} - 1}{5} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \frac{1}{\sqrt{k + a} + \sqrt{k + a + 1}} = \sqrt{n + a + 1} - \sqrt{a + 1} \]
+{\small per ogni intero $n\ge 1$, con $a\ge0$.}
+\item \[ \sum_{k=1}^{n} \frac{1}{k\,\sqrt{k + 1} + \left(k + 1\right)\,\sqrt{k}} = 1 - \frac{1}{\sqrt{n + 1}} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \frac{\sqrt{k + 1} - \sqrt{k}}{\sqrt{k\left(k + 1\right)}} = 1 - \frac{1}{\sqrt{n + 1}} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \frac{1}{\sqrt[3]{k^{2}} + \sqrt[3]{k\left(k + 1\right)} + \sqrt[3]{\left(k + 1\right)^{2}}} = \sqrt[3]{n + 1} - 1 \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \frac{1}{\sqrt[4]{\left(k + 1\right)^{3}} + \sqrt[4]{\left(k + 1\right)^{2}k} + \sqrt[4]{\left(k + 1\right)k^{2}} + \sqrt[4]{k^{3}}} = \sqrt[4]{n + 1} - 1 \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \prod_{k=1}^{n} \sqrt{1 + \frac{1}{k}} = \sqrt{n + 1} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \prod_{k=1}^{n} \sqrt[3]{\frac{k + 1}{k}} = \sqrt[3]{n + 1} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \prod_{k=2}^{n} \sqrt{1 - \frac{1}{k^{2}}} = \sqrt{\frac{n + 1}{2n}} \]
+{\small per ogni intero $n\ge 2$.}
+\item \[ \prod_{k=1}^{n} \sqrt{\frac{2k}{2k - 1}} = \sqrt{\frac{4^{n}}{\binom{2n}{n}}} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \frac{1}{\sqrt{k}} \ge \sqrt{n} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \frac{1}{\sqrt{k}} \ge 2\left(\sqrt{n + 1} - 1\right) \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \frac{1}{\sqrt{k}} \le 2\,\sqrt{n} - 1 \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \sqrt{k} \ge \frac{2n\,\sqrt{n}}{3} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \sqrt{k} \le \frac{2\left(n + 1\right)^{\frac{3}{2}}}{3} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \frac{1}{k\,\sqrt{k}} \le 3 - \frac{2}{\sqrt{n}} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \left(\sum_{k=1}^{n} \sqrt{k}\right)^{2} \le \frac{n^{2}\left(n + 1\right)}{2} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \prod_{k=1}^{n} \frac{2k - 1}{2k} \ge \frac{1}{2\,\sqrt{n}} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \frac{1}{2\,\sqrt{k + 1}} \le \sqrt{n + 1} - 1 \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \frac{1}{2\,\sqrt{k}} \ge \sqrt{n + 1} - 1 \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \frac{1}{\sqrt{k\left(k + 1\right)}} \ge \ln\left(n + 1\right) \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \frac{1}{\sqrt{6k - 5} + \sqrt{6k + 1}} = \frac{\sqrt{6n + 1} - 1}{6} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \prod_{k=1}^{n} \sqrt[4]{\frac{k + 1}{k}} = \sqrt[4]{n + 1} \]
+{\small per ogni intero $n\ge 1$.}
+\end{enumerate}
+
+\section*{Potenze con funzioni trigonometriche, logaritmi ed esponenziali}
+\begin{enumerate}
+\setcounter{enumi}{121}
+\item \[ \sum_{k=0}^{n} \sin^{2k} x = \frac{1 - \sin^{2n + 2} x}{\cos^{2} x} \]
+{\small per ogni intero $n\ge 0$.}
+\item \[ \sum_{k=1}^{n} \cos^{k} x = \frac{\cos x\left(1 - \cos^{n} x\right)}{1 - \cos x} \]
+{\small per ogni intero $n\ge 1$, con $0<x<\pi/2$.}
+\item \[ \sum_{k=1}^{n} \tan^{2k} x = \frac{\tan^{2} x\left(1 - \tan^{2n} x\right)}{1 - \tan^{2} x} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} k\,\cos^{k} x = \frac{\cos x\left(1 - \left(n + 1\right)\,\cos^{n} x + n\,\cos^{n + 1} x\right)}{\left(1 - \cos x\right)^{2}} \]
+{\small per ogni intero $n\ge 1$, con $0<x<\pi/2$.}
+\item \[ \sum_{k=1}^{n} \left(2\,\sin x\right)^{k} = \frac{2\,\sin x\left(1 - \left(2\,\sin x\right)^{n}\right)}{1 - 2\,\sin x} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} e^{k x} = \frac{e^{x}\left(e^{n x} - 1\right)}{e^{x} - 1} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sin^{2n} x + \cos^{2n} x \le 1 \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sin^{2n} x + \cos^{2n} x \ge 2^{1 - n} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \left|\sin\left(n x\right)\right| \le n\left|\sin x\right| \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \left(1 + \sin x\right)^{n} \ge 1 + n\,\sin x \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \cos^{n} x \ge 1 - n\left(1 - \cos x\right) \]
+{\small per ogni intero $n\ge 1$, con $0<x<\pi/2$.}
+\item \[ \left(\frac{\sin x + \cos x}{2}\right)^{n} \le \frac{\sin^{n} x + \cos^{n} x}{2} \]
+{\small per ogni intero $n\ge 1$, con $0<x<\pi/2$.}
+\item \[ \prod_{k=1}^{n} \left(1 + \frac{\sin x}{k}\right) \le e^{\sin x H_{n}} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \prod_{k=1}^{n} \left(1 + \frac{1}{k^{2}}\right) \le e^{2 - \frac{1}{n}} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ 3^{n} \ge n^{3} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ 2^{n} \ge n^{3} \]
+{\small per ogni intero $n\ge 10$.}
+\item \[ \left|\sin\left(\sum_{k=1}^{n} k x\right)\right| \le \sum_{k=1}^{n} \left|\sin\left(k x\right)\right| \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \left|\sum_{k=1}^{n} \sin\left(k x\right)\right| \le \frac{1}{\left|\sin\left(\frac{x}{2}\right)\right|} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \left|\sum_{k=1}^{n} \cos\left(k x\right)\right| \le \frac{1}{\left|\sin\left(\frac{x}{2}\right)\right|} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \prod_{k=1}^{n} \cos\left(\frac{x}{k}\right) \ge 1 - \frac{x^{2}}{2}\,\sum_{k=1}^{n} \frac{1}{k^{2}} \]
+{\small per ogni intero $n\ge 1$, con $|x|\le\pi/2$.}
+\item \[ \sum_{k=1}^{n} \ln\left(1 + \frac{1}{k^{2}}\right) \le 2 - \frac{1}{n} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \sum_{k=1}^{n} \sin\left(\frac{1}{k^{2}}\right) \le 2 - \frac{1}{n} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ H_{n} \ge \ln\left(n + 1\right) \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ H_{n} \le 1 + \ln n \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \ln\left(n!\right) \ge n\ln n - n + 1 \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \ln\left(n!\right) \le n\ln n - n + 1 + \frac{\ln n}{2} \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \ln\left(\binom{2n}{n}\right) \ge n\ln 4 - \ln\left(2n\right) \]
+{\small per ogni intero $n\ge 1$.}
+\item \[ \prod_{k=1}^{n} \left(1 + \cos^{k} x\right) \le e^{\frac{\cos x}{1 - \cos x}} \]
+{\small per ogni intero $n\ge 1$, con $0<x<\pi/2$.}
+\item \[ \sum_{k=1}^{n} \frac{\sin^{k} x}{k} \le -\ln\left(1 - \sin x\right) \]
+{\small per ogni intero $n\ge 1$, con $0<x<\pi/2$.}
+\item \[ \sum_{k=1}^{n} \frac{\cos^{k} x}{k} \le -\ln\left(1 - \cos x\right) \]
+{\small per ogni intero $n\ge 1$, con $0<x<\pi/2$.}
+\item \[ \sum_{k=1}^{n} \sin^{2k - 1} x = \frac{\sin x\left(1 - \sin^{2n} x\right)}{\cos^{2} x} \]
+{\small per ogni intero $n\ge 1$.}
+\end{enumerate}
+
+\section*{Ricorrenze, radicali annidati e potenze di numeri irrazionali}
+\begin{enumerate}
+\setcounter{enumi}{152}
+\item Sia $a_0=0$, $a_1=\sin x$ e $a_{n+1}=2\cos x\,a_n-a_{n-1}$ per $n\ge1$. Allora $a_n=\sin(nx)$ per ogni $n\ge0$.
+\item Sia $b_0=1$, $b_1=\cos x$ e $b_{n+1}=2\cos x\,b_n-b_{n-1}$ per $n\ge1$. Allora $b_n=\cos(nx)$ per ogni $n\ge0$.
+\item Sia $c_0=1$, $c_1=\cosh x$ e $c_{n+1}=2\cosh x\,c_n-c_{n-1}$. Allora $c_n=\cosh(nx)$ per ogni $n\ge0$.
+\item Sia $a_0=\cos x$ e $a_{n+1}=2a_n^2-1$. Allora $a_n=\cos\left(2^n x\right)$ per ogni $n\ge0$.
+\item Sia $0\le x\le\pi$, $a_0=\cos x$ e $a_{n+1}=\sqrt{\dfrac{1+a_n}{2}}$. Allora $a_n=\cos\left(\dfrac{x}{2^n}\right)$ per ogni $n\ge0$.
+\item Sia $t_0=\tan x$ con $\tan\left(2^k x\right)$ definita per ogni $k$ e $t_{n+1}=\dfrac{2t_n}{1-t_n^2}$. Allora $t_n=\tan\left(2^n x\right)$ per ogni $n\ge0$.
+\item Sia $0<x<\pi/2$, $t_0=\tan x$ e $t_{n+1}=\dfrac{\sqrt{1+t_n^2}-1}{t_n}$. Allora $t_n=\tan\left(\dfrac{x}{2^n}\right)$ per ogni $n\ge0$.
+\item Sia $t\in\mathbb{R}$ tale che i denominatori non si annullino, $t_1=t$ e $t_{n+1}=\dfrac{t_n+t}{1-t_n t}$. Allora $t_n=\tan(n\arctan t)$ per ogni $n\ge1$.
+\item Sia $a_0=0$ e $a_{n+1}=\sqrt{2+a_n}$ (radicale annidato con $n$ radici). Allora $a_n=2\cos\left(\dfrac{\pi}{2^{n+1}}\right)$ per ogni $n\ge0$.
+\item Con $a_0=0$, $a_{n+1}=\sqrt{2+a_n}$, vale $\sqrt{2-a_n}=2\sin\left(\dfrac{\pi}{2^{n+2}}\right)$ per ogni $n\ge0$.
+\item Sia $a_0=0$ e $a_{n+1}=\sqrt{6+a_n}$. Allora $a_n<3$ e $a_n<a_{n+1}$ per ogni $n\ge0$.
+\item Sia $a_0=0$ e $a_{n+1}=\sqrt{12+a_n}$. Allora $a_n<4$ e $a_n<a_{n+1}$ per ogni $n\ge0$.
+\item Sia $a_0=0$ e $a_{n+1}=\sqrt{1+2a_n}$. Allora $a_n<1+\sqrt2$ e $a_n<a_{n+1}$ per ogni $n\ge0$.
+\item Sia $a_0=3$ e $a_{n+1}=a_n^2-2$. Allora $a_n=\left(\dfrac{3+\sqrt5}{2}\right)^{2^n}+\left(\dfrac{3-\sqrt5}{2}\right)^{2^n}$ per ogni $n\ge0$.
+\item Per ogni $n\ge0$ il numero $\left(1+\sqrt3\right)^n+\left(1-\sqrt3\right)^n$ è un intero pari.
+\item Per ogni $n\ge1$ la parte intera $\left\lfloor\left(2+\sqrt3\right)^n\right\rfloor$ è dispari.
+\item Per ogni $n\ge0$, $2^n$ divide l'intero $\left(3+\sqrt5\right)^n+\left(3-\sqrt5\right)^n$.
+\item (De Moivre) $(\cos x+i\sin x)^n=\cos(nx)+i\sin(nx)$ per ogni $n\ge0$.
+\item $(1+i\tan x)^n=\dfrac{\cos(nx)+i\sin(nx)}{\cos^n x}$ per ogni $n\ge0$ (con $\cos x\neq0$).
+\item $(\sin x+i\cos x)^n=i^n\left(\cos(nx)-i\sin(nx)\right)$ per ogni $n\ge0$.
+\item $(1+\cos x+i\sin x)^n=2^n\cos^n\!\left(\dfrac{x}{2}\right)\left(\cos\dfrac{nx}{2}+i\sin\dfrac{nx}{2}\right)$ per ogni $n\ge0$.
+\item Sia $a_0>0$ e $a_{n+1}=a_n^2$. Allora $\ln a_n=2^n\ln a_0$ per ogni $n\ge0$.
+\item Sia $a_0>0$ e $a_{n+1}=\sqrt{a_n}$. Allora $\ln a_n=\dfrac{\ln a_0}{2^n}$ per ogni $n\ge0$.
+\end{enumerate}
+
+\section*{Derivate n-esime}
+\begin{enumerate}
+\setcounter{enumi}{175}
+\item $\dfrac{d^n}{dx^n}\sin x=\sin\left(x+\dfrac{n\pi}{2}\right)$ per ogni $n\ge0$.
+\item $\dfrac{d^n}{dx^n}\cos x=\cos\left(x+\dfrac{n\pi}{2}\right)$ per ogni $n\ge0$.
+\item $\dfrac{d^n}{dx^n}\sin^2x=2^{n-1}\sin\left(2x+\dfrac{(n-1)\pi}{2}\right)$ per ogni $n\ge1$.
+\item $\dfrac{d^n}{dx^n}\cos^2x=2^{n-1}\cos\left(2x+\dfrac{n\pi}{2}\right)$ per ogni $n\ge1$.
+\item $\dfrac{d^n}{dx^n}\left(e^{x}\sin x\right)=2^{n/2}e^{x}\sin\left(x+\dfrac{n\pi}{4}\right)$ per ogni $n\ge0$.
+\item Per $a>0$, $b\in\mathbb{R}$: $\dfrac{d^n}{dx^n}\left(e^{ax}\sin(bx)\right)=\left(a^2+b^2\right)^{n/2}e^{ax}\sin\left(bx+n\arctan\dfrac{b}{a}\right)$ per ogni $n\ge0$.
+\item $\dfrac{d^n}{dx^n}\left(x\sin x\right)=x\sin\left(x+\dfrac{n\pi}{2}\right)+n\sin\left(x+\dfrac{(n-1)\pi}{2}\right)$ per ogni $n\ge1$.
+\item $\dfrac{d^n}{dx^n}\left(xe^{x}\right)=(x+n)e^{x}$ per ogni $n\ge0$.
+\item $\dfrac{d^n}{dx^n}\left(x^2e^{x}\right)=\left(x^2+2nx+n(n-1)\right)e^{x}$ per ogni $n\ge0$.
+\item $\dfrac{d^n}{dx^n}\ln x=\dfrac{(-1)^{n-1}(n-1)!}{x^n}$ per ogni $n\ge1$ e $x>0$.
+\item $\dfrac{d^n}{dx^n}\left(x\ln x\right)=\dfrac{(-1)^n(n-2)!}{x^{n-1}}$ per ogni $n\ge2$ e $x>0$.
+\item $\dfrac{d^n}{dx^n}\left(x^n\ln x\right)=n!\left(\ln x+H_n\right)$ per ogni $n\ge0$ e $x>0$, con $H_n=1+\frac12+\dots+\frac1n$.
+\item $\dfrac{d^n}{dx^n}\sqrt{x}=\dfrac{(-1)^{n-1}(2n-3)!!}{2^n}\,x^{\frac12-n}$ per ogni $n\ge1$ e $x>0$ (con $(-1)!!=1$).
+\item $\dfrac{d^n}{dx^n}(1-2x)^{-1/2}=(2n-1)!!\,(1-2x)^{-n-\frac12}$ per ogni $n\ge0$ e $x<\frac12$.
+\item $\dfrac{d^n}{dx^n}\dfrac{1}{1+x}=\dfrac{(-1)^n\,n!}{(1+x)^{n+1}}$ per ogni $n\ge0$.
+\item $\dfrac{d^n}{dx^n}\ln(1+x)=\dfrac{(-1)^{n-1}(n-1)!}{(1+x)^n}$ per ogni $n\ge1$.
+\item $\dfrac{d^n}{dx^n}\dfrac{1}{1-x}=\dfrac{n!}{(1-x)^{n+1}}$ per ogni $n\ge0$.
+\end{enumerate}
+
+\section*{Integrali con ricorrenza}
+\begin{enumerate}
+\setcounter{enumi}{192}
+\item $\displaystyle\int_0^{\pi/2}\sin^{2n}x\,dx=\dfrac{\pi}{2}\cdot\dfrac{\binom{2n}{n}}{4^n}$ per ogni $n\ge0$.
+\item $\displaystyle\int_0^{\pi/2}\sin^{2n+1}x\,dx=\dfrac{4^n}{(2n+1)\binom{2n}{n}}$ per ogni $n\ge0$.
+\item $\displaystyle\int_0^{\pi}\cos^{2n}x\,dx=\pi\,\dfrac{\binom{2n}{n}}{4^n}$ per ogni $n\ge0$.
+\item $\displaystyle\int_0^{\pi}\dfrac{\sin\left((2n+1)x\right)}{\sin x}\,dx=\pi$ per ogni $n\ge0$ (nucleo di Dirichlet).
+\item $\displaystyle\int_0^{\pi}\left(\dfrac{\sin(nx)}{\sin x}\right)^2dx=n\pi$ per ogni $n\ge1$ (nucleo di Fejér).
+\item $\displaystyle\int_0^{\pi/2}\cos^n x\,\cos(nx)\,dx=\dfrac{\pi}{2^{n+1}}$ per ogni $n\ge1$.
+\item $\displaystyle\int_0^{1}\left(1-x^2\right)^n dx=\dfrac{4^n\,(n!)^2}{(2n+1)!}$ per ogni $n\ge0$.
+\item $\displaystyle\int_0^{1}x^n(1-x)^n\,dx=\dfrac{(n!)^2}{(2n+1)!}$ per ogni $n\ge0$.
+\end{enumerate}
+
+\end{document}

@@ -1,0 +1,32 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Logarithms, roots and sines that stop being defined at a later value of $n$ (12)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Each statement holds for $n = 1, \ldots, 11$, and algebra finds nothing wrong with it. But at some larger $n$ one of its expressions is not defined: the logarithm of a number that is not positive, the root of a negative number, a division by zero. One statement has no value of $x$ at all for which both sides are defined. So none of them holds for every $n \ge 1$.
+
+\begin{enumerate}
+\item $\displaystyle \ln\left(60 - n\right) = \ln\left(60 - n\right)$
+\item $\displaystyle \sqrt{100 - n} \cdot \sqrt{100 - n} = 100 - n$
+\item $\displaystyle x^{100} + \ln\left(-x\right) = x^{100} + \ln\left(x\right)$
+\item $\displaystyle \sum_{k=1}^{n} \ln\left(\frac{30 - k}{30 - k}\right) = 0$
+\item $\displaystyle \log_{25 - n}\left(25 - n\right) = 1$
+\item $\displaystyle \sqrt{n} \cdot \sqrt{50 - n} = \sqrt{n\left(50 - n\right)}$
+\item $\displaystyle \sum_{k=1}^{n} \sqrt{20 - k} - \sum_{k=1}^{n} \sqrt{20 - k} = 0$
+\item $\displaystyle \ln\left(4096 - 2^{n}\right) = \ln\left(4096 - 2^{n}\right)$
+\item $\displaystyle \sum_{k=1}^{n} \ln\left(1 + \frac{1}{k}\right) = \ln\left(n + 1\right) \cdot \frac{\ln\left(40 - n\right)}{\ln\left(40 - n\right)}$
+\item $\displaystyle \frac{\sin\left(n - 30\right)}{\sin\left(n - 30\right)} = 1$
+\item $\displaystyle \tan\left(\left(n - 20\right) \pi\right) \cdot \frac{n - 20}{n - 20} = 0$
+\item $\displaystyle \sqrt[4]{15 - n}^{4} = 15 - n$
+\end{enumerate}
+\end{document}

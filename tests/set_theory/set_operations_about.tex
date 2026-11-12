@@ -1,0 +1,35 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{set\_operations.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{set\_operations.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_set\_theory.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 24 statements about union, intersection, difference, symmetric difference and power set, each claimed for every choice of the sets. The test asks the engine to decide each one, to write its proof, and fails if a single statement is left unproved.
+
+\item \textbf{What is being tested.} Identities such as $(S \setminus T) \setminus V = S \setminus (T \cup V)$; inclusions; equivalences between two conditions, such as $(S \cup T) \cap V = S \cup (T \cap V) \iff S \subseteq V$; statements under hypotheses, such as those on two subsets $X$, $Y$ of $S$; one statement claiming that a set exists; and statements about power sets, such as $\mathcal{P}(S \cap T) = \mathcal{P}(S) \cap \mathcal{P}(T)$.
+
+\item \textbf{What the engine needs in order to pass.} A decision method that is valid for all sets, not only for the ones it tries; a written proof for each statement, in the style of a textbook solution (``let $x$ be an element of \dots''); and an independent check of each verdict on concrete small sets.
+
+\item \textbf{Format expected by the test.} One \texttt{\textbackslash item} per statement, with the formula written as \texttt{\$\textbackslash displaystyle ...\$}. Capital letters are sets; $\land$, $\lor$, $\implies$, $\iff$ and $\exists$ combine conditions.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_set_theory \
+    tests/set_theory/test_set_theory.c && /tmp/test_set_theory
+\end{verbatim}
+
+\item \textbf{Expected result.} The line \texttt{PASS: 24 of 24 statements proved, each with a written proof}. A statement that is refuted, not proved or not supported is printed with its number and makes the test fail.
+\end{enumerate}
+\end{document}

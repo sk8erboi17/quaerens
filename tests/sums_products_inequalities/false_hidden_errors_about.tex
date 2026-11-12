@@ -1,0 +1,36 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_hidden\_errors.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_hidden\_errors.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_simple\_inductions.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 24 false statements. It is an anti-regression test: the engine must never report any of them as proved.
+
+\item \textbf{What makes them hard.} Each one is a true identity, such as $\sum_{k=1}^{n} k = \frac{n(n + 1)}{2}$, with one more term added on the right: $\prod_{j=1}^{12} (n - j)$, $\binom{n - 1}{12}$ and the like. The extra term is zero for the first eleven values of $n$ or more. So the base case holds, and so do all the values of $n$ in which the program looks for a counterexample. Only the inductive step can tell that the statement is false.
+
+\item \textbf{Why it matters.} A change that made the inductive step more permissive, or that accepted a statement because it holds for many values of $n$, would be caught here and not by the simpler false statements of this folder.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_simple_inductions \
+    tests/sums_products_inequalities/test_simple_inductions.c \
+    && /tmp/test_simple_inductions
+\end{verbatim}
+
+\item \textbf{Expected result.} The line \texttt{PASS: 24 of 24 false statements rejected}. For each statement the program answers either that the inductive step does not close or that the numbers are too large for exact arithmetic. It cannot show a counterexample, because the first one is beyond the values it tries.
+
+\item \textbf{Adding statements.} Any new statement must be false, and its two sides must agree for $n = 1, \ldots, 11$.
+\end{enumerate}
+\end{document}

@@ -1,0 +1,36 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_undefined\_later.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_undefined\_later.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_simple\_inductions.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 16 statements that are not true for every $n$, because from some value of $n$ on one side is not defined. It is an anti-regression test: the engine must never report any of them as proved.
+
+\item \textbf{What makes them hard.} The two sides are equal as expressions, so the base case and the inductive step both succeed, and every value of $n$ that the program computes with numbers is fine. The first value at which something breaks is always beyond those: $n = 12$ at the earliest. An earlier version of the program reported such statements as proved.
+
+\item \textbf{What the engine must do.} It has to decide, for every division, that the divisor is not zero for \emph{every} $n \ge n_0$, not only for the first values. Here the divisors are polynomials in $n$, in $2^n$ or in $n!$, or mix $n$ with powers such as $2^n$ and $3^n$ ($2^n - 4096 n$ is zero for $n = 16$), and one statement divides inside the proof itself: a product up to $n - 1$ written as the product up to $n$ over its last factor.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_simple_inductions \
+    tests/sums_products_inequalities/test_simple_inductions.c \
+    && /tmp/test_simple_inductions
+\end{verbatim}
+
+\item \textbf{Expected result.} The line \texttt{PASS: 16 of 16 false statements rejected}. For each statement the program answers that it is not proved, and where it can it names the value of $n$ at which an expression is not defined.
+
+\item \textbf{Adding statements.} Any new statement must have both sides defined and equal for $n = n_0, \ldots, n_0 + 10$, where $n_0$ is its starting value, and must stop being defined at some larger $n$.
+\end{enumerate}
+\end{document}

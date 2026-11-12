@@ -1,0 +1,36 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Correspondences and binary relations (16)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+$\mathbb{N} = \{1, 2, 3, \ldots\}$, $\mathbb{N}_{0} = \mathbb{N} \cup \{0\}$; $f(X) = \{f(x) \mid x \in X\}$, $f^{-1}(Y) = \{x \mid f(x) \in Y\}$; $T^{S} = \{f \mid f \colon S \to T\}$; $\exists! y$: there is exactly one $y$.
+
+\begin{enumerate}
+\item $\displaystyle G = \{(x, y) \in \mathbb{N} \times \mathbb{Z} \mid x = y^{4}\} \implies (\lnot (\forall x \in \mathbb{N}\ \exists! y \in \mathbb{Z}\ ((x, y) \in G)))$
+\item $\displaystyle G = \{(x, y) \in \mathbb{N} \times \mathbb{Z} \mid x^{4} = y\} \implies (\forall x \in \mathbb{N}\ \exists! y \in \mathbb{Z}\ ((x, y) \in G))$
+\item $\displaystyle G = \{(x, y) \in \mathbb{N}^{2} \mid x = 3y\} \implies (\lnot (\forall x \in \mathbb{N}\ \exists! y \in \mathbb{N}\ ((x, y) \in G)))$
+\item $\displaystyle G = \{(x, y) \in \mathbb{N}^{2} \mid 3x = y\} \implies (\forall x \in \mathbb{N}\ \exists! y \in \mathbb{N}\ ((x, y) \in G))$
+\item $\displaystyle G = \{(x, y) \in \mathbb{N} \times \mathbb{Q} \mid x = 3y\} \implies (\forall x \in \mathbb{N}\ \exists! y \in \mathbb{Q}\ ((x, y) \in G))$
+\item $\displaystyle G = \{(x, y) \in \mathbb{Z}^{2} \mid x^{2} = y^{2}\} \implies (\lnot (\forall x \in \mathbb{Z}\ \exists! y \in \mathbb{Z}\ ((x, y) \in G)))$
+\item $\displaystyle (S \neq \emptyset \land G = \{(x, X) \in S \times \mathcal{P}(S) \mid x \in X\}) \implies ((\forall x \in S\ \exists! X \in \mathcal{P}(S)\ ((x, X) \in G)) \iff \exists a\ (S = \{a\}))$
+\item $\displaystyle (S \neq \emptyset \land G = \{(X, Y) \in \mathcal{P}(S)^{2} \mid X \cap Y = \emptyset\}) \implies ((\forall X, Y\ ((X, Y) \in G \implies (Y, X) \in G)) \land (\lnot (\forall X \in \mathcal{P}(S)\ ((X, X) \in G))) \land (\lnot (\forall X, Y, Z\ (((X, Y) \in G \land (Y, Z) \in G) \implies (X, Z) \in G))))$
+\item $\displaystyle R \subseteq S \times S \implies (((\forall x, y\ ((x, y) \in R \implies (y, x) \in R)) \land (\forall x, y\ (((x, y) \in R \land (y, x) \in R) \implies x = y))) \iff \forall x, y\ ((x, y) \in R \implies x = y))$
+\item $\displaystyle R \subseteq S \times S \implies (((\forall x \in S\ ((x, x) \in R)) \land (\forall x, y\ ((x, y) \in R \implies (y, x) \in R)) \land (\forall x, y\ (((x, y) \in R \land (y, x) \in R) \implies x = y))) \iff R = \{(x, x) \mid x \in S\})$
+\item $\displaystyle (R \subseteq S \times S \land \forall x, y, z\ (((x, y) \in R \land (y, z) \in R) \implies (x, z) \in R)) \implies ((\forall x, y\ ((x, y) \in R \implies (y, x) \notin R)) \iff \forall x\ ((x, x) \notin R))$
+\item $\displaystyle (R_{1} \subseteq S \times T \land R_{2} \subseteq T \times V \land R_{1}^{*} = \{(y, x) \mid (x, y) \in R_{1}\} \land R_{2}^{*} = \{(z, y) \mid (y, z) \in R_{2}\}) \implies (\{(z, x) \mid \exists y\ ((x, y) \in R_{1} \land (y, z) \in R_{2})\} = \{(z, x) \mid \exists y\ ((z, y) \in R_{2}^{*} \land (y, x) \in R_{1}^{*})\})$
+\item $\displaystyle (R_{1} \subseteq S \times S \land R_{2} \subseteq S \times S \land \forall x \in S\ ((x, x) \in R_{1}) \land \forall x \in S\ ((x, x) \in R_{2})) \implies (\forall x \in S\ \exists y\ ((x, y) \in R_{1} \land (y, x) \in R_{2}))$
+\item $\displaystyle (R \subseteq S \times S \land \forall x \in S\ ((x, x) \in R)) \implies ((\forall x, y, z\ (((x, y) \in R \land (y, z) \in R) \implies (x, z) \in R)) \iff \{(x, z) \mid \exists y\ ((x, y) \in R \land (y, z) \in R)\} = R)$
+\item $\displaystyle (G_{1} = \{(1, 1), (2, 2), (3, 3), (1, 2), (2, 1)\} \land G_{2} = \{(1, 1), (2, 2), (3, 3), (2, 3), (3, 2)\} \land G = \{(x, z) \mid \exists y\ ((x, y) \in G_{1} \land (y, z) \in G_{2})\}) \implies ((\forall x, y\ ((x, y) \in G_{1} \implies (y, x) \in G_{1})) \land (\forall x, y, z\ (((x, y) \in G_{1} \land (y, z) \in G_{1}) \implies (x, z) \in G_{1})) \land (\forall x, y\ ((x, y) \in G_{2} \implies (y, x) \in G_{2})) \land (\forall x, y, z\ (((x, y) \in G_{2} \land (y, z) \in G_{2}) \implies (x, z) \in G_{2})) \land (\lnot (\forall x, y\ ((x, y) \in G \implies (y, x) \in G))) \land (\lnot (\forall x, y, z\ (((x, y) \in G \land (y, z) \in G) \implies (x, z) \in G))))$
+\item $\displaystyle (R_{1} \subseteq S \times S \land R_{2} \subseteq S \times S \land R_{3} \subseteq S \times S) \implies (\{(x, z) \mid \exists y\ ((x, y) \in R_{1} \cup R_{2} \land (y, z) \in R_{3})\} = \{(x, z) \mid \exists y\ ((x, y) \in R_{1} \land (y, z) \in R_{3})\} \cup \{(x, z) \mid \exists y\ ((x, y) \in R_{2} \land (y, z) \in R_{3})\})$
+\end{enumerate}
+\end{document}

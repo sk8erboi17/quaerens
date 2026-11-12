@@ -1,0 +1,34 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_quantified\_inductions.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_quantified\_inductions.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_simple\_inductions.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 16 statements that are not true. It is an anti-regression test: the engine must never report any of them as proved.
+
+\item \textbf{What makes them hard.} They are the false companions of \texttt{quantified\_inductions.tex}: a wrong formula, a formula that is right for the first twelve values only, a formula that holds for $n \ge 1$ stated from $n = 0$, a variable that ranges over all the integers or over the positive rationals (where a sum up to $n$ means nothing), a side that stops being defined at $n = 50$ or $n = 60$, a true formula joined to a false one. The last four have two sides that are the same expression, but not defined for every value: $x^{-1}$ at $x = 0$, a logarithm or a square root of a negative number, the logarithm of $\cos(\pi n) - 1$, which is never positive.
+
+\item \textbf{What the engine must do.} Calling induction from inside the rules on quantifiers must not skip any of its checks: the starting point is the first element of the set, and the two sides must be defined for every element.
+
+\item \textbf{Expected result.} The line \texttt{PASS: 16 of 16 false statements rejected}.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_simple_inductions \
+    tests/sums_products_inequalities/test_simple_inductions.c \
+    && /tmp/test_simple_inductions
+\end{verbatim}
+\end{enumerate}
+\end{document}

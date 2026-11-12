@@ -1,0 +1,55 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{logs\_trig\_powers\_roots\_inductions.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{logs\_trig\_powers\_roots\_inductions.tex} is used for. That file is input for the induction engine in \texttt{main.c}; it is read by the test \texttt{test\_logs\_trig\_powers\_roots\_inductions.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 200 statements about logarithms, trigonometric functions, powers and roots, each to be proved by induction on $n$. The test asks the engine to prove every one and fails if a single statement is left unproved. The statements are data: the engine knows none of them in advance.
+
+\item \textbf{What is being tested.} Whether the induction method still works when the terms are not polynomials: the engine must bring expressions such as $\sin(n x)$, $\sqrt{n + 1}$, $\ln(n + 1)$ and $a^{2^{n}}$ to a form in which two equal quantities are recognised as equal.
+
+\item \textbf{Sums and products with trigonometric functions} (statements 1--23, 28--30, 33--36 and 44--61). Examples: $\displaystyle \sum_{k=1}^{n} \sin(k x)$, $\displaystyle \prod_{k=1}^{n} \cos\frac{x}{2^{k}}$. They need the addition formulas and the identity $\sin^{2} x + \cos^{2} x = 1$, including angles that double or halve at each step.
+
+\item \textbf{Sums whose term also depends on $n$} (statements 24--27, 31 and 32). Example: $\displaystyle \sum_{k=0}^{n} \binom{n}{k} \cos(k x)$. Going from $n$ to $n + 1$ changes every term, not only the last one, so they need Pascal's rule and a shift of the summation index.
+
+\item \textbf{Arctangent sums} (statements 37--43, 51 and 52). Example: $\displaystyle \sum_{k=1}^{n} \arctan\frac{1}{2k^{2}} = \arctan\frac{n}{n + 1}$. They need the addition formula for the arctangent together with a check on the range of the angles.
+
+\item \textbf{Logarithms} (statements 62--91). Example: $\displaystyle \sum_{k=1}^{n} \ln\left(1 + \frac{1}{k}\right) = \ln(n + 1)$. They need $\ln(u v) = \ln u + \ln v$, the change of base, and logarithms of factorials and of trigonometric expressions.
+
+\item \textbf{Roots} (statements 92--121). Example: $\displaystyle \sum_{k=1}^{n} \frac{1}{\sqrt{k} + \sqrt{k + 1}} = \sqrt{n + 1} - 1$. They need $\sqrt{u v} = \sqrt{u}\,\sqrt{v}$ for non-negative factors and roots of any index.
+
+\item \textbf{Powers with a symbolic base or exponent} (statements 122--127 and 152). Example: $\displaystyle \sum_{k=1}^{n} \cos^{k} x = \frac{\cos x\,(1 - \cos^{n} x)}{1 - \cos x}$.
+
+\item \textbf{Inequalities} (statements 109--119 and 128--151). Example: $\displaystyle \sum_{k=1}^{n} \frac{1}{\sqrt{k}} \ge \sqrt{n}$. They need a way to decide the sign of an expression in the inductive step.
+
+\item \textbf{Statements written in prose} (statements 153--192). Sequences defined by a recurrence, nested radicals, powers of irrational and complex numbers, divisibility, and $n$-th derivatives such as $\dfrac{d^{n}}{dx^{n}} \sin x = \sin\left(x + \dfrac{n\pi}{2}\right)$. They need the statement to be read from a sentence rather than from one formula, and operations such as differentiation.
+
+\item \textbf{Integrals with a recurrence} (statements 193--200). Example: $\displaystyle \int_{0}^{\pi/2} \sin^{2n} x\,dx = \frac{\pi}{2} \cdot \frac{\binom{2n}{n}}{4^{n}}$. They need a reduction formula obtained by integration by parts.
+
+\item \textbf{Format expected by the test.} One \texttt{\textbackslash item} per statement. A statement is a display formula \texttt{\textbackslash[ ... \textbackslash]}, optionally followed by its range, for example ``per ogni intero $n \ge 2$'': the first ``letter $\ge$ number'' after the formula gives the induction variable and the base case. An item that starts with text is treated as prose.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_logs_trig_powers_roots \
+    tests/logs_trig_powers_roots/test_logs_trig_powers_roots_inductions.c \
+    && /tmp/test_logs_trig_powers_roots
+\end{verbatim}
+A different \texttt{.tex} file can be given as the first argument of the test program. The checks themselves are in \texttt{tests/statement\_checks.h}, shared by all domains.
+
+\item \textbf{Anti-regression use.} The same file feeds a second check. From every equality $L = R$ the test builds two statements that cannot be true together with it, $L = R + 1$ and $L = R + n - n_{0}$, where $n_{0}$ is the base case, and requires that the engine proves neither. The second one is true at $n = n_{0}$ and false afterwards, so only the inductive step can reject it. Inequalities are skipped, because adding $1$ to one side does not make them false.
+
+\item \textbf{Expected result.} A \texttt{PASS} line for the statements proved and one for the false variants rejected, and exit status $0$, when all statements are proved. A statement that the engine cannot treat is printed with its number and the reason, and makes the test print \texttt{FAIL} and exit with status $1$.
+\end{enumerate}
+\end{document}

@@ -1,0 +1,57 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Objects to determine (37)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+$\mathbb{N} = \{1, 2, 3, \ldots\}$, $\mathbb{N}_{0} = \mathbb{N} \cup \{0\}$; $f(X) = \{f(x) \mid x \in X\}$, $f^{-1}(Y) = \{x \mid f(x) \in Y\}$; $T^{S} = \{f \mid f \colon S \to T\}$; $\exists! y$: there is exactly one $y$. Each item asks for the object marked by the question mark.
+
+\begin{enumerate}
+\item $\displaystyle |S| \ge 2 \land |T| \ge 2,\quad \{G \subseteq S \times T \mid \lnot \exists X \subseteq S\ \exists Y \subseteq T\ (G = X \times Y)\} \ni\;?$
+\item $\displaystyle S = \{1, 2\},\quad \{R \subseteq S \times S \mid \forall x \in S\ ((x, x) \in R)\} =\;?$
+\item $\displaystyle G_{1} = \{(2x, x + 1) \mid x \in \mathbb{N}_{0}\},\ G_{2} = \{(y, y^{2}) \mid y \in \mathbb{N}\},\quad \{(x, z) \mid \exists y\ ((x, y) \in G_{1} \land (y, z) \in G_{2})\} =\;?$
+\item $\displaystyle f \colon \mathbb{Q} \to \mathbb{Q},\ f(x) = \frac{x - 2}{2},\quad f^{-1}(y) =\;?$
+\item $\displaystyle f \colon \mathbb{N} \to \mathbb{Z},\ f(n) = \frac{n}{2} - 1\ (2 \mid n),\ f(n) = -\frac{n + 1}{2}\ (2 \nmid n),\quad f^{-1}(y) =\;?$
+\item $\displaystyle f \colon \mathbb{Q} \to \mathbb{Q},\ f(x) = 3x - |x|,\quad f^{-1}(y) =\;?$
+\item $\displaystyle f \colon \mathbb{Q} \setminus \{1\} \to \mathbb{Q} \setminus \{1\},\ f(x) = \frac{x + 1}{x - 1},\quad f^{-1}(y) =\;?$
+\item $\displaystyle f \colon \mathbb{R} \to \mathbb{R},\ f(x) = x^{2}\ (x \ge 0),\ f(x) = x(3 - x)\ (x < 0),\quad f^{-1}(y) =\;?$
+\item $\displaystyle f \colon \mathbb{Q} \to \mathbb{Q},\ f(x) = \frac{x - 1}{x + 2}\ (x \neq -2),\ f(-2) = 1,\quad f^{-1}(y) =\;?$
+\item $\displaystyle f \colon \mathbb{R} \to \mathbb{R},\ f(x) = 1 - x\ (x \ge 0),\ f(x) = (1 - x)^{2}\ (x < 0),\quad f^{-1}(y) =\;?$
+\item $\displaystyle k \in \mathbb{N},\ f \colon \mathbb{Z} \to \mathbb{Z},\ f(n) = n + k\ (k \mid n),\ f(n) = n\ (k \nmid n),\quad f^{-1}(m) =\;?$
+\item $\displaystyle f \colon \mathbb{N}^{2} \to \mathbb{N},\ f(m, n) = 2^{m - 1}(2n - 1),\quad f^{-1}(k) =\;?$
+\item $\displaystyle f \colon \mathbb{Z} \to \mathbb{Q},\ f(x) = x^{4},\quad X_{1} \neq X_{2} \subseteq \mathbb{Z},\ Y_{1} \neq Y_{2} \subseteq \mathbb{Q},\ f(X_{1}) = f(X_{2}),\ f^{-1}(Y_{1}) = f^{-1}(Y_{2}),\quad (X_{1}, X_{2}, Y_{1}, Y_{2}) =\;?$
+\item $\displaystyle f \colon \mathbb{Q} \to \mathbb{Q},\ f(x) = x + 1\ (x \in \mathbb{Z}),\ f(x) = x\ (x \notin \mathbb{Z}),\quad f^{-1}(y) =\;?$
+\item $\displaystyle f \colon S \times T \to T \times S,\ f(x, y) = (y, x),\quad f^{-1}(y, x) =\;?$
+\item $\displaystyle f \colon \mathcal{P}(S) \to \mathcal{P}(S),\ f(X) = S \setminus X,\quad f^{-1}(Y) =\;?$
+\item $\displaystyle f \colon \mathbb{C} \to \mathbb{C},\ f(a + ib) = a + b + iab,\ X = \{ib \mid b \in \mathbb{R}\},\quad (f(\mathbb{R}), f(X), f^{-1}(\mathbb{R}), f^{-1}(X)) =\;?$
+\item $\displaystyle R = \{(a, b) \in (\mathbb{R}^{+})^{2} \mid a b^{-1} \in \mathbb{Q}\},\quad \{b \mid (1, b) \in R\} =\;?$
+\item $\displaystyle R = \{(a, b) \in \mathbb{Z}^{2} \mid 4 \mid a^{2} - b^{2}\},\quad \{b \mid (3, b) \in R\} =\;?$
+\item $\displaystyle S = \{1, 2, 3\},\quad \{R \subseteq S \times S \mid (\forall x \in S\ ((x, x) \in R) \land \forall x, y\ ((x, y) \in R \implies (y, x) \in R) \land \forall x, y, z\ (((x, y) \in R \land (y, z) \in R) \implies (x, z) \in R))\} =\;?$
+\item $\displaystyle S = \{1, 2, 3, 4\},\quad \{R \subseteq S \times S \mid (\forall x \in S\ ((x, x) \in R) \land \forall x, y\ ((x, y) \in R \implies (y, x) \in R) \land \forall x, y, z\ (((x, y) \in R \land (y, z) \in R) \implies (x, z) \in R))\} =\;?$
+\item $\displaystyle R = \{((x_{1}, y_{1}), (x_{2}, y_{2})) \in (S \times T)^{2} \mid y_{1} = y_{2}\},\quad \{(u, v) \mid ((x, y), (u, v)) \in R\} =\;?$
+\item $\displaystyle R = \{((x_{1}, y_{1}), (x_{2}, y_{2})) \in (\mathbb{Z}^{2})^{2} \mid x_{1} - y_{2} = x_{2} - y_{1}\},\quad \{(u, v) \mid ((0, 0), (u, v)) \in R\} =\;?$
+\item $\displaystyle E \subseteq S,\ R = \{(X, Y) \in \mathcal{P}(S)^{2} \mid X \cap E = Y \cap E\},\quad \{Y \mid (\emptyset, Y) \in R\} =\;?$
+\item $\displaystyle f \colon \mathbb{Z} \to \mathbb{N}_{0},\ f(x) = x^{2},\quad \{y \in \mathbb{Z} \mid f(y) = f(x)\} =\;?$
+\item $\displaystyle f \colon \mathbb{N} \to \{1, -1\},\ f(n) = 1\ (2 \mid n),\ f(n) = -1\ (2 \nmid n),\quad \{m \in \mathbb{N} \mid f(m) = f(n)\} =\;?$
+\item $\displaystyle f \colon \mathbb{Z} \to \mathbb{N}_{0},\ f(x) = 0\ (x \le 0),\ f(x) = x^{2} - 1\ (x > 0),\quad \{y \in \mathbb{Z} \mid f(y) = f(x)\} =\;?$
+\item $\displaystyle R = \{(x, y) \in \mathbb{N}^{2} \mid \exists n \in \mathbb{N}\ (y = x^{n})\},\quad \{m \in \mathbb{N} \mid \forall x \in \mathbb{N}\ ((x, m) \in R \implies x = m)\} =\;?$
+\item $\displaystyle S = \{1, 2\},\quad \{R \subseteq S \times S \mid (\forall x \in S\ ((x, x) \in R) \land \forall x, y\ (((x, y) \in R \land (y, x) \in R) \implies x = y) \land \forall x, y, z\ (((x, y) \in R \land (y, z) \in R) \implies (x, z) \in R))\} =\;?$
+\item $\displaystyle S = \{1, 2, 3\},\quad \{R \subseteq S \times S \mid (\forall x \in S\ ((x, x) \in R) \land \forall x, y\ (((x, y) \in R \land (y, x) \in R) \implies x = y) \land \forall x, y, z\ (((x, y) \in R \land (y, z) \in R) \implies (x, z) \in R))\} =\;?$
+\item $\displaystyle c \in S,\ f_{c} \colon S \to S,\ f_{c}(x) = c,\ R = \{(f, g) \in (S^{S})^{2} \mid \exists \sigma \colon S \to S\ (\forall a, b \in S\ (\sigma(a) = \sigma(b) \implies a = b) \land \forall y \in S\ \exists x \in S\ (\sigma(x) = y) \land f = \sigma \circ g \circ \sigma^{-1})\},\quad \{g \mid (f_{c}, g) \in R\} =\;?$
+\item $\displaystyle R = \{(f, g) \in (S^{S})^{2} \mid \forall x, y \in S\ (f(x) = f(y) \iff g(x) = g(y))\},\ \iota \colon S \to S,\ \iota(x) = x,\quad \{g \mid (\iota, g) \in R\} =\;?$
+\item $\displaystyle R = \{(f, g) \in (\mathbb{N}^{S})^{2} \mid |\{x \in S \mid f(x) \neq g(x)\}| < \infty\},\quad R = (\mathbb{N}^{S})^{2} \iff\;?$
+\item $\displaystyle R = \{(f, g) \in (S^{\mathbb{N}})^{2} \mid \exists m \in \mathbb{N}\ \forall n \ge m\ (f(n) = g(n))\},\quad R = (S^{\mathbb{N}})^{2} \iff\;?$
+\item $\displaystyle A = \mathbb{N} \setminus \{1\},\ R = \{(x, y) \in A^{2} \mid x = y \lor \{p \in \mathbb{N} \mid p \mid x \land p \neq 1 \land \forall d \in \mathbb{N}\ (d \mid p \implies (d = 1 \lor d = p))\} \subsetneq \{p \in \mathbb{N} \mid p \mid y \land p \neq 1 \land \forall d \in \mathbb{N}\ (d \mid p \implies (d = 1 \lor d = p))\}\},\quad \{m \in A \mid \forall x \in A\ ((x, m) \in R \implies x = m)\} =\;?$
+\item $\displaystyle A = \{a + ib \mid a, b \in \mathbb{N}_{0} \land (a \neq 0 \lor b \neq 0)\},\ R = \{(a + ib, c + id) \in A^{2} \mid a + ib = c + id \lor a^{2} + b^{2} < c^{2} + d^{2}\},\quad \{m \in A \mid \forall z \in A\ ((z, m) \in R \implies z = m)\} =\;?$
+\item $\displaystyle R = \{(f, g) \in (T^{S})^{2} \mid f = g \lor f(S) \subsetneq g(S)\},\quad \{f \in T^{S} \mid \forall g \in T^{S}\ ((g, f) \in R \implies g = f)\} =\;?$
+\end{enumerate}
+\end{document}

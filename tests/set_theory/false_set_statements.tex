@@ -1,0 +1,40 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{False statements about sets (20)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Capital letters are arbitrary sets. Every statement below fails for some choice of the sets.
+
+\begin{enumerate}
+\item $\displaystyle S \setminus (T \setminus V) = (S \setminus T) \setminus V$
+\item $\displaystyle (S \cup T) \cap V = S \cup (T \cap V)$
+\item $\displaystyle S \setminus (S \setminus T) = S$
+\item $\displaystyle (S \setminus T) \cup T = S$
+\item $\displaystyle S \cap (T \cup V) = (S \cap T) \cup V$
+\item $\displaystyle S \setminus (T \cap V) = (S \setminus T) \cap (S \setminus V)$
+\item $\displaystyle S \setminus (T \cup V) = (S \setminus T) \cup (S \setminus V)$
+\item $\displaystyle S \cup T \subseteq S \cap T$
+\item $\displaystyle S \cap T \subseteq V \iff S \subseteq V$
+\item $\displaystyle S \setminus T = S \setminus V \iff T = V$
+\item $\displaystyle \mathcal{P}(S) \cup \mathcal{P}(T) = \mathcal{P}(S \cup T)$
+\item $\displaystyle \mathcal{P}(S \setminus T) = \mathcal{P}(S) \setminus \mathcal{P}(T)$
+\item $\displaystyle \mathcal{P}(S \cup T) \subseteq \mathcal{P}(S) \cup \mathcal{P}(T)$
+\item $\displaystyle \mathcal{P}(S \setminus T) = (\mathcal{P}(S) \setminus \mathcal{P}(T)) \cup \{\emptyset\}$
+\item $\displaystyle (S \times T) \cup (V \times W) = (S \cup V) \times (T \cup W)$
+\item $\displaystyle S \times T \subseteq V \times W \iff (S \subseteq V \land T \subseteq W)$
+\item $\displaystyle S \times T = T \times S$
+\item $\displaystyle (S \times T) \cup (T \times S) = V \times V \iff (S = T \land T = V)$
+\item $\displaystyle S \triangle T = S \cup T$
+\item $\displaystyle S = T \iff \exists V \left( S \cap V = T \cap V \right)$
+\end{enumerate}
+\end{document}

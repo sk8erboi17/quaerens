@@ -1,0 +1,41 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{simple\_inductions.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{simple\_inductions.tex} is used for. That file is input for the induction engine in \texttt{main.c}; it is read by the test \texttt{test\_simple\_inductions.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 200 identities of the form $\displaystyle \sum_{k=1}^{n} f(k) = g(n)$. The test asks the engine to prove each one by induction on $n \ge 1$ and fails if a single statement is left unproved. The statements are data: the engine knows none of them in advance.
+
+\item \textbf{What is being tested.} The general method for a sum with a closed form: check the base case $n = 1$, then use the hypothesis $\sum_{k=1}^{n} f(k) = g(n)$ to rewrite $\sum_{k=1}^{n+1} f(k)$ as $g(n) + f(n+1)$ and check that this equals $g(n+1)$.
+
+\item \textbf{Families of summands.} Polynomials in $k$ and products of linear factors such as $k(k+1)(k+2)$; geometric and arithmetic--geometric terms such as $2^{k}$ and $k \cdot 3^{k}$; alternating terms with $(-1)^{k}$; rational terms that telescope, such as $\frac{1}{k(k+1)}$; factorials such as $k \cdot k!$; binomial coefficients such as $\binom{k}{2}$; Fibonacci numbers $F_{k}$, $F_{2k}$ and $F_{k}^{2}$.
+
+\item \textbf{What the engine needs in order to pass.} Exact arithmetic on fractions of polynomials; sums treated as symbols that grow by one term per step; the sequences $2^{n}$, $n!$ and $F_{n}$ rewritten at $n + 1$ in terms of their values at $n$; products with constant bounds, such as $\prod_{j=0}^{5} (n + j)$, expanded term by term.
+
+\item \textbf{Format expected by the test.} One \texttt{\textbackslash item} per statement, with the formula written as \texttt{\$\textbackslash displaystyle ...\$}. No range is written after the formulas, so the base case is the first $n$ for which the sum has at least one term, that is $n = 1$.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_simple_inductions \
+    tests/sums_products_inequalities/test_simple_inductions.c \
+    && /tmp/test_simple_inductions
+\end{verbatim}
+A different \texttt{.tex} file can be given as the first argument of the test program. The checks themselves are in \texttt{tests/statement\_checks.h}, shared by all domains.
+
+\item \textbf{Anti-regression use.} The same file feeds a second check. From every statement $L = R$ the test builds two statements that cannot be true together with it, $L = R + 1$ and $L = R + n - 1$, and requires that the engine proves neither. The second one is true at $n = 1$ and false afterwards, so only the inductive step can reject it.
+
+\item \textbf{Expected result.} The lines \texttt{PASS: 200 of 200 statements proved by induction} and \texttt{PASS: 400 of 400 false variants rejected}, and exit status $0$. A statement that is refuted, not proved or not supported is printed with its number and makes the test print \texttt{FAIL} and exit with status $1$.
+\end{enumerate}
+\end{document}

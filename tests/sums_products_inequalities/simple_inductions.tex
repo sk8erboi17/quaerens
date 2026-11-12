@@ -1,0 +1,220 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[italian]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Induzioni semplici con sommatorie (200)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Per ciascun esercizio dimostrare per induzione su $n\ge1$. Schema: caso base $n=1$; passo induttivo: assumere la formula per $n$, sommare il termine $(n+1)$-esimo a entrambi i membri e verificare la formula per $n+1$. ($F_n$ numeri di Fibonacci con $F_1=F_2=1$; $\binom{a}{b}$ coefficiente binomiale.)
+
+\begin{enumerate}
+\item $\displaystyle \sum_{k=1}^{n} k = \frac{n^{2} + n}{2}$
+\item $\displaystyle \sum_{k=1}^{n} 2k = n^{2} + n$
+\item $\displaystyle \sum_{k=1}^{n} \left(2k - 1\right) = n^{2}$
+\item $\displaystyle \sum_{k=1}^{n} 3k = \frac{3n^{2} + 3n}{2}$
+\item $\displaystyle \sum_{k=1}^{n} \left(3k + 1\right) = \frac{3n^{2} + 5n}{2}$
+\item $\displaystyle \sum_{k=1}^{n} \left(3k - 2\right) = \frac{3n^{2} - n}{2}$
+\item $\displaystyle \sum_{k=1}^{n} \left(4k - 1\right) = 2n^{2} + n$
+\item $\displaystyle \sum_{k=1}^{n} \left(4k + 3\right) = 2n^{2} + 5n$
+\item $\displaystyle \sum_{k=1}^{n} 5k = \frac{5n^{2} + 5n}{2}$
+\item $\displaystyle \sum_{k=1}^{n} \left(5k + 2\right) = \frac{5n^{2} + 9n}{2}$
+\item $\displaystyle \sum_{k=1}^{n} \left(6k - 5\right) = 3n^{2} - 2n$
+\item $\displaystyle \sum_{k=1}^{n} \left(7k + 1\right) = \frac{7n^{2} + 9n}{2}$
+\item $\displaystyle \sum_{k=1}^{n} \left(2k + 1\right) = n^{2} + 2n$
+\item $\displaystyle \sum_{k=1}^{n} \left(2k + 3\right) = n^{2} + 4n$
+\item $\displaystyle \sum_{k=1}^{n} \left(k + 1\right) = \frac{n^{2} + 3n}{2}$
+\item $\displaystyle \sum_{k=1}^{n} \left(k + 5\right) = \frac{n^{2} + 11n}{2}$
+\item $\displaystyle \sum_{k=1}^{n} 4k = 2n^{2} + 2n$
+\item $\displaystyle \sum_{k=1}^{n} \left(6k + 1\right) = 3n^{2} + 4n$
+\item $\displaystyle \sum_{k=1}^{n} \left(8k - 3\right) = 4n^{2} + n$
+\item $\displaystyle \sum_{k=1}^{n} \left(10k + 7\right) = 5n^{2} + 12n$
+\item $\displaystyle \sum_{k=1}^{n} k^{2} = \frac{2n^{3} + 3n^{2} + n}{6}$
+\item $\displaystyle \sum_{k=1}^{n} \left(k^{2} + k\right) = \frac{n^{3} + 3n^{2} + 2n}{3}$
+\item $\displaystyle \sum_{k=1}^{n} \left(k^{2} - k\right) = \frac{n^{3} - n}{3}$
+\item $\displaystyle \sum_{k=1}^{n} \left(2k^{2} + 1\right) = \frac{2n^{3} + 3n^{2} + 4n}{3}$
+\item $\displaystyle \sum_{k=1}^{n} \left(k^{2} + 2k\right) = \frac{2n^{3} + 9n^{2} + 7n}{6}$
+\item $\displaystyle \sum_{k=1}^{n} \left(3k^{2} - k\right) = n^{3} + n^{2}$
+\item $\displaystyle \sum_{k=1}^{n} \left(k^{2} + 3\right) = \frac{2n^{3} + 3n^{2} + 19n}{6}$
+\item $\displaystyle \sum_{k=1}^{n} \left(2k^{2} + k\right) = \frac{4n^{3} + 9n^{2} + 5n}{6}$
+\item $\displaystyle \sum_{k=1}^{n} \left(2k^{2} - k\right) = \frac{4n^{3} + 3n^{2} - n}{6}$
+\item $\displaystyle \sum_{k=1}^{n} \left(3k^{2} + 3k + 1\right) = n^{3} + 3n^{2} + 3n$
+\item $\displaystyle \sum_{k=1}^{n} \left(k^{2} - 3k + 2\right) = \frac{n^{3} - 3n^{2} + 2n}{3}$
+\item $\displaystyle \sum_{k=1}^{n} \left(4k^{2} - 1\right) = \frac{4n^{3} + 6n^{2} - n}{3}$
+\item $\displaystyle \sum_{k=1}^{n} \left(k^{2} + 4k + 4\right) = \frac{2n^{3} + 15n^{2} + 37n}{6}$
+\item $\displaystyle \sum_{k=1}^{n} 3k^{2} = \frac{2n^{3} + 3n^{2} + n}{2}$
+\item $\displaystyle \sum_{k=1}^{n} \left(2k^{2} + 2k\right) = \frac{2n^{3} + 6n^{2} + 4n}{3}$
+\item $\displaystyle \sum_{k=1}^{n} \left(5k^{2} - 2k + 1\right) = \frac{10n^{3} + 9n^{2} + 5n}{6}$
+\item $\displaystyle \sum_{k=1}^{n} \left(6k^{2} + k\right) = \frac{4n^{3} + 7n^{2} + 3n}{2}$
+\item $\displaystyle \sum_{k=1}^{n} \left(k^{2} + k + 1\right) = \frac{n^{3} + 3n^{2} + 5n}{3}$
+\item $\displaystyle \sum_{k=1}^{n} \left(4k^{2} + 4k + 1\right) = \frac{4n^{3} + 12n^{2} + 11n}{3}$
+\item $\displaystyle \sum_{k=1}^{n} \left(2k^{2} - 3k + 1\right) = \frac{4n^{3} - 3n^{2} - n}{6}$
+\item $\displaystyle \sum_{k=1}^{n} k\left(k + 1\right) = \frac{n^{3} + 3n^{2} + 2n}{3}$
+\item $\displaystyle \sum_{k=1}^{n} k\left(k + 2\right) = \frac{2n^{3} + 9n^{2} + 7n}{6}$
+\item $\displaystyle \sum_{k=1}^{n} k\left(k + 3\right) = \frac{n^{3} + 6n^{2} + 5n}{3}$
+\item $\displaystyle \sum_{k=1}^{n} \left(k + 1\right)\left(k + 2\right) = \frac{n^{3} + 6n^{2} + 11n}{3}$
+\item $\displaystyle \sum_{k=1}^{n} k\left(2k - 1\right) = \frac{4n^{3} + 3n^{2} - n}{6}$
+\item $\displaystyle \sum_{k=1}^{n} k\left(2k + 1\right) = \frac{4n^{3} + 9n^{2} + 5n}{6}$
+\item $\displaystyle \sum_{k=1}^{n} \left(2k - 1\right)\left(2k + 1\right) = \frac{4n^{3} + 6n^{2} - n}{3}$
+\item $\displaystyle \sum_{k=1}^{n} \left(2k - 1\right)^{2} = \frac{4n^{3} - n}{3}$
+\item $\displaystyle \sum_{k=1}^{n} \left(2k\right)^{2} = \frac{4n^{3} + 6n^{2} + 2n}{3}$
+\item $\displaystyle \sum_{k=1}^{n} \left(k + 1\right)^{2} = \frac{2n^{3} + 9n^{2} + 13n}{6}$
+\item $\displaystyle \sum_{k=1}^{n} \left(k - 1\right)^{2} = \frac{2n^{3} - 3n^{2} + n}{6}$
+\item $\displaystyle \sum_{k=1}^{n} \left(3k - 1\right)^{2} = \frac{6n^{3} + 3n^{2} - n}{2}$
+\item $\displaystyle \sum_{k=1}^{n} \left(3k - 2\right)\left(3k + 1\right) = 3n^{3} + 3n^{2} - 2n$
+\item $\displaystyle \sum_{k=1}^{n} k\left(k + 1\right)\left(k + 2\right) = \frac{n^{4} + 6n^{3} + 11n^{2} + 6n}{4}$
+\item $\displaystyle \sum_{k=1}^{n} k\left(k + 1\right)\left(k + 2\right)\left(k + 3\right) = \frac{n^{5} + 10n^{4} + 35n^{3} + 50n^{2} + 24n}{5}$
+\item $\displaystyle \sum_{k=1}^{n} k\left(k - 1\right) = \frac{n^{3} - n}{3}$
+\item $\displaystyle \sum_{k=1}^{n} k\left(k - 1\right)\left(k - 2\right) = \frac{n^{4} - 2n^{3} - n^{2} + 2n}{4}$
+\item $\displaystyle \sum_{k=1}^{n} \left(2k - 1\right)\left(2k\right) = \frac{4n^{3} + 3n^{2} - n}{3}$
+\item $\displaystyle \sum_{k=1}^{n} k\left(k + 1\right)\left(2k + 1\right) = \frac{n^{4} + 4n^{3} + 5n^{2} + 2n}{2}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{k\left(k + 1\right)}{2} = \frac{n^{3} + 3n^{2} + 2n}{6}$
+\item $\displaystyle \sum_{k=1}^{n} k^{3} = \frac{n^{4} + 2n^{3} + n^{2}}{4}$
+\item $\displaystyle \sum_{k=1}^{n} \left(k^{3} + k\right) = \frac{n^{4} + 2n^{3} + 3n^{2} + 2n}{4}$
+\item $\displaystyle \sum_{k=1}^{n} \left(k^{3} - k\right) = \frac{n^{4} + 2n^{3} - n^{2} - 2n}{4}$
+\item $\displaystyle \sum_{k=1}^{n} \left(2k^{3} + 1\right) = \frac{n^{4} + 2n^{3} + n^{2} + 2n}{2}$
+\item $\displaystyle \sum_{k=1}^{n} \left(k^{3} + 3k^{2}\right) = \frac{n^{4} + 6n^{3} + 7n^{2} + 2n}{4}$
+\item $\displaystyle \sum_{k=1}^{n} \left(2k - 1\right)^{3} = 2n^{4} - n^{2}$
+\item $\displaystyle \sum_{k=1}^{n} \left(2k\right)^{3} = 2n^{4} + 4n^{3} + 2n^{2}$
+\item $\displaystyle \sum_{k=1}^{n} \left(k + 1\right)^{3} = \frac{n^{4} + 6n^{3} + 13n^{2} + 12n}{4}$
+\item $\displaystyle \sum_{k=1}^{n} \left(k^{3} + k^{2} + k\right) = \frac{3n^{4} + 10n^{3} + 15n^{2} + 8n}{12}$
+\item $\displaystyle \sum_{k=1}^{n} \left(3k^{3} - 2k\right) = \frac{3n^{4} + 6n^{3} - n^{2} - 4n}{4}$
+\item $\displaystyle \sum_{k=1}^{n} k^{4} = \frac{6n^{5} + 15n^{4} + 10n^{3} - n}{30}$
+\item $\displaystyle \sum_{k=1}^{n} \left(k^{4} + k^{2}\right) = \frac{6n^{5} + 15n^{4} + 20n^{3} + 15n^{2} + 4n}{30}$
+\item $\displaystyle \sum_{k=1}^{n} k\left(k + 1\right)^{2} = \frac{3n^{4} + 14n^{3} + 21n^{2} + 10n}{12}$
+\item $\displaystyle \sum_{k=1}^{n} k^{2}\left(k + 1\right) = \frac{3n^{4} + 10n^{3} + 9n^{2} + 2n}{12}$
+\item $\displaystyle \sum_{k=1}^{n} \left(k^{3} + 6k^{2} + 11k + 6\right) = \frac{n^{4} + 10n^{3} + 35n^{2} + 50n}{4}$
+\item $\displaystyle \sum_{k=1}^{n} 2^{k} = \frac{2^{n + 1} - 2}{1}$
+\item $\displaystyle \sum_{k=1}^{n} 3^{k} = \frac{3^{n + 1} - 3}{2}$
+\item $\displaystyle \sum_{k=1}^{n} 4^{k} = \frac{4^{n + 1} - 4}{3}$
+\item $\displaystyle \sum_{k=1}^{n} 5^{k} = \frac{5^{n + 1} - 5}{4}$
+\item $\displaystyle \sum_{k=1}^{n} 6^{k} = \frac{6^{n + 1} - 6}{5}$
+\item $\displaystyle \sum_{k=1}^{n} 7^{k} = \frac{7^{n + 1} - 7}{6}$
+\item $\displaystyle \sum_{k=1}^{n} 10^{k} = \frac{10^{n + 1} - 10}{9}$
+\item $\displaystyle \sum_{k=1}^{n} 2^{k - 1} = \frac{2^{n} - 1}{1}$
+\item $\displaystyle \sum_{k=1}^{n} 3^{k - 1} = \frac{3^{n} - 1}{2}$
+\item $\displaystyle \sum_{k=1}^{n} 4^{k - 1} = \frac{4^{n} - 1}{3}$
+\item $\displaystyle \sum_{k=1}^{n} 5^{k - 1} = \frac{5^{n} - 1}{4}$
+\item $\displaystyle \sum_{k=1}^{n} 1 \cdot 2^{k - 1} = 2^{n} - 1$
+\item $\displaystyle \sum_{k=1}^{n} 2 \cdot 3^{k - 1} = 3^{n} - 1$
+\item $\displaystyle \sum_{k=1}^{n} 3 \cdot 4^{k - 1} = 4^{n} - 1$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{2^{k}} = 1 - \frac{1}{2^{n}}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{3^{k}} = \frac{1 - \frac{1}{3^{n}}}{2}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{2k - 1}{2^{k}} = 3 - \frac{2n + 3}{2^{n}}$
+\item $\displaystyle \sum_{k=1}^{n} k \cdot 2^{k} = \left(n - 1\right) \cdot 2^{n + 1} + 2$
+\item $\displaystyle \sum_{k=1}^{n} k \cdot 3^{k} = \frac{\left(2n - 1\right) \cdot 3^{n + 1} + 3}{4}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{k}{2^{k}} = 2 - \frac{n + 2}{2^{n}}$
+\item $\displaystyle \sum_{k=1}^{n} \left(-1\right)^{k}k = \frac{\left(-1\right)^{n}\left(2n + 1\right) - 1}{4}$
+\item $\displaystyle \sum_{k=1}^{n} \left(-1\right)^{k + 1}\left(2k - 1\right) = \left(-1\right)^{n + 1}n$
+\item $\displaystyle \sum_{k=1}^{n} \left(-1\right)^{k + 1}k^{2} = \frac{\left(-1\right)^{n + 1}n\left(n + 1\right)}{2}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{k\left(k + 1\right)} = \frac{n}{n + 1}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{\left(2k - 1\right)\left(2k + 1\right)} = \frac{n}{2n + 1}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{k\left(k + 2\right)} = \frac{3}{4} - \frac{2n + 3}{2\left(n + 1\right)\left(n + 2\right)}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{\left(3k - 2\right)\left(3k + 1\right)} = \frac{n}{3n + 1}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{\left(4k - 3\right)\left(4k + 1\right)} = \frac{n}{4n + 1}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{\left(5k - 4\right)\left(5k + 1\right)} = \frac{n}{5n + 1}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{k\left(k + 1\right)\left(k + 2\right)} = \frac{n\left(n + 3\right)}{4\left(n + 1\right)\left(n + 2\right)}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{\left(2k - 1\right)\left(2k + 1\right)\left(2k + 3\right)} = \frac{1}{12} - \frac{1}{4\left(2n + 1\right)\left(2n + 3\right)}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{2k + 1}{k^{2}\left(k + 1\right)^{2}} = 1 - \frac{1}{\left(n + 1\right)^{2}}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{k}{\left(k + 1\right)!} = 1 - \frac{1}{\left(n + 1\right)!}$
+\item $\displaystyle \sum_{k=1}^{n} k k! = \left(n + 1\right)! - 1$
+\item $\displaystyle \sum_{k=1}^{n} \left(k^{2} + 1\right)k! = n\left(n + 1\right)!$
+\item $\displaystyle \sum_{k=1}^{n} \left(\frac{1}{k!} - \frac{1}{\left(k + 1\right)!}\right) = 1 - \frac{1}{\left(n + 1\right)!}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{k\left(k + 1\right)\left(k + 2\right)\left(k + 3\right)} = \frac{1}{18} - \frac{1}{3\left(n + 1\right)\left(n + 2\right)\left(n + 3\right)}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{k}{k^{4} + k^{2} + 1} = \frac{n\left(n + 1\right)}{2\left(n^{2} + n + 1\right)}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{k + 2}{k\left(k + 1\right) \cdot 2^{k}} = 1 - \frac{1}{\left(n + 1\right) \cdot 2^{n}}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{k^{2}}{\left(2k - 1\right)\left(2k + 1\right)} = \frac{n\left(n + 1\right)}{2\left(2n + 1\right)}$
+\item $\displaystyle \sum_{k=1}^{n} \left(2k - 1\right) = n^{2}$
+\item $\displaystyle \sum_{k=1}^{n} 2k = n\left(n + 1\right)$
+\item $\displaystyle \sum_{k=1}^{n} \left(3k - 2\right) = \frac{n\left(3n - 1\right)}{2}$
+\item $\displaystyle \sum_{k=1}^{n} \left(4k - 3\right) = n\left(2n - 1\right)$
+\item $\displaystyle \sum_{k=1}^{n} \frac{k\left(k + 1\right)}{2} = \frac{n\left(n + 1\right)\left(n + 2\right)}{6}$
+\item $\displaystyle \sum_{k=1}^{n} \binom{k}{2} = \frac{\left(n - 1\right)n\left(n + 1\right)}{6}$
+\item $\displaystyle \sum_{k=1}^{n} \binom{k}{3} = \frac{\left(n - 2\right)\left(n - 1\right)n\left(n + 1\right)}{24}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{\left(k + 1\right)\left(k + 2\right)} = \frac{1}{2} - \frac{1}{n + 2}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{\left(k + 2\right)\left(k + 3\right)} = \frac{1}{3} - \frac{1}{n + 3}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{\left(k + 3\right)\left(k + 4\right)} = \frac{1}{4} - \frac{1}{n + 4}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{\left(k + 4\right)\left(k + 5\right)} = \frac{1}{5} - \frac{1}{n + 5}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{\left(k + 5\right)\left(k + 6\right)} = \frac{1}{6} - \frac{1}{n + 6}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{\left(k + 6\right)\left(k + 7\right)} = \frac{1}{7} - \frac{1}{n + 7}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{\left(2k + 1\right)\left(2k + 3\right)} = \frac{n}{3\left(2n + 3\right)}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{\left(3k - 1\right)\left(3k + 2\right)} = \frac{n}{2\left(3n + 2\right)}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{\left(4k - 1\right)\left(4k + 3\right)} = \frac{n}{3\left(4n + 3\right)}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{\left(5k - 3\right)\left(5k + 2\right)} = \frac{n}{2\left(5n + 2\right)}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{\left(3k + 1\right)\left(3k + 4\right)} = \frac{n}{4\left(3n + 4\right)}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{\left(6k - 5\right)\left(6k + 1\right)} = \frac{n}{6n + 1}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{\left(7k - 5\right)\left(7k + 2\right)} = \frac{n}{2\left(7n + 2\right)}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{\left(2k + 3\right)\left(2k + 5\right)} = \frac{n}{5\left(2n + 5\right)}$
+\item $\displaystyle \sum_{k=1}^{n} k\left(k + 1\right)\left(k + 2\right)\left(k + 3\right)\left(k + 4\right) = \frac{\prod_{j=0}^{5} \left(n + j\right)}{6}$
+\item $\displaystyle \sum_{k=1}^{n} k\left(k + 1\right)\left(k + 2\right)\left(k + 3\right)\left(k + 4\right)\left(k + 5\right) = \frac{\prod_{j=0}^{6} \left(n + j\right)}{7}$
+\item $\displaystyle \sum_{k=1}^{n} \binom{k + 1}{2} = \binom{n + 2}{3}$
+\item $\displaystyle \sum_{k=1}^{n} \binom{k + 2}{3} = \binom{n + 3}{4}$
+\item $\displaystyle \sum_{k=1}^{n} \binom{k + 3}{4} = \binom{n + 4}{5}$
+\item $\displaystyle \sum_{k=1}^{n} \binom{k + 4}{5} = \binom{n + 5}{6}$
+\item $\displaystyle \sum_{k=1}^{n} \left(3^{k} - 2^{k}\right) = \frac{3^{n + 1} - 3}{2} - \left(2^{n + 1} - 2\right)$
+\item $\displaystyle \sum_{k=1}^{n} \left(2^{k} + 1\right) = 2^{n + 1} - 2 + n$
+\item $\displaystyle \sum_{k=1}^{n} \left(4^{k} - 1\right) = \frac{4^{n + 1} - 4}{3} - n$
+\item $\displaystyle \sum_{k=1}^{n} k^{2} \cdot 2^{k} = \left(n^{2} - 2n + 3\right) \cdot 2^{n + 1} - 6$
+\item $\displaystyle \sum_{k=1}^{n} F_{k} = F_{n + 2} - 1$
+\item $\displaystyle \sum_{k=1}^{n} F_{2k - 1} = F_{2n}$
+\item $\displaystyle \sum_{k=1}^{n} F_{2k} = F_{2n + 1} - 1$
+\item $\displaystyle \sum_{k=1}^{n} F_{k}^{2} = F_{n}F_{n + 1}$
+\item $\displaystyle \sum_{k=1}^{n} \left(k^{2} - \left(k - 1\right)^{2}\right) = n^{2}$
+\item $\displaystyle \sum_{k=1}^{n} \left(k^{3} - \left(k - 1\right)^{3}\right) = n^{3}$
+\item $\displaystyle \sum_{k=1}^{n} \left(2^{k} - 2^{k - 1}\right) = 2^{n} - 1$
+\item $\displaystyle \sum_{k=1}^{n} \left(\left(k + 1\right)! - k!\right) = \left(n + 1\right)! - 1$
+\item $\displaystyle \sum_{k=1}^{n} \left(\left(k + 1\right)^{2} - k^{2}\right) = \left(n + 1\right)^{2} - 1$
+\item $\displaystyle \sum_{k=1}^{n} \left(2k - 1\right)\left(2k + 1\right) = \frac{n\left(4n^{2} + 6n - 1\right)}{3}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{k\left(k + 1\right)\left(k + 2\right)}{6} = \frac{n\left(n + 1\right)\left(n + 2\right)\left(n + 3\right)}{24}$
+\item $\displaystyle \sum_{k=1}^{n} \left(2k^{2} - k + 3\right) = \frac{4n^{3} + 3n^{2} + 17n}{6}$
+\item $\displaystyle \sum_{k=1}^{n} \left(k^{2} + 4k\right) = \frac{2n^{3} + 15n^{2} + 13n}{6}$
+\item $\displaystyle \sum_{k=1}^{n} \left(3k^{2} - 2k + 5\right) = \frac{2n^{3} + n^{2} + 9n}{2}$
+\item $\displaystyle \sum_{k=1}^{n} \left(k^{2} - 4k + 4\right) = \frac{2n^{3} - 9n^{2} + 13n}{6}$
+\item $\displaystyle \sum_{k=1}^{n} \left(5k^{2} - 2\right) = \frac{10n^{3} + 15n^{2} - 7n}{6}$
+\item $\displaystyle \sum_{k=1}^{n} \left(2k^{2} + 5k - 3\right) = \frac{4n^{3} + 21n^{2} - n}{6}$
+\item $\displaystyle \sum_{k=1}^{n} \left(4k^{2} - k + 1\right) = \frac{8n^{3} + 9n^{2} + 7n}{6}$
+\item $\displaystyle \sum_{k=1}^{n} \left(k^{2} + 2k + 7\right) = \frac{2n^{3} + 9n^{2} + 49n}{6}$
+\item $\displaystyle \sum_{k=1}^{n} \left(3k^{2} + 3k + 3\right) = n^{3} + 3n^{2} + 5n$
+\item $\displaystyle \sum_{k=1}^{n} \left(6k^{2} - 6k + 1\right) = 2n^{3} - n$
+\item $\displaystyle \sum_{k=1}^{n} \left(k^{2} - k - 1\right) = \frac{n^{3} - 4n}{3}$
+\item $\displaystyle \sum_{k=1}^{n} 7k^{2} = \frac{14n^{3} + 21n^{2} + 7n}{6}$
+\item $\displaystyle \sum_{k=1}^{n} \left(2k^{2} - 4\right) = \frac{2n^{3} + 3n^{2} - 11n}{3}$
+\item $\displaystyle \sum_{k=1}^{n} \left(3k^{2} - 5k\right) = n^{3} - n^{2} - 2n$
+\item $\displaystyle \sum_{k=1}^{n} \left(k^{3} + k^{2} + k + 1\right) = \frac{3n^{4} + 10n^{3} + 15n^{2} + 20n}{12}$
+\item $\displaystyle \sum_{k=1}^{n} \left(2k^{3} - k\right) = \frac{n^{4} + 2n^{3} - n}{2}$
+\item $\displaystyle \sum_{k=1}^{n} \left(k^{3} - 3k^{2} + 3k - 1\right) = \frac{n^{4} - 2n^{3} + n^{2}}{4}$
+\item $\displaystyle \sum_{k=1}^{n} \left(3k^{3} + 2k^{2} - k + 4\right) = \frac{9n^{4} + 26n^{3} + 15n^{2} + 46n}{12}$
+\item $\displaystyle \sum_{k=1}^{n} \left(k^{3} + 3k^{2} + 3k + 1\right) = \frac{n^{4} + 6n^{3} + 13n^{2} + 12n}{4}$
+\item $\displaystyle \sum_{k=1}^{n} \left(2k^{3} - 3k^{2} + k\right) = \frac{n^{4} - n^{2}}{2}$
+\item $\displaystyle \sum_{k=1}^{n} \left(4k^{3} - 1\right) = n^{4} + 2n^{3} + n^{2} - n$
+\item $\displaystyle \sum_{k=1}^{n} \left(k^{3} + 2k^{2} + k\right) = \frac{3n^{4} + 14n^{3} + 21n^{2} + 10n}{12}$
+\item $\displaystyle \sum_{k=1}^{n} 9k = \frac{9n^{2} + 9n}{2}$
+\item $\displaystyle \sum_{k=1}^{n} \left(k - 7\right) = \frac{n^{2} - 13n}{2}$
+\item $\displaystyle \sum_{k=1}^{n} \left(3k + 4\right) = \frac{3n^{2} + 11n}{2}$
+\item $\displaystyle \sum_{k=1}^{n} \left(5k - 1\right) = \frac{5n^{2} + 3n}{2}$
+\item $\displaystyle \sum_{k=1}^{n} \left(11k + 2\right) = \frac{11n^{2} + 15n}{2}$
+\item $\displaystyle \sum_{k=1}^{n} \left(2k + 9\right) = n^{2} + 10n$
+\item $\displaystyle \sum_{k=1}^{n} \left(k^{2} + 6k + 9\right) = \frac{2n^{3} + 21n^{2} + 73n}{6}$
+\item $\displaystyle \sum_{k=1}^{n} \left(k^{2} - 6k + 9\right) = \frac{2n^{3} - 15n^{2} + 37n}{6}$
+\item $\displaystyle \sum_{k=1}^{n} \left(2k^{2} - 7k + 3\right) = \frac{4n^{3} - 15n^{2} - n}{6}$
+\item $\displaystyle \sum_{k=1}^{n} 8k^{2} = \frac{8n^{3} + 12n^{2} + 4n}{3}$
+\item $\displaystyle \sum_{k=1}^{n} \left(k^{2} + 5\right) = \frac{2n^{3} + 3n^{2} + 31n}{6}$
+\item $\displaystyle \sum_{k=1}^{n} \left(3k^{2} - 3\right) = \frac{2n^{3} + 3n^{2} - 5n}{2}$
+\item $\displaystyle \sum_{k=1}^{n} \left(6k^{2} - 1\right) = 2n^{3} + 3n^{2}$
+\item $\displaystyle \sum_{k=1}^{n} \left(2k^{2} + 2k + 2\right) = \frac{2n^{3} + 6n^{2} + 10n}{3}$
+\item $\displaystyle \sum_{k=1}^{n} \left(9k^{2} - 3k\right) = 3n^{3} + 3n^{2}$
+\item $\displaystyle \sum_{k=1}^{n} \left(k^{2} + 5k + 6\right) = \frac{n^{3} + 9n^{2} + 26n}{3}$
+\item $\displaystyle \sum_{k=1}^{n} \left(k^{2} - 5k + 6\right) = \frac{n^{3} - 6n^{2} + 11n}{3}$
+\item $\displaystyle \sum_{k=1}^{n} \left(2k^{2} + 3k + 1\right) = \frac{4n^{3} + 15n^{2} + 17n}{6}$
+\item $\displaystyle \sum_{k=1}^{n} \left(3k^{2} - k - 2\right) = n^{3} + n^{2} - 2n$
+\item $\displaystyle \sum_{k=1}^{n} \left(k^{3} + 1\right) = \frac{n^{4} + 2n^{3} + n^{2} + 4n}{4}$
+\item $\displaystyle \sum_{k=1}^{n} \left(2k^{3} + 3k^{2}\right) = \frac{n^{4} + 4n^{3} + 4n^{2} + n}{2}$
+\end{enumerate}
+\end{document}

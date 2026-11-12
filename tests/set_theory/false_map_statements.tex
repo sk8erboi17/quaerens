@@ -1,0 +1,52 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{False statements about maps between sets of numbers (32)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+$\mathbb{N} = \{1, 2, 3, \ldots\}$, $\mathbb{N}_{0} = \mathbb{N} \cup \{0\}$. Every statement below is false.
+
+\begin{enumerate}
+\item $\displaystyle (f \colon \mathbb{N}_{0} \to \mathbb{N}_{0} \land \forall n \in \mathbb{N}_{0}\ (f(n) = 3n)) \implies \forall y \in \mathbb{N}_{0}\ \exists x \in \mathbb{N}_{0}\ (f(x) = y)$
+\item $\displaystyle (f \colon \mathbb{Z} \to \mathbb{Z} \land \forall n \in \mathbb{Z}\ (f(n) = n^{2})) \implies \forall a, b \in \mathbb{Z}\ (f(a) = f(b) \implies a = b)$
+\item $\displaystyle (f \colon \mathbb{N}_{0} \to \mathbb{N} \land \forall n \in \mathbb{N}_{0}\ (f(n) = n^{2} + 1)) \implies \forall y \in \mathbb{N}\ \exists x \in \mathbb{N}_{0}\ (f(x) = y)$
+\item $\displaystyle (f \colon \mathbb{N} \to \mathbb{N} \land \forall n \in \mathbb{N}\ (f(n) = (n + 1)^{2})) \implies \forall y \in \mathbb{N}\ \exists x \in \mathbb{N}\ (f(x) = y)$
+\item $\displaystyle (f \colon \mathbb{Z} \to \mathbb{N}_{0} \land \forall n \in \mathbb{Z}\ (f(n) = (n + 1)^{2})) \implies \forall a, b \in \mathbb{Z}\ (f(a) = f(b) \implies a = b)$
+\item $\displaystyle (f \colon \mathbb{N} \to \mathbb{N} \land \forall n \in \mathbb{N}\ (f(n) = \frac{n^{2} + n}{2})) \implies \forall y \in \mathbb{N}\ \exists x \in \mathbb{N}\ (f(x) = y)$
+\item $\displaystyle (f \colon \mathbb{Z} \to \mathbb{Z} \land \forall n \in \mathbb{Z}\ (f(n) = n^{2} - 3n)) \implies \forall a, b \in \mathbb{Z}\ (f(a) = f(b) \implies a = b)$
+\item $\displaystyle (f \colon \mathbb{Z} \to \mathbb{Z} \land \forall n \in \mathbb{Z}\ (f(n) = n^{2} - 3n)) \implies \forall y \in \mathbb{Z}\ \exists x \in \mathbb{Z}\ (f(x) = y)$
+\item $\displaystyle (f \colon \mathbb{Q} \to \mathbb{Q} \land \forall x \in \mathbb{Q}\ (f(x) = \frac{x - 2}{2})) \implies \lnot (\forall a, b \in \mathbb{Q}\ (f(a) = f(b) \implies a = b))$
+\item $\displaystyle (f \colon \mathbb{Q} \to \mathbb{Q} \land \forall x \in \mathbb{Q}\ (f(x) = \frac{x - 2}{2})) \implies \lnot (\forall y \in \mathbb{Q}\ \exists x \in \mathbb{Q}\ (f(x) = y))$
+\item $\displaystyle (f \colon \mathbb{N} \to \mathbb{Q}^{+} \land \forall n \in \mathbb{N}\ (f(n) = \frac{n}{n + 1})) \implies \forall y \in \mathbb{Q}^{+}\ \exists x \in \mathbb{N}\ (f(x) = y)$
+\item $\displaystyle (f \colon \mathbb{N} \to \mathbb{Q}^{+} \land \forall n \in \mathbb{N}\ (f(n) = \frac{n}{n + 1})) \implies \lnot (\forall a, b \in \mathbb{N}\ (f(a) = f(b) \implies a = b))$
+\item $\displaystyle (f \colon \mathbb{Q} \setminus \{1\} \to \mathbb{Q} \land \forall x \in \mathbb{Q} \setminus \{1\}\ (f(x) = \frac{x + 1}{x - 1})) \implies \forall y \in \mathbb{Q}\ \exists x \in \mathbb{Q} \setminus \{1\}\ (f(x) = y)$
+\item $\displaystyle (f \colon \mathbb{Q} \setminus \{1\} \to \mathbb{Q} \setminus \{1\} \land \forall x \in \mathbb{Q} \setminus \{1\}\ (f(x) = \frac{x + 1}{x - 1})) \implies \lnot (\forall y \in \mathbb{Q} \setminus \{1\}\ \exists x \in \mathbb{Q} \setminus \{1\}\ (f(x) = y))$
+\item $\displaystyle (f \colon \mathbb{Z} \to \mathbb{Q} \land \forall x \in \mathbb{Z}\ (f(x) = x^{4})) \implies \forall a, b \in \mathbb{Z}\ (f(a) = f(b) \implies a = b)$
+\item $\displaystyle (f \colon \mathbb{Z} \to \mathbb{Q} \land \forall x \in \mathbb{Z}\ (f(x) = x^{4})) \implies \forall y \in \mathbb{Q}\ \exists x \in \mathbb{Z}\ (f(x) = y)$
+\item $\displaystyle (f \colon \mathbb{Z} \to \mathbb{Z} \land \forall n \in \mathbb{Z}\ (f(n) = 2n + 1)) \implies \forall y \in \mathbb{Z}\ \exists x \in \mathbb{Z}\ (f(x) = y)$
+\item $\displaystyle (f \colon \mathbb{N}_{0} \to \mathbb{N}_{0} \land \forall n \in \mathbb{N}_{0}\ (f(n) = n + 1)) \implies \forall y \in \mathbb{N}_{0}\ \exists x \in \mathbb{N}_{0}\ (f(x) = y)$
+\item $\displaystyle (f \colon \mathbb{N} \to \mathbb{Z} \land \forall n \in \mathbb{N}\ (f(n) = n^{2} - 3n)) \implies \forall a, b \in \mathbb{N}\ (f(a) = f(b) \implies a = b)$
+\item $\displaystyle (f \colon \mathbb{Q}^{+} \to \mathbb{Q}^{+} \land \forall x \in \mathbb{Q}^{+}\ (f(x) = x^{2})) \implies \forall y \in \mathbb{Q}^{+}\ \exists x \in \mathbb{Q}^{+}\ (f(x) = y)$
+\item $\displaystyle (f \colon \mathbb{Z} \to \mathbb{Z} \land \forall n \in \mathbb{Z}\ (f(n) = n^{2} + n)) \implies \forall a, b \in \mathbb{Z}\ (f(a) = f(b) \implies a = b)$
+\item $\displaystyle (f \colon \mathbb{Q} \to \mathbb{Q} \land \forall x \in \mathbb{Q}\ (f(x) = 2x)) \implies \lnot (\forall y \in \mathbb{Q}\ \exists x \in \mathbb{Q}\ (f(x) = y))$
+\item $\displaystyle \forall x \in \mathbb{Z}\ \exists y \in \mathbb{Z}\ (2y = x)$
+\item $\displaystyle \forall a, b \in \mathbb{Z}\ (a^{2} = b^{2} \implies a = b)$
+\item $\displaystyle \exists x \in \mathbb{N}\ (x + 1 = 1)$
+\item $\displaystyle \forall n \in \mathbb{N}_{0}\ (n^{2} = n \implies n = 1)$
+\item $\displaystyle \forall x \in \mathbb{Q} \setminus \{0\}\ (x^{2} \neq 1)$
+\item $\displaystyle (f \colon \mathbb{N}_{0} \to \mathbb{N} \land \forall n \in \mathbb{N}_{0}\ (f(n) = n^{2} - 2n + 2)) \implies \forall a, b \in \mathbb{N}_{0}\ (f(a) = f(b) \implies a = b)$
+\item $\displaystyle (f \colon \mathbb{Q} \to \mathbb{Q} \land \forall x \in \mathbb{Q}\ (f(x) = x^{3})) \implies \forall y \in \mathbb{Q}\ \exists x \in \mathbb{Q}\ (f(x) = y)$
+\item $\displaystyle (f \colon \mathbb{Q} \setminus \{0\} \to \mathbb{Q} \land \forall x \in \mathbb{Q} \setminus \{0\}\ (f(x) = \frac{1}{x})) \implies \forall y \in \mathbb{Q}\ \exists x \in \mathbb{Q} \setminus \{0\}\ (f(x) = y)$
+\item $\displaystyle (f \colon \mathbb{Q} \to \mathbb{Q} \land \forall x \in \mathbb{Q}\ (f(x) = \frac{x}{x^{2} + 1})) \implies \forall a, b \in \mathbb{Q}\ (f(a) = f(b) \implies a = b)$
+\item $\displaystyle (f \colon \mathbb{Z} \to \mathbb{Z} \land \forall n \in \mathbb{Z}\ (f(n) = \ln\left(n\right) - \ln\left(n\right) + n)) \implies \forall a \in \mathbb{Z}\ (f(a) = a)$
+\end{enumerate}
+\end{document}

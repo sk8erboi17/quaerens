@@ -1,0 +1,37 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_set\_statements.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_set\_statements.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_set\_theory.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 20 statements about sets that are false. It is an anti-regression test: the engine must never report any of them as proved. It protects against changes that make the engine prove more statements by making it less strict.
+
+\item \textbf{What the statements are.} Typical mistakes: a difference treated as associative, as in $S \setminus (T \setminus V) = (S \setminus T) \setminus V$; a wrong De Morgan law; an inclusion written as an equality, as in $\mathcal{P}(S) \cup \mathcal{P}(T) = \mathcal{P}(S \cup T)$; an equivalence that needs non-empty sets, stated without that hypothesis; an existence claim that is always true.
+
+\item \textbf{A statement that was once proved by mistake.} Statement 17, $S \times T = T \times S$, was reported as proved by an earlier version of the program: having no union or inclusion sign, it was read as a product of two numbers, for which it is true. It must stay in this file.
+
+\item \textbf{Format expected by the test.} The same as the other files of this folder: one \texttt{\textbackslash item} per statement, with the formula written as \texttt{\$\textbackslash displaystyle ...\$}.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_set_theory \
+    tests/set_theory/test_set_theory.c && /tmp/test_set_theory
+\end{verbatim}
+
+\item \textbf{Expected result.} The line \texttt{PASS: 20 of 20 false statements rejected}. For each of them the program also prints a counterexample, such as $S = \{1\}$, $T = \{2\}$.
+
+\item \textbf{Adding statements.} Any new statement must fail for at least one choice of the sets.
+\end{enumerate}
+\end{document}

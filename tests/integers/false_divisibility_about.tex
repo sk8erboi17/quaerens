@@ -1,0 +1,33 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_divisibility.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_divisibility.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_integers.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 14 false statements. It is an anti-regression test: the engine must never report any of them as proved.
+
+\item \textbf{What makes them hard.} They are the false companions of \texttt{divisibility.tex}. A remainder is missing from the list; the modulus is one for which the claim fails ($x^{3} - x$ is a multiple of $6$, not of $4$); the value to be found is confined to a set that leaves out one case ($x = 1$ is neither $2y$ nor $2y + 1$ with $y \ge 1$); the variable ranges over the rationals, where the remainders mean nothing.
+
+\item \textbf{What the engine must do.} A proof by cases on the remainder is valid only if every case is proved and if, in each case, the value taken is in its set. Most of these statements hold in all cases but one.
+
+\item \textbf{Expected result.} The line \texttt{PASS: 14 of 14 false statements rejected}. For most statements the program also finds the counterexample.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_integers \
+    tests/integers/test_integers.c && /tmp/test_integers
+\end{verbatim}
+\end{enumerate}
+\end{document}

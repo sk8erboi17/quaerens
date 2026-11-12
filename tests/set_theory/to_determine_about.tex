@@ -1,0 +1,29 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{to\_determine.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{to\_determine.tex} is used for. That file is input for the engine in \texttt{main.c}. No test reads it yet.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 37 questions: in each one an object is to be found, not a statement proved. They are kept apart from the statements because they need a different kind of answer.
+
+\item \textbf{What is being tested.} Finding the inverse of a bijective map, as for $f(x) = \frac{x - 2}{2}$ on $\mathbb{Q}$; listing all relations of a kind on a small set; describing an equivalence class; finding the minimal elements of an ordered set.
+
+\item \textbf{How the statements are written.} Every property is written out as a formula, not named: for instance ``$f$ is injective'' is $\forall a, b\ (f(a) = f(b) \implies a = b)$. The engine must work from these definitions.
+
+\item \textbf{How to run it.} There is no test for this file yet: the engine has no way to produce an object as its answer.
+
+\item \textbf{Expected result.} Nothing yet. A future test should compare the object found by the engine with the expected one.
+\end{enumerate}
+\end{document}

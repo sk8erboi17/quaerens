@@ -1,0 +1,38 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_simple\_inductions.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_simple\_inductions.tex} is used for. That file is input for the induction engine in \texttt{main.c}; it is read by the test \texttt{test\_simple\_inductions.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 30 statements about sums and products that are false. It is an anti-regression test: the engine must never report any of them as proved. It protects against changes that make the engine prove more statements by making it less strict.
+
+\item \textbf{What the statements are.} Typical mistakes made on true formulas: a missing term, as in $\displaystyle \sum_{k=1}^{n} k = \frac{n^{2}}{2}$; a wrong denominator; a wrong constant, as in $\displaystyle \sum_{k=1}^{n} 2^{k} = 2^{n + 1} - 1$; a formula that is right for a sum starting at $k = 0$ but not at $k = 1$; a wrong index, as in $\displaystyle \sum_{k=1}^{n} F_{k} = F_{n + 2}$.
+
+\item \textbf{Statements that pass the base case.} Statements 5 and 14 and statements 26 to 30 are true for the first values of $n$ and false later. For example $\displaystyle \sum_{k=1}^{n} k^{2} = \frac{5n^{2} - 7n + 4}{2}$ holds for $n = 1, 2, 3$ and fails at $n = 4$. Only the inductive step, or a search for a counterexample beyond the base case, can reject them.
+
+\item \textbf{Format expected by the test.} The same as \texttt{simple\_inductions.tex}: one \texttt{\textbackslash item} per statement, with the formula written as \texttt{\$\textbackslash displaystyle ...\$}.
+
+\item \textbf{How to run it.} It is the third check of the test of this folder:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_simple_inductions \
+    tests/sums_products_inequalities/test_simple_inductions.c \
+    && /tmp/test_simple_inductions
+\end{verbatim}
+
+\item \textbf{Expected result.} The line \texttt{PASS: 30 of 30 false statements rejected}. A false statement reported as proved is printed with its number and makes the test fail.
+
+\item \textbf{Adding statements.} Any new statement must be false for at least one $n \ge 1$. A statement that is true would make this check fail as soon as the engine learns to prove it.
+\end{enumerate}
+\end{document}

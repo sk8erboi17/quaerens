@@ -1,0 +1,44 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Union, intersection, difference and power set (24)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Capital letters are arbitrary sets; $\mathcal{P}(S)$ is the set of all subsets of $S$ and $S \triangle T$ the symmetric difference of $S$ and $T$.
+
+\begin{enumerate}
+\item $\displaystyle S = T \iff \exists V \left( S \cap V = T \cap V \land S \cup V = T \cup V \right)$
+\item $\displaystyle (S \cup T) \cap V = S \cup (T \cap V) \iff S \subseteq V$
+\item $\displaystyle S \cap T \subseteq V \iff S \subseteq V \cup (S \setminus T)$
+\item $\displaystyle S \setminus (S \setminus T) = S \cap T$
+\item $\displaystyle S \setminus T = S \setminus V \iff S \cap T = S \cap V$
+\item $\displaystyle (S \setminus T) \setminus (T \setminus S) = S \setminus T$
+\item $\displaystyle (S \setminus T) \setminus V = S \setminus (T \cup V)$
+\item $\displaystyle (S \setminus T) \setminus V \subseteq S \setminus (T \setminus V)$
+\item $\displaystyle (S \setminus T) \setminus V = S \setminus (T \setminus V) \iff S \cap V = \emptyset$
+\item $\displaystyle S \setminus (T \setminus V) = (S \setminus T) \cup (S \cap V)$
+\item $\displaystyle (X \subseteq S \land Y \subseteq S) \implies S \setminus (X \setminus Y) = (S \setminus X) \cup Y$
+\item $\displaystyle S \cap (T \setminus V) = (S \cap T) \setminus (S \cap V)$
+\item $\displaystyle S \cup (T \setminus S) = S \cup T$
+\item $\displaystyle (S \setminus T) \cup (S \cap T) = S$
+\item $\displaystyle (X \subseteq S \land Y \subseteq S) \implies (X \subseteq Y \iff S \setminus Y \subseteq S \setminus X)$
+\item $\displaystyle (S \triangle T) \setminus (T \cap V) = (S \setminus T) \cup (T \setminus (S \cup V))$
+\item $\displaystyle S \subseteq T \iff \mathcal{P}(S) \subseteq \mathcal{P}(T)$
+\item $\displaystyle \mathcal{P}(S \cap T) = \mathcal{P}(S) \cap \mathcal{P}(T)$
+\item $\displaystyle \mathcal{P}(S) \cup \mathcal{P}(T) \subseteq \mathcal{P}(S \cup T)$
+\item $\displaystyle \mathcal{P}(S) \cup \mathcal{P}(T) = \mathcal{P}(S \cup T) \iff (S \subseteq T \lor T \subseteq S)$
+\item $\displaystyle \mathcal{P}(S \setminus T) \subseteq (\mathcal{P}(S) \setminus \mathcal{P}(T)) \cup \{\emptyset\}$
+\item $\displaystyle \mathcal{P}(S \setminus T) = (\mathcal{P}(S) \setminus \mathcal{P}(T)) \cup \{\emptyset\} \iff (S \subseteq T \lor S \cap T = \emptyset)$
+\item $\displaystyle \mathcal{P}(S \setminus (T \cup V)) = \mathcal{P}(S \setminus T) \cap \mathcal{P}(S \setminus V)$
+\item $\displaystyle \mathcal{P}(S \cup T) \setminus \mathcal{P}(S \cap T) = (\mathcal{P}(S \cup T) \setminus \mathcal{P}(S)) \cup (\mathcal{P}(S \cup T) \setminus \mathcal{P}(T))$
+\end{enumerate}
+\end{document}

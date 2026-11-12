@@ -1,0 +1,43 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{False statements about logarithms, trigonometry, powers and roots (23)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Every statement below is false for some integer $n\ge1$ and generic real $x$ and $a$: each one is a typical mistake made on a true formula, such as a sine written in place of a cosine or a wrong sign. The induction engine must never report any of them as proved.
+
+\begin{enumerate}
+\item $\displaystyle \sum_{k=1}^{n} \sin\left(k x\right) = \frac{\sin\left(\frac{n x}{2}\right)\,\cos\left(\frac{\left(n + 1\right)x}{2}\right)}{\sin\left(\frac{x}{2}\right)}$
+\item $\displaystyle \sum_{k=1}^{n} \cos\left(k x\right) = \frac{\sin\left(\frac{n x}{2}\right)\,\sin\left(\frac{\left(n + 1\right)x}{2}\right)}{\sin\left(\frac{x}{2}\right)}$
+\item $\displaystyle \sum_{k=1}^{n} \sin\left(k x\right) = \frac{\sin\left(\frac{n x}{2}\right)\,\sin\left(\frac{\left(n + 1\right)x}{2}\right)}{\cos\left(\frac{x}{2}\right)}$
+\item $\displaystyle \sum_{k=1}^{n} \sin^{2}\left(k x\right) = \frac{n}{2} + \frac{\sin\left(n x\right)\,\cos\left(\left(n + 1\right)x\right)}{2\,\sin x}$
+\item $\displaystyle \prod_{k=1}^{n} \cos\left(\frac{x}{2^{k}}\right) = \frac{\sin x}{2^{n}\,\sin\left(\frac{x}{2^{n + 1}}\right)}$
+\item $\displaystyle \sum_{k=1}^{n} \ln\left(1 + \frac{1}{k}\right) = \ln\left(n + 2\right)$
+\item $\displaystyle \sum_{k=1}^{n} \ln\left(1 + \frac{1}{k}\right) = \ln n$
+\item $\displaystyle \sum_{k=1}^{n} \ln k = \ln\left(\left(n + 1\right)!\right)$
+\item $\displaystyle \sum_{k=1}^{n} \ln\left(1 + \frac{2}{k}\right) = \ln\left(\left(n + 1\right)\left(n + 2\right)\right)$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{\sqrt{k} + \sqrt{k + 1}} = \sqrt{n + 1}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{\sqrt{k} + \sqrt{k + 1}} = \sqrt{n} - 1$
+\item $\displaystyle \prod_{k=1}^{n} \sqrt{1 + \frac{1}{k}} = \sqrt{n + 2}$
+\item $\displaystyle \sum_{k=1}^{n} \cos^{k} x = \frac{\cos x\left(1 - \cos^{n} x\right)}{1 + \cos x}$
+\item $\displaystyle \sum_{k=1}^{n} a^{k}\,\sin\left(k x\right) = \frac{a\,\sin x - a^{n + 1}\,\sin\left(\left(n + 1\right)x\right) + a^{n + 2}\,\sin\left(n x\right)}{1 + 2a\,\cos x + a^{2}}$
+\item $\displaystyle \sum_{k=1}^{n} e^{k x} = \frac{e^{x}\left(e^{n x} - 1\right)}{e^{x} + 1}$
+\item $\displaystyle \sum_{k=0}^{n - 1} \frac{\tan\left(2^{k}x\right)}{\cos\left(2^{k + 1}x\right)} = \tan\left(2^{n}x\right) + \tan x$
+\item $\displaystyle \sqrt{n + 1} + \sqrt{n} = \sqrt{2n + 1}$
+\item $\displaystyle \ln\left(n^{2}\right) = \ln n$
+\item $\displaystyle \sum_{k=1}^{n} \sin^{2k} x = \frac{1 - \sin^{2n + 2} x}{\cos^{2} x}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{\sqrt{2k - 1} + \sqrt{2k + 1}} = \sqrt{2n + 1} - 1$
+\item $\displaystyle \sum_{k=1}^{n} \arctan\left(\frac{1}{2k^{2}}\right) = \arctan\left(\frac{n}{n + 2}\right)$
+\item $\displaystyle \sum_{k=1}^{n} \arctan\left(\frac{2}{k^{2}}\right) = \arctan n + \arctan\left(n + 1\right) + \frac{3\pi}{4}$
+\item $\displaystyle \sum_{k=1}^{n} \arctan\left(\frac{1}{k^{2} - k + 1}\right) = \arctan\left(n + 1\right)$
+\end{enumerate}
+\end{document}

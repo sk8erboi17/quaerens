@@ -1,0 +1,37 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Finite and infinite sets (17)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+$\mathbb{N} = \{1, 2, 3, \ldots\}$, $\mathbb{N}_{0} = \mathbb{N} \cup \{0\}$; $f(X) = \{f(x) \mid x \in X\}$, $f^{-1}(Y) = \{x \mid f(x) \in Y\}$; $T^{S} = \{f \mid f \colon S \to T\}$; $\exists! y$: there is exactly one $y$. $|S|$ is the number of elements of $S$, $|S| = \infty$ if $S$ is infinite; $A \sim B \iff \exists \varphi \colon A \to B\ (\varphi \text{ injective} \land \varphi(A) = B)$.
+
+\begin{enumerate}
+\item $\displaystyle (S \neq \emptyset \land T \neq \emptyset \land S \sim T) \implies (\mathcal{P}(S) \sim \mathcal{P}(T))$
+\item $\displaystyle (S \neq \emptyset \land T \neq \emptyset) \implies (S \times T \sim T \times S)$
+\item $\displaystyle (S_{1} \neq \emptyset \land S_{2} \neq \emptyset \land T_{1} \neq \emptyset \land T_{2} \neq \emptyset \land S_{1} \sim S_{2} \land T_{1} \sim T_{2}) \implies (S_{1} \times T_{1} \sim S_{2} \times T_{2})$
+\item $\displaystyle (S_{1} \neq \emptyset \land S_{2} \neq \emptyset \land T_{1} \neq \emptyset \land T_{2} \neq \emptyset \land S_{1} \sim S_{2} \land T_{1} \sim T_{2}) \implies (T_{1}^{S_{1}} \sim T_{2}^{S_{2}})$
+\item $\displaystyle (S \neq \emptyset \land T \neq \emptyset \land V \neq \emptyset \land T \cap V = \emptyset) \implies (S^{T \cup V} \sim S^{T} \times S^{V})$
+\item $\displaystyle (S \neq \emptyset \land T \neq \emptyset \land V \neq \emptyset) \implies ((S^{T})^{V} \sim S^{T \times V})$
+\item $\displaystyle (|S| = \infty \land T \neq \emptyset) \implies ((\exists f \colon T \to S\ (\forall a, b \in T\ (f(a) = f(b) \implies a = b))) \iff S \cup T \sim S)$
+\item $\displaystyle |S| = \infty \implies (\{X \subseteq S \mid |X| < \infty\} \sim S)$
+\item $\displaystyle |S| = \infty \implies (\{X \subseteq S \mid |S \setminus X| < \infty\} \sim S)$
+\item $\displaystyle (|S| = \infty \land X \subseteq S \land |X| < \infty) \implies (S \sim S \setminus X)$
+\item $\displaystyle (2 \le |T| \land |T| < \infty \land S \neq \emptyset) \implies (|S| < \infty \iff |T^{S}| < \infty)$
+\item $\displaystyle (S \neq \emptyset \land T \neq \emptyset \land |S| < \infty \land |T| < \infty) \implies ((\exists f \colon S \to T\ (\forall y \in T\ \exists x \in S\ (f(x) = y))) \iff |S| \ge |T|)$
+\item $\displaystyle (S \neq \emptyset \land T \neq \emptyset \land f \colon S \to T) \implies (|S| < \infty \iff (|f(S)| < \infty \land \forall y \in T\ (|f^{-1}(\{y\})| < \infty)))$
+\item $\displaystyle (S \neq \emptyset \land T \neq \emptyset \land f \colon S \to T \land |S| = \infty \land y \in T) \implies (\{x \in S \mid f(x) = y\} \sim S \lor \{x \in S \mid f(x) \neq y\} \sim S)$
+\item $\displaystyle S \neq \emptyset \implies (|S| = \infty \iff \forall n \in \mathbb{N}\ \exists f \colon S \to \{1, \ldots, n\}\ (\forall y \in \{1, \ldots, n\}\ \exists x \in S\ (f(x) = y)))$
+\item $\displaystyle |S| = \infty \implies (S \sim \mathbb{N} \iff \forall X \subseteq S\ (|X| = \infty \implies X \sim S))$
+\item $\displaystyle S \neq \emptyset \implies (|S| = \infty \iff \exists F\ ((F \subseteq \mathcal{P}(S) \land \emptyset \notin F \land \forall X, Y \in F\ (X \neq Y \implies X \cap Y = \emptyset) \land \bigcup_{X \in F} X = S) \land |F| = \infty \land \forall X \in F\ (X \sim S)))$
+\end{enumerate}
+\end{document}

@@ -1,0 +1,36 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{finite\_sums\_and\_products.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{finite\_sums\_and\_products.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_simple\_inductions.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 4 identities about finite sums and products, to be proved by induction on $n$. The test asks the engine to prove each one and fails if a single statement is left unproved.
+
+\item \textbf{What is being tested.} A product that telescopes, $\displaystyle \prod_{k=2}^{n} \left(1 - \frac{1}{k^{2}}\right)$, whose induction starts at $n = 2$; a sum with factorials; a sum whose closed form is a binomial coefficient; and the product of the first $n$ odd numbers written with factorials and a power of $2$.
+
+\item \textbf{Format expected by the test.} One \texttt{\textbackslash item} per statement, with the formula written as \texttt{\$\textbackslash displaystyle ...\$}. No range is written, so the base case is the first $n$ for which the sum or product has at least one term.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_simple_inductions \
+    tests/sums_products_inequalities/test_simple_inductions.c \
+    && /tmp/test_simple_inductions
+\end{verbatim}
+
+\item \textbf{Anti-regression use.} From every statement $L = R$ the test also builds $L = R + 1$ and $L = R + n - n_{0}$, where $n_{0}$ is the base case, and requires that the engine proves neither.
+
+\item \textbf{Expected result.} The lines \texttt{PASS: 4 of 4 statements proved, each with a written proof} and \texttt{PASS: 8 of 8 false variants rejected}.
+\end{enumerate}
+\end{document}

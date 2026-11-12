@@ -1,0 +1,24 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Finite sums and products by induction (4)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Each statement is to be proved by induction on $n$, starting from the first $n$ for which the sum or product has at least one term.
+
+\begin{enumerate}
+\item $\displaystyle \prod_{k=2}^{n} \left(1 - \frac{1}{k^{2}}\right) = \frac{n + 1}{2n}$
+\item $\displaystyle \sum_{k=1}^{n} k \cdot k! = \left(n + 1\right)! - 1$
+\item $\displaystyle \sum_{k=1}^{n} k\left(k + 1\right)\left(k + 2\right) = 6\binom{n + 3}{4}$
+\item $\displaystyle \prod_{k=1}^{n} \left(2k - 1\right) = \frac{\left(2n\right)!}{2^{n} \cdot n!}$
+\end{enumerate}
+\end{document}

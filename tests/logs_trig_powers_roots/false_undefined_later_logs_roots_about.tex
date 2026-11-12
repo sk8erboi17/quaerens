@@ -1,0 +1,38 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_undefined\_later\_logs\_roots.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_undefined\_later\_logs\_roots.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_logs\_trig\_powers\_roots\_inductions.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 12 statements that are not true for every $n$, because from some value of $n$ on one side is not defined. It is an anti-regression test: the engine must never report any of them as proved.
+
+\item \textbf{What makes them hard.} The engine treats $\ln u$ as $\ln |u|$ and takes the sign of a radicand as a hypothesis, so its algebra sees two equal sides. Every value of $n$ that the program computes with numbers is fine: the first value at which something breaks is $n = 12$ at the earliest. An earlier version of the program reported such statements as proved.
+
+\item \textbf{The statement with $x^{100}$.} For $\ln(-x)$ and $\ln(x)$ no value of $x$ makes both defined. The term $x^{100}$ makes the numbers too large for exact arithmetic at every value the program tries, and an earlier version took ``the computation stopped'' for ``nothing wrong was found''. A computation that stops must not count as a confirmation.
+
+\item \textbf{What the engine must do.} It has to decide, for every logarithm, root and division, that its condition holds for \emph{every} $n \ge 1$. When it cannot decide, it must answer that the statement is not proved.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_logs_trig_powers_roots \
+    tests/logs_trig_powers_roots/test_logs_trig_powers_roots_inductions.c \
+    && /tmp/test_logs_trig_powers_roots
+\end{verbatim}
+
+\item \textbf{Expected result.} The line \texttt{PASS: 12 of 12 false statements rejected}. For each statement the program answers that it is not proved, and where it can it names the value of $n$ at which an expression is not defined.
+
+\item \textbf{Adding statements.} Any new statement must have both sides defined and equal for $n = n_0, \ldots, n_0 + 10$, where $n_0$ is its starting value, and must stop being defined at some larger $n$.
+\end{enumerate}
+\end{document}

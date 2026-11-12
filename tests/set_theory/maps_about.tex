@@ -1,0 +1,33 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{maps.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{maps.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_maps\_and\_relations.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 54 statements about maps, each to be proved. The statements are data: the engine knows none of them in advance.
+
+\item \textbf{What is being tested.} Whether a given map, such as $n \mapsto 3n$ on $\mathbb{N}_{0}$, is injective or surjective; and how images and preimages behave, as in $f(X \cap Y) = f(X) \cap f(Y)$ for every $X$, $Y$ exactly when $f$ is injective.
+
+\item \textbf{How the statements are written.} Every property is written out as a formula, not named: for instance ``$f$ is injective'' is $\forall a, b\ (f(a) = f(b) \implies a = b)$. The engine must work from these definitions.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_maps_and_relations \
+    tests/set_theory/test_maps_and_relations.c && /tmp/test_maps_and_relations
+\end{verbatim}
+
+\item \textbf{Expected result.} One \texttt{PASS} line for the file when every statement is proved with a written proof. Today the engine proves 10 of the 54 statements: those about a map between sets of numbers that is given by a single formula, such as $n \mapsto 3n$ or $x \mapsto \frac{x + 1}{x - 1}$. Maps defined by cases, with an absolute value, with pairs as values, or between arbitrary sets are reported as not supported, so the test fails. The file states the goal.
+\end{enumerate}
+\end{document}

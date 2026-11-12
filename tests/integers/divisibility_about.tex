@@ -1,0 +1,33 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{divisibility.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{divisibility.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_integers.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 14 true statements about integers: every integer is even or odd, the product of two consecutive integers is even, a square leaves remainder $0$ or $1$ when divided by $4$, and so on. The engine must prove every one of them.
+
+\item \textbf{What it exercises.} None of them can be proved by choosing one value of $y$ that works for every $x$: the right $y$ depends on the remainder of $x$. The engine has to split the proof into cases, $x = m t + r$ for $r = 0, \ldots, m - 1$, find the modulus $m$ by itself (from $2$ to $6$ here), and in each case solve for $y$ the equation of the right alternative.
+
+\item \textbf{Variety.} The variable ranges over $\mathbb{Z}$, $\mathbb{N}$, $\mathbb{N}_{0}$ or $\mathbb{N} \setminus \{1\}$, and the value to be found sometimes over a smaller set, so that in each case the engine must also show that the value it takes is in that set.
+
+\item \textbf{Expected result.} The line \texttt{PASS: 14 of 14 statements proved, each with a written proof}.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_integers \
+    tests/integers/test_integers.c && /tmp/test_integers
+\end{verbatim}
+\end{enumerate}
+\end{document}
