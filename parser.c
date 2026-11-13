@@ -279,12 +279,19 @@ typedef struct {
  * una primitiva F, scritta con la sua costante (F + c) che il lettore toglie;
  * con gli estremi è un integrale definito, e answer è un numero. Senza il
  * segno di uguale è una richiesta: answer è NULL, e la risposta la cerca il
- * motore (capitolo 30). Gli alberi stanno nell'arena. */
+ * motore (capitolo 30). Un estremo può essere +\infty o -\infty, e allora il
+ * suo albero è NULL; un integrale definito può dire anche di valere
+ * +\infty o -\infty, o di convergere (\in \mathbb{R}) o no (\notin
+ * \mathbb{R}). Gli alberi stanno nell'arena. */
 typedef struct {
     int variable;         /* la lettera x del differenziale dx */
     Node *integrand;      /* la funzione integranda, senza il dx */
-    Node *lower, *upper;  /* gli estremi; NULL tutti e due se l'integrale è indefinito */
+    int definite;         /* 1 se ci sono gli estremi */
+    Node *lower, *upper;  /* gli estremi finiti; NULL se l'integrale è indefinito, o l'estremo infinito */
+    int lower_infinite, upper_infinite;  /* +1 per +\infty, -1 per -\infty, 0 per un estremo finito */
     Node *answer;         /* F senza la costante, oppure il valore; NULL per una richiesta */
+    int answer_infinite;  /* +1 se l'enunciato dice "= +\infty", -1 se "= -\infty", altrimenti 0 */
+    int membership;       /* +1 per "\in \mathbb{R}" (converge), -1 per "\notin \mathbb{R}", altrimenti 0 */
     int constant;         /* la lettera della costante di F, se c'è; altrimenti 0 */
 } IntegralStatement;
 
@@ -332,9 +339,12 @@ typedef struct {
  *
  * Una quinta, per gli integrali (vedi parse_integral_statement(), 9j):
  *
- *     integral  := \int [ '_' group '^' group ] expr [ '=' expr ]
+ *     integral  := \int [ '_' estremo '^' estremo ] expr [ '=' risposta | (\in | \notin) \mathbb{R} ]
+ *     estremo   := group | \infty | '{' ['+' | '-'] \infty '}'
+ *     risposta  := ['+' | '-'] \infty | expr
  *
- * dove nella prima expr compare una volta sola il differenziale dx.
+ * dove nella prima expr compare una volta sola il differenziale dx; un
+ * infinito come risposta, \in e \notin solo con gli estremi.
  *
  * Le convenzioni che la grammatica fissa, e che in LaTeX sono implicite:
  *
@@ -1338,8 +1348,42 @@ static int parse_limit_statement(const char *text, LimitStatement *out) {
  *   - Una primitiva si scrive con la sua costante, F + c (o + C, + k, + K):
  *     senza, \int f \, dx = F direbbe che l'integrale indefinito è una sola
  *     funzione, e non è ciò che i libri intendono.
+ *   - Gli integrali impropri: un estremo può essere +\infty o -\infty, tra
+ *     graffe o no; \infty senza segno vale +\infty, ma solo come estremo
+ *     superiore, dove i libri lo scrivono così. Un integrale definito può
+ *     valere +\infty o -\infty, e "\int_{a}^{b} f \, dx \in \mathbb{R}" dice
+ *     che converge, "\notin \mathbb{R}" che non converge.
+ *
+ *     \int_{1}^{+\infty} \frac{dx}{x^{2}} = 1     \int_{1}^{\infty} \frac{dx}{x} = +\infty
+ *     \int_{1}^{+\infty} \sin^{2}\frac{1}{x} \, dx \in \mathbb{R}
  *
  * Che cosa vuol dire l'enunciato lo stabilisce il motore (capitolo 30). */
+
+/* 9j. Se l'estremo che comincia al token corrente è un infinito, +\infty,
+ * -\infty, oppure \infty senza segno, tra graffe o no, lo salta e ritorna +1,
+ * -1 o 2; altrimenti ritorna 0 e lascia il lettore dov'era. */
+static int bound_infinity(void) {
+    if (is_command("infty")) { next_token(); return 2; }
+    if (!is_char('{')) return 0;
+    const char *close = brace_close(cursor);
+    int sign = close ? infinity_text(cursor, close) : 0;
+    if (!sign) return 0;
+    cursor = close + 1;
+    next_token();
+    return sign;
+}
+
+/* 9j. Ritorna 1 se il testo text, a meno di spazi, è \mathbb{R}. */
+static int is_reals_text(const char *text) {
+    static const char reals[] = "\\mathbb{R}";
+    const char *r = reals;
+    for (; *text; text++) {
+        if (isspace((unsigned char)*text)) continue;
+        if (*text != *r) return 0;
+        r++;
+    }
+    return *r == 0;
+}
 
 /* Ritorna 1 se target è un fattore di tutto tree: ci si arriva scendendo per
  * prodotti, numeratori di frazioni e segni meno. */
@@ -1394,19 +1438,36 @@ static int parse_integral_statement(const char *text, IntegralStatement *out) {
     if (!is_command("int")) syntax("l'enunciato non comincia con \\int");
     differential_open = 1;
     next_token();
+    int has_lower = 0, has_upper = 0;
     for (;;) {
-        if (is_char('_') && !out->lower) { next_token(); out->lower = parse_group(); }
-        else if (is_char('^') && !out->upper) { next_token(); out->upper = parse_group(); }
-        else break;
+        if (is_char('_') && !has_lower) {
+            next_token();
+            has_lower = 1;
+            int infinite = bound_infinity();
+            if (infinite == 2) syntax("\\infty senza segno come estremo inferiore: scrivere +\\infty oppure -\\infty");
+            else if (infinite) out->lower_infinite = infinite;
+            else out->lower = parse_group();
+        } else if (is_char('^') && !has_upper) {
+            next_token();
+            has_upper = 1;
+            int infinite = bound_infinity();
+            if (infinite) out->upper_infinite = infinite == 2 ? 1 : infinite;
+            else out->upper = parse_group();
+        } else {
+            break;
+        }
     }
-    if (!out->lower != !out->upper) syntax("un integrale definito vuole tutti e due gli estremi");
+    if (has_lower != has_upper) syntax("un integrale definito vuole tutti e due gli estremi");
+    out->definite = has_lower;
     if (differentials) syntax(misplaced);
 
     /* La funzione integranda, con il suo dx al posto giusto. Un comando che
-     * la grammatica non ha la ferma prima del dx, e va detto come tale. */
+     * la grammatica non ha la ferma prima del dx, e va detto come tale; \in
+     * e \notin no, perché dopo un integrale definito dicono se converge. */
     Node *integrand = parse_expr();
     differential_open = 0;
-    if (token.kind == T_COMMAND) syntax("comando LaTeX non supportato");
+    int membership = is_command("in") ? 1 : is_command("notin") ? -1 : 0;
+    if (token.kind == T_COMMAND && !membership) syntax("comando LaTeX non supportato");
     if (!syntax_error) {
         const Node *last = integrand;
         while (last->kind == N_ADD || last->kind == N_SUB) last = last->b;
@@ -1417,12 +1478,31 @@ static int parse_integral_statement(const char *text, IntegralStatement *out) {
         }
     }
 
+    /* Converge o no: \in \mathbb{R}, \notin \mathbb{R}, dopo un integrale
+     * definito e fino alla fine. */
+    if (membership && !syntax_error) {
+        if (!out->definite || !is_reals_text(cursor)) syntax("dopo un integrale, \\in e \\notin si scrivono solo con \\mathbb{R}, e solo per un integrale definito");
+        out->membership = membership;
+        cursor = "";
+        next_token();
+    }
+
+    /* Un integrale definito che vale +\infty o -\infty: come nel valore di
+     * un limite (9i), il testo dopo il segno = è l'infinito e nient'altro. */
+    int infinite = is_char('=') && out->definite ? infinity_text(cursor, cursor + strlen(cursor)) : 0;
+    if (infinite == 2) syntax("\\infty senza segno: scrivere +\\infty oppure -\\infty");
+    if (infinite == 1 || infinite == -1) {
+        out->answer_infinite = infinite;
+        cursor = "";
+        next_token();
+    }
+
     /* La risposta, se c'è: per un integrale indefinito F + c, e la
      * costante si stacca qui. */
     if (is_char('=')) {
         next_token();
         Node *answer = parse_expr();
-        int indefinite = !out->lower;
+        int indefinite = !out->definite;
         if (token.kind == T_COMMAND) syntax("comando LaTeX non supportato");
         if (syntax_error) {
             /* L'errore c'è già: la costante non si cerca. */

@@ -1,0 +1,121 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{False limits on the scale of growth (101)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Every statement below is false. They are the limits of \texttt{growth\_scale\_limits.tex} with a wrong value: the infinity with the other sign, $0$ for an infinite limit and the converse, a finite value changed, and ``does not exist'' said of a limit that exists. The engine must never prove them.
+
+\begin{enumerate}
+\item $\displaystyle \lim_{x \to +\infty} \frac{e^{x}}{x^{5}} = 0$
+\item $\displaystyle \lim_{x \to +\infty} \frac{e^{x}}{x^{5}} = -\infty$
+\item $\displaystyle \nexists \lim_{x \to +\infty} \frac{e^{x}}{x^{5}}$
+\item $\displaystyle \lim_{x \to +\infty} x^{100} e^{-x} = +\infty$
+\item $\displaystyle \lim_{x \to +\infty} x^{100} e^{-x} = 1$
+\item $\displaystyle \nexists \lim_{x \to +\infty} x^{100} e^{-x}$
+\item $\displaystyle \lim_{x \to +\infty} \frac{\ln x}{x^{\frac{1}{10}}} = +\infty$
+\item $\displaystyle \lim_{x \to +\infty} \frac{\ln x}{x^{\frac{1}{10}}} = \frac{1}{10}$
+\item $\displaystyle \nexists \lim_{x \to +\infty} \frac{\ln x}{x^{\frac{1}{10}}}$
+\item $\displaystyle \lim_{x \to +\infty} \frac{(\ln x)^{100}}{x} = +\infty$
+\item $\displaystyle \nexists \lim_{x \to +\infty} \frac{(\ln x)^{100}}{x}$
+\item $\displaystyle \lim_{x \to +\infty} \frac{(\ln x)^{3}}{\sqrt{x}} = 3$
+\item $\displaystyle \lim_{x \to +\infty} \frac{(\ln x)^{3}}{\sqrt{x}} = +\infty$
+\item $\displaystyle \nexists \lim_{x \to +\infty} \frac{(\ln x)^{3}}{\sqrt{x}}$
+\item $\displaystyle \lim_{x \to +\infty} \left(e^{x} - x^{3}\right) = -\infty$
+\item $\displaystyle \lim_{x \to +\infty} \left(e^{x} - x^{3}\right) = 0$
+\item $\displaystyle \nexists \lim_{x \to +\infty} \left(e^{x} - x^{3}\right)$
+\item $\displaystyle \lim_{x \to +\infty} \left(2^{x} - 3^{x}\right) = +\infty$
+\item $\displaystyle \lim_{x \to +\infty} \left(2^{x} - 3^{x}\right) = 0$
+\item $\displaystyle \nexists \lim_{x \to +\infty} \left(2^{x} - 3^{x}\right)$
+\item $\displaystyle \lim_{x \to +\infty} \frac{3^{x}}{x^{2} 2^{x}} = 0$
+\item $\displaystyle \nexists \lim_{x \to +\infty} \frac{3^{x}}{x^{2} 2^{x}}$
+\item $\displaystyle \lim_{x \to +\infty} x^{3} 2^{-x} = +\infty$
+\item $\displaystyle \nexists \lim_{x \to +\infty} x^{3} 2^{-x}$
+\item $\displaystyle \lim_{x \to +\infty} \frac{e^{2x} + x}{e^{x} + 3e^{2x}} = \frac{1}{2}$
+\item $\displaystyle \lim_{x \to +\infty} \frac{e^{2x} + x}{e^{x} + 3e^{2x}} = 1$
+\item $\displaystyle \lim_{x \to +\infty} \frac{e^{2x} + x}{e^{x} + 3e^{2x}} = 0$
+\item $\displaystyle \nexists \lim_{x \to +\infty} \frac{e^{2x} + x}{e^{x} + 3e^{2x}}$
+\item $\displaystyle \lim_{x \to +\infty} \frac{e^{x}}{e^{x} + x^{10}} = 0$
+\item $\displaystyle \lim_{x \to +\infty} \frac{e^{x}}{e^{x} + x^{10}} = \frac{1}{10}$
+\item $\displaystyle \nexists \lim_{x \to +\infty} \frac{e^{x}}{e^{x} + x^{10}}$
+\item $\displaystyle \lim_{x \to +\infty} \frac{e^{x} - e^{-x}}{e^{x} + e^{-x}} = -1$
+\item $\displaystyle \lim_{x \to +\infty} \frac{e^{x} - e^{-x}}{e^{x} + e^{-x}} = 0$
+\item $\displaystyle \nexists \lim_{x \to +\infty} \frac{e^{x} - e^{-x}}{e^{x} + e^{-x}}$
+\item $\displaystyle \lim_{x \to -\infty} \frac{e^{x} - e^{-x}}{e^{x} + e^{-x}} = 1$
+\item $\displaystyle \lim_{x \to -\infty} \frac{e^{x} - e^{-x}}{e^{x} + e^{-x}} = 0$
+\item $\displaystyle \nexists \lim_{x \to -\infty} \frac{e^{x} - e^{-x}}{e^{x} + e^{-x}}$
+\item $\displaystyle \lim_{x \to -\infty} x^{4} e^{x} = +\infty$
+\item $\displaystyle \lim_{x \to -\infty} x^{4} e^{x} = -\infty$
+\item $\displaystyle \nexists \lim_{x \to -\infty} x^{4} e^{x}$
+\item $\displaystyle \lim_{x \to +\infty} x e^{-\sqrt{x}} = +\infty$
+\item $\displaystyle \lim_{x \to +\infty} x e^{-\sqrt{x}} = 1$
+\item $\displaystyle \nexists \lim_{x \to +\infty} x e^{-\sqrt{x}}$
+\item $\displaystyle \lim_{x \to +\infty} e^{x - \sqrt{x}} = 0$
+\item $\displaystyle \nexists \lim_{x \to +\infty} e^{x - \sqrt{x}}$
+\item $\displaystyle \lim_{x \to +\infty} e^{\sqrt{x} - x} = +\infty$
+\item $\displaystyle \lim_{x \to +\infty} e^{\sqrt{x} - x} = 1$
+\item $\displaystyle \nexists \lim_{x \to +\infty} e^{\sqrt{x} - x}$
+\item $\displaystyle \lim_{x \to +\infty} \frac{x^{2}}{e^{\sqrt{x}}} = +\infty$
+\item $\displaystyle \nexists \lim_{x \to +\infty} \frac{x^{2}}{e^{\sqrt{x}}}$
+\item $\displaystyle \lim_{x \to +\infty} \frac{e^{x^{2}}}{e^{x^{2} - x}} = 1$
+\item $\displaystyle \lim_{x \to +\infty} \frac{e^{x^{2}}}{e^{x^{2} - x}} = 0$
+\item $\displaystyle \nexists \lim_{x \to +\infty} \frac{e^{x^{2}}}{e^{x^{2} - x}}$
+\item $\displaystyle \lim_{x \to +\infty} \frac{x^{x}}{e^{x^{2}}} = +\infty$
+\item $\displaystyle \lim_{x \to +\infty} \frac{x^{x}}{e^{x^{2}}} = 1$
+\item $\displaystyle \nexists \lim_{x \to +\infty} \frac{x^{x}}{e^{x^{2}}}$
+\item $\displaystyle \lim_{x \to +\infty} \frac{\ln\left(1 + e^{x}\right)}{x} = 0$
+\item $\displaystyle \lim_{x \to +\infty} \frac{\ln\left(1 + e^{x}\right)}{x} = +\infty$
+\item $\displaystyle \lim_{x \to +\infty} \frac{\ln\left(1 + e^{x}\right)}{x} = 2$
+\item $\displaystyle \nexists \lim_{x \to +\infty} \frac{\ln\left(1 + e^{x}\right)}{x}$
+\item $\displaystyle \lim_{x \to +\infty} \left(1 + e^{x}\right)^{\frac{1}{x}} = 1$
+\item $\displaystyle \lim_{x \to +\infty} \left(1 + e^{x}\right)^{\frac{1}{x}} = +\infty$
+\item $\displaystyle \lim_{x \to +\infty} \left(1 + e^{x}\right)^{\frac{1}{x}} = e^{2}$
+\item $\displaystyle \nexists \lim_{x \to +\infty} \left(1 + e^{x}\right)^{\frac{1}{x}}$
+\item $\displaystyle \lim_{x \to +\infty} \left(x^{2} + 1\right)^{\frac{1}{\ln x}} = e$
+\item $\displaystyle \lim_{x \to +\infty} \left(x^{2} + 1\right)^{\frac{1}{\ln x}} = 1$
+\item $\displaystyle \lim_{x \to +\infty} \left(x^{2} + 1\right)^{\frac{1}{\ln x}} = +\infty$
+\item $\displaystyle \nexists \lim_{x \to +\infty} \left(x^{2} + 1\right)^{\frac{1}{\ln x}}$
+\item $\displaystyle \lim_{x \to +\infty} x^{\frac{1}{\sqrt{x}}} = e$
+\item $\displaystyle \lim_{x \to +\infty} x^{\frac{1}{\sqrt{x}}} = 0$
+\item $\displaystyle \nexists \lim_{x \to +\infty} x^{\frac{1}{\sqrt{x}}}$
+\item $\displaystyle \lim_{x \to +\infty} \frac{\ln(\ln x)}{\ln x} = 1$
+\item $\displaystyle \lim_{x \to +\infty} \frac{\ln(\ln x)}{\ln x} = +\infty$
+\item $\displaystyle \nexists \lim_{x \to +\infty} \frac{\ln(\ln x)}{\ln x}$
+\item $\displaystyle \lim_{x \to +\infty} \frac{\ln(\ln x)}{\sqrt{\ln x}} = +\infty$
+\item $\displaystyle \lim_{x \to +\infty} \frac{\ln(\ln x)}{\sqrt{\ln x}} = 1$
+\item $\displaystyle \nexists \lim_{x \to +\infty} \frac{\ln(\ln x)}{\sqrt{\ln x}}$
+\item $\displaystyle \lim_{x \to +\infty} \frac{\sqrt{\ln x}}{\ln(\ln x)} = 0$
+\item $\displaystyle \lim_{x \to +\infty} \frac{\sqrt{\ln x}}{\ln(\ln x)} = 1$
+\item $\displaystyle \nexists \lim_{x \to +\infty} \frac{\sqrt{\ln x}}{\ln(\ln x)}$
+\item $\displaystyle \lim_{x \to 0^{+}} \frac{\ln(-\ln x)}{\ln x} = 1$
+\item $\displaystyle \lim_{x \to 0^{+}} \frac{\ln(-\ln x)}{\ln x} = -\infty$
+\item $\displaystyle \nexists \lim_{x \to 0^{+}} \frac{\ln(-\ln x)}{\ln x}$
+\item $\displaystyle \lim_{x \to 0^{+}} \frac{e^{-\frac{1}{x}}}{x^{10}} = +\infty$
+\item $\displaystyle \lim_{x \to 0^{+}} \frac{e^{-\frac{1}{x}}}{x^{10}} = 1$
+\item $\displaystyle \nexists \lim_{x \to 0^{+}} \frac{e^{-\frac{1}{x}}}{x^{10}}$
+\item $\displaystyle \lim_{x \to 0^{+}} x^{2} e^{\frac{1}{x}} = 0$
+\item $\displaystyle \lim_{x \to 0^{+}} x^{2} e^{\frac{1}{x}} = -\infty$
+\item $\displaystyle \nexists \lim_{x \to 0^{+}} x^{2} e^{\frac{1}{x}}$
+\item $\displaystyle \lim_{x \to 0^{-}} \frac{e^{\frac{1}{x}}}{x^{3}} = -\infty$
+\item $\displaystyle \lim_{x \to 0^{-}} \frac{e^{\frac{1}{x}}}{x^{3}} = +\infty$
+\item $\displaystyle \nexists \lim_{x \to 0^{-}} \frac{e^{\frac{1}{x}}}{x^{3}}$
+\item $\displaystyle \lim_{x \to 0^{+}} \frac{e^{\frac{1}{x}}}{e^{\frac{1}{x}} + \frac{1}{x}} = 0$
+\item $\displaystyle \lim_{x \to 0^{+}} \frac{e^{\frac{1}{x}}}{e^{\frac{1}{x}} + \frac{1}{x}} = \frac{1}{2}$
+\item $\displaystyle \nexists \lim_{x \to 0^{+}} \frac{e^{\frac{1}{x}}}{e^{\frac{1}{x}} + \frac{1}{x}}$
+\item $\displaystyle \lim_{x \to 0} \frac{1}{1 + e^{\frac{1}{x^{2}}}} = 1$
+\item $\displaystyle \lim_{x \to 0} \frac{1}{1 + e^{\frac{1}{x^{2}}}} = \frac{1}{2}$
+\item $\displaystyle \nexists \lim_{x \to 0} \frac{1}{1 + e^{\frac{1}{x^{2}}}}$
+\item $\displaystyle \lim_{x \to +\infty} e^{-x}\cos x = 1$
+\item $\displaystyle \lim_{x \to +\infty} e^{-x}\cos x = +\infty$
+\item $\displaystyle \nexists \lim_{x \to +\infty} e^{-x}\cos x$
+\end{enumerate}
+\end{document}

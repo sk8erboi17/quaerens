@@ -1,6 +1,6 @@
 /* Test di dominio: limiti (capitolo 29 di main.c).
  *
- * Sette controlli. I primi tre sono quelli di tests/statement_checks.h:
+ * Nove controlli. I primi tre sono quelli di tests/statement_checks.h:
  *
  *   1. ogni enunciato di book_limits.tex viene dimostrato: dice che un limite
  *      ha il valore stampato come risultato in una raccolta di esercizi
@@ -12,20 +12,27 @@
  *      stampato sbagliato;
  *   3. nessun enunciato di book_limits_beyond.tex viene dichiarato falso:
  *      sono veri, ma il motore non li sa ancora decidere;
- *   4. almeno 247 dei 260 enunciati falsi vengono dichiarati falsi, non solo
+ *   4. almeno 256 dei 260 enunciati falsi vengono dichiarati falsi, non solo
  *      "non dimostrati": se una modifica facesse scendere questo numero il
- *      motore saprebbe riconoscere meno errori di oggi;
+ *      motore saprebbe riconoscere meno errori di oggi (erano 247 prima
+ *      della scala delle crescite, 29k);
  *   5. ogni richiesta di limit_requests.tex viene risolta, e la risposta è
  *      quella del libro: scritta allo stesso modo, oppure in un altro modo
  *      che il motore dimostra uguale;
  *   6. ogni enunciato di book_limits.tex, tolto il valore, diventa una
  *      richiesta che il motore risolve, e la risposta riletta come enunciato
  *      è dimostrata;
- *   7. gli enunciati di special_cases[] (la lettura, le convenzioni, gli
- *      errori trovati) ricevono l'esito atteso.
+ *   7. la scala delle crescite (29k, 29l): ogni enunciato di
+ *      growth_scale_limits.tex viene dimostrato, anche come richiesta, e ogni
+ *      enunciato di false_growth_scale_limits.tex viene dichiarato falso;
+ *   8. gli enunciati di special_cases[] (la lettura, le convenzioni, gli
+ *      errori trovati) ricevono l'esito atteso;
+ *   9. nessun passo scartato dai controlli indipendenti.
  *
  * Il metodo sotto esame sono le serie troncate del capitolo 29, con il
- * controllo con i numeri (29i) e la risposta riletta (29j). I dati vengono da
+ * fattore e^{G} della scala delle crescite (29k), la sostituzione
+ * x = e^{1/t} (29l), il controllo con i numeri (29i) e la risposta riletta
+ * (29j). I dati vengono da
  * photos/dati_esercizi/limiti.jsonl, confermati da un oracolo numerico
  * indipendente, e da tools/fuzz/fuzz_limits.py, non dall'uscita del
  * programma: il motore non ne conosce nessuno in anticipo.
@@ -98,8 +105,8 @@ static const ExpectedLimit expected_limits[] = {
     {"trento8-8.3c", "\\lim_{x \\to 0} \\frac{x - \\sin^{2}\\sqrt{x} - \\sin^{2} x}{x^{2}} = -\\frac{2}{3}", 0},
     {"units-3c", "\\nexists \\lim_{x \\to 0} \\frac{3x^{2} - x}{x^{5} + 2x^{2}}", 0},
     {"virdis-E15a", "\\nexists \\lim_{x \\to 0} \\frac{1}{3^{\\frac{1}{x}} + 1}", 0},
-    {"units-12e", "\\lim_{x \\to +\\infty} 2^{-x}x^{x} = +\\infty", 1},
-    {"miranda-6.0.13iii", "\\nexists \\lim_{x \\to 0} \\frac{e^{1/x} + 3}{e^{1/x} + 1}", 1},
+    {"units-12e", "\\lim_{x \\to +\\infty} 2^{-x}x^{x} = +\\infty", 0},
+    {"miranda-6.0.13iii", "\\nexists \\lim_{x \\to 0} \\frac{e^{1/x} + 3}{e^{1/x} + 1}", 0},
 };
 
 /* Un enunciato con l'esito atteso, per il controllo 7. */
@@ -142,7 +149,11 @@ static const LimitCase special_cases[] = {
     {"a bounded factor times an infinitesimal", "\\lim_{x \\to 0} x \\sin\\frac{1}{x} = 0", PROVED},
     {"a bounded term beside an infinite one", "\\lim_{x \\to +\\infty} \\sqrt{x} + \\cos x = +\\infty", PROVED},
     {"faster than any power: x e^{-x}", "\\lim_{x \\to +\\infty} x e^{-x} = 0", PROVED},
-    {"an infinite form that the growth scale would need", "\\lim_{x \\to +\\infty} \\frac{e^{x}}{x} = +\\infty", NOT_PROVED},
+    {"an infinite form decided by the scale of growth", "\\lim_{x \\to +\\infty} \\frac{e^{x}}{x} = +\\infty", PROVED},
+    {"and the hierarchy read upside down is false", "\\lim_{x \\to +\\infty} \\frac{x}{e^{x}} = +\\infty", REFUTED},
+    {"an exponential of an exponential is not compared: only its limit is known", "\\lim_{x \\to +\\infty} \\left(e^{e^{x}} - e^{e^{x} - x}\\right) = +\\infty", NOT_PROVED},
+    {"a term that the scale made a remainder is not recovered", "\\lim_{x \\to +\\infty} \\left(\\left(e^{x} + 1\\right) - e^{x}\\right) = 1", NOT_PROVED},
+    {"and the wrong value is not proved either", "\\lim_{x \\to +\\infty} \\left(\\left(e^{x} + 1\\right) - e^{x}\\right) = 0", NOT_PROVED},
 
     /* La scala dei logaritmi (29d). */
     {"x ln x", "\\lim_{x \\to 0^{+}} x \\ln x = 0", PROVED},
@@ -305,9 +316,13 @@ int main(void) {
     int passed = check_all_proved("tests/limits/book_limits.tex");
     passed = check_none_proved("tests/limits/false_limits.tex") && passed;
     passed = check_none_refuted("tests/limits/book_limits_beyond.tex") && passed;
-    passed = check_outcomes("tests/limits/false_limits.tex", PROVED, REFUTED, 247) && passed;
+    passed = check_outcomes("tests/limits/false_limits.tex", PROVED, REFUTED, 256) && passed;
     passed = check_requests("tests/limits/limit_requests.tex") && passed;
     passed = check_book_requests("tests/limits/book_limits.tex") && passed;
+    passed = check_all_proved("tests/limits/growth_scale_limits.tex") && passed;
+    passed = check_none_proved("tests/limits/false_growth_scale_limits.tex") && passed;
+    passed = check_outcomes("tests/limits/false_growth_scale_limits.tex", PROVED, REFUTED, 101) && passed;
+    passed = check_book_requests("tests/limits/growth_scale_limits.tex") && passed;
     passed = check_special_cases() && passed;
 
     /* Ogni limite calcolato passa il controllo con i numeri, e ogni valore

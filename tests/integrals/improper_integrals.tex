@@ -1,0 +1,75 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Improper integrals (55)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Every statement below is true: an integral at an infinite bound, or of a function that is not bounded near a bound or near an interior point. It says that the integral has a value, that it is $+\infty$ or $-\infty$, that it converges ($\in \mathbb{R}$), or that it does not converge ($\notin \mathbb{R}$). The engine must prove them all.
+
+\begin{enumerate}
+\item $\displaystyle \int_{1}^{2} \frac{1}{\sqrt{2 - x}} \, dx = 2$
+\item $\displaystyle \int_{2}^{+\infty} (x - 1) e^{-x^{2} + 2x} \, dx = \frac{1}{2}$
+\item $\displaystyle \int_{0}^{+\infty} \frac{\arctan\left(\sqrt{7x}\right)}{(1 + 7x)\sqrt{7x}} \, dx = \frac{\pi^{2}}{28}$
+\item $\displaystyle \int_{1}^{+\infty} 3 \cdot \frac{\arctan x}{x^{2}} \, dx = 3 \cdot \left[\frac{\pi}{4} - \ln\frac{1}{\sqrt{2}}\right]$
+\item $\displaystyle \int_{1}^{\infty} \frac{\ln x}{x^{2}} \, dx = 1$
+\item $\displaystyle \int_{0}^{2} \frac{dx}{(2 - x)^{1/3}} = \frac{3}{2}2^{2/3}$
+\item $\displaystyle \int_{0}^{\pi/2} \tan x \, dx = +\infty$
+\item $\displaystyle \int_{1}^{\infty} \frac{1}{x(\ln x)^{2}} \, dx = +\infty$
+\item $\displaystyle \int_{0}^{\infty} \frac{dx}{\sqrt{x}(1 + x)} = \pi$
+\item $\displaystyle \int_{1}^{\infty} \frac{1}{x} \, dx = +\infty$
+\item $\displaystyle \int_{0}^{\infty} e^{-x} \, dx \in \mathbb{R}$
+\item $\displaystyle \int_{0}^{\infty} e^{-x} \, dx = 1$
+\item $\displaystyle \int_{1}^{+\infty} \frac{\sqrt{x} - \sqrt{x - 1}}{x} \, dx \in \mathbb{R}$
+\item $\displaystyle \int_{1}^{+\infty} \left(\sin\frac{1}{x}\right)^{2} \, dx \in \mathbb{R}$
+\item $\displaystyle \int_{1}^{+\infty} \frac{x}{\left(\sqrt{x^{2} + 1}\right)^{3}} \, dx \in \mathbb{R}$
+\item $\displaystyle \int_{1}^{+\infty} \frac{x}{\left(\sqrt{x^{2} + 1}\right)^{2}} \, dx = +\infty$
+\item $\displaystyle \int_{1}^{+\infty} \frac{x}{\sqrt{x^{2} + 1}} \, dx = +\infty$
+\item $\displaystyle \int_{-\infty}^{1} e^{2x} \, dx = \frac{e^{2}}{2}$
+\item $\displaystyle \int_{1}^{+\infty} e^{3 - x} \, dx = e^{2}$
+\item $\displaystyle \int_{1}^{+\infty} \frac{dx}{x^{2}} = 1$
+\item $\displaystyle \int_{1}^{+\infty} x^{-\frac{3}{2}} \, dx = 2$
+\item $\displaystyle \int_{1}^{+\infty} \frac{\ln x}{x^{3}} \, dx = \frac{1}{4}$
+\item $\displaystyle \int_{0}^{+\infty} x e^{-x} \, dx = 1$
+\item $\displaystyle \int_{0}^{+\infty} e^{-x} \sin x \, dx = \frac{1}{2}$
+\item $\displaystyle \int_{-\infty}^{0} e^{x} \, dx = 1$
+\item $\displaystyle \int_{-\infty}^{+\infty} \frac{dx}{1 + x^{2}} = \pi$
+\item $\displaystyle \int_{-\infty}^{+\infty} \frac{dx}{x^{2} + 2x + 2} = \pi$
+\item $\displaystyle \int_{0}^{1} \frac{dx}{\sqrt{x}} = 2$
+\item $\displaystyle \int_{0}^{1} \frac{dx}{\sqrt{1 - x}} = 2$
+\item $\displaystyle \int_{0}^{1} \ln x \, dx = -1$
+\item $\displaystyle \int_{0}^{1} x \ln x \, dx = -\frac{1}{4}$
+\item $\displaystyle \int_{0}^{1} \frac{dx}{x} = +\infty$
+\item $\displaystyle \int_{0}^{1} \frac{dx}{x^{2}} = +\infty$
+\item $\displaystyle \int_{-1}^{0} \frac{dx}{x} = -\infty$
+\item $\displaystyle \int_{-1}^{1} \frac{dx}{x^{2}} = +\infty$
+\item $\displaystyle \int_{-1}^{1} \frac{dx}{\sqrt[3]{x}} = 0$
+\item $\displaystyle \int_{-1}^{1} \frac{dx}{x} \notin \mathbb{R}$
+\item $\displaystyle \int_{-\infty}^{+\infty} x \, dx \notin \mathbb{R}$
+\item $\displaystyle \int_{2}^{+\infty} \frac{dx}{x \ln x} = +\infty$
+\item $\displaystyle \int_{2}^{+\infty} \frac{dx}{x (\ln x)^{2}} = \frac{1}{\ln 2}$
+\item $\displaystyle \int_{e}^{+\infty} \frac{dx}{x (\ln x)^{2}} \in \mathbb{R}$
+\item $\displaystyle \int_{1}^{+\infty} \frac{dx}{x^{2} + \sqrt{x}} \in \mathbb{R}$
+\item $\displaystyle \int_{1}^{+\infty} \frac{dx}{\sqrt{x} + 1} = +\infty$
+\item $\displaystyle \int_{0}^{1} \frac{dx}{x + x^{3}} = +\infty$
+\item $\displaystyle \int_{0}^{1} \frac{dx}{\sqrt{x + x^{3}}} \in \mathbb{R}$
+\item $\displaystyle \int_{1}^{+\infty} \frac{\sin x}{x^{2}} \, dx \in \mathbb{R}$
+\item $\displaystyle \int_{1}^{+\infty} x^{5} e^{-x} \, dx \in \mathbb{R}$
+\item $\displaystyle \int_{2}^{+\infty} \frac{dx}{\ln x} = +\infty$
+\item $\displaystyle \int_{-1}^{2} \frac{dx}{x^{2}} = +\infty$
+\item $\displaystyle \int_{0}^{3} \frac{dx}{(x - 1)^{2}} = +\infty$
+\item $\displaystyle \int_{0}^{\pi} \tan x \, dx \notin \mathbb{R}$
+\item $\displaystyle \int_{\frac{1}{2}}^{2} \frac{dx}{x \ln x} \notin \mathbb{R}$
+\item $\displaystyle \int_{-2}^{2} \frac{dx}{x^{2} - 1} \notin \mathbb{R}$
+\item $\displaystyle \int_{-1}^{8} \frac{dx}{\sqrt[3]{x}} = \frac{9}{2}$
+\item $\displaystyle \int_{0}^{2\pi} \frac{dx}{\sin x} \notin \mathbb{R}$
+\end{enumerate}
+\end{document}

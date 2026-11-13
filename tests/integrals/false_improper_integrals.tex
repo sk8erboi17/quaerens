@@ -1,0 +1,70 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{False improper integrals (50)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Every statement below is false: an improper integral with a wrong value, a convergent integral said to diverge or the converse, an exponent at the boundary of the convergence criteria, and the fundamental theorem applied across a point where the integrand is not defined. The engine must never prove them.
+
+\begin{enumerate}
+\item $\displaystyle \int_{1}^{+\infty} \frac{dx}{x^{2}} = +\infty$
+\item $\displaystyle \int_{1}^{+\infty} \frac{dx}{x^{2}} = 2$
+\item $\displaystyle \int_{1}^{+\infty} \frac{dx}{x^{2}} \notin \mathbb{R}$
+\item $\displaystyle \int_{1}^{+\infty} \frac{dx}{x} \in \mathbb{R}$
+\item $\displaystyle \int_{1}^{+\infty} \frac{dx}{x} = 1$
+\item $\displaystyle \int_{1}^{+\infty} \frac{dx}{x} = -\infty$
+\item $\displaystyle \int_{0}^{1} \frac{dx}{x} \in \mathbb{R}$
+\item $\displaystyle \int_{0}^{1} \frac{dx}{x^{2}} = -1$
+\item $\displaystyle \int_{-1}^{1} \frac{dx}{x^{2}} = -2$
+\item $\displaystyle \int_{-1}^{1} \frac{dx}{x^{2}} \in \mathbb{R}$
+\item $\displaystyle \int_{-1}^{1} \frac{dx}{x} = 0$
+\item $\displaystyle \int_{-1}^{1} \frac{dx}{x} = +\infty$
+\item $\displaystyle \int_{-\infty}^{+\infty} x \, dx = 0$
+\item $\displaystyle \int_{-1}^{1} \frac{dx}{\sqrt[3]{x}} = 1$
+\item $\displaystyle \int_{-1}^{1} \frac{dx}{\sqrt[3]{x}} = +\infty$
+\item $\displaystyle \int_{0}^{1} \frac{dx}{\sqrt{x}} = +\infty$
+\item $\displaystyle \int_{0}^{1} \frac{dx}{\sqrt{x}} = 1$
+\item $\displaystyle \int_{0}^{1} \ln x \, dx = 1$
+\item $\displaystyle \int_{0}^{1} \ln x \, dx = -\infty$
+\item $\displaystyle \int_{0}^{\infty} e^{-x} \, dx = 2$
+\item $\displaystyle \int_{0}^{\infty} e^{-x} \, dx \notin \mathbb{R}$
+\item $\displaystyle \int_{0}^{+\infty} x e^{-x} \, dx = 2$
+\item $\displaystyle \int_{0}^{+\infty} e^{-x} \sin x \, dx = 1$
+\item $\displaystyle \int_{-\infty}^{+\infty} \frac{dx}{1 + x^{2}} = \frac{\pi}{2}$
+\item $\displaystyle \int_{-\infty}^{+\infty} \frac{dx}{1 + x^{2}} = +\infty$
+\item $\displaystyle \int_{2}^{+\infty} \frac{dx}{x \ln x} \in \mathbb{R}$
+\item $\displaystyle \int_{2}^{+\infty} \frac{dx}{x (\ln x)^{2}} = +\infty$
+\item $\displaystyle \int_{2}^{+\infty} \frac{dx}{x (\ln x)^{2}} = \ln 2$
+\item $\displaystyle \int_{1}^{\infty} \frac{1}{x(\ln x)^{2}} \, dx \in \mathbb{R}$
+\item $\displaystyle \int_{0}^{\pi/2} \tan x \, dx = 1$
+\item $\displaystyle \int_{0}^{\pi/2} \tan x \, dx = -\infty$
+\item $\displaystyle \int_{1}^{2} \frac{1}{\sqrt{2 - x}} \, dx = +\infty$
+\item $\displaystyle \int_{0}^{2} \frac{dx}{(2 - x)^{1/3}} = 2^{2/3}$
+\item $\displaystyle \int_{0}^{\infty} \frac{dx}{\sqrt{x}(1 + x)} = \frac{\pi}{2}$
+\item $\displaystyle \int_{1}^{+\infty} \frac{x}{\left(\sqrt{x^{2} + 1}\right)^{2}} \, dx \in \mathbb{R}$
+\item $\displaystyle \int_{1}^{+\infty} \frac{x}{\left(\sqrt{x^{2} + 1}\right)^{3}} \, dx = +\infty$
+\item $\displaystyle \int_{1}^{+\infty} \frac{\sqrt{x} - \sqrt{x - 1}}{x} \, dx \notin \mathbb{R}$
+\item $\displaystyle \int_{1}^{+\infty} \left(\sin\frac{1}{x}\right)^{2} \, dx = +\infty$
+\item $\displaystyle \int_{-\infty}^{1} e^{2x} \, dx = e^{2}$
+\item $\displaystyle \int_{1}^{+\infty} e^{3 - x} \, dx = e^{3}$
+\item $\displaystyle \int_{2}^{+\infty} \frac{dx}{\ln x} \in \mathbb{R}$
+\item $\displaystyle \int_{1}^{+\infty} \frac{dx}{\sqrt{x} + 1} \in \mathbb{R}$
+\item $\displaystyle \int_{0}^{1} \frac{dx}{x + x^{3}} \in \mathbb{R}$
+\item $\displaystyle \int_{1}^{+\infty} x^{5} e^{-x} \, dx = +\infty$
+\item $\displaystyle \int_{-1}^{2} \frac{dx}{x^{2}} = -\frac{3}{2}$
+\item $\displaystyle \int_{0}^{3} \frac{dx}{(x - 1)^{2}} = -\frac{3}{2}$
+\item $\displaystyle \int_{0}^{\pi} \tan x \, dx = 0$
+\item $\displaystyle \int_{\frac{1}{2}}^{2} \frac{dx}{x \ln x} = 0$
+\item $\displaystyle \int_{-2}^{2} \frac{dx}{x^{2} - 1} = -\ln 3$
+\item $\displaystyle \int_{-1}^{8} \frac{dx}{\sqrt[3]{x}} = 6$
+\end{enumerate}
+\end{document}

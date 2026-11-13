@@ -1,0 +1,35 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{improper\_integrals.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{improper\_integrals.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_integrals.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 55 true statements on improper integrals: a value, $\int_{1}^{+\infty} \frac{dx}{x^{2}} = 1$; a divergence, $\int_{0}^{\pi/2} \tan x \, dx = +\infty$; a convergence without the value, $\int_{1}^{+\infty} \left(\sin\frac{1}{x}\right)^{2} dx \in \mathbb{R}$; or an integral that does not converge, $\int_{-1}^{1} \frac{dx}{x} \notin \mathbb{R}$.
+
+\item \textbf{Where it comes from.} The first 19 statements are the improper integrals of \texttt{photos/dati\_esercizi/integrali.jsonl} (Verona, Brescia, Colorado, the Gervasio slides, Virdis), whose printed results an independent numerical oracle confirmed: nine with a proposed statement, which were in \texttt{book\_integrals\_beyond.tex}; the convergence questions written as $\in \mathbb{R}$; the divergence of colorado-7.8-13, which comes from the finite end $x = 1$; the parameter of univr-29.9 at $n = 1, 2, 3$ (it converges exactly for $n \ge 3$); and the two halves of the unbounded area of virdis-Esame14. The others are classic examples, with values computed by hand: the scale $x^{-\alpha} (\ln x)^{-\beta}$ on both sides of its boundaries, $\ln x$ and $\frac{1}{\sqrt{x}}$ at $0$, integrals over the whole real line, and integrands not defined at an interior point; the last seven are the integrals of \texttt{false\_improper\_integrals.tex} on which the fundamental theorem applied across that point gives a wrong value, with their true verdict.
+
+\item \textbf{How it is written.} As in \texttt{book\_integrals.tex}: $\ln$ for the natural $\log$ of the university sources. $\infty$ without a sign, as an upper bound, is $+\infty$, as the sources write it.
+
+\item \textbf{What it exercises.} Rule 30k of chapter 30: the antiderivative found and checked (30a--30h), the conditions of existence of the integrand and of the antiderivative decided by the sign table on the open interval, with the split at a point where they fail ($\int_{-1}^{1} \frac{dx}{x^{2}}$), the limits of the antiderivative at the ends computed by chapter 29 with the scale of growth (29k), and the Riemann enclosures on compact intervals growing towards the ends as the independent check. Rule 30l, the comparison with $t^{e} \left(\ln\frac{1}{t}\right)^{d}$ from the leading term of the integrand, decides the convergence when there is no antiderivative, and checks it a second time when there is one.
+
+\item \textbf{Expected result.} The line \texttt{PASS: 55 of 55 statements proved, each with a written proof}; and every statement with a value or an infinity, asked without it as a request, answered with a result that is then proved.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_integrals \
+    tests/integrals/test_integrals.c && /tmp/test_integrals
+\end{verbatim}
+\end{enumerate}
+\end{document}

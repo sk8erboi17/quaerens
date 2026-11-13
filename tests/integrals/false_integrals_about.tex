@@ -20,7 +20,7 @@ This note explains what the test data in \texttt{false\_integrals.tex} is used f
 
 \item \textbf{What it exercises.} That no change to the engine makes it prove a wrong antiderivative or a wrong value. And, as a second check, how many of them it calls false, not only ``not proved'': an antiderivative is false when, at a point where both sides are defined, the derivative of the right side read from its Taylor series and the derivative by the rules agree with each other and are both surely different from the integrand; a definite integral is false when the Riemann enclosure of the integral, computed with interval arithmetic, surely excludes the stated value.
 
-\item \textbf{Expected result.} The lines \texttt{PASS: 148 of 148 false statements rejected} and \texttt{PASS: 118 of 148 statements \ldots{} are REFUTED (at least 118 wanted), 0 are PROVED}. The other 30 are variants of the statements the engine does not decide (improper integrals, $\arcsin$, $\cosh$, roots of negative numbers): there it says it cannot decide.
+\item \textbf{Expected result.} The lines \texttt{PASS: 148 of 148 false statements rejected} and \texttt{PASS: 140 of 148 statements \ldots{} are REFUTED (at least 140 wanted), 0 are PROVED}. They were 125 before the improper integrals (rule 30k), whose variants are now refuted from the computed value. The other 8 are variants of the statements the engine does not decide ($\arcsin$, square roots of quadratics, two improper integrals whose antiderivative it does not find): there it says it cannot decide.
 
 \item \textbf{How to run it.} From the top folder of the repository:
 \begin{verbatim}

@@ -29,9 +29,10 @@
  * studio di una funzione lo decide la tabella dei segni. E i limiti,
  * \lim_{x \to 0} \frac{1 - \cos x}{x^2} = \frac{1}{2}, anche da un lato, a
  * \pm\infty, di successioni: con gli sviluppi in serie troncati, a
- * coefficienti esatti (capitolo 29). Senza il valore, \lim_{x \to a} f è una
- * richiesta, e la risposta è RISOLTO con il limite, oppure con il fatto che
- * non esiste.
+ * coefficienti esatti, e la scala delle crescite quando esponenziali,
+ * potenze e logaritmi competono, come in e^x / x^5 o in \ln x / \ln \ln x
+ * (capitolo 29). Senza il valore, \lim_{x \to a} f è una richiesta, e la
+ * risposta è RISOLTO con il limite, oppure con il fatto che non esiste.
  *
  * Tratta altre tre famiglie di enunciati, ognuna con il suo metodo e con la
  * dimostrazione scritta per esteso:
@@ -92,7 +93,14 @@
  * sostituzione) e consegna, RISOLTO, solo dopo averla verificata allo stesso
  * modo. \int_{a}^{b} f \, dx = V si dimostra con il teorema fondamentale del
  * calcolo, dopo aver controllato con gli intervalli che f sia continua su
- * [a, b], e il valore si ricontrolla con una somma di Riemann.
+ * [a, b], e il valore si ricontrolla con una somma di Riemann. Gli
+ * integrali impropri, con un estremo infinito o una funzione non limitata
+ * vicino a un estremo o a un punto interno, valgono il limite della
+ * primitiva agli estremi, calcolato con i limiti del capitolo 29, dopo che
+ * la tabella dei segni ha mostrato le funzioni definite sull'intervallo
+ * aperto; e l'enunciato può dire di valere +\infty o di convergere
+ * (\in \mathbb{R}), che senza una primitiva si decide per confronto con
+ * x^{-a} (\ln x)^{-b}.
  *
  * Gli enunciati arrivano da un file .tex (un \item per enunciato, capitolo 21)
  * oppure, senza argomenti, da una riga di stdin. Dopo la formula un \item può
@@ -218,15 +226,16 @@
  *     successione per ricorrenza: il capitolo 21 la legge. Di una tale
  *     successione non si dimostrano ancora le tesi che non sono né una
  *     formula per a_n né una stima (vedi il capitolo 26).
- *   - Nei limiti: la scala delle crescite di esponenziali e logaritmi
- *     all'infinito (e^x / x, \ln x / \ln\ln x), le stime per le divergenze
- *     con oscillazioni, due successioni per dire che un limite a \pm\infty
- *     non esiste, i parametri, le funzioni definite a pezzi. Il capitolo 29
- *     dice dove andrebbero.
- *   - Negli integrali: quelli impropri e le aree, le primitive con arcoseno
- *     o funzioni iperboliche, la ricerca delle primitive delle radici di
- *     polinomi di secondo grado, i parametri. Il capitolo 30 dice dove
- *     andrebbero.
+ *   - Nei limiti: le stime per le divergenze con oscillazioni, due
+ *     successioni per dire che un limite a \pm\infty non esiste, i
+ *     parametri, le funzioni definite a pezzi; nella scala delle crescite,
+ *     un esponenziale di un esponenziale come fattore e i logaritmi annidati
+ *     più di una volta. Il capitolo 29 dice dove andrebbero.
+ *   - Negli integrali: le aree, le primitive con arcoseno o funzioni
+ *     iperboliche, la ricerca delle primitive delle radici di polinomi di
+ *     secondo grado, i parametri; negli impropri, le oscillazioni
+ *     (\int_0^{+\infty} \cos x \, dx) e i domini che la tabella dei segni
+ *     non sa decidere. Il capitolo 30 dice dove andrebbero.
  *   - Negli enunciati con quantificatori: i numeri reali e complessi, le
  *     disuguaglianze, il valore assoluto, le applicazioni definite per casi o
  *     a valori in coppie. Il linguaggio è nel capitolo 17; ogni nuovo modo
@@ -311,7 +320,9 @@
  * insiemi qualsiasi ogni passo viene riletto con un metodo diverso da quello
  * che l'ha trovato (28e); per i limiti la funzione viene ricalcolata con gli
  * intervalli vicino al punto, e ogni valore scritto viene riletto (29i,
- * 29j). Per
+ * 29j); per gli integrali impropri la primitiva viene ricontrollata con le
+ * somme di Riemann su intervalli che si allargano verso gli estremi, e la
+ * convergenza con il confronto (30k). Per
  * l'induzione si fa di più: ogni formula scritta viene riletta dal testo,
  * con il parser degli enunciati, e ricalcolata con i numeri (13g). Una
  * dimostrazione che non supera il controllo non viene stampata.
@@ -424,7 +435,7 @@
  *   27. Derivate: dimostrarle, calcolarle, usarle negli studi di funzione
  *   28. Insiemi qualsiasi: modelli finiti, istanze, uguali al posto di uguali
  *   29. Limiti
- *   30. Integrali: primitive e integrali definiti
+ *   30. Integrali: primitive, integrali definiti e impropri
  *   20. Dimostrare un enunciato
  *   22. Il documento finale                                 (output.c)
  *   23. main
@@ -20934,41 +20945,54 @@ static Verdict inequality_plan(const Statement *statement, int variable, int has
     return verdict;
 }
 
-/* Chiede alla tabella dei segni (18p) l'enunciato question, "per ogni x
- * reale ...", e ne ritorna il verdetto. È il solo punto in cui i capitoli 25
- * e 26 usano la tabella: le danno un enunciato scritto in LaTeX, come
- * farebbe un utente, e ne ricevono il verdetto e la dimostrazione.
+/* Chiede al metodo method l'enunciato question, scritto in LaTeX come lo
+ * scriverebbe un utente, e ne ritorna il verdetto. È così che un capitolo ne
+ * usa un altro che riparte da zero: i capitoli 25 e 26 la tabella dei segni
+ * (ask_sign_table()), il capitolo 30 la tabella e i limiti del capitolo 29.
  *
- * La tabella riparte da zero: svuota l'arena, la tabella degli atomi e il
- * testo della dimostrazione. Chi chiama deve quindi aver finito con alberi e
- * polinomi; il testo già scritto invece viene messo da parte qui e, se la
- * tabella dimostra l'enunciato, ricomposto: prima quel testo, poi la
- * dimostrazione della tabella senza il quadratino con cui la chiude. Se
- * insieme non stanno nel testo, della tabella resta solo una frase. Il
- * grafico non viene costruito: sarebbe quello di un passo, non
- * dell'enunciato. */
-static Verdict ask_sign_table(const char *question) {
+ * Il metodo svuota l'arena, la tabella degli atomi e il testo della
+ * dimostrazione. Chi chiama deve quindi aver finito con alberi e polinomi;
+ * il testo già scritto invece viene messo da parte qui e, se il metodo
+ * dimostra o risolve l'enunciato, ricomposto: prima quel testo, poi la
+ * dimostrazione del metodo senza il quadratino con cui la chiude. Se insieme
+ * non stanno nel testo, del metodo resta solo la frase short. Se il metodo
+ * non dimostra e non risolve, il testo è quello che il metodo ha lasciato,
+ * oppure, con keep, quello di prima. Il grafico non viene costruito:
+ * sarebbe quello di un passo, non dell'enunciato. */
+static Verdict ask_method(Verdict (*method)(const char *), const char *question, const char *short_text, int keep) {
     static char written[PROOF_BYTES];
     static const char box[] = " $\\Box$";
     size_t length = proof_length, closing = sizeof box - 1;
     int wanted = figures_wanted;
     memcpy(written, proof_text, length + 1);
     figures_wanted = 0;
-    Verdict table = prove_quantified(question);
+    Verdict answer = method(question);
     figures_wanted = wanted;
-    if (table.outcome != PROVED) return table;
+    if (answer.outcome != PROVED && answer.outcome != SOLVED) {
+        if (keep) {
+            memcpy(proof_text, written, length + 1);
+            proof_length = length;
+        }
+        return answer;
+    }
 
     size_t tail = proof_length;
     if (tail >= closing && strcmp(proof_text + tail - closing, box) == 0) proof_cut(tail -= closing);
     if (length + tail + 64 >= PROOF_BYTES) {
         proof_reset();
-        proof_add("%sThe sign table, too long to be written here, shows that the condition holds on every row.", written);
+        proof_add("%s%s", written, short_text);
     } else {
         memmove(proof_text + length, proof_text, tail + 1);
         memcpy(proof_text, written, length);
         proof_length = length + tail;
     }
-    return table;
+    return answer;
+}
+
+/* Chiede alla tabella dei segni (18p) l'enunciato question, "per ogni x
+ * reale ...", con ask_method(). */
+static Verdict ask_sign_table(const char *question) {
+    return ask_method(prove_quantified, question, "The sign table, too long to be written here, shows that the condition holds on every row.", 0);
 }
 
 /* Prova a dimostrare per induzione la disuguaglianza scritta in formula, con
@@ -25560,25 +25584,42 @@ static Verdict prove_abstract(const char *formula) {
  *
  * Il risultato viene ricontrollato per un'altra strada: la funzione,
  * calcolata direttamente dall'albero con gli intervalli del capitolo 24
- * (node_range(), che non sa nulla di serie), nei punti t = 2^{-k}. Da ogni
- * lato il conto ha dato più del limite: f - L ~ g(t), oppure f ~ g(t) per
- * un limite infinito, con g = c t^e L^d il termine principale. Nei punti in
- * cui l'intervallo è abbastanza stretto, il rapporto (f - L)/g deve stare
- * tra 1/16 e 16 (tende a 1). Che cosa garantisce: un valore L sbagliato, un
- * segno o un ordine sbagliati fanno andare il rapporto a 0 o all'infinito,
- * e lo si vede appena t è abbastanza piccolo da lasciare indietro i termini
- * successivi; due punti consecutivi fuori dall'intervallo sono una
- * contraddizione, il passo si conta tra quelli non giustificati e il
- * verdetto è NON DIMOSTRATO. Che cosa non garantisce: nulla, da solo,
- * perché un numero finito di valori non decide un limite; e un errore più
- * piccolo di un fattore 16 nel coefficiente principale, o nascosto da una
- * convergenza lentissima, passa. Per questo il controllo conferma e non
- * dimostra: senza almeno un punto che confermi il verdetto è NON
- * DIMOSTRATO. Quando il limite viene dall'algebra dei limiti (29g) non c'è
- * un termine principale, e si chiede solo che nell'ultimo punto utile f
- * stia vicino a L, o abbia il segno dell'infinito. Lo stesso controllo
- * vale per il campo di esistenza: un lato dichiarato senza valori deve
- * risultare senza valori nei punti più vicini al punto, e viceversa.
+ * (node_range(), che non sa nulla di serie), nei punti x = a \pm 2^{-k}, o
+ * x = \pm 2^{k} all'infinito. Da ogni lato il conto ha dato più del limite:
+ * f - L ~ g(t), oppure f ~ g(t) per un limite infinito, con
+ * g = c t^e L^d e^{G} il termine principale (29k: il fattore e^{G} è esatto,
+ * e lo si calcola per intero con gli intervalli, L compresa). In quei punti
+ * t = 2^{-k} e L = k ln 2; dopo la sostituzione di 29l t = 1/(k ln 2) e
+ * L = ln(k ln 2), e i punti arrivano fino a k = 1000 perché L cresce
+ * piano. Nei punti in cui l'intervallo è abbastanza stretto, il rapporto
+ * (f - L)/g deve stare tra 1/16 e 16 (tende a 1); un punto in cui f o g
+ * escono dai numeri della macchina (e^{x} per x = 2^{10}) non si usa. E g
+ * deve andare dove va il limite: |g| deve scendere tra due valori lontani
+ * di L (10^6 e 10^{12}, o 64 ln 2 e 256 ln 2 con un fattore e^{G}, che lì
+ * resta tra i numeri della macchina) se il limite è finito, salire se è
+ * infinito; lo si calcola dalla formula di g, in logaritmi, senza f. Che
+ * cosa garantisce: un valore L sbagliato, un segno o un ordine sbagliati
+ * fanno andare il rapporto a 0 o all'infinito, e lo si vede appena t è
+ * abbastanza piccolo da lasciare indietro i termini successivi; due punti
+ * consecutivi fuori dall'intervallo sono una contraddizione, il passo si
+ * conta tra quelli non giustificati e il verdetto è NON DIMOSTRATO. Così
+ * anche una g che va nella direzione sbagliata: è la regola che dal termine
+ * principale ricava il limite (29c, 29k) a essere smentita, che il
+ * rapporto da solo non vedrebbe (f ~ g anche se si sbaglia dove va g).
+ * Che cosa non garantisce: nulla, da solo, perché un numero finito di
+ * valori non decide un limite; e un errore più piccolo di un fattore 16 nel
+ * coefficiente principale, o nascosto da una convergenza lentissima, passa.
+ * Per questo il controllo conferma e non dimostra: senza almeno un punto
+ * che confermi il verdetto è NON DIMOSTRATO. Quando di f - L non si conosce
+ * un termine principale ma solo il resto, O(t^{E}), o il fatto che è più
+ * piccolo di ogni potenza (una funzione piatta, un fattore e^{G} che va a
+ * zero), si chiede |f - L| <= 16 (1 + |L|) t^{B} nell'ultimo punto
+ * abbastanza preciso, con B = min(E, 1), o B = 4 se è piatta. Quando il
+ * limite viene dall'algebra dei limiti (29g) non c'è nemmeno quello, e si
+ * chiede solo che nell'ultimo punto utile f stia vicino a L, o abbia il
+ * segno dell'infinito. Lo stesso controllo vale per il campo di esistenza:
+ * un lato dichiarato senza valori deve risultare senza valori nei punti più
+ * vicini al punto, e viceversa.
  *
  * 29j. IL VERDETTO E LA RISPOSTA RILETTA
  *
@@ -25594,11 +25635,74 @@ static Verdict prove_abstract(const char *formula) {
  * quello della funzione con n reale: se questo esiste la successione ha lo
  * stesso limite (teorema ponte), ma se non esiste non si può dire nulla.
  *
- * Che cosa manca. La scala delle crescite per esponenziali e logaritmi
- * all'infinito (e^{x} contro x^{100}, ln ln x), che servirebbe quando
- * l'algebra dei limiti trova \infty / \infty; le stime (8 + sin^2 x \ge 8)
- * per divergenze con oscillazioni; due successioni per dimostrare che un
- * limite in +\infty non esiste; i parametri; le funzioni definite a pezzi.
+ * 29k. LA SCALA DELLE CRESCITE
+ *
+ * e^{x} / x^{5} a +\infty è \infty / \infty per l'algebra dei limiti, e
+ * e^{1/t} non ha una serie in t. Lo si scrive allora con un fattore in più:
+ * una funzione è e^{G} S, con S una serie come in 29b e G un esponente
+ * esatto, una somma finita di termini g_i(L) t^{-k_i} con k_i > 0 e i
+ * coefficienti g_i frazioni di polinomi nelle costanti e in L. e^{x} è
+ * e^{t^{-1}} 1, x^{x} 2^{-x} = e^{x ln x - x ln 2} è e^{(L - ln 2) t^{-1}} 1,
+ * e^{1/x} da destra di 0 è e^{t^{-1}} 1. È la scala delle crescite dei libri,
+ * c x^{a} (\ln x)^{b} e^{P(x)}, con il confronto fattore per fattore: un
+ * pezzo ristretto del metodo di Gruntz (D. Gruntz, "On computing limits in a
+ * symbolic manipulation system", tesi, ETH Zurigo 1996), che a sua volta
+ * viene dai campi di Hardy (G. H. Hardy, "Orders of infinity", 1910). I
+ * fatti su cui si regge, con t -> 0^{+} e L = ln(1/t):
+ *
+ *   (a) L cresce meno di ogni potenza: t^{eps} L^{d} -> 0 per ogni eps > 0
+ *       e ogni d (con s = L, t^{eps} L^{d} = e^{-eps s} s^{d}, e
+ *       l'esponenziale batte ogni potenza di s);
+ *   (b) se H = lambda(L) t^{-k} (1 + o(1)) con k > 0 e lambda(L) ~ c L^{j},
+ *       c != 0, allora H / L -> +\infty o -\infty con il segno di c, perché
+ *       t^{-k} L^{j - 1} -> +\infty per (a). Quindi per ogni e e d
+ *
+ *           e^{H} t^{e} L^{d} = exp(H - e L + d ln L) -> +\infty oppure 0,
+ *
+ *       perché H - e L + d ln L = H (1 + o(1)): e^{H} sta sopra o sotto ogni
+ *       potenza di t e di L. È il confronto "gli esponenziali battono le
+ *       potenze, che battono i logaritmi" dei libri;
+ *   (c) somma: se G1 - G2 = H come in (b) con c > 0, allora
+ *       e^{G1} S1 + e^{G2} S2 = e^{G1} (S1 + e^{-H} S2), ed e^{-H} S2 è più
+ *       piccola di ogni potenza di t (b): è una funzione piatta (29e). Se
+ *       G1 - G2 è esattamente zero (test di annullamento) le serie si
+ *       sommano; se non si sa che segno ha, il conto si ferma;
+ *   (d) prodotto e quoziente: e^{G1} S1 e^{G2} S2 = e^{G1 + G2} S1 S2, e
+ *       1 / (e^{G} S) = e^{-G} / S;
+ *   (e) potenze e logaritmi: (e^{G} S)^q = e^{q G} S^q e
+ *       ln(e^{G} S) = G + ln S, perché e^{G} > 0;
+ *   (f) l'esponenziale: se v = N + c(L) + P, con N i termini di esponente
+ *       negativo (esatti, perché il resto di v tende a zero), c(L) il
+ *       termine costante e P -> 0, allora e^{v} = e^{N} e^{c(L)} e^{P}:
+ *       e^{N} è il fattore nuovo, gli altri due li sa già scrivere 29d. Se
+ *       v ha già un fattore e^{G}, e^{v} sale di un piano (e^{e^{x}}) e si
+ *       sa solo il suo limite, come in 29g.
+ *
+ * Il limite di e^{G} S: G ha un termine principale c t^{-k}; se c > 0 la
+ * funzione tende all'infinito con il segno del termine principale di S, se
+ * c < 0 tende a 0. Le funzioni che non sanno trattare il fattore (seno,
+ * coseno, arcotangente) lo ricevono come lo vedeva l'algebra dei limiti:
+ * un infinito, o una funzione piatta (value_plain()).
+ *
+ * 29l. SALIRE DI UN PIANO: x = e^{1/t}
+ *
+ * ln x / ln ln x a +\infty chiederebbe il logaritmo di L, che i coefficienti
+ * non hanno. È il "moving up" di Gruntz: con x = e^{1/t} ogni ln x diventa
+ * 1/t e ogni ln ln x diventa L, e i logaritmi scendono di un piano. La
+ * sostituzione è lecita perché t -> e^{1/t} è una biiezione crescente da
+ * (0, +\infty) a (1, +\infty), e t -> 0^{+} se e solo se x -> +\infty:
+ * allora lim_{x -> +\infty} f(x) = lim_{t -> 0^{+}} f(e^{1/t}), nei due versi.
+ * Allo stesso modo x = e^{-1/t} da destra di 0, x = -e^{1/t} a -\infty,
+ * x = -e^{-1/t} da sinistra di 0; in un punto a diverso da zero x - a non
+ * avrebbe una forma sola, e la sostituzione non si fa. La si prova solo
+ * quando quella di 29a non arriva a un limite: con x = e^{1/t} un polinomio
+ * come (x + 1)^2 - x^2 perde i termini piccoli (c), e non si scioglie più.
+ *
+ * Che cosa manca. Le stime (8 + sin^2 x \ge 8) per divergenze con
+ * oscillazioni; due successioni per dimostrare che un limite in +\infty non
+ * esiste; i parametri; le funzioni definite a pezzi; un esponenziale di un
+ * esponenziale come fattore (e^{e^{x}} - e^{e^{x} - x}); i logaritmi annidati
+ * più di una volta (ln ln ln x), che chiederebbero di salire di due piani.
  * Non c'è un certificato: il verificatore non ha serie né funzioni
  * trascendenti.
  */
@@ -25615,6 +25719,7 @@ static Verdict prove_abstract(const char *formula) {
 #define MAX_SERIES_DEN 24    /* denominatore massimo degli esponenti di una serie */
 #define MAX_TAYLOR 20        /* termini di una serie di Taylor: 1/20! sta ancora nei razionali */
 #define LIMIT_SAMPLES 60     /* punti del controllo con i numeri, t = 2^{-k} con k fino a 60 */
+#define MOVED_SAMPLES 1000   /* lo stesso dopo la sostituzione di 29l: k fino a 1000, di 4 in 4 */
 
 /* Le precisioni provate una dopo l'altra (29c): si sviluppa fino a t^4, poi
  * fino a t^8, poi fino a t^16, finché il termine principale non si trova. */
@@ -25654,15 +25759,20 @@ typedef struct {
  *   V_UNKNOWN    niente: il conto non sa andare avanti, e why dice perché. */
 typedef enum { V_SERIES, V_LIMIT, V_UNDEFINED, V_UNKNOWN } ValueKind;
 
-/* Una funzione vicino al punto, con ciò che se ne sa (vedi ValueKind). */
+/* Una funzione vicino al punto, con ciò che se ne sa (vedi ValueKind). Per
+ * V_SERIES la funzione è e^{G} S (29k), con S = series e G = growth; senza
+ * fattore growth ha count = 0.
+ * Invariante: growth è esatta, con i soli esponenti negativi; se ha dei
+ * termini, series non è esattamente zero (value_grown()). */
 typedef struct {
     ValueKind kind;
-    Series series;    /* V_SERIES */
+    Series series;    /* V_SERIES: S */
     int infinite;     /* V_LIMIT: +1 per +\infty, -1 per -\infty, 0 per un numero */
     Rat value;        /* V_LIMIT finito: il numero, senza la lettera L */
     int approach;     /* V_LIMIT finito: +1 se la funzione sta sopra il numero, -1 sotto, 0 se non si sa */
     int positive;     /* 1 se la funzione è certamente positiva vicino al punto */
     const char *why;  /* V_UNDEFINED, V_UNKNOWN: perché, in italiano */
+    Series growth;    /* V_SERIES: l'esponente G del fattore e^{G} (29k) */
 } Value;
 
 /* Il motivo con cui un conto chiede più termini (29c): ha un nome perché
@@ -25671,10 +25781,16 @@ static const char *const NEEDS_PRECISION = "lo sviluppo, anche con più termini,
 
 /* Il limite in corso: la variabile, il punto (finito, o +1 / -1 per
  * +\infty e -\infty), il lato, la precisione cercata (un esponente intero
- * di t), l'atomo della lettera L, e se una potenza f^g è stata letta come
- * e^{g ln f} (lo dice la dimostrazione). */
-static int lim_x, lim_infinity, lim_side, lim_goal, lim_ell, lim_exponential;
+ * di t), l'atomo della lettera L, se una potenza f^g è stata letta come
+ * e^{g ln f} (lo dice la dimostrazione), e se la variabile è scritta con la
+ * sostituzione di 29l, x = \pm e^{\pm 1/t}. */
+static int lim_x, lim_infinity, lim_side, lim_goal, lim_ell, lim_exponential, lim_moved;
 static Rat lim_point;
+
+/* Il valore di L durante il controllo con i numeri (29i), per gli intervalli
+ * dei coefficienti che la contengono; "non so" in ogni altro momento, perché
+ * L è una lettera e non un numero. */
+static Range lim_ell_range = {1, -1};
 
 /* Somma di due esponenti: SERIES_FLAT se uno dei due lo è. Due esponenti
  * veri non devono mai arrivare vicino a SERIES_FLAT, che vuol dire "più di
@@ -25884,7 +26000,8 @@ static Pair poly_pair(Poly p);
 static Range mono_real_range(const Mono *m);
 
 /* Ritorna il valore dell'atomo elevato a e, come numero complesso, o "non
- * so". La lettera L non ha un valore: il suo intervallo è "non so". */
+ * so". La lettera L ha un valore solo durante il controllo con i numeri
+ * (lim_ell_range); altrimenti il suo intervallo è "non so". */
 static Pair atom_pair(int atom, Frac e) {
     const Atom *a = &atoms[atom];
     Pair none = {range_none(), range_none()};
@@ -25900,6 +26017,7 @@ static Pair atom_pair(int atom, Frac e) {
     case ATOM_VAR:
         if (a->id == VAR_PI) base = range_pi();
         else if (a->id == 'e') base = range_exp_at(1);
+        else if (a->id == VAR_LOG_SCALE && range_known(lim_ell_range)) base = lim_ell_range;
         else return none;
         break;
     case ATOM_POW:
@@ -26157,25 +26275,104 @@ static int constant_sin_cos(Rat c, Rat *sine, Rat *cosine) {
 
 /* I VALORI E L'ALGEBRA DEI LIMITI (29g) */
 
+/* L'esponente nullo: nessun fattore e^{G} (29k). */
+#define NO_GROWTH ((Series){1, 0, 0, SERIES_FLAT, 1, NULL})
+
 /* I quattro modi di costruire un Value: una serie (positive dice se la
  * funzione è certamente positiva vicino al punto), un limite finito con il
  * lato da cui ci si arriva, un limite infinito con il suo segno, un fallimento
  * (V_UNDEFINED o V_UNKNOWN) con il perché. */
 static Value value_series(Series s, int positive) {
-    Value v = {V_SERIES, s, 0, {{0, NULL}, {0, NULL}}, 0, positive, NULL};
+    Value v = {V_SERIES, s, 0, {{0, NULL}, {0, NULL}}, 0, positive, NULL, NO_GROWTH};
     return v;
 }
 static Value value_finite(Rat number, int approach) {
-    Value v = {V_LIMIT, {1, 0, 0, 0, 0, NULL}, 0, number, approach, 0, NULL};
+    Value v = {V_LIMIT, {1, 0, 0, 0, 0, NULL}, 0, number, approach, 0, NULL, NO_GROWTH};
     return v;
 }
 static Value value_infinite(int sign) {
-    Value v = {V_LIMIT, {1, 0, 0, 0, 0, NULL}, sign, {{0, NULL}, {0, NULL}}, 0, sign > 0, NULL};
+    Value v = {V_LIMIT, {1, 0, 0, 0, 0, NULL}, sign, {{0, NULL}, {0, NULL}}, 0, sign > 0, NULL, NO_GROWTH};
     return v;
 }
 static Value value_failed(ValueKind kind, const char *why) {
-    Value v = {kind, {1, 0, 0, 0, 0, NULL}, 0, {{0, NULL}, {0, NULL}}, 0, 0, why};
+    Value v = {kind, {1, 0, 0, 0, 0, NULL}, 0, {{0, NULL}, {0, NULL}}, 0, 0, why, NO_GROWTH};
     return v;
+}
+
+/* IL FATTORE e^{G} (29k) */
+
+/* La funzione piatta: più piccola di ogni potenza di t (29e). */
+static Series series_flat(void) { return series_make(1, SERIES_FLAT, 0, SERIES_FLAT, 0); }
+
+/* Ritorna 1 se v ha un fattore e^{G}. */
+static int value_grows(Value v) { return v.kind == V_SERIES && v.growth.count > 0; }
+
+/* Dove va l'esponente g (29k-b): ritorna 1 e mette in *dir +1 se tende a
+ * +\infty, -1 se tende a -\infty; ritorna 0 se g è zero (test esatto), -1
+ * se il segno del suo termine principale non si sa. */
+static int growth_direction(Series g, int *dir) {
+    Lead lead;
+    int found = series_settle(&g, &lead);
+    if (found < 0) return 0;
+    if (found == 0) return -1;
+    *dir = lead.side;
+    return 1;
+}
+
+/* Ritorna e^{g} s. Un esponente zero (test esatto) si toglie, e così quello
+ * di una serie esattamente zero; un esponente che non è più esatto, perché
+ * una somma lo ha troncato, non dice più quanto vale il fattore: allora la
+ * risposta è "non so". */
+static Value value_grown(Series s, Series g, int positive) {
+    int dir;
+    if (!g.exact) return value_failed(V_UNKNOWN, "un esponente con troppi termini");
+    int known = growth_direction(g, &dir);
+    if (known == 0 || (s.exact && series_trim(s).count == 0)) return value_series(s, positive);
+    if (known < 0) return value_failed(V_UNKNOWN, "un esponenziale di cui non si sa se cresce o decresce");
+    Value v = value_series(s, positive);
+    v.growth = series_trim(g);
+    return v;
+}
+
+/* Ritorna v come lo vedeva l'algebra dei limiti prima della scala (29k),
+ * per le funzioni che il fattore e^{G} non lo sanno trattare: se G tende a
+ * -\infty una funzione piatta, se tende a +\infty l'infinito con il segno
+ * del termine principale di S. Un v senza fattore resta com'è. */
+static Value value_plain(Value v) {
+    if (!value_grows(v)) return v;
+    int dir = 0;
+    Series s = v.series;
+    Lead lead;
+    int found = series_settle(&s, &lead);
+
+    /* La direzione di G è nota: value_grown() non costruisce un fattore
+     * senza. */
+    if (growth_direction(v.growth, &dir) != 1) return value_failed(V_UNKNOWN, "un esponenziale di cui non si sa se cresce o decresce");
+    if (dir < 0) return value_series(series_flat(), found == 1 && lead.side > 0);
+    if (found == 1) return value_infinite(lead.side);
+    if (found < 0 && !s.exact && s.end < SERIES_FLAT) return value_failed(V_UNKNOWN, NEEDS_PRECISION);
+    if (found < 0) return value_failed(V_UNKNOWN, "accanto a un esponenziale che cresce resta solo un termine più piccolo di ogni potenza, "
+                                                  "di cui non si conosce l'ordine");
+    return value_failed(V_UNKNOWN, "un coefficiente dello sviluppo ha un segno che gli intervalli non sanno stabilire");
+}
+
+/* Divide la serie s nei termini di esponente negativo, *negative (esatti:
+ * chi chiama sa che il resto di s tende a zero), e in tutti gli altri con il
+ * resto, *rest (29k-f). */
+static void series_split_growth(Series s, Series *negative, Series *rest) {
+    int count = s.low < 0 ? -s.low : 0;
+    if (count > s.count) count = s.count;
+    *negative = series_make(s.den, s.low, count, SERIES_FLAT, 1);
+    for (int i = 0; i < negative->count; i++) negative->coef[i] = s.coef[i];
+    *negative = series_trim(*negative);
+    *rest = s;
+    if (s.low < 0) {
+        rest->coef += count;
+        rest->count -= count;
+        rest->low = 0;
+        if (rest->count == 0) rest->coef = NULL;
+    }
+    *rest = series_trim(*rest);
 }
 
 /* Il limite della serie s (29c): un V_LIMIT, oppure V_UNKNOWN con il
@@ -26207,8 +26404,16 @@ static Value series_limit(Series s, int positive) {
 }
 
 /* Ritorna il limite di v: v stesso se non è una serie, altrimenti
- * series_limit(). */
+ * series_limit(). Con il fattore e^{G} (29k) il limite è 0 se G tende a
+ * -\infty, dal lato del segno di S; altrimenti l'infinito di value_plain(). */
 static Value value_limit(Value v) {
+    if (value_grows(v)) {
+        Value plain = value_plain(v);
+        if (plain.kind != V_SERIES) return plain;
+        Series s = v.series;
+        Lead lead;
+        return value_finite(rat_int(0), series_settle(&s, &lead) == 1 ? lead.side : 0);
+    }
     return v.kind == V_SERIES ? series_limit(v.series, v.positive) : v;
 }
 
@@ -26433,27 +26638,30 @@ static int series_split(Series s, Rat *constant, Series *rest) {
 /* e^v. */
 static Value value_exp(Value v) {
     if (v.kind == V_UNDEFINED || v.kind == V_UNKNOWN) return v;
+
+    /* Un esponente che ha già un fattore e^{G}: e^{e^{G} S} si sa solo come
+     * limite, o come funzione piatta (29k-f). */
+    v = value_plain(v);
+    if (v.kind == V_UNKNOWN) return v;
     Value l = value_limit(v);
-    if (l.kind == V_LIMIT && l.infinite > 0) return value_infinite(1);
-    if (l.kind == V_LIMIT && l.infinite < 0) {
-        /* Più piccola di ogni potenza di t: una funzione piatta, positiva. */
-        Value flat = value_series(series_make(1, SERIES_FLAT, 0, SERIES_FLAT, 0), 1);
-        return flat;
-    }
     if (v.kind == V_SERIES) {
-        Series s = v.series, rest;
+        Series s = v.series, rest, negative;
         Rat constant, base;
         Lead lead;
 
         /* Limitata: e^{O(1)} è O(1), e positiva. */
         if (series_settle(&s, &lead) < 0 && s.end == 0) return value_series(series_bounded(), 1);
 
-        /* Il termine costante può avere L al primo grado con un
-         * coefficiente razionale b: e^{a + b L} = e^a t^{-b} (29d). Il
-         * coefficiente di t^0 non serve con il segno: anche se gli
-         * intervalli non lo sanno dire, e^a si scrive. */
-        if (s.end > 0 && s.low >= 0) {
-            rest = s;
+        /* 29k-f. Se il resto tende a zero i termini di esponente negativo
+         * sono noti tutti: sono il fattore e^{N}, e il resto si scrive con
+         * il termine costante e una serie di Taylor. Il termine costante può
+         * avere L al primo grado con un coefficiente razionale b:
+         * e^{a + b L} = e^a t^{-b} (29d). Il coefficiente di t^0 non serve
+         * con il segno: anche se gli intervalli non lo sanno dire, e^a si
+         * scrive. */
+        if (s.end > 0) {
+            series_split_growth(s, &negative, &rest);
+            s = rest;
             constant = rat_int(0);
             if (s.count && s.low == 0) {
                 constant = s.coef[0];
@@ -26481,10 +26689,15 @@ static Value value_exp(Value v) {
             if (linear && den <= MAX_SERIES_DEN && constant_exp(constant, &base)) {
                 Series sum = series_scale(series_taylor(rest, TAYLOR_EXP, frac_int(0), lim_goal * rest.den), base);
                 sum = series_rescale(sum, (int)den);
-                return value_series(series_shift(sum, (int)(-b.num * (den / b.den))), 1);
+                return value_grown(series_shift(sum, (int)(-b.num * (den / b.den))), negative, 1);
             }
         }
     }
+
+    /* Senza uno sviluppo: e^{+\infty} = +\infty, e e^{-\infty} è più
+     * piccola di ogni potenza di t, una funzione piatta e positiva. */
+    if (l.kind == V_LIMIT && l.infinite > 0) return value_infinite(1);
+    if (l.kind == V_LIMIT && l.infinite < 0) return value_series(series_flat(), 1);
 
     /* e^L per un limite finito L. */
     Rat value;
@@ -26499,6 +26712,22 @@ static Value value_exp(Value v) {
 /* ln v (29d). */
 static Value value_ln(Value v) {
     if (v.kind == V_UNDEFINED || v.kind == V_UNKNOWN) return v;
+
+    /* 29k-e. ln(e^{G} S) = G + ln S. */
+    if (value_grows(v)) {
+        Series s = v.series;
+        Lead lead;
+        int found = series_settle(&s, &lead), ok = 0;
+        if (found == 1 && lead.side < 0) return value_failed(V_UNDEFINED, "il logaritmo di un numero negativo");
+        if (found == 1) {
+            Value rest = value_ln(value_series(v.series, 1));
+            Series sum;
+            if (rest.kind == V_SERIES && !value_grows(rest)) sum = series_add(v.growth, rest.series, 0, &ok);
+            if (ok && !failure) return value_series(sum, 0);
+        }
+        v = value_plain(v);
+        if (v.kind == V_UNKNOWN) return v;
+    }
     if (v.kind == V_SERIES) {
         Series s = v.series, u;
         Lead lead;
@@ -26531,6 +26760,7 @@ static Value value_ln(Value v) {
 /* sin v, cos v, tan v, cot v: fn dice quale. Seno e coseno di ciò che non
  * tende a un numero sono comunque O(1) (29e). */
 static Value value_trig(Value v, Function fn) {
+    v = value_plain(v);
     if (v.kind == V_UNDEFINED || v.kind == V_UNKNOWN) return v;
     int quotient = fn == FN_TAN || fn == FN_COT, ok = 1;
     Value bounded = quotient ? value_failed(V_UNKNOWN, "la tangente di qualcosa che non tende a un numero") : value_series(series_bounded(), 0);
@@ -26564,6 +26794,7 @@ static Value value_trig(Value v, Function fn) {
 
 /* arctan v (29e). */
 static Value value_arctan(Value v) {
+    v = value_plain(v);
     if (v.kind == V_UNDEFINED || v.kind == V_UNKNOWN) return v;
     Rat half_pi = rat_div(rat_atom(atom_var(VAR_PI)), rat_int(2)), u0;
     int ok = 1;
@@ -26607,9 +26838,12 @@ static Value value_power_int(Value v, long long n) {
     if (n > MAX_POWER || n < -MAX_POWER) return value_failed(V_UNKNOWN, "un esponente intero troppo grande");
     Series result;
     if (v.kind == V_SERIES) {
+        /* 29k-e: (e^{G} S)^n = e^{n G} S^n. */
         int done = series_power_int(v.series, n, &result);
         if (done < 0) return value_failed(V_UNDEFINED, "una potenza negativa di una funzione che vale zero");
-        if (done > 0) return value_series(result, v.positive);
+        if (done > 0) return value_grown(result, series_scale(v.growth, rat_int(n)), v.positive);
+        v = value_plain(v);
+        if (v.kind == V_UNKNOWN) return v;
     }
     Value l = value_limit(v), r = value_finite(rat_int(1), 0);
     if (l.kind != V_LIMIT) return l;
@@ -26624,9 +26858,13 @@ static Value value_power(Value v, Frac q, int odd) {
     const char *negative = odd ? "" : "una potenza a esponente non intero, o una radice di indice pari, di un numero negativo";
     Series result;
     if (v.kind == V_SERIES) {
+        /* 29k-e: (e^{G} S)^q = e^{q G} S^q, perché e^{G} > 0; con una
+         * radice di indice dispari e S < 0, -(e^{q G} |S|^q). */
         int done = series_power(v.series, q, odd, &result);
         if (done < 0) return value_failed(V_UNDEFINED, q.num < 0 && v.series.exact ? "una potenza negativa di zero" : negative);
-        if (done > 0) return value_series(result, 0);
+        if (done > 0) return value_grown(result, series_scale(v.growth, rat_frac(q)), 0);
+        v = value_plain(v);
+        if (v.kind == V_UNKNOWN) return v;
     }
     Value l = value_limit(v);
     int side;
@@ -26649,11 +26887,14 @@ static Value value_power(Value v, Frac q, int odd) {
 static Value value_abs(Value v) {
     if (v.kind == V_UNDEFINED || v.kind == V_UNKNOWN) return v;
     if (v.kind == V_SERIES) {
+        /* |e^{G} S| = e^{G} |S|. */
         Series s = v.series;
         Lead lead;
         int found = series_settle(&s, &lead);
-        if (found == 1) return value_series(lead.side < 0 ? series_scale(s, rat_int(-1)) : s, 1);
-        if (found < 0) return value_series(s, 0);
+        if (found == 1) return value_grown(lead.side < 0 ? series_scale(s, rat_int(-1)) : s, v.growth, 1);
+        if (found < 0) return value_grown(s, v.growth, 0);
+        v = value_plain(v);
+        if (v.kind == V_UNKNOWN) return v;
     }
     Value l = value_limit(v);
     int side;
@@ -26661,6 +26902,46 @@ static Value value_abs(Value v) {
     if (l.infinite) return value_infinite(1);
     if (!limit_sign(l, &side)) return value_failed(V_UNKNOWN, "un limite ha un segno che gli intervalli non sanno stabilire");
     return value_finite(side < 0 ? rat_add(rat_int(0), l.value, 1) : l.value, side ? 0 : l.approach ? 1 : 0);
+}
+
+/* 29k-c, 29k-d. a + b, a - b, a b, a / b con un fattore e^{G} in almeno
+ * uno dei due, tutti e due serie. Ritorna V_UNKNOWN se il conto non si fa:
+ * allora chi chiama ricomincia con value_plain(). */
+static Value growth_binary(NodeKind op, Value a, Value b, int positive) {
+    int ok = 1, dir;
+    if (op == N_MUL || op == N_DIV) {
+        Series factor = b.series;
+        if (op == N_DIV) {
+            int inverted = series_inverse(b.series, &factor);
+            if (inverted < 0) return value_failed(V_UNDEFINED, "una divisione per una funzione che vale zero");
+            if (inverted == 0) return value_failed(V_UNKNOWN, "un divisore con un esponenziale di cui non si trova il termine principale");
+        }
+        Series s = series_mul(a.series, factor, &ok), g = ok ? series_add(a.growth, b.growth, op == N_DIV, &ok) : NO_GROWTH;
+        if (!ok || failure) return value_failed(V_UNKNOWN, "denominatori degli esponenti troppo grandi");
+        return value_grown(s, g, positive);
+    }
+
+    /* Una somma con uno zero esatto è l'altro addendo, esatto com'è: lo zero
+     * non ha esponente, ma non per questo "cresce di più" di e^{-1/t}. Per
+     * l'invariante di Value uno zero esatto non ha fattore. */
+    if (a.series.exact && series_trim(a.series).count == 0) return op == N_SUB ? value_grown(series_scale(b.series, rat_int(-1)), b.growth, 0) : b;
+    if (b.series.exact && series_trim(b.series).count == 0) return a;
+
+    /* Una somma: chi cresce di più, con la differenza degli esponenti. */
+    Series delta = series_add(a.growth, b.growth, 1, &ok);
+    int known = ok && delta.exact ? growth_direction(delta, &dir) : -1;
+    if (known < 0) return value_failed(V_UNKNOWN, "non si sa quale dei due esponenziali cresce di più");
+    if (known == 0) {
+        Series s = series_add(a.series, b.series, op == N_SUB, &ok);
+        return ok ? value_grown(s, a.growth, positive) : value_failed(V_UNKNOWN, "denominatori degli esponenti troppo grandi");
+    }
+
+    /* Quello che cresce di meno diventa una funzione piatta accanto
+     * all'altro (29k-c). */
+    Value big = dir > 0 ? a : b;
+    Series s = dir < 0 && op == N_SUB ? series_scale(big.series, rat_int(-1)) : big.series;
+    s = series_add(s, series_flat(), 0, &ok);
+    return ok ? value_grown(s, big.growth, positive) : value_failed(V_UNKNOWN, "denominatori degli esponenti troppo grandi");
 }
 
 /* a + b, a - b, a b, a / b: op è N_ADD, N_SUB, N_MUL o N_DIV. */
@@ -26671,6 +26952,20 @@ static Value value_binary(NodeKind op, Value a, Value b) {
     if (b.kind == V_UNKNOWN) return b;
     int ok = 0, positive = a.positive && b.positive && op != N_SUB;
     Series result, inverse;
+
+    /* Con il fattore e^{G} (29k); se il conto non si fa, l'algebra dei
+     * limiti come prima della scala. */
+    if (value_grows(a) || value_grows(b)) {
+        if (a.kind == V_SERIES && b.kind == V_SERIES) {
+            Value r = growth_binary(op, a, b, positive);
+            if (r.kind != V_UNKNOWN) return r;
+            failure = NULL;
+        }
+        a = value_plain(a);
+        b = value_plain(b);
+        if (a.kind == V_UNKNOWN) return a;
+        if (b.kind == V_UNKNOWN) return b;
+    }
     if (a.kind == V_SERIES && b.kind == V_SERIES) {
         if (op == N_ADD || op == N_SUB) result = series_add(a.series, b.series, op == N_SUB, &ok);
         if (op == N_MUL) result = series_mul(a.series, b.series, &ok);
@@ -26697,7 +26992,7 @@ static Value value_binary(NodeKind op, Value a, Value b) {
 /* Se v è una costante esatta (una serie esatta con il solo termine t^0, o
  * zero) la mette in *c e ritorna 1. */
 static int value_constant(Value v, Rat *c) {
-    if (v.kind != V_SERIES || !v.series.exact || v.series.count > 1 || (v.series.count == 1 && v.series.low != 0)) return 0;
+    if (v.kind != V_SERIES || value_grows(v) || !v.series.exact || v.series.count > 1 || (v.series.count == 1 && v.series.low != 0)) return 0;
     *c = v.series.count ? v.series.coef[0] : rat_int(0);
     return 1;
 }
@@ -26782,6 +27077,14 @@ static Value limit_eval(const Node *node) {
     case N_VAR:
         if (node->name == VAR_PI || node->name == 'e') return value_series(series_const(rat_atom(atom_var(node->name))), 1);
         if (node->name != lim_x) return value_failed(V_UNKNOWN, "una lettera diversa dalla variabile del limite");
+        if (lim_moved) {
+            /* 29l: x = \pm e^{1/t} all'infinito, x = \pm e^{-1/t} vicino a 0. */
+            Series g = series_make(1, -1, 1, SERIES_FLAT, 1);
+            int sign = lim_infinity ? lim_infinity : lim_side;
+            if (!g.count) return value_failed(V_UNKNOWN, OUT_OF_MEMORY);
+            g.coef[0] = rat_int(lim_infinity ? 1 : -1);
+            return value_grown(series_const(rat_int(sign)), g, sign > 0);
+        }
         if (lim_infinity) {
             /* x = 1/t oppure x = -1/t. */
             Series s = series_make(1, -1, 1, SERIES_FLAT, 1);
@@ -26838,39 +27141,60 @@ typedef struct {
     int quotient;      /* 1 se la funzione è un quoziente: allora parts[] sono i suoi termini */
     Value parts[2];
     CheckResult check; /* il controllo con i numeri */
-    int first, last;   /* i k dei punti t = 2^{-k} che il controllo ha usato */
+    int first, last;   /* i k dei punti x = a \pm 2^{-k} o x = \pm 2^{k} che il controllo ha usato */
+    int moved;         /* 1 se il conto è fatto con la sostituzione di 29l */
 } SideResult;
 
 /* Calcola in *r il limite di f dal lato side (29a), con precisioni via via
- * più alte finché il termine principale non si trova (29c). La memoria
- * dell'ultimo tentativo resta: la usa la dimostrazione scritta. */
+ * più alte finché il termine principale non si trova (29c). Se così non si
+ * arriva a un limite, e il punto è 0 o un infinito, si riprova salendo di un
+ * piano (29l): r->moved lo dice, e lim_moved resta quello del conto
+ * ritornato. La memoria dell'ultimo tentativo resta: la usa la
+ * dimostrazione scritta. */
 static void limit_side(const Node *f, int side, SideResult *r) {
     int goals = (int)(sizeof series_goals / sizeof *series_goals);
+    int moves = lim_infinity || lim_point.num.count == 0 ? 2 : 1;
+    const char *first = NULL;
     memset(r, 0, sizeof *r);
     r->side = side;
-    for (int g = 0; g < goals; g++) {
-        Scratch mark = scratch_mark();
-        failure = NULL;
-        lim_goal = series_goals[g];
-        lim_side = side;
-        lim_ell = atom_var(VAR_LOG_SCALE);
-        r->quotient = f->kind == N_DIV;
-        if (r->quotient) {
-            r->parts[0] = limit_eval(f->a);
-            r->parts[1] = limit_eval(f->b);
-            r->value = precision_or(value_binary(N_DIV, r->parts[0], r->parts[1]), r->parts[0], r->parts[1]);
-        } else {
-            r->value = limit_eval(f);
+    for (int moved = 0; moved < moves; moved++) {
+        /* Se anche il secondo piano non arriva a un limite, il motivo da
+         * dire è quello del primo, il conto dei libri. */
+        if (moved) first = r->limit.why;
+        for (int g = 0; g < goals; g++) {
+            Scratch mark = scratch_mark();
+            failure = NULL;
+            lim_goal = series_goals[g];
+            lim_side = side;
+            lim_moved = r->moved = moved;
+            lim_ell = atom_var(VAR_LOG_SCALE);
+            r->quotient = f->kind == N_DIV;
+            if (r->quotient) {
+                r->parts[0] = limit_eval(f->a);
+                r->parts[1] = limit_eval(f->b);
+                r->value = precision_or(value_binary(N_DIV, r->parts[0], r->parts[1]), r->parts[0], r->parts[1]);
+            } else {
+                r->value = limit_eval(f);
+            }
+            r->limit = value_limit(r->value);
+            if (failure) r->limit = value_failed(V_UNKNOWN, failure);
+            failure = NULL;
+            if (r->limit.kind != V_UNKNOWN) return;
+            if (r->limit.why != NEEDS_PRECISION || g + 1 == goals) {
+                if (moved + 1 == moves) {
+                    if (first) r->limit.why = first;
+                    return;
+                }
+                scratch_drop(mark);
+                break;
+            }
+            scratch_drop(mark);
         }
-        r->limit = value_limit(r->value);
-        if (failure) r->limit = value_failed(V_UNKNOWN, failure);
-        failure = NULL;
-        if (r->limit.kind != V_UNKNOWN || r->limit.why != NEEDS_PRECISION || g + 1 == goals) return;
-        scratch_drop(mark);
     }
 }
 
-/* Ritorna l'intervallo di x nel punto t = 2^{-k} del lato di r. */
+/* Ritorna l'intervallo di x nel punto k-esimo del lato di r: a \pm 2^{-k},
+ * oppure \pm 2^{k} all'infinito. */
 static Range sample_point(const SideResult *r, int k, Range point) {
     double t = 1;
     for (int i = 0; i < k; i++) t /= 2;
@@ -26878,12 +27202,61 @@ static Range sample_point(const SideResult *r, int k, Range point) {
     return range_add(point, (Range){r->side * t, r->side * t});
 }
 
-/* Ritorna l'intervallo di c t^e L^d in t = 2^{-k}, dove L = ln(1/t) = k ln 2. */
-static Range leading_at(Range c, Frac e, Frac d, int k) {
+/* Ritorna l'intervallo di L = ln(1/t) nel punto k-esimo: k ln 2, perché
+ * t = 2^{-k}; con la sostituzione di 29l ln(k ln 2), perché lì
+ * 1/t = |ln |x - a|| = k ln 2. */
+static Range ell_at(const SideResult *r, int k) {
     Range ell = range_mul(range_ratio(k, 1), range_ln2());
-    Range power = range_exp(range_mul(range_ratio(-k * e.num, e.den), range_ln2()));
+    return r->moved ? range_ln(ell) : ell;
+}
+
+/* Ritorna l'intervallo di c t^e L^d, con t^e = e^{-e L}. */
+static Range leading_at(Range c, Frac e, Frac d, Range ell) {
+    Range power = range_exp(range_mul(range_ratio(-e.num, e.den), ell));
     Range logs = d.den == 1 ? range_power(ell, d.num) : range_exp(range_mul(range_ratio(d.num, d.den), range_ln(ell)));
     return range_mul(c, range_mul(power, logs));
+}
+
+/* Ritorna l'intervallo del fattore e^{G} (29k) dove L vale ell: G è esatto,
+ * e si calcola termine per termine, con L nei coefficienti. */
+static Range growth_at(Series g, Range ell) {
+    Range sum = {0, 0};
+    lim_ell_range = ell;
+    for (int i = 0; i < g.count; i++) {
+        if (g.coef[i].num.count == 0) continue;
+        Range power = range_exp(range_mul(range_ratio(-(g.low + i), g.den), ell));
+        sum = range_add(sum, range_mul(constant_range(g.coef[i]), power));
+    }
+    lim_ell_range = range_none();
+    return range_exp(sum);
+}
+
+/* Ritorna un intervallo per ln|g(far)| - ln|g(near)|, con g = c t^e L^d
+ * e^{G} e L che vale near e far nei due punti: -e (far - near) +
+ * d (ln far - ln near) + G(far) - G(near), senza calcolare g, che uscirebbe
+ * dai numeri della macchina. Il coefficiente c si cancella. */
+static Range leading_climb(Frac e, Frac d, Series g, Range near, Range far) {
+    Range climb = range_add(range_mul(range_ratio(-e.num, e.den), range_sub(far, near)),
+                            range_mul(range_ratio(d.num, d.den), range_sub(range_ln(far), range_ln(near))));
+    for (int i = 0; i < g.count; i++) {
+        if (g.coef[i].num.count == 0) continue;
+        Range rate = range_ratio(-(g.low + i), g.den), at[2];
+        for (int k = 0; k < 2; k++) {
+            lim_ell_range = k ? far : near;
+            at[k] = range_mul(constant_range(g.coef[i]), range_exp(range_mul(rate, lim_ell_range)));
+        }
+        lim_ell_range = range_none();
+        climb = range_add(climb, range_sub(at[1], at[0]));
+    }
+    return climb;
+}
+
+/* La stima del resto del controllo con i numeri, 16 (1 + |L|) t^{B} con
+ * t^{B} = e^{-B ell}, come numero sicuramente non più grande del vero; -1
+ * se non si calcola. number contiene il limite L. */
+static double remainder_limit(Range number, Frac bound, Range ell) {
+    Range power = range_exp(range_mul(range_ratio(-bound.num, bound.den), ell));
+    return range_known(power) ? 16 * (1 + (number.high > -number.low ? number.high : -number.low)) * power.low : -1;
 }
 
 /* 29i. Il controllo con i numeri del lato r: la funzione f calcolata con gli
@@ -26893,30 +27266,53 @@ static Range leading_at(Range c, Frac e, Frac d, int k) {
 static void limit_check(const Node *f, SideResult *r) {
     Range point = lim_infinity ? range_none() : constant_range(lim_point), number = range_none(), c = range_none();
     Frac e = {0, 1}, d = {0, 1};
+    Series growth = NO_GROWTH;
     int expected = 0, finite = r->limit.kind == V_LIMIT && !r->limit.infinite, defined[2] = {0, 0}, count = 0;
     r->check = CHECK_UNCONFIRMED;
     if (!lim_infinity && !range_known(point)) return;
 
     /* Il termine principale atteso, di f - L o di f, se il conto l'ha dato
-     * con una serie. */
+     * con una serie. Con il fattore e^{G} il limite finito è 0, e f - 0 è
+     * e^{G} S: il termine principale è quello di S, per e^{G}. */
+    /* Senza termine principale, ma con un resto noto per f - L, il resto dà
+     * una stima: |f - L| <= C t^{E} se f - L = O(t^{E}), e |f - L| è più
+     * piccolo di ogni potenza se è piatta o ha un fattore e^{G} con
+     * G -> -\infty. Il controllo chiede allora |f - L| <= 16 (1 + |L|) t^{B}
+     * nell'ultimo punto, con B = min(E, 1), e B = 4 per una funzione piatta:
+     * un L sbagliato lascia |f - L| vicino a un numero fisso, e non passa
+     * (vedi la testa del capitolo). B = 4 perché a volte i soli punti che
+     * si sanno calcolare hanno t ancora grande, come e^{1/x^2} che esce dai
+     * numeri della macchina già in x = 1/32, o dopo la sostituzione di 29l,
+     * dove t = 1/(k ln 2). */
+    int bounded = 0;
+    Frac bound = {4, 1};
     if (finite) number = constant_range(r->limit.value);
     if (r->limit.kind == V_LIMIT && r->value.kind == V_SERIES) {
-        int ok = 1;
-        Series s = finite ? series_add(r->value.series, series_const(r->limit.value), 1, &ok) : r->value.series;
+        int ok = 1, grows = value_grows(r->value);
+        Series s = finite && !grows ? series_add(r->value.series, series_const(r->limit.value), 1, &ok) : r->value.series;
         Lead lead;
-        if (ok && series_settle(&s, &lead) == 1) {
+        int found = ok ? series_settle(&s, &lead) : 0;
+        if (found == 1) {
             expected = 1;
             c = constant_range(lead.value);
             e = frac_make(s.low, s.den);
             d = lead.degree;
+            if (grows) growth = r->value.growth;
+        } else if (found < 0 && finite && !s.exact && s.end > 0) {
+            bounded = 1;
+            if (!grows && s.end < SERIES_FLAT) bound = s.end < s.den ? frac_make(s.end, s.den) : frac_int(1);
         }
         failure = NULL;
     }
 
-    /* I punti, finché stanno dalla parte giusta del punto. */
+    /* I punti, finché stanno dalla parte giusta del punto. Dopo la
+     * sostituzione di 29l L cresce come ln k: i punti vanno più lontano. Con
+     * un fattore e^{G} la funzione esce presto dai numeri della macchina
+     * ((1 + e^{1/x^3})^{\sin x} già in x = 1/16): si parte allora da k = 1,
+     * e conta l'ultimo punto che si sa calcolare. */
     Range kept[2] = {range_none(), range_none()};
-    int kept_count = 0;
-    for (int k = 4; k <= LIMIT_SAMPLES; k++) {
+    int kept_count = 0, step = r->moved ? 4 : 1, top = r->moved ? MOVED_SAMPLES : LIMIT_SAMPLES;
+    for (int k = growth.count ? 1 : 4; k <= top; k += step) {
         Range x = sample_point(r, k, point);
         if (!range_known(x) || (!lim_infinity && (r->side > 0 ? x.low <= point.high : x.high >= point.low))) break;
         int nowhere = 0;
@@ -26932,11 +27328,17 @@ static void limit_check(const Node *f, SideResult *r) {
         Range q;
         double width;
         if (expected) {
-            q = range_div(finite ? range_sub(value, number) : value, leading_at(c, e, d, k));
+            Range ell = ell_at(r, k);
+            q = range_div(finite ? range_sub(value, number) : value, range_mul(leading_at(c, e, d, ell), growth_at(growth, ell)));
             width = 0.5;
         } else if (finite) {
             q = range_sub(value, number);
             width = (1 + (number.high > -number.low ? number.high : -number.low)) / 8;
+
+            /* Con la stima del resto, un punto serve se l'intervallo è
+             * stretto rispetto alla stima in quel punto. */
+            double tight = bounded ? remainder_limit(number, bound, ell_at(r, k)) / 4 : -1;
+            if (tight >= 0 && tight < width) width = tight;
         } else {
             q = range_mul(value, range_ratio(r->limit.infinite, 1));
             width = (q.low + q.high) / 2;
@@ -26961,12 +27363,39 @@ static void limit_check(const Node *f, SideResult *r) {
     if (last_two && defined[0] < 0 && defined[1] < 0) { r->check = CHECK_CONTRADICTED; return; }
     if (r->limit.kind != V_LIMIT || kept_count == 0) return;
 
-    /* Il valore. */
+    /* Il valore. Con il termine principale g, anche la sua direzione: g
+     * deve scendere tra due punti lontani se il limite è finito (f - L ~ g
+     * va a zero), salire se è infinito. Così la regola che dal termine
+     * principale ricava il limite (29c, 29k) è ricontrollata anche lei con i
+     * numeri: un segno sbagliato di G la fa uscire, anche se f ~ g. */
     Range last = kept[1], before = kept[0];
     if (expected) {
         int out_last = last.high < 1.0 / 16 || last.low > 16, out_before = kept_count >= 2 && (before.high < 1.0 / 16 || before.low > 16);
-        if (out_last && out_before) r->check = CHECK_CONTRADICTED;
+        /* I due punti lontani, come valori di L = ln(1/t): è la formula di g
+         * che si guarda, non f, e L può essere grande quanto si vuole. Con
+         * un fattore e^{G} non troppo, perché G(t) resti tra i numeri della
+         * macchina (G vi domina comunque il resto); senza, lontanissimi,
+         * perché t^{e} batta L^{d} anche con d grande, come in
+         * (\ln x)^{100} / x. */
+        int side;
+        Range near = growth.count ? range_mul(range_ratio(64, 1), range_ln2()) : range_ratio(1000000, 1);
+        Range far = growth.count ? range_mul(range_ratio(256, 1), range_ln2()) : range_ratio(1000000000000, 1);
+        Range climb = leading_climb(e, d, growth, near, far);
+
+        /* Con un esponenziale, nel termine principale o in un termine
+         * piatto accanto, i soli punti che si sanno calcolare possono stare
+         * dove il termine principale non domina ancora: e^{\sqrt{1/t}}
+         * supera t^{-7} solo da t = 2^{-12}, ma e^{2/t} esce dai numeri
+         * della macchina già da t = 2^{-9}, e e^{-3/t} da t = 2^{-8}, anche
+         * se trascurabile. Lì un rapporto lontano da 1 non conferma, ma non
+         * smentisce: smentisce solo con un fattore e^{G} assente e punti
+         * fino a t = 2^{-20}, come il limite infinito più sotto. */
+        if (out_last && out_before) r->check = growth.count || r->last < 20 ? CHECK_UNCONFIRMED : CHECK_CONTRADICTED;
+        else if (range_side(climb, &side) && side != (finite ? -1 : 1)) r->check = CHECK_CONTRADICTED;
         else if (last.low >= 1.0 / 16 && last.high <= 16) r->check = CHECK_CONFIRMED;
+    } else if (finite && bounded) {
+        double limit = remainder_limit(number, bound, ell_at(r, r->last));
+        if (limit >= 0 && last.low >= -limit && last.high <= limit) r->check = CHECK_CONFIRMED;
     } else if (finite) {
         double size = (1 + (number.high > -number.low ? number.high : -number.low)) / 2;
         if (last.low >= -size && last.high <= size) r->check = CHECK_CONFIRMED;
@@ -27122,16 +27551,33 @@ static void span_copy(Span span, char *text, size_t size) {
     snprintf(text, size, "%.*s", (int)(span.to - span.from), proof_text + span.from);
 }
 
+/* Scrive la funzione v, una serie con il suo eventuale fattore e^{G}
+ * (29k), al più shown termini della serie; ritorna 0, senza scrivere
+ * nulla, come put_series(). L'esponente G è esatto e si scrive per intero. */
+static int put_value_series(Value v, int shown) {
+    size_t start = proof_length;
+    if (!value_grows(v)) return put_series(v.series, shown);
+    proof_add("e^{");
+    int ok = put_series(v.growth, MAX_SERIES_TERMS);
+    proof_add("} \\left(");
+    ok = ok && put_series(v.series, shown);
+    proof_add("\\right)");
+    if (!ok) proof_cut(start);
+    return ok;
+}
+
 /* Scrive il pezzo della dimostrazione che riguarda il lato r dell'enunciato
  * st, e ritorna 1 se il valore scritto, riletto, è quello calcolato. */
 static int put_side_proof(const LimitStatement *st, const SideResult *r) {
     static const char *const names[] = {"From the left", "At $+\\infty$", "From the right"};
     const char *name = lim_infinity ? (lim_infinity > 0 ? "At $+\\infty$" : "At $-\\infty$") : names[r->side + 1];
     proof_add("\\item \\emph{%s}, with $x = ", name);
-    if (lim_infinity) proof_add(lim_infinity > 0 ? "\\frac{1}{t}" : "-\\frac{1}{t}");
+    if (r->moved) proof_add("%se^{%s\\frac{1}{t}}", (lim_infinity ? lim_infinity : r->side) < 0 ? "-" : "", lim_infinity ? "" : "-");
+    else if (lim_infinity) proof_add(lim_infinity > 0 ? "\\frac{1}{t}" : "-\\frac{1}{t}");
     else if (st->point->kind == N_NUM && st->point->value == 0) proof_add(r->side > 0 ? "t" : "-t");
     else { put_node(st->point, 1); proof_add(r->side > 0 ? " + t" : " - t"); }
-    proof_add("$ and $t \\to 0^{+}$: ");
+    proof_add("$ and $t \\to 0^{+}$%s: ", r->moved ? " (an increasing change of variable, which keeps the limit: the substitution with "
+                                                     "$x$ a power of $t$ does not reach a limit here)" : "");
     if (r->limit.kind == V_UNDEFINED) {
         proof_add("the function has no value for any small $t$ (%s).\n", r->limit.why);
         return 1;
@@ -27139,17 +27585,17 @@ static int put_side_proof(const LimitStatement *st, const SideResult *r) {
     if (r->quotient && r->parts[0].kind == V_SERIES && r->parts[1].kind == V_SERIES) {
         size_t start = proof_length;
         proof_add("the numerator is $");
-        int ok = put_series(r->parts[0].series, 3);
+        int ok = put_value_series(r->parts[0], 3);
         proof_add("$ and the denominator is $");
-        ok = ok && put_series(r->parts[1].series, 3);
+        ok = ok && put_value_series(r->parts[1], 3);
         proof_add("$, so the function is $");
-        ok = ok && put_series(r->value.series, 2);
+        ok = ok && put_value_series(r->value, 2);
         proof_add("$");
         if (!ok) { proof_cut(start); proof_add("the expansions of numerator and denominator have coefficients that are not written here"); }
     } else if (r->value.kind == V_SERIES) {
         size_t start = proof_length;
         proof_add("the function is $");
-        if (put_series(r->value.series, 3)) proof_add("$");
+        if (put_value_series(r->value, 3)) proof_add("$");
         else { proof_cut(start); proof_add("the expansion of the function has coefficients that are not written here"); }
     } else {
         proof_add("the function has no expansion in powers of $t$, and the rules of the algebra of limits give its limit");
@@ -27168,6 +27614,10 @@ static void put_check(const SideResult *r) {
     const char *where = lim_infinity ? "" : r->side > 0 ? " on the right" : " on the left";
     if (r->limit.kind == V_UNDEFINED)
         proof_add("The function has no value%s at the points $t = 2^{-k}$ closest to $0$. ", where);
+    else if (r->limit.kind == V_LIMIT && r->moved)
+        proof_add("%s the values%s at $x = %s2^{%sk}$ for $k = %d, %d, \\dots, %d$, computed with interval arithmetic, agree with the result. ",
+                  r->side < 0 ? "And" : "Directly from the function,", where, (lim_infinity ? lim_infinity : r->side) < 0 ? "-" : "",
+                  lim_infinity ? "" : "-", r->first, r->first + 4, r->last);
     else if (r->limit.kind == V_LIMIT)
         proof_add("%s the values%s at $t = 2^{-k}$ for $k = %d, \\dots, %d$, computed with interval arithmetic, agree with the result. ",
                   r->side < 0 ? "And" : "Directly from the function,", where, r->first, r->last);
@@ -27182,6 +27632,36 @@ static int limits_equal(Value a, Value b) {
     return known < 0 ? -1 : known == 0;
 }
 
+/* Il principio di ogni conto su un limite scritto in formula: ripartenza da
+ * zero (l'arena, la tabella degli atomi; il testo della dimostrazione no,
+ * perché limit_leading() non scrive e non deve cancellare), la lettura in
+ * *st, le lettere ammesse, il punto in lim_point e il valore
+ * dell'enunciato, se c'è, in *claimed. Ritorna NULL se riesce, altrimenti
+ * il perché. */
+static const char *limit_start(const char *formula, LimitStatement *st, Rat *claimed) {
+    arena_used = arena_keep;
+    atom_count = base_poly_count = atan_count = 0;
+    failure = NULL;
+    env_count = 0;
+    conditions_on = 0;
+    lim_exponential = lim_moved = 0;
+    lim_point = *claimed = rat_int(0);
+    if (!parse_limit_statement(formula, st)) return syntax_error;
+    if (st->variable == 'e' || !limit_letters(st->function, st->variable) || !limit_letters(st->point, 0) || !limit_letters(st->value, 0))
+        return "in un limite le lettere ammesse sono la variabile, e (il numero di Nepero) e \\pi";
+    lim_x = st->variable;
+    lim_infinity = st->infinity;
+    lim_ell = atom_var(VAR_LOG_SCALE);
+    lim_goal = series_goals[0];
+
+    /* Il punto e il valore dell'enunciato: due costanti. */
+    if ((st->point && !value_constant(limit_eval(st->point), &lim_point)) || (st->value && !value_constant(limit_eval(st->value), claimed)) || failure) {
+        failure = NULL;
+        return "il punto, o il valore dell'enunciato, non è un numero che il programma sa calcolare";
+    }
+    return NULL;
+}
+
 /* 29j. Prova a dimostrare, smentire o risolvere l'enunciato sul limite
  * scritto in formula (vedi la testa del capitolo). Svuota l'arena e la
  * tabella degli atomi: i risultati di chiamate precedenti non sono più
@@ -27191,32 +27671,9 @@ static Verdict prove_limit(const char *formula) {
     Verdict verdict = {UNSUPPORTED, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL};
     LimitStatement st;
     SideResult sides[2];
-
-    /* Ripartenza da zero, lettura, lettere. */
+    Rat claimed;
     proof_reset();
-    arena_used = arena_keep;
-    atom_count = base_poly_count = atan_count = 0;
-    failure = NULL;
-    env_count = 0;
-    conditions_on = 0;
-    lim_exponential = 0;
-    if (!parse_limit_statement(formula, &st)) { verdict.reason = syntax_error; return verdict; }
-    if (st.variable == 'e' || !limit_letters(st.function, st.variable) || !limit_letters(st.point, 0) || !limit_letters(st.value, 0)) {
-        verdict.reason = "in un limite le lettere ammesse sono la variabile, e (il numero di Nepero) e \\pi";
-        return verdict;
-    }
-    lim_x = st.variable;
-    lim_infinity = st.infinity;
-    lim_ell = atom_var(VAR_LOG_SCALE);
-    lim_goal = series_goals[0];
-
-    /* Il punto e il valore dell'enunciato: due costanti. */
-    Rat claimed = rat_int(0);
-    if ((st.point && !value_constant(limit_eval(st.point), &lim_point)) || (st.value && !value_constant(limit_eval(st.value), &claimed)) || failure) {
-        verdict.reason = "il punto, o il valore dell'enunciato, non è un numero che il programma sa calcolare";
-        failure = NULL;
-        return verdict;
-    }
+    if ((verdict.reason = limit_start(formula, &st, &claimed))) return verdict;
 
     /* I lati, e per ognuno il controllo con i numeri. */
     int count = st.infinity || st.side ? 1 : 2;
@@ -27254,14 +27711,22 @@ static Verdict prove_limit(const char *formula) {
 
     /* La dimostrazione: un lato alla volta, poi il controllo, poi la
      * conclusione. Ogni valore scritto viene riletto. */
-    int sound = 1, logs = 0;
+    int sound = 1, logs = 0, grows = 0;
     for (int i = 0; i < count; i++) {
         const Value *shown[3] = {&sides[i].value, &sides[i].parts[0], &sides[i].parts[1]};
-        for (int j = 0; j < 3; j++)
-            for (int k = 0; shown[j]->kind == V_SERIES && k < shown[j]->series.count; k++) logs |= rat_has_ell(shown[j]->series.coef[k]);
+        for (int j = 0; j < 3; j++) {
+            if (shown[j]->kind != V_SERIES) continue;
+            for (int k = 0; k < shown[j]->series.count; k++) logs |= rat_has_ell(shown[j]->series.coef[k]);
+            for (int k = 0; k < shown[j]->growth.count; k++) logs |= rat_has_ell(shown[j]->growth.coef[k]);
+            grows |= value_grows(*shown[j]);
+        }
     }
     proof_add("\\textbf{Proof.} ");
     if (lim_exponential) proof_add("A power $f^{g}$ with the variable in the exponent means $e^{g \\ln f}$, defined where $f > 0$. ");
+    if (grows)
+        proof_add("A factor $e^{G}$, with $G$ a finite sum of negative powers of $t$, is larger or smaller than every power of $t$ and of "
+                  "$\\ln\\frac{1}{t}$, according to the sign of the leading term of $G$ (the scale of growth: exponentials beat powers, "
+                  "which beat logarithms); in a sum the smaller factor becomes a remainder smaller than every power of $t$. ");
     proof_add("Each one-sided limit is computed with expansions in powers of a variable $t \\to 0^{+}$, with exact coefficients "
               "(Taylor's theorem with Peano's remainder)%s; the limit is given by the leading term.\n\\begin{itemize}\n",
               logs ? ", where $L = \\ln\\frac{1}{t}$" : "");
@@ -27334,16 +27799,70 @@ static Verdict prove_limit(const char *formula) {
     return verdict;
 }
 
+/* 29m. IL TERMINE PRINCIPALE, PER CHI LO CHIEDE
+ *
+ * Il confronto degli integrali impropri (30l) vuole sapere come una funzione
+ * va a zero, o all'infinito, vicino a un estremo: il suo termine principale
+ * c t^{e} L^{d} e^{G}, cioè f = c t^{e} L^{d} e^{G} (1 + o(1)). È lo stesso
+ * conto di un limite (29b-29h, 29k), con lo stesso controllo con i numeri
+ * (29i), che deve confermarlo; del coefficiente c servono solo il segno e
+ * che non sia zero, che il conto decide in modo esatto (29c). */
+
+/* Il termine principale di una funzione vicino a un punto, da un lato, nelle
+ * lettere t e L di 29a; oppure, se della serie non si conosce nessun
+ * coefficiente, solo il suo resto: f = O(t^{e}), cioè |f| <= C t^{e} per t
+ * piccolo (29b), come x^{-2} \sin x all'infinito. */
+typedef struct {
+    int found;     /* 1 se il termine principale, o il resto, è noto */
+    int bound;     /* 1 se si conosce solo il resto: f = O(t^{e}), e sign non conta */
+    int sign;      /* il segno del coefficiente c: +1 o -1 */
+    Frac e, d;     /* gli esponenti di t e di L */
+    int growth;    /* 0 senza fattore e^{G}; +1 o -1 se G tende a +\infty o a -\infty */
+} LeadingTerm;
+
+/* Il termine principale della funzione della richiesta formula,
+ * "\lim_{x \to a^{\pm}} f" o "\lim_{x \to \pm\infty} f", se il controllo con
+ * i numeri conferma il conto. Non lo dà se il conto è riuscito solo salendo
+ * di un piano (29l): lì t non è più |x - a| o 1/|x|. Svuota l'arena e la
+ * tabella degli atomi come prove_limit(). */
+static LeadingTerm limit_leading(const char *formula) {
+    LeadingTerm out = {0, 0, 0, {0, 1}, {0, 1}, 0};
+    LimitStatement st;
+    SideResult r;
+    Rat claimed;
+    Lead lead;
+    if (limit_start(formula, &st, &claimed) || st.claim != LIMIT_ASKED || (!st.infinity && !st.side)) return out;
+    limit_side(st.function, st.infinity ? 0 : st.side, &r);
+    limit_check(st.function, &r);
+    if (r.check == CHECK_CONTRADICTED) unjustified_steps++;
+    Series s = r.value.series;
+    int dir = 0, found = r.value.kind == V_SERIES ? series_settle(&s, &lead) : 0;
+    failure = NULL;
+    if (r.check != CHECK_CONFIRMED || r.limit.kind != V_LIMIT || r.moved || r.value.kind != V_SERIES || found == 0) return out;
+    if (value_grows(r.value) && growth_direction(r.value.growth, &dir) != 1) return out;
+
+    /* Nessun coefficiente noto: una funzione piatta, o zero, è più piccola
+     * di ogni potenza, come con G -> -\infty; altrimenti resta il resto. */
+    if (found < 0) {
+        if (dir > 0) return out;
+        if (dir < 0 || s.exact || s.end >= SERIES_FLAT) return (LeadingTerm){1, 0, 0, {0, 1}, {0, 1}, -1};
+        return (LeadingTerm){1, 1, 0, frac_make(s.end, s.den), {0, 1}, 0};
+    }
+    return (LeadingTerm){1, 0, lead.side, frac_make(s.low, s.den), lead.degree, dir};
+}
+
 /* =============================================================================
- * 30. INTEGRALI: PRIMITIVE E INTEGRALI DEFINITI
+ * 30. INTEGRALI: PRIMITIVE, INTEGRALI DEFINITI E IMPROPRI
  * ============================================================================
  *
- * A che cosa serve. Le tre domande dei libri sugli integrali, nella notazione
+ * A che cosa serve. Le domande dei libri sugli integrali, nella notazione
  * del paragrafo 9j di parser.c:
  *
  *     \int f \, dx = F + c        è giusta questa primitiva?
  *     \int f \, dx                trovane una (la risposta è RISOLTO: F + c);
  *     \int_{a}^{b} f \, dx = V    è giusto questo valore? Senza "= V": quanto vale?
+ *     \int_{1}^{+\infty} f \, dx = +\infty, \in \mathbb{R}, \notin \mathbb{R}
+ *                                 un integrale improprio diverge? converge?
  *
  * VERIFICARE UNA PRIMITIVA (30a, 30b)
  *
@@ -27410,10 +27929,26 @@ static Verdict prove_limit(const char *formula) {
  * valore esatto deve starci dentro. La stessa somma basta per dire FALSO,
  * quando il valore scritto ne sta di sicuro fuori.
  *
+ * GLI INTEGRALI IMPROPRI (30k, 30l)
+ *
+ * Un estremo infinito, o una funzione non limitata vicino a un estremo o a
+ * un punto interno: l'integrale è un limite di integrali su intervalli
+ * compatti. Con una primitiva F (30k) è il limite di F agli estremi, che
+ * calcola il capitolo 29 con la scala delle crescite (29k), dopo che la
+ * tabella dei segni ha mostrato le funzioni definite sull'intervallo aperto
+ * e diviso l'intervallo nei punti in cui non lo sono. Senza primitiva (30l)
+ * la convergenza si decide per confronto con t^{e} (\ln\frac{1}{t})^{d}, dal
+ * termine principale della funzione (29m). Anche un integrale definito che
+ * 30i non vede continuo su [a, b], come \sqrt[5]{x} su [-1, 0], passa da qui.
+ *
  * COSA NON C'È ANCORA
  *
- *   - Gli integrali impropri (estremi infiniti, funzioni illimitate vicino a
- *     un estremo) e le aree: chiederebbero i limiti (capitolo 29).
+ *   - Le aree, e negli integrali impropri le oscillazioni
+ *     (\int_0^{+\infty} \cos x \, dx non converge, ma il motore non lo sa
+ *     dire), i domini che la tabella dei segni non sa decidere
+ *     (\frac{1}{e^{\sqrt{x}} - 1} su (0, 1)), le funzioni la cui primitiva non
+ *     si trova e la cui convergenza vuole stime più fini del termine
+ *     principale.
  *   - Le funzioni che derive() non tratta ancora: il valore assoluto fuori
  *     da un logaritmo (in una primitiva; in un integrale definito lo toglie
  *     30i-2), arcoseno e arcocoseno, seno e coseno iperbolici. Le primitive
@@ -27424,9 +27959,6 @@ static Verdict prove_limit(const char *formula) {
  *     scritte, ma non si cercano; né si cerca quella di x^3 \sqrt{2 - x^2},
  *     che chiederebbe t = \sqrt{2 - x^2} con x^2 = 2 - t^2.
  *   - ln(e) = 1 nei conti esatti: un estremo come e^{3/2} non si calcola.
- *   - Una funzione definita solo da una parte di un estremo (\sqrt{x} su
- *     [0, 1]): il controllo con gli intervalli vuole la funzione, e la sua
- *     primitiva, definite in un intorno di ogni punto di [a, b].
  *   - Lettere oltre alla variabile, a e pi greco (i parametri).
  *   - Il certificato: checker.c non ha né le derivate né gli integrali.
  */
@@ -29079,9 +29611,10 @@ static int primitive_text(const Node *f, int x, int depth, char *text, size_t si
  * è continua su [a, b] con ogni sua parte lontana dai bordi del proprio
  * dominio, per compattezza ne è lontana di una quantità positiva, e
  * dimezzando abbastanza gli intervalli la vedono. Se il calcolo non riesce
- * (uno zero proprio in un estremo, un integrale improprio) la risposta è
- * NON DIMOSTRATO, mai un sì sbagliato. Un difetto, voluto: \sqrt{x} su
- * [0, 1] è continua, ma in 0 non è analitica, e il metodo non la accetta.
+ * (uno zero proprio in un estremo, un integrale improprio) l'integrale passa
+ * a 30k, che lo tratta come improprio, mai un sì sbagliato: \sqrt{x} su
+ * [0, 1] è continua, ma in 0 non è analitica, e qui non la si accetta; come
+ * integrale improprio su (0, 1) sì, con lo stesso valore.
  *
  * L'INVOLUCRO DI RIEMANN, il controllo indipendente
  *
@@ -29143,11 +29676,10 @@ static void enclose_piece(Enclosure *e, const Node *f, const Node *F, int x, Ran
 /* Ritorna l'involucro dell'integrale di f da a a b, con a < b, e controlla
  * che f e F (se non è NULL) siano analitiche su [a, b]: vedi la testa di
  * 30i. Le parti sono RIEMANN_PIECES, e quattro volte tante finché
- * l'involucro è più largo di 10^-9 volte (1 + |integrale|), fino a 16
- * volte tante. */
-static Enclosure riemann_enclosure(const Node *f, const Node *F, int x, Range a, Range b) {
+ * l'involucro è più largo di 10^-9 volte (1 + |integrale|), fino a most. */
+static Enclosure riemann_enclosure(const Node *f, const Node *F, int x, Range a, Range b, long long most) {
     Enclosure e = {1, 0, {0, 0}};
-    for (long long pieces = RIEMANN_PIECES; pieces <= 16 * RIEMANN_PIECES; pieces *= 4) {
+    for (long long pieces = RIEMANN_PIECES; pieces <= most; pieces *= 4) {
         Range span = range_sub(b, a), width = range_div(span, range_ratio(pieces, 1));
         e = (Enclosure){1, 0, {0, 0}};
         for (long long k = 0; k < pieces && e.defined; k++) {
@@ -29553,8 +30085,10 @@ static Node *found_primitive(const Node *f, int x, char *text, size_t size, Prim
 
 /* 30j. Il verdetto su un integrale definito di f da lower a upper: se claim
  * non è NULL, "l'integrale vale claim"; altrimenti la richiesta del suo
- * valore. */
-static Verdict prove_definite(const Node *f, const Node *lower, const Node *upper, const Node *claim, int x) {
+ * valore. *improper diventa 1 se gli intervalli non mostrano che f è
+ * continua su tutto [a, b]: allora l'integrale va trattato come improprio
+ * (30k), e il verdetto ritornato non conta. */
+static Verdict prove_definite(const Node *f, const Node *lower, const Node *upper, const Node *claim, int x, int *improper) {
     static char answer[ANSWER_BYTES], detail[ANSWER_BYTES + 128];
     char primitive[ANSWER_BYTES];
     Verdict verdict = {NOT_PROVED, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL};
@@ -29569,9 +30103,13 @@ static Verdict prove_definite(const Node *f, const Node *lower, const Node *uppe
     Range claimed = claim ? sample_value(sample_tree(claim, x, 0, 0), x, range_none()) : range_none();
 
     /* L'involucro di Riemann, senza F: basta per il FALSO. */
-    Enclosure plain = riemann_enclosure(fs, NULL, x, low, high);
+    Enclosure plain = riemann_enclosure(fs, NULL, x, low, high, 16 * RIEMANN_PIECES);
     if (plain.broken) { unjustified_steps++; verdict.reason = "due stime garantite dell'integrale non si toccano: un errore del programma"; return verdict; }
-    if (!plain.defined) { verdict.reason = "non riesco a stabilire che la funzione integranda sia continua su tutto l'intervallo di integrazione"; return verdict; }
+    if (!plain.defined) {
+        verdict.reason = "non riesco a stabilire che la funzione integranda sia continua su tutto l'intervallo di integrazione";
+        *improper = 1;
+        return verdict;
+    }
     Range integral = flip ? range_neg(plain.integral) : plain.integral;
     if (claim && range_known(claimed) && (claimed.high < integral.low || claimed.low > integral.high)) {
         snprintf(detail, sizeof detail, "il valore scritto è fuori da [%.16g, %.16g], che contiene l'integrale", integral.low, integral.high);
@@ -29607,8 +30145,9 @@ static Verdict prove_definite(const Node *f, const Node *lower, const Node *uppe
         F[i] = found_primitive(piece[i].f, x, primitive, sizeof primitive, &check[i]);
         if (!F[i]) { verdict.reason = check[i].reason; return verdict; }
         Node *Fs = sample_tree(F[i], x, 0, 0);
-        if (!riemann_enclosure(sample_tree(piece[i].f, x, 0, 0), Fs, x, piece[i].low, piece[i].high).defined) {
+        if (!riemann_enclosure(sample_tree(piece[i].f, x, 0, 0), Fs, x, piece[i].low, piece[i].high, 16 * RIEMANN_PIECES).defined) {
             verdict.reason = "la primitiva trovata non è definita su tutto l'intervallo di integrazione";
+            *improper = pieces == 1;
             return verdict;
         }
         Rat at_end = value_at(F[i], x, piece[i].q);
@@ -29703,6 +30242,786 @@ static Verdict prove_definite(const Node *f, const Node *lower, const Node *uppe
     return verdict;
 }
 
+/* 30k. GLI INTEGRALI IMPROPRI
+ *
+ * A che cosa serve. "\int_{1}^{+\infty} \frac{dx}{x^{2}} = 1",
+ * "\int_{0}^{\pi/2} \tan x \, dx = +\infty", "\int_{0}^{1} \frac{dx}{\sqrt{x}}",
+ * "\int_{1}^{+\infty} \sin^{2}\frac{1}{x} \, dx \in \mathbb{R}": un estremo
+ * infinito, o una funzione che vicino a un estremo non è limitata.
+ *
+ * LA DEFINIZIONE
+ *
+ * Sia f continua sull'intervallo aperto (a, b), con a un numero o -\infty e b
+ * un numero o +\infty. Per un c in (a, b) si guardano i due limiti
+ *
+ *     lim_{q -> b^-} \int_c^q f      e      lim_{p -> a^+} \int_p^c f.
+ *
+ * Se esistono finiti, l'integrale improprio converge e vale la loro somma;
+ * cambiare c sposta un pezzo finito da un limite all'altro, e la somma non
+ * cambia. Se uno è +\infty e l'altro finito o +\infty, l'integrale vale
+ * +\infty (diverge); lo stesso per -\infty. Altrimenti (un limite che non
+ * esiste, o +\infty da una parte e -\infty dall'altra) l'integrale non
+ * converge e non vale un infinito. Se f non è definita in un punto c
+ * interno, (a, b) si divide in c, e l'integrale converge se converge su
+ * ogni parte. Se f è continua anche negli estremi, che sono numeri, la
+ * definizione dà l'integrale di sempre (la funzione integrale è continua):
+ * la estende, non la cambia. Per questo un integrale definito che gli
+ * intervalli non sanno dire continuo su tutto [a, b] (30i) viene trattato
+ * qui.
+ *
+ * IL TEOREMA E IL METODO (30k-1 ... 30k-4)
+ *
+ * Se F è derivabile su (a, b) con F' = f, per ogni [p, q] dentro (a, b) il
+ * teorema fondamentale dà \int_p^q f = F(q) - F(p), e quindi l'integrale
+ * improprio è lim_{x -> b^-} F(x) - lim_{x -> a^+} F(x), sui numeri reali
+ * estesi, con le regole della definizione. Si controllano, ognuno con il
+ * suo metodo:
+ *
+ *   30k-1. che f sia continua su (a, b), e F derivabile: domain_conditions()
+ *          raccoglie le condizioni di esistenza di f, di F e della derivata
+ *          di F scritta dalle regole (divisori diversi da zero, argomenti dei
+ *          logaritmi positivi, radicandi non negativi, coseni diversi da zero
+ *          sotto una tangente), e la tabella dei segni (18p), con le sue
+ *          verifiche, decide l'enunciato "per ogni x con a < x < b valgono".
+ *          Una funzione elementare è continua dove è definita; e dove la
+ *          formula della derivata ha un valore F è derivabile e quella è la
+ *          sua derivata (capitolo 27, "Dove valgono le formule"). Se la
+ *          tabella trova un punto c in cui una condizione non vale,
+ *          l'intervallo si divide in c e si ricomincia, fino a
+ *          MAX_IMPROPER_PIECES parti;
+ *   30k-2. che F' = f: primitive_check(), come per le primitive (30a, 30b);
+ *   30k-3. i limiti di F agli estremi di ogni parte: il capitolo 29, con la
+ *          scala delle crescite (29k) e i suoi controlli (29i, 29j), come
+ *          richieste \lim_{x \to b^{-}} F, scritte e rilette;
+ *   30k-4. il controllo indipendente, con i numeri: su intervalli compatti
+ *          [p_k, q_k] che si allargano verso gli estremi (q_k = b - 2^{-k}
+ *          (b - c), oppure c + 2^{k-1} se b = +\infty), l'involucro di
+ *          Riemann di 30i chiude \int_{p_k}^{q_k} f senza usare F, e
+ *          F(q_k) - F(p_k), calcolato con gli intervalli, deve starci dentro.
+ *          Gli intervalli si fermano dove non sanno più calcolare f (un
+ *          esponenziale che esce dai numeri della macchina vicino a
+ *          +\infty); ma se su uno di essi f non si chiude pur calcolandosi
+ *          nei suoi due estremi, lì dentro c'è forse un punto in cui f non è
+ *          definita, sfuggito a 30k-1, e il controllo smentisce.
+ *          Che cosa garantisce: che F sia una primitiva su ogni compatto
+ *          guardato, per una strada che non usa né le regole di derivazione
+ *          né i conti esatti; un F sbagliato, o una divisione sfuggita al
+ *          primo controllo, lo fa uscire. Che cosa no: i limiti agli estremi,
+ *          che un numero finito di intervalli non vede; quelli li ricontrolla
+ *          29i, e la convergenza la ricontrolla il confronto (30l) quando sa
+ *          deciderla: se i due metodi non sono d'accordo il verdetto è NON
+ *          DIMOSTRATO, e il passo si conta tra quelli non giustificati.
+ *
+ * Perché i capitoli si parlano con dei testi. La tabella dei segni e i
+ * limiti ripartono da zero, e svuotano l'arena: si chiedono con enunciati
+ * scritti in LaTeX (ask_method()), come farebbe un utente, e ciò che
+ * rispondono (un controesempio, un limite) è un testo che si rilegge. Gli
+ * alberi della funzione e della primitiva si rileggono dai loro testi
+ * quando servono di nuovo. */
+
+#define MAX_IMPROPER_PIECES 4  /* parti in cui un integrale improprio si divide nei punti interni (30k-1) */
+#define IMPROPER_STEPS 12      /* intervalli compatti del controllo con i numeri (30k-4) */
+
+/* Un estremo di una parte di un integrale improprio, o il valore di un
+ * limite: un infinito, oppure un numero scritto in LaTeX. */
+typedef struct {
+    int infinite;              /* +1 per +\infty, -1 per -\infty, 0 per un numero */
+    char text[ANSWER_BYTES];   /* il numero, se infinite è 0: si rilegge con il lettore */
+} EndText;
+
+/* Ciò che si sa di un integrale improprio, o di un suo estremo. */
+typedef enum {
+    IMPROPER_UNKNOWN,     /* non si sa */
+    IMPROPER_FINITE,      /* converge */
+    IMPROPER_PLUS,        /* vale +\infty */
+    IMPROPER_MINUS,       /* vale -\infty */
+    IMPROPER_NEITHER,     /* non converge, e non vale un infinito */
+    IMPROPER_DIVERGENT    /* non converge; se valga un infinito non si sa */
+} ImproperResult;
+
+/* Gli estremi delle parti, da sinistra a destra: la parte i va da
+ * improper_point[i] a improper_point[i + 1]. */
+static EndText improper_point[MAX_IMPROPER_PIECES + 1];
+static int improper_pieces;
+
+/* Ripartenza da zero per un enunciato sugli integrali: l'arena, la tabella
+ * degli atomi e le variabili dei conti; non il testo della dimostrazione. */
+static void integral_reset(void) {
+    arena_used = arena_keep;
+    atom_count = base_poly_count = atan_count = 0;
+    failure = NULL;
+    env_count = point_count = 0;
+    conditions_on = 0;
+    induction_var = 0;
+    default_base = domain_floor = 0;
+}
+
+/* LE CONDIZIONI DI ESISTENZA (30k-1) */
+
+/* Ritorna 1 se c, che non contiene x, ha un valore, e mette in *value un
+ * intervallo che lo contiene. */
+static int constant_value(const Node *c, int x, Range *value) {
+    *value = sample_value(sample_tree(c, x, 0, 0), x, range_none());
+    return range_known(*value);
+}
+
+/* Ritorna 1 se c, che non contiene x, è un intero, e lo mette in *n. */
+static int constant_integer(const Node *c, int x, long long *n) {
+    if (node_has_variable(c, x)) return 0;
+    const char *saved = failure;
+    env_count = 0;
+    Rat r = eval(c);
+    Num v;
+    int whole = !failure && rat_number(r, &v) && v.im.num == 0 && v.re.den == 1;
+    failure = saved;
+    if (whole) *n = v.re.num;
+    return whole;
+}
+
+/* Aggiunge alla congiunzione text la condizione "\left(u\right) relation",
+ * se non c'è già. Ritorna 0 se non ci sta. */
+static int condition_add(const Node *u, const char *relation, char *text, size_t size) {
+    char written[ANSWER_BYTES], piece[ANSWER_BYTES + 32];
+    if (!node_latex(u, written, sizeof written)) return 0;
+    snprintf(piece, sizeof piece, "\\left(%s\\right) %s", written, relation);
+    if (strstr(text, piece)) return 1;
+    if (strlen(text) + strlen(piece) + 8 >= size) return 0;
+    text_add(text, size, "%s%s", text[0] ? " \\land " : "", piece);
+    return 1;
+}
+
+/* La condizione u != 0, ridotta dove si sa: un prodotto è zero se lo è un
+ * fattore, una potenza o una radice se lo è la base, c^v (con c > 0) e e^v
+ * mai. Chi chiama ha già posto le condizioni di esistenza di u. Ritorna 0
+ * come condition_add(), o se u è una costante che non si sa diversa da
+ * zero. */
+static int condition_nonzero(const Node *u, int x, char *text, size_t size) {
+    Range value;
+    long long n;
+    int side;
+    if (!node_has_variable(u, x)) return constant_value(u, x, &value) && range_side(value, &side);
+    switch (u->kind) {
+    case N_NEG:
+        return condition_nonzero(u->a, x, text, size);
+    case N_MUL:
+        return condition_nonzero(u->a, x, text, size) && condition_nonzero(u->b, x, text, size);
+    case N_DIV:
+        return condition_nonzero(u->a, x, text, size);
+    case N_POW:
+        /* c^v e u^v = e^{v ln u} hanno la base positiva; u^0 = 1, e u^{-n}
+         * ha già u != 0 tra le condizioni. */
+        if (!node_has_variable(u->a, x) || node_has_variable(u->b, x)) return 1;
+        if (constant_integer(u->b, x, &n) && n <= 0) return 1;
+        return condition_nonzero(u->a, x, text, size);
+    case N_CALL:
+        if (u->op == FN_ROOT || u->op == FN_ABS) return condition_nonzero(u->a, x, text, size);
+        break;
+    default:
+        break;
+    }
+    return condition_add(u, "\\ne 0", text, size);
+}
+
+/* La condizione u > 0, ridotta come in condition_nonzero(): |v| > 0 se
+ * v != 0, e c^v > 0 sempre. */
+static int condition_positive(const Node *u, int x, char *text, size_t size) {
+    Range value;
+    int side;
+    if (!node_has_variable(u, x)) return constant_value(u, x, &value) && range_side(value, &side) && side > 0;
+    if (u->kind == N_CALL && u->op == FN_ABS) return condition_nonzero(u->a, x, text, size);
+    if (u->kind == N_POW && !node_has_variable(u->a, x)) return 1;
+    return condition_add(u, "> 0", text, size);
+}
+
+/* La condizione u >= 0: vale da sé per |v|, c^v e le potenze pari. */
+static int condition_nonnegative(const Node *u, int x, char *text, size_t size) {
+    long long n;
+    if (u->kind == N_CALL && u->op == FN_ABS) return 1;
+    if (u->kind == N_POW && (!node_has_variable(u->a, x) || (constant_integer(u->b, x, &n) && n % 2 == 0))) return 1;
+    return condition_add(u, "\\ge 0", text, size);
+}
+
+/* 30k-1. Aggiunge alla congiunzione text le condizioni perché tree, nella
+ * variabile x, sia definita: divisori diversi da zero, argomenti dei
+ * logaritmi e basi delle potenze con un esponente non intero (o con x
+ * nell'esponente: u^v = e^{v ln u}) positivi, radicandi di indice pari non
+ * negativi, coseni diversi da zero sotto una tangente (seni sotto una
+ * cotangente), |u| <= 1 sotto un arcoseno. Una parte senza x deve avere un
+ * valore. Sono le stesse convenzioni del resto del programma (29f, 29h).
+ * Ritorna 0 se tree contiene ciò che qui non si tratta (fattoriali,
+ * somme con \sum, applicazioni), o se il testo non ci sta. */
+static int domain_conditions(const Node *tree, int x, char *text, size_t size) {
+    Range value;
+    long long n;
+    int side;
+    if (!node_has_variable(tree, x)) return constant_value(tree, x, &value);
+    switch (tree->kind) {
+    case N_VAR:
+        return 1;
+    case N_NEG:
+        return domain_conditions(tree->a, x, text, size);
+    case N_ADD: case N_SUB: case N_MUL:
+        return domain_conditions(tree->a, x, text, size) && domain_conditions(tree->b, x, text, size);
+    case N_DIV:
+        return domain_conditions(tree->a, x, text, size) && domain_conditions(tree->b, x, text, size) && condition_nonzero(tree->b, x, text, size);
+    case N_POW:
+        if (!domain_conditions(tree->a, x, text, size) || !domain_conditions(tree->b, x, text, size)) return 0;
+        if (tree->a->kind == N_VAR && tree->a->name == 'e') return 1;
+        if (constant_integer(tree->b, x, &n)) return n >= 0 || condition_nonzero(tree->a, x, text, size);
+        return condition_positive(tree->a, x, text, size);
+    case N_CALL:
+        if (!domain_conditions(tree->a, x, text, size)) return 0;
+        switch ((Function)tree->op) {
+        case FN_SIN: case FN_COS: case FN_ARCTAN: case FN_ARCCOT: case FN_ABS:
+            return 1;
+        case FN_TAN:
+            return condition_nonzero(node_call(FN_COS, tree->a, NULL), x, text, size);
+        case FN_COT:
+            return condition_nonzero(node_call(FN_SIN, tree->a, NULL), x, text, size);
+        case FN_LN:
+            return condition_positive(tree->a, x, text, size);
+        case FN_LOG:
+            /* La base è un numero positivo diverso da 1. */
+            if (!tree->b || node_has_variable(tree->b, x) || !constant_value(tree->b, x, &value) || !range_side(value, &side) || side < 0 ||
+                !range_side(range_sub(value, range_ratio(1, 1)), &side))
+                return 0;
+            return condition_positive(tree->a, x, text, size);
+        case FN_ROOT:
+            if (!constant_integer(tree->b, x, &n) || n < 2) return 0;
+            return n % 2 || condition_nonnegative(tree->a, x, text, size);
+        case FN_ARCSIN: case FN_ARCCOS:
+            return condition_add(tree->a, "^{2} \\le 1", text, size);
+        default:
+            return 0;
+        }
+    default:
+        return 0;
+    }
+}
+
+/* I TESTI DEGLI ESTREMI */
+
+/* Scrive in text l'estremo e: +\infty, -\infty o il numero. */
+static void end_latex(const EndText *e, char *text, size_t size) {
+    snprintf(text, size, "%s", e->infinite > 0 ? "+\\infty" : e->infinite < 0 ? "-\\infty" : e->text);
+}
+
+/* Mette in *value l'intervallo del numero dell'estremo e (finito). Ritorna 0
+ * se il testo non si rilegge o non ha un valore. Usa l'arena. */
+static int end_range(const EndText *e, int x, Range *value) {
+    Node *tree = text_tree(e->text);
+    return tree && constant_value(tree, x, value);
+}
+
+/* Ritorna 1 se l'estremo c sta di sicuro tra p e q, che possono essere
+ * infiniti. */
+static int end_between(const EndText *p, const EndText *c, const EndText *q, int x) {
+    Range low, middle, high;
+    int side;
+    if (c->infinite || !end_range(c, x, &middle)) return 0;
+    if (!p->infinite && !(end_range(p, x, &low) && range_side(range_sub(middle, low), &side) && side > 0)) return 0;
+    if (!q->infinite && !(end_range(q, x, &high) && range_side(range_sub(high, middle), &side) && side > 0)) return 0;
+    return 1;
+}
+
+/* 30k-1. Chiede alla tabella dei segni se le condizioni conditions valgono
+ * su ogni parte (improper_point[]), e divide una parte nel punto in cui la
+ * tabella le smentisce. Ritorna 1 se alla fine valgono su ogni parte, 0 se
+ * non si sa. La dimostrazione della tabella entra nel testo. */
+static int improper_domain(const char *conditions, int x) {
+    static char question[MAX_FORMULA], low[ANSWER_BYTES], high[ANSWER_BYTES];
+    if (!conditions[0]) {
+        proof_add("Every operation in the integrand is defined for every real number, so it is continuous everywhere.\n");
+        return 1;
+    }
+    for (int i = 0; i < improper_pieces;) {
+        const EndText *p = &improper_point[i], *q = &improper_point[i + 1];
+        end_latex(p, low, sizeof low);
+        end_latex(q, high, sizeof high);
+        int wanted;
+        if (p->infinite && q->infinite) wanted = snprintf(question, sizeof question, "\\forall %c \\in \\mathbb{R}\\ (%s)", x, conditions);
+        else if (p->infinite) wanted = snprintf(question, sizeof question, "\\forall %c \\in \\mathbb{R}\\ (%c < %s \\implies %s)", x, x, high, conditions);
+        else if (q->infinite) wanted = snprintf(question, sizeof question, "\\forall %c \\in \\mathbb{R}\\ (%s < %c \\implies %s)", x, low, x, conditions);
+        else wanted = snprintf(question, sizeof question, "\\forall %c \\in \\mathbb{R}\\ (%s < %c \\land %c < %s \\implies %s)", x, low, x, x, high, conditions);
+        if (wanted < 0 || (size_t)wanted >= sizeof question) return 0;
+        proof_add("\n\\emph{Where the functions are defined}, on $(%s, %s)$: the conditions $%s$ must hold there.\n", low, high, conditions);
+        Verdict table = ask_method(prove_quantified, question, "The sign table, too long to be written here, shows that the conditions hold on every row.", 1);
+        proof_add("\n");
+        if (table.outcome == PROVED) { i++; continue; }
+
+        /* Smentite in un punto c: si divide la parte in c. */
+        const char *value = table.outcome == REFUTED && table.detail ? strstr(table.detail, "= ") : NULL;
+        if (!value || improper_pieces == MAX_IMPROPER_PIECES) return 0;
+        EndText c = {0, ""};
+        snprintf(c.text, sizeof c.text, "%s", value + 2);
+        if (!end_between(p, &c, q, x)) return 0;
+        for (int k = improper_pieces; k > i; k--) improper_point[k + 1] = improper_point[k];
+        improper_point[i + 1] = c;
+        improper_pieces++;
+        proof_add("\nThe sign table finds a point where a condition fails, $%c = %s$: the interval is split there, and each part is improper "
+                  "at that end.\n", x, c.text);
+    }
+    return 1;
+}
+
+/* 30k-3. Il limite della funzione scritta in function quando x tende
+ * all'estremo end, da destra se side è +1 e da sinistra se è -1 (per un
+ * estremo infinito side non conta), chiesto al capitolo 29: mette in *out
+ * l'infinito o il valore scritto, e ritorna 1 se il limite è calcolato. La
+ * dimostrazione del limite entra nel testo, dopo intro. */
+static int improper_limit(const char *function, int x, const EndText *end, int side, const char *intro, EndText *out) {
+    static char question[MAX_FORMULA];
+    int wanted = end->infinite ? snprintf(question, sizeof question, "\\lim_{%c \\to %s} %s", x, end->infinite > 0 ? "+\\infty" : "-\\infty", function)
+                               : snprintf(question, sizeof question, "\\lim_{%c \\to %s^{%c}} %s", x, end->text, side > 0 ? '+' : '-', function);
+    if (wanted < 0 || (size_t)wanted >= sizeof question) return 0;
+    proof_add("%s", intro);
+    Verdict limit = ask_method(prove_limit, question, "The limit, computed with the expansions of chapter 29, is the one written here.", 1);
+    proof_add("\n");
+    if (limit.outcome != SOLVED || !limit.detail) return 0;
+    const char *value = NULL;
+    for (const char *s = strstr(limit.detail, " = "); s; s = strstr(s + 1, " = ")) value = s + 3;
+    if (!value) return 0;
+    out->infinite = infinity_text(value, value + strlen(value));
+    if (out->infinite == 2) return 0;
+    snprintf(out->text, sizeof out->text, "%s", value);
+    return 1;
+}
+
+/* 30l. IL CONFRONTO
+ *
+ * Quando non si trova una primitiva, la convergenza si decide dal
+ * comportamento di f vicino a ogni estremo. Con t -> 0^{+} la lettera di 29a
+ * (t = b - x vicino a un estremo b, t = 1/|x| all'infinito) e L = ln(1/t),
+ * sia g = t^{e} L^{d}, positiva vicino all'estremo. I teoremi:
+ *
+ *   (C1) confronto asintotico: se f / g -> c con c != 0 finito, allora f ha
+ *        il segno di c vicino all'estremo, |f| sta tra |c| g / 2 e 2 |c| g,
+ *        e \int f converge se e solo se converge \int g; se \int g diverge,
+ *        \int f vale \infty con il segno di c;
+ *   (C2) se f / g -> 0 e \int g converge, allora |f| <= g vicino
+ *        all'estremo, e \int f converge (assolutamente);
+ *   (C3) se f / g -> \pm\infty e \int g diverge, allora f ha il segno
+ *        dell'infinito e |f| >= g vicino all'estremo: \int f vale \infty con
+ *        quel segno.
+ *
+ * E la scala di g (con s = ln(1/t), \int t^{e} L^{d} dt = \int e^{-(e + 1) s}
+ * s^{d} ds verso s = +\infty, o con x = 1/t all'infinito):
+ *
+ *   - vicino a un estremo b che è un numero, \int (b - x)^{e} L^{d} dx
+ *     converge se e solo se e > -1, oppure e = -1 e d < -1;
+ *   - all'infinito, \int |x|^{-e} (\ln|x|)^{d} dx converge se e solo se
+ *     e > 1, oppure e = 1 e d < -1.
+ *
+ * La g viene dal termine principale di f (29m, limit_leading()), che è un
+ * conto del capitolo 29 confermato dal suo controllo con i numeri (29i):
+ * f = c t^{e} L^{d} (1 + o(1)) con c != 0 dice proprio f / g -> c con
+ * g = t^{e} L^{d}, ed è (C1). Se f ha un fattore e^{G} con G -> -\infty, f
+ * è più piccola di ogni potenza (29k-b): f / g -> 0 con g = t^{-1/2} (o
+ * x^{-2} all'infinito), ed è (C2); con G -> +\infty f / g -> \pm\infty con
+ * g = t^{-1} (o 1), ed è (C3). Se della serie si conosce solo il resto,
+ * f = O(t^{e}) (\frac{\sin x}{x^{2}} all'infinito è O(t^{2})), allora
+ * |f| <= C g con g = t^{e}: è (C2), e decide solo quando \int g converge.
+ * Del coefficiente c servono il segno e che non sia zero, che il conto
+ * decide in modo esatto. I casi in cui f oscilla senza tendere a zero
+ * abbastanza in fretta (\cos x all'infinito) restano non decisi. */
+
+/* 30l. Il confronto all'estremo end di una parte (side +1 se è l'estremo
+ * sinistro, a cui si arriva da destra, -1 se è il destro) per la funzione
+ * scritta in function: ritorna IMPROPER_FINITE se l'integrale converge
+ * vicino a end, IMPROPER_PLUS o IMPROPER_MINUS se vale un infinito,
+ * IMPROPER_UNKNOWN se non si sa. Con proof scrive il ragionamento. */
+static ImproperResult improper_compare(const char *function, int x, const EndText *end, int side, int proof) {
+    static char question[MAX_FORMULA], t[ANSWER_BYTES], ell[ANSWER_BYTES], g[2 * ANSWER_BYTES];
+    char e_text[64] = "", d_text[64] = "", where[ANSWER_BYTES];
+    int wanted = end->infinite ? snprintf(question, sizeof question, "\\lim_{%c \\to %s} %s", x, end->infinite > 0 ? "+\\infty" : "-\\infty", function)
+                               : snprintf(question, sizeof question, "\\lim_{%c \\to %s^{%c}} %s", x, end->text, side > 0 ? '+' : '-', function);
+    if (wanted < 0 || (size_t)wanted >= sizeof question) return IMPROPER_UNKNOWN;
+    LeadingTerm lead = limit_leading(question);
+    if (!lead.found) return IMPROPER_UNKNOWN;
+
+    /* La g: t^{e} L^{d} per (C1), oppure quella di (C2) o di (C3) con il
+     * fattore e^{G}; e la scala, se il suo integrale converge. */
+    int finite_end = !end->infinite;
+    Frac e = lead.growth > 0 ? frac_int(finite_end ? -1 : 0) : lead.growth < 0 ? (finite_end ? (Frac){-1, 2} : frac_int(2)) : lead.e;
+    Frac d = lead.growth ? frac_int(0) : lead.d;
+    int g_converges = finite_end ? (frac_cmp(e, frac_int(-1)) > 0 || (frac_cmp(e, frac_int(-1)) == 0 && frac_cmp(d, frac_int(-1)) < 0))
+                                 : (frac_cmp(e, frac_int(1)) > 0 || (frac_cmp(e, frac_int(1)) == 0 && frac_cmp(d, frac_int(-1)) < 0));
+    ImproperResult result = lead.growth < 0 || (!lead.growth && g_converges) ? IMPROPER_FINITE : lead.sign > 0 ? IMPROPER_PLUS : IMPROPER_MINUS;
+
+    /* Con il solo resto, |f| <= C g: dice che converge se converge \int g
+     * (C2), e niente se diverge. */
+    if (lead.bound && !g_converges) return IMPROPER_UNKNOWN;
+    if (!proof) return result;
+
+    /* La dimostrazione: t, positiva e che tende a 0, L = ln(1/t), la g, e
+     * il teorema usato. */
+    if (end->infinite) {
+        snprintf(t, sizeof t, end->infinite > 0 ? "\\frac{1}{%c}" : "\\left(-\\frac{1}{%c}\\right)", x);
+        snprintf(ell, sizeof ell, end->infinite > 0 ? "\\ln %c" : "\\ln(-%c)", x);
+    } else {
+        if (side < 0) snprintf(t, sizeof t, "\\left(%s - %c\\right)", end->text, x);
+        else snprintf(t, sizeof t, "\\left(%c - \\left(%s\\right)\\right)", x, end->text);
+        snprintf(ell, sizeof ell, "-\\ln%s", t);
+    }
+    frac_latex(e, e_text, sizeof e_text);
+    frac_latex(d, d_text, sizeof d_text);
+    g[0] = 0;
+    if (e.num) text_add(g, sizeof g, "\\left(%s\\right)^{%s}", t, e_text);
+    if (d.num) text_add(g, sizeof g, "%s\\left(%s\\right)^{%s}", g[0] ? " " : "", ell, d_text);
+    if (!g[0]) text_add(g, sizeof g, "1");
+    end_latex(end, where, sizeof where);
+    if (failure) { failure = NULL; return IMPROPER_UNKNOWN; }
+    proof_add("\n\\emph{Comparison as $%c \\to %s%s$}, with $g = %s$, positive near the end. The expansions of the limits (with their check with "
+              "numbers) give %s. The integral of $g$ %s near this end (%s), so, by %s, the integral of the integrand %s there.\n", x, where,
+              finite_end ? side > 0 ? "^{+}" : "^{-}" : "", g,
+              lead.growth < 0 ? "an integrand smaller than every power, so $f / g \\to 0$"
+              : lead.growth > 0 ? (lead.sign > 0 ? "an integrand larger than every power, so $f / g \\to +\\infty$"
+                                                 : "an integrand larger than every power in absolute value, so $f / g \\to -\\infty$")
+              : lead.bound ? "only a bound, $f = O(g)$, that is $|f| \\le C g$ near the end"
+              : lead.sign > 0 ? "$f / g \\to c$ with $c > 0$" : "$f / g \\to c$ with $c < 0$",
+              g_converges ? "converges" : "diverges",
+              finite_end ? "$\\int (b - x)^{e} \\left(\\ln\\frac{1}{b - x}\\right)^{d} dx$ converges near $b$ if and only if $e > -1$, or $e = -1$ and $d < -1$"
+                         : "$\\int |x|^{-e} \\left(\\ln |x|\\right)^{d} dx$ converges at infinity if and only if $e > 1$, or $e = 1$ and $d < -1$",
+              lead.growth > 0 ? "comparison ($|f| \\ge g$ near the end, with the sign of $f$)"
+              : lead.growth < 0 || lead.bound ? "comparison ($|f| \\le C g$ near the end: the integral converges absolutely)"
+                                              : "asymptotic comparison",
+              result == IMPROPER_FINITE ? "converges" : result == IMPROPER_PLUS ? "is $+\\infty$" : "is $-\\infty$");
+    return result;
+}
+
+/* Ritorna ciò che dicono di un integrale improprio i risultati result[] dei
+ * suoi count estremi (30l): converge se converge vicino a ogni estremo; un
+ * infinito, se tutti quelli che divergono hanno lo stesso segno e degli
+ * altri si sa che convergono; nessuno dei due, se due divergono con segni
+ * opposti (+\infty - \infty non ha un valore). */
+static ImproperResult improper_combine(const ImproperResult *result, int count) {
+    int unknown = 0, plus = 0, minus = 0;
+    for (int i = 0; i < count; i++) {
+        unknown |= result[i] == IMPROPER_UNKNOWN;
+        plus |= result[i] == IMPROPER_PLUS;
+        minus |= result[i] == IMPROPER_MINUS;
+    }
+    if (plus && minus) return IMPROPER_NEITHER;
+    if (unknown) return plus || minus ? IMPROPER_DIVERGENT : IMPROPER_UNKNOWN;
+    return plus ? IMPROPER_PLUS : minus ? IMPROPER_MINUS : IMPROPER_FINITE;
+}
+
+/* 30k-3. I limiti di F (scritta in function) agli estremi di ogni parte, in
+ * from[] (da destra dell'estremo sinistro) e to[] (da sinistra del destro).
+ * Ritorna ciò che dicono dell'integrale vicino a ogni estremo, in result[]
+ * (due per parte, come per il confronto), o 0 se un limite non si calcola. */
+static int improper_limits(const char *function, int x, EndText *from, EndText *to, ImproperResult *result) {
+    char where[ANSWER_BYTES], intro[2 * ANSWER_BYTES];
+    for (int i = 0; i < improper_pieces; i++) {
+        for (int end = 0; end < 2; end++) {
+            const EndText *point = &improper_point[i + end];
+            EndText *limit = end ? &to[i] : &from[i];
+            end_latex(point, where, sizeof where);
+            snprintf(intro, sizeof intro, "\n\\emph{The limit of $F$ as $%c \\to %s%s$}.\n", x, where, point->infinite ? "" : end ? "^{-}" : "^{+}");
+            if (!improper_limit(function, x, point, end ? -1 : 1, intro, limit)) return 0;
+
+            /* Vicino all'estremo destro l'integrale va come F, vicino al
+             * sinistro come -F. */
+            int sign = end ? limit->infinite : -limit->infinite;
+            result[2 * i + end] = sign > 0 ? IMPROPER_PLUS : sign < 0 ? IMPROPER_MINUS : IMPROPER_FINITE;
+        }
+    }
+    return 1;
+}
+
+/* 30k-4. Il controllo con i numeri sulla parte da p a q, con f e F già
+ * passati da sample_tree(): vedi la testa di 30k. Mette in *steps quanti
+ * intervalli [p_k, q_k] sono stati controllati, e dell'ultimo gli estremi in
+ * *low e *high e l'involucro dell'integrale in *integral. Ritorna 1 se il controllo non trova errori; 0 se dice che il
+ * programma ha sbagliato, F(q_k) - F(p_k) di sicuro fuori dall'involucro o
+ * due stime garantite che non si toccano; -1 se trova un intervallo
+ * compatto della parte su cui f non si chiude benché si calcoli nei suoi
+ * estremi. */
+static int improper_riemann(const Node *f, const Node *F, int x, const EndText *p, const EndText *q, int *steps, Range *low, Range *high,
+                            Range *integral) {
+    Range P = range_none(), Q = range_none(), one = range_ratio(1, 1), sum = {0, 0};
+    *steps = 0;
+    if ((!p->infinite && !end_range(p, x, &P)) || (!q->infinite && !end_range(q, x, &Q))) return 1;
+
+    /* Il punto di partenza m, dentro la parte; poi gli intervalli verso gli
+     * estremi, a metà della distanza che resta o raddoppiando. */
+    Range m = p->infinite && q->infinite ? (Range){0, 0} : p->infinite ? range_sub(Q, one) : q->infinite ? range_add(P, one)
+                                                                                                      : range_div(range_add(P, Q), range_ratio(2, 1));
+    Range left = m, right = m;
+    for (int k = 1; k <= IMPROPER_STEPS; k++) {
+        Range half = range_ratio(1, (__int128)1 << k), far = range_ratio((__int128)1 << (k - 1), 1);
+        Range next_left = p->infinite ? range_sub(m, far) : range_add(P, range_mul(range_sub(m, P), half));
+        Range next_right = q->infinite ? range_add(m, far) : range_sub(Q, range_mul(range_sub(Q, m), half));
+        /* Una sola suddivisione, senza raffinarla: qui l'involucro serve a
+         * vedere un F sbagliato, non a dare il valore con tante cifre, e
+         * le parti sono tante (due per passo e per parte). */
+        Enclosure before = riemann_enclosure(f, F, x, next_left, left, RIEMANN_PIECES), after = riemann_enclosure(f, F, x, right, next_right, RIEMANN_PIECES);
+        if (before.broken || after.broken) return 0;
+
+        /* Un intervallo che gli intervalli non sanno chiudere ferma il
+         * controllo. Può essere F a non chiudersi, per i conti (2/(3x^3 -
+         * 45x^2 + 225x - 375) vicino a 5 perde tutte le cifre); ma se è f a
+         * non chiudersi, e f si calcola in tutti e due i suoi estremi, il
+         * motivo non è un numero troppo grande vicino a un estremo
+         * dell'integrale, ma forse un punto dentro in cui f non è definita,
+         * che le condizioni di esistenza (30k-1) non hanno visto: allora il
+         * controllo smentisce. */
+        for (int side = 0; side < 2; side++) {
+            Range from = side ? right : next_left, to = side ? next_right : left;
+            if ((side ? after : before).defined || !range_known(sample_value(f, x, from)) || !range_known(sample_value(f, x, to))) continue;
+            if (!riemann_enclosure(f, NULL, x, from, to, RIEMANN_PIECES).defined) return -1;
+        }
+        if (!before.defined || !after.defined) break;
+        sum = range_add(sum, range_add(before.integral, after.integral));
+        Range difference = range_sub(sample_value(F, x, next_right), sample_value(F, x, next_left));
+        if (!range_known(sum) || !range_known(difference)) break;
+        if (difference.high < sum.low || difference.low > sum.high) return 0;
+        left = next_left;
+        right = next_right;
+        *steps = k;
+        *low = left;
+        *high = right;
+        *integral = sum;
+    }
+    return 1;
+}
+
+/* Il motivo di un NON DIMOSTRATO quando il confronto dice che l'integrale
+ * converge, ma il valore manca. */
+static const char *const CONVERGES_WITHOUT_VALUE = "l'integrale converge (per confronto), ma non trovo una primitiva per calcolarne il valore";
+
+/* 30k. Il verdetto su un integrale improprio, letto da formula: vedi la
+ * testa di 30k e di 30l. Svuota l'arena e la tabella degli atomi. */
+static Verdict prove_improper(const char *formula) {
+    static char f_text[ANSWER_BYTES], F_text[ANSWER_BYTES], f_conditions[ANSWER_BYTES], all_conditions[2 * ANSWER_BYTES], answer[ANSWER_BYTES];
+    static EndText from[MAX_IMPROPER_PIECES], to[MAX_IMPROPER_PIECES];
+    static ImproperResult ends[2 * MAX_IMPROPER_PIECES];
+    Verdict verdict = {NOT_PROVED, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL};
+    IntegralStatement st;
+    PrimitiveCheck check;
+
+    /* La lettura, i testi, e il verso: gli estremi da sinistra a destra. */
+    proof_reset();
+    integral_reset();
+    if (!parse_integral_statement(formula, &st)) {
+        verdict.outcome = UNSUPPORTED;
+        verdict.reason = syntax_error;
+        syntax_error = NULL;
+        return verdict;
+    }
+    int x = st.variable, flip = 0;
+    if (x == 'n') {
+        verdict.outcome = UNSUPPORTED;
+        verdict.reason = "un integrale improprio nella lettera n, che nei limiti è l'indice di una successione";
+        return verdict;
+    }
+    EndText a = {st.lower_infinite, ""}, b = {st.upper_infinite, ""};
+    if ((st.lower && !node_latex(st.lower, a.text, sizeof a.text)) || (st.upper && !node_latex(st.upper, b.text, sizeof b.text)) ||
+        !node_latex(st.integrand, f_text, sizeof f_text)) {
+        verdict.reason = "un estremo, o la funzione integranda, troppo lunghi da scrivere";
+        return verdict;
+    }
+    if (a.infinite || b.infinite) {
+        if (a.infinite == b.infinite) { verdict.reason = "i due estremi sono lo stesso infinito"; return verdict; }
+        flip = a.infinite > 0 || b.infinite < 0;
+    } else {
+        Range low, high;
+        int side;
+        if (!end_range(&a, x, &low) || !end_range(&b, x, &high) || !range_side(range_sub(high, low), &side)) {
+            verdict.reason = "non riesco a stabilire quale dei due estremi è il più piccolo";
+            return verdict;
+        }
+        flip = side < 0;
+    }
+    improper_pieces = 1;
+    improper_point[0] = flip ? b : a;
+    improper_point[1] = flip ? a : b;
+
+    /* Le condizioni di esistenza di f; la primitiva, e le sue. */
+    f_conditions[0] = all_conditions[0] = 0;
+    if (!domain_conditions(st.integrand, x, f_conditions, sizeof f_conditions)) {
+        verdict.reason = "la funzione integranda contiene ciò di cui non so scrivere le condizioni di esistenza";
+        return verdict;
+    }
+    Node *F = found_primitive(st.integrand, x, F_text, sizeof F_text, &check);
+    failure = NULL;
+    proof_add("\\textbf{Proof.} The integral is improper: by definition it is the limit of the integrals over the compact intervals inside "
+              "the interval of integration, with the interval split at the points where the functions are not defined; it converges if "
+              "the limit is finite on every part. ");
+    size_t opening = proof_length;
+    int with_F = 0;
+    if (F) {
+        snprintf(all_conditions, sizeof all_conditions, "%s", f_conditions);
+        with_F = domain_conditions(F, x, all_conditions, sizeof all_conditions) && check.derivative &&
+                 domain_conditions(check.derivative, x, all_conditions, sizeof all_conditions);
+        if (with_F) {
+            proof_add("Let $F = ");
+            put_node(F, 0);
+            proof_add("$, found by the search for an antiderivative. ");
+            if (!put_primitive_check(st.integrand, F, x, &check)) {
+                unjustified_steps++;
+                verdict.reason = "la derivata scritta nella dimostrazione, riletta, non è confermata";
+                return verdict;
+            }
+            proof_add("By the fundamental theorem of calculus, on every compact interval $[p, q]$ where $f$ is continuous and $F$ "
+                      "differentiable, the integral is $F(q) - F(p)$: on each part, the improper integral is the limit of $F$ at its right end "
+                      "minus the limit at its left end.\n\n");
+        }
+    }
+
+    /* 30k-1, 30k-3: dove le funzioni sono definite, poi i limiti di F.
+     * Se non si arriva in fondo, si ricomincia con il confronto (30l), senza
+     * F e senza ciò che se n'è scritto. */
+    ImproperResult result = IMPROPER_UNKNOWN;
+    if (with_F && improper_domain(all_conditions, x) && improper_limits(F_text, x, from, to, ends)) result = improper_combine(ends, 2 * improper_pieces);
+    if (result == IMPROPER_UNKNOWN) {
+        proof_cut(opening);
+        with_F = 0;
+        improper_pieces = 1;
+        improper_point[0] = flip ? b : a;
+        improper_point[1] = flip ? a : b;
+        if (!improper_domain(f_conditions, x)) {
+            verdict.reason = "non riesco a stabilire che la funzione integranda sia continua sull'intervallo aperto di integrazione";
+            return verdict;
+        }
+        for (int i = 0; i < 2 * improper_pieces; i++) ends[i] = improper_compare(f_text, x, &improper_point[(i + 1) / 2], i % 2 ? -1 : 1, 1);
+        result = improper_combine(ends, 2 * improper_pieces);
+    } else {
+        /* Il secondo controllo della convergenza: il confronto, che non usa
+         * F, dove sa decidere, deve dire lo stesso (30k-4). Del suo
+         * ragionamento nel testo resta solo l'esito. */
+        ImproperResult again[2 * MAX_IMPROPER_PIECES];
+        size_t mark = proof_length;
+        for (int i = 0; i < 2 * improper_pieces; i++) again[i] = improper_compare(f_text, x, &improper_point[(i + 1) / 2], i % 2 ? -1 : 1, 0);
+        proof_cut(mark);
+        for (int i = 0; i < 2 * improper_pieces; i++) {
+            if (again[i] == IMPROPER_UNKNOWN || again[i] == ends[i]) continue;
+            unjustified_steps++;
+            verdict.reason = "il confronto e i limiti della primitiva non sono d'accordo sulla convergenza: un errore del programma";
+            return verdict;
+        }
+        int compared = 0;
+        for (int i = 0; i < 2 * improper_pieces; i++) compared += again[i] != IMPROPER_UNKNOWN;
+        if (compared)
+            proof_add("\n\\emph{Second check, by comparison} (which does not use $F$): at %d of the %d ends the behaviour of the integrand, "
+                      "compared with a power of the distance from the end and of its logarithm, gives the same convergence or divergence.\n",
+                      compared, 2 * improper_pieces);
+    }
+    if (flip) result = result == IMPROPER_PLUS ? IMPROPER_MINUS : result == IMPROPER_MINUS ? IMPROPER_PLUS : result;
+
+    /* Da qui servono di nuovo gli alberi: si rileggono dai testi. */
+    integral_reset();
+    parse_integral_statement(formula, &st);
+    syntax_error = NULL;
+
+    /* 30k-4. Il controllo con i numeri, su ogni parte, con F. */
+    if (with_F) {
+        Node *fs = sample_tree(text_tree(f_text), x, 0, 0), *Fs = sample_tree(text_tree(F_text), x, 0, 0);
+        proof_add("\n\\emph{Check with numbers}, with Riemann sums in interval arithmetic, which use neither $F$ nor exact algebra: ");
+        for (int i = 0; i < improper_pieces; i++) {
+            int steps;
+            Range low, high, integral;
+            int checked = improper_riemann(fs, Fs, x, &improper_point[i], &improper_point[i + 1], &steps, &low, &high, &integral);
+            if (checked <= 0) {
+                unjustified_steps++;
+                verdict.reason = checked ? "su un intervallo compatto dentro una parte gli intervalli non sanno chiudere la funzione integranda, benché "
+                                           "la calcolino nei suoi estremi: forse un punto in cui non è definita, che le condizioni di esistenza non hanno visto"
+                                         : "F(q) - F(p) non sta nell'involucro di Riemann dell'integrale su [p, q]: un errore del programma";
+                return verdict;
+            }
+            if (!steps) { verdict.reason = "le somme di Riemann con gli intervalli non si calcolano vicino agli estremi"; return verdict; }
+            if (improper_pieces > 1) proof_add("%son part %d, ", i ? "; " : "", i + 1);
+            proof_add("on %d intervals $[p_k, q_k]$ growing towards the ends they enclose the integral, and $F(q_k) - F(p_k)$ lies inside every "
+                      "time; the last is $[p_k, q_k] \\subseteq ", steps);
+            put_range((Range){low.low, high.high});
+            proof_add("$, with the integral in $");
+            put_range(integral);
+            proof_add("$");
+        }
+        proof_add(".\n\n");
+    }
+
+    /* Il valore, per una parte alla volta, con i conti esatti. */
+    Rat exact = rat_int(0);
+    if (with_F && result == IMPROPER_FINITE) {
+        for (int i = 0; i < improper_pieces && !failure; i++) {
+            Node *above = text_tree(to[i].text), *below = text_tree(from[i].text);
+            env_count = 0;
+            if (!above || !below) { verdict.reason = "un limite scritto non si rilegge"; return verdict; }
+            exact = rat_add(exact, rat_add(eval(above), eval(below), 1), 0);
+        }
+        if (flip) exact = rat_add(rat_int(0), exact, 1);
+        if (failure) { verdict.reason = failure; failure = NULL; return verdict; }
+    }
+
+    /* Il verdetto: holds è 1 se l'enunciato è vero, 0 se è falso, -1 se non
+     * si sa. */
+    int holds = -1;
+    const char *method = with_F ? "come integrale improprio, con la primitiva e i suoi limiti agli estremi" : "come integrale improprio, per confronto";
+    int divergent = result == IMPROPER_PLUS || result == IMPROPER_MINUS || result == IMPROPER_NEITHER || result == IMPROPER_DIVERGENT;
+    if (st.membership) holds = result == IMPROPER_FINITE ? st.membership > 0 : divergent ? st.membership < 0 : -1;
+    else if (st.answer_infinite) holds = result == IMPROPER_PLUS ? st.answer_infinite > 0 : result == IMPROPER_MINUS ? st.answer_infinite < 0
+                                        : result == IMPROPER_FINITE || result == IMPROPER_NEITHER ? 0 : -1;
+    else if (st.answer && divergent) holds = 0;
+    else if (st.answer && result == IMPROPER_FINITE && with_F) {
+        env_count = 0;
+        Rat gap = rat_add(exact, eval(st.answer), 1);
+        int side;
+        if (!failure && poly_vanishes(gap.num)) holds = 1;
+        else if (!failure && range_side(constant_range(gap), &side)) holds = 0;
+        failure = NULL;
+    }
+
+    /* La conclusione scritta. */
+    if (result == IMPROPER_FINITE) proof_add("Hence the integral converges");
+    else if (result == IMPROPER_PLUS || result == IMPROPER_MINUS) proof_add("Hence the integral is $%s\\infty$", result == IMPROPER_PLUS ? "+" : "-");
+    else if (result == IMPROPER_NEITHER) proof_add("Hence the integral does not converge: on one part it is $+\\infty$ and on another $-\\infty$, and the sum has no value");
+    else if (result == IMPROPER_DIVERGENT) proof_add("Hence the integral does not converge, because it diverges near one end");
+    if (!st.answer && !st.answer_infinite && !st.membership) {
+        /* Una richiesta: il valore, o l'infinito, scritto e riletto. */
+        verdict.method = method;
+        if (result == IMPROPER_PLUS || result == IMPROPER_MINUS) snprintf(answer, sizeof answer, "%s\\infty", result == IMPROPER_PLUS ? "+" : "-");
+        else if (result == IMPROPER_FINITE && with_F) {
+            Node *back = rat_latex(exact, answer, sizeof answer) ? text_tree(answer) : NULL;
+            env_count = 0;
+            Rat gap = back ? rat_add(exact, eval(back), 1) : rat_int(1);
+            if (!back || failure || !poly_vanishes(gap.num)) {
+                failure = NULL;
+                unjustified_steps += back != NULL;
+                verdict.reason = back ? "il valore scritto, riletto, non è quello calcolato" : "non riesco a scrivere il valore dell'integrale";
+                return verdict;
+            }
+            proof_add(", and its value is $%s$", answer);
+        } else {
+            verdict.reason = result == IMPROPER_FINITE ? CONVERGES_WITHOUT_VALUE
+                           : result == IMPROPER_NEITHER ? "l'integrale non converge, e non vale né +\\infty né -\\infty"
+                           : result == IMPROPER_DIVERGENT ? "l'integrale non converge, ma non so se valga un infinito"
+                           : "non so stabilire se l'integrale converge";
+            return verdict;
+        }
+        proof_add(". $\\Box$");
+        verdict.outcome = SOLVED;
+        verdict.detail = answer;
+        verdict.reason = "gli integrali non hanno una notazione nei certificati";
+        verdict.proof = proof_text;
+        return verdict;
+    }
+    if (holds < 0) {
+        verdict.reason = result == IMPROPER_UNKNOWN ? "non so stabilire se l'integrale converge"
+                       : result == IMPROPER_FINITE && !with_F ? CONVERGES_WITHOUT_VALUE
+                       : result == IMPROPER_DIVERGENT ? "l'integrale non converge, ma non so se valga un infinito"
+                       : "non so se il valore calcolato è quello scritto";
+        return verdict;
+    }
+    if (result == IMPROPER_FINITE && with_F && rat_latex(exact, answer, sizeof answer)) proof_add(", and its value is $%s$", answer);
+    proof_add(holds ? ". This is what the statement says. $\\Box$" : ". The statement says otherwise, so it is false. $\\Box$");
+    verdict.outcome = holds ? PROVED : REFUTED;
+    verdict.method = method;
+    verdict.reason = "gli integrali non hanno una notazione nei certificati";
+    verdict.proof = proof_text;
+    return verdict;
+}
+
 /* Prova a dimostrare, o a risolvere, l'enunciato su un integrale scritto in
  * formula (vedi 9j e la testa del capitolo). Svuota l'arena e la tabella
  * degli atomi: i risultati di chiamate precedenti non sono più validi. */
@@ -29713,15 +31032,9 @@ static Verdict prove_integral(const char *formula) {
 
     /* Ripartenza da zero; nessuna variabile di induzione. */
     proof_reset();
-    arena_used = arena_keep;
-    atom_count = base_poly_count = atan_count = 0;
-    failure = NULL;
-    env_count = point_count = 0;
-    conditions_on = 0;
-    induction_var = 0;
-    default_base = domain_floor = 0;
+    integral_reset();
     if (!parse_integral_statement(formula, &statement)) {
-        verdict.reason = strstr(formula, "\\infty") ? "gli integrali impropri non sono ancora trattati" : syntax_error;
+        verdict.reason = syntax_error;
         syntax_error = NULL;
         return verdict;
     }
@@ -29732,8 +31045,14 @@ static Verdict prove_integral(const char *formula) {
         return verdict;
     }
 
-    /* Un integrale definito. */
-    if (statement.lower) return prove_definite(f, statement.lower, statement.upper, claim, x);
+    /* Un integrale definito: improprio (30k) se ha un estremo infinito, se
+     * dice di valere un infinito o di convergere, o se 30i non riesce a
+     * vedere la funzione continua su tutto [a, b]. */
+    if (statement.definite) {
+        int improper = statement.lower_infinite || statement.upper_infinite || statement.answer_infinite || statement.membership;
+        if (!improper) verdict = prove_definite(f, statement.lower, statement.upper, claim, x, &improper);
+        return improper ? prove_improper(formula) : verdict;
+    }
 
     /* Una primitiva da verificare. */
     if (claim) {

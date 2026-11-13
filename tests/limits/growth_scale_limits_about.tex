@@ -1,0 +1,31 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{growth\_scale\_limits.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{growth\_scale\_limits.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_limits.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 34 true statements in which exponentials, powers and logarithms compete: $\frac{e^{x}}{x^{5}}$, $x^{100} e^{-x}$, $\frac{(\ln x)^{100}}{x}$, $2^{x} - 3^{x}$, $\frac{x^{x}}{e^{x^{2}}}$, $(1 + e^{x})^{\frac{1}{x}}$, $\frac{\ln \ln x}{\sqrt{\ln x}}$, and beside $0$ the functions $e^{\pm\frac{1}{x}}$ against powers of $x$. They test the scale of growth of chapter 29 (rule 29k: a factor $e^{G}$ beside the expansion, compared factor by factor) and the substitution $x = e^{\frac{1}{t}}$ for the logarithms of logarithms (rule 29l), with no exercise of a book behind them: they are the classic examples of the hierarchy of infinities.
+
+\item \textbf{Where the values come from.} Each value follows from the hierarchy (an exponential $e^{H}$ with $H \to +\infty$ faster than $\ln x$ beats every power, a power beats every power of a logarithm) and was computed by hand; for the quotients and the exponential forms the leading terms are written in the comment of rule 29k. The program does not know them in advance.
+
+\item \textbf{Expected result.} The line \texttt{PASS: 34 of 34 statements proved, each with a written proof}, and the same statements asked as requests (without their value) answered with a limit that is then proved.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_limits \
+    tests/limits/test_limits.c && /tmp/test_limits
+\end{verbatim}
+\end{enumerate}
+\end{document}

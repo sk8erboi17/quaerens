@@ -1,0 +1,36 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_improper\_integrals.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_improper\_integrals.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_integrals.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} Anti-regression. The file holds 50 false statements on improper integrals, most of them the statements of \texttt{improper\_integrals.tex} altered in one place, each for an error a program could make:
+\begin{itemize}
+\item a convergent integral said to diverge, or to be $+\infty$, and a divergent one given a value or said to converge;
+\item exponents at the boundary of the criteria: $\int_{1}^{+\infty} \frac{dx}{x}$ and $\int_{0}^{1} \frac{dx}{x}$ said to converge, $\int_{2}^{+\infty} \frac{dx}{x \ln x}$ (it diverges, like $\ln \ln x$) said to converge, $\int_{2}^{+\infty} \frac{dx}{x (\ln x)^{2}}$ (it converges) said to diverge, the parameter of univr-29.9 at $n = 2$;
+\item the fundamental theorem applied across a point where the integrand is not defined: $\int_{-1}^{1} \frac{dx}{x^{2}} = -2$ is what $\left[-\frac{1}{x}\right]_{-1}^{1}$ gives, and the integral is $+\infty$; the same error with the point off the middle ($\int_{-1}^{2} \frac{dx}{x^{2}}$, $\int_{0}^{3} \frac{dx}{(x - 1)^{2}}$), with $\tan x$ across $\frac{\pi}{2}$, $\frac{1}{x \ln x}$ across $1$, $\frac{1}{x^{2} - 1}$ across $\pm 1$, and a convergent $\int_{-1}^{8} \frac{dx}{\sqrt[3]{x}}$ with a wrong value;
+\item two divergent halves of opposite signs, which do not cancel: $\int_{-1}^{1} \frac{dx}{x}$ is neither $0$ nor $+\infty$, and $\int_{-\infty}^{+\infty} x \, dx$ is not $0$ (the symmetric limit is not the improper integral);
+\item a value changed: halved, a factor dropped, a sign or an exponent altered.
+\end{itemize}
+
+\item \textbf{Expected result.} None is proved, and every one is declared false: the lines \texttt{PASS: 50 of 50 false statements rejected} and \texttt{PASS: 50 of 50 statements \dots{} are REFUTED}. If a change made one of them proved, the engine would be proving something false.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_integrals \
+    tests/integrals/test_integrals.c && /tmp/test_integrals
+\end{verbatim}
+\end{enumerate}
+\end{document}

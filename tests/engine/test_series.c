@@ -7,10 +7,14 @@
  * qui a mano: e^t = 1 + t + t^2/2 + ..., (1 + t)^{1/2} = 1 + t/2 - t^2/8 +
  * t^3/16 - ..., ln(1 + t) = t - t^2/2 + t^3/3 - ... . Poi il resto: uno
  * sviluppo troncato non deve mai dirsi esatto, e una funzione piatta come
- * e^{-1/t} resta piatta. Infine i casi in cui la risposta giusta è "non si
- * sa" o "non ha valori": l'algebra dei limiti davanti a +\infty - \infty, un
- * divisore identicamente nullo, un logaritmo di numeri negativi, esponenti
- * troppo grandi.
+ * e^{-1/t}, vista senza il suo fattore, resta piatta. Poi la scala delle
+ * crescite (29k): e^{1/t} è il fattore e^{t^{-1}}, gli esponenti si sommano
+ * e si cancellano, il più grande vince; e la sostituzione x = e^{1/t} (29l).
+ * Infine i casi in cui la risposta giusta è "non si sa" o "non ha valori":
+ * l'algebra dei limiti davanti a +\infty - \infty con un esponenziale di un
+ * esponenziale, un termine che la scala ha ridotto a resto, un divisore
+ * identicamente nullo, un logaritmo di numeri negativi, esponenti troppo
+ * grandi.
  *
  * Compilazione ed esecuzione, dalla cartella principale del repository:
  *
@@ -153,24 +157,61 @@ int main(void) {
      * resta piatta, e sommarle una costante non la rende esatta. */
     Value truncated = value_of("e^{x}");
     check(truncated.kind == V_SERIES && !truncated.series.exact && truncated.series.end >= 8, "the expansion of e^t is not exact, and reaches t^8");
+    int dir = 0;
     Value flat = value_of("e^{-\\frac{1}{x}}");
-    check(flat.kind == V_SERIES && flat.series.count == 0 && flat.series.end == SERIES_FLAT && !flat.series.exact && flat.positive,
-          "e^{-1/t} is smaller than every power of t, and positive");
-    Value still = value_of("\\frac{e^{-\\frac{1}{x}}}{x^{5}}");
+    check(value_grows(flat) && growth_direction(flat.growth, &dir) == 1 && dir < 0 && flat.series.exact && flat.positive,
+          "e^{-1/t} is exactly the factor e^{-t^{-1}}, which goes to -infinity, and it is positive");
+    Value plain = value_plain(flat);
+    check(plain.kind == V_SERIES && plain.series.count == 0 && plain.series.end == SERIES_FLAT && !plain.series.exact && plain.positive,
+          "seen without the factor, e^{-1/t} is smaller than every power of t");
+    Value still = value_plain(value_of("\\frac{e^{-\\frac{1}{x}}}{x^{5}}"));
     check(still.kind == V_SERIES && still.series.count == 0 && still.series.end == SERIES_FLAT, "and so is e^{-1/t} / t^5");
     Value shifted = value_of("\\cos\\left(e^{-\\frac{1}{x}}\\right) - 1");
     check(shifted.kind == V_SERIES && !shifted.series.exact && value_binary(N_DIV, value_of("1"), shifted).kind != V_UNDEFINED,
           "cos(e^{-1/t}) - 1 is not exactly zero: dividing by it is not a division by zero");
     Value big = value_of("e^{\\frac{1}{x}}");
-    check(big.kind == V_LIMIT && big.infinite > 0, "e^{1/t} has no expansion, only its limit +infinity");
+    Value big_limit = value_limit(big);
+    check(value_grows(big) && big_limit.kind == V_LIMIT && big_limit.infinite > 0, "e^{1/t} is the factor e^{t^{-1}}, and its limit is +infinity");
+
+    /* La scala delle crescite (29k): esponenti che si sommano, si
+     * confrontano e si cancellano. */
+    Value product = value_of("e^{\\frac{1}{x}} e^{-\\frac{1}{x}}");
+    check(product.kind == V_SERIES && !value_grows(product) && series_is(product, 1, one, 3), "e^{1/t} e^{-1/t} = 1 exactly: the exponents cancel");
+    Value difference = value_limit(value_of("e^{\\frac{1}{x}} - e^{\\frac{2}{x}}"));
+    check(difference.kind == V_LIMIT && difference.infinite < 0, "e^{1/t} - e^{2/t} tends to -infinity: the larger exponent wins");
+    Value quotient = value_limit(value_of("\\frac{e^{\\frac{1}{x}}}{e^{\\frac{2}{x}}}"));
+    check(quotient.kind == V_LIMIT && !quotient.infinite && quotient.value.num.count == 0 && quotient.approach > 0,
+          "e^{1/t} / e^{2/t} = e^{-1/t} tends to 0 from above");
+    Value power = value_limit(value_of("\\frac{e^{\\frac{1}{x}}}{x^{-100}}"));
+    check(power.kind == V_LIMIT && power.infinite > 0, "e^{1/t} t^{100} tends to +infinity: an exponential beats every power");
+    Value logarithm = value_of("\\ln\\left(e^{\\frac{1}{x}} + 1\\right)");
+    check(logarithm.kind == V_SERIES && !value_grows(logarithm) && coefficient_is(logarithm.series, -1, frac_int(1)) && !logarithm.series.exact,
+          "ln(e^{1/t} + 1) = t^{-1} + (something smaller than every power)");
+    Value lost = value_of("\\left(e^{\\frac{1}{x}} + 1\\right) - e^{\\frac{1}{x}}");
+    check(value_limit(lost).kind == V_UNKNOWN, "but (e^{1/t} + 1) - e^{1/t} is not decided: beside e^{1/t} the 1 was only a remainder");
+
+    /* Un piano più su (29l): a +\infty con x = e^{1/t}, ln x è t^{-1} e
+     * ln ln x è L, esattamente. */
+    at(zero, 1, 8);
+    lim_moved = 1;
+    Value upper = value_of("\\ln x");
+    check(upper.kind == V_SERIES && !value_grows(upper) && upper.series.exact && upper.series.low == -1 && coefficient_is(upper.series, -1, frac_int(1)),
+          "with x = e^{1/t}, ln x is exactly t^{-1}");
+    Value twice = value_of("\\ln\\ln x");
+    lead = twice.kind == V_SERIES && twice.series.count ? coefficient_lead(twice.series.coef[0]) : (Lead){0};
+    check(twice.kind == V_SERIES && twice.series.low == 0 && lead.known && lead.side > 0 && frac_cmp(lead.degree, frac_int(1)) == 0,
+          "and ln ln x is L");
+    lim_moved = 0;
+    at(zero, 0, 8);
 
     /* Ciò che non ha valori, e ciò che non si sa. */
     check(value_of("\\frac{1}{x - x}").kind == V_UNDEFINED, "a division by a function that is exactly zero has no value");
     lim_side = -1;
     check(value_of("\\ln x").kind == V_UNDEFINED, "the logarithm on the left of 0 has no value");
     lim_side = 1;
-    check(value_of("e^{\\frac{1}{x}} - e^{\\frac{2}{x}}").kind == V_UNKNOWN, "+infinity minus +infinity is not decided by the algebra of limits");
-    check(value_of("\\frac{e^{\\frac{1}{x}}}{e^{\\frac{2}{x}}}").kind == V_UNKNOWN, "infinity over infinity is not decided either");
+    check(value_of("e^{e^{\\frac{1}{x}}} - e^{2e^{\\frac{1}{x}}}").kind == V_UNKNOWN,
+          "+infinity minus +infinity is not decided by the algebra of limits: an exponential of an exponential has only its limit");
+    check(value_of("\\frac{e^{e^{\\frac{1}{x}}}}{e^{2e^{\\frac{1}{x}}}}").kind == V_UNKNOWN, "infinity over infinity is not decided either");
     check(value_limit(value_of("\\sin\\frac{1}{x}")).kind == V_UNKNOWN, "sin(1/t) is only bounded: no limit");
     check(value_limit(value_of("x \\sin\\frac{1}{x}")).kind == V_LIMIT, "but t sin(1/t) tends to 0");
     failure = NULL;

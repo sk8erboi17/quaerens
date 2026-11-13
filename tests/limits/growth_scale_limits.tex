@@ -1,0 +1,54 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Limits on the scale of growth (34)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Every statement below is true. Exponentials, powers and logarithms compete at $\pm\infty$ or beside $0$, and the limit follows from the scale of growth: an exponential beats every power, a power beats every power of a logarithm. The engine must prove them all.
+
+\begin{enumerate}
+\item $\displaystyle \lim_{x \to +\infty} \frac{e^{x}}{x^{5}} = +\infty$
+\item $\displaystyle \lim_{x \to +\infty} x^{100} e^{-x} = 0$
+\item $\displaystyle \lim_{x \to +\infty} \frac{\ln x}{x^{\frac{1}{10}}} = 0$
+\item $\displaystyle \lim_{x \to +\infty} \frac{(\ln x)^{100}}{x} = 0$
+\item $\displaystyle \lim_{x \to +\infty} \frac{(\ln x)^{3}}{\sqrt{x}} = 0$
+\item $\displaystyle \lim_{x \to +\infty} \left(e^{x} - x^{3}\right) = +\infty$
+\item $\displaystyle \lim_{x \to +\infty} \left(2^{x} - 3^{x}\right) = -\infty$
+\item $\displaystyle \lim_{x \to +\infty} \frac{3^{x}}{x^{2} 2^{x}} = +\infty$
+\item $\displaystyle \lim_{x \to +\infty} x^{3} 2^{-x} = 0$
+\item $\displaystyle \lim_{x \to +\infty} \frac{e^{2x} + x}{e^{x} + 3e^{2x}} = \frac{1}{3}$
+\item $\displaystyle \lim_{x \to +\infty} \frac{e^{x}}{e^{x} + x^{10}} = 1$
+\item $\displaystyle \lim_{x \to +\infty} \frac{e^{x} - e^{-x}}{e^{x} + e^{-x}} = 1$
+\item $\displaystyle \lim_{x \to -\infty} \frac{e^{x} - e^{-x}}{e^{x} + e^{-x}} = -1$
+\item $\displaystyle \lim_{x \to -\infty} x^{4} e^{x} = 0$
+\item $\displaystyle \lim_{x \to +\infty} x e^{-\sqrt{x}} = 0$
+\item $\displaystyle \lim_{x \to +\infty} e^{x - \sqrt{x}} = +\infty$
+\item $\displaystyle \lim_{x \to +\infty} e^{\sqrt{x} - x} = 0$
+\item $\displaystyle \lim_{x \to +\infty} \frac{x^{2}}{e^{\sqrt{x}}} = 0$
+\item $\displaystyle \lim_{x \to +\infty} \frac{e^{x^{2}}}{e^{x^{2} - x}} = +\infty$
+\item $\displaystyle \lim_{x \to +\infty} \frac{x^{x}}{e^{x^{2}}} = 0$
+\item $\displaystyle \lim_{x \to +\infty} \frac{\ln\left(1 + e^{x}\right)}{x} = 1$
+\item $\displaystyle \lim_{x \to +\infty} \left(1 + e^{x}\right)^{\frac{1}{x}} = e$
+\item $\displaystyle \lim_{x \to +\infty} \left(x^{2} + 1\right)^{\frac{1}{\ln x}} = e^{2}$
+\item $\displaystyle \lim_{x \to +\infty} x^{\frac{1}{\sqrt{x}}} = 1$
+\item $\displaystyle \lim_{x \to +\infty} \frac{\ln(\ln x)}{\ln x} = 0$
+\item $\displaystyle \lim_{x \to +\infty} \frac{\ln(\ln x)}{\sqrt{\ln x}} = 0$
+\item $\displaystyle \lim_{x \to +\infty} \frac{\sqrt{\ln x}}{\ln(\ln x)} = +\infty$
+\item $\displaystyle \lim_{x \to 0^{+}} \frac{\ln(-\ln x)}{\ln x} = 0$
+\item $\displaystyle \lim_{x \to 0^{+}} \frac{e^{-\frac{1}{x}}}{x^{10}} = 0$
+\item $\displaystyle \lim_{x \to 0^{+}} x^{2} e^{\frac{1}{x}} = +\infty$
+\item $\displaystyle \lim_{x \to 0^{-}} \frac{e^{\frac{1}{x}}}{x^{3}} = 0$
+\item $\displaystyle \lim_{x \to 0^{+}} \frac{e^{\frac{1}{x}}}{e^{\frac{1}{x}} + \frac{1}{x}} = 1$
+\item $\displaystyle \lim_{x \to 0} \frac{1}{1 + e^{\frac{1}{x^{2}}}} = 0$
+\item $\displaystyle \lim_{x \to +\infty} e^{-x}\cos x = 0$
+\end{enumerate}
+\end{document}

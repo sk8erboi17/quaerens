@@ -1,0 +1,29 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_growth\_scale\_limits.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_growth\_scale\_limits.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_limits.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 101 false statements: the limits of \texttt{growth\_scale\_limits.tex} with a wrong value. For every limit there is ``does not exist'' (each of them exists), and one to three wrong values: the infinity with the other sign, $0$ for an infinite limit and an infinity for a limit $0$ (the error of reading the hierarchy upside down, $\frac{x^{100}}{e^{x}} \to +\infty$), a finite value changed ($\frac{1}{2}$ for $\frac{1}{3}$, $e^{2}$ for $e$), and the value of the dominant terms taken in the wrong order.
+
+\item \textbf{Expected result.} None is proved: the line \texttt{PASS: 101 of 101 false statements rejected}. Every one of them is also declared false, not only ``not proved'': the line \texttt{PASS: 101 of 101 statements \dots{} are REFUTED}. These are anti-regression tests: if a change to the scale of growth made one of them proved, the engine would be proving something false.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_limits \
+    tests/limits/test_limits.c && /tmp/test_limits
+\end{verbatim}
+\end{enumerate}
+\end{document}

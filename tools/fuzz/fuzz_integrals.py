@@ -22,6 +22,20 @@ Uso:
       l'oracolo. Con la variabile d'ambiente FUZZ_NOTES stampa anche le righe
       NOTE.
 
+  python3 -I fuzz_integrals.py improper <eseguibile> <seme> <quanti> <cartella di lavoro>
+      Integrali impropri (30k, 30l): potenze (x + s)^{-p} all'infinito e
+      (b - x)^{-p} vicino a un estremo, x^m e^{-k x}, 1/(x (ln x)^beta),
+      1/(x^2 + 1) su una semiretta o su tutta la retta, ln x da 0, e
+      funzioni non definite in un punto interno (1/(x - m)^2, 1/(x - m),
+      la radice cubica reale di x - m). Per ognuno: il valore giusto, valori
+      sbagliati, "= +\\infty", \\in e \\notin \\mathbb{R}, e la richiesta.
+      L'oracolo: il valore in forma chiusa e la convergenza dai teoremi sugli
+      esponenti (vedi improper_case()), con il valore ricontrollato da una
+      quadratura a doppio esponenziale (tanh-sinh, exp-sinh), divisa nel
+      punto interno, a due passi che devono concordare entro 10^-9 tra loro
+      ed entro 10^-7 con la forma chiusa: se no la riga ORACLE, e il caso si
+      scarta.
+
 L'oracolo non usa il programma per decidere. Ha le sue regole di derivazione
 (simboliche, sugli alberi di questo file), il suo calcolo con i numeri in
 virgola mobile, la sua quadratura (Gauss-Legendre composta a 20 nodi, con due
@@ -271,6 +285,9 @@ def value(t, x):
             if a < 0:
                 raise Undefined()
             return math.sqrt(a)
+        if k == "cbrt":
+            a = value(t[1], x)
+            return math.copysign(abs(a) ** (1.0 / 3), a)
         if k == "root":
             a = value(t[1], x)
             if a < 0 or (a == 0 and False):
@@ -388,6 +405,8 @@ def tex(t, bare=False):
         return "\\sqrt{%s}" % tex(t[1], bare)
     if k == "root":
         return "\\sqrt[%d]{%s}" % (t[2], tex(t[1], bare))
+    if k == "cbrt":
+        return "\\sqrt[3]{%s}" % tex(t[1], bare)
     raise Unsupported(k)
 
 
@@ -971,9 +990,295 @@ def fuzz(exe, seed, count, work):
     print("seed %d: %s" % (seed, ", ".join("%s/%s/%s=%d" % (k + (v,)) for k, v in sorted(tally.items()))))
 
 
+# ---------------------------------------------------------------------------
+# Gli integrali impropri (30k e 30l del programma).
+#
+# Famiglie con un valore noto in forma chiusa, scritto qui da conti a mano
+# (le formule sono in improper_case()), e la convergenza decisa dai teoremi
+# dei libri sugli esponenti, non dal programma: \int^{+\infty} (x + s)^{-p}
+# converge se e solo se p > 1, \int_{b} (b - x)^{-p} se e solo se p < 1,
+# \int^{+\infty} \frac{dx}{x (\ln x)^{\beta}} se e solo se \beta > 1. Ogni
+# valore finito è ricontrollato con una quadratura tanh-sinh o exp-sinh
+# (doppio esponenziale, che regge le singolarità negli estremi), a due passi
+# che devono concordare con il valore chiuso entro 10^-7: se no il caso si
+# scarta con una riga ORACLE.
+# ---------------------------------------------------------------------------
+
+def de_quadrature(g, a, b, h):
+    """\\int_a^b g, con a e b finiti, per la sostituzione tanh-sinh:
+    x = (a + b)/2 + (b - a)/2 tanh(pi/2 sinh s). I nodi vicini agli estremi
+    si calcolano con la distanza dall'estremo, per non perdere cifre."""
+    total, half = 0.0, (b - a) / 2
+    k = 0
+    while True:
+        s = k * h
+        done = True
+        for sign in ((1,) if k == 0 else (1, -1)):
+            u = math.pi / 2 * math.sinh(sign * s)
+            if abs(u) > 350:
+                continue
+            w = half * math.pi / 2 * math.cosh(s) / math.cosh(u) ** 2
+            gap = 2 * half / (math.exp(2 * abs(u)) + 1)  # distanza dall'estremo
+            x = (b - gap) if u > 0 else (a + gap)
+            if gap <= 0 or x <= a or x >= b:
+                continue
+            try:
+                term = w * g(x)
+            except (Undefined, ValueError, OverflowError, ZeroDivisionError):
+                # Un nodo così vicino all'estremo che f vi esce dai numeri
+                # (f ~ (b - x)^{-p}, con p < 1): il suo peso w f, che tende a
+                # zero, si trascura; altrove è un errore.
+                if gap < 1e-9 * (b - a):
+                    continue
+                return None
+            total += term
+            if abs(term) > 1e-18:
+                done = False
+        if k > 0 and done:
+            break
+        k += 1
+        if k > 4000:
+            return None
+    return total * h
+
+
+def de_infinite(g, a, h):
+    """\\int_a^{+\\infty} g per exp-sinh: x = a + e^{pi/2 sinh s}."""
+    total, k = 0.0, 0
+    while True:
+        done = True
+        for sign in ((1,) if k == 0 else (1, -1)):
+            s = sign * k * h
+            u = math.pi / 2 * math.sinh(s)
+            if u > 700 or u < -700:
+                continue
+            x = a + math.exp(u)
+            if x <= a:
+                continue
+            w = math.pi / 2 * math.cosh(s) * math.exp(u)
+            try:
+                term = w * g(x)
+            except (Undefined, ValueError, OverflowError, ZeroDivisionError):
+                return None
+            total += term
+            if abs(term) > 1e-18:
+                done = False
+        if k > 0 and done:
+            break
+        k += 1
+        if k > 4000:
+            return None
+    return total * h
+
+
+def numeric_improper(f, a, b, middle=None):
+    """La quadratura di f da a a b (a = None per -\\infty, b = None per
+    +\\infty), divisa in middle se f lì non è definita, a due passi; None se
+    non concordano."""
+    if middle is not None:
+        left, right = numeric_improper(f, a, middle), numeric_improper(f, middle, b)
+        return None if left is None or right is None else left + right
+
+    def g(x):
+        # value() senza il tetto di finite_value(): vicino a un estremo
+        # singolare (b - x)^{-p} supera 10^{12} con un peso che non è
+        # trascurabile.
+        v = value(f, x)
+        if v != v or v in (float("inf"), float("-inf")):
+            raise Undefined()
+        return v
+    out = []
+    for h in (1 / 16, 1 / 32):
+        if a is not None and b is not None:
+            v = de_quadrature(g, float(a), float(b), h)
+        elif a is not None:
+            v = de_infinite(g, float(a), h)
+        elif b is not None:
+            v = de_infinite(lambda y: g(-y), -float(b), h)
+        else:
+            left, right = de_infinite(lambda y: g(-y), 0.0, h), de_infinite(g, 0.0, h)
+            v = None if left is None or right is None else left + right
+        if v is None:
+            return None
+        out.append(v)
+    return out[1] if close(out[0], out[1], 1e-9) else None
+
+
+def improper_case(rnd):
+    """Un integrale improprio: (f, a, b, middle, verità, valore[, quadratura]),
+    con a o b None per gli infiniti, middle il punto interno in cui f non è
+    definita (o None), verità "finite", "plus", "minus" o "neither", il
+    valore (un albero) se è finito, e, se serve, la funzione e gli estremi
+    su cui fare la quadratura dopo una sostituzione: \\frac{1}{x (\\ln x)^2}
+    va all'infinito troppo piano per l'exp-sinh, e con x = e^u diventa
+    u^{-2}; (b - x)^{-p} si calcola meglio in u = b - x."""
+    c = rq(rnd)
+    kind = rnd.randrange(7)
+    if kind == 0:
+        # \int_a^{+\infty} c (x + s)^{-p}: per p > 1 vale c (a + s)^{1-p} / (p - 1).
+        s = rnd.randint(-2, 3)
+        a = Fr(rnd.randint(-s + 1, 4))
+        p = Fr(rnd.choice([1, 2, 3, 4, 5, 6, 7, 8]), rnd.choice([1, 2, 3]))
+        f = mul(N(c), power(add(X, N(s)), -p))
+        if p > 1:
+            return f, a, None, None, "finite", mul(N(c / (p - 1)), power(N(a + s), 1 - p))
+        return f, a, None, None, "plus" if c > 0 else "minus", None
+    if kind == 1:
+        # \int_a^b c (b - x)^{-p}: per p < 1 vale c (b - a)^{1-p} / (1 - p).
+        a = Fr(rnd.randint(-3, 2))
+        b = a + rnd.randint(1, 3)
+        p = Fr(rnd.choice([1, 1, 2, 3, 4, 5]), rnd.choice([1, 2, 3, 4]))
+        f = mul(N(c), power(sub(N(b), X), -p))
+        if p < 1:
+            # La quadratura in u = b - x, perché b - x calcolato vicino a b
+            # perde le cifre che servono.
+            return f, a, b, None, "finite", mul(N(c / (1 - p)), power(N(b - a), 1 - p)), (mul(N(c), power(X, -p)), Fr(0), b - a)
+        return f, a, b, None, "plus" if c > 0 else "minus", None
+    if kind == 2:
+        # \int_a^{+\infty} c x^m e^{-k x}, k > 0: c e^{-k a} / k per m = 0,
+        # c e^{-k a} (k a + 1) / k^2 per m = 1.
+        k = Fr(rnd.choice([1, 2, 3, 1, 1]), rnd.choice([1, 1, 2]))
+        a = Fr(rnd.randint(-2, 3))
+        m = rnd.choice([0, 1])
+        e = ("exp", N(-k * a))
+        f = mul(N(c), ("exp", mul(N(-k), X)))
+        if m:
+            return mul(X, f), a, None, None, "finite", mul(N(c * (k * a + 1) / (k * k)), e)
+        return f, a, None, None, "finite", mul(N(c / k), e)
+    if kind == 3:
+        # \int_a^{+\infty} \frac{c}{x (\ln x)^{\beta}}, a > 1: per \beta > 1
+        # vale c (\ln a)^{1 - \beta} / (\beta - 1).
+        a = Fr(rnd.choice([2, 3, 5]))
+        beta = Fr(rnd.choice([1, 2, 3, 1, 3]), rnd.choice([1, 1, 2]))
+        f = div(N(c), mul(X, power(("ln", X), beta)))
+        if beta > 1:
+            return f, a, None, None, "finite", mul(N(c / (beta - 1)), power(("ln", N(a)), 1 - beta)), (div(N(c), power(X, beta)), math.log(a), None)
+        return f, a, None, None, "plus" if c > 0 else "minus", None
+    if kind == 4:
+        # \int_a^{+\infty} \frac{c}{x^2 + 1} = c (\pi/2 - \arctan a); su tutta
+        # la retta c \pi.
+        f = div(N(c), add(power(X, 2), N(1)))
+        if rnd.random() < 0.4:
+            return f, None, None, None, "finite", mul(N(c), ("pi",))
+        a = Fr(rnd.randint(-2, 2))
+        return f, a, None, None, "finite", mul(N(c), sub(div(("pi",), N(2)), ("atan", N(a))))
+    if kind == 5:
+        # Un punto m interno in cui f non è definita: c/(x - m)^2 vale
+        # \infty con il segno di c; c/(x - m) non converge e non è un
+        # infinito; c / \sqrt[3]{x - m} converge, a
+        # (3c/2) ((b - m)^{2/3} - (m - a)^{2/3}).
+        m = Fr(rnd.randint(-2, 2))
+        a, b = m - rnd.randint(1, 3), m + rnd.randint(1, 3)
+        which = rnd.randrange(3)
+        if which == 0:
+            return div(N(c), power(sub(X, N(m)), 2)), a, b, m, "plus" if c > 0 else "minus", None
+        if which == 1:
+            return div(N(c), sub(X, N(m))), a, b, m, "neither", None
+        f = div(N(c), ("cbrt", sub(X, N(m))))
+        return f, a, b, m, "finite", mul(N(c * Fr(3, 2)), sub(power(N(b - m), Fr(2, 3)), power(N(m - a), Fr(2, 3))))
+    # \int_0^b c \ln x = c (b \ln b - b), b > 0.
+    b = Fr(rnd.choice([1, 2, 3, 1]))
+    return mul(N(c), ("ln", X)), Fr(0), b, None, "finite", mul(N(c), sub(mul(N(b), ("ln", N(b))), N(b)))
+
+
+def improper(exe, seed, count, work):
+    rnd = random.Random(seed)
+    cases = []
+    while len(cases) < count:
+        try:
+            case = improper_case(rnd)
+        except (Undefined, Unsupported, ZeroDivisionError):
+            continue
+        f, a, b, middle, truth, exact = case[:6]
+        check = case[6] if len(case) > 6 else (f, a, b)
+        lower = "-\\infty" if a is None else frac_tex(a)
+        upper = "+\\infty" if b is None else frac_tex(b)
+        head = "\\int_{%s}^{%s} %s \\, dx" % (lower, upper, tex(f))
+        if truth == "finite":
+            try:
+                v = finite_value(exact, 0.0)
+            except Undefined:
+                continue
+            q = numeric_improper(check[0], check[1], check[2], middle)
+            if q is None or not close(q, v, 1e-7):
+                print("ORACLE: the closed form %.15g and the quadrature %s disagree: %s" % (v, q, head))
+                continue
+            cases.append((head + " = " + tex(exact), "true"))
+            cases.append((head + " \\in \\mathbb{R}", "true"))
+            for wrong in (add(exact, N(1)), mul(exact, N(2)) if abs(v) > 1e-9 else add(exact, N(Fr(1, 3))), neg(exact) if abs(v) > 1e-9 else N(1)):
+                try:
+                    if close(finite_value(wrong, 0.0), v, 1e-6):
+                        continue
+                except Undefined:
+                    continue
+                cases.append((head + " = " + tex(wrong), "false"))
+            cases.append((head + " = +\\infty", "false"))
+            cases.append((head + " \\notin \\mathbb{R}", "false"))
+            cases.append((head, ("request", "finite", v)))
+        else:
+            cases.append((head + " \\notin \\mathbb{R}", "true"))
+            cases.append((head + " \\in \\mathbb{R}", "false"))
+            cases.append((head + " = 0", "false"))
+            if truth in ("plus", "minus"):
+                cases.append((head + " = %s\\infty" % ("+" if truth == "plus" else "-"), "true"))
+                cases.append((head + " = %s\\infty" % ("-" if truth == "plus" else "+"), "false"))
+            else:
+                cases.append((head + " = +\\infty", "false"))
+                cases.append((head + " = -\\infty", "false"))
+            cases.append((head, ("request", truth, None)))
+    os.makedirs(work, exist_ok=True)
+    path = os.path.join(work, "fuzz_improper_%d.tex" % seed)
+    with open(path, "w", encoding="utf-8") as out:
+        out.write("\\begin{enumerate}\n")
+        for text, _ in cases:
+            out.write("\\item $\\displaystyle %s$\n" % text)
+        out.write("\\end{enumerate}\n")
+    run, lines, warning = run_engine(exe, path)
+    if len(lines) != len(cases) or run.returncode not in (0, 1):
+        print("BUG: the program answered %d of %d items (exit %d)\n%s" % (len(lines), len(cases), run.returncode, run.stderr[-2000:]))
+        return
+    for w in warning:
+        print("BUG: " + w)
+    tally = {}
+    for index, ((text, expected), line) in enumerate(zip(cases, lines), 1):
+        answer = line.split(". ", 1)[1]
+        verdict = answer.split(":")[0].split(" ")[0]
+        problem = None
+        if isinstance(expected, tuple):
+            _, truth, v = expected
+            key = "request"
+            if verdict in ("DIMOSTRATO", "FALSO"):
+                problem = "BUG: a request answered with %s" % verdict
+            elif verdict == "RISOLTO":
+                written = answer.split(": ", 1)[1].split(" (")[0]
+                if written in ("+\\infty", "-\\infty"):
+                    if truth != ("plus" if written[0] == "+" else "minus"):
+                        problem = "BUG: answered %s, the integral is %s" % (written, truth)
+                else:
+                    try:
+                        w = finite_value(read_answer(written), 0.0)
+                    except (Unsupported, Undefined) as why:
+                        problem = "SUSPECT: the oracle cannot read the answer (%s): %s" % (why, written[:200])
+                    else:
+                        if truth != "finite" or not close(w, v, 1e-7):
+                            problem = "BUG: answered %s, the integral is %s %s" % (written[:200], truth, v)
+        else:
+            key = expected
+            if expected == "true" and verdict == "FALSO":
+                problem = "BUG: true, but the program says FALSO"
+            if expected == "false" and verdict == "DIMOSTRATO":
+                problem = "BUG: false, but the program says DIMOSTRATO"
+        tally[(key, verdict)] = tally.get((key, verdict), 0) + 1
+        if problem:
+            print("%s\n   %d [%s]: %s" % (problem, index, answer[:120], text[:400]))
+    print("seed %d: %s" % (seed, ", ".join("%s/%s=%d" % (k + (v,)) for k, v in sorted(tally.items()))))
+
+
 def main():
     if len(sys.argv) >= 6 and sys.argv[1] == "fuzz":
         fuzz(sys.argv[2], int(sys.argv[3]), int(sys.argv[4]), sys.argv[5])
+    elif len(sys.argv) >= 6 and sys.argv[1] == "improper":
+        improper(sys.argv[2], int(sys.argv[3]), int(sys.argv[4]), sys.argv[5])
     else:
         print(__doc__)
         sys.exit(2)

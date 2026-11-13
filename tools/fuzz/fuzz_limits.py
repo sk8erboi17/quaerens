@@ -11,7 +11,11 @@ esempio sin(2y) meno il suo polinomio di Taylor fino a y^3, diviso y^5. Poi
 le scrive in x con una sostituzione: y = x (x -> 0, da un lato o dai due),
 y = x - a (x -> a), y = 1/x (x -> +\infty, y -> 0^{+}; x -> -\infty,
 y -> 0^{-}). Aggiunge le forme esponenziali F^G, con F -> 1 e G che cresce
-come una potenza di 1/y.
+come una potenza di 1/y. E la famiglia della scala delle crescite (29k e 29l
+del programma): quozienti di somme di monomi c x^a (ln x)^b (ln ln x)^g
+e^{q x^r} a +\infty, o scritti in 1/x verso 0^{+}, di cui l'oracolo trova il
+termine principale con l'ordine lessicografico della scala e lo ricontrolla
+con i logaritmi dei termini in x = 10^{40} e 10^{80} (vedi growth()).
 
 L'ORACOLO
 
@@ -427,6 +431,144 @@ def logarithmic(rnd):
     return "\\lim_{%s} %s" % (where, text), result
 
 
+# ------------------------------------------------------------------ la scala delle crescite
+#
+# La famiglia delle crescite (29k, 29l del programma): quozienti di somme di
+# monomi della scala
+#
+#     c x^{a} (ln x)^{b} (ln ln x)^{g} e^{q x^{r}},
+#
+# con x -> +\infty, oppure scritti in 1/x con x -> 0^{+}. L'oracolo non
+# chiede niente al programma, e non ne copia il metodo: il termine
+# principale di una somma di monomi diversi è quello più grande nell'ordine
+# lessicografico dei libri, prima l'esponenziale (r, poi q), poi la potenza
+# (a), poi il logaritmo (b), poi il logaritmo del logaritmo (g), perché
+# ognuno di questi fattori batte ogni potenza del successivo. Il limite del
+# quoziente è quello del quoziente dei due termini principali. L'ordine viene
+# ricontrollato con i numeri: i logaritmi dei termini, calcolati con decimal
+# a 120 cifre in x = 10^{40} e x = 10^{80} (lezione 4: la convergenza
+# logaritmica non si vede con x piccoli, e qui si guarda solo chi è il più
+# grande, non il valore), devono dare lo stesso termine più grande; se no il
+# caso si scarta con una riga ORACLE.
+
+GROWTH_EXPONENTIALS = [(0, 0), (1, 1), (1, -1), (2, 1), (Fr(1, 2), 1), (Fr(1, 2), -1), (1, 2), (1, -3)]
+
+
+def monomial(rnd):
+    """Un monomio (c, a, b, g, r, q): c x^a (ln x)^b (ln ln x)^g e^{q x^r}."""
+    c = Fr(rnd.choice([1, 2, 3, -1, -2, 5]), rnd.choice([1, 1, 2, 3]))
+    a = Fr(rnd.choice([0, 0, 1, 2, 3, -1, -2, 5]), rnd.choice([1, 1, 1, 2]))
+    b = rnd.choice([0, 0, 0, 1, 2, -1, 3])
+    g = rnd.choice([0, 0, 0, 0, 0, 1, -1]) if rnd.random() < 0.25 else 0
+    r, q = rnd.choice(GROWTH_EXPONENTIALS) if rnd.random() < 0.5 else (0, 0)
+    return (c, a, Fr(b), Fr(g), Fr(r), Fr(q))
+
+
+def scale_key(m):
+    """L'ordine di grandezza del monomio, senza il coefficiente: prima
+    l'esponenziale e^{q x^r} (che cresce più in fretta con r più grande, a
+    parità di r con q più grande; e decresce più in fretta con r più grande
+    se q < 0), poi la potenza, il logaritmo, il logaritmo del logaritmo."""
+    c, a, b, g, r, q = m
+    e = (Fr(0), Fr(0)) if q == 0 else ((r, q) if q > 0 else (-r, q))
+    return (e, a, b, g)
+
+
+def dominant(terms):
+    """Il termine più grande (oracolo): l'ordine lessicografico della scala."""
+    return max(terms, key=scale_key)
+
+
+def merge(terms):
+    """Somma i monomi uguali, e toglie quelli nulli."""
+    out = {}
+    for c, *rest in terms:
+        out[tuple(rest)] = out.get(tuple(rest), Fr(0)) + c
+    return [(c,) + k for k, c in out.items() if c != 0]
+
+
+def log_term(m, x):
+    """ln|termine| in x (Decimal), e il segno."""
+    c, a, b, g, r, q = m
+    lx = x.ln()
+    value = D(abs(c.numerator)).ln() - D(c.denominator).ln() + D(a.numerator) / D(a.denominator) * lx
+    if b:
+        value += D(b.numerator) / D(b.denominator) * lx.ln()
+    if g:
+        value += D(g.numerator) / D(g.denominator) * lx.ln().ln()
+    if q:
+        value += D(q.numerator) / D(q.denominator) * (D(r.numerator) / D(r.denominator) * lx).exp()
+    return value
+
+
+def growth_tex(m, y):
+    """Il LaTeX del monomio, con x scritto come y (x, o \\frac{1}{x})."""
+    c, a, b, g, r, q = m
+    parts = []
+    if a:
+        parts.append("\\left(%s\\right)^{%s}" % (y, value_tex(a)))
+    if b:
+        parts.append("\\left(\\ln\\left(%s\\right)\\right)^{%s}" % (y, value_tex(b)))
+    if g:
+        parts.append("\\left(\\ln\\left(\\ln\\left(%s\\right)\\right)\\right)^{%s}" % (y, value_tex(g)))
+    if q:
+        power = y if r == 1 else "\\left(%s\\right)^{%s}" % (y, value_tex(r))
+        parts.append("e^{%s %s}" % (value_tex(q) if abs(q) != 1 else ("-" if q < 0 else ""), power))
+    body = " \\cdot ".join(parts)
+    if not body:
+        return value_tex(c)
+    if c == 1:
+        return body
+    if c == -1:
+        return "-" + body
+    return "%s \\cdot %s" % (value_tex(c), body)
+
+
+def growth_sum_tex(terms, y):
+    text = growth_tex(terms[0], y)
+    for m in terms[1:]:
+        t = growth_tex(m, y)
+        text += " %s" % (("- " + t[1:]) if t.startswith("-") else ("+ " + t))
+    return "\\left(%s\\right)" % text
+
+
+def growth(rnd):
+    """Un limite della famiglia delle crescite: ritorna (testo del limite,
+    limite), o None se l'oracolo non conferma l'ordine con i numeri."""
+    top = merge([monomial(rnd) for _ in range(rnd.choice([1, 2, 2, 3]))])
+    bottom = merge([monomial(rnd) for _ in range(rnd.choice([0, 1, 1, 2]))]) if rnd.random() < 0.7 else []
+    if not top:
+        return None
+    bottom = bottom or [(Fr(1), Fr(0), Fr(0), Fr(0), Fr(0), Fr(0))]
+
+    # I termini principali, ricontrollati con i numeri.
+    decimal.getcontext().prec = 120
+    for terms in (top, bottom):
+        lead = dominant(terms)
+        for k in (40, 80):
+            x = D(10) ** k
+            logs = [(log_term(m, x), m) for m in terms]
+            if max(logs, key=lambda p: p[0])[1] != lead:
+                print("ORACLE: the scale and the numbers disagree on the largest term at x = 1e%d" % k)
+                return None
+    n, d = dominant(top), dominant(bottom)
+    c = n[0] / d[0]
+    if scale_key(n) == scale_key(d):
+        result = ("value", c)
+    elif scale_key(n) > scale_key(d):
+        result = ("inf", 1 if c > 0 else -1)
+    else:
+        result = ("value", Fr(0))
+    if rnd.random() < 0.6:
+        where, y = "x \\to +\\infty", "x"
+    else:
+        where, y = "x \\to 0^{+}", "\\frac{1}{x}"
+    text = growth_sum_tex(top, y)
+    if bottom != [(Fr(1), Fr(0), Fr(0), Fr(0), Fr(0), Fr(0))]:
+        text = "\\frac{%s}{%s}" % (text, growth_sum_tex(bottom, y))
+    return "\\lim_{%s} %s" % (where, text), result
+
+
 # ------------------------------------------------------------------ il limite vero
 
 def leading(node):
@@ -566,8 +708,14 @@ def main():
     rnd = random.Random(seed)
     cases = []  # (testo, atteso: "true" | "false" | ("request", result))
     for _ in range(count):
-        if rnd.random() < 0.12:
+        choice = rnd.random()
+        if choice < 0.12:
             limit, result = logarithmic(rnd)
+        elif choice < 0.4:
+            case = growth(rnd)
+            if case is None:
+                continue
+            limit, result = case
         else:
             node, exponential = generate(rnd)
             where, side, y = place(rnd)

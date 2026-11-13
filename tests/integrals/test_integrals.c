@@ -1,8 +1,8 @@
 /* Test di dominio: integrali. Primitive da verificare e da trovare,
- * integrali definiti da verificare e da calcolare (capitolo 30 di main.c,
- * paragrafo 9j di parser.c).
+ * integrali definiti e impropri da verificare e da calcolare (capitolo 30 di
+ * main.c, paragrafo 9j di parser.c).
  *
- * Nove controlli. I primi quattro sono quelli di tests/statement_checks.h:
+ * Undici controlli. I primi quattro sono quelli di tests/statement_checks.h:
  *
  *   1. ogni enunciato di book_integrals.tex viene dimostrato: una primitiva
  *      o un valore stampati su un libro (corretti nei due esercizi in cui il
@@ -17,23 +17,31 @@
  *      senza valore assoluto, gli estremi rovesciati, il teorema
  *      fondamentale usato attraverso un punto in cui la funzione non è
  *      definita;
- *   5. almeno 118 dei 148 enunciati di false_integrals.tex vengono dichiarati
- *      falsi, non solo "non dimostrati": se il numero scendesse il motore
- *      saprebbe riconoscere meno errori di oggi;
+ *   5. almeno 140 dei 148 enunciati di false_integrals.tex vengono
+ *      dichiarati falsi, non solo "non dimostrati": se il numero scendesse il
+ *      motore saprebbe riconoscere meno errori di oggi (erano 125 prima
+ *      degli integrali impropri, 30k);
  *   6. le richieste di integral_requests.tex: ogni risposta del motore,
  *      riscritta come enunciato, viene dimostrata, e differisce dal
  *      risultato del libro per una costante (per un integrale definito: è
- *      lo stesso numero); almeno 59 delle 80 hanno risposta, e nessuna è un
- *      verdetto diverso da RISOLTO o "non so". Due delle 59 mescolano
- *      \sqrt[3]{x}, la radice cubica reale (11o), con \sqrt[6]{x}: la loro
- *      primitiva si verifica dove i due membri sono definiti, con i fatti
- *      del dominio (11q, 12d);
- *   7. il lettore degli integrali (9j): che cosa accetta e che cosa rifiuta;
- *   8. le funzioni razionali (30d) prese da sole: ogni ramo dell'algoritmo,
+ *      lo stesso numero); almeno 69 delle 80 hanno risposta, e nessuna è un
+ *      verdetto diverso da RISOLTO o "non so". Erano 57 prima degli
+ *      integrali impropri e dei fatti del dominio (11q, 12d), che fanno
+ *      verificare le primitive che mescolano \sqrt[3]{x}, la radice cubica
+ *      reale (11o), con \sqrt[6]{x};
+ *   7. gli integrali impropri (30k, 30l): ogni enunciato di
+ *      improper_integrals.tex viene dimostrato, e ogni enunciato di
+ *      false_improper_integrals.tex dichiarato falso;
+ *   8. ogni integrale improprio di improper_integrals.tex con un valore o un
+ *      infinito, chiesto come richiesta, ha una risposta che poi viene
+ *      dimostrata;
+ *   9. il lettore degli integrali (9j): che cosa accetta e che cosa rifiuta,
+ *      anche con gli estremi infiniti;
+ *  10. le funzioni razionali (30d) prese da sole: ogni ramo dell'algoritmo,
  *      con la primitiva che scrive verificata come ogni altra, e un
  *      denominatore con un fattore irriducibile di terzo grado, che deve
  *      essere rifiutato;
- *   9. nessun passo smentito dai controlli indipendenti (unjustified_steps).
+ *  11. nessun passo smentito dai controlli indipendenti (unjustified_steps).
  *
  * I dati vengono da photos/dati_esercizi/integrali.jsonl (i libri, e un
  * oracolo numerico indipendente) e, per i file delle convenzioni, da conti a
@@ -150,7 +158,7 @@ static int verdict_proved(const char *text) {
     return verdict.outcome == PROVED;
 }
 
-/* Controllo 5: almeno `at_least` enunciati di path vengono dichiarati falsi,
+/* Controlli 5 e 7: almeno `at_least` enunciati di path vengono dichiarati falsi,
  * e nessuno dimostrato. */
 static int check_refuted_at_least(const char *path, int at_least) {
     char summary[512];
@@ -254,9 +262,24 @@ static const ReaderCase reader_cases[] = {
     {"\\int x \\, dx = \\frac{x^{2}}{2}", 0, 0, 0, 0},
     {"\\int x \\, dx = \\frac{x^{2}}{2} + c + 1", 0, 0, 0, 0},
     {"\\int |x \\, dx", 0, 0, 0, 0},
+
+    /* Gli integrali impropri: estremi infiniti, valori infiniti,
+     * convergenza. Un estremo infinito non ha albero: definite lo dice il
+     * campo definite, non lower. */
+    {"\\int_{1}^{+\\infty} \\frac{dx}{x^{2}} = 1", 1, 'x', 1, 1},
+    {"\\int_{1}^{\\infty} \\frac{dx}{x}", 1, 'x', 1, 0},
+    {"\\int_1^\\infty \\frac{dx}{x}", 1, 'x', 1, 0},
+    {"\\int_{-\\infty}^{0} e^{x} \\, dx", 1, 'x', 1, 0},
+    {"\\int_{0}^{1} \\frac{dx}{x} = +\\infty", 1, 'x', 1, 0},
+    {"\\int_{1}^{+\\infty} \\frac{dx}{x^{2}} \\in \\mathbb{R}", 1, 'x', 1, 0},
+    {"\\int_{1}^{+\\infty} \\frac{dx}{x} \\notin \\mathbb{R}", 1, 'x', 1, 0},
+    {"\\int_{\\infty}^{0} e^{x} \\, dx", 0, 0, 0, 0},
+    {"\\int_{0}^{1} \\frac{dx}{x} = \\infty", 0, 0, 0, 0},
+    {"\\int \\frac{dx}{x} \\in \\mathbb{R}", 0, 0, 0, 0},
+    {"\\int_{0}^{1} x \\, dx \\in \\mathbb{Q}", 0, 0, 0, 0},
 };
 
-/* Controllo 7: il lettore degli integrali (9j). */
+/* Controllo 9: il lettore degli integrali (9j). */
 static int check_reader(void) {
     int passed = 0, total = (int)(sizeof reader_cases / sizeof *reader_cases);
     for (int i = 0; i < total; i++) {
@@ -266,7 +289,7 @@ static int check_reader(void) {
         failure = NULL;
         int accepted = parse_integral_statement(c->text, &s);
         syntax_error = NULL;
-        int right = accepted == c->accepted && (!accepted || (s.variable == c->variable && !!s.lower == c->definite && !!s.answer == c->answered));
+        int right = accepted == c->accepted && (!accepted || (s.variable == c->variable && s.definite == c->definite && !!s.answer == c->answered));
         if (right) passed++;
         else printf("  reader case %d not as expected: %s\n", i + 1, c->text);
     }
@@ -275,7 +298,7 @@ static int check_reader(void) {
     return check_result(passed == total, summary);
 }
 
-/* Una funzione razionale per il controllo 8: numeratore e denominatore come
+/* Una funzione razionale per il controllo 10: numeratore e denominatore come
  * coefficienti interi da x^0 in su, e se la primitiva deve essere trovata. */
 typedef struct {
     const char *what;
@@ -296,7 +319,7 @@ static const RationalCase rational_cases[] = {
     {"an irreducible cubic, 1/(x^3 + 2)", 0, 3, {1}, {2, 0, 0, 1}, 0},
 };
 
-/* Controllo 8: le funzioni razionali da sole. La primitiva scritta da
+/* Controllo 10: le funzioni razionali da sole. La primitiva scritta da
  * rational_any() si rilegge e si verifica con primitive_check(), come ogni
  * altra; quando non deve essere trovata, il metodo deve rinunciare. */
 static int check_rational(void) {
@@ -335,6 +358,40 @@ static int check_rational(void) {
     return check_result(passed == total, summary);
 }
 
+/* Controllo 8: ogni enunciato di path che dà a un integrale improprio un
+ * valore o un infinito, tolto ciò che viene dopo il segno =, diventa una
+ * richiesta: la risposta del motore, riscritta come enunciato, deve essere
+ * dimostrata. Lo è anche l'enunciato del file, quindi i due dicono lo
+ * stesso numero, o lo stesso infinito. */
+static int check_improper_requests(const char *path) {
+    static char request[MAX_FORMULA], statement[2 * MAX_FORMULA];
+    char summary[512];
+    char *text = read_file(path);
+    if (!text) {
+        snprintf(summary, sizeof summary, "cannot read %s", path);
+        return check_result(0, summary);
+    }
+    const char *position = text, *item, *end;
+    int asked = 0, right = 0;
+    while (next_item(&position, &item, &end)) {
+        Item read;
+        if (read_item(item, end, &read)) continue;
+        const char *equals = strstr(read.formula, " = ");
+        if (!equals) continue;
+        asked++;
+        snprintf(request, sizeof request, "%.*s", (int)(equals - read.formula), read.formula);
+        Verdict verdict = prove(request, 'n', 0, 0);
+        if (verdict.outcome == SOLVED && verdict.detail) {
+            snprintf(statement, sizeof statement, "%s = %s", request, verdict.detail);
+            if (verdict_proved(statement)) { right++; continue; }
+        }
+        printf("  the request %s is answered %s\n", request, verdict.outcome == SOLVED ? verdict.detail : verdict.reason ? verdict.reason : "");
+    }
+    free(text);
+    snprintf(summary, sizeof summary, "%d of %d improper integrals of %s, asked as requests, are answered with a result that is then proved", right, asked, path);
+    return check_result(asked > 0 && right == asked, summary);
+}
+
 int main(void) {
     engine_init();
     int ok = 1;
@@ -343,8 +400,12 @@ int main(void) {
     ok &= check_none_refuted("tests/integrals/book_integrals_beyond.tex");
     ok &= check_all_proved("tests/integrals/integral_conventions.tex");
     ok &= check_none_proved("tests/integrals/false_integral_conventions.tex");
-    ok &= check_refuted_at_least("tests/integrals/false_integrals.tex", 118);
-    ok &= check_requests("tests/integrals/integral_requests.tex", 59);
+    ok &= check_refuted_at_least("tests/integrals/false_integrals.tex", 140);
+    ok &= check_requests("tests/integrals/integral_requests.tex", 69);
+    ok &= check_all_proved("tests/integrals/improper_integrals.tex");
+    ok &= check_none_proved("tests/integrals/false_improper_integrals.tex");
+    ok &= check_refuted_at_least("tests/integrals/false_improper_integrals.tex", 50);
+    ok &= check_improper_requests("tests/integrals/improper_integrals.tex");
     ok &= check_reader();
     ok &= check_rational();
     ok &= check_result(unjustified_steps == 0, "every step of the written proofs passed its independent check");
