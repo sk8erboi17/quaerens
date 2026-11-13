@@ -1,0 +1,168 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Wrong antiderivatives and wrong values of integrals (148)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Every statement below is false. Each is a printed result of \texttt{book\_integrals.tex} or \texttt{book\_integrals\_beyond.tex} with one integer changed by one, a sign flipped or a term added, or one of the two results printed wrong in the textbooks. The engine must never prove one of them.
+
+\begin{enumerate}
+\item $\displaystyle \int \frac{\left(x^{2} - 3\right)\left(x^{2} + 3\right)}{x^{5}} \, dx = \ln|x| + \frac{10}{4x^{4}} + c$
+\item $\displaystyle \int \frac{\left(x^{2} - 3\right)\left(x^{2} + 3\right)}{x^{5}} \, dx = \ln|x| + \frac{9}{5x^{4}} + c$
+\item $\displaystyle \int \tan^{2} x \, dx = \tan x - x + x + c$
+\item $\displaystyle \int \frac{1}{x\sqrt{\ln x}} \, dx = 3\sqrt{\ln x} + c$
+\item $\displaystyle \int x e^{2x^{2} - 1} \, dx = \frac{2}{4}e^{2x^{2} - 1} + c$
+\item $\displaystyle \int x e^{2x^{2} - 1} \, dx = \frac{1}{5}e^{2x^{2} - 1} + c$
+\item $\displaystyle \int \frac{x}{1 + x^{4}} \, dx = \frac{2}{2}\arctan x^{2} + c$
+\item $\displaystyle \int \frac{x}{1 + x^{4}} \, dx = \frac{1}{3}\arctan x^{2} + c$
+\item $\displaystyle \int x^{2}\ln x \, dx = \frac{2}{3}x^{3}\left(\ln x - \frac{1}{3}\right) + c$
+\item $\displaystyle \int x^{2}\ln x \, dx = \frac{1}{4}x^{3}\left(\ln x - \frac{1}{3}\right) + c$
+\item $\displaystyle \int x\cosh\left(3x\right) \, dx = \frac{2}{3}x\sinh 3x - \frac{1}{9}\cosh 3x + c$
+\item $\displaystyle \int x\cosh\left(3x\right) \, dx = \frac{1}{4}x\sinh 3x - \frac{1}{9}\cosh 3x + c$
+\item $\displaystyle \int x\cos^{2} x \, dx = \frac{2}{2}\left(\frac{x\sin 2x}{2} + \frac{\cos 2x}{4} + \frac{x^{2}}{2}\right) + c$
+\item $\displaystyle \int x\cos^{2} x \, dx = \frac{1}{3}\left(\frac{x\sin 2x}{2} + \frac{\cos 2x}{4} + \frac{x^{2}}{2}\right) + c$
+\item $\displaystyle \int \frac{x + 2}{x^{2} - 4x + 4} \, dx = \ln|x - 3| - \frac{4}{x - 2} + c$
+\item $\displaystyle \int \frac{x + 2}{x^{2} - 4x + 4} \, dx = \ln|x - 2| - \frac{5}{x - 2} + c$
+\item $\displaystyle \int \frac{2x^{2} + x}{(x + 2)\left(x^{2} + 2x + 6\right)} \, dx = \ln|x + 3| + \frac{1}{2}\ln\left(x^{2} + 2x + 6\right) - \frac{4}{\sqrt{5}}\arctan\frac{x + 1}{\sqrt{5}} + c$
+\item $\displaystyle \int \frac{2x^{2} + x}{(x + 2)\left(x^{2} + 2x + 6\right)} \, dx = \ln|x + 2| + \frac{2}{2}\ln\left(x^{2} + 2x + 6\right) - \frac{4}{\sqrt{5}}\arctan\frac{x + 1}{\sqrt{5}} + c$
+\item $\displaystyle \int \frac{3x - 1}{(x - 1)(x - 2)^{2}} \, dx = 3\ln\left|\frac{x - 1}{x - 2}\right| - \frac{5}{x - 2} + c$
+\item $\displaystyle \int \frac{3x - 1}{(x - 1)(x - 2)^{2}} \, dx = 2\ln\left|\frac{x - 2}{x - 2}\right| - \frac{5}{x - 2} + c$
+\item $\displaystyle \int \frac{x^{4} - 5x^{3} + 8x^{2} - 9x + 11}{x^{2} - 5x + 6} \, dx = \frac{x^{4}}{3} + 2x - \ln|x - 2| + 2\ln|x - 3| + c$
+\item $\displaystyle \int \frac{x^{4} - 5x^{3} + 8x^{2} - 9x + 11}{x^{2} - 5x + 6} \, dx = \frac{x^{3}}{4} + 2x - \ln|x - 2| + 2\ln|x - 3| + c$
+\item $\displaystyle \int \frac{1}{\left(x^{2} + 1\right)^{3}} \, dx = \frac{2}{8}\frac{3x^{3} + 5x}{\left(x^{2} + 1\right)^{2}} + \frac{3}{8}\arctan x + c$
+\item $\displaystyle \int \frac{1}{\left(x^{2} + 1\right)^{3}} \, dx = \frac{1}{9}\frac{3x^{3} + 5x}{\left(x^{2} + 1\right)^{2}} + \frac{3}{8}\arctan x + c$
+\item $\displaystyle \int \frac{\left(5e^{x} + 4\right)e^{x}}{\left(e^{x} - 2\right)\left(e^{2x} + e^{x} + 1\right)} \, dx = 3\ln\left(e^{x} - 2\right) - \ln\left(e^{2x} + e^{x} + 1\right) + c$
+\item $\displaystyle \int \frac{\left(5e^{x} + 4\right)e^{x}}{\left(e^{x} - 2\right)\left(e^{2x} + e^{x} + 1\right)} \, dx = 2\ln\left(e^{x} - 3\right) - \ln\left(e^{2x} + e^{x} + 1\right) + c$
+\item $\displaystyle \int \frac{1 + \sqrt{x}}{x\left(1 + \sqrt[3]{x}\right)} \, dx = 7\sqrt[6]{x} + \ln x - 3\ln\left(1 + \sqrt[3]{x}\right) - 6\arctan\sqrt[6]{x} + c$
+\item $\displaystyle \int \frac{1 + \sqrt{x}}{x\left(1 + \sqrt[3]{x}\right)} \, dx = 6\sqrt[7]{x} + \ln x - 3\ln\left(1 + \sqrt[3]{x}\right) - 6\arctan\sqrt[6]{x} + c$
+\item $\displaystyle \int \frac{1 + \sqrt{x}}{x\left(1 + \sqrt[3]{x}\right)} \, dx = 6\sqrt[6]{x} + \ln x - \ln\left(1 + \sqrt[3]{x}\right) - \arctan\sqrt[6]{x} + c$
+\item $\displaystyle \int \frac{1}{2\sin x + \cos x - 1} \, dx = \frac{2}{2}\ln\left|\frac{\tan(x/2)}{\tan(x/2) - 2}\right| + c$
+\item $\displaystyle \int \frac{1}{2\sin x + \cos x - 1} \, dx = \frac{1}{3}\ln\left|\frac{\tan(x/2)}{\tan(x/2) - 2}\right| + c$
+\item $\displaystyle \int \sqrt{x^{2} - 1} \, dx = \frac{x}{3}\sqrt{x^{2} - 1} - \frac{1}{2}\operatorname{arcosh} x + c$
+\item $\displaystyle \int \sqrt{x^{2} - 1} \, dx = \frac{x}{2}\sqrt{x^{3} - 1} - \frac{1}{2}\operatorname{arcosh} x + c$
+\item $\displaystyle \int \sqrt{\frac{1 - x}{1 + x}} \, dx = \arcsin x + \sqrt{2 - x^{2}} + c$
+\item $\displaystyle \int \sqrt{\frac{1 - x}{1 + x}} \, dx = \arcsin x + \sqrt{1 - x^{3}} + c$
+\item $\displaystyle \int \frac{1}{\sqrt{x}\left(\sqrt[4]{x} - 1\right)} \, dx = 5\sqrt[4]{x} + 4\ln\left|\sqrt[4]{x} - 1\right| + c$
+\item $\displaystyle \int \frac{1}{\sqrt{x}\left(\sqrt[4]{x} - 1\right)} \, dx = 4\sqrt[5]{x} + 4\ln\left|\sqrt[4]{x} - 1\right| + c$
+\item $\displaystyle \int \sqrt{e^{x} - 1} \, dx = 3\sqrt{e^{x} - 1} - 2\arctan\left(\sqrt{e^{x} - 1}\right) + c$
+\item $\displaystyle \int \sqrt{e^{x} - 1} \, dx = 2\sqrt{e^{x} - 2} - 2\arctan\left(\sqrt{e^{x} - 1}\right) + c$
+\item $\displaystyle \int \frac{1}{\sqrt{e^{-2x} - 1}} \, dx = \arcsin\left(e^{x}\right) + x + c$
+\item $\displaystyle \int \frac{4\sin x}{4\cos^{2} x - 8\cos x + 5} \, dx = -3\arctan\left(2\cos x - 2\right) + c$
+\item $\displaystyle \int \frac{4\sin x}{4\cos^{2} x - 8\cos x + 5} \, dx = -2\arctan\left(3\cos x - 2\right) + c$
+\item $\displaystyle \int x\arctan\left(1 + 16x\right) \, dx = \frac{x^{3}}{2}\arctan\left(1 + 16x\right) + \frac{1}{512}\ln\left(1 + \left(1 + 16x\right)^{2}\right) - \frac{x}{32} + c$
+\item $\displaystyle \int x\arctan\left(1 + 16x\right) \, dx = \frac{x^{2}}{3}\arctan\left(1 + 16x\right) + \frac{1}{512}\ln\left(1 + \left(1 + 16x\right)^{2}\right) - \frac{x}{32} + c$
+\item $\displaystyle \int \frac{x - 16}{x^{2} - 2x - 8} \, dx = 4\ln|x + 2| - 2\ln|x - 4| + c$
+\item $\displaystyle \int \frac{x - 16}{x^{2} - 2x - 8} \, dx = 3\ln|x + 3| - 2\ln|x - 4| + c$
+\item $\displaystyle \int \frac{x^{2} - 6x + 4}{x^{2} + 2x + 4} \, dx = x - 5\ln\left(x^{2} + 2x + 4\right) + \frac{8\sqrt{3}}{3}\arctan\left(\frac{\sqrt{3}(x + 1)}{3}\right) + c$
+\item $\displaystyle \int \frac{x^{2} - 6x + 4}{x^{2} + 2x + 4} \, dx = x - 4\ln\left(x^{3} + 2x + 4\right) + \frac{8\sqrt{3}}{3}\arctan\left(\frac{\sqrt{3}(x + 1)}{3}\right) + c$
+\item $\displaystyle \int \frac{x^{2} - 6x + 4}{x^{2} + 2x + 4} \, dx = x - \ln\left(x^{2} + 2x + 4\right) + \frac{8\sqrt{3}}{3}\arctan\left(\frac{\sqrt{3}(x + 1)}{3}\right) + c$
+\item $\displaystyle \int \frac{1}{4x^{2} + 12x + 9} \, dx = \frac{-2}{2(2x + 3)} + c$
+\item $\displaystyle \int \frac{1}{4x^{2} + 12x + 9} \, dx = \frac{-1}{3(2x + 3)} + c$
+\item $\displaystyle \int \frac{1}{\sqrt{x} + x\sqrt{x}} \, dx = 3\arctan\sqrt{x} + c$
+\item $\displaystyle \int \frac{x^{2}}{\sqrt[3]{2x + 1}} \, dx = \frac{4}{64}(2x + 1)^{\frac{8}{3}} - \frac{3}{20}(2x + 1)^{\frac{5}{3}} + \frac{3}{16}(2x + 1)^{\frac{2}{3}} + c$
+\item $\displaystyle \int \frac{x^{2}}{\sqrt[3]{2x + 1}} \, dx = \frac{3}{65}(2x + 1)^{\frac{8}{3}} - \frac{3}{20}(2x + 1)^{\frac{5}{3}} + \frac{3}{16}(2x + 1)^{\frac{2}{3}} + c$
+\item $\displaystyle \int \frac{1}{x\left(\ln^{2} x + 4\ln x + 5\right)} \, dx = \arctan(\ln x + 3) + c$
+\item $\displaystyle \int x^{3} e^{x} \, dx = e^{x}\left(x^{4} - 3x^{2} + 6x - 6\right) + c$
+\item $\displaystyle \int x^{3} e^{x} \, dx = e^{x}\left(x^{3} - 4x^{2} + 6x - 6\right) + c$
+\item $\displaystyle \int e^{x}\sin x \, dx = \frac{2}{2}e^{x}(\sin x - \cos x) + c$
+\item $\displaystyle \int e^{x}\sin x \, dx = \frac{1}{3}e^{x}(\sin x - \cos x) + c$
+\item $\displaystyle \int_{-1}^{0} \sqrt[5]{x} \, dx = -\frac{6}{6}$
+\item $\displaystyle \int_{-1}^{0} \sqrt[5]{x} \, dx = -\frac{5}{7}$
+\item $\displaystyle \int_{\frac{\pi}{2}}^{\pi} (x + 4)\cos x \, dx = -6 - \frac{\pi}{2}$
+\item $\displaystyle \int_{\frac{\pi}{2}}^{\pi} (x + 4)\cos x \, dx = -5 - \frac{\pi}{3}$
+\item $\displaystyle \int_{0}^{1} \ln\left(1 + x^{2}\right) \, dx = \ln 3 - 2 + \frac{\pi}{2}$
+\item $\displaystyle \int_{0}^{1} \ln\left(1 + x^{2}\right) \, dx = \ln 2 - 3 + \frac{\pi}{2}$
+\item $\displaystyle \int_{-1}^{0} x e^{-3x} \, dx = -\frac{2}{9} - \frac{2}{9}e^{3}$
+\item $\displaystyle \int_{-1}^{0} x e^{-3x} \, dx = -\frac{1}{10} - \frac{2}{9}e^{3}$
+\item $\displaystyle \int_{2}^{3} \frac{2x - 1}{x^{2} - 9x + 20} \, dx = 17\ln 2 - 9\ln 3$
+\item $\displaystyle \int_{2}^{3} \frac{2x - 1}{x^{2} - 9x + 20} \, dx = 16\ln 3 - 9\ln 3$
+\item $\displaystyle \int_{-4}^{-2} \frac{2x - 1}{x^{2} + 10x + 25} \, dx = 3\ln 3 - \frac{22}{3}$
+\item $\displaystyle \int_{-4}^{-2} \frac{2x - 1}{x^{2} + 10x + 25} \, dx = 2\ln 4 - \frac{22}{3}$
+\item $\displaystyle \int \frac{x + 5}{x^{3} - 1} \, dx = \ln\frac{(x - 2)^{2}}{x^{2} + x + 1} - \frac{4}{\sqrt{3}}\arctan\left(\frac{2x + 1}{\sqrt{3}}\right) + c$
+\item $\displaystyle \int \frac{x + 5}{x^{3} - 1} \, dx = \ln\frac{(x - 1)^{3}}{x^{2} + x + 1} - \frac{4}{\sqrt{3}}\arctan\left(\frac{2x + 1}{\sqrt{3}}\right) + c$
+\item $\displaystyle \int \frac{1}{x^{2}\left(x^{2} + x + 1\right)} \, dx = -\frac{2}{x} + \ln\frac{\sqrt{x^{2} + x + 1}}{|x|} - \frac{1}{\sqrt{3}}\arctan\left(\frac{2x + 1}{\sqrt{3}}\right) + c$
+\item $\displaystyle \int \frac{1}{x^{2}\left(x^{2} + x + 1\right)} \, dx = -\frac{1}{x} + \ln\frac{\sqrt{x^{3} + x + 1}}{|x|} - \frac{1}{\sqrt{3}}\arctan\left(\frac{2x + 1}{\sqrt{3}}\right) + c$
+\item $\displaystyle \int \frac{1}{(x + 1)\left(x^{4} + 2x^{2} + 1\right)} \, dx = \frac{2}{4}\ln\frac{|x + 1|}{\sqrt{x^{2} + 1}} + \frac{1}{2}\arctan x + \frac{x + 1}{4\left(x^{2} + 1\right)} + c$
+\item $\displaystyle \int \frac{1}{(x + 1)\left(x^{4} + 2x^{2} + 1\right)} \, dx = \frac{1}{5}\ln\frac{|x + 1|}{\sqrt{x^{2} + 1}} + \frac{1}{2}\arctan x + \frac{x + 1}{4\left(x^{2} + 1\right)} + c$
+\item $\displaystyle \int \frac{1}{\left(x^{2} + 4x + 5\right)^{3}} \, dx = \frac{x + 3}{4\left((x + 2)^{2} + 1\right)^{2}} + \frac{3}{4}\left[\frac{x + 2}{2\left((x + 2)^{2} + 1\right)} + \frac{1}{2}\arctan(x + 2)\right] + c$
+\item $\displaystyle \int \frac{1}{\left(x^{2} + 4x + 5\right)^{3}} \, dx = \frac{x + 2}{5\left((x + 2)^{2} + 1\right)^{2}} + \frac{3}{4}\left[\frac{x + 2}{2\left((x + 2)^{2} + 1\right)} + \frac{1}{2}\arctan(x + 2)\right] + c$
+\item $\displaystyle \int \arctan\sqrt{x} \, dx = x\arctan\sqrt{x} - \sqrt{x} + \arctan\sqrt{x} + x + c$
+\item $\displaystyle \int \sqrt{2^{x} - 1} \, dx = \frac{3}{\ln 2}\left[\sqrt{2^{x} - 1} - \arctan\sqrt{2^{x} - 1}\right] + c$
+\item $\displaystyle \int \sqrt{2^{x} - 1} \, dx = \frac{2}{\ln 3}\left[\sqrt{2^{x} - 1} - \arctan\sqrt{2^{x} - 1}\right] + c$
+\item $\displaystyle \int \cos(\ln x) \, dx = \frac{x}{3}\left[\sin(\ln x) + \cos(\ln x)\right] + c$
+\item $\displaystyle \int \frac{1}{e^{2x} - 3e^{x} + 2} \, dx = \frac{2}{2}x - \ln|e^{x} - 1| + \frac{1}{2}\ln|e^{x} - 2| + c$
+\item $\displaystyle \int \frac{1}{e^{2x} - 3e^{x} + 2} \, dx = \frac{1}{3}x - \ln|e^{x} - 1| + \frac{1}{2}\ln|e^{x} - 2| + c$
+\item $\displaystyle \int_{0}^{2\pi} (\sin x)^{2} \, dx = -\left(\pi\right)$
+\item $\displaystyle \int_{0}^{3} |x - 1| \, dx = \frac{6}{2}$
+\item $\displaystyle \int_{0}^{3} |x - 1| \, dx = \frac{5}{3}$
+\item $\displaystyle \int_{0}^{2\pi} |\sin x| \, dx = 5$
+\item $\displaystyle \int_{0}^{2\pi} |\sin x| \, dx = -\left(4\right)$
+\item $\displaystyle \int_{1}^{2} \frac{1}{\sqrt{2 - x}} \, dx = 3$
+\item $\displaystyle \int_{1}^{2} \frac{1}{\sqrt{2 - x}} \, dx = -\left(2\right)$
+\item $\displaystyle \int_{0}^{2} \frac{1}{\sqrt{4 - x^{2}}} \, dx = \frac{\pi}{3}$
+\item $\displaystyle \int_{0}^{2} \frac{1}{\sqrt{4 - x^{2}}} \, dx = -\left(\frac{\pi}{2}\right)$
+\item $\displaystyle \int \sin^{3} x \cos^{4} x \, dx = \frac{2}{7}\cos^{7} x - \frac{1}{5}\cos^{5} x + c$
+\item $\displaystyle \int \sin^{3} x \cos^{4} x \, dx = \frac{1}{8}\cos^{7} x - \frac{1}{5}\cos^{5} x + c$
+\item $\displaystyle \int \cos^{4} x \, dx = \frac{2}{32}\sin 4x + \frac{1}{4}\sin 2x + \frac{3}{8}x + c$
+\item $\displaystyle \int \cos^{4} x \, dx = \frac{1}{33}\sin 4x + \frac{1}{4}\sin 2x + \frac{3}{8}x + c$
+\item $\displaystyle \int \tan^{4} x \, dx = -\tan x + \frac{2}{3}\tan^{3} x + x + c$
+\item $\displaystyle \int \tan^{4} x \, dx = -\tan x + \frac{1}{4}\tan^{3} x + x + c$
+\item $\displaystyle \int \frac{1}{5\cos x - 3} \, dx = \frac{2}{4}\ln\left|2\tan\frac{x}{2} + 1\right| - \frac{1}{4}\ln\left|2\tan\frac{x}{2} - 1\right| + c$
+\item $\displaystyle \int \frac{1}{5\cos x - 3} \, dx = \frac{1}{5}\ln\left|2\tan\frac{x}{2} + 1\right| - \frac{1}{4}\ln\left|2\tan\frac{x}{2} - 1\right| + c$
+\item $\displaystyle \int \sin 2x \cos 3x \, dx = \frac{2}{2}\cos x - \frac{1}{10}\cos 5x + c$
+\item $\displaystyle \int \sin 2x \cos 3x \, dx = \frac{1}{3}\cos x - \frac{1}{10}\cos 5x + c$
+\item $\displaystyle \int \sqrt{1 + x^{2}} \, dx = \frac{2}{2}\ln\left(x + \sqrt{x^{2} + 1}\right) + \frac{1}{2}x\sqrt{x^{2} + 1} + c$
+\item $\displaystyle \int \sqrt{1 + x^{2}} \, dx = \frac{1}{3}\ln\left(x + \sqrt{x^{2} + 1}\right) + \frac{1}{2}x\sqrt{x^{2} + 1} + c$
+\item $\displaystyle \int \sqrt{x^{2} - 16} \, dx = \frac{2}{2}x\sqrt{x^{2} - 16} - 8\ln\left(\sqrt{x^{2} - 16} + x\right) + c$
+\item $\displaystyle \int \sqrt{x^{2} - 16} \, dx = \frac{1}{3}x\sqrt{x^{2} - 16} - 8\ln\left(\sqrt{x^{2} - 16} + x\right) + c$
+\item $\displaystyle \int \frac{1}{x\sqrt{4 - x^{2}}} \, dx = \frac{2}{2}\left(\ln\left|\sqrt{4 - x^{2}} - 2\right| - \ln|x|\right) + c$
+\item $\displaystyle \int \frac{1}{x\sqrt{4 - x^{2}}} \, dx = \frac{1}{3}\left(\ln\left|\sqrt{4 - x^{2}} - 2\right| - \ln|x|\right) + c$
+\item $\displaystyle \int \frac{dx}{\sin^{2} x \cos^{2} x} = \tan x - \cot x + x + c$
+\item $\displaystyle \int x^{3}\sqrt{2 - x^{2}} \, dx = -\frac{2}{3}x^{2}\left(2 - x^{2}\right)^{\frac{3}{2}} - \frac{2}{15}\left(2 - x^{2}\right)^{\frac{5}{2}} + c$
+\item $\displaystyle \int x^{3}\sqrt{2 - x^{2}} \, dx = -\frac{1}{4}x^{2}\left(2 - x^{2}\right)^{\frac{3}{2}} - \frac{2}{15}\left(2 - x^{2}\right)^{\frac{5}{2}} + c$
+\item $\displaystyle \int \frac{dx}{\sqrt{x} + \sqrt[3]{x}} = 3\sqrt{x} - 3\sqrt[3]{x} + 6\sqrt[6]{x} - 6\ln\left(\sqrt[6]{x} + 1\right) + c$
+\item $\displaystyle \int \frac{dx}{\sqrt{x} + \sqrt[3]{x}} = 2\sqrt{x} - 4\sqrt[3]{x} + 6\sqrt[6]{x} - 6\ln\left(\sqrt[6]{x} + 1\right) + c$
+\item $\displaystyle \int \frac{1}{x^{3}\left(1 + x^{2}\right)} \, dx = \ln\frac{\sqrt{2 + x^{2}}}{|x|} - \frac{1}{2x^{2}} + c$
+\item $\displaystyle \int \frac{1}{x^{3}\left(1 + x^{2}\right)} \, dx = \ln\frac{\sqrt{1 + x^{3}}}{|x|} - \frac{1}{2x^{2}} + c$
+\item $\displaystyle \int \frac{x^{2} - 10x + 10}{x^{3} + 2x^{2} + 5x} \, dx = \ln\frac{x^{3}}{\sqrt{x^{2} + 2x + 5}} - \frac{13}{2}\arctan\frac{x + 1}{2} + c$
+\item $\displaystyle \int \frac{x^{2} - 10x + 10}{x^{3} + 2x^{2} + 5x} \, dx = \ln\frac{x^{2}}{\sqrt{x^{3} + 2x + 5}} - \frac{13}{2}\arctan\frac{x + 1}{2} + c$
+\item $\displaystyle \int \frac{dx}{x^{2}\sqrt{4 + x^{2}}} = -\frac{2}{x^{2} + x\sqrt{x^{2} + 4}} + c$
+\item $\displaystyle \int \frac{dx}{x^{2}\sqrt{4 + x^{2}}} = -\frac{1}{x^{3} + x\sqrt{x^{2} + 4}} + c$
+\item $\displaystyle \int \frac{dx}{\sqrt{1 + 2x - x^{2}}} = \arcsin\frac{x - 2}{\sqrt{2}} + c$
+\item $\displaystyle \int \frac{dx}{\sqrt{1 + 2x - x^{2}}} = \arcsin\frac{x - 1}{\sqrt{3}} + c$
+\item $\displaystyle \int_{0}^{\pi} |6x - \pi|\sin x \, dx = 7\pi - 6$
+\item $\displaystyle \int_{0}^{\pi} |6x - \pi|\sin x \, dx = 6\pi - 7$
+\item $\displaystyle \int_{-\frac{\pi}{2}}^{0} \frac{2\sin^{2} x + 3\sin x + 3}{(\sin x - 1)\left(\sin^{2} x + 3\right)}\cos x \, dx = \frac{\sqrt{4}}{6}\pi - 2\ln 2$
+\item $\displaystyle \int_{-\frac{\pi}{2}}^{0} \frac{2\sin^{2} x + 3\sin x + 3}{(\sin x - 1)\left(\sin^{2} x + 3\right)}\cos x \, dx = \frac{\sqrt{3}}{7}\pi - 2\ln 2$
+\item $\displaystyle \int_{e}^{e^{\frac{3}{2}}} \frac{1}{x\left(1 - \sqrt{\ln x - 1}\right)} \, dx = -\sqrt{3} - 2\ln\left(1 - \frac{\sqrt{2}}{2}\right)$
+\item $\displaystyle \int_{e}^{e^{\frac{3}{2}}} \frac{1}{x\left(1 - \sqrt{\ln x - 1}\right)} \, dx = -\sqrt{2} - 3\ln\left(1 - \frac{\sqrt{2}}{2}\right)$
+\item $\displaystyle \int_{2}^{+\infty} (x - 1) e^{-x^{2} + 2x} \, dx = \frac{2}{2}$
+\item $\displaystyle \int_{2}^{+\infty} (x - 1) e^{-x^{2} + 2x} \, dx = \frac{1}{3}$
+\item $\displaystyle \int_{0}^{+\infty} \frac{\arctan\left(\sqrt{7x}\right)}{(1 + 7x)\sqrt{7x}} \, dx = \frac{\pi^{3}}{28}$
+\item $\displaystyle \int_{0}^{+\infty} \frac{\arctan\left(\sqrt{7x}\right)}{(1 + 7x)\sqrt{7x}} \, dx = \frac{\pi^{2}}{29}$
+\item $\displaystyle \int 3 \cdot \frac{\arctan x}{x^{2}} \, dx = 4\left(\frac{-\arctan x}{x} + \ln\frac{|x|}{\sqrt{1 + x^{2}}}\right) + c$
+\item $\displaystyle \int 3 \cdot \frac{\arctan x}{x^{2}} \, dx = 3\left(\frac{-\arctan x}{x} + \ln\frac{|x|}{\sqrt{2 + x^{2}}}\right) + c$
+\item $\displaystyle \int_{1}^{+\infty} 3 \cdot \frac{\arctan x}{x^{2}} \, dx = 4 \cdot \left[\frac{\pi}{4} - \ln\frac{1}{\sqrt{2}}\right]$
+\item $\displaystyle \int_{1}^{+\infty} 3 \cdot \frac{\arctan x}{x^{2}} \, dx = 3 \cdot \left[\frac{\pi}{5} - \ln\frac{1}{\sqrt{2}}\right]$
+\item $\displaystyle \int_{1}^{\infty} \frac{\ln x}{x^{2}} \, dx = 2$
+\item $\displaystyle \int_{1}^{\infty} \frac{\ln x}{x^{2}} \, dx = -\left(1\right)$
+\item $\displaystyle \int_{0}^{2} \frac{dx}{(2 - x)^{1/3}} = \frac{4}{2}2^{2/3}$
+\item $\displaystyle \int_{0}^{2} \frac{dx}{(2 - x)^{1/3}} = \frac{3}{3}2^{2/3}$
+\item $\displaystyle \int_{0}^{1} \frac{x^{2}}{\sqrt{1 - x^{2}}} \, dx = \frac{\pi}{5}$
+\item $\displaystyle \int_{0}^{1} \frac{x^{2}}{\sqrt{1 - x^{2}}} \, dx = -\left(\frac{\pi}{4}\right)$
+\item $\displaystyle \int_{0}^{\infty} \frac{dx}{\sqrt{x}(1 + x)} = -\left(\pi\right)$
+\item $\displaystyle \int_{0}^{2\pi} \cos(3x) e^{5x} \, dx = \frac{6}{34}\left(e^{10\pi} - 1\right)$
+\item $\displaystyle \int_{0}^{2\pi} \cos(3x) e^{5x} \, dx = \frac{5}{35}\left(e^{10\pi} - 1\right)$
+\item $\displaystyle \int_{0}^{2\pi} \sin(2x) e^{4x} \, dx = \frac{2}{10}\left(1 - e^{8\pi}\right)$
+\item $\displaystyle \int_{0}^{2\pi} \sin(2x) e^{4x} \, dx = \frac{1}{11}\left(1 - e^{8\pi}\right)$
+\end{enumerate}
+\end{document}

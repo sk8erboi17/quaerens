@@ -1,0 +1,37 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_integral\_conventions.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_integral\_conventions.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_integrals.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} Anti-regression. The file holds 16 statements, written by hand, that the engine must never prove: the classic ways a computation of an integral goes wrong, and writings the reader must refuse rather than guess.
+
+\item \textbf{What it exercises.}
+\begin{itemize}
+\item The fundamental theorem of calculus used where it does not hold: across a point where the integrand is not defined ($\int_{-1}^{1} \frac{dx}{x^{2}} = -2$, $\int_{-1}^{1} \frac{dx}{x} = 0$, $\int_{0}^{\pi} \tan^{2} x \, dx = -\pi$), or with an antiderivative that jumps inside the interval ($\int_{0}^{2\pi} \frac{dx}{2 + \cos x} = 0$, from $t = \tan\frac{x}{2}$). Each would follow from $F(b) - F(a)$; the engine checks with interval arithmetic that the integrand and the antiderivative are defined on all of $[a, b]$, and the last one is refuted by the Riemann enclosure, which is near $\frac{2\pi}{\sqrt{3}}$.
+\item Wrong antiderivatives that look right: $\log$ (base $10$) for $\ln$, $\frac{x^{2}}{2}$ for $\int \sqrt{x^{2}} \, dx$ (wrong for $x < 0$), $x e^{x}$ for $\int x e^{x} \, dx$, a quotient simplified badly, a term added.
+\item Values wrong by little: $\frac{1}{3} + 10^{-9}$ for $\int_{0}^{1} x^{2} \, dx$, which the Riemann enclosure still excludes.
+\item Writings refused by the reader: a differential in the middle ($\int x \, dx + 1$), inside an argument, written twice; an antiderivative without its constant.
+\end{itemize}
+
+\item \textbf{Expected result.} The line \texttt{PASS: 16 of 16 false statements rejected}.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_integrals \
+    tests/integrals/test_integrals.c && /tmp/test_integrals
+\end{verbatim}
+\end{enumerate}
+\end{document}

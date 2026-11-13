@@ -1,0 +1,36 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Integrals that look right and are not (16)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Every statement below is false, or is not a statement the engine may read as true. Some are the classic traps: the fundamental theorem of calculus used across a point where the integrand is not defined, an antiderivative that jumps inside the interval, $\log$ (base $10$) in place of $\ln$, $\sqrt{x^{2}}$ in place of $x$. Others are written in a way the reader must refuse: a differential in the middle, a missing constant. The engine must never prove one of them.
+
+\begin{enumerate}
+\item $\displaystyle \int \frac{1}{x} \, dx = \log|x| + c$
+\item $\displaystyle \int_{-1}^{1} \frac{1}{x^{2}} \, dx = -2$
+\item $\displaystyle \int_{-1}^{1} \frac{1}{x} \, dx = 0$
+\item $\displaystyle \int_{0}^{\pi} \tan^{2} x \, dx = -\pi$
+\item $\displaystyle \int_{0}^{2\pi} \frac{dx}{2 + \cos x} = 0$
+\item $\displaystyle \int \sqrt{x^{2}} \, dx = \frac{x^{2}}{2} + c$
+\item $\displaystyle \int \frac{x^{2} - 1}{x - 1} \, dx = \frac{x^{2}}{2} + c$
+\item $\displaystyle \int x e^{x} \, dx = x e^{x} + c$
+\item $\displaystyle \int \cos x \, dx = \sin x + x + c$
+\item $\displaystyle \int x \, dx + 1 = \frac{x^{2}}{2} + 1 + c$
+\item $\displaystyle \int 2x \, dx = x^{2}$
+\item $\displaystyle \int 2 \, dx \, dx = 2x + c$
+\item $\displaystyle \int \sin\left(2x \, dx\right) = -\frac{1}{2}\cos 2x + c$
+\item $\displaystyle \int_{0}^{1} x^{2} \, dx = \frac{1}{3} + \frac{1}{10^{9}}$
+\item $\displaystyle \int_{0}^{\pi} \sin x \, dx = \pi - 1$
+\item $\displaystyle \int_{0}^{1} \frac{dx}{x^{2} + 1} = \frac{\pi}{4} + \frac{1}{1000}$
+\end{enumerate}
+\end{document}

@@ -20,7 +20,8 @@
  * una funzione per regola della grammatica):
  *
  *   - le espressioni, con somme, prodotti, potenze e funzioni: Node
- *     (capitoli 8 e 9);
+ *     (capitoli 8 e 9), su cui poggiano anche gli enunciati sulle derivate
+ *     e sugli integrali (9j);
  *   - gli enunciati sugli insiemi: SetNode (capitolo 14);
  *   - gli enunciati con quantificatori, gli insiemi numerici e gli insiemi
  *     di soluzioni: Formula (capitolo 17), le cui foglie sono espressioni;
@@ -259,6 +260,20 @@ typedef struct {
     const char *from, *to;  /* il testo "\lim_{...} f" nell'enunciato: [from, to) */
 } LimitStatement;
 
+/* Un enunciato su un integrale (9j): "l'integrale di integrand in
+ * d variable è answer". Senza estremi è un integrale indefinito, e answer è
+ * una primitiva F, scritta con la sua costante (F + c) che il lettore toglie;
+ * con gli estremi è un integrale definito, e answer è un numero. Senza il
+ * segno di uguale è una richiesta: answer è NULL, e la risposta la cerca il
+ * motore (capitolo 30). Gli alberi stanno nell'arena. */
+typedef struct {
+    int variable;         /* la lettera x del differenziale dx */
+    Node *integrand;      /* la funzione integranda, senza il dx */
+    Node *lower, *upper;  /* gli estremi; NULL tutti e due se l'integrale è indefinito */
+    Node *answer;         /* F senza la costante, oppure il valore; NULL per una richiesta */
+    int constant;         /* la lettera della costante di F, se c'è; altrimenti 0 */
+} IntegralStatement;
+
 /* =============================================================================
  * 9. PARSING: DAL LATEX ALL'ALBERO
  * ============================================================================
@@ -300,6 +315,12 @@ typedef struct {
  *     limit  := [\nexists] \lim '_' '{' lettera (\to | \rightarrow) punto '}' expr ['=' valore]
  *     punto  := ['+' | '-'] \infty | expr [ '^' ('+' | '-' | '{+}' | '{-}') ]
  *     valore := ['+' | '-'] \infty | expr
+ *
+ * Una quinta, per gli integrali (vedi parse_integral_statement(), 9j):
+ *
+ *     integral  := \int [ '_' group '^' group ] expr [ '=' expr ]
+ *
+ * dove nella prima expr compare una volta sola il differenziale dx.
  *
  * Le convenzioni che la grammatica fissa, e che in LaTeX sono implicite:
  *
@@ -374,6 +395,34 @@ static void syntax(const char *message) {
     token.kind = T_END;
 }
 
+/* 9j, il lettore di token. Mentre si legge un integrale (vedi
+ * parse_integral_statement()) vale una convenzione che altrove non vale,
+ * e questo interruttore la accende: dentro la funzione integranda la
+ * lettera d seguita da un'altra lettera è il differenziale, dx, un token
+ * solo. Fuori da un integrale resta spento, e il lettore è quello di
+ * sempre. */
+static int differential_open;
+
+/* Valore di Token.ch per il differenziale dx; token.value è la lettera x.
+ * "\d" non è un comando che il lettore accetti, quindi ESCAPED + 'd' non si
+ * confonde con le graffe e l'a capo. */
+#define DIFFERENTIAL (ESCAPED + 'd')
+
+/* Se differential_open è acceso e il cursore è sulla lettera d seguita, dopo
+ * eventuali spazi, da un'altra lettera, consuma le due e fa del token
+ * corrente il differenziale; ritorna 1. Altrimenti non tocca nulla e
+ * ritorna 0. */
+static int lex_differential(void) {
+    const char *after = cursor + 1;
+    while (isspace((unsigned char)*after)) after++;
+    if (!differential_open || *cursor != 'd' || !isalpha((unsigned char)*after)) return 0;
+    token.kind = T_CHAR;
+    token.ch = DIFFERENTIAL;
+    token.value = *after;
+    cursor = after + 1;
+    return 1;
+}
+
 /* Legge il prossimo token in `token`. I comandi di sola presentazione
  * (spazi come \, e \!, \displaystyle) vengono saltati. */
 static void next_token(void) {
@@ -404,7 +453,9 @@ static void next_token(void) {
             return;
         }
 
-        /* Lettera: ogni lettera è un simbolo a sé. */
+        /* Lettera: ogni lettera è un simbolo a sé, tranne il differenziale
+         * di un integrale (9j). */
+        if (isalpha(c) && lex_differential()) return;
         if (isalpha(c)) { token.kind = T_LETTER; token.ch = *cursor++; return; }
 
         /* Comando: barra seguita da lettere, oppure spazio come \, */
@@ -778,9 +829,36 @@ static Node *parse_derivative_sign(void) {
  * com'era prima di ritornare, anche dopo un errore di sintassi. */
 static int open_bars;
 
+/* 9j. Che cosa ha incontrato il lettore dentro la funzione integranda: il
+ * nodo che fa le veci del differenziale (vale 1, e conta solo dove sta), la
+ * sua lettera, e quanti differenziali ha letto in tutto. Li azzera
+ * parse_integral_statement(). */
+static Node *differential_node;
+static int differential_letter, differentials;
+
+/* 9j. Dentro un integrale, il fattore che altrove non esiste: il
+ * differenziale, che diventa il numero 1 (il suo posto lo controlla poi
+ * parse_integral_statement()). Ritorna NULL se il token corrente non è il
+ * differenziale. Il valore assoluto scritto con le sole sbarre, \ln|x - 2|,
+ * lo legge 9c, dentro e fuori da un integrale. */
+static Node *parse_integral_piece(void) {
+    if (is_char(DIFFERENTIAL)) {
+        differentials++;
+        differential_letter = (int)token.value;
+        next_token();
+        differential_node = node_num(1);
+        return differential_node;
+    }
+    return NULL;
+}
+
 /* primary: vedi la grammatica in testa al capitolo. */
 static Node *parse_primary(void) {
     Function fn;
+
+    /* 9j. Il differenziale e la sbarra di un integrale. */
+    Node *piece = parse_integral_piece();
+    if (piece) return piece;
 
     /* 9a. Numero. */
     if (token.kind == T_NUM) {
@@ -900,7 +978,8 @@ static int starts_factor(void) {
     return token.kind == T_NUM || token.kind == T_LETTER || token.kind == T_OPEN ||
            token.kind == T_ABS_OPEN || (is_char('|') && !open_bars) || is_function(&fn) || is_command("frac") ||
            is_command("dfrac") || is_command("tfrac") || is_command("binom") ||
-           is_command("sqrt") || is_command("sum") || is_command("prod") || is_command("pi") || defined_function() >= 0;
+           is_command("sqrt") || is_command("sum") || is_command("prod") || is_command("pi") || defined_function() >= 0 ||
+           is_char(DIFFERENTIAL);
 }
 
 /* Quanti segni, prodotti e quozienti sono stati letti, fuori da ogni
@@ -1186,6 +1265,136 @@ static int parse_limit_statement(const char *text, LimitStatement *out) {
             out->claim = LIMIT_VALUE;
             out->value = parse_expr();
         }
+    }
+    if (token.kind != T_END) syntax("testo inatteso dopo l'enunciato");
+    return syntax_error == NULL;
+}
+
+/* 9j. GLI INTEGRALI
+ *
+ *     \int \frac{x + 2}{x^{2} - 4x + 4} \, dx = \ln|x - 2| - \frac{4}{x - 2} + c
+ *     \int_{0}^{1} \ln\left(1 + x^{2}\right) dx = \ln 2 - 2 + \frac{\pi}{2}
+ *     \int \frac{dx}{\sqrt{x} + \sqrt[3]{x}}        \int_{2}^{3} \frac{2x - 1}{x^{2} - 9x + 20} \, dx
+ *
+ * Le convenzioni, che i libri lasciano implicite:
+ *
+ *   - Il differenziale è la lettera d seguita da un'altra lettera, la
+ *     variabile: dx, dt. È un token solo, e conta come un fattore che vale
+ *     1: può stare in fondo, f \, dx, oppure in un numeratore,
+ *     \frac{dx}{g} e \frac{x \, dx}{g}. Deve comparire una volta sola.
+ *   - La funzione integranda è tutto ciò che sta tra \int e il dx. Se è una
+ *     somma, il dx deve chiudere l'ultimo termine: \int x^{2} + 1 \, dx è
+ *     l'integrale di x^2 + 1. Un dx nel mezzo, \int x \, dx + 1, o dentro
+ *     l'argomento di una funzione, è un errore di sintassi, non una lettura
+ *     da indovinare.
+ *   - Gli estremi, \int_{a}^{b} o \int^{b}_{a}, sono gruppi come gli
+ *     esponenti: \int_0^1 vale da 0 a 1.
+ *   - In tutto l'enunciato una sbarra | dove comincia un fattore apre un
+ *     valore assoluto, che la sbarra seguente chiude: \ln|x - 2| come
+ *     \ln\left|x - 2\right|. Fuori dagli integrali la sbarra da sola resta un
+ *     errore, perché lì i libri la usano anche per altro.
+ *   - Una primitiva si scrive con la sua costante, F + c (o + C, + k, + K):
+ *     senza, \int f \, dx = F direbbe che l'integrale indefinito è una sola
+ *     funzione, e non è ciò che i libri intendono.
+ *
+ * Che cosa vuol dire l'enunciato lo stabilisce il motore (capitolo 30). */
+
+/* Ritorna 1 se target è un fattore di tutto tree: ci si arriva scendendo per
+ * prodotti, numeratori di frazioni e segni meno. */
+static int node_is_factor(const Node *tree, const Node *target) {
+    if (tree == target) return 1;
+    if (tree->kind == N_MUL) return node_is_factor(tree->a, target) || node_is_factor(tree->b, target);
+    return (tree->kind == N_DIV || tree->kind == N_NEG) && node_is_factor(tree->a, target);
+}
+
+/* Ritorna una copia di tree senza il fattore target, che node_is_factor()
+ * ha trovato: un prodotto per target diventa l'altro fattore. Il resto
+ * dell'albero è condiviso. */
+static Node *node_without(Node *tree, const Node *target) {
+    if (tree->kind == N_MUL && tree->a == target) return tree->b;
+    if (tree->kind == N_MUL && tree->b == target) return tree->a;
+    if (tree->kind == N_ADD || tree->kind == N_SUB) return node_new(tree->kind, tree->a, node_without(tree->b, target));
+    if (tree->kind == N_MUL) return node_is_factor(tree->a, target) ? node_new(N_MUL, node_without(tree->a, target), tree->b)
+                                                                   : node_new(N_MUL, tree->a, node_without(tree->b, target));
+    if ((tree->kind == N_DIV || tree->kind == N_NEG) && tree->a != target) return node_new(tree->kind, node_without(tree->a, target), tree->b);
+    return tree;  /* \frac{dx}{g}: il dx vale già 1, e resta come numeratore */
+}
+
+/* Ritorna 1 se il nodo è la lettera della costante di una primitiva. */
+static int is_integration_constant(const Node *node) {
+    return node->kind == N_VAR && (node->name == 'c' || node->name == 'C' || node->name == 'k' || node->name == 'K');
+}
+
+/* Ritorna 1 se text comincia con \int, dopo eventuali \displaystyle. */
+static int starts_with_integral(const char *text) {
+    syntax_error = NULL;
+    cursor = text;
+    next_token();
+    int found = is_command("int");
+    syntax_error = NULL;
+    return found;
+}
+
+/* Analizza text come enunciato su un integrale (vedi IntegralStatement e le
+ * convenzioni di 9j) e lo mette in *out. Ritorna 1 se riesce; altrimenti
+ * ritorna 0 e syntax_error dice perché. */
+static int parse_integral_statement(const char *text, IntegralStatement *out) {
+    const char *misplaced = "il differenziale dx deve moltiplicare tutta la funzione integranda, una volta sola";
+    memset(out, 0, sizeof *out);
+    syntax_error = NULL;
+    cursor = text;
+    differential_node = NULL;
+    differentials = 0;
+
+    /* \int e gli estremi, in qualsiasi ordine. Il differenziale si accende
+     * prima del token che segue, che può già essere il dx. */
+    next_token();
+    if (!is_command("int")) syntax("l'enunciato non comincia con \\int");
+    differential_open = 1;
+    next_token();
+    for (;;) {
+        if (is_char('_') && !out->lower) { next_token(); out->lower = parse_group(); }
+        else if (is_char('^') && !out->upper) { next_token(); out->upper = parse_group(); }
+        else break;
+    }
+    if (!out->lower != !out->upper) syntax("un integrale definito vuole tutti e due gli estremi");
+    if (differentials) syntax(misplaced);
+
+    /* La funzione integranda, con il suo dx al posto giusto. Un comando che
+     * la grammatica non ha la ferma prima del dx, e va detto come tale. */
+    Node *integrand = parse_expr();
+    differential_open = 0;
+    if (token.kind == T_COMMAND) syntax("comando LaTeX non supportato");
+    if (!syntax_error) {
+        const Node *last = integrand;
+        while (last->kind == N_ADD || last->kind == N_SUB) last = last->b;
+        if (differentials != 1 || !node_is_factor(last, differential_node)) syntax(misplaced);
+        else {
+            out->integrand = node_without(integrand, differential_node);
+            out->variable = differential_letter;
+        }
+    }
+
+    /* La risposta, se c'è: per un integrale indefinito F + c, e la
+     * costante si stacca qui. */
+    if (is_char('=')) {
+        next_token();
+        Node *answer = parse_expr();
+        int indefinite = !out->lower;
+        if (token.kind == T_COMMAND) syntax("comando LaTeX non supportato");
+        if (syntax_error) {
+            /* L'errore c'è già: la costante non si cerca. */
+        } else if (indefinite && is_integration_constant(answer)) {
+            out->constant = answer->name;
+            answer = node_num(0);
+        } else if (indefinite && answer->kind == N_ADD && is_integration_constant(answer->b)) {
+            out->constant = answer->b->name;
+            answer = answer->a;
+        } else if (indefinite) {
+            syntax("manca la costante: un integrale indefinito si scrive F + c");
+        }
+        if (out->constant && out->constant == out->variable) syntax("la costante di una primitiva deve essere una lettera diversa dalla variabile");
+        out->answer = answer;
     }
     if (token.kind != T_END) syntax("testo inatteso dopo l'enunciato");
     return syntax_error == NULL;

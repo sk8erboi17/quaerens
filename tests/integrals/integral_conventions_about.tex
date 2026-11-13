@@ -1,0 +1,37 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{integral\_conventions.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{integral\_conventions.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_integrals.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 16 true statements, written by hand, that fix the conventions of the reader (paragraph 9j of \texttt{parser.c}) and of the verdict (chapter 30 of \texttt{main.c}). The values were computed by hand.
+
+\item \textbf{What it exercises.}
+\begin{itemize}
+\item Where the differential may stand: at the end, $f \, dx$; in a numerator, $\frac{dx}{g}$ and $\frac{x \, dx}{g}$; closing a sum, $\int x^{2} + 1 \, dx$, which is the integral of $x^{2} + 1$; after an argument that starts with a number, $\int \sin 2x \, dx$; alone, $\int 0 \, dx = c$; with another letter, $dt$.
+\item The constant of the antiderivative: $c$, $C$ or $k$, and a constant already inside $F$ ($x^{2} + 5 + k$).
+\item The meaning of an antiderivative: on every open interval where both sides are defined. So $\ln x$ and $\ln(-x)$ are antiderivatives of $\frac{1}{x}$ as $\ln|x|$ is, each where it is defined, and $\ln|3x|$ differs from $\ln|x|$ by a constant. The verdict says when the antiderivative is not defined everywhere the integrand is.
+\item Definite integrals: bounds in either order of writing, $\int_{a}^{b}$ and $\int^{b}_{a}$; reversed bounds, $\int_{1}^{0} = -\int_{0}^{1}$; $\pi$ and $e$ in the bounds and in the value.
+\end{itemize}
+
+\item \textbf{Expected result.} The line \texttt{PASS: 16 of 16 statements proved, each with a written proof}.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_integrals \
+    tests/integrals/test_integrals.c && /tmp/test_integrals
+\end{verbatim}
+\end{enumerate}
+\end{document}

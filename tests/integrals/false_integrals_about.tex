@@ -1,0 +1,31 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_integrals.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_integrals.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_integrals.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} Anti-regression. The file holds 148 false statements: 146 are the results of \texttt{book\_integrals.tex} and \texttt{book\_integrals\_beyond.tex} altered in one place (an integer changed by one, the sign of the value flipped, a term $x$ added to the antiderivative), the \texttt{false\_checks} of \texttt{photos/dati\_esercizi/integrali.jsonl}, which the independent oracle rejected; 2 are the results printed wrong in the textbooks (firenze-5d and ferrara-R7). Notation as in \texttt{book\_integrals.tex}: $\ln$ for the natural logarithm, $\arctan$ for $\operatorname{arctg}$.
+
+\item \textbf{What it exercises.} That no change to the engine makes it prove a wrong antiderivative or a wrong value. And, as a second check, how many of them it calls false, not only ``not proved'': an antiderivative is false when, at a point where both sides are defined, the derivative of the right side read from its Taylor series and the derivative by the rules agree with each other and are both surely different from the integrand; a definite integral is false when the Riemann enclosure of the integral, computed with interval arithmetic, surely excludes the stated value.
+
+\item \textbf{Expected result.} The lines \texttt{PASS: 148 of 148 false statements rejected} and \texttt{PASS: 118 of 148 statements \ldots{} are REFUTED (at least 118 wanted), 0 are PROVED}. The other 30 are variants of the statements the engine does not decide (improper integrals, $\arcsin$, $\cosh$, roots of negative numbers): there it says it cannot decide.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_integrals \
+    tests/integrals/test_integrals.c && /tmp/test_integrals
+\end{verbatim}
+\end{enumerate}
+\end{document}
