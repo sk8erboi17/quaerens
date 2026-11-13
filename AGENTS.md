@@ -227,6 +227,14 @@ Non basta "il codice si spiega da solo". Molti commenti non dicono *cosa* fa il 
 - Scrivi per essere letto da programmatori anche non esperti del dominio matematico: i teacher comments servono a questo.
 - Non aggiungere commenti decorativi o ripetitivi; ogni commento deve guadagnarsi il suo posto riducendo lo sforzo del lettore o trasmettendo un'informazione che il codice non ha.
 
+## Regola sulla storia di git: in inglese, un commit per obiettivo
+
+La storia del repository si legge come un elenco di obiettivi raggiunti, non come un diario di lavoro.
+
+- **In inglese.** Titolo e corpo di ogni messaggio di commit sono in inglese, anche se commenti e documentazione del codice sono in italiano.
+- **Pochi commit, uno per obiettivo.** Un commit raccoglie un obiettivo compiuto (una famiglia di regole con i suoi test, un nuovo tipo di esercizi risolti, una riorganizzazione dei file), non un passo intermedio: niente "update main.c", niente commit di salvataggio a metà lavoro.
+- **Il messaggio dice l'obiettivo.** Il titolo lo nomina; il corpo elenca che cosa è entrato (citando regole e capitoli per numero) e lo stato dei test.
+
 ## Prima di consegnare
 
 - Il progetto è ancora fatto dei suoi cinque file (`main.c`, `parser.c`, `output.c`, `plot.c`, `checker.c`), ogni cosa nel file giusto, senza dipendenze esterne non richieste?
@@ -238,6 +246,7 @@ Non basta "il codice si spiega da solo". Molti commenti non dicono *cosa* fa il 
 - Ho fatto la review: complessità inutile rimossa, astrazioni migliorate, nessuna regressione né sub-ottimizzazione?
 - Il commento di design e l'indice dei capitoli sono aggiornati?
 - Commenti in italiano e test in inglese?
+- Se c'è un commit: messaggio in inglese, un obiettivo compiuto per commit?
 - Ogni nuova funzione ha il suo function comment?
 - Ogni nuova `struct` dice a quale astrazione serve e a cosa si riferisce?
 - Ogni scelta non ovvia ha il suo why comment? Ogni concetto matematico non banale ha il suo teacher comment?
