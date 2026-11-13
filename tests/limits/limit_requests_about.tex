@@ -1,0 +1,33 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{limit\_requests.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{limit\_requests.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_limits.c} in this folder, which holds the expected answers.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 46 requests: a limit written without its value, $\lim_{x \to a} f$. The engine answers RISOLTO with the limit written as a statement, $\lim_{x \to a} f = \ell$, $+\infty$ or $-\infty$, or $\nexists \lim_{x \to a} f$ when the one-sided limits differ; the written value is read back by the program's reader and compared with the computed one.
+
+\item \textbf{Expected answers.} The results printed in the collection of exercises of \texttt{photos/dati\_esercizi/limiti.jsonl}, with $\log$ written $\ln$ (see \texttt{book\_limits\_about.tex}). An answer counts as right if it is written as expected, or if the engine proves both the expected statement and the one it wrote: a limit has one value, so the two values are the same number written in two ways ($\frac{1}{4}\,\pi\,\left(\ln 2\right)^{-1}$ and $\frac{\pi}{4 \ln 2}$). Where the book writes $\infty$ without a sign for a limit whose one-sided limits are $+\infty$ and $-\infty$, the expected answer is that the limit does not exist.
+
+\item \textbf{Variety.} Each kind of the collection: continuity, roots, notable limits, Taylor expansions, exponential forms, one-sided limits, limits at $\pm\infty$, sequences, limits that do not exist. The last two requests are marked as open: the engine does not compute them yet, and may say so.
+
+\item \textbf{Expected result.} The line \texttt{PASS: 44 of 46 limits computed and equal to the expected ones (2 not answered, as allowed)}.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_limits \
+    tests/limits/test_limits.c && /tmp/test_limits
+\end{verbatim}
+\end{enumerate}
+\end{document}

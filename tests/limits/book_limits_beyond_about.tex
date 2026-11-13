@@ -1,0 +1,31 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{book\_limits\_beyond.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{book\_limits\_beyond.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_limits.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 12 true statements, from the same collection of exercises as \texttt{book\_limits.tex}, that the engine does not decide yet. It must never call them false: it may only answer that it does not know.
+
+\item \textbf{Why they are not decided.} Most need a scale of growth for exponentials and logarithms at infinity, which chapter 29 does not have: $\frac{e^{3x} + 1}{e^{2x} + 2}$, $2^{-x} x^{x}$, $3^{x^{2}} - (3^{x})^{2}$, $\frac{\ln x}{\ln\ln x}$, $\frac{e^{1/x} + 3}{e^{1/x} + 1}$; there the algebra of limits meets $\infty/\infty$, $0 \cdot \infty$ or $\infty - \infty$. Two need a coefficient that is not a fraction of polynomials in $L = \ln\frac{1}{t}$, such as $\sqrt{1 + 2L^{2}}$. Three need bounds rather than expansions: $8x + x\sin^{2} x \le 8x$, $e - 2^{\sin x} \ge e - 2 > 0$, and two sequences of points for $\sqrt{x}\cos x$ and $x(e - e^{\sin x})$, whose limit does not exist.
+
+\item \textbf{Expected result.} The line \texttt{PASS: none of the 12 true statements \dots{} is called false}. When one of them becomes provable it should move to \texttt{book\_limits.tex}.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_limits \
+    tests/limits/test_limits.c && /tmp/test_limits
+\end{verbatim}
+\end{enumerate}
+\end{document}

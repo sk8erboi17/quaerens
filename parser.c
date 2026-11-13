@@ -225,6 +225,31 @@ typedef struct {
     Node *formula;    /* ciò che l'enunciato dice della derivata */
 } DerivativeStatement;
 
+/* Che cosa un enunciato su un limite dice del limite (vedi LimitStatement):
+ *   LIMIT_ASKED     niente, è una richiesta: "\lim_{x \to a} f";
+ *   LIMIT_VALUE     che vale il numero `value`;
+ *   LIMIT_PLUS      che vale +\infty;   LIMIT_MINUS  che vale -\infty;
+ *   LIMIT_UNSIGNED  che vale \infty senza segno: |f| tende a +\infty;
+ *   LIMIT_NONE      che non esiste: "\nexists \lim_{x \to a} f". */
+typedef enum { LIMIT_ASKED, LIMIT_VALUE, LIMIT_PLUS, LIMIT_MINUS, LIMIT_UNSIGNED, LIMIT_NONE } LimitClaim;
+
+/* Un enunciato su un limite: "il limite di function per variable che tende
+ * al punto è ...". Il punto è un'espressione senza la variabile, oppure
+ * +\infty o -\infty; il limite può essere da un lato solo. Gli alberi stanno
+ * nell'arena; che il punto non contenga la variabile lo controlla il motore
+ * (capitolo 29). */
+typedef struct {
+    int variable;         /* la lettera x che tende al punto */
+    int sequence;         /* 1 se la lettera è n: un indice naturale, e il punto è +\infty */
+    int infinity;         /* 0 per un punto finito, +1 per +\infty, -1 per -\infty */
+    Node *point;          /* il punto finito, o NULL */
+    int side;             /* +1 da destra (a^{+}), -1 da sinistra (a^{-}), 0 da tutte e due */
+    Node *function;       /* la funzione di cui si fa il limite */
+    LimitClaim claim;     /* che cosa l'enunciato ne dice */
+    Node *value;          /* il valore, per LIMIT_VALUE; altrimenti NULL */
+    const char *from, *to;  /* il testo "\lim_{...} f" nell'enunciato: [from, to) */
+} LimitStatement;
+
 /* =============================================================================
  * 9. PARSING: DAL LATEX ALL'ALBERO
  * ============================================================================
@@ -257,6 +282,12 @@ typedef struct {
  *
  *     derivative := \frac '{' 'd' ['^' group] '}' '{' 'd' lettera ['^' group] '}' term '=' expr
  *
+ * Una quarta, per i limiti (vedi parse_limit_statement(), 9i):
+ *
+ *     limit  := [\nexists] \lim '_' '{' lettera (\to | \rightarrow) punto '}' expr ['=' valore]
+ *     punto  := ['+' | '-'] \infty | expr [ '^' ('+' | '-' | '{+}' | '{-}') ]
+ *     valore := ['+' | '-'] \infty | expr
+ *
  * Le convenzioni che la grammatica fissa, e che in LaTeX sono implicite:
  *
  *   - Due fattori accostati si moltiplicano: `2k`, `n(n+1)`, `k k!`.
@@ -278,6 +309,13 @@ typedef struct {
  *     il risultato si combina con altro solo tra parentesi, anche con la
  *     stessa operazione: `(a \ast b) \ast c`. Ogni altra scrittura è un errore
  *     di sintassi (9g).
+ *   - `\exp`, `\sinh`, `\cosh`, `\arcsin` e `\arccos` si leggono come le
+ *     funzioni che già ci sono, con la loro definizione, e la lettera e è
+ *     il numero di Nepero (9h).
+ *   - In un limite la funzione è tutta l'espressione che segue \lim, fino
+ *     al segno = o alla fine: `\lim_{x \to 0} f + g` è il limite di f + g.
+ *     \infty senza segno si accetta come punto solo per la lettera n, che è
+ *     l'indice di una successione e tende a +\infty (9i).
  *
  * La tecnica è la discesa ricorsiva: una funzione per regola, e ogni funzione
  * chiama quella della regola di precedenza superiore.
@@ -560,6 +598,65 @@ static Node *parse_function(Function fn) {
     return exponent ? node_new(N_POW, call, exponent) : call;
 }
 
+/* 9h. FUNZIONI DEFINITE CON LE ALTRE
+ *
+ * Esponenziale, seno e coseno iperbolici, arcoseno e arcocoseno non sono
+ * nodi propri dell'albero: si leggono con la loro definizione, scritta con
+ * le funzioni che il motore già tratta. Così ogni metodo del motore li
+ * conosce senza una regola in più. Le definizioni valgono su tutto il campo
+ * di esistenza, estremi compresi:
+ *
+ *     \exp u = e^{u},     \sinh u = (e^{u} - e^{-u}) / 2,     \cosh u = (e^{u} + e^{-u}) / 2,
+ *     \arcsin u = 2 \arctan(u / (1 + \sqrt{1 - u^2})),        \arccos u = \pi/2 - \arcsin u.
+ *
+ * La formula dell'arcoseno è la bisezione dell'angolo: se a = \arcsin u,
+ * con a tra -\pi/2 e \pi/2, allora tan(a/2) = sin a / (1 + cos a) =
+ * u / (1 + \sqrt{1 - u^2}), e a/2 sta tra -\pi/4 e \pi/4, dove l'arcotangente
+ * inverte la tangente. Vale anche in u = 1 e u = -1, e non altrove, perché
+ * fuori da [-1, 1] la radice non c'è: il campo di esistenza è lo stesso.
+ * La lettera e è il numero di Nepero.
+ *
+ * Warning: se aggiungi un nome qui, aggiungi la sua definizione in
+ * parse_defined_function(). */
+static const char *const defined_functions[] = {"exp", "sinh", "cosh", "arcsin", "arccos"};
+
+/* Ritorna la posizione in defined_functions[] del comando corrente, o -1. */
+static int defined_function(void) {
+    for (size_t i = 0; i < sizeof defined_functions / sizeof *defined_functions; i++)
+        if (is_command(defined_functions[i])) return (int)i;
+    return -1;
+}
+
+/* Legge una funzione di defined_functions[] (il token corrente) e ritorna
+ * l'albero della sua definizione. L'esponente e l'argomento si leggono come
+ * per ogni altra funzione: per questo la si legge prima come un seno, con
+ * parse_function(), e poi se ne sostituisce la chiamata. */
+static Node *parse_defined_function(void) {
+    int which = defined_function();
+    Node *read = parse_function(FN_SIN), *call = read->kind == N_POW ? read->a : read, *u = call->a;
+    Node *e = node_new(N_VAR, NULL, NULL), *value;
+    e->name = 'e';
+    Node *up = node_new(N_POW, e, u), *down = node_new(N_POW, e, node_new(N_NEG, u, NULL));
+
+    /* Le posizioni in defined_functions[]: 0 \exp, 1 \sinh, 2 \cosh,
+     * 3 \arcsin, 4 \arccos. */
+    if (which == 0) {
+        value = up;
+    } else if (which <= 2) {
+        value = node_new(N_DIV, node_new(which == 1 ? N_SUB : N_ADD, up, down), node_num(2));
+    } else {
+        Node *root = node_call(FN_ROOT, node_new(N_SUB, node_num(1), node_new(N_POW, u, node_num(2))), node_num(2));
+        Node *half = node_call(FN_ARCTAN, node_new(N_DIV, u, node_new(N_ADD, node_num(1), root)), NULL);
+        value = node_new(N_MUL, node_num(2), half);
+        if (which == 4) {
+            Node *pi = node_new(N_VAR, NULL, NULL);
+            pi->name = VAR_PI;
+            value = node_new(N_SUB, node_new(N_DIV, pi, node_num(2)), value);
+        }
+    }
+    return read->kind == N_POW ? node_new(N_POW, value, read->b) : value;
+}
+
 /* Ritorna 1 se text comincia con il segno di derivata di Leibniz: \frac,
  * \dfrac o \tfrac, sopra {d} oppure {d^...}, sotto {d seguito da una
  * lettera. Prima del segno si saltano gli spazi e i comandi di sola
@@ -687,6 +784,7 @@ static Node *parse_primary(void) {
     /* 9e. Somme, prodotti, funzioni, pi greco. */
     if (is_command("sum") || is_command("prod")) return parse_bigop();
     if (is_function(&fn)) return parse_function(fn);
+    if (defined_function() >= 0) return parse_defined_function();
     if (is_command("pi")) {
         next_token();
         Node *node = node_new(N_VAR, NULL, NULL);
@@ -723,7 +821,7 @@ static int starts_factor(void) {
     return token.kind == T_NUM || token.kind == T_LETTER || token.kind == T_OPEN ||
            token.kind == T_ABS_OPEN || is_function(&fn) || is_command("frac") ||
            is_command("dfrac") || is_command("tfrac") || is_command("binom") ||
-           is_command("sqrt") || is_command("sum") || is_command("prod") || is_command("pi");
+           is_command("sqrt") || is_command("sum") || is_command("prod") || is_command("pi") || defined_function() >= 0;
 }
 
 /* Quanti segni, prodotti e quozienti sono stati letti, fuori da ogni
@@ -882,6 +980,153 @@ static int parse_derivative_statement(const char *text, DerivativeStatement *out
     out->function = parse_term();
     expect_char('=', "dopo la funzione da derivare serve = e la formula della derivata");
     out->formula = parse_expr();
+    if (token.kind != T_END) syntax("testo inatteso dopo l'enunciato");
+    return syntax_error == NULL;
+}
+
+/* 9i. I LIMITI
+ *
+ * Un enunciato su un limite comincia con \lim, o con \nexists \lim, e la
+ * grammatica è quella in testa al capitolo. Il punto a cui tende la
+ * variabile non si legge con le regole delle espressioni, perché il lato
+ * si scrive come un esponente: in 0^{+} il + non è un esponente di 0. Si
+ * stacca quindi dal testo l'eventuale ^{+} o ^{-} finale, e ciò che resta è
+ * +\infty, -\infty, oppure un'espressione. Lo stesso vale per il valore
+ * dopo il segno =. */
+
+/* Ritorna text dopo gli spazi e i comandi di sola presentazione
+ * \displaystyle e \textstyle, come li salta next_token(). */
+static const char *skip_layout(const char *text) {
+    static const char *const style[] = {"\\displaystyle", "\\textstyle"};
+    for (int skipped = 1; skipped;) {
+        skipped = 0;
+        while (isspace((unsigned char)*text)) text++;
+        for (size_t i = 0; i < sizeof style / sizeof *style; i++) {
+            size_t length = strlen(style[i]);
+            if (strncmp(text, style[i], length) == 0 && !isalpha((unsigned char)text[length])) { text += length; skipped = 1; }
+        }
+    }
+    return text;
+}
+
+/* Ritorna 1 se text comincia, dopo spazi e comandi di presentazione, con
+ * \lim oppure con \nexists \lim: allora è un enunciato su un limite. */
+static int starts_with_limit(const char *text) {
+    text = skip_layout(text);
+    if (strncmp(text, "\\nexists", 8) == 0 && !isalpha((unsigned char)text[8])) text = skip_layout(text + 8);
+    return strncmp(text, "\\lim", 4) == 0 && !isalpha((unsigned char)text[4]);
+}
+
+/* Se il testo [from, to) è, a meno di spazi, "+\infty" ritorna 1, se è
+ * "-\infty" ritorna -1, se è "\infty" senza segno ritorna 2; altrimenti 0. */
+static int infinity_text(const char *from, const char *to) {
+    int sign = 2;
+    while (from < to && isspace((unsigned char)*from)) from++;
+    while (to > from && isspace((unsigned char)to[-1])) to--;
+    if (from < to && (*from == '+' || *from == '-')) {
+        sign = *from == '+' ? 1 : -1;
+        for (from++; from < to && isspace((unsigned char)*from); from++) {}
+    }
+    return to - from == 6 && strncmp(from, "\\infty", 6) == 0 ? sign : 0;
+}
+
+/* Ritorna la graffa che chiude quella aperta subito prima di text, o NULL
+ * se manca. Le graffe scritte \{ e \} non contano. */
+static const char *brace_close(const char *text) {
+    for (int depth = 1; *text; text++) {
+        if (*text == '\\' && (text[1] == '{' || text[1] == '}')) { text++; continue; }
+        if (*text == '{') depth++;
+        if (*text == '}' && --depth == 0) return text;
+    }
+    return NULL;
+}
+
+/* Se il punto [point, *end) finisce con il lato, ^{+}, ^{-}, ^+ o ^-, porta
+ * *end all'accento circonflesso e ritorna +1 o -1; altrimenti ritorna 0. */
+static int side_suffix(const char *point, const char **end) {
+    const char *q = *end;
+    while (q > point && isspace((unsigned char)q[-1])) q--;
+    int braced = q > point && q[-1] == '}';
+    if (braced) for (q--; q > point && isspace((unsigned char)q[-1]); q--) {}
+    if (q == point || (q[-1] != '+' && q[-1] != '-')) return 0;
+    int side = q[-1] == '+' ? 1 : -1;
+    for (q--; q > point && isspace((unsigned char)q[-1]); q--) {}
+    if (braced && (q == point || q[-1] != '{')) return 0;
+    if (braced) for (q--; q > point && isspace((unsigned char)q[-1]); q--) {}
+    if (q == point || q[-1] != '^') return 0;
+    *end = q - 1;
+    return side;
+}
+
+/* Analizza text come enunciato su un limite (vedi LimitStatement) e lo
+ * mette in *out:
+ *
+ *     \lim_{x \to 0} \frac{\sin x}{x} = 1,     \lim_{x \to 0^{+}} x^{x},
+ *     \lim_{x \to +\infty} x^{2} = +\infty,    \nexists \lim_{x \to 0} \frac{1}{x}.
+ *
+ * Ritorna 1 se text ha questa forma; altrimenti ritorna 0 e syntax_error
+ * dice perché. */
+static int parse_limit_statement(const char *text, LimitStatement *out) {
+    static char point_text[MAX_FORMULA];
+    const char *shape = "un limite si scrive \\lim_{x \\to a} f, con a un numero, +\\infty o -\\infty, oppure a^{+} o a^{-}";
+    memset(out, 0, sizeof *out);
+    syntax_error = NULL;
+    cursor = text;
+    next_token();
+    if (is_command("nexists")) { out->claim = LIMIT_NONE; next_token(); }
+    out->from = token.start;
+    if (!is_command("lim")) { syntax(shape); return 0; }
+    next_token();
+    expect_char('_', shape);
+
+    /* Il pedice: la variabile, \to, il punto fino alla graffa che chiude. */
+    const char *close = is_char('{') ? brace_close(cursor) : NULL;
+    if (!close) { syntax(shape); return 0; }
+    next_token();
+    if (token.kind != T_LETTER) { syntax(shape); return 0; }
+    out->variable = token.ch;
+    out->sequence = out->variable == 'n';
+    next_token();
+    if (!is_command("to") && !is_command("rightarrow")) { syntax(shape); return 0; }
+    const char *point = cursor, *end = close;
+    out->side = side_suffix(point, &end);
+    if ((size_t)(end - point) >= sizeof point_text) { syntax("enunciato troppo lungo"); return 0; }
+    memcpy(point_text, point, (size_t)(end - point));
+    point_text[end - point] = 0;
+
+    /* Il punto: un infinito, oppure un'espressione. Senza segno l'infinito
+     * è ambiguo per una variabile reale (+\infty, -\infty, o |x| che
+     * cresce?), non per l'indice di una successione. */
+    out->infinity = infinity_text(point_text, point_text + strlen(point_text));
+    if (out->infinity == 2 && !out->sequence) { syntax("\\infty senza segno: scrivere +\\infty oppure -\\infty"); return 0; }
+    if (out->infinity == 2) out->infinity = 1;
+    if (out->infinity && out->side) { syntax("+\\infty e -\\infty non hanno un lato da cui avvicinarsi"); return 0; }
+    if (out->sequence && out->infinity != 1) { syntax("una successione ha limite solo per n \\to +\\infty"); return 0; }
+    if (!out->infinity) {
+        cursor = point_text;
+        next_token();
+        out->point = parse_expr();
+        if (token.kind != T_END) syntax("testo inatteso nel punto a cui tende la variabile");
+        if (syntax_error) return 0;
+    }
+
+    /* La funzione, fino al segno = o alla fine; poi, se c'è, il valore. */
+    cursor = close + 1;
+    next_token();
+    out->function = parse_expr();
+    out->to = token.start;
+    if (is_char('=') && out->claim != LIMIT_NONE) {
+        int infinite = infinity_text(cursor, cursor + strlen(cursor));
+        if (infinite) {
+            out->claim = infinite == 2 ? LIMIT_UNSIGNED : infinite > 0 ? LIMIT_PLUS : LIMIT_MINUS;
+            cursor = "";
+            next_token();
+        } else {
+            next_token();
+            out->claim = LIMIT_VALUE;
+            out->value = parse_expr();
+        }
+    }
     if (token.kind != T_END) syntax("testo inatteso dopo l'enunciato");
     return syntax_error == NULL;
 }
