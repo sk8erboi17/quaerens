@@ -407,7 +407,7 @@
  *       18.6   establish(): la dimostrazione per struttura
  *       18.7   Sole congruenze: tutti i resti
  *       18.8   La tabella dei segni: numeri e polinomi esatti, i punti
- *       18.9   Le lettere della tabella: esponenziali, logaritmi, seni
+ *       18.9   Le lettere della tabella: esponenziali, logaritmi, goniometria
  *       18.10  L'albero dei segni
  *       18.11  I confronti preparati, e la loro verità in una riga
  *       18.12  Il controllo con i numeri
@@ -9127,7 +9127,8 @@ static Range poly_range(Poly p) {
  *   18.4   "Per ogni" ed "esiste": induzione, resti,       18n, 18o, 18i
  *          equazioni
  *   18.5   Le ipotesi "esiste", con il loro testimone      18u
- *   18.6   establish(): la dimostrazione per struttura     18e, 18k, 18l, 18m
+ *   18.6   establish(): la dimostrazione per struttura     18e, 18j, 18k, 18l,
+ *                                                          18m
  *   18.7   Sole congruenze: tutti i resti                  18r
  *   18.8   La tabella dei segni: numeri e polinomi         18p-1 ... 18p-6
  *          esatti, i punti
@@ -9178,12 +9179,13 @@ static Range poly_range(Poly p) {
  * ============================================================================
  *
  * Ciò che tutte le regole condividono. Lo stato della prova in corso: le
- * variabili generiche, i valori scelti per gli "esiste", i tentativi che
- * restano, e il punto (Mark) a cui tornare quando un tentativo fallisce,
- * cancellando il testo e le scelte fatte dopo. Poi il modo di scrivere nella
- * dimostrazione un polinomio nelle variabili dell'enunciato, e di ottenerlo
- * da una frazione negli atomi (rat_polynomials()): le regole che seguono
- * lavorano tutte su polinomi così.
+ * variabili generiche, i valori scelti per gli "esiste" (in chosen[], per
+ * il controesempio, e nei loro nodi, per la verifica: witness_keep()), i
+ * tentativi che restano, e il punto (Mark) a cui tornare quando un tentativo
+ * fallisce, cancellando il testo e le scelte fatte dopo. Poi il modo di
+ * scrivere nella dimostrazione un polinomio nelle variabili dell'enunciato,
+ * e di ottenerlo da una frazione negli atomi (rat_polynomials()): le regole
+ * che seguono lavorano tutte su polinomi così.
  */
 
 /* Le variabili generiche della dimostrazione in corso, dalla più esterna. */
@@ -9202,6 +9204,17 @@ static int split_modulus, split_case;
  * esponenziale: finiti i passi la ricerca si ferma e il verdetto è NON
  * DIMOSTRATO, invece di esaurire tempo e memoria. */
 static int search_left;
+
+/* Mette da parte i tentativi rimasti oltre MAX_SEARCH / 20 e ritorna quanti
+ * sono; chi chiama li restituisce, con search_left += ..., quando ha finito.
+ * Serve alle regole che provano molte strade (i moduli di 18o, i testimoni
+ * di 18u): i loro tentativi si contano a parte, e quando non portano a nulla
+ * non consumano la ricerca di chi sta intorno. */
+static int search_set_aside(void) {
+    int outside = search_left > MAX_SEARCH / 20 ? search_left - MAX_SEARCH / 20 : 0;
+    search_left -= outside;
+    return outside;
+}
 
 /* Ritorna la posizione in universal[] della variabile il cui atomo è atom, o
  * -1 se atom non è una variabile generica. */
@@ -9232,6 +9245,17 @@ static void choose(int name, Frac value) {
     if (split_modulus) chosen_by_cases = 1;
     if (chosen_count < MAX_BOUND) chosen[chosen_count++] = (Choice){name, value};
 }
+
+/* Annota nel quantificatore "esiste" f il valore value con cui la sua
+ * condizione è stata dimostrata, nel caso split_case (vedi Formula): la
+ * verifica del capitolo 19 lo rilegge. witness_drop() lo toglie, quando per
+ * lo stesso caso si ricomincia, o il valore non va usato. */
+static void witness_keep(Formula *f, Rat value) {
+    f->has_witness |= 1u << split_case;
+    f->witness[split_case] = value;
+}
+
+static void witness_drop(Formula *f) { f->has_witness &= ~(1u << split_case); }
 
 /* Ciò che la regola 18u lascia da ricontrollare alla verifica del capitolo
  * 19: quanti valori trovati da 18u-3 sono annotati in witness_records[] (vedi
@@ -10361,9 +10385,10 @@ static int prove_clause(Literal *literal, int count) {
  * Le regole che dimostrano un quantificatore con un metodo proprio, quando
  * introdurre una variabile generica (18k) non basta: "per ogni n" di
  * un'uguaglianza per induzione (18n), "per ogni x" intero per casi sul resto
- * in una divisione (18o), "esiste x" risolvendo un'equazione in x (18i). Ognuna
- * dimostra ciò che resta chiamando establish() (18.6), con la variabile
- * legata al valore scelto o al caso in esame.
+ * in una divisione (18o), "esiste x" risolvendo un'equazione in x (18i).
+ * L'induzione è il metodo del capitolo 13; le altre due dimostrano ciò che
+ * resta chiamando establish() (18.6), con la variabile legata al caso in
+ * esame o al valore trovato.
  */
 
 /* Prototipo in avanti inevitabile: establish() (18.6) e le regole 18i, 18o e
@@ -10479,8 +10504,7 @@ static int by_remainders(Formula *f, int negated) {
 
     /* I tentativi di questa regola sono contati a parte: provare cinque
      * moduli non deve consumare la ricerca di chi sta intorno. */
-    int outside = search_left > MAX_SEARCH / 20 ? search_left - MAX_SEARCH / 20 : 0;
-    search_left -= outside;
+    int outside = search_set_aside();
     for (int m = 2; m <= MAX_CASES && search_left > 0 && !failure; m++) {
         Mark mark = mark_here();
         int holds = 1;
@@ -10526,7 +10550,6 @@ static int by_remainders(Formula *f, int negated) {
     search_left += outside;
     return 0;
 }
-
 
 /* Elenca in list[], a partire dal posto count, le uguaglianze di f (negata
  * se negated) da cui si può ricavare il valore di una variabile, e ritorna il
@@ -10601,7 +10624,7 @@ static int solve_by_roots(Formula *f, int negated, const Formula *equation, Poly
         env_push(f->variable, rat_frac(root[k]));
         int holds = establish(f->a, negated);
         env_pop();
-        if (holds) { f->has_witness |= 1u << split_case; f->witness[split_case] = rat_frac(root[k]); return 1; }
+        if (holds) { witness_keep(f, rat_frac(root[k])); return 1; }
         rollback(mark);
     }
     return 0;
@@ -10674,7 +10697,7 @@ static int solve_with(Formula *f, int negated, const Formula *equation) {
     env_push(f->variable, solution);
     int holds = establish(f->a, negated);
     env_pop();
-    if (holds) { f->has_witness |= 1u << split_case; f->witness[split_case] = solution; }
+    if (holds) witness_keep(f, solution);
     return holds;
 }
 
@@ -11127,10 +11150,7 @@ static int witnesses_solve(Formula *f, int negated, Formula **quantifier, int na
         int holds = establish(leaf_replaced(f, quantifier[0], body), negated);
         for (int j = 0; j < names; j++) env_pop();
         if (!holds) { rollback(mark); continue; }
-        for (int j = 0; j < names; j++) {
-            quantifier[j]->has_witness |= 1u << split_case;
-            quantifier[j]->witness[split_case] = value[j];
-        }
+        for (int j = 0; j < names; j++) witness_keep(quantifier[j], value[j]);
         return 1;
     }
     return 0;
@@ -11223,7 +11243,7 @@ static int witnesses_from(Formula *f, int negated, const Leaf *leaf, int count, 
         for (int e = 0; e < equations && !failure && search_left > 0; e++) {
             if (witnesses_solve(f, negated, quantifier, names, body, equation[e], given, kept)) {
                 if (record_witnesses(leaf, count, own, quantifier, names, body, sign)) return 1;
-                for (int j = 0; j < names; j++) quantifier[j]->has_witness &= ~(1u << split_case);
+                for (int j = 0; j < names; j++) witness_drop(quantifier[j]);
                 rollback(mark);
                 return 0;
             }
@@ -11350,7 +11370,8 @@ static int number_divides(Num u, Num v) {
 /* Dimostra la condizione f, o la sua negazione se negated, per ogni valore
  * delle variabili generiche e con i valori dati alle altre. Scrive il
  * ragionamento come una serie di \item e ritorna 1 se ci riesce; se ritorna 0
- * non lascia testo né scelte. Le regole sono descritte in testa al capitolo. */
+ * non lascia testo né scelte. Le regole sono descritte in testa al capitolo
+ * 18. */
 static int establish(Formula *f, int negated) {
     Mark mark = mark_here();
     Literal literal[MAX_LITERALS];
@@ -11474,8 +11495,7 @@ static int establish(Formula *f, int negated) {
          * volte, una per ogni numero provato da 18j. Prima di questo conto
          * due enunciati falsi, che venivano smentiti, restavano senza
          * risposta; sono nei test. */
-        int outside = search_left > MAX_SEARCH / 20 ? search_left - MAX_SEARCH / 20 : 0;
-        search_left -= outside;
+        int outside = search_set_aside();
         int named = name_witnesses(f, negated);
         search_left += outside;
         if (named) return 1;
@@ -11572,7 +11592,7 @@ static int establish(Formula *f, int negated) {
 
     /* 18i. "Esiste": prima risolvendo un'equazione. Un valore scelto in un
      * tentativo precedente, per questo stesso caso, non conta più. */
-    f->has_witness &= ~(1u << split_case);
+    witness_drop(f);
     if (solve_for(f, negated)) return 1;
     rollback(mark);
 
@@ -11582,8 +11602,7 @@ static int establish(Formula *f, int negated) {
      * perché dividerebbe per a, che può essere zero. Anche questi tentativi
      * sono contati a parte, come quelli di 18o. */
     Leaf alone = {f, negated};
-    int outside = search_left > MAX_SEARCH / 20 ? search_left - MAX_SEARCH / 20 : 0;
-    search_left -= outside;
+    int outside = search_set_aside();
     int polynomial = witnesses_from(f, negated, &alone, 1, 0);
     search_left += outside;
     if (polynomial) return 1;
@@ -11603,7 +11622,7 @@ static int establish(Formula *f, int negated) {
         env_push(f->variable, rat_frac(sample[i]));
         int holds = establish(f->a, negated);
         env_pop();
-        if (holds) { f->has_witness |= 1u << split_case; f->witness[split_case] = rat_frac(sample[i]); return 1; }
+        if (holds) { witness_keep(f, rat_frac(sample[i])); return 1; }
         rollback(mark);
     }
     return 0;
@@ -12010,7 +12029,7 @@ static int residue_holds(const Formula *f) {
  * dimezza un intervallo hanno denominatori che crescono in fretta.
  * Invariante: den > 0 e la frazione è ridotta. */
 typedef struct {
-    __int128 num, den;
+    __int128 num, den;  /* il numeratore, con il segno, e il denominatore */
 } Wide;
 
 /* Il messaggio quando un conto della tabella esce dai 128 bit. */
@@ -12312,10 +12331,12 @@ static void wide_latex(Wide v, char *text, size_t size) {
     else text_add(text, size, "%s\\frac{%lld}{%lld}", v.num < 0 ? "-" : "", (long long)(v.num < 0 ? -v.num : v.num), (long long)v.den);
 }
 
-/* Scrive nella dimostrazione il razionale v. */
+/* Scrive nella dimostrazione il razionale v, in LaTeX come wide_latex(): due
+ * numeri di 64 bit e la frazione stanno comodamente in text. */
 static void put_wide(Wide v) {
-    if (v.den == 1) proof_add("%lld", (long long)v.num);
-    else proof_add("%s\\frac{%lld}{%lld}", v.num < 0 ? "-" : "", (long long)(v.num < 0 ? -v.num : v.num), (long long)v.den);
+    char text[96] = "";
+    wide_latex(v, text, sizeof text);
+    proof_add("%s", text);
 }
 
 /* Scrive in text, di size byte, il razionale v come testo semplice: 3, -5/2. */
@@ -12345,6 +12366,19 @@ static void put_uni(const Uni *p, int name) {
     proof_add("%s", text);
 }
 
+/* Porta fuori dalla radice quadrata di *inside i suoi fattori quadrati, come
+ * in sqrt(12) = 2 sqrt(3): lascia in *inside ciò che resta sotto la radice e
+ * ritorna il numero che va davanti, così che il radicando di partenza sia
+ * quel numero al quadrato per *inside. Si provano i fattori fino a 100000:
+ * un quadrato più grande resta dentro, e la scrittura è giusta, solo meno
+ * semplice. */
+static __int128 square_out(__int128 *inside) {
+    __int128 outside = 1;
+    for (__int128 f = 2; f * f <= *inside && f < 100000; f++)
+        while (*inside % (f * f) == 0) { *inside /= f * f; outside *= f; }
+    return outside;
+}
+
 /* Aggiunge a text, di size byte, una radice del polinomio di secondo grado
  * q = a x^2 + b x + c, che ha due radici reali irrazionali, scritta con i
  * radicali; smaller dice se è la più piccola delle due. Ritorna 0, senza
@@ -12359,9 +12393,8 @@ static int quadratic_latex(const Uni *q, int smaller, char *text, size_t size) {
     if (q->degree != 2 || a >= limit || a <= -limit || b >= limit || b <= -limit || c >= limit || c <= -limit) return 0;
 
     /* (top + side * outside * sqrt(inside)) / bottom, con bottom > 0. */
-    __int128 inside = b * b - 4 * a * c, outside = 1, top = a < 0 ? b : -b, bottom = a < 0 ? -2 * a : 2 * a;
-    for (__int128 f = 2; f * f <= inside && f < 100000; f++)
-        while (inside % (f * f) == 0) { inside /= f * f; outside *= f; }
+    __int128 inside = b * b - 4 * a * c, top = a < 0 ? b : -b, bottom = a < 0 ? -2 * a : 2 * a;
+    __int128 outside = square_out(&inside);
     __int128 g = gcd128(gcd128(top, outside), bottom);
     top /= g; outside /= g; bottom /= g;
     if (bottom != 1 && top == 0 && smaller) text_add(text, size, "-");
@@ -12381,10 +12414,11 @@ static int quadratic_latex(const Uni *q, int smaller, char *text, size_t size) {
  * non è radice di nessun polinomio (un logaritmo, per esempio): di lui si
  * sa solo che sta tra low e high. */
 typedef struct {
-    int exact;
-    Wide low, high;
-    int element;
-    int kappa;   /* -1 se il punto è una radice */
+    int exact;       /* 1 se il punto è il razionale low */
+    Wide low, high;  /* l'intervallo chiuso che contiene il punto */
+    int element;     /* il posto in sign_base[] del polinomio di cui è la sola
+                        radice tra low e high; -1 per un punto esatto o kappa */
+    int kappa;       /* il posto in kappa[]; -1 se il punto è una radice */
 } Critical;
 
 /* Un numero reale che non è radice di un polinomio a coefficienti razionali,
@@ -12399,6 +12433,7 @@ typedef struct {
                        riconoscere due scritture dello stesso numero */
 } Kappa;
 
+/* I numeri così dell'enunciato in corso: li aggiunge sign_column_kappa(). */
 static Kappa kappa[MAX_KAPPAS];
 static int kappas;
 
@@ -12416,9 +12451,10 @@ typedef enum {
  * oppure la colonna kappa quando il confronto è con un numero che non è
  * radice di un polinomio. */
 typedef struct {
-    int exact;
-    Wide low, high;
-    Uni element;
+    int exact;             /* 1 se il gradino è il razionale low */
+    Wide low, high;        /* l'intervallo chiuso che lo contiene */
+    Uni element;           /* gradino irrazionale: il polinomio di cui è la sola
+                              radice tra low e high */
     const Formula *above;  /* NULL se si usa kappa */
     int kappa;             /* posto in sign_poly[], o -1 */
 } Step;
@@ -12435,10 +12471,12 @@ typedef struct {
     int natural;           /* SPACE_LOG: 1 se la base è il numero e */
     const Node *argument;  /* SPACE_LOG: l'argomento, com'è scritto */
     int letter;            /* l'atomo che sta per la funzione */
-    int steps;
-    Step step[MAX_STEPS];
+    int steps;             /* quanti gradini, in step[] */
+    Step step[MAX_STEPS];  /* i gradini, in ordine crescente (space_process()) */
 } Space;
 
+/* Gli spazi dell'enunciato in corso: li crea space_collect(), con
+ * space_exp() e space_log(). */
 static Space space[MAX_SPACES];
 static int spaces;
 
@@ -12886,6 +12924,14 @@ static int space_log(Frac base, int natural, const Node *argument, int create) {
     return spaces++;
 }
 
+/* Ritorna il numero dello spazio di cui l'atomo è la lettera, oppure
+ * `spaces` se non è la lettera di nessuno spazio. */
+static int space_of(int atom) {
+    int s = 0;
+    while (s < spaces && space[s].letter != atom) s++;
+    return s;
+}
+
 /* Se e = alpha x + beta, con x l'atomo della variabile e alpha diverso da
  * zero, mette i due razionali in *alpha e *beta e ritorna 1. */
 static int rat_affine_in(Rat e, int x, Frac *alpha, Frac *beta) {
@@ -13014,8 +13060,7 @@ static void root_scales(const Node *node) {
         const Term *term = side ? &r.den.term[0] : &r.num.term[0];
         for (int f = 0; f < term->mono.count; f++) {
             Frac e = term->mono.factor[f].exp;
-            int s = 0;
-            while (s < spaces && space[s].letter != term->mono.factor[f].atom) s++;
+            int s = space_of(term->mono.factor[f].atom);
             if (s == spaces || space[s].kind != SPACE_EXP || e.den != 1) return;
         }
     }
@@ -13023,9 +13068,7 @@ static void root_scales(const Node *node) {
         const Term *term = side ? &r.den.term[0] : &r.num.term[0];
         for (int f = 0; f < term->mono.count; f++) {
             long long e = term->mono.factor[f].exp.num, index = node->b->value;
-            int s = 0;
-            while (space[s].letter != term->mono.factor[f].atom) s++;
-            space[s].scale *= index / (long long)gcd128(e < 0 ? -e : e, index);
+            space[space_of(term->mono.factor[f].atom)].scale *= index / (long long)gcd128(e < 0 ? -e : e, index);
         }
     }
 }
@@ -13107,8 +13150,7 @@ static int exp_root(Rat r, long long index, Rat *out) {
         const Term *term = side ? bottom : top;
         for (int f = 0; f < term->mono.count; f++) {
             Frac e = term->mono.factor[f].exp;
-            int s = 0;
-            while (s < spaces && space[s].letter != term->mono.factor[f].atom) s++;
+            int s = space_of(term->mono.factor[f].atom);
             if (s == spaces || space[s].kind != SPACE_EXP || e.den != 1 || e.num % index != 0) return 0;
             *out = rat_mul(*out, rat_pow_int(rat_atom(space[s].letter), (side ? -e.num : e.num) / index));
             letters++;
@@ -13308,11 +13350,11 @@ static int trig_affine(Rat e, Frac *slope, Frac *turn) {
  * high, con gli estremi compresi o no, a cui possono essere tolti i punti
  * x = hole[i]. low, high e hole[] sono espressioni in k. */
 typedef struct {
-    const Node *low, *high;
-    int low_closed, high_closed, single;
-    const Node *hole[MAX_LATTICE_HOLES];
-    int holes;
-    int k;  /* la lettera dell'intero */
+    const Node *low, *high;               /* gli estremi; lo stesso nodo per un punto */
+    int low_closed, high_closed, single;  /* 1 se l'estremo è compreso; 1 per un punto */
+    const Node *hole[MAX_LATTICE_HOLES];  /* i punti tolti */
+    int holes;                            /* quanti, in hole[] */
+    int k;                                /* la lettera dell'intero */
 } Family;
 
 /* Legge il pezzo d di una condizione in name e nell'intero k, che deve
@@ -13404,10 +13446,21 @@ static void family_each(const Formula *owner, const Formula *f, void (*visit)(co
     visit(owner, f, context);
 }
 
-/* Per trig_collect: aggiorna trig_scale con il periodo del pezzo d, o mette
- * 1 in trig_bad se il pezzo non è una famiglia trattata. Ogni espressione
- * della famiglia deve avere lo stesso tau, e la pendenza 2 pi / T = 2 / tau
- * dell'angolo A entra nel conto come quella di un argomento. */
+/* Aggiorna trig_scale con la pendenza positiva slope di un angolo
+ * dell'enunciato: trig_scale diventa il più grande razionale di cui sono
+ * multipli interi tutte le pendenze viste, cioè il loro massimo comun
+ * divisore (quello di due frazioni p/q e r/s è mcd(p s, r q) / (q s)). La
+ * prima pendenza, con trig_scale ancora zero, è il valore di partenza. */
+static void trig_scale_include(Frac slope) {
+    if (trig_scale.num == 0) trig_scale = slope;
+    else trig_scale = frac_make(gcd128((__int128)trig_scale.num * slope.den, (__int128)slope.num * trig_scale.den), (__int128)trig_scale.den * slope.den);
+}
+
+/* Per formula_trig(): aggiorna trig_scale con il periodo del pezzo d, o
+ * mette 1 in trig_bad se il pezzo non è una famiglia trattata. Ogni
+ * espressione della famiglia deve avere lo stesso tau, e la pendenza
+ * 2 pi / T = 2 / tau dell'angolo A entra nel conto come quella di un
+ * argomento. */
 static void family_scale(const Formula *owner, const Formula *d, void *context) {
     Family family;
     Frac tau, other;
@@ -13421,16 +13474,13 @@ static void family_scale(const Formula *owner, const Formula *d, void *context) 
         if (other.num < 0) other.num = -other.num;
         if (frac_cmp(other, tau) != 0) { trig_bad = 1; return; }
     }
-    Frac slope = frac_div(frac_int(2), tau);
-    if (trig_scale.num == 0) trig_scale = slope;
-    else trig_scale = frac_make(gcd128((__int128)trig_scale.num * slope.den, (__int128)slope.num * trig_scale.den), (__int128)trig_scale.den * slope.den);
+    trig_scale_include(frac_div(frac_int(2), tau));
 }
 
 /* Registra le funzioni goniometriche dell'espressione node che contengono la
- * variabile: aggiorna trig_scale, il più grande razionale di cui tutte le
- * pendenze degli argomenti sono multipli interi (il massimo comun divisore
- * di due frazioni p/q e r/s è mcd(p s, r q) / (q s)), e mette 1 in trig_bad
- * se un argomento non è a x + b pi. */
+ * variabile: aggiorna trig_scale con le pendenze dei loro argomenti
+ * (trig_scale_include()), e mette 1 in trig_bad se un argomento non è
+ * a x + b pi. */
 static void trig_collect(const Node *node) {
     Frac slope, turn;
     if (!node || failure) return;
@@ -13440,8 +13490,7 @@ static void trig_collect(const Node *node) {
     if (node->kind != N_CALL || node->op < FN_SIN || node->op > FN_COT || !node_uses_letter(node->a, sign_name)) return;
     if (!trig_affine(eval(node->a), &slope, &turn) || slope.num == 0) { trig_bad = 1; return; }
     if (slope.num < 0) slope.num = -slope.num;
-    if (trig_scale.num == 0) trig_scale = slope;
-    else trig_scale = frac_make(gcd128((__int128)trig_scale.num * slope.den, (__int128)slope.num * trig_scale.den), (__int128)trig_scale.den * slope.den);
+    trig_scale_include(slope);
 }
 
 /* Registra le funzioni goniometriche di tutti i confronti della condizione f. */
@@ -13610,6 +13659,8 @@ typedef struct {
     int strict;
 } SignNeed;
 
+/* Le condizioni di esistenza dei confronti dell'enunciato in corso, a pezzi
+ * consecutivi: ogni SignCase indica il suo. */
 static SignNeed sign_need[MAX_SIGN_NEEDS];
 static int sign_needs;
 
@@ -13632,8 +13683,8 @@ typedef struct {
  * per i valori assoluti che stanno dentro il suo argomento, che hanno un
  * numero più basso). */
 typedef struct {
-    const Formula *source;
-    int inner_count;
+    const Formula *source;  /* il confronto com'è nell'enunciato */
+    int inner_count;        /* quanti valori assoluti, cioè le righe usate di inner[] */
     int identity;  /* 0 non ancora chiesto; 1 se i due membri sono la stessa
                       funzione, -1 se non risulta (formula_identity()) */
     int window;    /* 1 se il confronto è una finestra di un enunciato periodico
@@ -13646,6 +13697,8 @@ typedef struct {
     SignCase by_pattern[1 << MAX_ABS];
 } SignAtom;
 
+/* I confronti dell'enunciato in corso, nell'ordine in cui sign_prepare() li
+ * incontra; sign_compare() li ritrova dal nodo source. */
 static SignAtom sign_atom[MAX_SIGN_ATOMS];
 static int sign_atoms;
 
@@ -13950,8 +14003,7 @@ static int sign_log_linear(Poly p, int x, const SignNode **out) {
         Term bare = p.term[t];
         int where = -1;
         for (int f = 0; f < p.term[t].mono.count; f++) {
-            int atom = p.term[t].mono.factor[f].atom, s = 0;
-            while (s < spaces && space[s].letter != atom) s++;
+            int atom = p.term[t].mono.factor[f].atom, s = space_of(atom);
             if (s == spaces && atom_is_number(atom)) continue;
             if (s == spaces || space[s].kind != SPACE_LOG || where >= 0 || frac_cmp(p.term[t].mono.factor[f].exp, frac_int(1)) != 0) return 0;
             where = s;
@@ -14046,8 +14098,7 @@ static int sign_one_ratio(Poly p, int x, const SignNode **out) {
         if (term->coef.im.num != 0) return 0;
         for (int i = 0; i < spaces; i++) exponent[t][i] = 0;
         for (int f = 0; f < term->mono.count; f++) {
-            int i = 0;
-            while (i < spaces && space[i].letter != term->mono.factor[f].atom) i++;
+            int i = space_of(term->mono.factor[f].atom);
             if (i == spaces || space[i].kind != SPACE_EXP || term->mono.factor[f].exp.den != 1) return 0;
             exponent[t][i] = term->mono.factor[f].exp.num;
         }
@@ -14219,8 +14270,7 @@ static const SignNode *sign_ground(Poly p, int x) {
      * dava per positivo x + 2^x, cioè risolveva x + 2^x > 0 con "ogni x". */
     for (int side = 0; side < 2; side++)
         for (int f = 0; f < p.term[side].mono.count; f++) {
-            int space_number = 0;
-            while (space_number < spaces && space[space_number].letter != p.term[side].mono.factor[f].atom) space_number++;
+            int space_number = space_of(p.term[side].mono.factor[f].atom);
             if (space_number == spaces || space[space_number].kind != SPACE_EXP || p.term[side].mono.factor[f].exp.den != 1) { fail(SIGN_SHAPE); return found; }
         }
     Frac first = p.term[0].coef.re, second = p.term[1].coef.re;
@@ -14228,10 +14278,8 @@ static const SignNode *sign_ground(Poly p, int x) {
     Rat log_ratio = logarithm_of_positive(rat_frac(frac_div(first.num < 0 ? frac_neg(first) : first, second.num < 0 ? frac_neg(second) : second)));
     for (int side = 0; side < 2 && !failure; side++)
         for (int f = 0; f < p.term[side].mono.count && !failure; f++) {
-            int space_number = 0;
             Frac e = p.term[side].mono.factor[f].exp;
-            while (space[space_number].letter != p.term[side].mono.factor[f].atom) space_number++;
-            const Space *sp = &space[space_number];
+            const Space *sp = &space[space_of(p.term[side].mono.factor[f].atom)];
             Rat slope = rat_mul(rat_frac(frac_make(side ? -e.num : e.num, sp->scale)), sp->prime ? logarithm_of_positive(rat_int(sp->prime)) : rat_int(1));
             log_ratio = rat_add(log_ratio, rat_mul(slope, rat_atom(x)), 0);
         }
@@ -14401,9 +14449,9 @@ static void sign_require(SignCase *out, Rat e, int level, int strict, int x) {
 /* Un monomio di potenze in costruzione: per ogni primo l'esponente, una
  * frazione nella variabile. */
 typedef struct {
-    int count;
-    long long prime[MAX_FACTORS];
-    Rat power[MAX_FACTORS];
+    int count;                     /* quanti primi, in prime[] */
+    long long prime[MAX_FACTORS];  /* i primi, ognuno una volta */
+    Rat power[MAX_FACTORS];        /* l'esponente di prime[i], una frazione in x */
 } Powers;
 
 /* Moltiplica il monomio *m per prime elevato a power. Ritorna 0 se i primi
@@ -14536,7 +14584,6 @@ static void sign_fraction(const Node *left, const Node *right, unsigned pattern,
         space_seen = 0;
     }
 
-
     /* Le relazioni tra le radici si cercano con l'elenco spento: le
      * divisioni di quel conto non sono dell'enunciato. */
     conditions_on = 0;
@@ -14637,6 +14684,8 @@ typedef struct {
     int hole_counts[MAX_LATTICE_HOLES];
 } FamilyLeaf;
 
+/* Le famiglie dell'enunciato in corso, di tutti i suoi quantificatori su un
+ * intero: family_truth() prende quelle del suo (owner). */
 static FamilyLeaf family_leaf[MAX_LATTICE];
 static int family_leaves;
 
@@ -15418,10 +15467,27 @@ static void family_range(const Formula *owner, const Formula *d, void *context) 
     check->seen = 1;
 }
 
+/* La logica a tre valori di Kleene, con 1 vero, 0 falso e -1 "non si sa":
+ * ritorna il valore del connettivo kind (F_NOT, F_AND, F_OR, F_IMPLIES o
+ * F_IFF) sulle parti a e b, e b non conta per F_NOT. Un "non so" pesa solo
+ * dove potrebbe cambiare il risultato: "falso e non so" è falso, "vero o
+ * non so" è vero, "vero e non so" è non so. L'implicazione è "non a, oppure
+ * b"; l'equivalenza si sa solo se si sanno tutte e due le parti. È la logica
+ * giusta per un conto che a volte non sa rispondere: ciò che dice di sicuro
+ * resta sicuro, qualunque sia la risposta che manca. */
+static int truth_join(FormulaKind kind, int a, int b) {
+    if (kind == F_NOT) return a < 0 ? -1 : !a;
+    if (kind == F_IMPLIES && a >= 0) a = !a;
+    if (kind == F_AND) return a == 0 || b == 0 ? 0 : a < 0 || b < 0 ? -1 : 1;
+    if (kind == F_IFF) return a < 0 || b < 0 ? -1 : a == b;
+    return a == 1 || b == 1 ? 1 : a < 0 || b < 0 ? -1 : 0;
+}
+
 /* Ritorna 1 se la condizione f, senza quantificatori, vale di sicuro quando
  * la variabile name sta nell'intervallo x, 0 se di sicuro non vale, -1 se
  * gli intervalli non bastano a dirlo (capitolo 24). I connettivi seguono la
- * logica a tre valori: "falso e non so" è falso, "vero e non so" è non so.
+ * logica a tre valori (truth_join()): "falso e non so" è falso, "vero e non
+ * so" è non so.
  *
  * Un confronto è falso di sicuro dove un suo membro di sicuro non ha un
  * valore; è deciso quando la differenza dei membri ha un segno certo. Se la
@@ -15430,20 +15496,15 @@ static void family_range(const Formula *owner, const Formula *d, void *context) 
  * serve nei punti in cui la tabella afferma un'uguaglianza, che con gli
  * intervalli si può trovare compatibile ma non dimostrare. */
 static int range_truth(const Formula *f, int name, Range x, int tolerant) {
-    int a = -1, b = -1, nowhere = 0, side = 0;
+    int nowhere = 0, side = 0;
     if (family_owner(f)) {
         FamilyCheck check = {name, x, tolerant, 0};
         family_each(f, f->a, family_range, &check);
         return check.seen < 0 ? -1 : f->kind == F_EXISTS ? check.seen : !check.seen;
     }
     if (f->kind == F_AND || f->kind == F_OR || f->kind == F_IMPLIES || f->kind == F_IFF || f->kind == F_NOT) {
-        a = range_truth(f->a, name, x, tolerant);
-        if (f->kind == F_NOT) return a < 0 ? -1 : !a;
-        b = range_truth(f->b, name, x, tolerant);
-        if (f->kind == F_IMPLIES) a = a < 0 ? -1 : !a;
-        if (f->kind == F_AND) return a == 0 || b == 0 ? 0 : a < 0 || b < 0 ? -1 : 1;
-        if (f->kind == F_IFF) return a < 0 || b < 0 ? -1 : a == b;
-        return a == 1 || b == 1 ? 1 : a < 0 || b < 0 ? -1 : 0;
+        int a = range_truth(f->a, name, x, tolerant), b = f->kind == F_NOT ? -1 : range_truth(f->b, name, x, tolerant);
+        return truth_join(f->kind, a, b);
     }
     Range left = node_range(f->left, name, x, &nowhere), right = node_range(f->right, name, x, &nowhere), gap = range_sub(left, right);
     if (nowhere) return 0;
@@ -15523,6 +15584,9 @@ typedef struct {
                                 stessa verità della tabella */
 } SignRow;
 
+/* Le righe della tabella appena riempita da sign_table(): valgono fino alla
+ * tabella successiva, e le leggono la dimostrazione, le soluzioni, il
+ * grafico, il certificato e lo studio di funzione (capitolo 27). */
 static SignRow sign_row[2 * MAX_POINTS + 1];
 static int sign_rows;
 
@@ -15555,6 +15619,41 @@ static int row_points(int row, Wide *out) {
     return count;
 }
 
+/* Ritorna il razionale in cui si calcola una riga che è un intervallo, tra
+ * i punti before e after che la chiudono (NULL se da quella parte non c'è un
+ * punto): un razionale semplice tra i due (wide_between()), oppure l'intero
+ * che sta due unità oltre l'unico punto che c'è, oppure 0 se non ce n'è
+ * nessuno. Lo stesso valore sceglie la regola 18t per le celle della retta
+ * del parametro, che sono righe di una tabella nella sua lettera. */
+static Wide interval_sample(const Critical *before, const Critical *after) {
+    if (before && after) return wide_between(before->high, after->low);
+    if (after) return (Wide){after->low.num / after->low.den - 2, 1};
+    if (before) return (Wide){before->high.num / before->high.den + 2, 1};
+    return (Wide){0, 1};
+}
+
+/* Mette tra le colonne della tabella i polinomi x - a che delimitano set,
+ * cioè il suo estremo inferiore e i suoi punti tolti, e ritorna il posto in
+ * sign_poly[] del primo (-1 se set non ha un estremo); i posti dei punti
+ * tolti vanno in hole_column[]. Una colonna che c'è già si ritrova
+ * (sign_column()): così il certificato (18p-15) usa le colonne della tabella
+ * che ha deciso. */
+static int set_columns(const NumberSet *set, int *hole_column) {
+    int floor_column = set->bounded ? sign_column((Uni){1, {-(__int128)set->low, 1}}) : -1;
+    for (int i = 0; i < set->holes; i++) hole_column[i] = sign_column((Uni){1, {-(__int128)set->hole[i].num, set->hole[i].den}});
+    return floor_column;
+}
+
+/* Ritorna 1 se i segni sign[] di una riga dicono che la riga non sta sotto
+ * l'estremo inferiore di set, né su un suo punto tolto: le colonne di quei
+ * polinomi sono quelle di set_columns(). */
+static int row_in_set(const int *sign, const NumberSet *set, int floor_column, const int *hole_column) {
+    if (floor_column >= 0 && (sign[floor_column] < 0 || (sign[floor_column] == 0 && set->strict))) return 0;
+    for (int i = 0; i < set->holes; i++)
+        if (sign[hole_column[i]] == 0) return 0;
+    return 1;
+}
+
 /* 18p-2. Riempie sign_row[]: per ogni riga il valore, i segni dei polinomi,
  * se sta in set, e l'esito del controllo indipendente della condizione body
  * nella variabile name. floor_column e hole_column[] sono i posti, in
@@ -15579,11 +15678,7 @@ static int sign_table(const Formula *body, int name, const NumberSet *set, int f
         const Critical *before = row >= 2 ? &sign_point[row / 2 - 1] : NULL, *after = row / 2 < sign_points_count ? &sign_point[row / 2] : NULL;
 
         /* Il valore in cui si calcolano i segni. */
-        if (point) r->sample = point->exact ? point->low : wide_mid(point->low, point->high);
-        else if (before && after) r->sample = wide_between(before->high, after->low);
-        else if (after) r->sample = (Wide){after->low.num / after->low.den - 2, 1};
-        else if (before) r->sample = (Wide){before->high.num / before->high.den + 2, 1};
-        else r->sample = (Wide){0, 1};
+        r->sample = !point ? interval_sample(before, after) : point->exact ? point->low : wide_mid(point->low, point->high);
         r->rational = !point || point->exact;
         for (int i = 0; i < sign_polys && !failure; i++) {
             Uni rest;
@@ -15600,11 +15695,9 @@ static int sign_table(const Formula *body, int name, const NumberSet *set, int f
         }
         if (failure) break;
 
-        /* La riga conta solo se sta nell'insieme su cui varia la variabile. */
-        r->inside = set->reals || r->rational;
-        if (floor_column >= 0 && (r->sign[floor_column] < 0 || (r->sign[floor_column] == 0 && set->strict))) r->inside = 0;
-        for (int i = 0; i < set->holes; i++)
-            if (r->sign[hole_column[i]] == 0) r->inside = 0;
+        /* La riga conta solo se sta nell'insieme su cui varia la variabile:
+         * tra i razionali, solo un punto razionale o un intervallo. */
+        r->inside = (set->reals || r->rational) && row_in_set(r->sign, set, floor_column, hole_column);
 
         /* Il controllo indipendente (table_agrees()). Una riga con un
          * valore razionale si rifà con il conto esatto, e deve riuscire. Una
@@ -15678,6 +15771,16 @@ static void put_row(int row, int name) {
  * indicano i nomi r_{k}. Valgono fino alla tabella successiva. */
 static char solution_text[1024], solution_note[512];
 
+/* Ritorna 1 se il punto numero k della tabella, una radice irrazionale, è il
+ * primo dei punti che sono radici del suo elemento della base: per un
+ * elemento di secondo grado, la più piccola delle due radici, perché i punti
+ * sono in ordine. */
+static int point_is_first_root(int k) {
+    for (int i = 0; i < k; i++)
+        if (!sign_point[i].exact && sign_point[i].element == sign_point[k].element) return 0;
+    return 1;
+}
+
 /* Aggiunge a text, di size byte, il punto numero k della tabella, scritto
  * come estremo di una soluzione: un razionale, oppure una radice.
  *
@@ -15691,12 +15794,9 @@ static void point_latex(int k, int name, char *text, size_t size) {
     if (point->exact) { wide_latex(point->low, text, size); return; }
 
     /* La più piccola delle due radici è il primo dei due punti di questo
-     * elemento, perché i punti sono in ordine. */
+     * elemento. */
     const Uni *q = &sign_base[point->element];
-    int smaller = 1;
-    for (int i = 0; i < k; i++)
-        if (!sign_point[i].exact && sign_point[i].element == point->element) smaller = 0;
-    if (quadratic_latex(q, smaller, text, size)) return;
+    if (quadratic_latex(q, point_is_first_root(k), text, size)) return;
 
     /* Una radice senza scrittura: il nome, e nella nota di quale numero si
      * tratta, una volta sola. */
@@ -15774,6 +15874,21 @@ static int sign_solution(const Formula *f, int name) {
     return plain && !solution_note[0];
 }
 
+/* Rilegge come una condizione, con il lettore degli enunciati (capitolo 17),
+ * il testo text che il programma ha appena scritto. Ritorna l'albero, oppure
+ * NULL se il testo non si rilegge tutto: un errore di sintassi, o qualcosa
+ * dopo la condizione. In ogni caso syntax_error resta NULL. È il primo passo
+ * di ogni controllo di ciò che si consegna (18p, 18t-f): il controllo
+ * guarda ciò che il testo dice, non ciò che il motore pensava di scrivere. */
+static Formula *condition_reread(const char *text) {
+    syntax_error = NULL;
+    cursor = text;
+    next_token();
+    Formula *written = logic_formula();
+    if (syntax_error || token.kind != T_END) { syntax_error = NULL; return NULL; }
+    return written;
+}
+
 /* Rilegge le soluzioni scritte in solution_text e controlla che dicano ciò
  * che dice la tabella: in ogni riga razionale la condizione riletta, con il
  * valore della riga al posto della variabile name, deve valere esattamente
@@ -15781,11 +15896,8 @@ static int sign_solution(const Formula *f, int name) {
  * < scritto al posto di un \le, o un estremo con il segno sbagliato, qui si
  * vede. Ritorna 1 se tutte le righe concordano. */
 static int solution_reread(const Formula *f, int name) {
-    syntax_error = NULL;
-    cursor = solution_text;
-    next_token();
-    const Formula *written = logic_formula();
-    if (syntax_error || token.kind != T_END) { syntax_error = NULL; return 0; }
+    const Formula *written = condition_reread(solution_text);
+    if (!written) return 0;
     for (int row = 0; row < sign_rows; row++) {
         const SignRow *r = &sign_row[row];
         Wide at[9];
@@ -15836,10 +15948,10 @@ typedef struct {
     int kind;      /* 0: nessuna parte fissa, l'angolo è un multiplo razionale di
                       pi; 1: la parte fissa è arctan(slope); 2: è
                       2 arctan(t), con t il punto numero point della tabella */
-    Frac turns;
+    Frac turns;    /* il multiplo razionale di pi che si aggiunge alla parte fissa */
     Frac slope;    /* kind 1 */
     int point;     /* kind 2 */
-    double near;
+    double near;   /* il valore approssimato diviso pi: solo per l'ordine */
 } Angle;
 
 /* Un arco dell'insieme delle soluzioni, da from a to nel verso in cui gli
@@ -16607,6 +16719,171 @@ static int formula_bad_quantifier(const Formula *f) {
     return f->kind == F_FORALL || f->kind == F_EXISTS || formula_bad_quantifier(f->a) || formula_bad_quantifier(f->b);
 }
 
+/* Comincia una tabella dei segni nella variabile di nome name: svuota le
+ * colonne, i confronti preparati, gli alberi, gli spazi, le famiglie e le
+ * finestre della tabella precedente, e spegne le funzioni goniometriche. Chi
+ * chiama sceglie poi la lettera della tabella (sign_x) e, per un enunciato
+ * periodico, accende trig_on. La usano decide_by_signs() e la regola del
+ * parametro (18t), che prepara una tabella nella lettera del parametro: lo
+ * stato da cui partono è così lo stesso. */
+static void sign_reset(int name) {
+    sign_atoms = sign_polys = sign_nodes = sign_needs = kappas = spaces = family_leaves = windows = 0;
+    window_first = window_last = window_turn = 0;
+    sign_name = name;
+    trig_on = 0;
+}
+
+/* Ritorna l'enunciato f senza le negazioni che lo precedono, e mette in
+ * *negated 1 se erano in numero dispari: allora f afferma il contrario di
+ * ciò che resta. */
+static const Formula *without_negations(const Formula *f, int *negated) {
+    *negated = 0;
+    while (f->kind == F_NOT) { f = f->a; *negated = !*negated; }
+    return f;
+}
+
+/* Chiude la dimostrazione di un "per ogni" o di un "esiste" deciso da una
+ * tabella dei segni, riga per riga, o dalle celle di un parametro: holds
+ * dice se è vero ciò che resta dell'enunciato tolte le negazioni
+ * (without_negations()), negated se le negazioni erano dispari. Riempie
+ * l'esito di *verdict, con il controesempio where se l'enunciato è falso e
+ * una riga, o una cella, lo ha mostrato (altrimenti where è NULL). */
+static void claim_verdict(Verdict *verdict, int holds, int negated, const char *where) {
+    if (negated) proof_add(" The statement is the negation of this claim.");
+    proof_add(holds != negated ? " $\\Box$" : " So the statement is false.");
+    verdict->outcome = holds != negated ? PROVED : REFUTED;
+    verdict->detail = verdict->outcome == REFUTED ? where : NULL;
+    verdict->proof = proof_text;
+}
+
+/* Scrive in where, di size byte, il valore della variabile name nella riga
+ * row della tabella, quella che ha deciso l'enunciato: è il controesempio, o
+ * l'esempio, che il verdetto riporta. shown è la lettera della tabella (t in
+ * un enunciato periodico) e turn_text il giro in cui si legge la riga
+ * (18p-14), come testo da aggiungere al valore; vuoto per il giro 0. */
+static void row_where(int row, int name, int shown, const char *turn_text, char *where, size_t size) {
+    const SignRow *r = &sign_row[row];
+    if (trig_on) {
+        /* Il valore della variabile: (2 / g) arctan t. */
+        char value[96] = "", factor[48] = "";
+        Frac twice = frac_div(frac_int(2), trig_scale);
+        if (twice.den != 1) snprintf(factor, sizeof factor, "\\frac{%lld}{%lld}", twice.num, twice.den);
+        else if (twice.num != 1) snprintf(factor, sizeof factor, "%lld", twice.num);
+        solution_note[0] = '\0';
+
+        /* Un punto della tabella che è un angolo riconosciuto (18p-12) si
+         * scrive come tale: x = \frac{\pi}{3}, non 4\arctan(2 - \sqrt{3}). */
+        Angle angle = row % 2 ? angle_of_point(row / 2) : (Angle){2, frac_int(0), frac_int(0), 0, 0};
+        if (angle.kind != 2) {
+            snprintf(where, size, "%c = ", name);
+            angle_latex(angle_turn(angle, frac_int(2 * window_turn)), frac_int(0), 0, where, size);
+            return;
+        }
+        if (row % 2) point_latex(row / 2, shown, value, sizeof value); else wide_latex(r->sample, value, sizeof value);
+        if (failure || solution_note[0]) snprintf(where, size, "%c = %s\\arctan t%s, con t una radice irrazionale di un polinomio della tabella", name, factor, turn_text);
+        else if (strcmp(value, "0") == 0) snprintf(where, size, "%c = %s", name, turn_text[0] ? turn_text + (window_turn < 0 ? 1 : 3) : "0");
+        else snprintf(where, size, "%c = %s\\arctan\\left(%s\\right)%s", name, factor, value, turn_text);
+        failure = NULL;
+    } else if (!r->rational) {
+        /* Una radice irrazionale: con i radicali, se ha una scrittura. */
+        char low[48], high[48], value[96] = "";
+        wide_text(sign_point[row / 2].low, low, sizeof low);
+        wide_text(sign_point[row / 2].high, high, sizeof high);
+        solution_note[0] = '\0';
+        point_latex(row / 2, name, value, sizeof value);
+        if (!failure && !solution_note[0]) snprintf(where, size, "%c = %s", name, value);
+        else snprintf(where, size, "%c = il numero irrazionale tra %s e %s che annulla un polinomio dell'enunciato", name, low, high);
+        failure = NULL;
+    } else {
+        char value[48];
+        wide_text(r->sample, value, sizeof value);
+        snprintf(where, size, "%c = %s", name, value);
+    }
+}
+
+/* 18p-12. Le soluzioni della condizione periodica body nella variabile name,
+ * dalla tabella appena riempita, e il loro controllo; pi_truth[] è la verità
+ * della condizione nel punto u = pi di ogni giro letto (vedi
+ * window_solution()), opening il punto della dimostrazione da cui comincia
+ * la tabella, da cancellare se il controllo non riesce. Riempie *verdict.
+ *
+ * Ciò che si è scritto lo si rilegge, con il lettore del programma, come
+ * "esiste k intero tale che ..."; poi in molti valori della variabile,
+ * sparsi su più periodi, il testo riletto e la condizione, calcolati con i
+ * numeri, devono dire la stessa cosa. È il controllo di tutto il ritorno da
+ * t a x: angoli riconosciuti, periodo, estremi compresi o no, e la
+ * scrittura. */
+static void periodic_solutions(const Formula *body, int name, int pi_truth[][3], size_t opening, Verdict *verdict) {
+    if (!(windows ? window_solution(body, name, pi_truth) : trig_solution(body, name, pi_truth[0][0]))) { verdict->reason = failure; failure = NULL; proof_cut(opening); return; }
+    static char wrapped[sizeof solution_text + 64];
+    const Formula *written = NULL;
+    int checked = 0, family = strstr(solution_text, "k\\pi") != NULL, plain = (family || (windows && trig_arcs > 0)) && !solution_note[0];
+    if (plain) {
+        snprintf(wrapped, sizeof wrapped, family ? "\\exists k \\in \\mathbb{Z}\\ \\left(%s\\right)" : "%s", solution_text);
+        written = condition_reread(wrapped);
+    }
+
+    /* I valori di prova, in giri di pi di u: sparsi su quasi quattro
+     * periodi, oppure, con le finestre, su tutti i giri letti. Poi gli
+     * estremi scritti, dove si vede un < al posto di un \le: lì i due conti
+     * possono solo dire "uguale, a quanto si vede", e devono dirlo tutti e
+     * due. */
+    long long first = 2 * window_first - 1, span = 2 * (window_last - window_first) + 2;
+    for (int i = 0; i < 97 + 2 * trig_arcs && plain; i++) {
+        Range value;
+        int edge = i >= 97;
+        if (edge) value = angle_range((i - 97) % 2 ? trig_arc[(i - 97) / 2].to : trig_arc[(i - 97) / 2].from);
+        else if (windows) value = range_div(range_mul(range_ratio(first * 97000 + span * (1000 * i + 371), 97000), range_pi()), range_ratio(trig_scale.num, trig_scale.den));
+        else value = range_div(range_mul(range_ratio(-3700000 + 82291 * i, 1000000), range_pi()), range_ratio(trig_scale.num, trig_scale.den));
+        int member = written ? range_truth(written, name, value, edge) : -1, seen = range_truth(body, name, value, edge);
+        if (member < 0 || seen < 0) continue;
+        checked += !edge;
+        if (member == seen) continue;
+        unjustified_steps++;
+        proof_cut(opening);
+        verdict->outcome = NOT_PROVED;
+        verdict->reason = "le soluzioni scritte non coincidono con la condizione, calcolata con i numeri";
+        return;
+    }
+    if (plain && checked < 40) { proof_cut(opening); verdict->reason = "non riesco a ricontrollare con i numeri le soluzioni di una condizione periodica"; return; }
+    proof_add("Going back to $%c$, the condition holds exactly for $%s$%s. $\\Box$", name, solution_text, family ? ", with $k$ any integer" : "");
+    verdict->outcome = SOLVED;
+    verdict->detail = solution_text;
+    verdict->note = family ? "k intero" : NULL;
+    if (solution_note[0]) {
+        static char note[sizeof solution_note + 128];
+        snprintf(note, sizeof note, "%sradici senza una scrittura con i radicali: le soluzioni scritte non sono state rilette%s", family ? "k intero; " : "", solution_note);
+        verdict->note = note;
+    }
+    verdict->proof = proof_text;
+}
+
+/* Le soluzioni della condizione body, non periodica, nella variabile name,
+ * dalla tabella appena riempita: sign_solution() le scrive, e
+ * solution_reread() le rilegge e le confronta con la tabella. opening è il
+ * punto della dimostrazione da cui comincia la tabella, da cancellare se il
+ * controllo non riesce. Riempie *verdict. */
+static void table_solutions(const Formula *body, int name, size_t opening, Verdict *verdict) {
+    int plain = sign_solution(body, name);
+    if (failure) { verdict->reason = failure; failure = NULL; proof_cut(opening); return; }
+    if (plain && !solution_reread(body, name)) {
+        unjustified_steps++;
+        proof_cut(opening);
+        verdict->outcome = NOT_PROVED;
+        verdict->reason = "le soluzioni scritte, rilette, non coincidono con la tabella dei segni";
+        return;
+    }
+    proof_add("Hence the condition holds exactly for $%s$. $\\Box$", solution_text);
+    verdict->outcome = SOLVED;
+    verdict->detail = solution_text;
+    if (solution_note[0]) {
+        static char note[sizeof solution_note + 96];
+        snprintf(note, sizeof note, "radici senza una scrittura con i radicali: le soluzioni scritte non sono state rilette%s", solution_note);
+        verdict->note = note;
+    }
+    verdict->proof = proof_text;
+}
+
 /* 18p. Decide con la tabella dei segni l'enunciato thesis, che deve avere la
  * forma: eventuali negazioni, un quantificatore su una variabile che varia
  * nei reali o nei razionali, una condizione senza altri quantificatori;
@@ -16615,9 +16892,8 @@ static int formula_bad_quantifier(const Formula *f) {
  * soluzioni. */
 static void decide_by_signs(const Formula *thesis, Verdict *verdict) {
     static char where[160];
-    const Formula *q = thesis;
-    int negated = 0;
-    while (q->kind == F_NOT) { q = q->a; negated = !negated; }
+    int negated;
+    const Formula *q = without_negations(thesis, &negated);
     if ((q->kind != F_FORALL && q->kind != F_EXISTS && q->kind != F_SOLVE) || formula_bad_quantifier(q->a) || q->numbers.integers) {
         verdict->reason = "le relazioni d'ordine e i numeri reali sono trattati solo con una variabile, sui reali o sui razionali";
         return;
@@ -16634,10 +16910,8 @@ static void decide_by_signs(const Formula *thesis, Verdict *verdict) {
      * in poi prende il posto della variabile, e il punto g x = pi, dove t
      * non ha un valore, si calcola subito, a parte: lì ogni funzione è un
      * numero, e l'enunciato è vero o falso senza tabella. */
-    sign_atoms = sign_polys = sign_nodes = sign_needs = kappas = spaces = family_leaves = windows = 0;
-    window_first = window_last = window_turn = 0;
-    sign_name = name;
-    trig_on = trig_bad = 0;
+    sign_reset(name);
+    trig_bad = 0;
     trig_scale = frac_int(0);
     trig_x = x;
     formula_trig(body);
@@ -16708,9 +16982,7 @@ static void decide_by_signs(const Formula *thesis, Verdict *verdict) {
      * nascono possono contenere solo le lettere degli spazi precedenti, più
      * interni, che così vengono dopo e li trovano già tra le colonne. */
     for (int s = spaces - 1; s >= 0 && !failure; s--) space_process(s, name, x);
-    int floor_column = -1, hole_column[MAX_HOLES];
-    if (set->bounded && !failure) floor_column = sign_column((Uni){1, {-(__int128)set->low, 1}});
-    for (int i = 0; i < set->holes && !failure; i++) hole_column[i] = sign_column((Uni){1, {-(__int128)set->hole[i].num, set->hole[i].den}});
+    int hole_column[MAX_HOLES], floor_column = failure ? -1 : set_columns(set, hole_column);
 
     /* 18p-2, 18p-3, 18p-4. I punti, poi la tabella. */
     if (!failure) sign_points(-1);
@@ -16779,42 +17051,7 @@ static void decide_by_signs(const Formula *thesis, Verdict *verdict) {
             if (r->must && !r->confirmed) rechecked = 0;
             if (solving || truth == every) continue;
             decided = row;
-            if (trig_on) {
-                /* Il valore della variabile: (2 / g) arctan t. */
-                char value[96] = "", factor[48] = "";
-                Frac twice = frac_div(frac_int(2), trig_scale);
-                if (twice.den != 1) snprintf(factor, sizeof factor, "\\frac{%lld}{%lld}", twice.num, twice.den);
-                else if (twice.num != 1) snprintf(factor, sizeof factor, "%lld", twice.num);
-                solution_note[0] = '\0';
-
-                /* Un punto della tabella che è un angolo riconosciuto (18p-12)
-                 * si scrive come tale: x = \frac{\pi}{3}, non 4\arctan(2 - \sqrt{3}). */
-                Angle angle = row % 2 ? angle_of_point(row / 2) : (Angle){2, frac_int(0), frac_int(0), 0, 0};
-                if (angle.kind != 2) {
-                    snprintf(where, sizeof where, "%c = ", name);
-                    angle_latex(angle_turn(angle, frac_int(2 * window_turn)), frac_int(0), 0, where, sizeof where);
-                    continue;
-                }
-                if (row % 2) point_latex(row / 2, shown, value, sizeof value); else wide_latex(r->sample, value, sizeof value);
-                if (failure || solution_note[0]) snprintf(where, sizeof where, "%c = %s\\arctan t%s, con t una radice irrazionale di un polinomio della tabella", name, factor, turn_text);
-                else if (strcmp(value, "0") == 0) snprintf(where, sizeof where, "%c = %s", name, turn_text[0] ? turn_text + (window_turn < 0 ? 1 : 3) : "0");
-                else snprintf(where, sizeof where, "%c = %s\\arctan\\left(%s\\right)%s", name, factor, value, turn_text);
-                failure = NULL;
-            } else if (!r->rational) {
-                /* Una radice irrazionale: con i radicali, se ha una scrittura. */
-                char low[48], high[48], value[96] = "";
-                wide_text(sign_point[row / 2].low, low, sizeof low);
-                wide_text(sign_point[row / 2].high, high, sizeof high);
-                solution_note[0] = '\0';
-                point_latex(row / 2, name, value, sizeof value);
-                if (!failure && !solution_note[0]) snprintf(where, sizeof where, "%c = %s", name, value);
-                else snprintf(where, sizeof where, "%c = il numero irrazionale tra %s e %s che annulla un polinomio dell'enunciato", name, low, high);
-                failure = NULL;
-            } else {
-                char value[48];
-                wide_text(r->sample, value, sizeof value);
-                snprintf(where, sizeof where, "%c = %s", name, value);
-            }
+            row_where(row, name, shown, turn_text, where, sizeof where);
         }
 
         /* In un enunciato periodico, il punto lasciato fuori dalla tabella. */
@@ -16853,94 +17090,15 @@ static void decide_by_signs(const Formula *thesis, Verdict *verdict) {
     /* Un insieme di soluzioni: lo si legge dalla tabella, e ciò che si è
      * scritto lo si rilegge. Se una radice non ha una scrittura con i
      * radicali la rilettura non si può fare, e il verdetto lo dice. */
-    if (solving && trig_on) {
-        /* 18p-12. Le soluzioni di una condizione periodica, e il loro
-         * controllo. Ciò che si è scritto lo si rilegge, con il lettore del
-         * programma, come "esiste k intero tale che ..."; poi in molti
-         * valori della variabile, sparsi su più periodi, il testo riletto e
-         * la condizione, calcolati con i numeri, devono dire la stessa
-         * cosa. È il controllo di tutto il ritorno da t a x: angoli
-         * riconosciuti, periodo, estremi compresi o no, e la scrittura. */
-        if (!(windows ? window_solution(body, name, pi_truth) : trig_solution(body, name, pi_truth[0][0]))) { verdict->reason = failure; failure = NULL; proof_cut(opening); return; }
-        static char wrapped[sizeof solution_text + 64];
-        const Formula *written = NULL;
-        int checked = 0, family = strstr(solution_text, "k\\pi") != NULL, plain = (family || (windows && trig_arcs > 0)) && !solution_note[0];
-        if (plain) {
-            snprintf(wrapped, sizeof wrapped, family ? "\\exists k \\in \\mathbb{Z}\\ \\left(%s\\right)" : "%s", solution_text);
-            syntax_error = NULL;
-            cursor = wrapped;
-            next_token();
-            written = logic_formula();
-            if (syntax_error || token.kind != T_END) { syntax_error = NULL; written = NULL; }
-        }
-
-        /* I valori di prova, in giri di pi di u: sparsi su quasi quattro
-         * periodi, oppure, con le finestre, su tutti i giri letti. Poi gli
-         * estremi scritti, dove si vede un < al posto di un \le: lì i due
-         * conti possono solo dire "uguale, a quanto si vede", e devono
-         * dirlo tutti e due. */
-        long long first = 2 * window_first - 1, span = 2 * (window_last - window_first) + 2;
-        for (int i = 0; i < 97 + 2 * trig_arcs && plain; i++) {
-            Range value;
-            int edge = i >= 97;
-            if (edge) value = angle_range((i - 97) % 2 ? trig_arc[(i - 97) / 2].to : trig_arc[(i - 97) / 2].from);
-            else if (windows) value = range_div(range_mul(range_ratio(first * 97000 + span * (1000 * i + 371), 97000), range_pi()), range_ratio(trig_scale.num, trig_scale.den));
-            else value = range_div(range_mul(range_ratio(-3700000 + 82291 * i, 1000000), range_pi()), range_ratio(trig_scale.num, trig_scale.den));
-            int member = written ? range_truth(written, name, value, edge) : -1, seen = range_truth(body, name, value, edge);
-            if (member < 0 || seen < 0) continue;
-            checked += !edge;
-            if (member == seen) continue;
-            unjustified_steps++;
-            proof_cut(opening);
-            verdict->outcome = NOT_PROVED;
-            verdict->reason = "le soluzioni scritte non coincidono con la condizione, calcolata con i numeri";
-            return;
-        }
-        if (plain && checked < 40) { proof_cut(opening); verdict->reason = "non riesco a ricontrollare con i numeri le soluzioni di una condizione periodica"; return; }
-        proof_add("Going back to $%c$, the condition holds exactly for $%s$%s. $\\Box$", name, solution_text, family ? ", with $k$ any integer" : "");
-        verdict->outcome = SOLVED;
-        verdict->detail = solution_text;
-        verdict->note = family ? "k intero" : NULL;
-        if (solution_note[0]) {
-            static char note[sizeof solution_note + 128];
-            snprintf(note, sizeof note, "%sradici senza una scrittura con i radicali: le soluzioni scritte non sono state rilette%s", family ? "k intero; " : "", solution_note);
-            verdict->note = note;
-        }
-        verdict->proof = proof_text;
-        return;
-    }
-    if (solving) {
-        int plain = sign_solution(body, name);
-        if (failure) { verdict->reason = failure; failure = NULL; proof_cut(opening); return; }
-        if (plain && !solution_reread(body, name)) {
-            unjustified_steps++;
-            proof_cut(opening);
-            verdict->outcome = NOT_PROVED;
-            verdict->reason = "le soluzioni scritte, rilette, non coincidono con la tabella dei segni";
-            return;
-        }
-        proof_add("Hence the condition holds exactly for $%s$. $\\Box$", solution_text);
-        verdict->outcome = SOLVED;
-        verdict->detail = solution_text;
-        if (solution_note[0]) {
-            static char note[sizeof solution_note + 96];
-            snprintf(note, sizeof note, "radici senza una scrittura con i radicali: le soluzioni scritte non sono state rilette%s", solution_note);
-            verdict->note = note;
-        }
-        verdict->proof = proof_text;
-        return;
-    }
+    if (solving && trig_on) { periodic_solutions(body, name, pi_truth, opening, verdict); return; }
+    if (solving) { table_solutions(body, name, opening, verdict); return; }
 
     /* Il verdetto. "Per ogni" è vero se nessuna riga lo smentisce, "esiste"
      * se una lo conferma; una negazione davanti li rovescia. */
     int holds = every ? decided < 0 : decided >= 0;
     if (decided >= 0) proof_add("At this value the condition %s.", every ? "fails" : "holds");
     else proof_add("The condition %s on every row, hence for every value of $%c$ in the set.", every ? "holds" : "fails", shown);
-    if (negated) proof_add(" The statement is the negation of this claim.");
-    proof_add(holds != negated ? " $\\Box$" : " So the statement is false.");
-    verdict->outcome = holds != negated ? PROVED : REFUTED;
-    verdict->detail = verdict->outcome == REFUTED && decided >= 0 ? where : NULL;
-    verdict->proof = proof_text;
+    claim_verdict(verdict, holds, negated, decided >= 0 ? where : NULL);
 }
 
 /* 18p-15. IL CERTIFICATO DELLA TABELLA
@@ -17069,9 +17227,8 @@ static void cert_uni(const Uni *p, int name) {
  * decide_by_signs() ha deciso thesis, con il verdetto *verdict; ritorna
  * NULL, oppure il motivo per cui il certificato non c'è. */
 static const char *sign_certificate(const Formula *thesis, const Verdict *verdict) {
-    const Formula *q = thesis;
-    int negated = 0;
-    while (q->kind == F_NOT) { q = q->a; negated = !negated; }
+    int negated;
+    const Formula *q = without_negations(thesis, &negated);
     const Formula *body = q->a, *written = NULL;
     const NumberSet *set = &q->numbers;
     int name = q->variable, every = q->kind == F_FORALL, solving = q->kind == F_SOLVE;
@@ -17084,17 +17241,13 @@ static const char *sign_certificate(const Formula *thesis, const Verdict *verdic
     int all = solving && strncmp(solution_text, "\\forall", 7) == 0, none = solving && strncmp(solution_text, "\\nexists", 8) == 0;
     if (solving && solution_note[0]) return "le soluzioni scritte nominano una radice che non ha una scrittura con i radicali";
     if (solving && !all && !none) {
-        syntax_error = NULL;
-        cursor = solution_text;
-        next_token();
-        written = logic_formula();
-        if (syntax_error || token.kind != T_END) { syntax_error = NULL; return "le soluzioni scritte non si rileggono"; }
+        written = condition_reread(solution_text);
+        if (!written) return "le soluzioni scritte non si rileggono";
     }
 
     /* I posti, in sign_poly[], dei polinomi x - a dell'insieme: già nella
-     * tabella, sign_column() li ritrova. */
-    int floor_column = set->bounded ? sign_column((Uni){1, {-(__int128)set->low, 1}}) : -1, hole_column[MAX_HOLES];
-    for (int i = 0; i < set->holes; i++) hole_column[i] = sign_column((Uni){1, {-(__int128)set->hole[i].num, set->hole[i].den}});
+     * tabella, set_columns() li ritrova. */
+    int hole_column[MAX_HOLES], floor_column = set_columns(set, hole_column);
 
     /* La variabile, l'insieme, la condizione con dentro l'insieme. */
     int terms = set->bounded + set->holes;
@@ -17152,9 +17305,7 @@ static const char *sign_certificate(const Formula *thesis, const Verdict *verdic
     for (int row = 0; row < sign_rows; row++) {
         const SignRow *r = &sign_row[row];
         const Critical *point = &sign_point[row / 2];
-        int member = !(floor_column >= 0 && (r->sign[floor_column] < 0 || (r->sign[floor_column] == 0 && set->strict))), truth = sign_truth(body, r->sign);
-        for (int i = 0; i < set->holes; i++)
-            if (r->sign[hole_column[i]] == 0) member = 0;
+        int member = row_in_set(r->sign, set, floor_column, hole_column), truth = sign_truth(body, r->sign);
         if (row % 2 == 0) { cert_add("\ninterval "); cert_wide(r->sample); }
         else if (point->exact) { cert_add("\npoint "); cert_wide(point->low); }
         else {
@@ -17175,7 +17326,7 @@ static const char *sign_certificate(const Formula *thesis, const Verdict *verdic
 
 /* 18p-15. Fa ricontrollare a checker.c il verdetto *verdict che
  * decide_by_signs() ha dato su thesis, e lo aggiorna con la risposta: vedi
- * in testa al paragrafo. */
+ * "Le risposte" in testa a 18p-15. */
 static void sign_certify(const Formula *thesis, Verdict *verdict) {
     static char problem[512];
     if (verdict->outcome != PROVED && verdict->outcome != REFUTED && verdict->outcome != SOLVED) return;
@@ -17646,6 +17797,8 @@ typedef struct {
                     polinomio nullo se param_first() lo ha trovato nullo */
 } ProjectionItem;
 
+/* I polinomi della proiezione dell'enunciato in corso, registrati da
+ * param_column(). */
 static ProjectionItem param_item[MAX_PROJECTION];
 static int param_items;
 
@@ -17741,6 +17894,8 @@ typedef struct {
     char text[CELL_TEXT];  /* kind == 1: le soluzioni nella variabile, in LaTeX */
 } ParamCell;
 
+/* I valori critici e le celle dell'enunciato in corso, riempiti da
+ * param_cells_build(). */
 static ParamPoint param_point[MAX_PARAM_POINTS];
 static int param_points;
 static ParamCell param_cell[2 * MAX_PARAM_POINTS + 1];
@@ -17778,24 +17933,19 @@ static void param_cells_build(int name) {
         /* La più piccola delle due radici è il primo dei due punti di
          * questo elemento, come in point_latex(). */
         p->element = sign_base[p->at.element];
-        p->smaller = 1;
-        for (int i = 0; i < k; i++)
-            if (!sign_point[i].exact && sign_point[i].element == p->at.element) p->smaller = 0;
+        p->smaller = point_is_first_root(k);
     }
 
     /* Il valore di ogni cella. Per un intervallo è scelto come in
-     * sign_table(): tra i due punti che lo chiudono, oppure un intero oltre
-     * l'unico che c'è. */
+     * sign_table() (interval_sample()): tra i due punti che lo chiudono,
+     * oppure un intero oltre l'unico che c'è. */
     for (int c = 0; c < param_cells && !failure; c++) {
         ParamCell *cell = &param_cell[c];
         const ParamPoint *point = c % 2 ? &param_point[c / 2] : NULL;
         const ParamPoint *before = c >= 2 ? &param_point[c / 2 - 1] : NULL, *after = c / 2 < param_points ? &param_point[c / 2] : NULL;
         cell->sample = (Wide){0, 1};
         if (point && !point->at.exact) { cell->value = quadratic_node(&point->element, point->smaller); continue; }
-        if (point) cell->sample = point->at.low;
-        else if (before && after) cell->sample = wide_between(before->at.high, after->at.low);
-        else if (after) cell->sample = (Wide){after->at.low.num / after->at.low.den - 2, 1};
-        else if (before) cell->sample = (Wide){before->at.high.num / before->at.high.den + 2, 1};
+        cell->sample = point ? point->at.low : interval_sample(before ? &before->at : NULL, after ? &after->at : NULL);
         cell->value = node_rational(cell->sample);
     }
 }
@@ -18039,6 +18189,7 @@ typedef struct {
     long long outside;  /* il numero intero davanti alla radice */
 } Candidate;
 
+/* I candidati dell'enunciato in corso, riempiti da candidates_build(). */
 static Candidate param_candidate[MAX_CANDIDATES];
 static int param_candidates;
 
@@ -18189,10 +18340,9 @@ static void candidate_radical(Poly minus_b, Poly two_a, const Uni *primitive, Wi
 
     /* sqrt(|content|) = outside sqrt(inside) / q, dove |content| = p / q:
      * infatti p / q = p q / q^2, e da p q si portano fuori i quadrati. */
-    __int128 inside, outside = 1;
+    __int128 inside;
     if (__builtin_mul_overflow(content.num < 0 ? -content.num : content.num, content.den, &inside)) { fail(SIGN_LIMIT); return; }
-    for (__int128 f = 2; f * f <= inside && f < 100000; f++)
-        while (inside % (f * f) == 0) { inside /= f * f; outside *= f; }
+    __int128 outside = square_out(&inside);
 
     /* I tre numeri, moltiplicati per il prodotto dei loro denominatori. */
     Wide scale = wide_mul(wide_mul((Wide){above.den, 1}, (Wide){below.den, 1}), (Wide){content.den, 1});
@@ -18512,22 +18662,13 @@ static int param_reread(const Formula *written, int name, int by_cell, Verdict *
  * quantificatore interno si provano PARAM_GRID valori della sua variabile:
  * un valore in cui la condizione non vale smentisce un "per ogni", uno in
  * cui vale conferma un "esiste"; il contrario non si può dire, perché i
- * valori provati sono pochi. I connettivi si calcolano dalle parti, e danno
- * una risposta anche quando una parte non la dà: "falso e qualcosa" è
- * falso. */
+ * valori provati sono pochi. I connettivi si calcolano dalle parti, con la
+ * logica a tre valori (truth_join()), e danno una risposta anche quando una
+ * parte non la dà: "falso e qualcosa" è falso. */
 static int grid_truth(const Formula *f, int name, Frac at) {
-    if (f->kind == F_NOT) {
-        int inner = grid_truth(f->a, name, at);
-        return inner < 0 ? -1 : !inner;
-    }
-    if (f->kind == F_AND || f->kind == F_OR || f->kind == F_IMPLIES || f->kind == F_IFF) {
-        int a = grid_truth(f->a, name, at), b = grid_truth(f->b, name, at);
-        if (f->kind == F_IFF) return a < 0 || b < 0 ? -1 : a == b;
-        if (f->kind == F_AND) return a == 0 || b == 0 ? 0 : a < 0 || b < 0 ? -1 : 1;
-
-        /* "a implica b" è "non a, oppure b". */
-        if (f->kind == F_IMPLIES && a >= 0) a = !a;
-        return a == 1 || b == 1 ? 1 : a < 0 || b < 0 ? -1 : 0;
+    if (f->kind == F_NOT || f->kind == F_AND || f->kind == F_OR || f->kind == F_IMPLIES || f->kind == F_IFF) {
+        int a = grid_truth(f->a, name, at), b = f->kind == F_NOT ? -1 : grid_truth(f->b, name, at);
+        return truth_join(f->kind, a, b);
     }
     if (f->kind == F_FORALL || f->kind == F_EXISTS) {
         Frac value[PARAM_GRID];
@@ -18956,9 +19097,8 @@ static int has_parameter(const Formula *thesis) {
 /* Il lavoro di decide_with_parameter(), che ne descrive il contratto. */
 static void param_decide(const Formula *thesis, Verdict *verdict) {
     static char text[PARAM_TEXT], where[320];
-    const Formula *q = thesis;
-    int negated = 0;
-    while (q->kind == F_NOT) { q = q->a; negated = !negated; }
+    int negated;
+    const Formula *q = without_negations(thesis, &negated);
 
     /* Le tre forme: una richiesta di soluzioni sotto il "per ogni" del
      * parametro (request), i valori del parametro (solving), una verifica. */
@@ -18968,16 +19108,10 @@ static void param_decide(const Formula *thesis, Verdict *verdict) {
 
     /* 18t-a, 18t-b. La tabella nella lettera del parametro: prima le sue
      * colonne, poi i suoi punti, che sono i valori critici. Lo stato che
-     * sign_prepare() si aspetta è quello che gli dà decide_by_signs(),
-     * senza funzioni goniometriche né esponenziali.
-     *
-     * Warning: se decide_by_signs() comincia ad azzerare un'altra variabile
-     * prima di chiamare sign_prepare(), va azzerata anche qui. */
-    sign_atoms = sign_polys = sign_nodes = sign_needs = kappas = spaces = family_leaves = windows = 0;
-    window_first = window_last = window_turn = 0;
-    sign_name = name;
+     * sign_prepare() si aspetta è quello di una tabella nuova (sign_reset()),
+     * senza funzioni goniometriche né esponenziali. */
+    sign_reset(name);
     sign_x = a;
-    trig_on = 0;
     param_polys = param_candidates = param_items = 0;
     failure = NULL;
     param_collect(q->a, name, 0);
@@ -19087,11 +19221,7 @@ static void param_decide(const Formula *thesis, Verdict *verdict) {
         }
         if (decided >= 0) proof_add("At this value the condition %s.", every ? "fails" : "holds");
         else proof_add("The condition %s in every case, hence for every value of $%c$.", every ? "holds" : "fails", name);
-        if (negated) proof_add(" The statement is the negation of this claim.");
-        proof_add(holds != negated ? " $\\Box$" : " So the statement is false.");
-        verdict->outcome = holds != negated ? PROVED : REFUTED;
-        verdict->detail = verdict->outcome == REFUTED && decided >= 0 ? where : NULL;
-        verdict->proof = proof_text;
+        claim_verdict(verdict, holds, negated, decided >= 0 ? where : NULL);
         return;
     }
 
@@ -19109,20 +19239,13 @@ static void param_decide(const Formula *thesis, Verdict *verdict) {
         proof_cut(opening);
         return;
     }
-    Formula *written = NULL, *claim = NULL;
-    if (plain) {
-        syntax_error = NULL;
-        cursor = text;
-        next_token();
-        written = logic_formula();
-        if (syntax_error || token.kind != T_END) {
-            syntax_error = NULL;
-            unjustified_steps++;
-            proof_cut(opening);
-            verdict->outcome = NOT_PROVED;
-            verdict->reason = "le soluzioni scritte non si lasciano rileggere";
-            return;
-        }
+    Formula *written = plain ? condition_reread(text) : NULL, *claim = NULL;
+    if (plain && !written) {
+        unjustified_steps++;
+        proof_cut(opening);
+        verdict->outcome = NOT_PROVED;
+        verdict->reason = "le soluzioni scritte non si lasciano rileggere";
+        return;
     }
     if (request) {
         Formula *body = request->a;
