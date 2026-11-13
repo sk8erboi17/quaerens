@@ -1,6 +1,7 @@
 photos/
 .DS_Store
 __pycache__/
-mathresearcher
-checker
+/mathresearcher
+/checker
 README2.md
+.claude/
