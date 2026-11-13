@@ -1,0 +1,44 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{False statements whose hypotheses few small numbers satisfy (24)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+$\mathbb{N} = \{1, 2, 3, \ldots\}$. Each statement is false, and none may be reported as proved. In the first seventeen the counterexamples are numbers like $\frac{15}{2}$ or $101$, which the first elements of $\mathbb{Q}$ and $\mathbb{Z}$ do not reach; in the last two they need a fraction, and the first five elements of $\mathbb{Q}$ are integers.
+
+\begin{enumerate}
+\item $\displaystyle \forall x \in \mathbb{Q}\ ((\exists k \in \mathbb{Z}\ (2x = k^{2} + 14)) \implies \exists m \in \mathbb{Z}\ (2x^{2} = m))$
+\item $\displaystyle \forall x, y \in \mathbb{Z}\ ((\exists k \in \mathbb{Z}\ (x = k^{2} + 7) \land \exists k \in \mathbb{Z}\ (y = k^{2} + 7)) \implies x = y)$
+\item $\displaystyle \forall x, y \in \mathbb{Q}\ ((\exists k \in \mathbb{Z}\ (2x = k^{2} + 14) \land \exists k \in \mathbb{Z}\ (2y = k^{2} + 14)) \implies x = y)$
+\item $\displaystyle \forall x, y \in \mathbb{Q}\ ((\exists k \in \mathbb{Z}\ (2x = k^{2} + 14) \land \exists k \in \mathbb{Z}\ (2y = k^{2} + 14)) \implies \exists m \in \mathbb{Z}\ (2xy = m))$
+\item $\displaystyle \forall x \in \mathbb{Z}\ ((\exists k \in \mathbb{Z}\ (x = k^{2} + 7)) \implies \exists m \in \mathbb{Z}\ (x = 2m + 1))$
+\item $\displaystyle \forall x \in \mathbb{Z}\ ((\exists k \in \mathbb{Z}\ (x = k^{2} + 7)) \implies x \neq 11)$
+\item $\displaystyle \forall x \in \mathbb{Q}\ ((\exists k \in \mathbb{Z}\ (3x = k^{3} + 30)) \implies \exists m \in \mathbb{Z}\ (x = m))$
+\item $\displaystyle \forall x \in \mathbb{Q}\ ((\exists k \in \mathbb{Z}\ (x = k^{2} + \frac{15}{2})) \implies \exists m \in \mathbb{Z}\ (x = m))$
+\item $\displaystyle \forall x, y \in \mathbb{Q}\ ((\exists k \in \mathbb{Z}\ (2x = k^{2} + 14) \land \exists k \in \mathbb{Z}\ (2y = 2k + 1)) \implies \exists k \in \mathbb{Z}\ (x + y = k))$
+\item $\displaystyle \forall x \in \mathbb{Q}\ ((\exists k \in \mathbb{Z}\ (x = k^{2} + 7)) \implies \exists m \in \mathbb{Z}\ (x = 2m + 7))$
+\item $\displaystyle \forall x, y \in \mathbb{Z}\ ((\exists k \in \mathbb{Z}\ (x = k^{2} + 7) \land \exists k \in \mathbb{Z}\ (y = k^{2} + 7)) \implies x - y \neq 1)$
+\item $\displaystyle \forall x, y \in \mathbb{Z}\ ((\exists k \in \mathbb{N}\ (x = k + 100) \land \exists k \in \mathbb{N}\ (y = k + 100)) \implies x = y)$
+\item $\displaystyle \forall x, y \in \mathbb{Z}\ ((\exists k \in \mathbb{N}\ (x = k + 100) \land \exists k \in \mathbb{N}\ (y = k + 100)) \implies \exists k \in \mathbb{N}\ (x - y = k))$
+\item $\displaystyle \forall x \in \mathbb{Z}\ ((\exists k \in \mathbb{N}\ (x = k + 100)) \implies \exists m \in \mathbb{N}\ (x = m + 101))$
+\item $\displaystyle \forall x, y \in \mathbb{Q}\ ((\exists k \in \mathbb{N}\ (2x = k + 100) \land \exists k \in \mathbb{N}\ (2y = k + 100)) \implies \exists k \in \mathbb{Z}\ (x + y = k))$
+\item $\displaystyle \forall x, y \in \mathbb{Q}\ ((\exists k \in \mathbb{N}\ (2x = 2k + 100) \land \exists k \in \mathbb{N}\ (2y = 2k + 101)) \implies \exists k \in \mathbb{Z}\ (x + y = k))$
+\item $\displaystyle \forall x, y \in \mathbb{Z}\ ((\exists k \in \mathbb{N}\ (x = 2k + 100) \land \exists k \in \mathbb{N}\ (y = 3k + 100)) \implies 3x - 2y = 100)$
+\item $\displaystyle \forall x \in \mathbb{Q}\ ((\exists k \in \mathbb{Z}\ (2x = k^{2})) \implies \exists m \in \mathbb{Z}\ (x = m))$
+\item $\displaystyle \forall x \in \mathbb{Q}\ ((\exists k \in \mathbb{Z}\ (x = 2k + 1)) \implies \exists m \in \mathbb{Z}\ (x^{2} = 16m + 1))$
+\item $\displaystyle \forall x \in \mathbb{Q}\ ((\exists k \in \mathbb{Z}\ (x = 2k + 1)) \implies \exists k \in \mathbb{Z}\ (x^{2} = 16k + 1))$
+\item $\displaystyle \forall x, y \in \mathbb{Q}\ ((\exists k \in \mathbb{Z}\ (x = k^{2}) \land \exists k \in \mathbb{Z}\ (y = 2k)) \implies \exists k \in \mathbb{Z}\ (x + y = 2k))$
+\item $\displaystyle \forall n \in \mathbb{N}\ \forall a \in \mathbb{Z}\ (n \mid a - 100n \implies n^{2} \mid a)$
+\item $\displaystyle \forall x, y, z, w \in \mathbb{Q}\ ((x - y \in \mathbb{Z} \land \exists k \in \mathbb{Z}\ (z - w = k)) \implies xz - yw \in \mathbb{Z})$
+\item $\displaystyle \forall x, y, z, w \in \mathbb{Q}\ ((\exists k \in \mathbb{Z}\ (x - y = k) \land \exists k \in \mathbb{Z}\ (z - w = k)) \implies 2x - 2y + w \in \mathbb{Z})$
+\end{enumerate}
+\end{document}

@@ -1,0 +1,36 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Hypotheses that few small numbers satisfy (16)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+$\mathbb{N} = \{1, 2, 3, \ldots\}$. Each hypothesis ``there is $k$'' holds for few of the smallest numbers, or for none of them: $x = k^{2}$, $x = 2k + 1$, $2x = k^{2} + 14$, $x = k + 100$ with $k \in \mathbb{N}$. Some statements use the same letter $k$ in several places, for different numbers.
+
+\begin{enumerate}
+\item $\displaystyle \forall x \in \mathbb{Q}\ ((\exists k \in \mathbb{Z}\ (x = k^{2})) \implies \exists m \in \mathbb{Z}\ (x = m))$
+\item $\displaystyle \forall x \in \mathbb{Q}\ ((\exists k \in \mathbb{Z}\ (2x = k^{2})) \implies \exists m \in \mathbb{Z}\ (4x^{2} = m))$
+\item $\displaystyle \forall x, y \in \mathbb{Q}\ ((\exists k \in \mathbb{Z}\ (x = k^{2}) \land \exists k \in \mathbb{Z}\ (y = k^{2})) \implies \exists m \in \mathbb{Z}\ (xy = m))$
+\item $\displaystyle \forall x \in \mathbb{Q}\ ((\exists k \in \mathbb{Z}\ (x = 2k + 1)) \implies \exists m \in \mathbb{Z}\ (x^{2} - 1 = 4m))$
+\item $\displaystyle \forall x \in \mathbb{Q}\ ((\exists k \in \mathbb{Z}\ (x = 2k + 1)) \implies \exists m \in \mathbb{Z}\ (x^{2} + x = 2m))$
+\item $\displaystyle \forall x \in \mathbb{Q}\ ((\exists k \in \mathbb{Z}\ (x = 2k + 1)) \implies \exists k \in \mathbb{Z}\ (x^{2} = 8k + 1))$
+\item $\displaystyle \forall x \in \mathbb{Q}\ ((\exists k \in \mathbb{Z}\ (2x = k^{2} + 14)) \implies \exists m \in \mathbb{Z}\ (4x^{2} = m))$
+\item $\displaystyle \forall x \in \mathbb{Q}\ ((\exists k \in \mathbb{Z}\ (x = k^{2} + 7)) \implies \exists m \in \mathbb{Z}\ (x = m + 7))$
+\item $\displaystyle \forall x \in \mathbb{Q}\ ((\exists k \in \mathbb{Z}\ (x = k^{2} + \frac{15}{2})) \implies \exists m \in \mathbb{Z}\ (2x = m))$
+\item $\displaystyle \forall x \in \mathbb{Q}\ ((\exists k \in \mathbb{Z}\ (3x = k^{3} + 30)) \implies \exists m \in \mathbb{Z}\ (3x = m))$
+\item $\displaystyle \forall x \in \mathbb{Q}\ ((\exists k \in \mathbb{Z}\ (x = \frac{k}{2} + 10)) \implies \exists m \in \mathbb{Z}\ (2x = m))$
+\item $\displaystyle \forall x, y \in \mathbb{Q}\ ((\exists k \in \mathbb{Z}\ (2x = k^{2} + 14) \land \exists k \in \mathbb{Z}\ (2y = k^{2} + 14)) \implies \exists m \in \mathbb{Z}\ (4xy = m))$
+\item $\displaystyle \forall x, y \in \mathbb{Q}\ ((\exists k \in \mathbb{Z}\ (2x = k^{2} + 14) \land \exists k \in \mathbb{Z}\ (2y = 2k + 1)) \implies \exists k \in \mathbb{Z}\ (2x + 2y = k))$
+\item $\displaystyle \forall n \in \mathbb{N}\ \forall a \in \mathbb{Z}\ (n \mid a - 100n \implies n \mid a^{2})$
+\item $\displaystyle \forall n \in \mathbb{N}\ \forall a, b \in \mathbb{Z}\ ((\exists k \in \mathbb{Z}\ (a - b = kn + 100n)) \implies \exists j \in \mathbb{Z}\ (a^{2} - b^{2} = jn))$
+\item $\displaystyle \forall x, y \in \mathbb{Q}\ ((\exists k \in \mathbb{N}\ (2x = 2k + 100) \land \exists k \in \mathbb{N}\ (2y = 2k + 101)) \implies \exists k \in \mathbb{Z}\ (2x + 2y = 2k + 1))$
+\end{enumerate}
+\end{document}

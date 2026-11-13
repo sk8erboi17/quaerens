@@ -1,7 +1,7 @@
 /* Test di dominio: strutture algebriche (operazioni e relazioni date da una
  * regola o su un insieme qualsiasi, congruenze).
  *
- * Otto controlli, descritti in tests/statement_checks.h:
+ * Dieci controlli, descritti in tests/statement_checks.h:
  *
  *   1. ogni enunciato di operations.tex viene dimostrato, con la sua
  *      dimostrazione scritta;
@@ -19,7 +19,15 @@
  *   7. ogni enunciato di abstract_structures.tex viene dimostrato: un
  *      insieme qualsiasi con un'operazione, delle applicazioni, una
  *      relazione di cui si conoscono solo le ipotesi (capitolo 28);
- *   8. nessun enunciato di false_abstract_structures.tex viene dimostrato.
+ *   8. nessun enunciato di false_abstract_structures.tex viene dimostrato;
+ *   9. ogni enunciato di rare_witnesses.tex viene dimostrato: ipotesi
+ *      "esiste k" che pochi numeri piccoli soddisfano, o nessuno, come
+ *      2x = k^2 + 14; la verifica del capitolo 19 deve trovare valori che
+ *      le soddisfano e ricontrollare il valore scelto dalla dimostrazione;
+ *  10. nessun enunciato di false_rare_witnesses.tex viene dimostrato: i
+ *      loro controesempi stanno dove i primi elementi degli insiemi non
+ *      arrivano, e una verifica che provasse solo quelli confermerebbe una
+ *      dimostrazione sbagliata.
  *
  * Poi i certificati del capitolo 28 (paragrafo 28f), in questo file perché
  * riguardano questi enunciati; il verificatore da solo è provato in
@@ -174,6 +182,8 @@ int main(void) {
     passed = check_none_proved("tests/algebraic_structures/false_witnesses.tex") && passed;
     passed = check_all_proved("tests/algebraic_structures/abstract_structures.tex") && passed;
     passed = check_none_proved("tests/algebraic_structures/false_abstract_structures.tex") && passed;
+    passed = check_all_proved("tests/algebraic_structures/rare_witnesses.tex") && passed;
+    passed = check_none_proved("tests/algebraic_structures/false_rare_witnesses.tex") && passed;
 
     /* 9. I certificati del capitolo 28. */
     passed = check_structure_certificates("tests/algebraic_structures/abstract_structures.tex", 24) && passed;

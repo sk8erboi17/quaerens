@@ -1,0 +1,61 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_rare\_witnesses.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_rare\_witnesses.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_algebraic\_structures.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 24 false statements that must never be reported as proved. It is the anti-regression test of the independent check of rule 18u (chapter 19). In statements 1--17 the hypotheses hold for none of the first twelve elements of $\mathbb{Q}$ or $\mathbb{Z}$, except $x = 1$ in statement 7, where the thesis holds: a check that only tried those elements would have confirmed a wrong proof of every one of them. Deliberately broken copies of the engine did produce such proofs: one that gives the same name to the two $k$ (statements 12 and 17), one that forgets that the value of an ``there is $m \in \mathbb{Z}$'' must be an integer (1, 4, 5, 7, 8, 9, 10, 13, 14, 15, 16). The check must stop them.
+
+\item \textbf{Why each statement is false.} A counterexample for each, found by a separate computation with exact fractions that does not use the engine; the same computation counted the points of the first twelve elements of each set that satisfy the hypotheses.
+\begin{enumerate}
+\item $k = 1$: $x = \frac{15}{2}$, $2x^{2} = \frac{225}{2}$.
+\item $k = 0$ and $k = 1$: $x = 7$, $y = 8$.
+\item $x = 7$ ($k = 0$), $y = \frac{15}{2}$ ($k = 1$).
+\item $x = y = \frac{15}{2}$: $2xy = \frac{225}{2}$.
+\item $k = 1$: $x = 8$, even.
+\item $k = 2$: $x = 11$.
+\item $k = -2$: $x = \frac{22}{3}$; also $k = 1$, $x = \frac{31}{3}$.
+\item $k = 0$: $x = \frac{15}{2}$.
+\item $x = 7$ ($k = 0$), $y = \frac{1}{2}$ ($k = 0$): $x + y = \frac{15}{2}$.
+\item $k = 1$: $x = 8$, and $8 = 2m + 7$ gives $m = \frac{1}{2}$.
+\item $x = 8$, $y = 7$.
+\item $x = 101$, $y = 102$.
+\item $x = y = 101$: $x - y = 0 \notin \mathbb{N}$.
+\item $k = 1$: $x = 101$, $m = 0 \notin \mathbb{N}$.
+\item $k = 1$ and $k = 2$: $x = \frac{101}{2}$, $y = 51$, $x + y = \frac{203}{2}$.
+\item $k = 1$ and $k = 1$: $x = 51$, $y = \frac{103}{2}$, $x + y = \frac{205}{2}$.
+\item $k = 1$ and $k = 2$: $x = 102$, $y = 106$, $3x - 2y = 94$. With one $k$ for both, $3x - 2y$ would be $100$.
+\item $k = 1$: $x = \frac{1}{2}$.
+\item $x = 3$: $x^{2} = 9 = 16m + 1$ gives $m = \frac{1}{2}$.
+\item As 19, with the same letter $k$ in the thesis.
+\item $x = 1$, $y = 0$: $x + y = 1$ is odd.
+\item $n = 2$, $a = 2$: $2 \mid 2 - 200$, but $4 \nmid 2$.
+\item $x = 0$, $y = 1$, $z = w = \frac{1}{2}$: $xz - yw = -\frac{1}{2}$.
+\item $x = y = 0$, $z = w = \frac{1}{2}$: $2x - 2y + w = \frac{1}{2}$.
+\end{enumerate}
+Statements 18--22 are false variants with hypotheses $x = k^{2}$, $x = 2k + 1$ and $n \mid a - 100n$ that small numbers do satisfy: there the old check already found counterexamples. Statements 23 and 24 have four variables in $\mathbb{Q}$ and one more quantifier inside: the check can afford only five values for each, and the first five rationals are $0, 1, -1, 2, -2$. Their counterexamples need $\frac{1}{2}$, and the engine that forgets integrality proved both until the check added a fraction to the values it tries. Today the engine refutes both.
+
+\item \textbf{Adding statements.} Any new statement must be false, with its counterexample written here.
+
+\item \textbf{Expected result.} The line \texttt{PASS: 24 of 24 false statements rejected}. Today eight of them are refuted with a counterexample (6 and 18--24) and the others are left undecided.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_algebraic_structures \
+    tests/algebraic_structures/test_algebraic_structures.c \
+    && /tmp/test_algebraic_structures
+\end{verbatim}
+\end{enumerate}
+\end{document}

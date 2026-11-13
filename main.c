@@ -430,6 +430,9 @@
 #define MAX_GENERATORS 256   /* multipli delle ipotesi provati per ottenere la tesi (18s, 18u) */
 #define MAX_LEAVES 8         /* parti di una disgiunzione esaminate insieme (18u) */
 #define MAX_NAMED 3          /* valori cercati insieme per degli "esiste" consecutivi (18u) */
+#define MAX_RECORDS 32       /* valori trovati da 18u-3 in una dimostrazione, annotati per la verifica (capitolo 19) */
+#define MIN_SATISFIED 1      /* valori del campione che soddisfano le ipotesi, almeno, perché la verifica di 18u conti (capitolo 19).
+                                Warning: se lo alzi, cambia anche i motivi scritti in decide_quantified() e in records_doubt() */
 #define MAX_SORTS 4          /* insiemi qualsiasi distinti in un enunciato (17o) */
 #define MAX_SYMBOLS 64       /* simboli di un enunciato su insiemi qualsiasi, compresi gli elementi a cui la dimostrazione dà un nome */
 #define MAX_SLOTS 24         /* variabili quantificate in un enunciato su insiemi qualsiasi */
@@ -8476,21 +8479,32 @@ static void choose(int name, Frac value) {
     if (chosen_count < MAX_BOUND) chosen[chosen_count++] = (Choice){name, value};
 }
 
+/* Ciò che la regola 18u lascia da ricontrollare alla verifica del capitolo
+ * 19: quanti valori trovati da 18u-3 sono annotati in witness_records[] (vedi
+ * WitnessRecord, nel paragrafo di 18u), e quante ipotesi "esiste" 18u-1 ha
+ * preso con il loro testimone. Come le scelte, tornano indietro con un
+ * tentativo abbandonato: di quel tentativo non resta nulla da ricontrollare. */
+static int record_count, hypotheses_named;
+
 /* Un punto della dimostrazione scritta e dell'elenco delle scelte a cui si
  * può tornare quando un tentativo fallisce. */
 typedef struct {
     size_t proof;  /* lunghezza del testo */
     int chosen;    /* numero di scelte */
+    int records;   /* valori annotati da 18u-3 */
+    int named;     /* ipotesi "esiste" prese da 18u-1 */
 } Mark;
 
 /* Ritorna il punto in cui si è adesso. */
-static Mark mark_here(void) { return (Mark){proof_length, chosen_count}; }
+static Mark mark_here(void) { return (Mark){proof_length, chosen_count, record_count, hypotheses_named}; }
 
-/* Cancella il testo e le scelte aggiunti dopo mark. */
+/* Cancella il testo, le scelte e le annotazioni di 18u aggiunti dopo mark. */
 static void rollback(Mark mark) {
     proof_length = mark.proof;
     proof_text[proof_length] = 0;
     chosen_count = mark.chosen;
+    record_count = mark.records;
+    hypotheses_named = mark.named;
 }
 
 /* Lettere da scrivere con un apice, per atomo: la regola dei segni (18c)
@@ -9950,6 +9964,28 @@ static int solve_for(Formula *f, int negated) {
  * ricevere tutte e due il nome k: prima di dare il nome, una viene riscritta
  * con una lettera che lì non è usata (quantifier_renamed()).
  *
+ * Perché dare un nome è lecito, e che cosa lo garantisce. 18u-1 allarga la
+ * portata di una lettera a tutta la disgiunzione, e un errore qui
+ * fonderebbe due numeri in uno: da \exists k (x = 2k) e \exists k (y = 2k)
+ * seguirebbe x = y. Il passo è corretto a tre condizioni, ognuna con la sua
+ * difesa:
+ *
+ *   - v non compare nelle altre parti, né tra le variabili in vista
+ *     (generiche, legate, applicazioni): letter_is_free() lo controlla su
+ *     ogni nodo, quantificato o no (formula_uses_letter());
+ *   - dentro la parte, v indica sempre lo stesso numero: formula_check()
+ *     vieta di quantificare una lettera dentro se stessa, e le copie che
+ *     nascono qui, rinominate o svolte, usano lettere che lì non compaiono;
+ *   - la copia rinominata dice la stessa cosa dell'originale: nasce
+ *     riscrivendo un testo, e formula_renamed() la confronta nodo per nodo
+ *     con l'originale (alfa-equivalenza).
+ *
+ * Un errore che nessuna delle tre vede resta possibile, per esempio un tipo
+ * di nodo nuovo con una lettera che formula_uses_letter() non guarda. Lo
+ * fermerebbe la verifica del capitolo 19, che ricalcola l'enunciato com'è
+ * scritto, con le sue portate, su valori che soddisfano le ipotesi: due
+ * numeri fusi per errore danno una tesi che lì fallisce (x = 0, y = 2).
+ *
  * Che cosa non fa. Non si applica dentro una dimostrazione per casi sul
  * resto (18o), e nemmeno quando le variabili generiche diventerebbero più
  * di MAX_BOUND. E il valore cercato è solo un polinomio: un'ipotesi "per
@@ -9957,13 +9993,21 @@ static int solve_for(Formula *f, int negated) {
  *
  * La verifica indipendente. I valori trovati qui sono espressioni nelle
  * lettere a cui è stato dato un nome, e quelle lettere non esistono fuori da
- * questa dimostrazione: la verifica del capitolo 19 non potrebbe calcolarli.
+ * questa dimostrazione: la verifica dell'enunciato non potrebbe calcolarli.
  * Perciò, riuscita la dimostrazione, ciò che è stato annotato nei nodi viene
- * dimenticato (forget_choices()), e la verifica ricalcola la parte di
- * enunciato com'è scritta: per ogni "esiste" prova i primi elementi
- * dell'insieme e, soprattutto, le soluzioni delle sue equazioni (vedi
- * sample_holds()), che per un'ipotesi come \exists k (x - y = k) decidono
- * esattamente se è vera.
+ * dimenticato (forget_choices()), e i controlli sono due, descritti in testa
+ * al capitolo 19:
+ *
+ *   - l'enunciato com'è scritto, su valori che soddisfano le ipotesi per
+ *     costruzione: per \exists k (x = k^2 + 7) si sceglie k e si calcola x.
+ *     Se le ipotesi non sono mai risultate vere (meno di MIN_SATISFIED
+ *     volte), il verdetto non viene emesso;
+ *   - il valore scelto qui, annotato prima di dimenticarlo
+ *     (record_witnesses()): dove le ipotesi valgono deve stare nel suo
+ *     insieme e rendere vera la condizione. Si calcola con i numeri, senza
+ *     l'identità tra polinomi con cui 18s ha giustificato il passo, e una
+ *     copia del programma che scriveva w con il segno sbagliato, o non
+ *     chiedeva che w fosse intero, è stata fermata così.
  */
 
 /* Una parte di una disgiunzione da dimostrare, con il segno con cui va
@@ -9972,6 +10016,41 @@ typedef struct {
     Formula *source;  /* la condizione */
     int negated;      /* 1 se va presa negata */
 } Leaf;
+
+/* Ciò che 18u-3 ha affermato trovando un valore, annotato perché la verifica
+ * del capitolo 19 lo ricontrolli con i numeri (record_holds()). Un'istanza
+ * dice: per ogni valore delle variabili generiche per cui le parti `leaf`
+ * della disgiunzione sono tutte false (cioè le ipotesi valgono), i valori
+ * `value` degli "esiste" `quantifier` stanno nei loro insiemi e rendono vera
+ * `body`, letta con il segno `sign`.
+ *
+ * Le espressioni, i nodi e gli insiemi a cui punta stanno nell'arena e negli
+ * alberi della dimostrazione in corso: valgono finché questa non riparte. */
+typedef struct {
+    int generics;                    /* variabili generiche, in generic[] */
+    Bound generic[MAX_BOUND];        /* nell'ordine in cui la verifica dà loro un valore: prima
+                                        i testimoni a cui 18u-1 ha dato un nome, poi le altre */
+    int bindings;                    /* variabili legate a un valore, in binding[] */
+    Binding binding[MAX_ENV];        /* quelle di env in quel momento: il valore è
+                                        un'espressione nelle variabili generiche */
+    int leaves;                      /* parti della disgiunzione, in leaf[] */
+    Leaf leaf[MAX_LEAVES];           /* tutte tranne quella dell'"esiste" */
+    int names;                       /* "esiste" a cui è stato dato un valore, da 1 a MAX_NAMED */
+    Formula *quantifier[MAX_NAMED];  /* i loro nodi, dal più esterno */
+    Rat value[MAX_NAMED];            /* i valori: espressioni nelle variabili generiche */
+    const Formula *body;             /* la condizione che segue gli "esiste" */
+    int sign;                        /* 1 se body va presa negata */
+} WitnessRecord;
+
+/* I valori trovati da 18u-3 nella dimostrazione in corso: i primi
+ * record_count (vedi Mark). */
+static WitnessRecord witness_records[MAX_RECORDS];
+
+/* Le variabili generiche che 18u-1 ha introdotto dando un nome a ciò che
+ * un'ipotesi dice esistere: il bit i per universal[i]. La verifica dà loro un
+ * valore per prime, e ne ricava le altre risolvendo le ipotesi: x = k^2 si
+ * soddisfa scegliendo k e calcolando x, quasi mai scegliendo x. */
+static unsigned universal_named;
 
 /* Prototipo in avanti inevitabile: forget_choices() sta nel capitolo 19, con
  * la verifica a cui serve, e 18u deve chiamarla quando riesce. */
@@ -10075,6 +10154,45 @@ static Formula *membership_unfolded(const Formula *f, int letter) {
     return negation;
 }
 
+/* La lettera name dopo la sostituzione di ogni from[i] con to[i], per i <
+ * count; -1 se name è già una delle to[i], che dovevano essere nuove. */
+static int letter_renamed(int name, const int *from, const int *to, int count) {
+    for (int i = 0; i < count; i++) {
+        if (name == from[i]) return to[i];
+        if (name == to[i]) return -1;
+    }
+    return name;
+}
+
+/* Ritorna 1 se l'espressione b è a con ogni lettera from[i] scritta to[i]:
+ * stessi nodi, stessi numeri, stesse lettere tranne quelle cambiate. */
+static int node_renamed(const Node *a, const Node *b, const int *from, const int *to, int count) {
+    if (!a || !b) return a == b;
+    return a->kind == b->kind && a->value == b->value && a->op == b->op && letter_renamed(a->name, from, to, count) == b->name &&
+           node_renamed(a->a, b->a, from, to, count) && node_renamed(a->b, b->b, from, to, count) && node_renamed(a->c, b->c, from, to, count);
+}
+
+/* Come node_renamed(), per due condizioni: b deve essere a con le lettere
+ * cambiate, nodo per nodo, con gli stessi insiemi.
+ *
+ * È il controllo del passo di quantifier_renamed(), scritto a parte: là la
+ * copia nasce riscrivendo un testo e rileggendolo, e un errore della
+ * riscrittura (una lettera tra le graffe di \mathbb{N} cambiata, come è già
+ * successo con le definizioni svolte di 17j) darebbe un'altra condizione.
+ * Qui si guarda che la copia sia la stessa condizione con le variabili
+ * legate chiamate in un altro modo. Basta, perché ogni to[i] è una lettera
+ * che in a non compare (letter_renamed() lo pretende), quindi due lettere
+ * diverse restano diverse e una variabile non ne cattura un'altra: è ciò che
+ * i logici chiamano alfa-equivalenza, e due condizioni alfa-equivalenti sono
+ * vere o false insieme. */
+static int formula_renamed(const Formula *a, const Formula *b, const int *from, const int *to, int count) {
+    if (!a || !b) return a == b;
+    return a->kind == b->kind && a->swapped == b->swapped && letter_renamed(a->variable, from, to, count) == b->variable &&
+           numbers_equal(&a->numbers, &b->numbers) && node_renamed(a->left, b->left, from, to, count) &&
+           node_renamed(a->right, b->right, from, to, count) && formula_renamed(a->a, b->a, from, to, count) &&
+           formula_renamed(a->b, b->b, from, to, count);
+}
+
 /* 18u-1, quando la lettera è già usata altrove. Ritorna una copia del
  * quantificatore q, parte di posto own della disgiunzione leaf[0..count),
  * in cui ogni sua lettera che compare anche in un'altra parte è cambiata
@@ -10090,11 +10208,13 @@ static Formula *membership_unfolded(const Formula *f, int letter) {
  * testo del quantificatore con la lettera nuova e lo si rilegge, così ogni
  * nodo ha il testo che gli corrisponde. Più lettere dopo lo stesso
  * quantificatore hanno un testo solo, quindi si cambiano insieme, e q deve
- * essere il nodo della prima. */
+ * essere il nodo della prima. Una copia che non risulta la stessa
+ * condizione con le lettere cambiate (formula_renamed()) è un passo non
+ * giustificato, e non si usa. */
 static Formula *quantifier_renamed(const Formula *q, const Leaf *leaf, int count, int own) {
     static char fresh[MAX_BOUND][2];
     const char *to[MAX_BOUND], *before = syntax_error;
-    int from[MAX_BOUND], changes = 0;
+    int from[MAX_BOUND], letters[MAX_BOUND], changes = 0;
 
     /* Le lettere scritte dopo il quantificatore: i nodi con lo stesso
      * testo. Si cambiano quelle usate altrove, purché non siano già
@@ -10112,17 +10232,20 @@ static Formula *quantifier_renamed(const Formula *q, const Leaf *leaf, int count
         from[changes] = g->variable;
         fresh[changes][0] = (char)letter;
         to[changes] = fresh[changes];
+        letters[changes] = letter;
         changes++;
     }
     if (!changes) return NULL;
 
-    /* Il testo riscritto, e la sua lettura. Un errore qui vuol dire solo
-     * che la copia non si può fare. */
+    /* Il testo riscritto, e la sua lettura. Un errore di lettura vuol dire
+     * solo che la copia non si può fare; una copia letta che dice un'altra
+     * cosa, invece, è un errore della riscrittura. */
     draft_length = 0;
     draft_rewrite(q->start, q->end, from, to, changes);
     Formula *copy = unfold();
-    int read = !syntax_error && copy->kind == q->kind && formula_uses_letter(copy, fresh[0][0]);
+    int read = !syntax_error;
     syntax_error = before;
+    if (read && !formula_renamed(q, copy, from, letters, changes)) { unjustified_steps++; read = 0; }
     return read ? copy : NULL;
 }
 
@@ -10227,6 +10350,40 @@ static int witnesses_solve(Formula *f, int negated, Formula **quantifier, int na
     return 0;
 }
 
+/* Annota in witness_records[] ciò che 18u-3 ha appena affermato. I `names`
+ * "esiste" di quantifier[] cominciano la parte own della disgiunzione
+ * leaf[0..count), body è la condizione che li segue, da leggere con il segno
+ * sign, e i valori scelti sono nei nodi. Ritorna 0, senza annotare nulla, se
+ * l'elenco è pieno: allora il valore non va usato, perché nessuno lo
+ * ricontrollerebbe.
+ *
+ * Si copia lo stato della dimostrazione in quel momento: le variabili
+ * generiche, prima quelle a cui 18u-1 ha dato il nome di un testimone, e
+ * quelle legate a un valore. I valori nei nodi invece non bastano: 18u-1
+ * li dimentica (forget_choices()), perché contengono lettere che fuori dalla
+ * dimostrazione non esistono. */
+static int record_witnesses(const Leaf *leaf, int count, int own, Formula **quantifier, int names, const Formula *body, int sign) {
+    if (record_count == MAX_RECORDS) return 0;
+    WitnessRecord *r = &witness_records[record_count++];
+    r->generics = 0;
+    for (int named = 1; named >= 0; named--)
+        for (int i = 0; i < universal_count; i++)
+            if ((int)(universal_named >> i & 1) == named) r->generic[r->generics++] = universal[i];
+    r->bindings = env_count;
+    memcpy(r->binding, env, sizeof(Binding) * (size_t)env_count);
+    r->leaves = 0;
+    for (int i = 0; i < count; i++)
+        if (i != own) r->leaf[r->leaves++] = leaf[i];
+    r->names = names;
+    for (int j = 0; j < names; j++) {
+        r->quantifier[j] = quantifier[j];
+        r->value[j] = quantifier[j]->witness[split_case];
+    }
+    r->body = body;
+    r->sign = sign;
+    return 1;
+}
+
 /* 18u-3. Dimostra la disgiunzione f (negata se negated), le cui parti sono
  * leaf[0..count), cercando il valore degli "esiste" con cui comincia la
  * parte own tra i polinomi nelle variabili generiche, come descritto in
@@ -10278,7 +10435,12 @@ static int witnesses_from(Formula *f, int negated, const Leaf *leaf, int count, 
         body = quantifier[names - 1]->a;
         int equations = find_equations(body, sign, equation, 0);
         for (int e = 0; e < equations && !failure && search_left > 0; e++) {
-            if (witnesses_solve(f, negated, quantifier, names, body, equation[e], given, kept)) return 1;
+            if (witnesses_solve(f, negated, quantifier, names, body, equation[e], given, kept)) {
+                if (record_witnesses(leaf, count, own, quantifier, names, body, sign)) return 1;
+                for (int j = 0; j < names; j++) quantifier[j]->has_witness &= ~(1u << split_case);
+                rollback(mark);
+                return 0;
+            }
             rollback(mark);
         }
     }
@@ -10336,13 +10498,17 @@ static int name_witnesses(Formula *f, int negated) {
             put_numbers(&q->numbers);
             proof_add("$.\n");
         }
+        int hypothesis = q->kind == F_EXISTS;
+        universal_named |= (unsigned)hypothesis << universal_count;
         universal[universal_count++] = (Bound){q->variable, &q->numbers};
         int holds = establish(leaf_replaced(f, q, q->a), negated);
         universal_count--;
+        universal_named &= ~(1u << universal_count);
 
         /* I valori annotati dentro f possono contenere v, che fuori da qui
-         * non esiste: la verifica ricalcolerà f com'è scritta. */
-        if (holds) { forget_choices(f); return 1; }
+         * non esiste: la verifica ricalcolerà f com'è scritta, e quelli
+         * trovati da 18u-3 li ricontrollerà a parte (witness_records[]). */
+        if (holds) { hypotheses_named += hypothesis; forget_choices(f); return 1; }
         rollback(mark);
         return 0;
     }
@@ -17776,22 +17942,76 @@ static void decide_with_parameter(const Formula *thesis, Verdict *verdict) {
  * Come per gli insiemi (capitolo 16) non è una seconda dimostrazione, perché
  * il campione è finito: è un controllo contro gli errori del programma. Se
  * non conferma la dimostrazione, il verdetto non viene emesso.
+ *
+ * I valori da provare. I primi elementi di un insieme non bastano quando
+ * l'enunciato chiede qualcosa di raro. In "per ogni x, se esiste k con x =
+ * k^2 + 7 allora ..." nessuno dei primi interi soddisfa l'ipotesi, e
+ * un'implicazione con l'ipotesi falsa è vera qualunque cosa dica la tesi:
+ * una verifica così sarebbe una prova su strada fatta solo nei giorni di
+ * sole. Perciò ogni quantificatore prova anche i valori che le condizioni
+ * gli impongono (sample_equations(), sample_candidates()): da alpha x +
+ * beta = 0 il valore -beta/alpha; e se l'uguaglianza contiene la lettera k
+ * di un "esiste" più interno, per ogni k del campione il valore di x che la
+ * rende vera. Così x = k^2 + 7 dà x = 7, 8, 11, 16, ..., e l'ipotesi vale
+ * per costruzione. Divisibilità e appartenenza si leggono con la loro
+ * definizione: n | a - b dice a - b = q n con q intero, e q si sceglie. E
+ * tra i valori di una variabile razionale ce n'è sempre uno che non è
+ * intero (check_sample()), anche quando le variabili sono tante e i valori
+ * pochi.
+ *
+ * I valori scelti da 18u. Riuscita la regola 18u, i valori annotati nei
+ * nodi vengono dimenticati (vedi 18u): la verifica dell'enunciato ricalcola
+ * ogni "esiste" com'è scritto, e del valore scelto dalla dimostrazione non
+ * direbbe nulla. Lo ricontrolla record_holds(), con ciò che 18u-3 ha
+ * annotato in witness_records[]: dove le ipotesi valgono, il valore deve
+ * stare nel suo insieme e rendere vera la condizione. Le variabili generiche
+ * si scelgono anche lì in modo che le ipotesi valgano: prima un numero per
+ * ogni testimone nominato da 18u-1, poi le altre ricavate dalle ipotesi.
+ * È un conto con i numeri, indipendente dall'identità tra polinomi con cui
+ * 18s ha giustificato il passo.
+ *
+ * Quante prove servono. Una verifica che non ha mai trovato vere le ipotesi
+ * non ha controllato nulla. Se la dimostrazione ha preso un'ipotesi "esiste"
+ * con il suo testimone (18u-1), la verifica dell'enunciato deve aver trovato
+ * vera la tesi di un'implicazione, con l'ipotesi vera, almeno MIN_SATISFIED
+ * volte; e ogni valore annotato da 18u-3 deve essere stato provato su almeno
+ * MIN_SATISFIED scelte che soddisfano le ipotesi. Altrimenti il verdetto è
+ * NON DIMOSTRATO, e il motivo lo dice. Così resta senza verdetto anche un
+ * enunciato vero perché le sue ipotesi non valgono mai, come "se x^2 = 2k^2
+ * + 3 allora ...": nessuno ha controllato che non valgano, e un'ipotesi che
+ * la verifica non sa soddisfare non è per questo impossibile.
+ *
+ * Perché ne basta una. Una soglia più alta sembrerebbe più prudente, ma ci
+ * sono ipotesi che valgono in un punto solo: una relazione che contiene solo
+ * le coppie (1, v) è antisimmetrica, e "(x, y) e (y, x) nella relazione"
+ * vale solo per x = y = 1. Lì una prova è tutta la verifica possibile, e
+ * una soglia di quattro ha tolto il verdetto a tre enunciati di questo tipo
+ * generati da fuzz_relations.py, uno dimostrato e due smentiti, tutti e tre
+ * giustamente. Dove le soluzioni sono tante, le
+ * prove sono tante anche loro, perché i valori si ricavano dalle ipotesi
+ * (vedi "I valori da provare").
  */
 
-/* Calcola il valore che la dimostrazione ha scelto per la variabile del
- * quantificatore f, ora che le variabili più esterne sono legate a numeri: le
- * sostituisce una per volta nell'espressione scelta. Mette il numero in
- * *value e ritorna 1; ritorna 0 se non ne esce un numero razionale. */
-static int witness_value(const Formula *f, Frac *value) {
-    Rat chosen_value = f->witness[split_case];
-    Num number;
+/* Mette in *out il valore r con ogni variabile legata in questo momento
+ * sostituita dal suo valore, una per volta. Ritorna 0 se un conto non
+ * riesce. */
+static int substituted(Rat r, Rat *out) {
     for (int i = 0; i < env_count && !failure; i++) {
         Poly num, den;
         int x = atom_var(env[i].name);
-        if (!rat_polynomials(chosen_value, &num, &den)) return 0;
-        chosen_value = rat_div(poly_substitute(num, x, env[i].value), poly_substitute(den, x, env[i].value));
+        if (!rat_polynomials(r, &num, &den)) return 0;
+        r = rat_div(poly_substitute(num, x, env[i].value), poly_substitute(den, x, env[i].value));
     }
-    if (failure || !rat_number(chosen_value, &number) || number.im.num != 0) return 0;
+    *out = r;
+    return !failure;
+}
+
+/* Calcola un valore scelto dalla dimostrazione, chosen, ora che le variabili
+ * da cui dipende sono legate a numeri. Mette il numero in *value e ritorna
+ * 1; ritorna 0 se non ne esce un numero razionale. */
+static int value_now(Rat chosen, Frac *value) {
+    Num number;
+    if (!substituted(chosen, &chosen) || !rat_number(chosen, &number) || number.im.num != 0) return 0;
     *value = number.re;
     return 1;
 }
@@ -17799,6 +18019,197 @@ static int witness_value(const Formula *f, Frac *value) {
 /* Quanti elementi di ogni insieme prova la verifica: SAMPLE_SIZE, oppure meno
  * quando i quantificatori annidati sono tanti. Lo fissa decide_quantified(). */
 static int sample_width;
+
+/* Mette in out i valori che la verifica prova per una variabile di set, e
+ * ritorna quanti sono: i primi width elementi (numbers_sample()), più il
+ * primo che non è intero se tra quelli non ce n'è nessuno e set non è fatto
+ * di interi. out deve avere posto per width + 1 valori.
+ *
+ * Perché. In ordine di altezza i primi razionali sono 0, 1, -1, 2, -2: con
+ * cinque o più variabili annidate la larghezza scende a cinque o meno, e la
+ * verifica di un enunciato sui razionali provava soltanto interi. Una copia
+ * del programma rotta apposta, che non chiedeva che il valore di un
+ * "esiste" fosse intero, "dimostrava" così che per x, y, z, w razionali con
+ * x - y e z - w interi anche xz - yw è intero, e la verifica confermava: la
+ * tesi fallisce solo fuori dagli interi (x = 0, y = 1, z = w = 1/2).
+ * L'enunciato è in false_rare_witnesses.tex. Il valore si aggiunge e non ne
+ * sostituisce un altro, perché un "esiste" che si confermava con -2 deve
+ * continuare a trovarlo. */
+static int check_sample(const NumberSet *set, Frac *out, int width) {
+    Frac first[SAMPLE_SIZE];
+    numbers_sample(set, out, width);
+    if (set->integers) return width;
+    for (int i = 0; i < width; i++)
+        if (out[i].den != 1) return width;
+    numbers_sample(set, first, SAMPLE_SIZE);
+    for (int i = width; i < SAMPLE_SIZE; i++)
+        if (first[i].den != 1) { out[width] = first[i]; return width + 1; }
+    return width;
+}
+
+/* Quante volte la verifica ha trovato vera la tesi di un'implicazione dopo
+ * averne trovata vera l'ipotesi: le prove che hanno controllato qualcosa
+ * (vedi "Quante prove servono", in testa al capitolo). */
+static long sample_theses;
+
+/* Ritorna holds, la tesi di un'implicazione calcolata sul campione con
+ * l'ipotesi vera, e la conta se è vera. */
+static int thesis_counted(int holds) {
+    sample_theses += holds;
+    return holds;
+}
+
+/* Una condizione da rendere vera da cui la verifica ricava dei valori da
+ * provare (sample_candidates()): un'uguaglianza, con al più un numero
+ * ancora da scegliere, il testimone, che varia in `set`.
+ *
+ *   - source è F_EQUAL o F_DISTINCT: left = right. witness è la lettera di
+ *     un "esiste" più interno che vi compare, o 0 se non ce n'è.
+ *   - source è F_DIVIDES, "u divide v": per definizione v = q u con q
+ *     intero (17n); il testimone è q, set sono gli interi, witness è 0.
+ *   - source è F_IN, "s appartiene ad A": s = q con q in A; set è A. */
+typedef struct {
+    const Formula *source;
+    int witness;
+    const NumberSet *set;  /* NULL se non c'è un testimone */
+} Wanted;
+
+/* Gli interi: l'insieme del quoziente di una divisibilità. */
+static const NumberSet all_integers = {.integers = 1};
+
+/* Elenca in list[], dal posto count, le condizioni da rendere vere perché
+ * valga f, negata se negated, e ritorna il nuovo numero, al più
+ * MAX_EQUATIONS. outer[0..binders) sono gli "esiste" più esterni in cui si è
+ * scesi: le loro lettere sono testimoni.
+ *
+ * Fa per la verifica ciò che find_equations() fa per la dimostrazione, ed è
+ * scritta a parte perché chi controlla non usi il codice di chi cerca. In una
+ * congiunzione prende ciò che serve, in una disgiunzione ciò che basta: in
+ * tutti e due i casi è solo un valore da provare, e il conto lo ricontrolla.
+ * Non entra in un "per ogni" più interno, dove un'uguaglianza vale per ogni
+ * valore della sua lettera e risolverla non dà nulla. Entra in un "esiste",
+ * e ne tiene anche le uguaglianze con la sua lettera: sono le ipotesi
+ * "esiste k" di 18u, che si soddisfano scegliendo k. Un'uguaglianza con due
+ * testimoni si salta, e così una divisibilità o un'appartenenza che ne usa
+ * già uno: i valori da scegliere sarebbero due. */
+static int sample_equations(const Formula *f, int negated, const Formula **outer, int binders, Wanted *list, int count) {
+    if (count == MAX_EQUATIONS) return count;
+    switch (f->kind) {
+    case F_NOT:
+        return sample_equations(f->a, !negated, outer, binders, list, count);
+    case F_EQUAL: case F_DISTINCT: case F_DIVIDES: case F_IN: {
+        /* I testimoni che vi compaiono, e da che parte va letta. */
+        const Formula *binder = NULL;
+        int witnesses = 0, plain = f->kind == F_EQUAL || f->kind == F_DISTINCT;
+        for (int i = 0; i < binders; i++)
+            if (formula_uses_letter(f, outer[i]->variable)) { binder = outer[i]; witnesses++; }
+        if (plain ? (f->kind == F_EQUAL) == negated || witnesses > 1 : f->swapped != negated || witnesses) return count;
+        if (plain) list[count] = binder ? (Wanted){f, binder->variable, &binder->numbers} : (Wanted){f, 0, NULL};
+        else list[count] = (Wanted){f, 0, f->kind == F_IN ? &f->numbers : &all_integers};
+        return count + 1;
+    }
+    case F_FORALL: case F_EXISTS:
+        if ((f->kind == F_EXISTS) == negated || binders == MAX_BOUND) return count;
+        outer[binders] = f;
+        return sample_equations(f->a, negated, outer, binders + 1, list, count);
+    case F_AND: case F_OR:
+        count = sample_equations(f->a, negated, outer, binders, list, count);
+        return sample_equations(f->b, negated, outer, binders, list, count);
+    case F_IMPLIES:
+        count = sample_equations(f->a, !negated, outer, binders, list, count);
+        return sample_equations(f->b, negated, outer, binders, list, count);
+    default:
+        return count;
+    }
+}
+
+/* Il valore della variabile name che rende vera la condizione w quando il
+ * suo testimone vale q, con tutte le altre variabili legate a numeri. Lo
+ * mette in *value e ritorna 1 se la condizione, scritta come polinomio
+ * uguale a zero, è di primo grado in name con coefficienti numerici, e se in
+ * quel valore il denominatore non si annulla. Un conto che non riesce vuol
+ * dire solo che da qui non viene un valore. */
+static int sample_solution(int name, const Wanted *w, Frac q, Frac *value) {
+    const Formula *f = w->source;
+    size_t mark = arena_used;
+    Poly num, den, part[2];
+    Num zero;
+    Rat gap;
+    if (w->witness && env_count == MAX_ENV) return 0;
+    if (f->kind == F_DIVIDES) {
+        gap = rat_add(eval(f->right), rat_mul(rat_frac(q), eval(f->left)), 1);
+    } else if (f->kind == F_IN) {
+        gap = rat_add(eval(f->left), rat_frac(q), 1);
+    } else {
+        if (w->witness) env_push(w->witness, rat_frac(q));
+        gap = rat_add(eval(f->left), eval(f->right), 1);
+        if (w->witness) env_pop();
+    }
+    int x = atom_var(name);
+    int solved = !failure && rat_polynomials(gap, &num, &den) && poly_split(num, x, part, 1) == 1 &&
+                 poly_is_constant(part[0]) && poly_is_constant(part[1]) && part[1].term[0].coef.im.num == 0 &&
+                 (part[0].count == 0 || part[0].term[0].coef.im.num == 0);
+    if (solved) *value = frac_neg(frac_div(part[0].count ? part[0].term[0].coef.re : frac_int(0), part[1].term[0].coef.re));
+    solved = solved && !(rat_number(poly_substitute(den, x, rat_frac(*value)), &zero) && num_is_zero(zero)) && !failure;
+    failure = NULL;
+    arena_used = mark;
+    return solved;
+}
+
+/* Mette in value[] i valori di name, al più SAMPLE_SIZE, che rendono vera
+ * una delle condizioni list[0..wanted) e che stanno in set, escludendo quelli
+ * già in known[0..knowns); ritorna quanti sono. Prima le condizioni senza
+ * testimone, che danno un valore ciascuna; poi quelle con un testimone, che
+ * prende i valori di check_sample() con larghezza width.
+ *
+ * Tra quei valori c'è anche quello che la verifica proverà per un "esiste"
+ * k scritto nell'enunciato (sample_holds() prova gli stessi), quindi
+ * l'ipotesi "esiste k con x = k^2" risulta vera per ogni x così ottenuto. */
+static int sample_candidates(int name, const NumberSet *set, const Wanted *list, int wanted, int width, const Frac *known,
+                             int knowns, Frac *value) {
+    int count = 0;
+    for (int witnessed = 0; witnessed < 2; witnessed++) {
+        for (int e = 0; e < wanted && count < SAMPLE_SIZE; e++) {
+            Frac q[SAMPLE_SIZE + 1];
+            if ((list[e].set != NULL) != witnessed) continue;
+            int tries = witnessed ? check_sample(list[e].set, q, width) : 1;
+            for (int t = 0; t < tries && count < SAMPLE_SIZE; t++) {
+                Frac x;
+                if (!sample_solution(name, &list[e], witnessed ? q[t] : frac_int(0), &x) || !numbers_contain(set, x)) continue;
+                int seen = 0;
+                for (int i = 0; i < knowns && !seen; i++) seen = frac_cmp(known[i], x) == 0;
+                for (int i = 0; i < count && !seen; i++) seen = frac_cmp(value[i], x) == 0;
+                if (!seen) value[count++] = x;
+            }
+        }
+    }
+    return count;
+}
+
+/* Prototipo in avanti inevitabile: sample_holds() e sample_at() si chiamano
+ * a vicenda. */
+static int sample_holds(const Formula *f, int negated);
+
+/* Calcola sul campione la condizione del quantificatore f, negata se
+ * negated, con la sua variabile uguale a value; ritorna 1 se risulta vera.
+ * Se il "per ogni" f è stato dimostrato per casi sul resto (18o), il numero
+ * dice in quale caso si è, e quanto vale il quoziente che la dimostrazione
+ * ha usato. */
+static int sample_at(const Formula *f, int negated, Frac value) {
+    int every = (f->kind == F_FORALL) != negated;
+    int cases = every && f->modulus && value.den == 1, outer = split_case;
+    env_push(f->variable, rat_frac(value));
+    if (cases) {
+        long long r = ((value.num % f->modulus) + f->modulus) % f->modulus;
+        env_push(f->quotient, rat_int((value.num - r) / f->modulus));
+        split_case = (int)r;
+    }
+    int holds = sample_holds(f->a, negated);
+    if (cases) env_pop();
+    split_case = outer;
+    env_pop();
+    return holds;
+}
 
 /* Ritorna 1 se la condizione f, negata se negated, risulta vera calcolando
  * con i numeri sul campione, come descritto in testa al capitolo. Tutte le
@@ -17809,7 +18220,7 @@ static int sample_width;
  * Senza questo passo, le migliaia di confronti di un enunciato con molte
  * variabili riempivano l'arena, e un enunciato vero restava non confermato. */
 static int sample_holds(const Formula *f, int negated) {
-    Frac sample[SAMPLE_SIZE], value;
+    Frac sample[SAMPLE_SIZE + 1], value;
     Num left, right;
     size_t mark = arena_used;
     if (failure) return 0;
@@ -17856,13 +18267,12 @@ static int sample_holds(const Formula *f, int negated) {
     case F_OR:
         return negated ? sample_holds(f->a, 1) && sample_holds(f->b, 1) : sample_holds(f->a, 0) || sample_holds(f->b, 0);
     case F_IMPLIES:
-        return negated ? sample_holds(f->a, 0) && sample_holds(f->b, 1) : sample_holds(f->a, 1) || sample_holds(f->b, 0);
+        return negated ? sample_holds(f->a, 0) && sample_holds(f->b, 1) : sample_holds(f->a, 1) || thesis_counted(sample_holds(f->b, 0));
     case F_IFF: {
         /* Le due implicazioni, come in establish(). */
-        int forward = sample_holds(f->a, 1) || sample_holds(f->b, 0);
-        int backward = sample_holds(f->b, 1) || sample_holds(f->a, 0);
-        if (!negated) return forward && backward;
-        return (sample_holds(f->a, 0) && sample_holds(f->b, 1)) || (sample_holds(f->b, 0) && sample_holds(f->a, 1));
+        if (negated) return (sample_holds(f->a, 0) && sample_holds(f->b, 1)) || (sample_holds(f->b, 0) && sample_holds(f->a, 1));
+        int forward = sample_holds(f->a, 1) || thesis_counted(sample_holds(f->b, 0));
+        return forward && (sample_holds(f->b, 1) || thesis_counted(sample_holds(f->a, 0)));
     }
     case F_FORALL: case F_EXISTS:
         break;
@@ -17878,7 +18288,7 @@ static int sample_holds(const Formula *f, int negated) {
      * la cui controimmagine era semplicemente fuori dal campione. */
     int every = (f->kind == F_FORALL) != negated;
     if (!every && (f->has_witness >> split_case & 1)) {
-        int holds = witness_value(f, &value) && numbers_contain(&f->numbers, value);
+        int holds = value_now(f->witness[split_case], &value) && numbers_contain(&f->numbers, value);
         arena_used = mark;
         if (holds) {
             env_push(f->variable, rat_frac(value));
@@ -17892,50 +18302,28 @@ static int sample_holds(const Formula *f, int negated) {
     /* "Per ogni": tutti gli elementi del campione. "Esiste" per cui la
      * dimostrazione non ha scelto un valore, perché non le è servito: almeno
      * uno. */
-    numbers_sample(&f->numbers, sample, sample_width);
-    for (int i = 0; i < sample_width; i++) {
-        /* Dimostrato per casi sul resto (18o): il numero dice in quale caso
-         * si è, e quanto vale il quoziente che la dimostrazione ha usato. */
-        int cases = every && f->modulus && sample[i].den == 1, outer = split_case;
-        env_push(f->variable, rat_frac(sample[i]));
-        if (cases) {
-            long long r = ((sample[i].num % f->modulus) + f->modulus) % f->modulus;
-            env_push(f->quotient, rat_int((sample[i].num - r) / f->modulus));
-            split_case = (int)r;
-        }
-        int holds = sample_holds(f->a, negated);
-        if (cases) env_pop();
-        split_case = outer;
-        env_pop();
+    int samples = check_sample(&f->numbers, sample, sample_width);
+    for (int i = 0; i < samples; i++) {
+        int holds = sample_at(f, negated, sample[i]);
         arena_used = mark;
         if (holds != every) return holds;
     }
 
-    /* Oltre ai primi elementi dell'insieme, i valori che le uguaglianze
-     * della condizione impongono: per smentire un "per ogni", o confermare
-     * un "esiste", serve un valore che renda vera una condizione, e se
-     * quella contiene alpha x + beta = 0, con alpha e beta numeri, il
-     * valore non può che essere -beta/alpha. Senza questo passo l'ipotesi
-     * \exists k \in \mathbb{Z}\ (a - b = 7k) risultava falsa per a = 50 e
-     * b = 1, perché k = 7 non è tra i primi interi: e un'implicazione con
-     * l'ipotesi falsa conferma qualsiasi dimostrazione. Le altre variabili
-     * hanno un numero per valore, quindi il conto è tra numeri; un conto che
-     * non riesce vuol dire solo che da lì non viene un candidato. */
-    const Formula *equation[MAX_EQUATIONS];
-    int equations = find_equations((Formula *)f->a, every ? !negated : negated, equation, 0);
-    for (int e = 0; e < equations; e++) {
-        Poly num, den, part[2];
-        Rat gap = rat_add(eval(equation[e]->left), eval(equation[e]->right), 1);
-        int solved = !failure && rat_polynomials(gap, &num, &den) && poly_split(num, atom_var(f->variable), part, 1) == 1 &&
-                     poly_is_constant(part[0]) && poly_is_constant(part[1]) && part[1].term[0].coef.im.num == 0 &&
-                     (part[0].count == 0 || part[0].term[0].coef.im.num == 0);
-        if (solved) value = frac_neg(frac_div(part[0].count ? part[0].term[0].coef.re : frac_int(0), part[1].term[0].coef.re));
-        failure = NULL;
-        arena_used = mark;
-        if (!solved || !numbers_contain(&f->numbers, value)) continue;
-        env_push(f->variable, rat_frac(value));
-        int holds = sample_holds(f->a, negated);
-        env_pop();
+    /* Oltre ai primi elementi dell'insieme, i valori che le condizioni
+     * impongono (vedi "I valori da provare", in testa al capitolo): per
+     * smentire un "per ogni", o confermare un "esiste", serve un valore che
+     * renda vera una condizione. Senza questo passo l'ipotesi \exists k \in
+     * \mathbb{Z}\ (a - b = 7k) risultava falsa per a = 50 e b = 1, perché k
+     * = 7 non è tra i primi interi; e x = k^2 + 7 non era vera per nessuno
+     * dei primi x. Un'implicazione con l'ipotesi falsa conferma qualsiasi
+     * dimostrazione. */
+    const Formula *outer[MAX_BOUND];
+    Wanted wanted[MAX_EQUATIONS];
+    Frac candidate[SAMPLE_SIZE];
+    int conditions = sample_equations(f->a, every ? !negated : negated, outer, 0, wanted, 0);
+    int candidates = sample_candidates(f->variable, &f->numbers, wanted, conditions, sample_width, sample, samples, candidate);
+    for (int i = 0; i < candidates; i++) {
+        int holds = sample_at(f, negated, candidate[i]);
         arena_used = mark;
         if (holds != every) return holds;
     }
@@ -17951,6 +18339,117 @@ static void forget_choices(Formula *f) {
     f->modulus = 0;
     forget_choices(f->a);
     forget_choices(f->b);
+}
+
+/* Quanti valori provare per ogni variabile quando le variabili da combinare
+ * sono depth: le combinazioni sono larghezza^depth, e si scende da
+ * SAMPLE_SIZE finché non stanno in MAX_CHECKS. Mai meno di due valori. */
+static int width_for(int depth) {
+    int width = SAMPLE_SIZE;
+    for (;;) {
+        long long combinations = 1;
+        for (int i = 0; i < depth; i++) combinations *= width;
+        if (combinations <= MAX_CHECKS || width == 2) return width;
+        width--;
+    }
+}
+
+/* Lega, sopra le variabili generiche già legate a numeri, le variabili che
+ * nella dimostrazione annotata in r avevano un valore, con quel valore
+ * calcolato in quei numeri: un numero, o un'espressione nelle generiche non
+ * ancora legate. Ritorna quante ne ha legate, o -1, senza legarne nessuna,
+ * se un conto non riesce o se env non ha abbastanza posti. */
+static int bindings_push(const WitnessRecord *r) {
+    if (env_count + r->bindings > MAX_ENV) return -1;
+    for (int i = 0; i < r->bindings; i++) {
+        Rat value;
+        if (!substituted(r->binding[i].value, &value)) {
+            while (i-- > 0) env_pop();
+            return -1;
+        }
+        env_push(r->binding[i].name, value);
+    }
+    return r->bindings;
+}
+
+/* Ritorna 1 se ciò che r afferma regge quando le prime `level` variabili
+ * generiche di r sono legate a numeri e le altre li prendono come descritto
+ * in testa al capitolo: ognuna i valori che le ipotesi le impongono, se ce
+ * ne sono, altrimenti i valori di check_sample() con larghezza width.
+ * Aggiunge a *satisfied le scelte in cui le ipotesi valgono.
+ *
+ * Un'ipotesi che in quei numeri non è definita (una divisione per zero) lì
+ * non vale, e la scelta non conta. Ogni altro conto che non riesce, nelle
+ * ipotesi, nei valori scelti o nella condizione, vuol dire che ciò che r
+ * afferma non è confermato. */
+static int record_holds(const WitnessRecord *r, int level, int width, long *satisfied) {
+    size_t mark = arena_used;
+    if (failure) return 0;
+    int pushed = bindings_push(r);
+    if (pushed < 0) return 0;
+
+    /* Tutte le generiche hanno un numero: prima le ipotesi, poi i valori
+     * scelti, il loro insieme e la condizione. */
+    if (level == r->generics) {
+        int met = 1, holds = 1, named = 0;
+        for (int i = 0; i < r->leaves && met && !failure; i++) {
+            undefined = 0;
+            met = sample_holds(r->leaf[i].source, !r->leaf[i].negated);
+            if (failure && undefined) failure = NULL;
+        }
+        if (met) {
+            (*satisfied)++;
+            for (int j = 0; j < r->names && holds; j++) {
+                Frac w;
+                holds = value_now(r->value[j], &w) && numbers_contain(&r->quantifier[j]->numbers, w);
+                if (holds) { env_push(r->quantifier[j]->variable, rat_frac(w)); named++; }
+            }
+            holds = holds && sample_holds(r->body, r->sign);
+        }
+        while (named-- > 0) env_pop();
+        while (pushed-- > 0) env_pop();
+        arena_used = mark;
+        return holds && !failure;
+    }
+
+    /* La variabile di questo livello: i valori che le ipotesi le impongono,
+     * calcolati con le variabili già legate, o quelli di check_sample(). */
+    const Bound *g = &r->generic[level];
+    const Formula *outer[MAX_BOUND];
+    Wanted wanted[MAX_EQUATIONS];
+    Frac value[SAMPLE_SIZE + 1];
+    int conditions = 0;
+    for (int i = 0; i < r->leaves; i++)
+        conditions = sample_equations(r->leaf[i].source, !r->leaf[i].negated, outer, 0, wanted, conditions);
+    int values = sample_candidates(g->name, g->numbers, wanted, conditions, width, NULL, 0, value);
+    while (pushed-- > 0) env_pop();
+    arena_used = mark;
+    if (!values) values = check_sample(g->numbers, value, width);
+    for (int i = 0; i < values; i++) {
+        env_push(g->name, rat_frac(value[i]));
+        int holds = record_holds(r, level + 1, width, satisfied);
+        env_pop();
+        arena_used = mark;
+        if (!holds) return 0;
+    }
+    return 1;
+}
+
+/* La verifica dei valori annotati da 18u-3 (record_holds()). Ritorna NULL se
+ * reggono tutti, ognuno su abbastanza scelte che soddisfano le ipotesi (vedi
+ * "Quante prove servono", in testa al capitolo); altrimenti il motivo per cui
+ * il verdetto non va emesso. */
+static const char *records_doubt(void) {
+    for (int k = 0; k < record_count; k++) {
+        const WitnessRecord *r = &witness_records[k];
+        long satisfied = 0;
+        int holds = record_holds(r, 0, width_for(r->generics), &satisfied);
+        failure = NULL;
+        if (!holds) return "la verifica indipendente, sui numeri, non conferma un valore scelto dalla dimostrazione per un \"esiste\"";
+        if (satisfied < MIN_SATISFIED)
+            return "la verifica indipendente non ha trovato valori che soddisfano le ipotesi con cui ricontrollare un valore scelto dalla dimostrazione";
+    }
+    return NULL;
 }
 
 /* Ritorna 1 se, sul campione del dominio, la regola di map dà sempre un
@@ -18325,16 +18824,9 @@ static Verdict decide_quantified(const char *formula) {
         return verdict;
     }
 
-    /* Quanti valori provare per ogni variabile nella verifica: con d
-     * quantificatori annidati le combinazioni sono larghezza^d, e si scende
-     * finché non stanno in MAX_CHECKS. Mai meno di due valori. */
-    sample_width = SAMPLE_SIZE;
-    for (;;) {
-        long long combinations = 1;
-        for (int i = 0; i < quantifier_depth; i++) combinations *= sample_width;
-        if (combinations <= MAX_CHECKS || sample_width == 2) break;
-        sample_width--;
-    }
+    /* Quanti valori provare per ogni variabile nella verifica: dipende da
+     * quanti quantificatori stanno uno dentro l'altro. */
+    sample_width = width_for(quantifier_depth);
 
     /* Prima la tesi, poi la sua negazione. Il testo si riscrive da capo ogni
      * volta, perché comincia in modo diverso nei due casi. Anche la memoria
@@ -18349,7 +18841,9 @@ static Verdict decide_quantified(const char *formula) {
         atom_count = base_poly_count = atan_count = 0;
         chosen_count = 0;
         chosen_by_cases = 0;
+        record_count = hypotheses_named = 0;
         universal_count = 0;
+        universal_named = 0;
         split_modulus = split_case = 0;
         search_left = MAX_SEARCH;
         proof_add("\\textbf{%s}\n\\begin{itemize}\n", negated ? "The statement is false." : "Proof.");
@@ -18386,14 +18880,22 @@ static Verdict decide_quantified(const char *formula) {
         if (!found) continue;
         proof_add("\\end{itemize}\n$\\Box$");
 
-        /* Verifica indipendente. Come sopra, un errore di calcolo qui è una
+        /* Verifica indipendente: l'enunciato com'è scritto, quante prove
+         * hanno trovato vere le ipotesi, i valori scelti da 18u-3 (vedi la
+         * testa del capitolo 19). Come sopra, un errore di calcolo qui è una
          * mancata conferma. */
+        sample_theses = 0;
         int confirmed = sample_holds(thesis, negated);
         for (int i = 0; i < map_count; i++) confirmed = confirmed && map_holds_on_sample(&maps[i]);
-        if (failure || !confirmed) {
+        const char *doubt = NULL;
+        if (failure || !confirmed) doubt = "la verifica indipendente, su un campione di numeri, non conferma la dimostrazione";
+        else if (hypotheses_named && sample_theses < MIN_SATISFIED)
+            doubt = "la verifica indipendente non ha trovato valori del campione che soddisfano le ipotesi, e quindi non ha controllato la tesi";
+        else doubt = records_doubt();
+        if (doubt) {
             failure = NULL;
             verdict.outcome = NOT_PROVED;
-            verdict.reason = "la verifica indipendente, su un campione di numeri, non conferma la dimostrazione";
+            verdict.reason = doubt;
         } else {
             verdict.outcome = negated ? REFUTED : PROVED;
             verdict.detail = negated ? describe_choices() : NULL;

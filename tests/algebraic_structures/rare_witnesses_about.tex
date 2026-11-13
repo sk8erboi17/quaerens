@@ -1,0 +1,34 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{rare\_witnesses.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{rare\_witnesses.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_algebraic\_structures.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 16 true statements proved with rule 18u: a hypothesis ``there is $k$'' is used with its witness, and the value of the thesis is searched among polynomials. What they test is the independent check of chapter 19. Their hypotheses hold for few of the first elements of $\mathbb{Q}$ and $\mathbb{Z}$, or for none of them: $2x = k^{2} + 14$ needs $x \ge 7$, $x = k + 100$ with $k \in \mathbb{N}$ needs $x \ge 101$. A check that only tried those first elements would confirm any proof of these statements, right or wrong, because an implication with a false hypothesis is true. The check now also tries the values that the hypotheses impose (it chooses $k$ and computes $x$), and it recomputes the value that the proof chose for the ``there is $m$'' of the thesis; the statements must still be proved, with that check passed.
+
+\item \textbf{What the statements are.} Hypotheses of the kinds $x = k^{2}$, $x = 2k + 1$, $x = k^{2} + c$, $x = \frac{k}{2} + 10$, $3x = k^{3} + 30$, a divisibility $n \mid a - 100n$ and a membership in $\mathbb{N}$ with an offset; theses ``there is an integer $m$'' with a value that needs the witness ($4x^{2} = m$ with $m = (k^{2} + 14)^{2}$). Statements 3, 6, 12, 13 and 16 use the letter $k$ for two or three different numbers, as books do: the proof must rename them apart before naming them.
+
+\item \textbf{Adding statements.} Any new statement must be true, and its hypotheses should be hard to satisfy with small numbers.
+
+\item \textbf{Expected result.} The line \texttt{PASS: 16 of 16 statements proved}. The false statements next to these are in \texttt{false\_rare\_witnesses.tex}.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_algebraic_structures \
+    tests/algebraic_structures/test_algebraic_structures.c \
+    && /tmp/test_algebraic_structures
+\end{verbatim}
+\end{enumerate}
+\end{document}
