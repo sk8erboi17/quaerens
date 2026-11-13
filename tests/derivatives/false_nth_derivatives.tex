@@ -8,7 +8,7 @@
 \setlength{\emergencystretch}{3em}
 \allowdisplaybreaks
 
-\title{False statements on derivatives (27)}
+\title{False statements on derivatives (44)}
 \author{}
 \date{}
 \begin{document}
@@ -43,5 +43,22 @@ Each statement gives a wrong formula for a derivative of order $n$ or of a fixed
 \item \[ \frac{d}{dx} \left(\sin x \cos x\right) = \cos^{2} x + \sin^{2} x \]
 \item \[ \frac{d}{dx} e^{x^{2}} = e^{x^{2}} \]
 \item \[ \frac{d}{dx} 2^{x} = x \cdot 2^{x - 1} \]
+\item \[ \frac{d}{dx} \sum_{k=0}^{3} x^{k} = 1 + 2x + 3x^{3} \]
+\item \[ \frac{d^{2}}{dx^{2}} \sum_{j=0}^{5} x^{j} = \sum_{j=2}^{5} j x^{j-2} \]
+\item \[ \frac{d^{n}}{dx^{n}} \sum_{j=0}^{3} x^{j} = 0 \] for every integer $n \ge 3$.
+\item \[ \frac{d^{n}}{dx^{n}} \left(1+x\right)^{\frac{1}{2}} = \left(\prod_{j=0}^{n} \left(\frac{1}{2} - j\right)\right) \left(1+x\right)^{\frac{1}{2} - n} \] for every integer $n \ge 0$.
+\item \[ \frac{d}{dx} \cot x = 1 + \cot^{2} x \]
+\item \[ \frac{d^{2}}{dx^{2}} \arctan x = \frac{2x}{\left(1+x^{2}\right)^{2}} \]
+\item \[ \frac{d}{dx} \log_{2}\left(x+1\right) = \frac{1}{x+1} \]
+\item \[ \frac{d^{n}}{dx^{n}} 2^{3x} = 3^{n} \left(\ln 2\right)^{n+1} 2^{3x} \] for every integer $n \ge 0$.
+\item \[ \frac{d^{3}}{dx^{3}} \tan x = 2\left(1+\tan^{2} x\right)^{2} + 2\tan^{2} x \left(1+\tan^{2} x\right) \]
+\item \[ \frac{d^{n}}{dx^{n}} x^{3} = 0 \] for every integer $n \ge 3$.
+\item \[ \frac{d^{n}}{dx^{n}} \cos\left(2x+1\right) = 2^{n} \cos\left(2x + 1 - \frac{n\pi}{2}\right) \] for every integer $n \ge 0$.
+\item \[ \frac{d^{2}}{dx^{2}} \sqrt[3]{x+2} = -\frac{2}{9 \left(x+2\right)^{\frac{4}{3}}} \]
+\item \[ \frac{d^{n}}{dx^{n}} \frac{1}{\left(2x+3\right)^{2}} = \frac{2^{n} \left(n+1\right)!}{\left(2x+3\right)^{n+2}} \] for every integer $n \ge 0$.
+\item \[ \frac{d}{dx} \left(x^{2} \ln x\right) = 2x \ln x \]
+\item \[ \frac{d^{n}}{dx^{n}} \left(x e^{-x}\right) = \left(-1\right)^{n} \left(x + n\right) e^{-x} \] for every integer $n \ge 0$.
+\item \[ \frac{d^{n}}{dx^{n}} \left(x e^{-x}\right) = \left(-1\right)^{n} \left(x - n\right) e^{-x} + n\left(n-1\right)\left(n-2\right)\left(n-3\right)\left(n-4\right) \] for every integer $n \ge 0$.
+\item \[ \frac{d^{n}}{dx^{n}} \sin\left(2x\right) = 2^{n} \sin\left(2x + \frac{n\pi}{2}\right) + n\left(n-1\right)\left(n-2\right) x \] for every integer $n \ge 1$.
 \end{enumerate}
 \end{document}

@@ -19353,18 +19353,48 @@ static Verdict prove_sequence(const char *formula, int variable, int has_base, l
  *
  * I CONTROLLI INDIPENDENTI
  *
- * Tutti con i numeri, attraverso gli intervalli del capitolo 24, in qualche
- * punto x e con dei numeri al posto delle altre lettere.
+ * Le regole di derivazione sono scritte una volta sola, in derive(): una
+ * regola sbagliata darebbe una dimostrazione con tutti i passi in ordine e
+ * la conclusione falsa. Per questo ogni derivata che derive() calcola viene
+ * ricontrollata con un metodo che non usa le sue regole, in tre punti x0 e
+ * con dei numeri al posto delle altre lettere, attraverso gli intervalli
+ * del capitolo 24:
  *
- *   - Ogni derivata calcolata da derive() viene confrontata con il rapporto
- *     incrementale (f(x + h) - f(x - h)) / (2h) della funzione di partenza,
- *     che non sa nulla delle regole: una regola scritta male si vede qui.
- *     Il rapporto sbaglia di circa h^2; lo si calcola con h e con h/2, e la
- *     differenza tra i due dice quanto ci si può fidare.
- *   - Le derivate di f di ordine n0, n0 + 1, ..., calcolate una dopo
- *     l'altra, vengono confrontate con la formula: è la strada che non
- *     passa dall'induzione. Due valori certamente diversi sono un
- *     controesempio, e il verdetto è FALSO con quell'n.
+ *   27h. La serie di Taylor della funzione in x0, calcolata con gli
+ *        intervalli dall'albero della funzione stessa (vedi "Le derivate con
+ *        i numeri", più sotto), dà un intervallo che contiene di sicuro la
+ *        derivata k-esima vera in x0. Lo si confronta con il valore in x0
+ *        della derivata k-esima calcolata da derive(). Se i due intervalli
+ *        non si toccano, una regola è sbagliata: è un errore del programma,
+ *        unjustified_steps sale e il verdetto non è né DIMOSTRATO né FALSO.
+ *        Se i due numeri distano di sicuro meno di AGREEMENT, la derivata è
+ *        confermata in quel punto; altrimenti, lì, non si sa. Ogni derivata
+ *        fino all'ordine del caso base deve essere confermata in almeno un
+ *        punto, e così la derivata della formula, nel passo 27b, per
+ *        n = n0 e n = n0 + 1.
+ *   27i. Le derivate di f di ordine n0, n0 + 1, ... vengono confrontate con
+ *        la formula: è la strada che non passa dall'induzione. Il verdetto è
+ *        FALSO con quell'n solo se in un punto x0 la derivata delle regole è
+ *        confermata (27h) e la formula è di sicuro diversa sia da lei sia
+ *        da quella della serie di Taylor. Così un FALSO non poggia su una
+ *        regola che nessuno ha controllato in quel punto: per dire il falso
+ *        dovrebbero sbagliare allo stesso modo, nello stesso punto, due
+ *        conti scritti in modo diverso. Se la formula è di sicuro diversa da
+ *        uno solo dei due, il verdetto è NON DIMOSTRATO. DIMOSTRATO chiede
+ *        che in nessun punto la formula sia smentita, e che in almeno un
+ *        punto, per almeno un ordine, la formula e la serie di Taylor
+ *        coincidano.
+ *
+ * Che cosa questi controlli non danno: una prova che le regole sono giuste
+ * dappertutto. Due funzioni diverse possono coincidere in tre punti. Ma una
+ * regola sbagliata dà una derivata diversa da quella vera quasi ovunque (le
+ * funzioni trattate sono analitiche dove sono definite e derivabili, e due
+ * funzioni analitiche diverse su un intervallo coincidono lì solo in punti
+ * isolati), e tre punti scelti senza guardare le regole bastano a vederla,
+ * salvo coincidenze. Un FALSO dice invece una cosa precisa, che gli
+ * intervalli garantiscono se le ricorrenze di 27h sono scritte giuste (ed è
+ * per questo che vi devono concordare anche le regole): in quel punto, con
+ * quei valori delle altre lettere, la derivata vera non è la formula.
  *
  * Non c'è un certificato: il verificatore non ha le derivate, e nemmeno
  * seni, radici e logaritmi di una variabile reale.
@@ -19484,11 +19514,10 @@ static Node *node_fold(const Node *tree, int *closed) {
     return whole ? node_num(value) : copy;
 }
 
-/* I punti in cui le derivate vengono controllate con i numeri, e il passo
- * del rapporto incrementale. I punti sono scelti perché le funzioni degli
- * esercizi vi siano definite: positivi, e uno minore di 1/2. */
+/* I punti in cui le derivate vengono controllate con i numeri. Sono scelti
+ * perché le funzioni degli esercizi vi siano definite: due positivi, uno
+ * minore di 1/2, e uno negativo. */
 static const Frac derivative_points[] = {{3, 10}, {7, 5}, {-9, 10}};
-static const Frac derivative_step = {1, 512};
 enum { DERIVATIVE_POINTS = sizeof derivative_points / sizeof *derivative_points };
 
 /* Ritorna una copia di tree pronta per essere calcolata con i numeri nella
@@ -19504,53 +19533,335 @@ static Node *sample_tree(const Node *tree, int x, int order, long long at) {
     return node_fold(copy, &(int){1});
 }
 
-/* Ritorna un intervallo che contiene il valore di tree, già passato da
- * sample_tree(), per x = at; "non so" se non si calcola o non è definito. */
-static Range sample_range(const Node *tree, int x, Frac at) {
-    int nowhere = 0;
-    Range value = node_range(tree, x, range_ratio(at.num, at.den), &nowhere);
-    return nowhere ? range_none() : value;
-}
-
-/* Ritorna 1 se la derivata derived di function, tutti e due già passati da
- * sample_tree(), è confermata dai numeri: in almeno uno dei punti di prova
- * coincide con il rapporto incrementale, e in nessuno ne è lontana.
- *
- * Il rapporto incrementale centrato con passo h dista dalla derivata circa
- * c h^2: quello con passo h/2 circa un quarto. La loro differenza, tre
- * quarti di c h^2, è quindi una misura dell'errore che non richiede di
- * conoscere c: una derivata giusta dista dal secondo rapporto meno di
- * quella differenza, una sbagliata molto di più. */
-static int derivative_confirmed(const Node *function, const Node *derived, int x) {
-    int confirmed = 0;
-    for (int p = 0; p < DERIVATIVE_POINTS; p++) {
-        Frac at = derivative_points[p], h = derivative_step;
-        double quotient[2];
-        Range exact = sample_range(derived, x, at);
-        int known = range_known(exact);
-        for (int i = 0; i < 2 && known; i++, h.den *= 2) {
-            Range up = sample_range(function, x, frac_add(at, h)), down = sample_range(function, x, frac_add(at, frac_neg(h)));
-            known = range_known(up) && range_known(down);
-            if (known) quotient[i] = ((up.low + up.high) - (down.low + down.high)) / 4 * (double)h.den / (double)h.num;
-        }
-        if (!known) continue;
-        double value = (exact.low + exact.high) / 2, error = quotient[0] - quotient[1], gap = quotient[1] - value;
-        double size = value < 0 ? -value : value;
-        if (error < 0) error = -error;
-        if (gap < 0) gap = -gap;
-        if (gap > error + 1e-8 * (1 + size)) return 0;
-        confirmed = 1;
-    }
-    return confirmed;
-}
-
 /* Quante derivate di f, oltre quella del caso base, vengono calcolate una
  * dopo l'altra per confrontarle con la formula; il più grande caso base
- * ammesso, perché ogni derivata allunga l'albero; e la lunghezza oltre la
- * quale si smette di derivare. */
+ * ammesso, perché ogni derivata allunga l'albero; la lunghezza oltre la
+ * quale si smette di derivare; e quindi l'ordine più alto di una derivata
+ * controllata con i numeri. */
 #define DIRECT_ORDERS 3
 #define MAX_DERIVATIVE_BASE 4
 #define MAX_DERIVATIVE_NODES 20000
+#define MAX_JET (MAX_DERIVATIVE_BASE + DIRECT_ORDERS)
+
+/* LE DERIVATE CON I NUMERI: LA SERIE DI TAYLOR TRONCATA (27h)
+ *
+ * Il problema. Per controllare derive() serve la derivata di f in un punto
+ * x0 calcolata senza le sue regole. Il rapporto incrementale
+ * (f(x0 + h) - f(x0 - h)) / (2h) non va bene: sbaglia di circa h^2, e con h
+ * piccolo perde cifre sottraendo due numeri quasi uguali. Dire "la derivata
+ * delle regole è sbagliata" chiederebbe allora una tolleranza scelta a
+ * occhio tra due double, cioè proprio un confronto in virgola mobile che
+ * decide. Qui la derivata si calcola invece esatta, con i numeri.
+ *
+ * L'idea: i numeri duali. Si calcola f non su un numero ma su una coppia
+ * a + a' eps, con la sola regola eps^2 = 0:
+ *
+ *     (a + a' eps) + (b + b' eps) = (a + b) + (a' + b') eps,
+ *     (a + a' eps) (b + b' eps)   = a b + (a' b + a b') eps.
+ *
+ * La seconda componente segue da sé la regola della somma e quella del
+ * prodotto. Partendo da x0 + 1 eps, alla fine del conto si ha
+ * f(x0) + f'(x0) eps: la derivata esatta, senza errore di troncamento,
+ * perché non si è approssimato nulla, si è solo portato un numero in più in
+ * ogni conto. È la differenziazione automatica "in avanti".
+ *
+ * Con eps^{K+1} = 0 al posto di eps^2 = 0 la coppia diventa un polinomio in
+ * eps di grado K: i primi termini della serie di Taylor di f in x0,
+ *
+ *     f(x0 + eps) = c_0 + c_1 eps + ... + c_K eps^K + (termini di grado > K),
+ *     con c_k = f^(k)(x0) / k!,
+ *
+ * da cui si leggono tutte le derivate fino alla K-esima in un colpo solo.
+ * Somma e prodotto sono quelli dei polinomi, buttando i gradi oltre K: un
+ * termine buttato non contribuisce mai ai gradi più bassi, quindi c_0, ...,
+ * c_K restano esatti. Per una funzione di u si usa l'equazione
+ * differenziale che la funzione soddisfa, e confrontando i coefficienti di
+ * eps^{k-1} se ne ricava una ricorrenza. Per e = exp(u), che ha e' = u' e:
+ *
+ *     k e_k = sum_{i=1..k} i u_i e_{k-i}.
+ *
+ * Le altre, con u = u_0 + u_1 eps + ...:
+ *
+ *   27h-1. q = a / b, da b q = a:  q_k = (a_k - sum_{i=1..k} b_i q_{k-i}) / b_0;
+ *   27h-2. s = sin u e c = cos u, da s' = c u' e c' = -s u':
+ *            k s_k = sum_{i=1..k} i u_i c_{k-i},  k c_k = -sum_{i=1..k} i u_i s_{k-i};
+ *          tan u = s / c e cot u = c / s, con 27h-1;
+ *   27h-3. y con y_0 dato e w y' = u':
+ *            y_k = (k u_k - sum_{j=1..k-1} (k - j) w_j y_{k-j}) / (k w_0);
+ *          è ln u con w = u, ed è arctan u con w = 1 + u^2;
+ *   27h-4. u^v = exp(v ln u), per u_0 > 0; con v intero scritto come
+ *          numero, prodotti ripetuti, per ogni u_0. La radice m-esima è
+ *          exp(ln(u) / m), log_b u è ln u / ln b;
+ *   27h-5. una somma \sum, o un prodotto \prod, con gli estremi numeri si
+ *          svolge, termine per termine.
+ *
+ * (Riferimenti: A. Griewank, A. Walther, Evaluating Derivatives, SIAM 2008,
+ * capitolo 13; R. E. Moore, Methods and Applications of Interval Analysis,
+ * SIAM 1979, per le serie di Taylor con gli intervalli.)
+ *
+ * Perché ci si può credere. Il punto x0 è un intervallo minuscolo che lo
+ * contiene, e ogni coefficiente è calcolato con le operazioni del capitolo
+ * 24, ognuna delle quali dà un intervallo che contiene il risultato vero
+ * per ogni scelta dei dati nei loro intervalli: quindi l'intervallo finale
+ * contiene il vero c_k. E ogni operazione si fa solo dove la funzione è
+ * analitica: se b_0 può essere zero, o se sotto un logaritmo u_0 può non
+ * essere positivo, il coefficiente c_0 è "non so", e allora si dichiara
+ * "non so" la serie intera (lì f non è derivabile, o non si sa). Questo
+ * conta: le ricorrenze del logaritmo, per esempio, darebbero c_1 = u_1 / u_0
+ * anche con u_0 < 0, dove ln u non esiste.
+ *
+ * Perché è indipendente da derive(). La serie si costruisce dall'albero
+ * della funzione di partenza, non da quello delle derivate, e le regole
+ * sono scritte qui una seconda volta in un'altra forma: la tangente come
+ * quoziente di serie e non come 1 / cos^2, le radici e le potenze attraverso
+ * exp e ln, il logaritmo e l'arcotangente con 27h-3. Un errore di derive()
+ * non si ripete uguale qui. */
+
+/* Una funzione vicino a x0, data dai primi coefficienti della sua serie di
+ * Taylor: c[k] contiene f^(k)(x0) / k!. Invariante, per le serie che
+ * jet_eval() ritorna: se c[0] è "non so" lo sono tutti, e la serie dice "non
+ * so". */
+typedef struct {
+    int order;             /* K: il grado più alto tenuto, da 0 a MAX_JET */
+    Range c[MAX_JET + 1];  /* i coefficienti da 0 a order; gli altri non contano */
+} Jet;
+
+/* Ritorna la costante value come serie di ordine order. */
+static Jet jet_constant(Range value, int order) {
+    Jet jet = {order, {{0, 0}}};
+    jet.c[0] = value;
+    return jet;
+}
+
+/* Ritorna a + sign b, con sign uguale a 1 oppure a -1. */
+static Jet jet_add(Jet a, Jet b, int sign) {
+    for (int k = 0; k <= a.order; k++) a.c[k] = sign > 0 ? range_add(a.c[k], b.c[k]) : range_sub(a.c[k], b.c[k]);
+    return a;
+}
+
+/* Ritorna a b: il prodotto dei due polinomi, senza i gradi oltre order. */
+static Jet jet_mul(Jet a, Jet b) {
+    Jet product = jet_constant((Range){0, 0}, a.order);
+    for (int k = 0; k <= a.order; k++)
+        for (int i = 0; i <= k; i++) product.c[k] = range_add(product.c[k], range_mul(a.c[i], b.c[k - i]));
+    return product;
+}
+
+/* Ritorna a / b (27h-1). Quando si calcola q_k, i q_{k-i} sono già finiti. */
+static Jet jet_div(Jet a, Jet b) {
+    Jet q = a;
+    for (int k = 0; k <= a.order; k++) {
+        for (int i = 1; i <= k; i++) q.c[k] = range_sub(q.c[k], range_mul(b.c[i], q.c[k - i]));
+        q.c[k] = range_div(q.c[k], b.c[0]);
+    }
+    return q;
+}
+
+/* Ritorna a elevato all'intero e, con prodotti ripetuti (27h-4). */
+static Jet jet_power(Jet a, long long e) {
+    Jet one = jet_constant((Range){1, 1}, a.order), power = one;
+    for (long long i = 0; i < (e < 0 ? -e : e); i++) power = jet_mul(power, a);
+    return e < 0 ? jet_div(one, power) : power;
+}
+
+/* Ritorna exp(u), con la ricorrenza della testa di questa parte. */
+static Jet jet_exp(Jet u) {
+    Jet e = jet_constant(range_exp(u.c[0]), u.order);
+    for (int k = 1; k <= u.order; k++) {
+        for (int i = 1; i <= k; i++) e.c[k] = range_add(e.c[k], range_mul(range_mul(range_ratio(i, 1), u.c[i]), e.c[k - i]));
+        e.c[k] = range_div(e.c[k], range_ratio(k, 1));
+    }
+    return e;
+}
+
+/* Ritorna la serie y con y_0 = start e w y' = u' (27h-3). */
+static Jet jet_solve(Range start, Jet u, Jet w) {
+    Jet y = jet_constant(start, u.order);
+    for (int k = 1; k <= u.order; k++) {
+        Range sum = range_mul(range_ratio(k, 1), u.c[k]);
+        for (int j = 1; j < k; j++) sum = range_sub(sum, range_mul(range_mul(range_ratio(k - j, 1), w.c[j]), y.c[k - j]));
+        y.c[k] = range_div(sum, range_mul(range_ratio(k, 1), w.c[0]));
+    }
+    return y;
+}
+
+/* Ritorna ln u: 27h-3 con w = u. */
+static Jet jet_ln(Jet u) { return jet_solve(range_ln(u.c[0]), u, u); }
+
+/* Mette in *sine e *cosine sin u e cos u (27h-2). Le due ricorrenze si
+ * intrecciano: s_k usa i c_j con j < k, e viceversa, già finiti. */
+static void jet_sin_cos(Jet u, Jet *sine, Jet *cosine) {
+    Jet s = jet_constant(range_none(), u.order), c = s;
+    range_sin_cos(u.c[0], &s.c[0], &c.c[0]);
+    for (int k = 1; k <= u.order; k++) {
+        for (int i = 1; i <= k; i++) {
+            Range step = range_mul(range_ratio(i, 1), u.c[i]);
+            s.c[k] = range_add(s.c[k], range_mul(step, c.c[k - i]));
+            c.c[k] = range_sub(c.c[k], range_mul(step, s.c[k - i]));
+        }
+        s.c[k] = range_div(s.c[k], range_ratio(k, 1));
+        c.c[k] = range_div(c.c[k], range_ratio(k, 1));
+    }
+    *sine = s;
+    *cosine = c;
+}
+
+/* Ritorna la serie di Taylor di ordine order, nel punto at, dell'espressione
+ * node, già passata da sample_tree(): x è la variabile, e le sole altre
+ * lettere ammesse sono e e pi greco. La serie è "non so" dove il calcolo non
+ * riesce, o dove node non è definita o non è derivabile; anche per ciò che
+ * qui non si calcola (un fattoriale di x, un'applicazione). Con order = 0 è
+ * il valore di node in at.
+ *
+ * Sfrutta node_fold() e node_replace() per svolgere somme e prodotti: i nodi
+ * che crea per un termine li toglie dall'arena appena calcolato il termine. */
+static Jet jet_eval(const Node *node, int x, Range at, int order) {
+    Jet a, sine, cosine, result = jet_constant(range_none(), order);
+    switch (node->kind) {
+    case N_NUM: result = jet_constant(range_ratio(node->value, 1), order); break;
+    case N_VAR:
+        /* x è x0 + eps; la lettera e è il numero di Nepero. */
+        if (node->name == x) {
+            result = jet_constant(at, order);
+            if (order > 0) result.c[1] = (Range){1, 1};
+        } else if (node->name == VAR_PI) result = jet_constant(range_pi(), order);
+        else if (node->name == 'e') result = jet_constant(range_exp_at(1), order);
+        break;
+    case N_NEG: result = jet_add(jet_constant((Range){0, 0}, order), jet_eval(node->a, x, at, order), -1); break;
+    case N_ADD: case N_SUB:
+        result = jet_add(jet_eval(node->a, x, at, order), jet_eval(node->b, x, at, order), node->kind == N_ADD ? 1 : -1);
+        break;
+    case N_MUL: result = jet_mul(jet_eval(node->a, x, at, order), jet_eval(node->b, x, at, order)); break;
+    case N_DIV: result = jet_div(jet_eval(node->a, x, at, order), jet_eval(node->b, x, at, order)); break;
+    case N_POW: {
+        /* 27h-4. L'esponente intero, scritto come numero (dopo node_fold()
+         * anche negativo), con i prodotti; ogni altro con exp(v ln u). Il
+         * limite sull'esponente è quello di node_range(). */
+        const Node *exponent = node->b->kind == N_NEG ? node->b->a : node->b;
+        long long e = exponent->kind != N_NUM ? MAX_UNI + 1 : node->b->kind == N_NEG ? -exponent->value : exponent->value;
+        a = jet_eval(node->a, x, at, order);
+        result = e >= -MAX_UNI && e <= MAX_UNI ? jet_power(a, e) : jet_exp(jet_mul(jet_eval(node->b, x, at, order), jet_ln(a)));
+        break;
+    }
+    case N_CALL:
+        a = jet_eval(node->a, x, at, order);
+        switch (node->op) {
+        case FN_SIN: case FN_COS: case FN_TAN: case FN_COT:
+            jet_sin_cos(a, &sine, &cosine);
+            if (node->op == FN_SIN || node->op == FN_COS) result = node->op == FN_SIN ? sine : cosine;
+            else result = node->op == FN_TAN ? jet_div(sine, cosine) : jet_div(cosine, sine);
+            break;
+        case FN_LN: result = jet_ln(a); break;
+        case FN_LOG:
+            if (node->b) result = jet_div(jet_ln(a), jet_ln(jet_eval(node->b, x, at, order)));
+            break;
+        case FN_ARCTAN:
+            result = jet_solve(range_atan(a.c[0]), a, jet_add(jet_constant((Range){1, 1}, order), jet_mul(a, a), 1));
+            break;
+        case FN_ROOT:
+            if (node->b->kind == N_NUM && node->b->value >= 2) result = jet_exp(jet_div(jet_ln(a), jet_constant(range_ratio(node->b->value, 1), order)));
+            break;
+        case FN_ABS: {
+            /* |u| è u oppure -u dove il segno di u è certo, e lì è derivabile. */
+            int side;
+            if (range_side(a.c[0], &side)) result = side > 0 ? a : jet_add(jet_constant((Range){0, 0}, order), a, -1);
+            break;
+        }
+        default: break;
+        }
+        break;
+    case N_BIGOP: {
+        /* 27h-5. Una somma, o un prodotto, con gli estremi che, calcolati,
+         * sono numeri. Come in 11a, l'estremo superiore può essere
+         * l'inferiore meno 1, la somma (o il prodotto) vuota, ma non più
+         * piccolo. */
+        int closed = 1;
+        const Node *low = node_fold(node->a, &closed), *high = node_fold(node->b, &closed);
+        if (low->kind != N_NUM || high->kind != N_NUM) break;
+        __int128 terms = (__int128)high->value - low->value + 1;
+        if (terms < 0 || terms > MAX_UNROLL) break;
+        result = jet_constant((Range){node->op ? 1 : 0, node->op ? 1 : 0}, order);
+        for (long long i = 0; i < (long long)terms && !failure; i++) {
+            Scratch mark = scratch_mark();
+            Jet term = jet_eval(node_fold(node_replace(node->c, node->name, node_num(low->value + i)), &closed), x, at, order);
+            result = node->op ? jet_mul(result, term) : jet_add(result, term, 1);
+            scratch_drop(mark);
+        }
+        break;
+    }
+    default: break;
+    }
+
+    /* L'invariante: senza il valore, nessun coefficiente vale (vedi "Perché
+     * ci si può credere"). Un'arena esaurita lascia alberi di riserva, che non
+     * dicono nulla. */
+    if (!range_known(result.c[0]) || failure)
+        for (int k = 0; k <= order; k++) result.c[k] = range_none();
+    return result;
+}
+
+/* Ritorna un intervallo che contiene il valore di tree, già passato da
+ * sample_tree(), in at; "non so" se non si calcola o non è definito. */
+static Range sample_value(const Node *tree, int x, Range at) { return jet_eval(tree, x, at, 0).c[0]; }
+
+/* Quanto devono essere vicini due valori dello stesso numero, calcolati in
+ * due modi, per dire che coincidono: in rapporto alla grandezza del numero,
+ * più 1. È molto più largo dell'errore degli intervalli, e molto più stretto
+ * dello scarto che dà una regola sbagliata. */
+#define AGREEMENT 1e-9
+
+/* Confronta due intervalli a e b che dovrebbero contenere lo stesso numero.
+ * Ritorna -1 se i due numeri sono di sicuro diversi (gli intervalli non si
+ * toccano); 1 se la loro distanza è di sicuro al più AGREEMENT (1 + |a|);
+ * 0 se non si sa dire né l'una né l'altra cosa: un "non so", o intervalli
+ * troppo larghi.
+ *
+ * Perché non è un confronto tra double che decide: la differenza vera sta
+ * di sicuro in gap, quindi gap dentro [-room, room] è una disuguaglianza
+ * garantita sulla differenza vera, ricavata da un intervallo come al
+ * capitolo 24. E la risposta 1 non dimostra nulla: dice solo che il
+ * controllo non ha trovato errori. */
+static int numbers_agree(Range a, Range b) {
+    Range gap = range_sub(a, b);
+    int side;
+    if (range_side(gap, &side)) return -1;
+    if (!range_known(gap)) return 0;
+    double size = a.high > -a.low ? a.high : -a.low, room = AGREEMENT * (1 + size);
+    return gap.low >= -room && gap.high <= room;
+}
+
+/* Il confronto, punto per punto, tra le derivate calcolate con le regole e
+ * quelle lette dalla serie di Taylor (27h), per le derivate di ordine da 0
+ * a order di una funzione. */
+typedef struct {
+    Range taylor[MAX_JET + 1][DERIVATIVE_POINTS];  /* [k][p]: la derivata k-esima vera in x_p */
+    Range rules[MAX_JET + 1][DERIVATIVE_POINTS];   /* [k][p]: la derivata k-esima delle regole, calcolata in x_p */
+    int agree[MAX_JET + 1];  /* [k]: il bit p è acceso se in x_p le due coincidono (numbers_agree() = 1) */
+    int wrong;               /* 1 se, per qualche k e qualche p, sono di sicuro diverse */
+} DerivativeCheck;
+
+/* Riempie *check per una funzione, derived[0], e le sue derivate derived[1],
+ * ..., derived[order] calcolate con le regole: tutti gli alberi sono già
+ * passati da sample_tree(). In ogni punto di prova la serie di Taylor della
+ * funzione si calcola una volta sola, fino all'ordine order, e la derivata
+ * k-esima è k! per il coefficiente c_k. Per k = 0 il confronto è tra due
+ * calcoli del valore della funzione: non controlla una regola, ma lo
+ * stesso un FALSO con n = 0 vi si appoggia (27i). */
+static void derivatives_check(DerivativeCheck *check, Node *const *derived, int order, int x) {
+    memset(check, 0, sizeof *check);
+    for (int p = 0; p < DERIVATIVE_POINTS; p++) {
+        Range at = range_ratio(derivative_points[p].num, derivative_points[p].den), factorial = {1, 1};
+        Jet taylor = jet_eval(derived[0], x, at, order);
+        for (int k = 0; k <= order; k++) {
+            if (k > 0) factorial = range_mul(factorial, range_ratio(k, 1));
+            check->taylor[k][p] = range_mul(factorial, taylor.c[k]);
+            check->rules[k][p] = sample_value(derived[k], x, at);
+            int agreement = numbers_agree(check->rules[k][p], check->taylor[k][p]);
+            if (agreement < 0) check->wrong = 1;
+            if (agreement > 0) check->agree[k] |= 1 << p;
+        }
+    }
+}
 
 /* Ritorna il numero di nodi di tree, contando una volta per ogni strada i
  * sotto-alberi condivisi: è il costo di un conto sull'albero. */
@@ -19601,52 +19912,71 @@ static Verdict prove_derivative(const char *formula, int variable, int has_base,
     default_base = 1;
     domain_floor = base;
 
-    /* Le derivate di f, una dopo l'altra, ognuna confrontata con il rapporto
-     * incrementale della precedente. Servono fino all'ordine del caso base;
-     * quelle dopo sono per la verifica, e si smette se diventano lunghe. */
-    Node *direct[MAX_DERIVATIVE_BASE + DIRECT_ORDERS + 1] = {f}, *sampled = sample_tree(f, x, 0, 0);
+    /* Le derivate di f, una dopo l'altra, con le regole. Servono fino
+     * all'ordine del caso base; quelle dopo sono per la verifica, e si
+     * smette se diventano lunghe o se le regole non le sanno fare. */
+    Node *direct[MAX_JET + 1] = {f}, *sampled[MAX_JET + 1];
     int orders = 0, wanted = (int)base + (fixed ? 0 : DIRECT_ORDERS);
     verdict.outcome = NOT_PROVED;
     while (orders < wanted && (orders < base || node_count(direct[orders]) < MAX_DERIVATIVE_NODES)) {
-        Node *next = derive(direct[orders], x), *next_sampled = failure ? NULL : sample_tree(next, x, 0, 0);
-        if (failure && orders < base) {
+        Node *next = derive(direct[orders], x);
+        if (failure && orders >= base) break;
+        if (failure) {
             verdict.outcome = UNSUPPORTED;
             verdict.reason = failure;
             return verdict;
         }
-        if (failure || !derivative_confirmed(sampled, next_sampled, x)) {
-            if (orders >= base) break;
-            verdict.reason = "non riesco a confermare con i numeri una derivata calcolata con le regole di derivazione";
-            return verdict;
-        }
         direct[++orders] = next;
-        sampled = next_sampled;
     }
     failure = NULL;
 
-    /* Verifica indipendente, e smentita: le derivate calcolate una per una
-     * contro la formula, in ogni punto di prova. Con l'ordine fisso la
-     * lettera n, se c'è, è un parametro come gli altri. */
-    int compared = 0;
+    /* 27h. Ogni derivata delle regole contro la serie di Taylor di f, in
+     * ogni punto di prova. Una smentita è un errore del programma; fino al
+     * caso base ognuna deve essere confermata almeno in un punto. */
+    DerivativeCheck check;
+    for (int k = 0; k <= orders; k++) sampled[k] = sample_tree(direct[k], x, 0, 0);
+    derivatives_check(&check, sampled, orders, x);
+    if (failure) { verdict.reason = failure; return verdict; }
+    if (check.wrong) {
+        unjustified_steps++;
+        verdict.reason = "una derivata calcolata con le regole di derivazione è smentita dalla serie di Taylor della funzione";
+        return verdict;
+    }
+    for (int k = 1; k <= base; k++)
+        if (!check.agree[k]) { verdict.reason = "non riesco a confermare con i numeri una derivata calcolata con le regole di derivazione"; return verdict; }
+
+    /* 27i. Verifica indipendente, e smentita: la formula contro le derivate
+     * delle regole e contro quelle della serie, in ogni punto di prova. Con
+     * l'ordine fisso la lettera n, se c'è, è un parametro come gli altri. */
+    int compared = 0, contradicted = 0;
     for (int k = (int)base; k <= orders; k++) {
-        Node *left = sample_tree(direct[k], x, 0, 0), *right = sample_tree(g, x, fixed ? 0 : variable, k);
+        Node *right = sample_tree(g, x, fixed ? 0 : variable, k);
         for (int p = 0; p < DERIVATIVE_POINTS; p++) {
             Frac at = derivative_points[p];
-            int side = 0;
-            Range gap = range_sub(sample_range(left, x, at), sample_range(right, x, at));
-            if (!range_known(gap)) continue;
-            if (range_side(gap, &side)) {
+            Range claimed = sample_value(right, x, range_ratio(at.num, at.den));
+            int side, by_rules = range_side(range_sub(check.rules[k][p], claimed), &side);
+            int by_series = range_side(range_sub(check.taylor[k][p], claimed), &side);
+            if ((check.agree[k] >> p & 1) && by_rules && by_series) {
                 snprintf(text, sizeof text, "%c = %lld/%lld", x, at.num, at.den);
                 verdict.outcome = REFUTED;
                 verdict.witness = k;
                 verdict.detail = text;
                 return verdict;
             }
-            compared = 1;
+            contradicted |= by_rules || by_series;
+            if (numbers_agree(check.taylor[k][p], claimed) > 0) compared = 1;
         }
     }
-    failure = NULL;
-    if (!compared) { verdict.reason = "non riesco a calcolare con i numeri né le derivate né la formula, in nessuno dei punti di prova"; return verdict; }
+    if (failure) { verdict.reason = failure; return verdict; }
+
+    /* Una smentita da uno solo dei due conti non basta per il FALSO, ma
+     * basta per non dire DIMOSTRATO: o la formula è sbagliata, o uno dei due
+     * conti, e in nessuno dei due casi la dimostrazione va consegnata. */
+    if (contradicted) {
+        verdict.reason = "in un punto di prova la formula è di sicuro diversa da una derivata calcolata, ma le regole e la serie di Taylor non vi concordano abbastanza per dire FALSO";
+        return verdict;
+    }
+    if (!compared) { verdict.reason = "non riesco a confermare con i numeri la formula, in nessuno dei punti di prova"; return verdict; }
 
     /* 27a. Il caso base: un'uguaglianza tra espressioni, senza n. */
     Statement first = {direct[base], fixed ? g : node_replace(g, variable, node_num(base)), REL_EQ};
@@ -19662,6 +19992,7 @@ static Verdict prove_derivative(const char *formula, int variable, int has_base,
     else proof_add("\\textbf{Proof.} By induction on $%c$: it is enough that the formula is right for $%c = %lld$ and that its derivative with "
                    "respect to $%c$ is the formula for $%c + 1$.\n\\begin{itemize}\n\\item \\emph{Base case}, $%c = %lld$. ",
                    variable, variable, base, x, variable, variable, base);
+    size_t opening = proof_length;
     if (base == 0) proof_add("The derivative of order $0$ is the function itself, $");
     else proof_add("Differentiating $%lld$ time%s with respect to $%c$ gives $", base, base > 1 ? "s" : "", x);
     Span left = {proof_length, 0};
@@ -19670,18 +20001,37 @@ static Verdict prove_derivative(const char *formula, int variable, int has_base,
     proof_add("$, and the formula is $");
     Span right = put_side(g, fixed ? NULL : node_num(base));
     proof_add("$: the two are equal, because their difference reduces to $0$ by exact algebra.\n");
-    int sound = reread_equal(left, right, base);
 
-    /* 27b. Il passo: la derivata della formula, confrontata anche lei con il
-     * rapporto incrementale per i primi n, e poi l'identità in n. */
+    /* Le derivate non si semplificano, e quella di ordine 4 può avere
+     * migliaia di simboli: oltre MAX_FORMULA caratteri reread_equal() non la
+     * rilegge e risponde "non confermata", che conterebbe come un passo
+     * sbagliato (lo ha mostrato fuzz_derivatives.py con 1/(x/2 - 2)^2). Una
+     * formula che non si può rileggere non si scrive: resta la frase, come
+     * in 13g quando un valore è troppo lungo. */
+    int sound = 1;
+    if (left.to - left.from + right.to - right.from + 4 < MAX_FORMULA && proof_length < PROOF_BYTES - 1) sound = reread_equal(left, right, base);
+    else {
+        proof_cut(opening);
+        proof_add("The derivative of order $%lld$ given by the rules of differentiation is too long to write here; its difference "
+                  "from the formula reduces to $0$ by exact algebra.\n", base);
+    }
+
+    /* 27b. Il passo: la derivata della formula, confrontata anche lei con la
+     * serie di Taylor per i primi due n (27h), e poi l'identità in n. */
     if (!fixed) {
         Node *slope = derive(g, x);
-        for (long long k = base; k <= base + 1 && !failure; k++)
-            if (!derivative_confirmed(sample_tree(g, x, variable, k), sample_tree(slope, x, variable, k), x)) {
-                verdict.reason = "non riesco a confermare con i numeri la derivata della formula";
+        if (failure) { verdict.outcome = UNSUPPORTED; verdict.reason = failure; return verdict; }
+        for (long long k = base; k <= base + 1; k++) {
+            Node *pair[2] = {sample_tree(g, x, variable, k), sample_tree(slope, x, variable, k)};
+            derivatives_check(&check, pair, 1, x);
+            if (failure) { verdict.reason = failure; return verdict; }
+            if (check.wrong) {
+                unjustified_steps++;
+                verdict.reason = "la derivata della formula, calcolata con le regole di derivazione, è smentita dalla sua serie di Taylor";
                 return verdict;
             }
-        if (failure) { verdict.outcome = UNSUPPORTED; verdict.reason = failure; return verdict; }
+            if (!check.agree[1]) { verdict.reason = "non riesco a confermare con i numeri la derivata della formula"; return verdict; }
+        }
         Statement step = {slope, node_replace(g, variable, node_affine(1, variable, 1)), REL_EQ};
         proof_add("\\item \\emph{Inductive step}. Assume the statement for some $%c \\ge %lld$. The derivative of order $%c + 1$ is then the "
                   "derivative of the formula for $%c$, which the rules of differentiation give as $", variable, base, variable, variable);
@@ -19698,13 +20048,15 @@ static Verdict prove_derivative(const char *formula, int variable, int has_base,
             return verdict;
         }
     }
-    proof_add("\\item \\emph{Check with numbers}. The derivative%s computed here agree%s with the formula at the sample points, and each "
-              "differentiation agrees with a difference quotient.\n\\end{itemize}\n$\\Box$", orders > base ? "s" : "", orders > base ? "" : "s");
+    proof_add("\\item \\emph{Check with numbers}. The derivative%s computed here agree%s with the formula at the sample points, and with "
+              "the derivatives read from the Taylor series of the function, computed there with interval arithmetic.\n\\end{itemize}\n$\\Box$",
+              orders > base ? "s" : "", orders > base ? "" : "s");
     if (!sound) {
         unjustified_steps++;
         verdict.reason = "una formula della dimostrazione, riletta dal testo, non è confermata";
         return verdict;
     }
+    if (proof_length >= PROOF_BYTES - 1) { verdict.reason = "la dimostrazione è troppo lunga per essere scritta per intero"; return verdict; }
     verdict.outcome = PROVED;
     verdict.reason = "le derivate non hanno una notazione nei certificati";
     verdict.proof = proof_text;

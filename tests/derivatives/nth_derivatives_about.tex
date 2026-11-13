@@ -16,13 +16,13 @@
 This note explains what the test data in \texttt{nth\_derivatives.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_derivatives.c} in this folder.
 
 \begin{enumerate}
-\item \textbf{Purpose.} The file holds 30 true statements on derivatives. The engine must prove every one of them (chapter 27 of \texttt{main.c}) and write the proof.
+\item \textbf{Purpose.} The file holds 45 true statements on derivatives. The engine must prove every one of them (chapter 27 of \texttt{main.c}) and write the proof.
 
-\item \textbf{What they cover.} Items 1 to 23 are derivatives of order $n$, written as the exercise books write them, with the Leibniz sign at the start of the item: sines and cosines, exponentials, logarithms, reciprocals, products with $x$. They are proved by induction on $n$: the derivative of the formula for $n$ must be the formula for $n + 1$. Items 24 to 30 have a fixed order and need no induction.
+\item \textbf{What they cover.} Items 1 to 23 are derivatives of order $n$, written as the exercise books write them, with the Leibniz sign at the start of the item: sines and cosines, exponentials, logarithms, reciprocals, products with $x$. They are proved by induction on $n$: the derivative of the formula for $n$ must be the formula for $n + 1$. Items 24 to 30 have a fixed order and need no induction. Items 31 to 45 came with the check of every derivative against the Taylor series of the function (rule 27h): sums written with $\sum$ and a formula with $\prod$, which before that check could not be computed with numbers and so were never proved; $\cot$, $\arctan$, $\log_2$, a cube root, $\tan$ to the third order, powers $2^{3x}$ and $(2x + 3)^{-2}$, a polynomial whose derivatives vanish from $n = 4$ on.
 
-\item \textbf{How truth was checked.} Items 1 to 12 are statements 176 to 179, 182 to 186 and 190 to 192 of \texttt{tests/logs\_trig\_powers\_roots/logs\_trig\_powers\_roots\_inductions.tex}; the others are standard formulas. They were not checked by a separate script: no fuzz script with an independent oracle exists yet for derivatives.
+\item \textbf{How truth was checked.} Items 1 to 12 are statements 176 to 179, 182 to 186 and 190 to 192 of \texttt{tests/logs\_trig\_powers\_roots/logs\_trig\_powers\_roots\_inductions.tex}; the others are standard formulas. All 45 were checked by the independent oracle of \texttt{tools/fuzz/fuzz\_derivatives.py} (mode \texttt{check}): it reads the \LaTeX{} with its own reader and computes the derivatives of order $n_0, \dots, n_0 + 6$ with Taylor series in 80-digit decimal arithmetic, at ten points and for three choices of the letter $a$. It finds every statement true.
 
-\item \textbf{Expected result.} The line \texttt{PASS: 30 of 30 statements proved, each with a written proof}. No verdict has a certificate.
+\item \textbf{Expected result.} The line \texttt{PASS: 45 of 45 statements proved, each with a written proof}. No verdict has a certificate.
 
 \item \textbf{How to run it.} From the top folder of the repository:
 \begin{verbatim}
