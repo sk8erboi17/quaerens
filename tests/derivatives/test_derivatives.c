@@ -41,8 +41,10 @@ static const Expected expected[] = {
     {"\\frac{d}{dx} x^{2} = 2x", 0, 0, PROVED, 0},
     {"\\frac{d^{2}}{dx^{2}} x^{3} = 3x^{2}", 0, 0, REFUTED, 2},
 
-    /* Ciò che non è scritto come una derivata resta algebra. */
-    {"\\frac{d}{dx} = \\frac{1}{x}", 0, 0, PROVED, 0},
+    /* Il segno di derivata senza una funzione non si legge: come frazione
+     * delle lettere d e x è la porta da cui passavano le false derivate
+     * (vedi tests/derivatives/test_derivative_reading.c). */
+    {"\\frac{d}{dx} = \\frac{1}{x}", 0, 0, UNSUPPORTED, 0},
 };
 
 /* Controllo 3: i verdetti attesi, uno per uno. */

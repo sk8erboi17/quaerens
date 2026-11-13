@@ -1,0 +1,22 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+
+\title{About \texttt{derivative\_sign\_reading.tex} and \texttt{false\_derivative\_sign\_reading.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+\begin{itemize}
+\item \textbf{Why these files exist.} With \verb|\displaystyle| in front, a statement such as $\frac{d}{dx} x^{2} = x$ did not reach chapter 27: the check that recognises the sign of derivative did not skip \verb|\displaystyle|. The statement then went to the induction of chapter 13, which read $\frac{d}{dx}$ as the fraction of the letters $d$ and $x$, that is $\frac{1}{x}$. As algebra $\frac{1}{x} \cdot x^{2} = x$ is true, so the program reported a false statement about a derivative as proved, with an accepted certificate. The same happened to $\frac{d}{dx} 5 = \frac{5}{x}$.
+\item \textbf{The two corrections.} The sign of derivative is recognised after \verb|\displaystyle| and \verb|\textstyle|. And the reader never takes $\frac{d}{dx}$ as a fraction: anywhere except at the head of a statement it refuses it.
+\item \textbf{The reading of \texttt{\textbackslash sin 2x}.} The reader used to read \verb|\sin 2x| as $(\sin 2)\,x$, so the true derivative of $x^{2} \tan x$, printed by the books as $\frac{x(\sin 2x + x)}{\cos^{2} x}$, was declared false. A number followed by letters is now the argument of the function, as in every book.
+\item \textbf{Where the true statements come from.} Items 3 to 5 are exercises of \texttt{photos/derivate} (matematika tables), with the printed result confirmed by an independent oracle; the others are the rules of differentiation. Item 9: $\cos^{2} 3x = \frac{1 + \cos 6x}{2}$, whose second derivative is $\frac{-36 \cos 6x}{2}$.
+\item \textbf{The false statements} are the ones the bug proved, or would have proved: each is true as algebra with $\frac{d}{dx} = \frac{1}{x}$, and false as a derivative. Item 6 puts the sign in the middle of the formula, where only the reader can stop it.
+\end{itemize}
+\end{document}

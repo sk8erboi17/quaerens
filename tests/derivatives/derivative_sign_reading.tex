@@ -1,0 +1,29 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Derivatives written as in the books: \texttt{\textbackslash displaystyle}, parentheses, \texttt{\textbackslash sin 2x}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Each statement is a true derivative of a fixed order, written the way the exercise collections write it: in an inline formula opened by \verb|\displaystyle|, with the function between \verb|\left(| and \verb|\right)|, and with arguments such as \verb|\sin 2x|, which every book reads as $\sin(2x)$.
+
+\begin{enumerate}
+\item $\displaystyle \frac{d}{dx}\left( x^{2} \right) = 2x$
+\item $\displaystyle \frac{d}{dx}\left( \sin x \right) = \cos x$
+\item $\displaystyle \frac{d}{dx}\left( \frac{x + 1}{x - 1} \right) = \frac{-2}{(x - 1)^{2}}$
+\item $\displaystyle \frac{d}{dx}\left( \frac{2x^{2} - 3}{x + 5 - x^{2}} \right) = \frac{2x^{2} + 14x + 3}{(x + 5 - x^{2})^{2}}$
+\item $\displaystyle \frac{d}{dx}\left( x^{2} \cdot \tan x \right) = \frac{x(\sin 2x + x)}{\cos^{2} x}$
+\item $\displaystyle \frac{d}{dx}\left( \sin^{2} x \right) = \sin 2x$
+\item $\displaystyle \frac{d}{dx}\left( \sin 2x \right) = 2\cos 2x$
+\item $\textstyle \frac{d}{dx}\left( \cos 3x \right) = -3\sin 3x$
+\item $\displaystyle \frac{d^{2}}{dx^{2}}\left( \cos^{2} 3x \right) = -18\cos 6x$
+\end{enumerate}
+\end{document}

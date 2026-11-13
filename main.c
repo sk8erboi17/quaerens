@@ -19362,8 +19362,8 @@ static Verdict prove_sequence(const char *formula, int variable, int has_base, l
  */
 
 /* Il motivo con cui prove_derivative() rifiuta ciò che non è scritto come una
- * derivata. Ha un nome perché prove() (capitolo 20) lo riconosce e passa
- * l'enunciato agli altri metodi. */
+ * derivata. Ha un nome perché prove() (capitolo 20) lo riconosce e lo
+ * sostituisce con il motivo più preciso del lettore, se c'è. */
 static const char *const NOT_A_DERIVATIVE = "l'enunciato non comincia con il segno di derivata";
 
 /* Ritorna outer per la derivata di inner rispetto a x: la regola della
@@ -21436,11 +21436,14 @@ static Verdict prove(const char *formula, int variable, int has_base, long long 
     if (figure) { pl_close(figure); figure = NULL; }
     if (strstr(formula, "\\mathbb")) return prove_quantified(formula);
 
-    /* Il segno di derivata: se la formula è scritta davvero così va al
-     * capitolo 27, altrimenti prosegue come ogni altra. */
+    /* Il segno di derivata in testa: l'enunciato è del capitolo 27, anche
+     * quando il capitolo 27 non lo sa leggere. Non prosegue come algebra,
+     * perché come algebra \frac{d}{dx} sarebbe la frazione 1/x (vedi
+     * starts_with_derivative()); il motivo detto è quello del lettore. */
     if (starts_with_derivative(formula)) {
         Verdict verdict = prove_derivative(formula, variable, has_base, base);
-        if (verdict.reason != NOT_A_DERIVATIVE) return verdict;
+        if (verdict.reason == NOT_A_DERIVATIVE && syntax_error) verdict.reason = syntax_error;
+        return verdict;
     }
     if (uses_elements(formula)) return prove_abstract(formula);
     if (uses_set_notation(formula)) return prove_sets(formula);

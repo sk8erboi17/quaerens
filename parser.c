@@ -263,7 +263,11 @@ typedef struct {
  *   - Una somma si estende a tutto il term che la segue: in `\sum f g + h`
  *     il sommando è f g, e h resta fuori.
  *   - L'argomento di una funzione senza parentesi è un solo fattore:
- *     `\sin x y` vale (sin x) y.
+ *     `\sin x y` vale (sin x) y. Fa eccezione un numero seguito da
+ *     lettere, che i libri scrivono sempre per intendere il prodotto:
+ *     `\sin 2x` vale sin(2x), `\cos^{2} 3x` vale cos(3x)^2.
+ *   - Il segno di derivata `\frac{d}{dx}` non è mai una frazione di lettere:
+ *     si legge solo in testa a un enunciato su una derivata.
  *   - `\sin^{2}(x)` è il quadrato di sin(x).
  *   - Senza graffe un esponente o un pedice è un solo token: `x^12` vale
  *     x^1 seguito da 2, come in TeX.
@@ -532,14 +536,21 @@ static Node *parse_function(Function fn) {
         else break;
     }
 
-    /* Argomento: tra parentesi, oppure un solo fattore. */
+    /* Argomento: tra parentesi, oppure un solo fattore. Se quel fattore è
+     * un numero seguito da lettere, l'argomento è tutto il monomio: \sin 2x
+     * è sin(2x), come in ogni libro, e non (sin 2) x. Le lettere si
+     * prendono finché seguono accostate: \sin 2x \cos x è sin(2x) cos(x),
+     * perché \cos è un comando e non una lettera. */
     Node *argument;
     if (token.kind == T_OPEN) {
         next_token();
         argument = parse_expr();
         if (token.kind == T_CLOSE) next_token(); else syntax("manca la parentesi chiusa");
     } else {
+        int number = token.kind == T_NUM;
         argument = parse_factor();
+        while (number && (token.kind == T_LETTER || is_command("pi")) && !syntax_error)
+            argument = node_new(N_MUL, argument, parse_factor());
     }
 
     /* \log senza base è il logaritmo in base 10, come nei libri di scuola;
@@ -547,6 +558,57 @@ static Node *parse_function(Function fn) {
     if (fn == FN_LOG && !base) base = node_num(10);
     Node *call = node_call(fn, argument, base);
     return exponent ? node_new(N_POW, call, exponent) : call;
+}
+
+/* Ritorna 1 se text comincia con il segno di derivata di Leibniz: \frac,
+ * \dfrac o \tfrac, sopra {d} oppure {d^...}, sotto {d seguito da una
+ * lettera. Prima del segno si saltano gli spazi e i comandi di sola
+ * presentazione \displaystyle e \textstyle, come fa next_token().
+ *
+ * Serve in due posti. In testa a un enunciato dice che vale la pena di
+ * leggerlo come enunciato su una derivata (capitolo 27). Dentro
+ * un'espressione dice che lì c'è un segno di derivata, e il lettore lo
+ * rifiuta (paragrafo 9d): letto come frazione delle lettere d e x,
+ * \frac{d}{dx} x^{2} = x sarebbe un'uguaglianza vera, (1/x) x^2 = x, e il
+ * programma "dimostrerebbe" che la derivata di x^2 è x. È successo, con un
+ * \displaystyle davanti che questa funzione non saltava: vedi
+ * tests/derivatives/false_nth_derivatives.tex. */
+static int starts_with_derivative(const char *text) {
+    static const char *const fraction[] = {"\\frac", "\\dfrac", "\\tfrac"};
+    static const char *const style[] = {"\\displaystyle", "\\textstyle"};
+    for (int skipped = 1; skipped;) {
+        skipped = 0;
+        while (isspace((unsigned char)*text)) text++;
+        for (size_t i = 0; i < sizeof style / sizeof *style; i++) {
+            size_t length = strlen(style[i]);
+            if (strncmp(text, style[i], length) == 0 && !isalpha((unsigned char)text[length])) { text += length; skipped = 1; }
+        }
+    }
+    for (size_t i = 0; i < sizeof fraction / sizeof *fraction; i++) {
+        size_t length = strlen(fraction[i]);
+        if (strncmp(text, fraction[i], length) != 0 || text[length] != '{' || text[length + 1] != 'd') continue;
+
+        /* Sopra: {d}, {d^n} con l'esponente di un carattere, o {d^{n}}. */
+        const char *below = text + length + 2;
+        if (below[0] == '}') {
+            below += 1;
+        } else if (below[0] == '^' && below[1] == '{') {
+            const char *close = strchr(below + 2, '}');
+            if (!close || close[1] != '}') return 0;
+            below = close + 2;
+        } else if (below[0] == '^' && below[1] && below[2] == '}') {
+            below += 3;
+        } else {
+            return 0;
+        }
+
+        /* Sotto: {d seguito, dopo eventuali spazi, da una lettera. */
+        if (below[0] != '{' || below[1] != 'd') return 0;
+        below += 2;
+        while (isspace((unsigned char)*below)) below++;
+        return isalpha((unsigned char)*below);
+    }
+    return 0;
 }
 
 /* primary: vedi la grammatica in testa al capitolo. */
@@ -595,8 +657,12 @@ static Node *parse_primary(void) {
         return node_call(FN_ABS, inner, NULL);
     }
 
-    /* 9d. Comandi con argomenti tra graffe. */
+    /* 9d. Comandi con argomenti tra graffe. Il segno di derivata non è una
+     * frazione: in testa all'enunciato lo legge parse_derivative_statement(),
+     * dentro un'espressione non ha un significato che il programma tratti
+     * (vedi starts_with_derivative()). */
     if (is_command("frac") || is_command("dfrac") || is_command("tfrac")) {
+        if (starts_with_derivative(token.start)) { syntax("il segno di derivata si legge solo in testa all'enunciato"); return node_num(0); }
         next_token();
         Node *above = parse_group();
         return node_new(N_DIV, above, parse_group());
@@ -765,20 +831,6 @@ static int parse_statement(const char *text, Statement *statement) {
     parse_comparison(statement);
     if (token.kind != T_END) syntax("testo inatteso dopo l'enunciato");
     return syntax_error == NULL;
-}
-
-/* Ritorna 1 se text comincia con il segno di derivata di Leibniz: \frac,
- * \dfrac o \tfrac seguito da {d} oppure da {d^. Solo allora vale la pena di
- * provare a leggerlo come enunciato su una derivata. */
-static int starts_with_derivative(const char *text) {
-    static const char *const fraction[] = {"\\frac", "\\dfrac", "\\tfrac"};
-    while (isspace((unsigned char)*text)) text++;
-    for (size_t i = 0; i < sizeof fraction / sizeof *fraction; i++) {
-        size_t length = strlen(fraction[i]);
-        if (strncmp(text, fraction[i], length) == 0 && text[length] == '{' && text[length + 1] == 'd')
-            return text[length + 2] == '^' || text[length + 2] == '}';
-    }
-    return 0;
 }
 
 /* Analizza text come enunciato su una derivata (vedi DerivativeStatement) e
