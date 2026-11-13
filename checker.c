@@ -8,8 +8,13 @@
  * induzione scrive un certificato: l'enunciato e un solo dato in più, che
  * basta a ricontrollare il passo induttivo senza rifare la ricerca. Per un
  * enunciato sugli insiemi il certificato è il solo enunciato, e questo
- * programma lo decide da capo (capitolo 10; il resto di questo commento
- * riguarda le induzioni). Questo programma legge il certificato e risponde:
+ * programma lo decide da capo (capitolo 10). Per un enunciato su insiemi
+ * qualsiasi, con operazioni, applicazioni e relazioni di cui si sa solo ciò
+ * che dicono le ipotesi, il certificato è un modello finito, su cui si
+ * calcola, oppure i nomi e le istanze di una dimostrazione per assurdo, di
+ * cui si controlla che portino a una contraddizione (capitolo 11). Il resto
+ * di questo commento riguarda le induzioni; i teoremi degli altri tipi
+ * sono più sotto. Questo programma legge il certificato e risponde:
  *
  *   - ACCETTATO: tutti i controlli sono riusciti;
  *   - RESPINTO: un controllo è fallito, il certificato non dimostra nulla;
@@ -129,6 +134,21 @@
  * il falso. Può far respingere il vero, se la dimostrazione usa un legame
  * tra loro che qui non si vede.
  *
+ * I TEOREMI DEGLI ALTRI CERTIFICATI
+ *
+ *   - "certificate sets" (capitolo 10): l'enunciato vale per ogni scelta
+ *     degli insiemi indicati dalle lettere.
+ *   - "certificate counterexample" (capitolo 11, 11a): l'enunciato su insiemi
+ *     qualsiasi è falso nell'interpretazione finita data dalle tabelle; non
+ *     vale quindi per ogni scelta degli insiemi e dei simboli.
+ *   - "certificate example" (11b): esistono degli insiemi, con il numero di
+ *     elementi indicato, e dei simboli per cui l'enunciato vale.
+ *   - "certificate structure" (11c): l'enunciato vale per ogni scelta degli
+ *     insiemi, finiti o infiniti, anche vuoti, e di un'interpretazione dei
+ *     simboli dichiarati (un elemento per un elemento con un nome, una
+ *     funzione per un'applicazione, un sottoinsieme per una parte o una
+ *     relazione).
+ *
  * COMPILAZIONE
  *
  *     cc -std=c11 -O2 -Wall -Wextra -o checker checker.c
@@ -148,8 +168,9 @@
  *    8. Valutazione
  *    9. Definito per ogni n
  *   10. Enunciati sugli insiemi
- *   11. Controllo di un certificato
- *   12. main
+ *   11. Insiemi qualsiasi: modelli finiti e dimostrazioni per assurdo
+ *   12. Controllo di un certificato
+ *   13. main
  */
 
 /* =============================================================================
@@ -182,6 +203,17 @@
 #define CK_MAX_SCAN 100000   /* valori di n provati uno a uno per un polinomio */
 #define CK_MAX_BRICKS 32     /* voci "brick" di un certificato */
 #define CK_MAX_FACTORED 1000000000000LL  /* il più grande numero scomposto in fattori primi */
+#define CK_MAX_NAME 16       /* caratteri di un nome nel capitolo 11, compreso lo zero finale */
+#define CK_MAX_SORTS 6       /* insiemi di un enunciato su insiemi qualsiasi: i casi vuoti sono 2^6 */
+#define CK_MAX_SYMBOLS 256   /* simboli dichiarati, più i nomi delle voci witness di un caso */
+#define CK_MAX_SIZE 8        /* elementi di un insieme in un modello */
+#define CK_MAX_BOUND 64      /* variabili legate una dentro l'altra */
+#define CK_MAX_EVAL 100000000LL  /* elementi provati dai quantificatori calcolando su un modello */
+#define CK_MAX_GROUND 4096   /* termini chiusi di un caso */
+#define CK_MAX_ATOMS 2048    /* condizioni elementari di un caso */
+#define CK_MAX_FORMULAS 2048 /* condizioni supposte vere in un caso */
+#define CK_MAX_CASES 64      /* voci case di un certificato */
+#define CK_MAX_SEARCH 200000 /* scelte parziali provate cercando un'assegnazione coerente, per certificato */
 
 /* La risposta su un certificato. */
 typedef enum { CK_ACCEPTED, CK_REJECTED, CK_UNSUPPORTED } CkAnswer;
@@ -593,6 +625,8 @@ static CkRat ck_rat_power(CkRat a, long long e) {
  *
  * Un intero può avere il segno meno davanti. Una lettera è un solo
  * carattere: la variabile di induzione, un parametro, o un indice di somma.
+ * Gli enunciati su insiemi qualsiasi (capitolo 11) hanno nomi più lunghi e
+ * un lettore loro, che costruisce nodi dello stesso tipo.
  */
 
 /* Tipi di nodo. */
@@ -600,7 +634,9 @@ typedef enum {
     CK_NUMBER, CK_LETTER, CK_ADD, CK_SUB, CK_MUL, CK_DIV, CK_NEG, CK_POW, CK_SUM, CK_PROD, CK_FACT, CK_BINOM, CK_SEQ, CK_LN, CK_LNABS,
     /* Enunciati sugli insiemi (capitolo 10). */
     CK_EMPTY, CK_ONLYEMPTY, CK_POWER, CK_UNION, CK_INTER, CK_DIFF, CK_SYMDIFF, CK_TIMES,
-    CK_EQ, CK_SUBSET, CK_NEQ, CK_AND, CK_OR, CK_IMPLIES, CK_IFF, CK_NOT
+    CK_EQ, CK_SUBSET, CK_NEQ, CK_AND, CK_OR, CK_IMPLIES, CK_IFF, CK_NOT,
+    /* Enunciati su insiemi qualsiasi (capitolo 11). */
+    CK_TRUE, CK_FORALL, CK_EXISTS, CK_APP, CK_VAR, CK_ATOM
 } CkKind;
 
 /* Un nodo dell'albero di un'espressione. I nodi stanno nell'arena.
@@ -608,7 +644,15 @@ typedef enum {
  *   ADD, SUB, MUL, DIV, POW, BINOM: i due operandi a e b.
  *   NEG, FACT, LN, LNABS: a.
  *   SUM, PROD: name è l'indice, a e b gli estremi, c il termine.
- *   SEQ: name è la successione, a l'indice. */
+ *   SEQ: name è la successione, a l'indice.
+ * Nel capitolo 11:
+ *   APP: value è il simbolo, a e b gli argomenti (NULL dove mancano).
+ *   VAR: value è la distanza dal quantificatore che la lega: 0 per il
+ *        più vicino che la contiene, 1 per quello prima, e così via.
+ *   FORALL, EXISTS: value è l'insieme, a la condizione.
+ *   EQ: a = b tra due termini; con b NULL, a è una parte o una relazione
+ *       applicata, e la condizione è che valga.
+ *   ATOM: value è una condizione elementare (11e), in uno scheletro. */
 typedef struct CkNode CkNode;
 struct CkNode {
     CkKind kind;
@@ -638,6 +682,16 @@ static CkNode *ck_node(CkKind kind) {
 /* Salta spazi e tabulazioni, non le fini di riga: una voce sta su una riga. */
 static void ck_skip(void) {
     while (*ck_cursor == ' ' || *ck_cursor == '\t') ck_cursor++;
+}
+
+/* Se il testo comincia con la parola word, seguita da uno spazio o dalla
+ * fine della riga, la supera e ritorna 1. */
+static int ck_word(const char *word) {
+    size_t length = strlen(word);
+    ck_skip();
+    if (strncmp(ck_cursor, word, length) != 0 || (ck_cursor[length] && !isspace((unsigned char)ck_cursor[length]))) return 0;
+    ck_cursor += length;
+    return 1;
 }
 
 /* Legge un intero con segno e lo mette in *value; ritorna 0 se non c'è. */
@@ -1370,6 +1424,7 @@ typedef struct {
     int bricks;
     int defined;                        /* 1 se c'è la voce "defined" */
     const CkNode *sets;                 /* certificato "sets": l'enunciato; altrimenti NULL */
+    int structure;                      /* 1 per un certificato del capitolo 11, già controllato mentre lo si leggeva */
 } CkCertificate;
 
 static int ck_never_zero(CkPoly q, long long from, long long *where, int depth);
@@ -1755,22 +1810,773 @@ static void ck_check_sets(const CkNode *statement) {
 }
 
 /* =============================================================================
- * 11. CONTROLLO DI UN CERTIFICATO
+ * 11. INSIEMI QUALSIASI: MODELLI FINITI E DIMOSTRAZIONI PER ASSURDO
+ * ============================================================================
+ *
+ * Gli enunciati del capitolo 28 di mathresearcher parlano di insiemi
+ * qualsiasi e di simboli di cui si sa solo ciò che dicono le ipotesi:
+ * elementi con un nome, applicazioni di uno o due argomenti (un'operazione
+ * è un'applicazione di due), parti di un insieme e relazioni. Il
+ * certificato li dichiara, una voce per riga, prima dell'enunciato:
+ *
+ *     sort S               un insieme; in un modello "sort S 3": tre elementi,
+ *                          i numeri 0, 1, 2 (anche "sort S 0": vuoto)
+ *     symbol perp S S S    gli insiemi degli argomenti, poi quello del valore,
+ *     symbol u S           oppure bool per una parte o una relazione
+ *     symbol R S S bool
+ *
+ * L'enunciato ha l'operatore davanti e tutte le parentesi, come nei capitoli
+ * precedenti, ma i nomi sono parole (lettere, cifre e _):
+ *
+ *     termine    := nome | (nome termine [termine])
+ *     condizione := true | (= termine termine) | (nome termine [termine])
+ *                 | (not c) | (and c c) | (or c c) | (implies c c) | (iff c c)
+ *                 | (forall x S c) | (exists x S c)
+ *
+ * In una condizione, (nome termine...) è una parte o una relazione
+ * applicata: "x sta in X", "(x, y) sta in R". Un nome è la variabile legata
+ * più interna che si chiama così, altrimenti un simbolo. Il lettore
+ * controlla gli insiemi: f(x) solo con x nel dominio di f, un'uguaglianza
+ * solo tra due elementi dello stesso insieme.
+ *
+ * Un'interpretazione dà a ogni insieme dei suoi elementi, quanti si vuole,
+ * anche infiniti, anche nessuno; a ogni simbolo un elemento, una funzione o
+ * un sottoinsieme, come dice la dichiarazione. I certificati sono di tre
+ * tipi, e ognuno dimostra un teorema diverso.
+ *
+ *   11a. "certificate counterexample", con una voce "table" per simbolo:
+ *        un'interpretazione finita in cui l'enunciato è falso. TEOREMA: non
+ *        è vero che l'enunciato vale per ogni scelta degli insiemi e dei
+ *        simboli.
+ *   11b. "certificate example", con le stesse voci: un'interpretazione in
+ *        cui l'enunciato è vero. TEOREMA: esistono degli insiemi, con il
+ *        numero di elementi indicato, e dei simboli per cui vale.
+ *   11c. "certificate structure", con le voci case, instance e witness
+ *        (11d). TEOREMA: l'enunciato vale per ogni scelta degli insiemi,
+ *        finiti o infiniti, anche vuoti, e dei simboli.
+ *
+ * Per 11a e 11b si calcola: con insiemi finiti un quantificatore prova ogni
+ * elemento, un simbolo si legge nella sua tabella, e il valore
+ * dell'enunciato è un conto finito e completo. Le tabelle hanno una cella
+ * per ogni scelta degli argomenti, il primo che cambia più in fretta: per
+ * un'operazione su S di 2 elementi le celle sono (0,0), (1,0), (0,1), (1,1).
+ * Ogni valore deve stare nel suo insieme: così un elemento con un nome in
+ * un insieme vuoto, o un'applicazione da un insieme con elementi a uno
+ * vuoto, non si possono scrivere, ed è giusto, perché non esistono.
+ */
+
+/* Un insieme dichiarato da una voce sort. */
+typedef struct {
+    char name[CK_MAX_NAME];
+    int size;  /* 11a, 11b: i suoi elementi sono 0, ..., size - 1; 11c: -1 */
+} CkSort;
+
+/* Il "valore" di una parte o di una relazione: vero o falso. Occupa il posto
+ * dopo l'ultimo insieme possibile. */
+#define CK_BOOL CK_MAX_SORTS
+
+/* Un simbolo: dichiarato da una voce symbol, oppure un nome nuovo dato da una
+ * voce witness (11d), che vale solo nel suo caso. */
+typedef struct {
+    char name[CK_MAX_NAME];
+    int arity;    /* 0, 1 o 2 argomenti */
+    int arg[2];   /* gli insiemi degli argomenti: posti in ck_sorts[] */
+    int result;   /* l'insieme del valore, o CK_BOOL */
+    int witness;  /* 1 per un nome dato da witness */
+    int *table;   /* 11a, 11b: il valore di ogni cella, nell'arena; NULL finché manca la sua voce table */
+} CkSymbol;
+
+static CkSort ck_sorts[CK_MAX_SORTS];
+static int ck_sort_count;
+static CkSymbol ck_symbols[CK_MAX_SYMBOLS];
+static int ck_symbol_count;
+static int ck_declared;  /* i simboli dichiarati: i primi ck_declared di ck_symbols[] */
+
+/* Le variabili legate visibili mentre si legge, dalla più esterna, con i
+ * loro insiemi. */
+static char ck_bound[CK_MAX_BOUND][CK_MAX_NAME];
+static int ck_bound_sort[CK_MAX_BOUND];
+static int ck_bound_count;
+
+/* Legge un nome (una lettera, poi lettere, cifre e _) e lo mette in out.
+ * Ritorna 0 se non c'è. */
+static int ck_name(char *out) {
+    int length = 0;
+    ck_skip();
+    if (!isalpha((unsigned char)*ck_cursor)) return 0;
+    while (isalnum((unsigned char)*ck_cursor) || *ck_cursor == '_') {
+        if (length == CK_MAX_NAME - 1) { ck_unsupported("nome troppo lungo per il verificatore"); return 0; }
+        out[length++] = *ck_cursor++;
+    }
+    out[length] = 0;
+    return 1;
+}
+
+/* Ritorna il posto dell'insieme di nome name, o -1. */
+static int ck_sort_of(const char *name) {
+    for (int i = 0; i < ck_sort_count; i++)
+        if (strcmp(ck_sorts[i].name, name) == 0) return i;
+    return -1;
+}
+
+/* Ritorna il posto del simbolo di nome name, o -1. */
+static int ck_symbol_of(const char *name) {
+    for (int i = 0; i < ck_symbol_count; i++)
+        if (strcmp(ck_symbols[i].name, name) == 0) return i;
+    return -1;
+}
+
+/* Legge un termine e ne ritorna l'albero; mette in *sort il suo insieme, o
+ * CK_BOOL per una parte o una relazione applicata. Un termine scritto male,
+ * o con un argomento nell'insieme sbagliato, rende il certificato
+ * sbagliato. */
+static const CkNode *ck_read_term(int *sort) {
+    char name[CK_MAX_NAME];
+    CkNode *node = ck_node(CK_APP);
+    *sort = -1;
+    ck_skip();
+    int open = *ck_cursor == '(';
+    if (open) ck_cursor++;
+    if (ck_status != CK_ACCEPTED || !ck_name(name)) { ck_reject("certificato scritto male: termine atteso"); return node; }
+
+    /* Una variabile: senza parentesi, la più interna con quel nome. */
+    for (int i = ck_bound_count - 1; i >= 0 && !open; i--)
+        if (strcmp(ck_bound[i], name) == 0) {
+            node->kind = CK_VAR;
+            node->value = ck_bound_count - 1 - i;
+            *sort = ck_bound_sort[i];
+            return node;
+        }
+
+    /* Un simbolo, con i suoi argomenti. */
+    int s = ck_symbol_of(name);
+    if (s < 0) { ck_reject("il certificato nomina un simbolo che non è dichiarato"); return node; }
+    if (open != (ck_symbols[s].arity > 0)) { ck_reject("un simbolo è scritto con un numero di argomenti diverso da quello dichiarato"); return node; }
+    if (ck_depth >= CK_MAX_DEPTH) { ck_unsupported("espressione con troppe parentesi una dentro l'altra"); return node; }
+    node->value = s;
+    *sort = ck_symbols[s].result;
+    ck_depth++;
+    for (int i = 0; i < ck_symbols[s].arity; i++) {
+        int got;
+        const CkNode *argument = ck_read_term(&got);
+        if (got != ck_symbols[s].arg[i]) ck_reject("un argomento non sta nell'insieme che il simbolo chiede");
+        if (i == 0) node->a = argument; else node->b = argument;
+    }
+    ck_depth--;
+    ck_skip();
+    if (!open) return node;
+    if (*ck_cursor != ')') ck_reject("certificato scritto male: parentesi chiusa attesa");
+    else ck_cursor++;
+    return node;
+}
+
+/* Legge una condizione e ne ritorna l'albero (la grammatica è in testa al
+ * capitolo). */
+static const CkNode *ck_read_condition(void) {
+    static const struct { const char *word; CkKind kind; int operands; } table[] = {
+        {"not", CK_NOT, 1}, {"and", CK_AND, 2}, {"or", CK_OR, 2}, {"implies", CK_IMPLIES, 2}, {"iff", CK_IFF, 2},
+        {"forall", CK_FORALL, 0}, {"exists", CK_EXISTS, 0},
+    };
+    char word[CK_MAX_NAME];
+    CkNode *node = ck_node(CK_TRUE);
+    ck_skip();
+    const char *start = ck_cursor;
+    if (ck_status != CK_ACCEPTED) return node;
+    if (*ck_cursor != '(') {
+        if (!ck_name(word) || strcmp(word, "true") != 0) ck_reject("certificato scritto male: condizione attesa");
+        return node;
+    }
+    if (ck_depth >= CK_MAX_DEPTH) { ck_unsupported("espressione con troppe parentesi una dentro l'altra"); return node; }
+    ck_cursor++;
+    ck_skip();
+    ck_depth++;
+    int found = -1, sort[2];
+    if (*ck_cursor == '=') {
+        /* Un'uguaglianza tra due elementi dello stesso insieme. */
+        ck_cursor++;
+        node->kind = CK_EQ;
+        node->a = ck_read_term(&sort[0]);
+        node->b = ck_read_term(&sort[1]);
+        if (sort[0] != sort[1] || sort[0] == CK_BOOL) ck_reject("un'uguaglianza tra elementi di insiemi diversi");
+    } else if (!ck_name(word)) {
+        ck_reject("certificato scritto male: condizione attesa");
+    } else {
+        for (int i = 0; i < (int)(sizeof table / sizeof *table); i++)
+            if (strcmp(table[i].word, word) == 0) found = i;
+    }
+    if (found < 0 && node->kind == CK_TRUE && ck_status == CK_ACCEPTED) {
+        /* Una parte o una relazione applicata: si rilegge come termine. */
+        ck_cursor = start;
+        ck_depth--;
+        node->kind = CK_EQ;
+        node->a = ck_read_term(&sort[0]);
+        if (sort[0] != CK_BOOL) ck_reject("serve una condizione, e il certificato scrive un elemento");
+        return node;
+    }
+    if (found >= 0) {
+        node->kind = table[found].kind;
+        if (table[found].operands == 0) {
+            /* (forall x S c): la variabile e il suo insieme restano in vista
+             * mentre si legge c. */
+            char set[CK_MAX_NAME];
+            if (ck_bound_count == CK_MAX_BOUND) { ck_unsupported("troppe variabili legate una dentro l'altra"); return node; }
+            if (!ck_name(ck_bound[ck_bound_count]) || !ck_name(set) || (node->value = ck_sort_of(set)) < 0) {
+                ck_reject("certificato scritto male: dopo forall ed exists servono una variabile e un insieme dichiarato");
+                return node;
+            }
+            ck_bound_sort[ck_bound_count++] = (int)node->value;
+            node->a = ck_read_condition();
+            ck_bound_count--;
+        } else {
+            node->a = ck_read_condition();
+            if (table[found].operands == 2) node->b = ck_read_condition();
+        }
+    }
+    ck_depth--;
+    ck_skip();
+    if (*ck_cursor != ')') ck_reject("certificato scritto male: parentesi chiusa attesa");
+    else ck_cursor++;
+    return node;
+}
+
+/* 11a, 11b. I valori delle variabili legate, dalla più esterna, e quanti
+ * elementi i quantificatori hanno provato. */
+static int ck_values[CK_MAX_BOUND];
+static long long ck_tried;
+
+/* Ritorna il valore del termine t nel modello, con depth variabili legate. */
+static int ck_value(const CkNode *t, int depth) {
+    if (t->kind == CK_VAR) return ck_values[depth - 1 - t->value];
+    const CkSymbol *s = &ck_symbols[t->value];
+    int cell = s->arity > 0 ? ck_value(t->a, depth) : 0;
+    if (s->arity > 1) cell += ck_value(t->b, depth) * ck_sorts[s->arg[0]].size;
+    return s->table[cell];
+}
+
+/* Ritorna 1 se la condizione c vale nel modello, con depth variabili legate.
+ * Un quantificatore prova ogni elemento del suo insieme: oltre CK_MAX_EVAL
+ * prove il certificato non è controllabile. */
+static int ck_holds(const CkNode *c, int depth) {
+    switch (c->kind) {
+    case CK_TRUE:    return 1;
+    case CK_EQ:      return c->b ? ck_value(c->a, depth) == ck_value(c->b, depth) : ck_value(c->a, depth);
+    case CK_NOT:     return !ck_holds(c->a, depth);
+    case CK_AND:     return ck_holds(c->a, depth) && ck_holds(c->b, depth);
+    case CK_OR:      return ck_holds(c->a, depth) || ck_holds(c->b, depth);
+    case CK_IMPLIES: return !ck_holds(c->a, depth) || ck_holds(c->b, depth);
+    case CK_IFF:     return ck_holds(c->a, depth) == ck_holds(c->b, depth);
+    default:         break;
+    }
+    int every = c->kind == CK_FORALL;
+    for (int x = 0; x < ck_sorts[c->value].size && ck_status == CK_ACCEPTED; x++) {
+        if (++ck_tried > CK_MAX_EVAL) { ck_unsupported("il modello è troppo grande per calcolarvi l'enunciato"); return 0; }
+        ck_values[depth] = x;
+        if (ck_holds(c->a, depth + 1) != every) return !every;
+    }
+    return every;
+}
+
+/* 11d. LA DIMOSTRAZIONE PER ASSURDO, CON I SOLI ELEMENTI NOMINATI
+ *
+ * Il certificato 11c porta i dati di una dimostrazione per assurdo: si
+ * suppone che l'enunciato E sia falso, e se ne trae una contraddizione. Le
+ * voci, dopo l'enunciato, sono di tre tipi:
+ *
+ *   case A           comincia un caso: si suppone A, una condizione chiusa
+ *                    sui simboli dichiarati;
+ *   instance Q t...  Q è una condizione già comparsa nel caso, che comincia
+ *                    con dei "per ogni" (o con degli "esiste"), e t... sono
+ *                    termini chiusi, uno per quantificatore, ognuno nel suo
+ *                    insieme. Se ne trae "Q implica C(t...)", dove C(t...)
+ *                    è ciò che segue i quantificatori, con i termini al
+ *                    posto delle variabili; per gli "esiste", "C(t...)
+ *                    implica Q";
+ *   witness Q c      Q comincia con un "esiste x in S", e c è un nome che
+ *                    nel caso non c'è ancora: diventa un elemento di S, e se
+ *                    ne trae "Q implica C(c)". Per un "per ogni x in S",
+ *                    "C(c) implica Q": c è un elemento per cui C non vale.
+ *
+ * Il verificatore calcola da sé la sostituzione, quindi un'istanza scritta
+ * con il termine sbagliato non è un'istanza sbagliata: è l'istanza di un
+ * altro termine, o di una condizione che non è comparsa, e allora è
+ * respinta. Un termine chiuso è fatto solo di simboli dichiarati e di nomi
+ * già dati: nessun elemento inventato.
+ *
+ * Perché le condizioni tratte sono vere. Si fissi un'interpretazione M in
+ * cui E è falso, e in cui gli insiemi vuoti sono quelli di un insieme Z.
+ *
+ *   - Un termine chiuso indica sempre un elemento: i simboli dichiarati
+ *     hanno un valore in M, e i nomi lo ricevono quando nascono. Quindi da
+ *     "per ogni x in S, C(x)" segue C(t) per ogni t chiuso di S.
+ *   - Un nome c nato da Q = "esiste x in S, C(x)": se Q è vera in M, a c si
+ *     dà un elemento che la rende vera; se è falsa, un elemento qualsiasi di
+ *     S. In tutti e due i casi "Q implica C(c)" è vera, e c non compariva
+ *     prima, quindi dargli un valore non cambia nulla di ciò che c'era. Ma
+ *     se S è vuoto c non può ricevere nulla: per questo il controllo si
+ *     ripete per ogni Z (11f), e quando S sta in Z le voci che nominano un
+ *     elemento di S sono lasciate fuori.
+ *
+ * Il caso giusto. Gli A dei case devono coprire ogni possibilità: "E falso"
+ * e "nessun A" insieme devono essere contraddittori, e anche questo si
+ * controlla (11f, alla fine). Allora in M vale uno degli A, e le condizioni
+ * di quel caso sono tutte vere in M.
+ *
+ * 11e. LA CONTRADDIZIONE: UN CONTO FINITO E COMPLETO
+ *
+ * Le condizioni di un caso sono chiuse: si costruiscono con and, or, not,
+ * implies e iff a partire da condizioni elementari, che sono di due tipi:
+ * le uguaglianze tra termini chiusi (anche "x sta in X", che è X(x) =
+ * vero, con un termine "vero" in più) e le condizioni chiuse che cominciano
+ * con un quantificatore, trattate come lettere: due sono la stessa solo se
+ * sono scritte allo stesso modo, a meno del nome delle variabili legate.
+ * Ogni scelta di vero o falso per le condizioni elementari si prova:
+ *
+ *   - se rende falsa una delle condizioni del caso, è scartata;
+ *   - altrimenti si guardano le uguaglianze vere: con la CHIUSURA PER
+ *     CONGRUENZA (se a = b allora f(a) = f(b), anche per X(a) = X(b)) se ne
+ *     ricavano le classi dei termini uguali, e la scelta è scartata se
+ *     un'uguaglianza falsa ha i due termini nella stessa classe.
+ *
+ * Se ogni scelta è scartata, il caso è impossibile. Perché è un conto
+ * completo: in M ogni condizione elementare è vera o falsa, e la scelta che
+ * M fa rende vere tutte le condizioni del caso e non è scartata, perché in
+ * M uguali al posto di uguali danno uguali. Quindi se M ci fosse, una
+ * scelta resterebbe. Le condizioni elementari sono in numero finito, e così
+ * le scelte.
+ *
+ * Le scelte sono 2^k, ma non si elencano una per una: si assegnano le
+ * condizioni elementari una alla volta, e una scelta parziale è scartata
+ * appena una condizione del caso risulta falsa qualunque cosa valgano le
+ * altre, o appena la chiusura mette insieme i due termini di
+ * un'uguaglianza falsa. Un'uguaglianza tra termini che la chiusura ha già
+ * messo nella stessa classe vale vero senza sceglierla: in M lo è di
+ * sicuro. Se le condizioni del caso sono tutte vere prima di aver scelto
+ * tutto, le scelte mancanti si completano (vero alle uguaglianze dentro una
+ * classe, falso alle altre) senza scartare: c'è una scelta che resta. La
+ * prossima condizione elementare da scegliere si prende dalla condizione
+ * del caso con meno incognite: è la potatura che fa sì che i passi forzati
+ * non moltiplichino i casi. Oltre CK_MAX_SEARCH scelte parziali il
+ * certificato non è controllabile.
+ *
+ * 11f. GLI INSIEMI VUOTI
+ *
+ * Per ogni Z, insieme degli insiemi vuoti, il conto di 11e si rifà così:
+ *
+ *   - una condizione elementare "per ogni x in S" con S in Z vale vero, una
+ *     "esiste x in S" vale falso: in un insieme vuoto è così;
+ *   - le voci instance e witness che nominano un elemento di un insieme di
+ *     Z (un nome di Z, o un termine con un nome di Z dentro, anche tra i
+ *     termini di un'istanza che poi non compaiono) sono lasciate fuori: in
+ *     M quell'elemento non c'è.
+ *
+ * Le voci che restano sono vere in M come detto in 11d, perché ogni loro
+ * termine chiuso indica un elemento di M: è fatto di simboli dichiarati,
+ * che in M hanno un valore, e di nomi di insiemi fuori da Z, che lo
+ * ricevono. Un termine chiuso di un insieme di Z senza nomi di Z indicherebbe
+ * un elemento di un insieme vuoto: quando ce n'è uno, nessuna M ha vuoti
+ * proprio gli insiemi di Z, e il conto per quel Z non serve, ma non fa
+ * danno. Così "valido anche per gli insiemi vuoti" non è un argomento: è un
+ * conto. */
+
+/* Un termine chiuso, come lo vede la chiusura per congruenza: un simbolo
+ * applicato ad altri termini chiusi. Il posto 0 è "vero", il valore di una
+ * parte o di una relazione che vale. */
+typedef struct {
+    int symbol;  /* posto in ck_symbols[]; -1 per "vero" */
+    int arg[2];  /* gli argomenti, posti in ck_grounds[]; -1 dove mancano */
+} CkGround;
+
+/* Una condizione elementare di un caso (11e): un'uguaglianza tra due
+ * termini chiusi, oppure una condizione chiusa che comincia con un
+ * quantificatore. value è il valore scelto dalla ricerca. */
+typedef struct {
+    const CkNode *quantified;  /* la condizione quantificata, o NULL per un'uguaglianza */
+    int left, right;           /* uguaglianza: i due termini, posti in ck_grounds[], left <= right */
+    signed char value;         /* 1, 0, oppure -1 se non è ancora scelto */
+} CkAtom;
+
+/* I termini chiusi e le condizioni elementari del caso in corso; le sue
+ * condizioni, come scheletri (CK_ATOM al posto delle condizioni
+ * elementari), ognuna con gli insiemi dei nomi che vi compaiono (bit i:
+ * l'insieme di posto i, 11f); il rappresentante della classe di ogni
+ * termine (11e). */
+static CkGround ck_grounds[CK_MAX_GROUND];
+static int ck_ground_count;
+static CkAtom ck_atoms[CK_MAX_ATOMS];
+static int ck_atom_count;
+static const CkNode *ck_formulas[CK_MAX_FORMULAS];
+static unsigned ck_masks[CK_MAX_FORMULAS];
+static int ck_formula_count;
+static int ck_rep[CK_MAX_GROUND];
+static long long ck_nodes;
+
+/* Ritorna il posto del termine chiuso t in ck_grounds[], aggiungendolo se
+ * manca: due termini scritti allo stesso modo hanno lo stesso posto. */
+static int ck_ground_of(const CkNode *t) {
+    int a = t->a ? ck_ground_of(t->a) : -1, b = t->b ? ck_ground_of(t->b) : -1;
+    for (int i = 0; i < ck_ground_count; i++)
+        if (ck_grounds[i].symbol == t->value && ck_grounds[i].arg[0] == a && ck_grounds[i].arg[1] == b) return i;
+    if (ck_ground_count == CK_MAX_GROUND) { ck_unsupported("troppi termini per il verificatore"); return 0; }
+    ck_grounds[ck_ground_count] = (CkGround){(int)t->value, {a, b}};
+    return ck_ground_count++;
+}
+
+/* Ritorna lo scheletro della condizione chiusa c: lo stesso albero, con un
+ * nodo CK_ATOM al posto di ogni condizione elementare, che viene messa in
+ * ck_atoms[] se non c'è già. */
+static const CkNode *ck_skeleton(const CkNode *c) {
+    CkNode *s = ck_node(c->kind);
+    if (ck_status != CK_ACCEPTED || c->kind == CK_TRUE) return s;
+    if (c->kind != CK_EQ && c->kind != CK_FORALL && c->kind != CK_EXISTS) {
+        s->a = ck_skeleton(c->a);
+        if (c->b) s->b = ck_skeleton(c->b);
+        return s;
+    }
+    CkAtom atom = {c->kind == CK_EQ ? NULL : c, 0, 0, -1};
+    if (c->kind == CK_EQ) {
+        atom.left = ck_ground_of(c->a);
+        atom.right = c->b ? ck_ground_of(c->b) : 0;
+        if (atom.left > atom.right) { int swap = atom.left; atom.left = atom.right; atom.right = swap; }
+    }
+    s->kind = CK_ATOM;
+    for (s->value = 0; s->value < ck_atom_count; s->value++) {
+        const CkAtom *old = &ck_atoms[s->value];
+        if (atom.quantified ? old->quantified && ck_same(old->quantified, c) : !old->quantified && old->left == atom.left && old->right == atom.right) return s;
+    }
+    if (ck_atom_count == CK_MAX_ATOMS) { ck_unsupported("troppe condizioni elementari per il verificatore"); return s; }
+    ck_atoms[ck_atom_count++] = atom;
+    return s;
+}
+
+/* Aggiunge la condizione chiusa c a quelle del caso; mask dice gli insiemi
+ * dei nomi che nomina (11f). */
+static void ck_suppose(const CkNode *c, unsigned mask) {
+    if (ck_formula_count == CK_MAX_FORMULAS) { ck_unsupported("troppe condizioni in un caso"); return; }
+    ck_masks[ck_formula_count] = mask;
+    ck_formulas[ck_formula_count++] = ck_skeleton(c);
+}
+
+/* Ritorna, come bit, gli insiemi dei nomi dati da witness che compaiono
+ * nell'albero t. */
+static unsigned ck_names(const CkNode *t) {
+    if (!t) return 0;
+    unsigned here = t->kind == CK_APP && ck_symbols[t->value].witness ? 1u << ck_symbols[t->value].result : 0;
+    return here | ck_names(t->a) | ck_names(t->b);
+}
+
+/* Ritorna la condizione (o il termine) c con il termine chiuso t al posto
+ * della variabile legata dal quantificatore che sta depth quantificatori
+ * sopra c, in un albero nuovo. Le altre variabili restano come sono: sono
+ * legate da quantificatori dentro c, perché la condizione da cui si parte è
+ * chiusa, e t non ne contiene. */
+static const CkNode *ck_subst(const CkNode *c, long long depth, const CkNode *t) {
+    if (!c) return NULL;
+    if (c->kind == CK_VAR) return c->value == depth ? t : c;
+    CkNode *copy = ck_node(c->kind);
+    *copy = *c;
+    copy->a = ck_subst(c->a, depth + (c->kind == CK_FORALL || c->kind == CK_EXISTS), t);
+    copy->b = ck_subst(c->b, depth, t);
+    return copy;
+}
+
+/* Legge la condizione Q di una voce instance o witness. Deve cominciare con
+ * un quantificatore ed essere già comparsa nel caso, come condizione
+ * elementare. */
+static const CkNode *ck_read_available(void) {
+    const CkNode *q = ck_read_condition();
+    if (ck_status != CK_ACCEPTED) return q;
+    if (q->kind != CK_FORALL && q->kind != CK_EXISTS) { ck_reject("instance e witness vogliono una condizione che comincia con un quantificatore"); return q; }
+    for (int i = 0; i < ck_atom_count; i++)
+        if (ck_atoms[i].quantified && ck_same(ck_atoms[i].quantified, q)) return q;
+    ck_reject("instance o witness di una condizione che nel caso non è comparsa");
+    return q;
+}
+
+/* Ritorna la condizione "premise implica conclusion". */
+static const CkNode *ck_implies(const CkNode *premise, const CkNode *conclusion) {
+    CkNode *clause = ck_node(CK_IMPLIES);
+    clause->a = premise;
+    clause->b = conclusion;
+    return clause;
+}
+
+/* La voce instance Q t1 ... tk (11d). */
+static void ck_instance(void) {
+    const CkNode *q = ck_read_available(), *body = q;
+    unsigned mask = ck_names(q);
+    int count = 0;
+    for (ck_skip(); ck_status == CK_ACCEPTED && *ck_cursor && *ck_cursor != '\n'; ck_skip(), count++) {
+        int sort;
+        const CkNode *t = ck_read_term(&sort);
+        if (body->kind != q->kind || sort != body->value) { ck_reject("un'istanza ha un termine di troppo, o in un altro insieme"); return; }
+        mask |= ck_names(t);
+        body = ck_subst(body->a, 0, t);
+    }
+    if (ck_status != CK_ACCEPTED) return;
+    if (count == 0) { ck_reject("un'istanza senza termini"); return; }
+    ck_suppose(q->kind == CK_FORALL ? ck_implies(q, body) : ck_implies(body, q), mask);
+}
+
+/* La voce witness Q c (11d). */
+static void ck_witness(void) {
+    const CkNode *q = ck_read_available();
+    if (ck_status != CK_ACCEPTED) return;
+    if (ck_symbol_count == CK_MAX_SYMBOLS) { ck_unsupported("troppi nomi in un caso"); return; }
+    CkSymbol *c = &ck_symbols[ck_symbol_count];
+    memset(c, 0, sizeof *c);
+    if (!ck_name(c->name) || ck_symbol_of(c->name) >= 0) { ck_reject("witness: serve un nome che nel caso non c'è ancora"); return; }
+    c->result = (int)q->value;
+    c->witness = 1;
+    CkNode *t = ck_node(CK_APP);
+    t->value = ck_symbol_count++;
+    const CkNode *body = ck_subst(q->a, 0, t);
+    ck_suppose(q->kind == CK_EXISTS ? ck_implies(q, body) : ck_implies(body, q), ck_names(q) | 1u << q->value);
+}
+
+/* Ritorna il rappresentante della classe del termine t, accorciando la
+ * strada per le volte dopo. */
+static int ck_find(int t) {
+    while (ck_rep[t] != t) t = ck_rep[t] = ck_rep[ck_rep[t]];
+    return t;
+}
+
+/* 11e. La chiusura per congruenza delle uguaglianze scelte vere: al ritorno
+ * due termini hanno lo stesso rappresentante se e solo se la loro
+ * uguaglianza segue da quelle, con uguali al posto di uguali.
+ *
+ * Si uniscono le classi delle uguaglianze vere; poi, a ogni giro, ogni
+ * termine entra in una tabella con la sua "firma", il simbolo e le classi
+ * degli argomenti: due termini con la stessa firma sono uguali, e se stanno
+ * in classi diverse le si unisce. Un'unione cambia le firme, e allora il
+ * giro ricomincia; finisce quando un giro intero non unisce nulla. */
+static void ck_closure(void) {
+    static int table[2 * CK_MAX_GROUND];
+    unsigned size = 1;
+    while (size < 2u * (unsigned)ck_ground_count) size *= 2;
+    for (int t = 0; t < ck_ground_count; t++) ck_rep[t] = t;
+    for (int i = 0; i < ck_atom_count; i++)
+        if (!ck_atoms[i].quantified && ck_atoms[i].value == 1) ck_rep[ck_find(ck_atoms[i].left)] = ck_find(ck_atoms[i].right);
+    for (int changed = 1; changed;) {
+        changed = 0;
+        for (unsigned h = 0; h < size; h++) table[h] = -1;
+        for (int t = 1; t < ck_ground_count; t++) {
+            const CkGround *g = &ck_grounds[t];
+            if (g->arg[0] < 0) continue;
+            int a = ck_find(g->arg[0]), b = g->arg[1] < 0 ? -1 : ck_find(g->arg[1]);
+            unsigned h = ((unsigned)g->symbol * 31u + (unsigned)a * 2053u + (unsigned)(b + 1)) & (size - 1);
+            for (; table[h] >= 0; h = (h + 1) & (size - 1)) {
+                const CkGround *o = &ck_grounds[table[h]];
+                if (o->symbol == g->symbol && ck_find(o->arg[0]) == a && (o->arg[1] < 0 ? -1 : ck_find(o->arg[1])) == b) break;
+            }
+            if (table[h] < 0) table[h] = t;
+            else if (ck_find(table[h]) != ck_find(t)) { ck_rep[ck_find(t)] = ck_find(table[h]); changed = 1; }
+        }
+    }
+}
+
+/* Ritorna il valore della condizione elementare atom per la scelta in
+ * corso: quello scelto; se non è scelto, vero per un'uguaglianza tra due
+ * termini della stessa classe e per un "per ogni" su un insieme vuoto,
+ * falso per un "esiste" su un insieme vuoto, altrimenti -1. Gli insiemi con
+ * il bit in empty sono vuoti (11f), e lì una condizione quantificata non si
+ * sceglie. */
+static int ck_atom_value(const CkAtom *atom, unsigned empty) {
+    if (atom->value >= 0) return atom->value;
+    if (!atom->quantified) return ck_find(atom->left) == ck_find(atom->right) ? 1 : -1;
+    return empty >> atom->quantified->value & 1 ? atom->quantified->kind == CK_FORALL : -1;
+}
+
+/* Ritorna il valore dello scheletro s per la scelta in corso: 1, 0, oppure
+ * -1 se dipende da condizioni elementari non ancora scelte. Conta queste
+ * ultime in *unknown, e mette in *pick la prima incontrata. */
+static int ck_truth(const CkNode *s, unsigned empty, int *unknown, int *pick) {
+    if (s->kind == CK_TRUE) return 1;
+    if (s->kind == CK_ATOM) {
+        int x = ck_atom_value(&ck_atoms[s->value], empty);
+        if (x < 0 && (*unknown)++ == 0) *pick = (int)s->value;
+        return x;
+    }
+    int x = ck_truth(s->a, empty, unknown, pick);
+    if (s->kind == CK_NOT) return x < 0 ? -1 : !x;
+
+    /* Il primo operando può bastare: falso in una congiunzione, vero in una
+     * disgiunzione, falso come premessa. */
+    if ((s->kind == CK_AND && x == 0) || (s->kind == CK_OR && x == 1) || (s->kind == CK_IMPLIES && x == 0)) return s->kind != CK_AND;
+    int y = ck_truth(s->b, empty, unknown, pick);
+    switch (s->kind) {
+    case CK_AND:     return y == 0 ? 0 : x == 1 && y == 1 ? 1 : -1;
+    case CK_OR:      return y == 1 ? 1 : x == 0 && y == 0 ? 0 : -1;
+    case CK_IMPLIES: return y == 1 ? 1 : x == 1 && y == 0 ? 0 : -1;
+    default:         return x < 0 || y < 0 ? -1 : x == y;
+    }
+}
+
+/* 11e. Ritorna 1 se la scelta in corso si può completare in una che rende
+ * vere tutte le condizioni del caso senza essere scartata; 0 se no. Le
+ * condizioni con un nome di un insieme vuoto (bit in empty) sono lasciate
+ * fuori (11f). Se la ricerca supera CK_MAX_SEARCH ritorna 0, e il
+ * certificato non è controllabile. */
+static int ck_consistent(unsigned empty) {
+    int pick = -1, fewest = 0;
+    if (++ck_nodes > CK_MAX_SEARCH) { ck_unsupported("troppe scelte da provare per il verificatore"); return 0; }
+    ck_closure();
+    for (int i = 0; i < ck_atom_count; i++)
+        if (!ck_atoms[i].quantified && ck_atoms[i].value == 0 && ck_find(ck_atoms[i].left) == ck_find(ck_atoms[i].right)) return 0;
+
+    /* Una condizione falsa scarta la scelta; tra quelle che non si sanno, la
+     * prossima condizione elementare viene da quella con meno incognite. */
+    for (int f = 0; f < ck_formula_count; f++) {
+        int unknown = 0, first = -1;
+        if (ck_masks[f] & empty) continue;
+        int truth = ck_truth(ck_formulas[f], empty, &unknown, &first);
+        if (truth == 0) return 0;
+        if (truth < 0 && (pick < 0 || unknown < fewest)) { pick = first; fewest = unknown; }
+    }
+    if (pick < 0) return 1;
+    for (int value = 1; value >= 0 && ck_status == CK_ACCEPTED; value--) {
+        ck_atoms[pick].value = (signed char)value;
+        if (ck_consistent(empty)) { ck_atoms[pick].value = -1; return 1; }
+    }
+    ck_atoms[pick].value = -1;
+    return 0;
+}
+
+/* Svuota il caso, e i nomi dati nel precedente. */
+static void ck_case_start(void) {
+    ck_symbol_count = ck_declared;
+    ck_grounds[0] = (CkGround){-1, {-1, -1}};
+    ck_ground_count = 1;
+    ck_atom_count = ck_formula_count = 0;
+}
+
+/* 11f. Controlla che il caso appena letto sia impossibile per ogni scelta Z
+ * degli insiemi vuoti (bit in empty). Se non lo è, il certificato è
+ * sbagliato, e il motivo dice quali insiemi erano vuoti. */
+static void ck_check_case(void) {
+    static char text[128];
+    for (unsigned empty = 0; empty < 1u << ck_sort_count && ck_status == CK_ACCEPTED; empty++) {
+        if (!ck_consistent(empty)) continue;
+        int length = snprintf(text, sizeof text, "le condizioni di un caso non sono contraddittorie%s", empty ? ", con vuoti:" : "");
+        for (int i = 0; i < ck_sort_count; i++)
+            if (empty >> i & 1) length += snprintf(text + length, sizeof text - (size_t)length, " %s", ck_sorts[i].name);
+        ck_reject(text);
+    }
+}
+
+/* Legge e controlla un certificato su insiemi qualsiasi, dalla riga dopo
+ * l'intestazione fino a "end" compreso. kind è 0 per counterexample (11a),
+ * 1 per example (11b), 2 per structure (11c). */
+static void ck_check_structure(int kind) {
+    static const CkNode *assumed[CK_MAX_CASES];
+    const CkNode *statement = NULL;
+    int cases = 0;
+    ck_sort_count = ck_symbol_count = ck_declared = ck_bound_count = 0;
+    ck_nodes = 0;
+    for (int ended = 0; !ended && ck_status == CK_ACCEPTED;) {
+        char name[CK_MAX_NAME];
+        long long size = -1;
+        while (isspace((unsigned char)*ck_cursor)) ck_cursor++;
+        if (ck_word("end")) {
+            ended = 1;
+        } else if (!statement && ck_word("sort")) {
+            /* Un insieme, con il numero di elementi nei soli modelli. */
+            if (ck_sort_count == CK_MAX_SORTS) { ck_unsupported("troppi insiemi per il verificatore"); return; }
+            if (!ck_name(name) || ck_sort_of(name) >= 0) { ck_reject("certificato scritto male: sort senza nome, o due volte"); return; }
+            if ((kind < 2) != ck_read_integer(&size) || (kind < 2 && size < 0)) { ck_reject("certificato scritto male: il numero di elementi c'è nei soli modelli"); return; }
+            if (size > CK_MAX_SIZE) { ck_unsupported("modello troppo grande per il verificatore"); return; }
+            strcpy(ck_sorts[ck_sort_count].name, name);
+            ck_sorts[ck_sort_count++].size = (int)size;
+        } else if (!statement && ck_word("symbol")) {
+            /* Un simbolo: gli insiemi degli argomenti, poi quello del valore. */
+            int sort[3], count = 0;
+            if (ck_symbol_count == CK_MAX_SYMBOLS) { ck_unsupported("troppi simboli per il verificatore"); return; }
+            CkSymbol *y = &ck_symbols[ck_symbol_count];
+            memset(y, 0, sizeof *y);
+            if (!ck_name(y->name) || ck_symbol_of(y->name) >= 0) { ck_reject("certificato scritto male: symbol senza nome, o due volte"); return; }
+            for (ck_skip(); *ck_cursor && *ck_cursor != '\n'; ck_skip()) {
+                if (count == 3 || !ck_name(name)) { ck_reject("certificato scritto male: symbol con troppi insiemi"); return; }
+                sort[count++] = strcmp(name, "bool") == 0 ? CK_BOOL : ck_sort_of(name);
+            }
+            if (count == 0) { ck_reject("certificato scritto male: symbol senza insiemi"); return; }
+            y->arity = count - 1;
+            y->result = sort[count - 1];
+            for (int i = 0; i < count; i++) {
+                if (sort[i] < 0 || (sort[i] == CK_BOOL && i < y->arity)) { ck_reject("certificato scritto male: symbol con un insieme non dichiarato"); return; }
+                if (i < y->arity) y->arg[i] = sort[i];
+            }
+            ck_symbol_count++;
+        } else if (!statement && ck_word("statement")) {
+            statement = ck_read_condition();
+            ck_declared = ck_symbol_count;
+        } else if (kind < 2 && statement && ck_word("table")) {
+            /* I valori di un simbolo, cella per cella. */
+            int s = ck_name(name) ? ck_symbol_of(name) : -1;
+            if (s < 0 || ck_symbols[s].table) { ck_reject("table di un simbolo non dichiarato, o due volte"); return; }
+            CkSymbol *y = &ck_symbols[s];
+            int cells = 1, values = y->result == CK_BOOL ? 2 : ck_sorts[y->result].size;
+            for (int i = 0; i < y->arity; i++) cells *= ck_sorts[y->arg[i]].size;
+            y->table = ck_alloc(sizeof(int) * (size_t)cells);
+            for (int c = 0; c < cells && ck_status == CK_ACCEPTED; c++) {
+                long long v;
+                if (!ck_read_integer(&v) || v < 0 || v >= values) { ck_reject("una tabella ha meno valori delle sue celle, o un valore fuori dal suo insieme"); return; }
+                y->table[c] = (int)v;
+            }
+            ck_skip();
+            if (*ck_cursor && *ck_cursor != '\n') { ck_reject("una tabella ha più valori delle sue celle"); return; }
+        } else if (kind == 2 && statement && ck_word("case")) {
+            /* Un caso nuovo: si suppongono "E falso" e A. */
+            if (cases) ck_check_case();
+            if (cases == CK_MAX_CASES) { ck_unsupported("troppi casi per il verificatore"); return; }
+            CkNode *denied = ck_node(CK_NOT);
+            denied->a = statement;
+            ck_case_start();
+            ck_suppose(denied, 0);
+            assumed[cases] = ck_read_condition();
+            ck_suppose(assumed[cases++], 0);
+        } else if (kind == 2 && cases && ck_word("instance")) {
+            ck_instance();
+        } else if (kind == 2 && cases && ck_word("witness")) {
+            ck_witness();
+        } else {
+            ck_reject("certificato scritto male: voce sconosciuta o fuori posto, o \"end\" mancante");
+        }
+    }
+    if (ck_status != CK_ACCEPTED) return;
+    if (!statement) { ck_reject("certificato incompleto: manca l'enunciato"); return; }
+
+    /* 11a, 11b: il conto sul modello. */
+    if (kind < 2) {
+        for (int s = 0; s < ck_symbol_count; s++)
+            if (!ck_symbols[s].table) { ck_reject("certificato incompleto: un simbolo non ha la sua tabella"); return; }
+        ck_tried = 0;
+        int truth = ck_holds(statement, 0);
+        if (ck_status == CK_ACCEPTED && truth != kind)
+            ck_reject(kind ? "nel modello l'enunciato è falso: non è un esempio" : "nel modello l'enunciato è vero: non è un controesempio");
+        return;
+    }
+
+    /* 11c: l'ultimo caso, poi la copertura (11d): "E falso" e nessun A
+     * devono essere contraddittori. */
+    if (cases) ck_check_case();
+    CkNode *denied = ck_node(CK_NOT);
+    denied->a = statement;
+    ck_case_start();
+    ck_suppose(denied, 0);
+    for (int i = 0; i < cases; i++) {
+        CkNode *other = ck_node(CK_NOT);
+        other->a = assumed[i];
+        ck_suppose(other, 0);
+    }
+    if (ck_status == CK_ACCEPTED && ck_consistent(0)) ck_reject("i casi non coprono tutti i modi in cui l'enunciato potrebbe essere falso");
+}
+
+/* =============================================================================
+ * 12. CONTROLLO DI UN CERTIFICATO
  * ============================================================================
  *
  * I tre controlli descritti in testa al file, più le condizioni che rendono
  * lecito trattare somme e successioni come lettere.
  */
-
-/* Se il testo comincia con la parola word, seguita da uno spazio o dalla
- * fine della riga, la supera e ritorna 1. */
-static int ck_word(const char *word) {
-    size_t length = strlen(word);
-    ck_skip();
-    if (strncmp(ck_cursor, word, length) != 0 || (ck_cursor[length] && !isspace((unsigned char)ck_cursor[length]))) return 0;
-    ck_cursor += length;
-    return 1;
-}
 
 /* Legge le voci del certificato che comincia in ck_cursor, fino a "end"
  * compreso. Una voce sconosciuta o mancante rende il certificato sbagliato. */
@@ -1790,6 +2596,16 @@ static void ck_read_certificate(CkCertificate *cert) {
         if (!ck_word("end")) ck_reject("certificato scritto male: voce sconosciuta o \"end\" mancante");
         return;
     }
+
+    /* Un enunciato su insiemi qualsiasi: lo si controlla mentre lo si legge
+     * (capitolo 11). */
+    static const char *const structures[] = {"counterexample", "example", "structure"};
+    for (int kind = 0; kind < 3; kind++)
+        if (ck_word(structures[kind])) {
+            cert->structure = 1;
+            ck_check_structure(kind);
+            return;
+        }
     if (!ck_word("induction")) { ck_reject("certificato scritto male: manca l'intestazione"); return; }
     while (ck_status == CK_ACCEPTED && !ended) {
         while (isspace((unsigned char)*ck_cursor)) ck_cursor++;
@@ -2008,7 +2824,7 @@ static CkAnswer ck_check(const char **text, const char **why) {
     /* Un'induzione: la valutazione di prova e quella vera. Tra l'una e
      * l'altra restano le indeterminate con i loro riferimenti; i polinomi si
      * ricalcolano. */
-    for (int pass = 0; pass < 2 && ck_status == CK_ACCEPTED && !cert.sets; pass++) {
+    for (int pass = 0; pass < 2 && ck_status == CK_ACCEPTED && !cert.sets && !cert.structure; pass++) {
         ck_trial = pass == 0;
         if (pass == 0) {
             ck_var_count = 0;
@@ -2023,7 +2839,7 @@ static CkAnswer ck_check(const char **text, const char **why) {
 }
 
 /* =============================================================================
- * 12. MAIN
+ * 13. MAIN
  * ============================================================================
  *
  * Il verificatore come programma a sé: legge un file di certificati, uno

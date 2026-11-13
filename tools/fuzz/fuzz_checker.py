@@ -59,7 +59,11 @@ def show(node):
 
 def read_certificates(path):
     out = []
-    for block in open(path, encoding="utf-8").read().split("certificate induction")[1:]:
+    # Solo le induzioni: un certificato di un altro tipo che segue nel file
+    # (sets, structure, ...) non deve finire nel blocco di quella prima.
+    for block in open(path, encoding="utf-8").read().split("certificate ")[1:]:
+        if not block.startswith("induction"):
+            continue
         cert = {"variable": "n", "base": 1, "generic": [], "sequence": [], "define": [], "defined": None, "brick": []}
         for line in block.strip().splitlines():
             word, _, rest = line.strip().partition(" ")

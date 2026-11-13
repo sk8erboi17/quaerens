@@ -2971,7 +2971,9 @@ struct Elem {
  *
  * Warning: se aggiungi un tipo, aggiungi il ramo che lo costruisce nel
  * lettore di questo paragrafo e i suoi casi nel capitolo 28: in
- * model_holds(), in known_shape(), in truth() e in put_sentence(). */
+ * model_holds(), in known_open(), in truth(), in put_sentence() e in
+ * cert_sentence(), e la sua parola al lettore del verificatore (capitolo 11
+ * di checker.c). */
 typedef enum {
     S_TRUE,                         /* una dichiarazione: non afferma nulla */
     S_EQUAL,                        /* left = right */

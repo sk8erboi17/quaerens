@@ -186,18 +186,17 @@
  *     stesso enunciato: i due linguaggi non si parlano. Vedi il capitolo 28.
  *   - Un certificato per tutto. Lo hanno le induzioni scritte con somme,
  *     prodotti, potenze, fattoriali, binomiali, successioni per ricorrenza
- *     e logaritmi, e gli enunciati sugli insiemi senza "esiste" (vedi "I
- *     certificati"). Non lo hanno le induzioni con radici, seni e
- *     arcotangenti, né gli enunciati con quantificatori, né quelli su
- *     insiemi qualsiasi: lì resta il solo controllo del motore su se
- *     stesso (numeri, campioni, modelli finiti, passi riletti). Servirebbe che ogni regola del
- *     capitolo 18 emettesse un passo in una notazione che checker.c sappia
- *     ricontrollare. Anche "è
- *     definito per ogni n" è certificato solo in parte: non quando un
- *     divisore contiene una somma, un numero di Fibonacci o due potenze
- *     diverse come 3^n - 2^n, né quando lo si è stabilito con 13d, né
- *     quando c'è un logaritmo, di cui andrebbe certificato il segno
- *     dell'argomento.
+ *     e logaritmi, gli enunciati sugli insiemi senza "esiste", e quelli su
+ *     insiemi qualsiasi, dimostrati o smentiti (vedi "I certificati"). Non
+ *     lo hanno le induzioni con radici, seni e arcotangenti, né gli
+ *     enunciati con quantificatori: lì resta il solo controllo del motore su
+ *     se stesso (numeri, campioni). Servirebbe che ogni regola del capitolo
+ *     18 emettesse un passo in una notazione che checker.c sappia
+ *     ricontrollare. Anche "è definito per ogni n" è certificato solo in
+ *     parte: non quando un divisore contiene una somma, un numero di
+ *     Fibonacci o due potenze diverse come 3^n - 2^n, né quando lo si è
+ *     stabilito con 13d, né quando c'è un logaritmo, di cui andrebbe
+ *     certificato il segno dell'argomento.
  *
  * In tutti questi casi la risposta è NON SUPPORTATO, mai un verdetto inventato.
  *
@@ -267,7 +266,13 @@
  * piccolo da poterlo leggere tutto (13h). Se lo respinge, il verdetto è NON
  * DIMOSTRATO. Per un enunciato sugli insiemi il certificato è il solo
  * enunciato: il verificatore lo decide da capo, con un conto suo sulle
- * regioni del diagramma di Venn (prove_sets()).
+ * regioni del diagramma di Venn (prove_sets()). Per un enunciato su insiemi
+ * qualsiasi (28f) il certificato è il modello finito che lo smentisce, o
+ * l'esempio che chiede, su cui il verificatore ricalcola l'enunciato; oppure,
+ * per una dimostrazione, i nomi e le istanze usati, di cui il verificatore
+ * controlla da sé, con un conto finito, che portino a una contraddizione
+ * anche quando qualche insieme è vuoto. Lì il verdetto, DIMOSTRATO o FALSO,
+ * vuole che il certificato sia accettato.
  *
  * Il certificato dimostra una cosa precisa, enunciata in testa a checker.c,
  * e non di più. La sua parte principale dice che per ogni n dal caso base in
@@ -443,6 +448,7 @@
 #define MAX_PROP_ATOMS 12    /* condizioni elementari di un passo ricontrollato con la tabella di verità */
 #define MAX_CHAIN 64         /* anelli di una catena di uguaglianze */
 #define MAX_PATTERN 64       /* elementi in attesa mentre si confronta uno schema con ciò che è presente (28-3) */
+#define MAX_NAMES_GIVEN 4096 /* nomi dati in tutti i rami della dimostrazione di un'affermazione (28f) */
 #define MAX_CONGRUENCES 32   /* condizioni "m divide P" in un enunciato deciso sui resti (18r) */
 #define MAX_PERIOD 100000    /* il multiplo comune dei moduli, al più */
 #define MAX_RESIDUE_CASES 200000  /* assegnazioni di resti provate per un enunciato */
@@ -3304,7 +3310,9 @@ typedef struct {
     const char *note;    /* REFUTED: avvertenza su come è stato letto l'enunciato, o NULL;
                             SOLVED: che cosa indicano i nomi usati nelle soluzioni, o NULL */
     const char *certificate;  /* PROVED: il certificato che il verificatore
-                                 indipendente ha accettato (13h), o NULL */
+                                 indipendente ha accettato (13h), o NULL;
+                                 REFUTED su insiemi qualsiasi: il controesempio,
+                                 come certificato accettato (28f) */
 } Verdict;
 
 /* Il testo della dimostrazione dell'enunciato in corso: LaTeX, in inglese come
@@ -3321,7 +3329,8 @@ static size_t proof_length;
  * controlli del capitolo 18); quelle per induzione rileggono ogni formula
  * scritta e la ricalcolano con i numeri (13g). Se un passo non regge, la
  * dimostrazione viene abbandonata e il contatore sale. Sale anche quando il
- * verificatore indipendente respinge il certificato di un'induzione (13h).
+ * verificatore indipendente respinge un certificato: di un'induzione (13h),
+ * di un enunciato sugli insiemi, di uno su insiemi qualsiasi (28f).
  * Deve restare a zero: un valore diverso vuol dire che una regola ha
  * sbagliato, e i test lo controllano. */
 static int unjustified_steps;
@@ -19730,8 +19739,9 @@ static Verdict prove_derivative(const char *formula, int variable, int has_base,
  * iniettiva e non raggiunge lo zero. Per questo la ricerca dei modelli fa
  * due sole cose: smentisce, e fa da controllo indipendente di ciò che
  * l'altra metà dimostra. Un enunciato è dichiarato DIMOSTRATO solo se ha
- * una dimostrazione scritta, ricontrollata passo per passo, e in più nessun
- * modello piccolo lo contraddice.
+ * una dimostrazione scritta, ricontrollata passo per passo, nessun modello
+ * piccolo lo contraddice, e il verificatore indipendente ne accetta il
+ * certificato (28f).
  *
  * Gli insiemi provati non sono mai vuoti. Per smentire non importa: un
  * controesempio non vuoto è un controesempio. Per dimostrare, vedi sotto.
@@ -19740,7 +19750,7 @@ static Verdict prove_derivative(const char *formula, int variable, int has_base,
  * \subseteq S \times S\ (...): lì un modello in cui la condizione vale è
  * proprio ciò che si chiede, e trovarlo è una dimostrazione.
  *
- * DIMOSTRARE: ISTANZE E UGUALI AL POSTO DI UGUALI (28b-28e)
+ * DIMOSTRARE: ISTANZE E UGUALI AL POSTO DI UGUALI (28b-28e, 28g)
  *
  * Si ragiona per assurdo, come si fa a mano: si suppongono le ipotesi e la
  * negazione della tesi, e si cerca una contraddizione. Tutto ciò che si sa
@@ -19753,7 +19763,7 @@ static Verdict prove_derivative(const char *formula, int variable, int has_base,
  *         gli si dà un nome nuovo, c: vale P(c). È l'unico modo in cui
  *         nasce un elemento, insieme all'applicare un simbolo a elementi
  *         che ci sono già: per questo ciò che si dimostra vale anche se
- *         qualche insieme è vuoto.
+ *         qualche insieme è vuoto, e il verificatore lo ricontrolla (28f).
  *   28-3. Un'istanza. Da "per ogni x in S vale P(x)", e da un elemento t di
  *         S, segue P(t).
  *   28-4. Uguali al posto di uguali. Le uguaglianze note s = t dividono gli
@@ -19803,13 +19813,37 @@ static Verdict prove_derivative(const char *formula, int variable, int has_base,
  * Se un controllo fallisce la dimostrazione non viene emessa, e
  * unjustified_steps lo registra.
  *
+ * IL CERTIFICATO (28f)
+ *
+ * Il controllo di 28e legge le tabelle della ricerca: due testimoni che
+ * leggono lo stesso giornale. Per questo ogni verdetto del capitolo va anche
+ * a checker.c, che non usa nulla di questo file (capitolo 11 di checker.c):
+ *
+ *   - un modello trovato da 28a, controesempio o esempio, va con le sue
+ *     tabelle, e il verificatore vi ricalcola l'enunciato con il suo
+ *     valutatore;
+ *   - una dimostrazione va con i soli dati che la ricerca ha trovato: per
+ *     ogni affermazione un caso, con i nomi (28-2) e le istanze (28-3) che
+ *     servono alle contraddizioni dei suoi rami. Le parti, le uguaglianze e
+ *     i casi (28-1, 28-4, 28-5) il verificatore li ritrova da sé, provando
+ *     tutti i valori delle condizioni elementari con la sua chiusura per
+ *     congruenza, e lo rifà per ogni scelta degli insiemi vuoti: così che la
+ *     dimostrazione valga anche se un insieme è vuoto diventa un conto, e non
+ *     resta un argomento ("non inventa elementi").
+ *
+ * DIMOSTRATO e FALSO vogliono il certificato accettato: uno respinto è un
+ * errore del programma, conta in unjustified_steps, e il verdetto diventa
+ * NON DIMOSTRATO. Se il verificatore non sa controllare una dimostrazione
+ * (troppe condizioni elementari) il verdetto resta, e dice perché il
+ * certificato manca. Un modello invece è un conto per intero, che il motore
+ * ha già fatto con limiti più stretti: se il verificatore non lo sa rifare,
+ * il verdetto non c'è.
+ *
  * CHE COSA NON C'È
  *
  * Applicazioni e parti da costruire (\exists f \in S^{S}), immagini e
  * controimmagini di parti, l'insieme delle parti, potenze x^{n} con n
- * numero: il linguaggio non le legge. E nessun certificato per checker.c:
- * servirebbe che il verificatore sapesse rileggere catene e istanze, che è
- * ciò che fa qui il controllo del paragrafo 28e.
+ * numero: il linguaggio non le legge.
  */
 
 /* 28a. I MODELLI FINITI */
@@ -20530,6 +20564,14 @@ static int truth(const Sentence *s, int negated, const short *value) {
     return known < 0 ? -1 : known != negated;
 }
 
+/* I nomi dati da 28-2, per il certificato (28f). Il posto di un nome in
+ * symbols[] si riusa da un ramo all'altro, quindi il nome si riconosce dal
+ * suo numero d'ordine, name_serial[], che non si ripete nella dimostrazione
+ * di un'affermazione: names_given ne conta i nomi. name_known[] è il posto
+ * in known[] della condizione K_NAMED che il nome ha aperto. */
+static int name_serial[MAX_SYMBOLS], name_known[MAX_SYMBOLS];
+static int names_given;
+
 /* Guarda per la prima volta la condizione nota di posto i, e ne trae ciò
  * che non richiede scelte: un fatto entra tra le uguaglianze o tra i
  * "diversi"; di una congiunzione si aggiungono le due parti (28-1); un
@@ -20572,9 +20614,12 @@ static void known_open(int i) {
     while (symbol_find(name.name, name.index) >= 0) name.index++;
     if (symbol_count == MAX_SYMBOLS) { exhausted = 1; return; }
     symbols[symbol_count] = name;
+    name_serial[symbol_count] = ++names_given;
+    name_known[symbol_count] = -1;
     memcpy(value, k->value, sizeof value);
-    value[s->slot] = (short)ground_lookup(symbol_count++, -1, -1, G_CREATE);
-    if (value[s->slot] >= 0) known_add(s->a, k->negated, value, K_NAMED, i);
+    value[s->slot] = (short)ground_lookup(symbol_count, -1, -1, G_CREATE);
+    if (value[s->slot] >= 0) name_known[symbol_count] = known_add(s->a, k->negated, value, K_NAMED, i);
+    symbol_count++;
 }
 
 /* 28-1. Riguarda la disgiunzione in attesa di posto i alla luce di ciò che
@@ -21167,6 +21212,204 @@ static int leaf_write(int leaf) {
     return !exhausted;
 }
 
+/* 28f. IL CERTIFICATO
+ *
+ * Il controllo di 28e è del programma su se stesso: legge le tabelle della
+ * ricerca. Il certificato porta la dimostrazione a checker.c, che non usa
+ * nulla di questo file (capitolo 11 di checker.c). Per un modello trovato da
+ * 28a porta gli insiemi, con i loro elementi, e la tabella di ogni simbolo:
+ * il verificatore vi calcola l'enunciato da capo. Per una dimostrazione
+ * porta, per ogni affermazione della tesi, un caso "case (not C)" con i soli
+ * dati che la ricerca ha trovato: i nomi dati (28-2, voce witness) e le
+ * istanze (28-3, voce instance) che servono alle contraddizioni dei rami. Il
+ * resto, le parti (28-1), le uguaglianze (28-4) e i casi (28-5), il
+ * verificatore lo ritrova da sé, provando tutti i valori delle condizioni
+ * elementari, e così controlla anche che la dimostrazione valga quando un
+ * insieme è vuoto.
+ *
+ * I nomi del certificato. Un nome dato da 28-2 si scrive con la lettera e il
+ * suo numero d'ordine, x_3: due rami diversi possono dare due nomi diversi
+ * allo stesso posto di symbols[], e nel certificato, dove i rami di
+ * un'affermazione stanno insieme, devono restare distinti. I simboli
+ * dichiarati si scrivono senza _ (R_{1} diventa R1), e le variabili legate
+ * con la loro lettera, quindi non si confondono con i nomi. */
+
+/* Quanti simboli ha dichiarato l'enunciato: gli altri sono nomi (28-2). */
+static int declared_symbols;
+
+/* name_written[n] è 1 se la voce witness del nome di numero d'ordine n è
+ * già nel certificato dell'affermazione in corso. */
+static unsigned char name_written[MAX_NAMES_GIVEN + 1];
+
+/* Scrive nel certificato il nome del simbolo di posto symbol. */
+static void cert_symbol(int symbol) {
+    const Symbol *s = &symbols[symbol];
+    if (symbol >= declared_symbols) { cert_add("%c_%d", s->name, name_serial[symbol]); return; }
+    if (s->name >= GREEK_NAMES) cert_add("%s", greek_letters[s->name - GREEK_NAMES]);
+    else if (s->name >= OPERATION_NAMES) cert_add("%s", operation_symbols[s->name - OPERATION_NAMES]);
+    else cert_add("%c", s->name);
+    if (s->index) cert_add("%d", s->index);
+}
+
+/* Scrive nel certificato l'elemento di posto id: (f a), o il nome. */
+static void cert_ground(int id) {
+    const Ground *g = &ground[id];
+    if (g->symbol < 0) { certificate_broken = 1; return; }
+    if (g->arg[0] >= 0) cert_add("(");
+    cert_symbol(g->symbol);
+    for (int i = 0; i < 2 && g->arg[i] >= 0; i++) { cert_add(" "); cert_ground(g->arg[i]); }
+    if (g->arg[0] >= 0) cert_add(")");
+}
+
+/* Scrive nel certificato l'elemento e, con gli elementi di value[] al posto
+ * delle variabili sostituite. Una parte o una relazione applicata, (X a),
+ * è nella notazione del verificatore anche la condizione che valga. */
+static void cert_elem(const Elem *e, const short *value) {
+    if (e->symbol < 0) {
+        if (value[e->slot] >= 0) cert_ground(value[e->slot]); else cert_add("%c", slot_letter[e->slot]);
+        return;
+    }
+    if (e->arg[0]) cert_add("(");
+    cert_symbol(e->symbol);
+    for (int i = 0; i < 2 && e->arg[i]; i++) { cert_add(" "); cert_elem(e->arg[i], value); }
+    if (e->arg[0]) cert_add(")");
+}
+
+/* Scrive nel certificato la condizione s, con gli elementi di value[] al
+ * posto delle variabili sostituite. Una dichiarazione è "true": i simboli
+ * dichiarati sono nelle voci symbol. */
+static void cert_sentence(const Sentence *s, const short *value) {
+    static const char *const word[] = {[S_NOT] = "not", [S_AND] = "and", [S_OR] = "or", [S_IMPLIES] = "implies", [S_IFF] = "iff"};
+    switch (s->kind) {
+    case S_TRUE:
+        cert_add("true");
+        return;
+    case S_EQUAL:
+        cert_add("(= ");
+        cert_elem(s->left, value);
+        cert_add(" ");
+        cert_elem(s->right, value);
+        cert_add(")");
+        return;
+    case S_HOLDS:
+        cert_elem(s->left, value);
+        return;
+    case S_FORALL: case S_EXISTS:
+        cert_add("(%s %c %c ", s->kind == S_FORALL ? "forall" : "exists", slot_letter[s->slot], sort_name[slot_sort[s->slot]]);
+        cert_sentence(s->a, value);
+        cert_add(")");
+        return;
+    default:
+        cert_add("(%s ", word[s->kind]);
+        cert_sentence(s->a, value);
+        if (s->b) { cert_add(" "); cert_sentence(s->b, value); }
+        cert_add(")");
+        return;
+    }
+}
+
+/* Scrive l'inizio del certificato dell'enunciato root: il tipo, gli
+ * insiemi (con il numero di elementi del modello m, se c'è), i simboli
+ * dichiarati, l'enunciato. */
+static void cert_abstract_head(const char *kind, const Sentence *root, const Model *m) {
+    short nothing[MAX_SLOTS];
+    memset(nothing, -1, sizeof nothing);
+    certificate_length = 0;
+    certificate_broken = 0;
+    cert_add("certificate %s\n", kind);
+    for (int i = 0; i < sort_count; i++) {
+        cert_add("sort %c", sort_name[i]);
+        if (m) cert_add(" %d", m->size[i]);
+        cert_add("\n");
+    }
+    for (int s = 0; s < declared_symbols; s++) {
+        cert_add("symbol ");
+        cert_symbol(s);
+        for (int i = 0; i < symbols[s].arity; i++) cert_add(" %c", sort_name[symbols[s].domain[i]]);
+        if (symbols[s].range == TRUTH) cert_add(" bool\n"); else cert_add(" %c\n", sort_name[symbols[s].range]);
+    }
+    cert_add("statement ");
+    cert_sentence(root, nothing);
+    cert_add("\n");
+}
+
+static void cert_witness(int symbol);
+
+/* Scrive, se non ci sono già, le voci witness dei nomi che compaiono
+ * nell'elemento di posto id. */
+static void cert_names_in(int id) {
+    const Ground *g = &ground[id];
+    if (g->symbol >= declared_symbols) cert_witness(g->symbol);
+    for (int i = 0; i < 2 && g->arg[i] >= 0; i++) cert_names_in(g->arg[i]);
+}
+
+/* Scrive la voce witness del nome di posto symbol, se non c'è già: la
+ * condizione "esiste" (o "per ogni", negata) da cui è nato, preceduta dalle
+ * voci dei nomi che quella condizione usa. */
+static void cert_witness(int symbol) {
+    int serial = name_serial[symbol];
+    if (serial > MAX_NAMES_GIVEN || name_known[symbol] < 0) { certificate_broken = 1; return; }
+    if (name_written[serial]) return;
+    name_written[serial] = 1;
+    const Known *p = &now->known[now->known[name_known[symbol]].parent];
+    for (int v = 0; v < MAX_SLOTS; v++)
+        if (p->value[v] >= 0) cert_names_in(p->value[v]);
+    cert_add("witness ");
+    cert_sentence(p->source, p->value);
+    cert_add(" ");
+    cert_symbol(symbol);
+    cert_add("\n");
+}
+
+/* Scrive nel certificato le voci del ramo appena chiuso: i nomi e le
+ * istanze tra le condizioni che servono alla sua contraddizione (needed[],
+ * riempito da leaf_write()), nell'ordine in cui sono nate. Un'istanza
+ * nomina la condizione da cui viene e un elemento per ognuno dei
+ * quantificatori che ha tolto. */
+static void cert_leaf(void) {
+    for (int i = 0; i < now->knowns; i++) {
+        const Known *k = &now->known[i];
+        if (!needed[i] || (k->origin != K_INSTANCE && k->origin != K_NAMED)) continue;
+        const Known *p = &now->known[k->parent];
+        if (k->origin == K_NAMED) { cert_witness(ground[k->value[p->source->slot]].symbol); continue; }
+        for (int v = 0; v < MAX_SLOTS; v++)
+            if (k->value[v] >= 0) cert_names_in(k->value[v]);
+        cert_add("instance ");
+        cert_sentence(p->source, p->value);
+        for (const Sentence *q = p->source; (q->kind == S_FORALL || q->kind == S_EXISTS) && k->value[q->slot] >= 0; q = q->a) {
+            cert_add(" ");
+            cert_ground(k->value[q->slot]);
+        }
+        cert_add("\n");
+    }
+}
+
+/* Dà al verificatore il certificato appena scritto, e ne riporta la
+ * risposta in verdict. Accettato: il verdetto porta il certificato.
+ * Respinto: è un errore del programma, unjustified_steps lo conta, e il
+ * verdetto diventa NON DIMOSTRATO. Non controllabile, o troppo lungo da
+ * scrivere: con required il verdetto diventa NON DIMOSTRATO, altrimenti
+ * resta, e dice perché il certificato manca. */
+static Verdict abstract_certified(Verdict verdict, int required) {
+    const char *text = certificate_text, *why = "è più lungo di quanto il programma sappia scrivere";
+    CkAnswer answer = certificate_broken ? CK_UNSUPPORTED : ck_check(&text, &why);
+    if (answer == CK_ACCEPTED) {
+        verdict.certificate = certificate_text;
+        return verdict;
+    }
+    snprintf(certificate_problem, sizeof certificate_problem, "il verificatore indipendente %s il certificato: %s",
+             answer == CK_REJECTED ? "ha respinto" : "non sa controllare", why);
+    verdict.reason = certificate_problem;
+    if (answer == CK_REJECTED) unjustified_steps++;
+    if (answer == CK_REJECTED || required) {
+        verdict.outcome = NOT_PROVED;
+        verdict.proof = verdict.detail = NULL;
+    }
+    return verdict;
+}
+
+/* 28g. I RAMI, LE AFFERMAZIONI, IL VERDETTO */
+
 /* Quanti rami sono stati chiusi finora nella dimostrazione in corso: serve
  * a numerare i casi. */
 static int leaves_closed;
@@ -21182,7 +21425,13 @@ static int leaves_closed;
 static int refute(int depth) {
     now = &branch[depth];
     for (int round = 0; !exhausted; round++) {
-        if (settle()) return leaf_write(depth || leaves_closed ? ++leaves_closed : 0);
+        if (settle()) {
+            /* Il ramo è chiuso: la sua dimostrazione scritta, e le sue voci
+             * del certificato. */
+            if (!leaf_write(depth || leaves_closed ? ++leaves_closed : 0)) return 0;
+            cert_leaf();
+            return 1;
+        }
         if (round == MAX_ROUNDS || !instantiate()) break;
     }
     int open = -1;
@@ -21236,6 +21485,14 @@ static int abstract_claim(const Sentence **hypothesis, int hypotheses, const Sen
     put_sentence(claim, 0, nothing, 0);
     proof_add("$.\n\\begin{itemize}\n");
     leaves_closed = 0;
+
+    /* Nel certificato, un caso per l'affermazione: la si suppone falsa. I
+     * nomi ripartono da capo, come nel verificatore. */
+    cert_add("case (not ");
+    cert_sentence(claim, nothing);
+    cert_add(")\n");
+    names_given = 0;
+    memset(name_written, 0, sizeof name_written);
     int proved = refute(0);
     proof_add("\\end{itemize}\n");
 
@@ -21260,7 +21517,8 @@ static char model_text[2048];
 /* Decide l'enunciato su insiemi qualsiasi scritto in formula e ne ritorna
  * il verdetto, come descritto in testa al capitolo: prima i modelli finiti,
  * che possono smentirlo (o, se chiede un esempio, dimostrarlo); poi la
- * dimostrazione per assurdo di ogni affermazione della tesi.
+ * dimostrazione per assurdo di ogni affermazione della tesi. In tutti e due
+ * i casi il verdetto vale solo con il certificato accettato (28f).
  *
  * Svuota l'arena: i risultati di chiamate precedenti non sono più validi. */
 static Verdict prove_abstract(const char *formula) {
@@ -21281,6 +21539,7 @@ static Verdict prove_abstract(const char *formula) {
     const Sentence *root = abstract_statement();
     if (syntax_error || failure) { verdict.reason = syntax_error ? syntax_error : failure; return verdict; }
     memset(nothing, -1, sizeof nothing);
+    declared_symbols = symbol_count;
 
     /* 28a. I modelli finiti. Per chi chiede un esempio, uno in cui la
      * condizione vale; per gli altri, uno in cui non vale. */
@@ -21308,7 +21567,22 @@ static Verdict prove_abstract(const char *formula) {
         verdict.method = "con un esempio";
         verdict.detail = abstract_example ? NULL : model_text;
         verdict.proof = proof_text;
-        return verdict;
+
+        /* Il certificato: il modello, in cui il verificatore ricalcola
+         * l'enunciato con il suo valutatore. Se non lo sa ricalcolare (un
+         * modello troppo grande per lui) il modello resta senza conferma, e
+         * il verdetto non c'è: required = 1. */
+        cert_abstract_head(abstract_example ? "example" : "counterexample", root, &model);
+        for (int s = 0; s < symbol_count; s++) {
+            int cells;
+            model_cells(&model, s, &cells);
+            cert_add("table ");
+            cert_symbol(s);
+            for (int c = 0; c < cells; c++) cert_add(" %d", model.table[s][c]);
+            cert_add("\n");
+        }
+        cert_add("end\n");
+        return abstract_certified(verdict, 1);
     }
     verdict.outcome = NOT_PROVED;
     if (abstract_example) {
@@ -21323,12 +21597,13 @@ static Verdict prove_abstract(const char *formula) {
         return verdict;
     }
 
-    /* 28b-28e. La dimostrazione: ipotesi e tesi, un'affermazione per
+    /* 28b-28g. La dimostrazione: ipotesi e tesi, un'affermazione per
      * volta. */
     const Sentence *thesis = root->kind == S_IMPLIES ? root->b : root;
     int hypotheses = root->kind == S_IMPLIES ? conjuncts(root->a, hypothesis, 0, MAX_KNOWN / 8) : 0;
     int claims = conjuncts(thesis, claim, 0, MAX_KNOWN / 8), proved = 1;
     exhausted = 0;
+    cert_abstract_head("structure", root, NULL);
     proof_add("\\textbf{Proof.} By contradiction: we suppose that the hypotheses hold and that a claim fails.");
     for (int i = 0; i < hypotheses; i++) {
         proof_add("%s (H%d) $", i ? "," : " The hypotheses:", i + 1);
@@ -21346,7 +21621,11 @@ static Verdict prove_abstract(const char *formula) {
               "contradicts the statement (%lld were tried). $\\Box$", bound, bound == 1 ? "" : "s", tried);
     verdict.outcome = PROVED;
     verdict.proof = proof_text;
-    return verdict;
+
+    /* Il certificato: i casi scritti da abstract_claim(), con i nomi e le
+     * istanze dei rami (28f). */
+    cert_add("end\n");
+    return abstract_certified(verdict, 0);
 }
 
 /* =============================================================================
@@ -21485,6 +21764,10 @@ static void verdict_print(FILE *out, const Verdict *verdict) {
         else if (verdict->detail) fprintf(out, "FALSO: controesempio %s", verdict->detail);
         else fprintf(out, "FALSO: è dimostrata la sua negazione");
         if (verdict->note) fprintf(out, " (%s)", verdict->note);
+
+        /* Il controesempio di un enunciato su insiemi qualsiasi è anche un
+         * certificato (28f), che il verificatore ha ricalcolato. */
+        if (verdict->certificate) fprintf(out, "; certificato verificato");
         break;
     case NOT_PROVED:
         fprintf(out, "NON DIMOSTRATO: %s", verdict->reason);
@@ -21584,7 +21867,7 @@ static int prove_file(const char *path, Report *report, FILE *out, Document *doc
         case SOLVED:      report->solved++; break;
         }
         if (verdict.certificate) {
-            report->certified++;
+            if (verdict.outcome == PROVED) report->certified++;
             if (certificates) fprintf(certificates, "%s\n", verdict.certificate);
         }
         if (out) {
