@@ -1,0 +1,43 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_inequalities\_with\_parameter\_beyond\_grid.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_inequalities\_with\_parameter\_beyond\_grid.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_equations\_inequalities.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 22 false statements in two real variables. It is an anti-regression of the cases on the parameter (rule 18t) where a mistake shows only at values of the parameter that a grid does not see: none of them may ever be proved, and each must be refuted.
+
+\item \textbf{What it exercises.} Each statement is one of \texttt{parameter\_statements\_beyond\_grid.tex} spoiled a little, or with a quantifier changed. With the numbering of that file and of this one:
+\begin{itemize}
+\item 1--4 (from 1): $a = 100$ included (it is not: there the least value is $0$); the endpoint $101$ moved to $102$ (wrong between them); $100$ moved to $99$ (wrong at $99$); "for every $a$ there is $x$", which fails for $100 \le a \le 101$.
+\item 5--7 (from 2 and 3): $k = -\sqrt{79}$ included; $\sqrt{79}$ moved to $\sqrt{80}$ (wrong at $k = \sqrt{79}$ and up to $\sqrt{80}$); $k = -\sqrt{79}$ left out of the values with a root. The deciding value is an isolated irrational number.
+\item 8--11 (from 4 and 6): $a = 12$ included, $a = -60$ included, the endpoint $-60$ moved to $-61$; and "there is $a$ for which the quartic is negative for every $x$".
+\item 12 (from 7): $k = \sqrt{79}$ included; there the quartic is $(x^{2} - \sqrt{79})^{2}$, which vanishes. Only this one value of $k$, irrational, shows the mistake.
+\item 13--16 (from 8, 9, 10): $>$ written $\ge$ (wrong at $x = 2a + 30$); $a = -35$ included (the root $5$ is not above $5$); $-35$ moved to $-36$; $a = -38$ left out ($x < 2$ is then below the root $2$).
+\item 17, 18 (from 11): $x = 2a + 30$ included, where the quotient has no value; the case $a < -30$ forgotten.
+\item 19--22 (from 12 and 13): $a = 51$ included (there the trinomial is $(x - 1)^{2}$); the endpoint $51$ moved to $50$; $a = 51$ left out of the values with a root; $a = 50$ left out, where the condition is of first degree.
+\end{itemize}
+
+\item \textbf{Who confirms it.} The oracle of \texttt{tools/fuzz/fuzz\_radicals\_parameters.py} decides 21 of them false by itself, trying the parameter at the critical values, between and beyond them, and at far values: for 20 it finds a value where the statement fails, and for statement 11 it finds no value at which the quartic is negative for every $x$. For statement 12 the value is $k = \sqrt{79}$, where the oracle cannot decide a quartic with an irrational coefficient: there the factorization $(x^{2} - \sqrt{79})^{2}$ above is the check.
+
+\item \textbf{Expected result.} The lines \texttt{PASS: 22 of 22 false statements rejected} and \texttt{PASS: 22 of 22 false statements refuted}.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_equations_inequalities \
+    tests/equations_inequalities/test_equations_inequalities.c \
+    && /tmp/test_equations_inequalities
+\end{verbatim}
+\end{enumerate}
+\end{document}

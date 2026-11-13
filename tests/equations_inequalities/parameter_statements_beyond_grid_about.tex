@@ -1,0 +1,45 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{parameter\_statements\_beyond\_grid.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{parameter\_statements\_beyond\_grid.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_equations\_inequalities.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 13 true statements in two real variables. The engine must prove every one of them, and each proof rests on all the cases on the parameter (rule 18t), so on the projection that finds the critical values, which rule 18t-h rechecks.
+
+\item \textbf{What it exercises.} Critical values that the grid of rule 18t-g does not see: far beyond $|a| = 8$, or isolated irrational numbers; and polynomials of degree three and four in $x$, whose projection needs determinants of five to seven rows.
+
+\item \textbf{Why each statement holds.}
+\begin{itemize}
+\item 1: $x^{2} - 2ax + 201a - 10100$ has its least value at $x = a$, namely $-(a - 100)(a - 101)$, which is negative exactly when $a < 100$ or $a > 101$.
+\item 2, 3: the least value of $x^{2} - 2kx + 79$ is $79 - k^{2}$; it is positive exactly for $-\sqrt{79} < k < \sqrt{79}$, and at most zero (so the trinomial has a root) exactly for $|k| \ge \sqrt{79}$.
+\item 4, 5, 6: with $t = x^{2} \ge 0$ the quartic is $t^{2} - 2at + 2a + 120$. For $a \le 0$ its least value on $t \ge 0$ is $2a + 120$, at $t = 0$; for $a > 0$ it is $-(a - 12)(a + 10)$, at $t = a$. So it is positive for every $x$ exactly when $-60 < a < 12$ (statement 4), and at some $x$ at most zero otherwise (statement 5). It is never negative for every $x$, because it grows without bound (statement 6).
+\item 7: $x^{4} - 2kx^{2} + 79$, with $t = x^{2}$, has least value $79$ for $k \le 0$ and $79 - k^{2}$ for $k > 0$: positive exactly when $k < \sqrt{79}$. At $k = \sqrt{79}$ it is $(x^{2} - \sqrt{79})^{2}$, which vanishes.
+\item 8, 9, 10: $x^{3} - 2ax^{2} - 30x^{2} + x - 2a - 30 = (x - 2a - 30)(x^{2} + 1)$ and $x^{3} - ax^{2} - 40x^{2} + 2x - 2a - 80 = (x - a - 40)(x^{2} + 2)$: the second factor is always positive, so each has the sign of its first factor. Hence statement 8; the only root $a + 40$ is above $5$ exactly when $a > -35$ (statement 9); and every $x < 2$ is below $a + 40$ exactly when $a + 40 \ge 2$ (statement 10). In statement 8 the resultant of the cubic and of $x - 2a - 30$ is the zero polynomial, because they have the root $2a + 30$ in common for every $a$.
+\item 11: $\frac{x - a}{x - 2a - 30} \le 0$ holds between the two roots, with $x = a$ included and $x = 2a + 30$ excluded; $a < 2a + 30$ exactly when $a > -30$, and for $a = -30$ the quotient is $1$ wherever it has a value.
+\item 12, 13: the leading coefficient $a - 50$ vanishes at $a = 50$, where the condition is $-2x + 1 > 0$ (not for every $x$) or $-2x + 1 = 0$ (for $x = \frac{1}{2}$). Otherwise the discriminant is $4 - 4(a - 50)$: the trinomial is positive for every $x$ exactly when $a - 50 > 0$ and $a > 51$, and it has a root exactly when $a \le 51$.
+\end{itemize}
+
+\item \textbf{Who confirms it.} Besides the reasons above, the oracle of \texttt{tools/fuzz/fuzz\_radicals\_parameters.py} decides each statement by itself at the critical values (exact, also $\pm\sqrt{79}$), between and beyond them, and at far values, with Sturm sequences beyond the second degree. It cannot decide statement 7 at $k = \pm\sqrt{79}$ (degree four with an irrational coefficient): there the reason above is the only check.
+
+\item \textbf{Expected result.} The line \texttt{PASS: 13 of 13 statements proved, each with a written proof}.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_equations_inequalities \
+    tests/equations_inequalities/test_equations_inequalities.c \
+    && /tmp/test_equations_inequalities
+\end{verbatim}
+\end{enumerate}
+\end{document}

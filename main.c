@@ -15940,7 +15940,7 @@ static void decide_by_signs(const Formula *thesis, Verdict *verdict) {
  *          scrivono insieme.
  *
  * I controlli indipendenti, oltre a quelli che ogni decisione di 18p porta
- * con sé, sono due.
+ * con sé, sono tre.
  *
  *   18t-f. Ciò che si consegna si rilegge. Il testo delle soluzioni viene
  *          riletto dal lettore del programma come una condizione W. Nel
@@ -15965,12 +15965,54 @@ static void decide_by_signs(const Formula *thesis, Verdict *verdict) {
  *          proiezione né la tabella. Un valore della griglia che smentisce
  *          la cella in cui cade ferma il verdetto. Non è una seconda
  *          dimostrazione, perché la griglia è finita: è un controllo contro
- *          gli errori del programma. Quanto vale lo si è misurato togliendo
- *          apposta alla proiezione un pezzo per volta (i discriminanti, le
- *          coppie, i coefficienti direttivi): delle risposte sbagliate che
- *          ne nascono la griglia e la rilettura fermano quasi tutte, non
- *          tutte. Chi garantisce la proiezione resta la sua teoria, con i
- *          suoi test.
+ *          gli errori del programma. Non vede un errore della proiezione che
+ *          si mostra solo in un valore del parametro isolato, irrazionale, o
+ *          oltre PARAM_REACH / 4: quello lo cerca 18t-h.
+ *
+ *   18t-h. La proiezione, ricontrollata con un altro conto. È il controllo
+ *          su cui poggiano i verdetti che dipendono da tutte le celle (un
+ *          "per ogni a" dimostrato, un "esiste a" smentito, ogni RISOLTO):
+ *          param_project() registra ogni polinomio che calcola, con la sua
+ *          provenienza (ProjectionItem), compresi i psc_k trovati nulli
+ *          prima del primo che non lo è, e projection_sound() controlla:
+ *            h1. i pezzi: le parti in x di ogni polinomio di param_poly[],
+ *                rimoltiplicate per le potenze di x, lo ricompongono; da
+ *                loro, e non dall'elenco della proiezione, si ricava quali
+ *                polinomi a1, a2 e a3 servono, con il grado in x letto da
+ *                capo;
+ *            h2. i valori: ogni polinomio che serve si calcola in D + 1
+ *                valori razionali del parametro, dove D limita il suo grado,
+ *                con un altro algoritmo (il determinante dei numeri, con
+ *                l'eliminazione di Bareiss, invece dello sviluppo di Laplace
+ *                sui polinomi); il registrato deve esserne un multiplo per
+ *                una costante positiva, e un psc_k dichiarato nullo deve
+ *                annullarsi in tutti i D + 1. Due polinomi di grado al più D
+ *                che coincidono in D + 1 punti sono lo stesso polinomio;
+ *            h3. il contenimento: le radici reali distinte di ogni polinomio
+ *                che serve, contate con Sturm, sono tante quante i valori
+ *                critici che lo annullano, decisi con un conto esatto: tutte
+ *                sono quindi valori critici;
+ *            h4. le celle: i valori critici sono in ordine e separati; uno
+ *                irrazionale è la sola radice del suo polinomio di secondo
+ *                grado nel suo intervallo, ed è la radice che il valore della
+ *                cella scrive; il razionale di ogni intervallo vi sta dentro.
+ *          Con h1-h4 il ragionamento di 18t-a vale per le celle trovate: in
+ *          ogni intervallo nessun polinomio della proiezione si annulla, e
+ *          il valore scelto decide per tutto l'intervallo. Una discordanza è
+ *          un errore del motore: il verdetto non c'è, e unjustified_steps
+ *          sale. Un conto che esce dai 128 bit, o un grado oltre
+ *          PROJECTION_POINTS - 1, lascia l'enunciato non dimostrato, con il
+ *          suo motivo. Che cosa non copre: un polinomio che param_collect()
+ *          non ha messo nell'elenco, o che eval() ha calcolato male, perché
+ *          h1 parte da param_poly[]; i polinomi a4 dei confronti nel solo
+ *          parametro, che prepara sign_prepare() come in una tabella in una
+ *          lettera sola; la decisione in ogni cella, che è di 18p con i suoi
+ *          controlli; la teoria di 18t-a. E h3 e h4 contano le radici con la
+ *          catena di Sturm di 18p-3 (sturm_build()), la stessa che ha
+ *          trovato i valori critici: un errore lì sarebbe comune ai due
+ *          conti. Ai verdetti che poggiano su una cella sola (un
+ *          controesempio, un "esiste a" con il suo valore) non serve, e non
+ *          li ferma.
  *
  * Che cosa resta fuori, e il verdetto lo dice: più di due lettere reali una
  * dentro l'altra; insiemi diversi da \mathbb{R}; radici, valori assoluti,
@@ -16007,6 +16049,13 @@ static void decide_by_signs(const Formula *thesis, Verdict *verdict) {
 #define PARAM_GRID 24        /* i razionali più semplici, aggiunti alla griglia del parametro e dati alla variabile nel conto diretto (18t-g) */
 #define CELL_TEXT 512        /* lunghezza delle soluzioni di una cella */
 #define PARAM_TEXT 4096      /* lunghezza delle soluzioni scritte */
+#define PROJECTION_POINTS 64 /* valori del parametro in cui 18t-h calcola un polinomio della proiezione: il suo grado più uno, al più */
+
+/* Quanti polinomi della proiezione si registrano, al più (18t-h): per ogni
+ * polinomio il coefficiente direttivo e fino a MAX_PARAM_DEGREE - 1 psc_k con
+ * la derivata, per ogni coppia fino a MAX_PARAM_DEGREE psc_k. Sono al più
+ * MAX_PARAM_DEGREE per ognuno dei P polinomi e delle P (P - 1) / 2 coppie. */
+#define MAX_PROJECTION (MAX_PARAM_DEGREE * MAX_PARAM_POLYS * (MAX_PARAM_POLYS + 1) / 2)
 
 /* I messaggi per ciò che la regola non tratta. */
 static const char *const PARAM_FORM =
@@ -16205,29 +16254,54 @@ static Poly subresultant_lead(const Poly *f, int m, const Poly *g, int n, int k)
     return minor_determinant(0, 0);
 }
 
-/* Mette tra le colonne della tabella nella lettera del parametro il
- * polinomio p, che è nel solo parametro (atomo a): le sue radici sono valori
- * critici. Un numero non ne ha, e non entra. */
-static void param_column(Poly p, int a) {
+/* Un polinomio della proiezione (18t-a) con la sua provenienza, come
+ * param_project() lo ha calcolato: è il dato che 18t-h ricontrolla con un
+ * altro conto. Gli elementi si registrano nell'ordine in cui si calcolano,
+ * anche quelli che sono un numero o il polinomio nullo. */
+typedef struct {
+    int kind;    /* 1: il coefficiente direttivo di f (a1); 2: psc_k(f, f')
+                    (a2); 3: psc_k(f, g) (a3) */
+    int first;   /* il posto di f in param_poly[] */
+    int second;  /* a3: il posto di g in param_poly[]; -1 altrimenti */
+    int k;       /* a2, a3: il numero del sottorisultante; 0 per a1 */
+    Uni value;   /* il polinomio nel parametro, moltiplicato per un intero
+                    positivo (uni_from_poly()): ha le stesse radici. Il
+                    polinomio nullo se param_first() lo ha trovato nullo */
+} ProjectionItem;
+
+static ProjectionItem param_item[MAX_PROJECTION];
+static int param_items;
+
+/* Registra il polinomio p, che è nel solo parametro (atomo a), con la sua
+ * provenienza (kind, first, second, k: come in ProjectionItem), e lo mette
+ * tra le colonne della tabella nella lettera del parametro: le sue radici
+ * sono valori critici. Un numero non ne ha, e tra le colonne non entra; ma
+ * si registra, come il polinomio nullo, perché 18t-h veda tutto ciò che la
+ * proiezione ha calcolato. */
+static void param_column(Poly p, int a, int kind, int first, int second, int k) {
     Uni column;
     int shift;
-    if (failure || poly_is_constant(p)) return;
+    if (failure) return;
     if (!uni_from_poly(p, a, &column, &shift) || shift) { fail(PARAM_DEGREE); return; }
-    sign_column(column);
+    if (param_items == MAX_PROJECTION) { fail("troppi polinomi nella proiezione del parametro"); return; }
+    param_item[param_items++] = (ProjectionItem){kind, first, second, k, column};
+    if (column.degree > 0) sign_column(column);
 }
 
 /* 18t-a2, 18t-a3. Mette tra le colonne il primo psc_k(f, g), k = 0, 1, ...,
- * che non è il polinomio nullo. Se sono tutti nulli fino a min(m, n) - 1, il
- * massimo comun divisore ha grado min(m, n) dovunque i coefficienti direttivi
- * non si annullano, e non c'è nulla da aggiungere. La memoria di ogni
- * determinante torna all'arena appena il polinomio è tra le colonne, che ne
- * tengono una copia. */
-static void param_first(const Poly *f, int m, const Poly *g, int n, int a) {
+ * che non è il polinomio nullo, e registra con lui quelli nulli che lo
+ * precedono; kind, first e second dicono da dove vengono f e g, come in
+ * ProjectionItem. Se sono tutti nulli fino a min(m, n) - 1, il massimo comun
+ * divisore ha grado min(m, n) dovunque i coefficienti direttivi non si
+ * annullano, e non c'è nulla da aggiungere. La memoria di ogni determinante
+ * torna all'arena appena il polinomio è tra le colonne e tra i registrati,
+ * che ne tengono una copia. */
+static void param_first(const Poly *f, int m, const Poly *g, int n, int a, int kind, int first, int second) {
     for (int k = 0; k < (m < n ? m : n) && !failure; k++) {
         size_t before = arena_used;
         Poly lead = subresultant_lead(f, m, g, n, k);
         int zero = lead.count == 0;
-        param_column(lead, a);
+        param_column(lead, a, kind, first, second, k);
         arena_used = before;
         if (!zero) return;
     }
@@ -16235,9 +16309,14 @@ static void param_first(const Poly *f, int m, const Poly *g, int n, int a) {
 
 /* 18t-a. La proiezione dei polinomi di param_poly[]: riempie param_part[] e
  * param_degree[], e mette tra le colonne della tabella nella lettera del
- * parametro (atomo a) i polinomi a1, a2 e a3. Le coppie si fanno solo tra
- * polinomi nella stessa variabile: radici in variabili diverse non hanno un
- * ordine da conservare. */
+ * parametro (atomo a) i polinomi a1, a2 e a3, registrandoli in param_item[].
+ * Le coppie si fanno solo tra polinomi nella stessa variabile: radici in
+ * variabili diverse non hanno un ordine da conservare.
+ *
+ * Warning: projection_sound() (18t-h) ricava da sé quali polinomi la
+ * proiezione deve contenere, con le stesse regole a1, a2 e a3. Se cambi le
+ * regole qui, cambiale anche lì, o il ricontrollo fermerà ogni verdetto (un
+ * polinomio che manca) oppure non vedrà ciò che hai aggiunto. */
 static void param_project(int a) {
     for (int i = 0; i < param_polys && !failure; i++) {
         param_degree[i] = poly_split(param_poly[i], param_var[i], param_part[i], MAX_PARAM_DEGREE);
@@ -16247,11 +16326,11 @@ static void param_project(int a) {
         const Poly *f = param_part[i];
         Poly derivative[MAX_PARAM_DEGREE + 1];
         int m = param_degree[i];
-        param_column(f[m], a);
+        param_column(f[m], a, 1, i, -1, 0);
         for (int j = 1; j <= m; j++) derivative[j - 1] = poly_mul(f[j], poly_const(num_int(j)));
-        param_first(f, m, derivative, m - 1, a);
+        param_first(f, m, derivative, m - 1, a, 2, i, -1);
         for (int j = i + 1; j < param_polys; j++)
-            if (param_var[j] == param_var[i]) param_first(f, m, param_part[j], param_degree[j], a);
+            if (param_var[j] == param_var[i]) param_first(f, m, param_part[j], param_degree[j], a, 3, i, j);
     }
 }
 
@@ -17100,6 +17179,356 @@ static int grid_agrees(const Formula *f, int name, const NumberSet *set, int by_
     return 1;
 }
 
+/* 18t-h1. Legge i coefficienti f[0..MAX_PARAM_DEGREE] di un polinomio in x,
+ * che devono essere polinomi nel solo parametro (atomo a) a coefficienti
+ * razionali, e mette in out[j] il coefficiente di x^j moltiplicato per L, lo
+ * stesso intero positivo per tutti: il minimo comune multiplo dei
+ * denominatori. Mette in *degree il grado in x, il più grande j con f[j] non
+ * nullo (-1 se sono tutti nulli). Ritorna 0 se un coefficiente ha un'altra
+ * forma (un'altra lettera, un esponente negativo, frazionario o oltre
+ * MAX_UNI, un numero complesso); se L esce da COEF_LIMIT annota un errore.
+ *
+ * Perché lo stesso L per tutti: in un determinante di 18t-h2 ogni riga è
+ * fatta di coefficienti di f, quindi resta moltiplicata per L, e il
+ * determinante per una potenza di L, che è un fattore costante e non cambia
+ * le radici. È un conto a parte da uni_from_poly(), che di ogni polinomio
+ * prende il suo multiplo. */
+static int projection_integers(const Poly *f, int a, Uni *out, int *degree) {
+    __int128 scale = 1;
+    for (int j = 0; j <= MAX_PARAM_DEGREE; j++)
+        for (int t = 0; t < f[j].count; t++) {
+            const Term *term = &f[j].term[t];
+            Frac e = term->mono.count ? term->mono.factor[0].exp : frac_int(0);
+            if (term->mono.count > 1 || (term->mono.count == 1 && term->mono.factor[0].atom != a) || e.den != 1 || e.num < 0 || e.num > MAX_UNI ||
+                term->coef.im.num != 0) return 0;
+            scale = scale / gcd128(scale, term->coef.re.den) * term->coef.re.den;
+            if (scale > COEF_LIMIT) { fail(SIGN_LIMIT); return 0; }
+        }
+    *degree = -1;
+    for (int j = 0; j <= MAX_PARAM_DEGREE; j++) {
+        memset(&out[j], 0, sizeof out[j]);
+        out[j].degree = -1;
+        for (int t = 0; t < f[j].count; t++) {
+            const Term *term = &f[j].term[t];
+            int e = term->mono.count ? (int)term->mono.factor[0].exp.num : 0;
+            out[j].c[e] = (__int128)term->coef.re.num * (scale / term->coef.re.den);
+            if (e > out[j].degree) out[j].degree = e;
+        }
+        if (out[j].degree >= 0) *degree = j;
+    }
+    return 1;
+}
+
+/* 18t-h2. Ritorna q^d p(n / q) = c_0 q^d + c_1 n q^(d-1) + ... + c_d n^d, con
+ * at = n / q, il numero p(at) moltiplicato per q^d: un intero, senza
+ * frazioni. d non è meno del grado di p. Annota un errore se un conto esce
+ * dai 128 bit.
+ *
+ * Due polinomi di grado al più d calcolati così nello stesso punto hanno lo
+ * stesso rapporto dei loro valori veri: il fattore q^d è lo stesso. */
+static __int128 uni_homogeneous(const Uni *p, int d, Frac at) {
+    __int128 sum = 0, power = 1, term;
+    for (int i = d; i >= 0; i--) {
+        /* sum: c_d n^(d-i) + ... + c_(i+1) n q^(d-i-1); power: q^(d-i). */
+        if (__builtin_mul_overflow(sum, (__int128)at.num, &sum) || __builtin_mul_overflow(i <= p->degree ? p->c[i] : 0, power, &term) ||
+            __builtin_add_overflow(sum, term, &sum) || (i > 0 && __builtin_mul_overflow(power, (__int128)at.den, &power))) {
+            fail(SIGN_LIMIT);
+            return 0;
+        }
+    }
+    return sum;
+}
+
+/* 18t-h2. Ritorna il determinante della matrice di interi m, di size righe e
+ * colonne, che il conto rovina. Annota un errore se un conto esce dai 128
+ * bit.
+ *
+ * Eliminazione di Bareiss (E. H. Bareiss, Sylvester's identity and
+ * multistep integer-preserving Gaussian elimination, Math. Comp. 22, 1968).
+ * È l'eliminazione di Gauss senza frazioni: al passo k ogni elemento sotto
+ * e a destra del perno diventa
+ *
+ *     m[i][j] = (m[k][k] m[i][j] - m[i][k] m[k][j]) / p,
+ *
+ * dove p è il perno del passo prima (1 al primo). La divisione è esatta,
+ * perché dopo il passo k l'elemento m[i][j] è il determinante della
+ * sottomatrice di partenza fatta dalle righe 0..k, i e dalle colonne 0..k, j
+ * (identità di Sylvester): un intero. Dopo l'ultimo passo m[size-1][size-1]
+ * è il determinante. Un perno nullo si scambia con una riga sotto, che
+ * cambia il segno; se sono nulli tutti, la colonna sotto la diagonale è
+ * nulla e il determinante è zero. È un altro algoritmo dallo sviluppo di
+ * Laplace di minor_determinant(), e lavora sui numeri, non sui polinomi. */
+static __int128 bareiss(__int128 m[MAX_MINOR][MAX_MINOR], int size) {
+    __int128 previous = 1;
+    int sign = 1;
+    for (int k = 0; k + 1 < size; k++) {
+        if (m[k][k] == 0) {
+            int r = k + 1;
+            while (r < size && m[r][k] == 0) r++;
+            if (r == size) return 0;
+            for (int j = 0; j < size; j++) {
+                __int128 swap = m[k][j];
+                m[k][j] = m[r][j];
+                m[r][j] = swap;
+            }
+            sign = -sign;
+        }
+        for (int i = k + 1; i < size; i++)
+            for (int j = k + 1; j < size; j++) {
+                __int128 x, y;
+                if (__builtin_mul_overflow(m[k][k], m[i][j], &x) || __builtin_mul_overflow(m[i][k], m[k][j], &y) || __builtin_sub_overflow(x, y, &x)) {
+                    fail(SIGN_LIMIT);
+                    return 0;
+                }
+                m[i][j] = x / previous;
+            }
+        previous = m[k][k];
+    }
+    return sign * m[size - 1][size - 1];
+}
+
+/* 18t-h3. Ritorna 1 se ogni radice reale di p, polinomio nel parametro che
+ * non è il polinomio nullo, è uno dei valori critici param_point[]; 0 se
+ * no. Annota un errore se i numeri sono troppo grandi.
+ *
+ * Il conto. Sia s la parte senza quadrati di p, p / mcd(p, p'): ha le stesse
+ * radici, ognuna una volta. Il teorema di Sturm conta le sue radici reali
+ * distinte, N, tra -B e B, dove B le supera tutte (uni_bound()). Poi si
+ * contano i valori critici che sono radici di s, C: uno razionale lo è se s
+ * lì vale zero; uno irrazionale è la sola radice del suo polinomio E tra due
+ * razionali, e lo è se mcd(E, s), che ha per radici le radici comuni, ne ha
+ * una tra quei due, cioè proprio lui. I valori critici sono numeri diversi
+ * (18t-h4), quindi C <= N, e C = N vuol dire che ogni radice reale di s è un
+ * valore critico. */
+static int roots_are_critical(const Uni *p) {
+    if (p->degree <= 0) return 1;
+    Uni derivative = uni_derivative(p), common = uni_gcd(*p, derivative), s;
+    if (failure || !uni_divide(p, &common, &s)) { fail(SIGN_LIMIT); return 0; }
+    Wide bound = uni_bound(&s), minus = {-bound.num, 1};
+    sturm_build(&s);
+    int roots = sturm_changes(minus) - sturm_changes(bound), found = 0;
+    for (int k = 0; k < param_points && !failure; k++) {
+        const ParamPoint *point = &param_point[k];
+        if (point->at.exact) {
+            found += uni_sign_at(&s, point->at.low) == 0;
+            continue;
+        }
+        common = uni_gcd(point->element, s);
+        if (common.degree < 1) continue;
+        sturm_build(&common);
+        found += sturm_changes(point->at.low) - sturm_changes(point->at.high) > 0;
+    }
+    return found == roots;
+}
+
+/* 18t-h2, 18t-h3. Ricontrolla il polinomio della proiezione con provenienza
+ * kind, first, second e k (come in ProjectionItem), dai coefficienti in x
+ * già interi f[0..m] e g[0..n] (g è NULL per a1, che è f[m]): cerca tra
+ * param_item[] quello che param_project() ha registrato per lui, e lo
+ * confronta con i valori calcolati qui. Ritorna 2 se i due coincidono e sono
+ * il polinomio nullo; 1 se coincidono, non lo sono, e ogni radice reale è
+ * un valore critico; 0 se qualcosa non torna. Annota un errore se i numeri
+ * sono troppo grandi.
+ *
+ * Perché D + 1 valori bastano. Un polinomio di grado al più D che non è il
+ * polinomio nullo ha al più D radici: se si annulla in D + 1 numeri diversi
+ * è il polinomio nullo. Quindi due polinomi di grado al più D sono uno c
+ * volte l'altro se lo sono in D + 1 numeri: la differenza si annulla in
+ * tutti. Qui D limita il grado di psc_k: ogni termine del determinante
+ * prende un elemento da ogni riga, n - k righe di coefficienti di f, di grado
+ * al più dF nel parametro, e m - k di g, di grado al più dG, quindi
+ * D = (n - k) dF + (m - k) dG.
+ *
+ * Perché il determinante si calcola sui numeri. Calcolare un polinomio nel
+ * parametro in un numero a0 rispetta somme e prodotti, e il determinante è
+ * fatto di somme e prodotti degli elementi: il valore in a0 del determinante
+ * è il determinante della matrice dei valori in a0. La matrice resta quella
+ * dei gradi formali m e n anche dove a0 annulla un coefficiente direttivo:
+ * psc_k è definito così, e così lo calcola subresultant_lead(). I valori si
+ * prendono nei razionali più semplici, 0, 1, -1, 2, -2, 1/2, ...
+ * (numbers_sample()), che tengono piccoli i numeri, e moltiplicati per
+ * q^d (uni_homogeneous()); il determinante risulta moltiplicato per q^D, e
+ * così il polinomio registrato, calcolato con lo stesso D. */
+static int projection_item(int kind, int first, int second, int k, const Uni *f, int m, const Uni *g, int n) {
+    const ProjectionItem *item = NULL;
+    for (int i = 0; i < param_items && !item; i++)
+        if (param_item[i].kind == kind && param_item[i].first == first && param_item[i].second == second && param_item[i].k == k) item = &param_item[i];
+    if (!item) return 0;
+
+    /* I gradi nel parametro, e D. */
+    int df = 0, dg = 0, size = g ? m + n - 2 * k : 1;
+    for (int j = 0; j <= m; j++) df = f[j].degree > df ? f[j].degree : df;
+    for (int j = 0; g && j <= n; j++) dg = g[j].degree > dg ? g[j].degree : dg;
+    int d = g ? (n - k) * df + (m - k) * dg : f[m].degree;
+    if (d + 1 > PROJECTION_POINTS || size > MAX_MINOR) { fail(SIGN_LIMIT); return 0; }
+    if (item->value.degree > d) return 0;
+
+    /* 18t-h2. I valori nei D + 1 razionali: il coefficiente direttivo, o il
+     * determinante. Le prime n - k righe sono x^(n-k-1) f, ..., f, le altre
+     * x^(m-k-1) g, ..., g, scritte dalla potenza x^(m+n-k-1) in giù: nella
+     * riga r di f la colonna c ha il coefficiente di x^(m-c+r), nella riga
+     * r' = r - (n - k) di g quello di x^(n-c+r'). Delle m + n - k colonne si
+     * tengono le prime m + n - 2k. */
+    NumberSet reals;
+    Frac point[PROJECTION_POINTS];
+    __int128 value[PROJECTION_POINTS], matrix[MAX_MINOR][MAX_MINOR];
+    memset(&reals, 0, sizeof reals);
+    reals.reals = 1;
+    numbers_sample(&reals, point, d + 1);
+    for (int t = 0; t <= d && !failure; t++) {
+        if (!g) { value[t] = uni_homogeneous(&f[m], d, point[t]); continue; }
+        for (int r = 0; r < size; r++)
+            for (int c = 0; c < size; c++) {
+                int upper = r < n - k, power = upper ? m - c + r : n - c + r - (n - k);
+                matrix[r][c] = power < 0 || power > (upper ? m : n) ? 0 : uni_homogeneous(upper ? &f[power] : &g[power], upper ? df : dg, point[t]);
+            }
+        value[t] = bareiss(matrix, size);
+    }
+    if (failure) return 0;
+
+    /* Il confronto: il registrato è c volte il polinomio vero se in ogni
+     * punto il rapporto dei due valori è c, quello del primo punto in cui il
+     * valore vero non è zero. Il rapporto si confronta ridotto ai minimi
+     * termini, senza moltiplicare: così non esce dai 128 bit. E c deve essere
+     * positivo: tutti e due i conti moltiplicano psc_k solo per numeri
+     * positivi (i denominatori tolti, q^D, j nella derivata), con le righe
+     * nello stesso ordine. Se il valore vero è zero dappertutto, il polinomio
+     * vero è il polinomio nullo, e tale deve essere il registrato. */
+    int t0 = 0;
+    while (t0 <= d && value[t0] == 0) t0++;
+    if (t0 > d) return item->value.degree < 0 ? 2 : 0;
+    if (item->value.degree < 0) return 0;
+    Wide ratio = wide_make(uni_homogeneous(&item->value, d, point[t0]), value[t0]);
+    if (ratio.num <= 0) return 0;
+    for (int t = 0; t <= d && !failure; t++) {
+        __int128 recorded = uni_homogeneous(&item->value, d, point[t]);
+        if (value[t] == 0) {
+            if (recorded != 0) return 0;
+            continue;
+        }
+        Wide here = wide_make(recorded, value[t]);
+        if (here.num != ratio.num || here.den != ratio.den) return 0;
+    }
+    if (failure) return 0;
+
+    /* 18t-h3. Il contenimento. */
+    return roots_are_critical(&item->value);
+}
+
+/* 18t-h2, 18t-h3. Ricontrolla i psc_k(f, g) con provenienza kind, first e
+ * second per k = 0, 1, ..., fino al primo che non è il polinomio nullo: sono
+ * quelli che 18t-a chiede. Ritorna 1 se tornano tutti, 0 se no. */
+static int projection_first(int kind, int first, int second, const Uni *f, int m, const Uni *g, int n) {
+    for (int k = 0; k < (m < n ? m : n); k++) {
+        int found = projection_item(kind, first, second, k, f, m, g, n);
+        if (found != 2) return found;
+    }
+    return 1;
+}
+
+/* 18t-h4. Ritorna 1 se i valori critici e le celle sono ciò che le decisioni
+ * presumono; 0 se no. Annota un errore se i numeri sono troppo grandi.
+ *
+ *   - I valori critici sono in ordine e i loro intervalli non si toccano:
+ *     sono numeri diversi, come vuole 18t-h3.
+ *   - Uno irrazionale è la sola radice del suo polinomio E, di secondo grado,
+ *     tra i due estremi del suo intervallo, che non sono radici (teorema di
+ *     Sturm): così è un numero ben definito. Ed è la più piccola delle due
+ *     radici di E esattamente se l'altra sta sopra l'intervallo: è ciò che
+ *     dice smaller, con cui quadratic_node() sceglie il segno davanti alla
+ *     radice quadrata nel valore della cella.
+ *   - Il razionale di una cella che è un intervallo sta tra i due valori
+ *     critici che la chiudono; quello di un punto razionale è il punto. */
+static int cells_are_sound(void) {
+    for (int k = 0; k < param_points && !failure; k++) {
+        const ParamPoint *p = &param_point[k];
+        if (k + 1 < param_points && wide_cmp(p->at.high, param_point[k + 1].at.low) >= 0) return 0;
+        if (p->at.exact) continue;
+        Uni e = p->element;
+        if (e.degree != 2 || uni_sign_at(&e, p->at.low) == 0 || uni_sign_at(&e, p->at.high) == 0) return 0;
+        Wide bound = uni_bound(&e);
+        sturm_build(&e);
+        if (sturm_changes(p->at.low) - sturm_changes(p->at.high) != 1) return 0;
+        if (p->smaller != (sturm_changes(p->at.high) - sturm_changes(bound) == 1)) return 0;
+    }
+    for (int c = 0; c < param_cells && !failure; c++) {
+        Wide sample = param_cell[c].sample;
+        if (c % 2) {
+            if (param_point[c / 2].at.exact && wide_cmp(sample, param_point[c / 2].at.low) != 0) return 0;
+            continue;
+        }
+        if (c >= 2 && wide_cmp(sample, param_point[c / 2 - 1].at.high) <= 0) return 0;
+        if (c / 2 < param_points && wide_cmp(sample, param_point[c / 2].at.low) >= 0) return 0;
+    }
+    return 1;
+}
+
+/* 18t-h. Ricontrolla la proiezione registrata in param_item[] e le celle
+ * costruite da lei, con il parametro di atomo a. Va chiamata dopo
+ * param_cells_build(), anche dopo le decisioni sulle celle: usa solo
+ * param_poly[], param_part[], param_var[], param_item[], param_point[] e
+ * param_cell[], che le decisioni non toccano. Ritorna 1 se tutto torna; 0
+ * se qualcosa non torna, che è un errore del motore; -1 se un conto esce dai
+ * numeri che il controllo sa trattare, e anche se un errore era già
+ * annotato prima: allora non conferma nulla. */
+static int projection_sound(int a) {
+    static Uni part[MAX_PARAM_POLYS][MAX_PARAM_DEGREE + 1];
+    int degree[MAX_PARAM_POLYS], sound = 1;
+
+    /* 18t-h1. Ogni polinomio: le sue parti in x, rimoltiplicate per le
+     * potenze di x, lo ricompongono, e i coefficienti interi e il grado in x
+     * che ne legge projection_integers() sono il punto di partenza di ciò
+     * che segue. Non si usa param_degree[]. */
+    for (int i = 0; i < param_polys && sound && !failure; i++) {
+        size_t before = arena_used;
+        Poly sum = {0, NULL};
+        for (int j = 0; j <= MAX_PARAM_DEGREE; j++) {
+            Poly power = poly_const(num_int(1));
+            if (j > 0) power = poly_term((Term){num_int(1), mono_atom(param_var[i], frac_int(j))});
+            sum = poly_add(sum, poly_mul(param_part[i][j], power), 0);
+        }
+        sound = !failure && poly_equal(sum, param_poly[i]) && projection_integers(param_part[i], a, part[i], &degree[i]) && degree[i] >= 0;
+        arena_used = before;
+    }
+
+    /* 18t-h4, poi 18t-h2 e 18t-h3: gli elementi che la proiezione deve
+     * contenere si ricavano qui da part[]. Per ogni polinomio il coefficiente
+     * direttivo e i psc_k con la derivata, che si calcola qui; per ogni
+     * coppia nella stessa variabile i psc_k. */
+    sound = sound && cells_are_sound();
+    for (int i = 0; i < param_polys && sound && !failure; i++) {
+        Uni derivative[MAX_PARAM_DEGREE + 1];
+        int m = degree[i];
+        sound = projection_item(1, i, -1, 0, part[i], m, NULL, 0) != 0;
+        for (int j = 1; j <= m; j++) derivative[j - 1] = uni_scaled(&part[i][j], j);
+        sound = sound && projection_first(2, i, -1, part[i], m, derivative, m - 1);
+        for (int j = i + 1; j < param_polys && sound; j++)
+            if (param_var[j] == param_var[i]) sound = projection_first(3, i, j, part[i], m, part[j], degree[j]);
+    }
+    if (failure) {
+        failure = NULL;
+        return -1;
+    }
+    return sound;
+}
+
+/* 18t-h. Ritorna 1 se projection_sound() conferma la proiezione del
+ * parametro di atomo a; altrimenti mette in *verdict l'esito NOT_PROVED con
+ * il motivo e ritorna 0. Una discordanza è un errore del motore, e conta in
+ * unjustified_steps; un conto troppo grande no. */
+static int projection_confirmed(int a, Verdict *verdict) {
+    int sound = projection_sound(a);
+    if (sound > 0) return 1;
+    verdict->outcome = NOT_PROVED;
+    if (sound < 0) {
+        verdict->reason = "non riesco a ricontrollare la proiezione che dà i valori critici del parametro: i conti escono dai limiti del calcolo esatto";
+        return 0;
+    }
+    unjustified_steps++;
+    verdict->reason = "la verifica indipendente della proiezione non conferma i valori critici del parametro";
+    return 0;
+}
+
 /* Ritorna 1 se in f compare un quantificatore sui numeri reali, o una
  * richiesta di soluzioni. */
 static int formula_has_real_letter(const Formula *f) {
@@ -17149,7 +17578,7 @@ static void param_decide(const Formula *thesis, Verdict *verdict) {
     sign_name = name;
     sign_x = a;
     trig_on = 0;
-    param_polys = param_candidates = 0;
+    param_polys = param_candidates = param_items = 0;
     failure = NULL;
     param_collect(q->a, name, 0);
     param_project(a);
@@ -17241,9 +17670,14 @@ static void param_decide(const Formula *thesis, Verdict *verdict) {
     /* 18t-d. Una verifica. "Per ogni" è vero se nessuna cella lo smentisce,
      * "esiste" se una lo conferma; una negazione davanti li rovescia. Quando
      * hanno deciso tutte le celle insieme, e non una sola, prima del
-     * verdetto si guarda la griglia (18t-g). */
+     * verdetto si ricontrolla la proiezione (18t-h) e si guarda la griglia
+     * (18t-g). */
     if (!solving && !request) {
         int holds = every ? decided < 0 : decided >= 0;
+        if (decided < 0 && !projection_confirmed(a, verdict)) {
+            proof_cut(opening);
+            return;
+        }
         if (decided < 0 && !grid_agrees(q->a, name, &q->numbers, 1)) {
             unjustified_steps++;
             proof_cut(opening);
@@ -17261,15 +17695,20 @@ static void param_decide(const Formula *thesis, Verdict *verdict) {
         return;
     }
 
-    /* 18t-d, 18t-e. Le soluzioni scritte; poi 18t-f e 18t-g, che le
-     * ricontrollano. Per i valori del parametro si rilegge il testo e lo si
-     * confronta con le celle. Per le soluzioni con il parametro si
-     * controlla l'enunciato "per ogni x, la condizione vale se e solo se
-     * valgono le soluzioni scritte"; se le soluzioni sono "ogni x" o
-     * "nessun x", che non sono condizioni da rileggere, l'enunciato è la
-     * condizione stessa, o la sua negazione. */
+    /* 18t-d, 18t-e. Le soluzioni scritte; poi 18t-h, 18t-f e 18t-g, che le
+     * ricontrollano. Le soluzioni poggiano su tutte le celle, quindi la
+     * proiezione va ricontrollata sempre. Per i valori del parametro si
+     * rilegge il testo e lo si confronta con le celle. Per le soluzioni con
+     * il parametro si controlla l'enunciato "per ogni x, la condizione vale
+     * se e solo se valgono le soluzioni scritte"; se le soluzioni sono "ogni
+     * x" o "nessun x", che non sono condizioni da rileggere, l'enunciato è
+     * la condizione stessa, o la sua negazione. */
     int plain = request ? param_cases(name, request->variable, text, sizeof text) : param_values(name, text, sizeof text);
     if (failure) { verdict->reason = failure; failure = NULL; proof_cut(opening); return; }
+    if (!projection_confirmed(a, verdict)) {
+        proof_cut(opening);
+        return;
+    }
     Formula *written = NULL, *claim = NULL;
     if (plain) {
         syntax_error = NULL;

@@ -15,7 +15,15 @@
  *   - la cella in cui cade un numero, anche accanto a un valore critico
  *     irrazionale;
  *   - i limiti dichiarati: un enunciato oltre il grado trattato, o con un
- *     valore critico senza scrittura, riceve "non trattato" con il suo motivo.
+ *     valore critico senza scrittura, riceve "non trattato" con il suo motivo;
+ *   - il ricontrollo della proiezione (18t-h): il determinante di Bareiss e
+ *     il valore omogeneo su conti noti; poi lo stato lasciato da un enunciato
+ *     deciso, che il ricontrollo conferma, guastato un pezzo per volta come
+ *     farebbe un motore sbagliato (un coefficiente cambiato, un psc_k
+ *     dichiarato nullo o non nullo a torto, un valore critico tolto, la radice
+ *     sbagliata, un intervallo senza la sua radice, un valore scelto fuori
+ *     dalla sua cella): ogni guasto deve essere visto, e un conto che esce
+ *     dai 128 bit non deve confermare nulla.
  *
  * Gli enunciati interi, con i risultati dei libri e le loro varianti
  * sbagliate, sono in tests/equations_inequalities.
@@ -119,6 +127,51 @@ static void answered(const char *statement, Outcome expected, const char *reason
     check(verdict.outcome == expected && (!reason || (verdict.reason && strcmp(verdict.reason, reason) == 0)), what);
 }
 
+/* Lo stato che 18t-h ricontrolla, salvato da state_save() e rimesso da
+ * state_restore(): i controlli sui guasti lo rovinano, uno alla volta. */
+static ProjectionItem saved_item[MAX_PROJECTION];
+static ParamPoint saved_point[MAX_PARAM_POINTS];
+static ParamCell saved_cell[2 * MAX_PARAM_POINTS + 1];
+static int saved_items, saved_points, saved_cells;
+
+/* Copia lo stato di 18t-h nelle variabili saved_. */
+static void state_save(void) {
+    memcpy(saved_item, param_item, sizeof param_item);
+    memcpy(saved_point, param_point, sizeof param_point);
+    memcpy(saved_cell, param_cell, sizeof param_cell);
+    saved_items = param_items;
+    saved_points = param_points;
+    saved_cells = param_cells;
+}
+
+/* Rimette lo stato di 18t-h com'era all'ultimo state_save(). */
+static void state_restore(void) {
+    memcpy(param_item, saved_item, sizeof param_item);
+    memcpy(param_point, saved_point, sizeof param_point);
+    memcpy(param_cell, saved_cell, sizeof param_cell);
+    param_items = saved_items;
+    param_points = saved_points;
+    param_cells = saved_cells;
+}
+
+/* Ritorna il posto in param_item[] del polinomio della proiezione con questa
+ * provenienza (come in ProjectionItem), -1 se non è registrato. */
+static int item_of(int kind, int first, int second, int k) {
+    for (int i = 0; i < param_items; i++)
+        if (param_item[i].kind == kind && param_item[i].first == first && param_item[i].second == second && param_item[i].k == k) return i;
+    return -1;
+}
+
+/* Riempie le prime size righe di m con la matrice di Vandermonde dei nodi
+ * node[0..size-1]: la riga r è 1, node[r], node[r]^2, ... Il suo determinante
+ * è il prodotto delle differenze node[j] - node[i] con i < j. */
+static void vandermonde(__int128 m[MAX_MINOR][MAX_MINOR], const long long *node, int size) {
+    for (int r = 0; r < size; r++) {
+        __int128 power = 1;
+        for (int c = 0; c < size; c++, power *= node[r]) m[r][c] = power;
+    }
+}
+
 int main(void) {
     Poly f[MAX_PARAM_DEGREE + 1], g[MAX_PARAM_DEGREE + 1];
     engine_init();
@@ -220,6 +273,118 @@ int main(void) {
              "an absolute value of the variable beside a parameter is beyond the rule, and the verdict says so");
     answered("\\forall a \\in \\mathbb{R}\\ \\forall b \\in \\mathbb{R}\\ \\forall x \\in \\mathbb{R}\\ (x^{2} + a^{2} + b^{2} \\ge 0)", UNSUPPORTED, PARAM_FORM,
              "three real letters are beyond the rule, and the verdict says so");
+
+    /* 18t-h. Il determinante di Bareiss su matrici note: Vandermonde dei
+     * nodi 0, 1, 2, 3, 5, che vale (1 2 3 5)(1 2 4)(1 3)(2) = 1440; un perno
+     * nullo, che va scambiato; una matrice singolare; numeri che escono dai
+     * 128 bit, e il conto lo deve dire. */
+    __int128 matrix[MAX_MINOR][MAX_MINOR];
+    const long long nodes[5] = {0, 1, 2, 3, 5};
+    vandermonde(matrix, nodes, 5);
+    check(bareiss(matrix, 5) == 1440, "the Vandermonde determinant of 0, 1, 2, 3, 5 is 1440");
+    matrix[0][0] = 0, matrix[0][1] = 2, matrix[1][0] = 3, matrix[1][1] = 5;
+    check(bareiss(matrix, 2) == -6, "a zero pivot is swapped with the row below it, and the sign changes");
+    const long long singular[3][3] = {{1, 2, 3}, {2, 4, 6}, {1, 0, 1}};
+    for (int r = 0; r < 3; r++)
+        for (int c = 0; c < 3; c++) matrix[r][c] = singular[r][c];
+    check(bareiss(matrix, 3) == 0, "a matrix with two proportional rows has determinant zero");
+    matrix[0][0] = matrix[1][1] = (__int128)1 << 70, matrix[0][1] = matrix[1][0] = 1;
+    failure = NULL;
+    bareiss(matrix, 2);
+    check(failure == SIGN_LIMIT, "a determinant beyond 128 bits is refused, not computed wrong");
+    failure = NULL;
+
+    /* Il valore omogeneo: con p = 1 + 2a + 3a^2, 2^2 p(1/2) = 11 e
+     * 2^3 p(1/2) = 22. */
+    Uni p = {2, {1, 2, 3}};
+    check(uni_homogeneous(&p, 2, (Frac){1, 2}) == 11 && uni_homogeneous(&p, 3, (Frac){1, 2}) == 22, "q^d p(n/q) is computed without fractions");
+
+    /* Lo stato di una richiesta risolta: il discriminante di x^2 - 2kx + 7,
+     * proporzionale a k^2 - 7, con i valori critici irrazionali -sqrt(7) e
+     * sqrt(7). Il ricontrollo lo conferma; ogni guasto lo deve fermare. */
+    verdict = prove("\\{k \\in \\mathbb{R} \\mid \\forall x \\in \\mathbb{R}\\ (x^{2} - 2kx + 7 > 0)\\}", 'n', 0, 0);
+    int k = atom_var('k'), lead = item_of(1, 0, -1, 0), discriminant = item_of(2, 0, -1, 0);
+    check(verdict.outcome == SOLVED && projection_sound(k) == 1, "the projection of x^2 - 2kx + 7 passes its independent check");
+    check(lead >= 0 && discriminant >= 0 && param_item[discriminant].value.degree == 2, "its leading coefficient and its discriminant, of degree two in k, are recorded");
+    state_save();
+    param_item[discriminant].value.c[0] += 1;
+    check(projection_sound(k) == 0, "a discriminant with a wrong coefficient is caught");
+    state_restore();
+    param_item[discriminant].value.degree = -1;
+    check(projection_sound(k) == 0, "a discriminant recorded as the zero polynomial is caught");
+    state_restore();
+    uni_negate(&param_item[discriminant].value);
+    check(projection_sound(k) == 0, "a discriminant recorded with the opposite sign is caught");
+    state_restore();
+    param_item[discriminant].k = 1;
+    check(projection_sound(k) == 0, "a discriminant recorded under another k counts as missing, and is caught");
+    state_restore();
+    param_points = 1, param_cells = 3;
+    check(projection_sound(k) == 0, "a critical value left out of the cells is caught");
+    state_restore();
+    param_point[0].smaller = 0;
+    check(projection_sound(k) == 0, "the wrong root of the quadratic at an irrational critical value is caught");
+    state_restore();
+    param_point[0].at.low = (Wide){-2, 1}, param_point[0].at.high = (Wide){-19, 10};
+    check(projection_sound(k) == 0, "an isolating interval that does not contain its root is caught");
+    state_restore();
+    param_cell[2].sample = (Wide){3, 1};
+    check(projection_sound(k) == 0, "a value chosen for a cell outside that cell is caught");
+    state_restore();
+    /* Coefficienti di 2^126, con il segno del termine noto registrato: nel
+     * primo punto, k = 0, il rapporto torna, e già in k = 1 la somma esce dai
+     * 128 bit. */
+    __int128 huge = param_item[discriminant].value.c[0] < 0 ? -((__int128)1 << 126) : (__int128)1 << 126;
+    for (int i = 0; i <= 2; i++) param_item[discriminant].value.c[i] = huge;
+    check(projection_sound(k) == -1, "a recheck that runs beyond 128 bits does not confirm anything");
+    int steps = unjustified_steps;
+    Verdict unused = {UNSUPPORTED, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL};
+    check(!projection_confirmed(k, &unused) && unused.outcome == NOT_PROVED && strstr(unused.reason, "non riesco a ricontrollare la proiezione") && unjustified_steps == steps,
+          "then the verdict is not proved, says why, and does not count as an error of the engine");
+    state_restore();
+    param_item[discriminant].value.c[0] += 1;
+    check(!projection_confirmed(k, &unused) && unused.outcome == NOT_PROVED && unjustified_steps == steps + 1, "a projection that does not agree is an error of the engine, and is counted");
+    unjustified_steps = steps;
+    state_restore();
+    check(projection_sound(k) == 1, "restored, the projection passes its check again");
+
+    /* Una coppia: x - a e x - 2a - 30 hanno una radice in comune solo per
+     * a = -30, fuori dalla griglia di 18t-g. Il loro risultante è registrato
+     * e il valore critico è tra le celle; tolto, il ricontrollo se ne
+     * accorge. */
+    verdict = prove("\\forall a \\in \\mathbb{R}\\ \\{x \\in \\mathbb{R} \\mid \\frac{x - a}{x - 2a - 30} \\le 0\\}", 'n', 0, 0);
+    int a = atom_var('a'), pair = item_of(3, 0, 1, 0);
+    check(verdict.outcome == SOLVED && pair >= 0 && param_item[pair].value.degree == 1 && param_points == 1 && param_point[0].at.exact &&
+              wide_cmp(param_point[0].at.low, (Wide){-30, 1}) == 0 && projection_sound(a) == 1,
+          "the resultant of x - a and x - 2a - 30 gives the critical value -30, and the projection passes its check");
+    state_save();
+    param_points = 0, param_cells = 1;
+    check(projection_sound(a) == 0, "a critical value far beyond the grid, left out, is caught");
+    state_restore();
+
+    /* Un psc_k che è il polinomio nullo: f = (x - 2a - 30)(x^2 + 1) si
+     * annulla in x = 2a + 30 per ogni a, quindi il risultante di f e di
+     * x - 2a - 30 è zero, ed è registrato così. Dichiararlo non nullo è un
+     * errore come il contrario. */
+    verdict = prove("\\forall a \\in \\mathbb{R}\\ \\forall x \\in \\mathbb{R}\\ (x^{3} - 2ax^{2} - 30x^{2} + x - 2a - 30 > 0 \\iff x > 2a + 30)", 'n', 0, 0);
+    pair = item_of(3, 0, 1, 0);
+    check(verdict.outcome == PROVED && pair >= 0 && param_item[pair].value.degree < 0 && projection_sound(a) == 1,
+          "the resultant of (x - 2a - 30)(x^2 + 1) and x - 2a - 30 is recorded as the zero polynomial, and the projection passes its check");
+    state_save();
+    param_item[pair].value = (Uni){0, {1}};
+    check(projection_sound(a) == 0, "a psc that is the zero polynomial, recorded as a number, is caught");
+    state_restore();
+
+    /* Quarto grado: il discriminante di x^4 - 2ax^2 + 2a + 120, che ha i
+     * valori critici -60 e 12, è un determinante di sette righe. */
+    verdict = prove("\\{a \\in \\mathbb{R} \\mid \\forall x \\in \\mathbb{R}\\ (x^{4} - 2ax^{2} + 2a + 120 > 0)\\}", 'n', 0, 0);
+    discriminant = item_of(2, 0, -1, 0);
+    check(verdict.outcome == SOLVED && verdict.detail && strcmp(verdict.detail, "-60 < a < 12") == 0 && discriminant >= 0 && projection_sound(a) == 1,
+          "the values of a for which x^4 - 2ax^2 + 2a + 120 > 0 for every x are -60 < a < 12, and the projection passes its check");
+    state_save();
+    param_item[discriminant].value.degree = -1;
+    check(projection_sound(a) == 0, "a seven-row discriminant recorded as the zero polynomial is caught");
+    state_restore();
     check(unjustified_steps == 0, "no case on a parameter was contradicted by its independent checks");
 
     printf("%s: %d of %d parameter checks passed\n", failures ? "FAIL" : "PASS", checks - failures, checks);

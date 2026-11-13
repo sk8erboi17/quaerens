@@ -22,7 +22,7 @@
  * nessuno in anticipo.
  *
  * Con un parametro reale accanto alla variabile (regola 18t) i controlli sono
- * altri cinque:
+ * altri sei:
  *
  *   6. ogni enunciato di book_inequalities_with_parameter.tex (gli esercizi
  *      del libro con il parametro, con il risultato stampato) e di
@@ -36,7 +36,14 @@
  *      sotto: il testo può essere diverso, quindi le due si confrontano come
  *      condizioni, calcolandole in tutti i punti di una griglia di numeri;
  *  10. gli enunciati in cui conta la forma della richiesta, o l'insieme di una
- *      delle due lettere, ricevono la risposta giusta.
+ *      delle due lettere, ricevono la risposta giusta;
+ *  11. gli enunciati di parameter_statements_beyond_grid.tex, i cui valori
+ *      critici del parametro sono lontani o irrazionali isolati, o vengono da
+ *      un polinomio di terzo o quarto grado in x, vengono dimostrati; quelli
+ *      di false_inequalities_with_parameter_beyond_grid.tex, le stesse
+ *      sbagliate di poco, vengono dichiarati falsi. Sono i casi che la griglia
+ *      di 18t-g non vede e che il ricontrollo della proiezione (18t-h) deve
+ *      reggere.
  *
  * Compilazione ed esecuzione, dalla cartella principale del repository:
  *
@@ -437,6 +444,9 @@ int main(void) {
     passed = check_none_proved("tests/equations_inequalities/false_inequalities_with_parameter_beyond_reach.tex") && passed;
     passed = check_parameter_solutions("tests/equations_inequalities/solution_sets_with_parameter.tex") && passed;
     passed = check_parameter_cases() && passed;
+    passed = check_all_proved("tests/equations_inequalities/parameter_statements_beyond_grid.tex") && passed;
+    passed = check_none_proved("tests/equations_inequalities/false_inequalities_with_parameter_beyond_grid.tex") && passed;
+    passed = check_all_refuted("tests/equations_inequalities/false_inequalities_with_parameter_beyond_grid.tex") && passed;
 
     /* Ogni riga di una tabella dei segni e ogni soluzione scritta vengono
      * ricontrollate dal programma con un metodo indipendente: nessuna deve

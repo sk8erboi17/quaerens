@@ -3,6 +3,7 @@ r"""Radici quadrate e parametri: controllo dei dati presi dal libro e fuzzing di
 Uso:
     python3 -I fuzz_radicals_parameters.py check-data <exercises.jsonl>
     python3 -I fuzz_radicals_parameters.py fuzz <eseguibile> <seme> <quanti> <cartella di lavoro>
+    python3 -I fuzz_radicals_parameters.py fuzz-wide <eseguibile> <seme> <quanti> <cartella di lavoro>
 
 A COSA SERVE
 
@@ -20,6 +21,14 @@ entrambe. Non chiama mai il programma per sapere che cosa è vero.
 
   fuzz  genera enunciati di cui la verità è nota PER COSTRUZIONE, li dà al
       programma e confronta la risposta.
+
+  fuzz-wide  lo stesso, con un parametro e ciò che una griglia di numeri
+      piccoli non vede: valori critici del parametro lontani (oltre |a| = 8)
+      o irrazionali isolati, polinomi di terzo e quarto grado in x, un
+      coefficiente direttivo che si annulla. Il parametro si prova anche in
+      valori lontani, con denominatori grandi e vicinissimi agli estremi
+      scritti dal programma (wide_line()). È il modo per controllare la regola
+      18t di main.c e il suo ricontrollo della proiezione (18t-h).
 
 L'ORACOLO
 
@@ -52,8 +61,16 @@ Un confronto è falso dove uno dei suoi membri non ha valore (divisione per
 zero, radice di un numero negativo): è la convenzione dei libri.
 
 "Per ogni x" e "esiste x" dentro una condizione (esercizi che chiedono i
-valori del parametro) sono decisi solo per un confronto tra polinomi di grado
-al più 2 in x, completando il quadrato: vedi signs_taken().
+valori del parametro) sono decisi in due modi. Per un confronto tra polinomi
+di grado al più 2 in x completando il quadrato, anche con coefficienti
+irrazionali: vedi signs_taken(). Per una condizione qualsiasi fatta di
+frazioni di polinomi in x, di grado qualsiasi, quando le altre lettere valgono
+numeri razionali, con le catene di Sturm: le radici del prodotto di
+numeratori e divisori si isolano tra razionali, e la condizione si prova in
+ognuna e tra due consecutive (vedi decide()). Il secondo modo non decide un
+polinomio di grado più alto di 2 con coefficienti irrazionali: quei punti
+fuzz-wide li salta, o li giudica con la condizione equivalente che il
+generatore conosce.
 
 DOVE GUARDA check-data
 
@@ -116,6 +133,15 @@ cui quei punti sono tutti.
       esattamente tra le due radici; quale delle due è la minore lo decide il
       segno di r_1 - r_2 = (m_1 - m_2)(a - a*), con a* = (n_2 - n_1)/(m_1 -
       m_2): da qui l'elenco dei casi a < a*, a = a*, a > a*.
+
+  (iv)-(viii) fuzz-wide: x^4 + B x^2 + C, (x - u)(x^2 + v), x^2 - 2 a x + c
+      con il minimo scelto, quozienti con una radice in comune per valori
+      lontani del parametro, (a - p) x^2 + B x + C. Per ognuno il motivo è
+      scritto nella sua funzione (quartic(), cubic(), far_quadratic(),
+      quotient(), leading()): o una condizione nel solo parametro che il
+      generatore sa equivalente, controllata con decide() in ogni razionale
+      in cui la si usa (wide_case()), oppure una condizione di secondo grado
+      in x, che l'oracolo decide da sé in ogni valore del parametro.
 
 Gli enunciati veri sono "per ogni x: condizione <=> soluzioni" con le
 soluzioni così trovate. Quelli falsi nascono da un piccolo errore (un estremo
@@ -854,6 +880,217 @@ def signs_taken(p):
     return {lead} | ({0} if turn != lead else set()) | ({-lead} if turn == -lead else set())
 
 
+# ---------------------------------------------------------------- polinomi di grado qualsiasi: Sturm
+# Per "per ogni x" ed "esiste x" oltre il secondo grado, quando le altre lettere valgono numeri
+# razionali. Un polinomio è una lista di Fraction [c_0, c_1, ...] senza zeri in fondo: [] è il
+# polinomio nullo. Tutti i conti sono esatti, e nessuno viene dal programma.
+def p_trim(p):
+    p = list(p)
+    while p and p[-1] == 0:
+        p.pop()
+    return p
+
+
+def p_add(p, q, factor=1):
+    """p + factor q."""
+    size = max(len(p), len(q))
+    return p_trim([(p[i] if i < len(p) else 0) + factor * (q[i] if i < len(q) else 0) for i in range(size)])
+
+
+def p_mul(p, q):
+    if not p or not q:
+        return []
+    out = [Fraction(0)] * (len(p) + len(q) - 1)
+    for i, u in enumerate(p):
+        for j, v in enumerate(q):
+            out[i + j] += u * v
+    return p_trim(out)
+
+
+def p_divmod(p, q):
+    """Quoziente e resto della divisione di p per q, che non è il polinomio nullo."""
+    p, quotient = p_trim(p), [Fraction(0)] * max(len(p) - len(q) + 1, 1)
+    while len(p) >= len(q):
+        factor, shift = p[-1] / q[-1], len(p) - len(q)
+        quotient[shift] = factor
+        p = p_add(p, [Fraction(0)] * shift + q, -factor)
+    return p_trim(quotient), p
+
+
+def p_gcd(p, q):
+    """Il massimo comun divisore, monico (algoritmo di Euclide); [] se p e q sono nulli."""
+    p, q = p_trim(p), p_trim(q)
+    while q:
+        p, q = q, p_divmod(p, q)[1]
+    return [c / p[-1] for c in p] if p else []
+
+
+def p_value(p, x):
+    out = Fraction(0)
+    for c in reversed(p):
+        out = out * x + c
+    return out
+
+
+def p_sign(p, x):
+    v = p_value(p, x)
+    return (v > 0) - (v < 0)
+
+
+def p_squarefree(p):
+    """p / mcd(p, p'): le stesse radici di p, ognuna una volta sola."""
+    common = p_gcd(p, p_trim([i * c for i, c in enumerate(p)][1:]))
+    return p_divmod(p, common)[0] if len(common) > 1 else p_trim(p)
+
+
+def sturm(p):
+    """La catena di Sturm p, p', -resto(p, p'), ... fino all'ultimo resto non nullo."""
+    chain = [p_trim(p), p_trim([i * c for i, c in enumerate(p)][1:])]
+    while chain[-1]:
+        chain.append([-c for c in p_divmod(chain[-2], chain[-1])[1]])
+    return chain[:-1]
+
+
+def changes(chain, x):
+    """V(x): i cambi di segno della catena nel razionale x, saltando gli zeri. Teorema di Sturm: se
+    lo e hi non sono radici, V(lo) - V(hi) è il numero delle radici reali distinte tra i due."""
+    signs = [s for s in (p_sign(p, x) for p in chain) if s]
+    return sum(1 for u, v in zip(signs, signs[1:]) if u != v)
+
+
+def isolate(p):
+    """Le radici reali distinte di p, non costante, in ordine, ognuna come una coppia (lo, hi) di
+    razionali che non sono radici, tra i quali c'è solo lei. Si parte da (-B, B), con B oltre ogni
+    radice (limite di Cauchy, 1 + max |c_i / c_n|), e si dimezza finché ogni pezzo ne contiene una.
+    Il punto di mezzo non deve essere una radice: tra i 2n + 1 candidati j/(2n + 2) ce n'è sempre
+    uno, perché le radici nel pezzo sono n."""
+    s = p_squarefree(p)
+    chain, limit = sturm(s), 1 + max(abs(c / s[-1]) for c in s[:-1])
+    out, todo = [], [(-limit, limit)]
+    while todo:
+        lo, hi = todo.pop()
+        n = changes(chain, lo) - changes(chain, hi)
+        if n == 1:
+            out.append((lo, hi))
+        elif n > 1:
+            middle = next(m for m in (lo + (hi - lo) * Fraction(j, 2 * n + 2) for j in sorted(range(1, 2 * n + 2), key=lambda j: abs(j - n - 1)))
+                          if p_sign(s, m))
+            todo += [(lo, middle), (middle, hi)]
+    return sorted(out)
+
+
+def sign_at(q, s, interval):
+    """Il segno del polinomio q nella sola radice θ del polinomio s, senza quadrati, tra i razionali
+    interval = (lo, hi). θ è radice di q se lo è di mcd(s, q), cioè se questo ha una radice tra lo e
+    hi. Altrimenti si stringe l'intervallo attorno a θ finché q non vi ha radici: lì q ha un segno
+    solo, quello di un estremo."""
+    lo, hi = interval
+    if not q:
+        return 0
+    common = p_gcd(s, q)
+    if len(common) > 1 and changes(sturm(common), lo) - changes(sturm(common), hi) > 0:
+        return 0
+    chain = sturm(p_squarefree(q))
+    while len(q) > 1 and (not p_sign(q, lo) or not p_sign(q, hi) or changes(chain, lo) - changes(chain, hi) > 0):
+        middle = (lo + hi) / 2
+        if not p_sign(s, middle):
+            return p_sign(q, middle)   # il punto di mezzo è θ
+        lo, hi = (middle, hi) if p_sign(s, middle) == p_sign(s, lo) else (lo, middle)
+    return p_sign(q, lo)
+
+
+def fraction_of(e, name, env):
+    """e come frazione di polinomi in name: (numeratore, denominatore, divisori), dove i divisori sono
+    i polinomi che, dove si annullano, tolgono a e il valore (il denominatore è il loro prodotto). Le
+    altre lettere valgono env e devono dare numeri razionali. Solleva NotPolynomial per name sotto
+    una radice o un valore assoluto, Undefined se una parte senza name non ha valore."""
+    if not mentions(e, name):
+        v = value(e, env)
+        if not isinstance(v, Fraction):
+            raise Unreadable("a coefficient that is not rational")
+        return p_trim([v]), [Fraction(1)], []
+    op = e[0]
+    if op == "var":
+        return [Fraction(0), Fraction(1)], [Fraction(1)], []
+    if op == "neg":
+        top, bottom, divisors = fraction_of(e[1], name, env)
+        return [-c for c in top], bottom, divisors
+    if op == "^":
+        top, bottom, divisors = fraction_of(e[1], name, env)
+        out_top, out_bottom = [Fraction(1)], [Fraction(1)]
+        for _ in range(e[2]):
+            out_top, out_bottom = p_mul(out_top, top), p_mul(out_bottom, bottom)
+        return out_top, out_bottom, divisors
+    if op in ("+", "-", "*", "/"):
+        (t1, b1, d1), (t2, b2, d2) = fraction_of(e[1], name, env), fraction_of(e[2], name, env)
+        if op == "*":
+            return p_mul(t1, t2), p_mul(b1, b2), d1 + d2
+        if op == "/":
+            if not t2:
+                raise Undefined
+            return p_mul(t1, b2), p_mul(b1, t2), d1 + d2 + [t2]
+        return p_add(p_mul(t1, b2), p_mul(t2, b1), 1 if op == "+" else -1), p_mul(b1, b2), d1 + d2
+    raise NotPolynomial
+
+
+def decide(word, name, f, env):
+    """La verità di "per ogni name: f" (word "forall") o di "esiste name: f" (word "exists"), con le
+    altre lettere che valgono i razionali di env, per una condizione f fatta di confronti tra
+    frazioni di polinomi in name, di grado qualsiasi.
+
+    Perché è esatta. Ogni confronto è "numeratore per denominatore" confrontato con zero, dove
+    nessun divisore si annulla; tra due radici consecutive del prodotto P di numeratori e divisori
+    ogni fattore ha un segno solo, e con lui ogni confronto. Basta quindi provare le radici reali di
+    P, isolate con Sturm (isolate()), un razionale tra due consecutive e uno oltre ciascun estremo.
+    In una radice i segni si leggono con sign_at(), nei razionali con holds()."""
+    pieces = {}
+
+    def collect(g):
+        if g[0] == "cmp":
+            if mentions(g[2], name) or mentions(g[3], name):
+                try:
+                    pieces[id(g)] = fraction_of(("-", g[2], g[3]), name, env)
+                except Undefined:
+                    pieces[id(g)] = None   # un membro senza valore per ogni name: il confronto è falso
+                except NotPolynomial:
+                    raise Unreadable("a quantified comparison that is not a fraction of polynomials") from None
+        elif g[0] in ("forall", "exists", "solve"):
+            raise Unreadable("a quantifier inside a quantified condition")
+        else:
+            for part in g[1:]:
+                collect(part)
+
+    def at_root(g, interval):
+        op = g[0]
+        if op == "cmp":
+            if id(g) not in pieces:
+                return holds(g, env)
+            if pieces[id(g)] is None:
+                return False
+            top, bottom, divisors = pieces[id(g)]
+            if any(sign_at(d, product, interval) == 0 for d in divisors):
+                return False
+            return RELATIONS[g[1]](sign_at(top, product, interval) * sign_at(bottom, product, interval))
+        if op == "not":
+            return not at_root(g[1], interval)
+        if op in ("and", "or", "iff"):
+            u, v = at_root(g[1], interval), at_root(g[2], interval)
+            return u and v if op == "and" else u or v if op == "or" else u == v
+        return op == "true"
+
+    collect(f)
+    product = [Fraction(1)]
+    for piece in pieces.values():
+        for p in [piece[0]] + piece[2] if piece else []:
+            if len(p) > 1:
+                product = p_mul(product, p_squarefree(p))
+    product = p_squarefree(product)
+    roots = isolate(product) if len(product) > 1 else []
+    rational_points = [roots[0][0] - 1] + [hi for _, hi in roots] if roots else [Fraction(0)]
+    truths = [holds(f, dict(env, **{name: x})) for x in rational_points] + [at_root(f, interval) for interval in roots]
+    return all(truths) if word == "forall" else any(truths)
+
+
 def holds(f, env):
     """La verità della condizione f quando le lettere valgono env. Un confronto è falso dove uno
     dei suoi membri non ha valore."""
@@ -875,14 +1112,20 @@ def holds(f, env):
         return op == "true"
     if op in ("forall", "exists") and f[2][0] == "cmp":
         # Il confronto dice qualcosa del segno di un polinomio in f[1]: "per ogni" chiede che lo
-        # dicano tutti i segni che il polinomio assume, "esiste" che lo dica almeno uno.
+        # dicano tutti i segni che il polinomio assume, "esiste" che lo dica almeno uno. Così fino
+        # al secondo grado, anche con coefficienti irrazionali; oltre, decide().
         try:
-            taken = signs_taken(polynomial(("-", f[2][2], f[2][3]), f[1], env))
+            p = polynomial(("-", f[2][2], f[2][3]), f[1], env)
         except NotPolynomial:
-            raise Unreadable("a quantified comparison that is not a polynomial") from None
+            p = None
         except Undefined:
             return False
-        return (all if op == "forall" else any)(RELATIONS[f[2][1]](s) for s in taken)
+        if p is not None and len(trimmed(p)) <= 3:
+            return (all if op == "forall" else any)(RELATIONS[f[2][1]](s) for s in signs_taken(p))
+    if op in ("forall", "exists"):
+        if not all(isinstance(v, Fraction) for v in env.values()):
+            raise Unreadable("a quantified condition beyond the second degree at an irrational value")
+        return decide(op, f[1], f[2], env)
     raise Unreadable("a condition the oracle cannot decide: %s" % op)
 
 
@@ -976,16 +1219,22 @@ def line(f, name, env, hints, grid):
     return order(samples(points) + grid) if grid else samples(points)
 
 
-def sweep(f, names, hints, dense):
+def sweep(f, names, hints, dense, fine=None):
     """Genera gli assegnamenti {lettera: valore} in cui provare f. names sono una lettera, oppure
     il parametro e la variabile: per ogni valore del parametro i punti della variabile sono
-    cercati da capo. hints porta ogni lettera nei punti che chi chiama sa essere speciali."""
+    cercati da capo. hints porta ogni lettera nei punti che chi chiama sa essere speciali. Se fine
+    non è None, i valori della prima lettera sono quelli di wide_line(), con quel fine."""
+    first = names[0]
+    if fine is None:
+        start = line(f, first, {}, hints.get(first, []), (GRID if dense else []) if len(names) == 1 else GRID_PARAMETER if dense else [])
+    else:
+        start = wide_line(f, first, {}, hints.get(first, []), fine)
     if len(names) == 1:
-        for x in line(f, names[0], {}, hints.get(names[0], []), GRID if dense else []):
-            yield {names[0]: x}
+        for x in start:
+            yield {first: x}
         return
     parameter, variable = names
-    for a in line(f, parameter, {}, hints.get(parameter, []), GRID_PARAMETER if dense else []):
+    for a in start:
         for x in line(f, variable, {parameter: a}, hints.get(variable, []), GRID_UNDER if dense else []):
             yield {parameter: a, variable: x}
 
@@ -1485,20 +1734,248 @@ def parametric():
     return statement, truth, None
 
 
+# ---------------------------------------------------------------- generazione: fuzz-wide
+checking = random.Random()   # i punti a caso dove si giudica una risposta; fuzz() gli dà il seme
+
+
+def two_letters(terms, a):
+    """Il polinomio {(i, j): c}, somma dei c a^i x^j, in LaTeX: prima le potenze più alte di x."""
+    def power(letter, k):
+        return "" if k == 0 else letter if k == 1 else "%s^{%d}" % (letter, k)
+    return total([(c, power(a, i) + power("x", j)) for (i, j), c in sorted(terms.items(), key=lambda t: (-t[0][1], -t[0][0]))])
+
+
+def in_a(coefficients, a):
+    """Il polinomio c_0 + c_1 a + ... nel solo parametro, in LaTeX."""
+    return two_letters({(i, 0): c for i, c in enumerate(coefficients)}, a)
+
+
+def far():
+    """Un valore critico del parametro: spesso vicino allo zero, spesso oltre la griglia di 18t-g."""
+    return rnd.choice([rnd.randint(-4, 4), rnd.choice([1, -1]) * rnd.randint(9, 60)])
+
+
+def quadratic_roots(c):
+    """Le radici reali del polinomio c_0 + c_1 a + c_2 a^2 (di grado al più 2), esatte."""
+    return roots(list(map(Fraction, c))) or []
+
+
+def wide_line(f, name, env, hints, fine):
+    """Come line(), con i punti che una griglia non vede: i valori lontani 10, 100 e 1000, con il
+    segno. Con fine anche un milione, razionali a caso con denominatori grandi e, accanto a ogni
+    punto in cui la verità può cambiare (anche gli estremi scritti dal programma), razionali a
+    1/1000 e a 1/10^9 dalle due parti. Senza fine i numeri restano piccoli, perché le radici
+    quadrate dei conti in x restino esatte: square_part() scompone solo numeri non troppo grandi.
+    Le due righe trovano gli stessi errori dove i punti in cui la verità cambia sono tutti tra
+    quelli di samples(); i punti in più cercano quelli che mancano."""
+    points = list(hints)
+    critical(f, name, env, points)
+    marks = order(points)
+    extra = [Fraction(side * 10 ** k) for side in (1, -1) for k in ((1, 2, 3, 6) if fine else (1, 2, 3))]
+    if fine:
+        for mark in marks:
+            for gap in (Fraction(1, 1000), Fraction(1, 10 ** 9)):
+                extra += [v for v in (between(mark - gap, mark), between(mark, mark + gap)) if v is not None]
+        extra += [Fraction(checking.randint(-50 * 10 ** 6, 50 * 10 ** 6), checking.randint(10 ** 5, 10 ** 6)) for _ in range(16)]
+    return order(samples(marks) + extra)
+
+
+def wide_case(a, inner, w, hints):
+    """Un caso (enunciato, verità, dati) da una condizione inner sul parametro a, con dentro un
+    quantificatore su x, e da w, una condizione nel solo a che il generatore sa equivalente a inner.
+
+    Prima si controlla il generatore: in ogni razionale della retta di a in cui si giudicherà,
+    inner decisa dall'oracolo (holds(), con Sturm oltre il secondo grado) deve avere la verità di
+    w. Poi una delle forme: la richiesta dei valori del parametro, giudicata confrontando la
+    risposta con w (esatta anche nei valori irrazionali); l'enunciato "per ogni a, inner se e solo
+    se w", vero; lo stesso con w sbagliata di poco, falso se c'è un a in cui le due sono diverse
+    (altrimenti il caso si scarta); "per ogni a" o "esiste a" di inner, vero o falso secondo w nei
+    punti di samples(), che per una condizione nel solo a sono tutti quelli che servono."""
+    inner_tree, w_tree = read(inner, "formula"), read(w, "formula")
+    for a0 in wide_line(w_tree, a, {}, hints, True):
+        if isinstance(a0, Fraction):
+            assert holds(inner_tree, {a: a0}) == holds(w_tree, {a: a0}), "the generator is wrong at %s = %s: %s" % (a, a0, inner)
+    shape, every = rnd.random(), "\\forall %s \\in \\mathbb{R}\\ " % a
+    if shape < 0.35:
+        return "\\{%s \\in \\mathbb{R} \\mid %s\\}" % (a, inner), None, (w_tree, [a], {a: hints}, True)
+    if shape < 0.55:
+        return every + "\\left( \\left( %s \\right) \\iff \\left( %s \\right) \\right)" % (inner, w), True, None
+    if shape < 0.8:
+        spoiled = spoil_condition(w)
+        both = ("iff", w_tree, read(spoiled, "formula"))
+        if all(surely(both, {a: a0}) for a0 in line(both, a, {}, hints, [])):
+            raise Unreadable("no point found where the spoiled condition differs")
+        return every + "\\left( \\left( %s \\right) \\iff \\left( %s \\right) \\right)" % (inner, spoiled), False, None
+    word = rnd.choice(["forall", "exists"])
+    truth = (all if word == "forall" else any)(surely(w_tree, {a: a0}) for a0 in line(w_tree, a, {}, hints, []))
+    return "\\%s %s \\in \\mathbb{R}\\ %s" % (word, a, inner), truth, None
+
+
+def spoil_condition(text):
+    """La condizione text sbagliata di poco: una relazione stretta al posto di una larga o
+    viceversa, oppure un numero scritto da solo spostato di uno. Se l'errore conta lo stabilisce
+    chi chiama, con il conto."""
+    places = list(re.finditer(r"(<|>|\\le|\\ge)(?![a-z])", text))
+    numbers = list(re.finditer(r"(?:<|>|=|\\le|\\ge) (-?\d+)(?![\d{a-z])", text))
+    if numbers and (rnd.random() < 0.3 or not places):
+        m = rnd.choice(numbers)
+        return text[:m.start(1)] + str(int(m.group(1)) + rnd.choice([1, -1])) + text[m.end(1):]
+    m = rnd.choice(places)
+    return text[:m.start()] + FLIPPED[m.group()] + text[m.end():]
+
+
+def quartic():
+    """(iv) x^4 + B x^2 + C rispetto a zero, con B e C polinomi nel parametro. Con t = x^2, che
+    prende tutti e soli i valori t >= 0, è t^2 + B t + C su t >= 0, e con Q = B^2 - 4C:
+
+      - per ogni x è > 0 se e solo se C > 0 e (B >= 0 oppure Q < 0): se B >= 0 il trinomio cresce
+        su t >= 0 e il minimo è C, in t = 0; se B < 0 il minimo è C - B^2/4, in t = -B/2 > 0;
+      - per ogni x è >= 0 se e solo se C >= 0 e (B >= 0 oppure Q <= 0), allo stesso modo;
+      - esiste x con < 0, o con <= 0, se e solo se non vale la riga di sopra con >= 0, o con > 0;
+      - esiste x con = 0 se e solo se t^2 + B t + C ha una radice t >= 0: se C <= 0 il prodotto
+        delle radici non è positivo (e sono reali, Q >= -4C >= 0); se C > 0 le radici hanno lo
+        stesso segno, positivo se la somma -B lo è. Cioè C <= 0 oppure (B < 0 e Q >= 0), che è
+        anche la condizione con <= 0.
+
+    I valori critici sono le radici di C, di B e di Q: di secondo grado, anche irrazionali, spesso
+    lontani."""
+    a, s, kind = rnd.choice("akmbt"), rnd.choice([1, 1, 2, -1]), rnd.random()
+    if kind < 0.4:
+        p, q = far(), far()
+        c = [s * p * q, -s * (p + q), s]
+    elif kind < 0.7:
+        c = [-s * rnd.choice([2, 3, 5, 6, 7, 10, 79, 103, 150]), 0, s]
+    else:
+        c = [rnd.randint(-60, 60), nonzero(3), 0]
+    b = [rnd.randint(-6, 6), rnd.choice([0, 1, -1, 2, -2])]
+    q = [b[0] * b[0] - 4 * c[0], 2 * b[0] * b[1] - 4 * c[1], b[1] * b[1] - 4 * c[2]]
+    text = two_letters({(0, 4): 1, (0, 2): b[0], (1, 2): b[1], (0, 0): c[0], (1, 0): c[1], (2, 0): c[2]}, a)
+    word, rel = rnd.choice([("forall", ">"), ("forall", "\\ge"), ("exists", "<"), ("exists", "\\le"), ("exists", "=")])
+    pattern = {("forall", ">"): "%s > 0 \\land (%s \\ge 0 \\lor %s < 0)", ("forall", "\\ge"): "%s \\ge 0 \\land (%s \\ge 0 \\lor %s \\le 0)",
+               ("exists", "<"): "%s < 0 \\lor (%s < 0 \\land %s > 0)", ("exists", "\\le"): "%s \\le 0 \\lor (%s < 0 \\land %s \\ge 0)",
+               ("exists", "="): "%s \\le 0 \\lor (%s < 0 \\land %s \\ge 0)"}[(word, rel)]
+    inner = "\\%s x \\in \\mathbb{R}\\ (%s %s 0)" % (word, text, rel)
+    hints = quadratic_roots(c) + quadratic_roots(b) + quadratic_roots(q)
+    return wide_case(a, inner, pattern % (in_a(c, a), in_a(b, a), in_a(q, a)), hints)
+
+
+def cubic():
+    """(v) f = (x - u)(x^2 + v) con u = m a + n e v > 0, scritto sviluppato: x^2 + v è sempre
+    positivo, quindi f ha il segno di x - u, e la sola radice reale u. Da qui, con c un numero:
+
+      - per ogni x, x >= c oppure f < 0  se e solo se  u >= c: chiede che ogni x < c stia sotto u;
+      - esiste x con f = 0 e x > c  se e solo se  u > c;
+      - per ogni x, f > 0 se e solo se x > c  se e solo se  u = c;
+      - esiste x con f >= 0 e x < c  se e solo se  u < c.
+
+    Il valore critico è (c - n)/m, dove f e x - c hanno una radice in comune: è il risultante della
+    coppia a dirlo. Con probabilità 1/4 l'enunciato è invece "per ogni a e ogni x, f > 0 se e solo
+    se x > u", vero, oppure sbagliato di poco (>= al posto di >, u spostato), falso perché in
+    x = u, o tra u e u + 1, i due lati sono diversi per ogni a."""
+    a, m, n, v, c = rnd.choice("akmbt"), nonzero(3), far(), rnd.choice([1, 2, 3, 5]), rnd.randint(-5, 5)
+    f = two_letters({(0, 3): 1, (1, 2): -m, (0, 2): -n, (0, 1): v, (1, 0): -v * m, (0, 0): -v * n}, a)
+    u = total([(m, a), (n, "")])
+    if rnd.random() < 0.25:
+        right, truth = rnd.choice([("x > %s" % u, True), ("x \\ge %s" % u, False), ("x > %s" % total([(m, a), (n + 1, "")]), False)])
+        body = "%s > 0 \\iff %s" % (f, right)
+        for a0 in [Fraction(k, 3) for k in range(-9, 10)]:
+            assert holds(read("\\forall x \\in \\mathbb{R}\\ (%s)" % body, "formula"), {a: a0}) == truth, "the cubic generator is wrong"
+        return "\\forall %s \\in \\mathbb{R}\\ \\forall x \\in \\mathbb{R}\\ (%s)" % (a, body), truth, None
+    inner, rel = rnd.choice([("\\forall x \\in \\mathbb{R}\\ (x \\ge %d \\lor %s < 0)" % (c, f), "\\ge"),
+                             ("\\exists x \\in \\mathbb{R}\\ (%s = 0 \\land x > %d)" % (f, c), ">"),
+                             ("\\forall x \\in \\mathbb{R}\\ (%s > 0 \\iff x > %d)" % (f, c), "="),
+                             ("\\exists x \\in \\mathbb{R}\\ (%s \\ge 0 \\land x < %d)" % (f, c), "<")])
+    return wide_case(a, inner, "%s %s %d" % (u, rel, c), [Fraction(c - n, m)])
+
+
+def far_quadratic():
+    """(vi) x^2 - 2 a x + c(a), che ha il minimo -D in x = a, con D = a^2 - c(a) scelto dal
+    generatore: s (a - p)(a - q) con valori critici spesso lontani, oppure s (a^2 - d), con valori
+    critici irrazionali isolati, come la radice di 79. Esiste x con < 0 se e solo se D > 0; per
+    ogni x è > 0 se e solo se D < 0, >= 0 se e solo se D <= 0; esiste x con = 0, o con <= 0, se e
+    solo se D >= 0."""
+    a, s = rnd.choice("akmbt"), rnd.choice([1, 1, 2, 3, -1])
+    if rnd.random() < 0.5:
+        p, q = far(), far()
+        d = [s * p * q, -s * (p + q), s]
+    else:
+        d = [-s * rnd.choice([2, 3, 5, 7, 11, 79, 103, 170]), 0, s]
+    text = two_letters({(0, 2): 1, (1, 1): -2, (2, 0): 1 - d[2], (1, 0): -d[1], (0, 0): -d[0]}, a)
+    word, rel, w = rnd.choice([("exists", "<", ">"), ("forall", ">", "<"), ("forall", "\\ge", "\\le"), ("exists", "=", "\\ge"), ("exists", "\\le", "\\ge")])
+    return wide_case(a, "\\%s x \\in \\mathbb{R}\\ (%s %s 0)" % (word, text, rel), "%s %s 0" % (in_a(d, a), w), quadratic_roots(d))
+
+
+def quotient():
+    """(vii) Una richiesta di soluzioni con il parametro: (x - u)/(x - w) oppure (x - u)/(x^2 - g)
+    rispetto a zero, con u, w di primo grado nel parametro e g = u^2 - s (a - p)(a - q). I valori
+    critici sono dove numeratore e denominatore hanno una radice in comune (u = w, oppure
+    u^2 = g, cioè a = p o a = q, spesso lontani) e dove g si annulla. Il conto della risposta è
+    quello di check_answer(): in x le radici sono di primo e di secondo grado."""
+    a, rel = rnd.choice("akmbt"), rnd.choice(["<", "\\le", ">", "\\ge"])
+    m1, n1 = nonzero(3), far()
+    u = total([(1, "x"), (-m1, a), (-n1, "")])
+    if rnd.random() < 0.5:
+        m2, n2 = rnd.choice([k for k in range(-3, 4) if k != m1]), far()
+        text, hints, fine = "\\frac{%s}{%s} %s 0" % (u, total([(1, "x"), (-m2, a), (-n2, "")]), rel), [Fraction(n2 - n1, m1 - m2)], True
+    else:
+        s, p, q = rnd.choice([1, -1, 2]), far(), far()
+        g = [n1 * n1 - s * p * q, 2 * m1 * n1 + s * (p + q), m1 * m1 - s]
+        if g[2] == 0 and g[1] == 0:
+            raise Unreadable("a degenerate choice")
+        text = "\\frac{%s}{%s} %s 0" % (u, two_letters({(0, 2): 1, (2, 0): -g[2], (1, 0): -g[1], (0, 0): -g[0]}, a), rel)
+        hints, fine = [Fraction(p), Fraction(q)] + quadratic_roots(g), False
+    condition = read(text, "formula")
+    return "\\forall %s \\in \\mathbb{R}\\ \\{x \\in \\mathbb{R} \\mid %s\\}" % (a, text), None, (condition, [a, "x"], {a: hints}, fine)
+
+
+def leading():
+    """(viii) L x^2 + B x + C, oppure L x + C, rispetto a zero, con L = a - p che si annulla in un
+    valore spesso lontano, B e C di primo grado nel parametro. Il grado in x cambia dove L = 0: è
+    il coefficiente direttivo a dirlo alla proiezione, e di primo grado solo lui, perché non c'è un
+    discriminante che lo contenga. La condizione è di secondo grado al più in x, quindi l'oracolo
+    la decide da sé in ogni valore del parametro, anche irrazionale (signs_taken(),
+    check_answer()); la sua verità può cambiare solo dove si annullano L, il discriminante
+    D = B^2 - 4 L C (di secondo grado), B o C, che sono i punti di hints. Le forme: i valori del
+    parametro, le soluzioni con il parametro, "per ogni a" o "esiste a" del quantificatore su x,
+    con la verità presa in tutti quei punti e tra di loro."""
+    a, p, rel = rnd.choice("akmbt"), far(), rnd.choice(["<", "\\le", ">", "\\ge", "="])
+    b, c = [rnd.randint(-5, 5), rnd.choice([0, 1, -1, 2])], [rnd.randint(-6, 6), rnd.choice([0, 1, -1, 3])]
+    if rnd.random() < 0.6:
+        d = [b[0] * b[0] + 4 * p * c[0], 2 * b[0] * b[1] - 4 * (c[0] - p * c[1]), b[1] * b[1] - 4 * c[1]]
+        text = "%s %s 0" % (two_letters({(1, 2): 1, (0, 2): -p, (1, 1): b[1], (0, 1): b[0], (1, 0): c[1], (0, 0): c[0]}, a), rel)
+        hints = [Fraction(p)] + quadratic_roots(d) + quadratic_roots(b) + quadratic_roots(c)
+    else:
+        text = "%s %s 0" % (two_letters({(1, 1): 1, (0, 1): -p, (1, 0): c[1], (0, 0): c[0]}, a), rel)
+        hints = [Fraction(p)] + quadratic_roots(c)
+    shape = rnd.random()
+    if shape < 0.35:
+        return "\\forall %s \\in \\mathbb{R}\\ \\{x \\in \\mathbb{R} \\mid %s\\}" % (a, text), None, (read(text, "formula"), [a, "x"], {a: hints}, False)
+    word = rnd.choice(["forall", "exists"])
+    inner = "\\%s x \\in \\mathbb{R}\\ (%s)" % (word, text)
+    if shape < 0.7:
+        return "\\{%s \\in \\mathbb{R} \\mid %s\\}" % (a, inner), None, (read(inner, "formula"), [a], {a: hints}, True)
+    outer = rnd.choice(["forall", "exists"])
+    tree = read(inner, "formula")
+    truth = (all if outer == "forall" else any)(surely(tree, {a: a0}) for a0 in line(tree, a, {}, hints, []))
+    return "\\%s %s \\in \\mathbb{R}\\ %s" % (outer, a, inner), truth, None
+
+
 # ---------------------------------------------------------------- fuzz
 FAMILIES = [("irrational", lambda: one_variable(*root_against_line())), ("irrational", lambda: one_variable(*two_roots())),
             ("irrational", lambda: one_variable(*root_against_root())), ("radicals", lambda: one_variable(*radical_constants())),
             ("parametric", parametric), ("parametric", parametric)]
+WIDE_FAMILIES = [("quartic", quartic), ("cubic", cubic), ("far", far_quadratic), ("quotient", quotient), ("leading", leading)]
 
 
 def check_answer(answer, data):
     """Confronta le soluzioni scritte dal programma con la condizione, in tutti i punti in cui
-    l'una o le altre possono cambiare. Ritorna ("ok" | "bug" | "suspect", dove)."""
-    condition, names, hints = data
+    l'una o le altre possono cambiare. data è (condizione, lettere, punti speciali), e per fuzz-wide
+    anche il fine di wide_line(). Ritorna ("ok" | "bug" | "suspect", dove)."""
+    condition, names, hints = data[:3]
     try:
         written = read(answer.split(": ", 1)[1].split(" (estremi irrazionali")[0], "formula")
         both, doubt = ("iff", condition, written), None
-        for env in sweep(both, names, hints, False):
+        for env in sweep(both, names, hints, False, data[3] if len(data) > 3 else None):
             agree, certain = judge(both, env)
             if not certain:
                 doubt = env
@@ -1509,17 +1986,19 @@ def check_answer(answer, data):
         return "suspect", "cannot read the written solutions (%s)" % error
 
 
-def fuzz(program, seed, count, work):
-    """Il modo fuzz: genera count casi con il seme seed, li fa decidere a program e confronta."""
+def fuzz(program, seed, count, work, families=FAMILIES, label="fuzz_radicals_parameters"):
+    """I modi fuzz e fuzz-wide: genera count casi delle famiglie families con il seme seed, li fa
+    decidere a program e confronta."""
     rnd.seed(seed)
+    checking.seed(seed)
     cases = []
     while len(cases) < count:
-        family, make = rnd.choice(FAMILIES)
+        family, make = rnd.choice(families)
         try:
             cases.append((family,) + make())
         except Unreadable:
             pass   # una scelta degenere, o un punto in cui il conto non è certo: se ne genera un altro
-    path = os.path.join(work, "fuzz_radicals_parameters_%d.tex" % seed)
+    path = os.path.join(work, "%s_%d.tex" % (label, seed))
     with open(path, "w", encoding="utf-8") as out:
         out.write("\\begin{enumerate}\n")
         for _, text, _, _ in cases:
@@ -1558,5 +2037,7 @@ if len(sys.argv) == 3 and sys.argv[1] == "check-data":
     sys.exit(check_data(sys.argv[2]))
 elif len(sys.argv) == 6 and sys.argv[1] == "fuzz":
     fuzz(sys.argv[2], int(sys.argv[3]), int(sys.argv[4]), sys.argv[5])
+elif len(sys.argv) == 6 and sys.argv[1] == "fuzz-wide":
+    fuzz(sys.argv[2], int(sys.argv[3]), int(sys.argv[4]), sys.argv[5], WIDE_FAMILIES, "fuzz_wide")
 else:
     sys.exit(__doc__)
