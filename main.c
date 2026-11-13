@@ -230,10 +230,13 @@
  *     stesso enunciato: i due linguaggi non si parlano. Vedi il capitolo 28.
  *   - Un certificato per tutto. Lo hanno le induzioni scritte con somme,
  *     prodotti, potenze, fattoriali, binomiali, successioni per ricorrenza
- *     e logaritmi, gli enunciati sugli insiemi senza "esiste", e quelli su
- *     insiemi qualsiasi, dimostrati o smentiti (vedi "I certificati"). Non
- *     lo hanno le induzioni con radici, seni e arcotangenti, né gli
- *     enunciati con quantificatori, né i limiti, né gli integrali (servirebbe
+ *     e logaritmi, gli enunciati sugli insiemi senza "esiste", quelli su
+ *     insiemi qualsiasi, dimostrati o smentiti, e quelli della tabella dei
+ *     segni con frazioni di polinomi e valori assoluti (vedi "I
+ *     certificati"). Non lo hanno le induzioni con radici, seni e
+ *     arcotangenti, le tabelle dei segni con radici, esponenziali, logaritmi
+ *     e funzioni goniometriche, o con un parametro, gli altri enunciati con
+ *     quantificatori, i limiti e gli integrali (servirebbe
  *     un verificatore che sappia derivare): lì resta il solo controllo del
  *     motore su se stesso (numeri, campioni, passi riletti). Servirebbe
  *     che ogni regola del capitolo 18 emettesse un passo in una notazione
@@ -319,7 +322,12 @@
  * per una dimostrazione, i nomi e le istanze usati, di cui il verificatore
  * controlla da sé, con un conto finito, che portino a una contraddizione
  * anche quando qualche insieme è vuoto. Lì il verdetto, DIMOSTRATO o FALSO,
- * vuole che il certificato sia accettato.
+ * vuole che il certificato sia accettato. Per un enunciato deciso con la
+ * tabella dei segni (18p-15) il certificato è la tabella: il verificatore ne
+ * ricava da capo i polinomi, ne riconta le radici con Sturm, ricalcola la
+ * verità di ogni riga e rilegge le soluzioni scritte; DIMOSTRATO, FALSO e
+ * RISOLTO vogliono che lo accetti, e se non sa controllarlo il verdetto resta
+ * e dice perché il certificato manca.
  *
  * Il certificato dimostra una cosa precisa, enunciata in testa a checker.c,
  * e non di più. La sua parte principale dice che per ogni n dal caso base in
@@ -334,7 +342,7 @@
  *
  * Il verdetto dice sempre che cosa il certificato copre: "definiti e uguali
  * per ogni n", "uguali dove sono definiti", oppure "senza certificato", con
- * il motivo quando è un'induzione.
+ * il motivo quando è un'induzione o una tabella dei segni.
  *
  * COMPILAZIONE
  *
@@ -3770,8 +3778,10 @@ typedef struct {
     long long base;      /* PROVED per induzione: il caso base n0 */
     long long witness;   /* REFUTED per induzione: un n in cui non vale */
     const char *reason;  /* NOT_PROVED, UNSUPPORTED: perché, in italiano;
-                            PROVED per induzione senza certificato: perché
-                            il certificato manca */
+                            PROVED per induzione o con la tabella dei
+                            segni, REFUTED e SOLVED con la tabella dei
+                            segni, senza certificato: perché il certificato
+                            manca; altrimenti NULL */
     const char *detail;  /* REFUTED senza induzione: il controesempio, o NULL;
                             SOLVED: le soluzioni, come condizione in LaTeX */
     const char *proof;   /* dimostrazione scritta in LaTeX, o NULL */
@@ -3781,9 +3791,11 @@ typedef struct {
                             SOLVED: che cosa indicano i nomi usati nelle
                             soluzioni, o dove vale una derivata, o NULL */
     const char *certificate;  /* PROVED: il certificato che il verificatore
-                                 indipendente ha accettato (13h), o NULL;
+                                 indipendente ha accettato (13h, 18p-15), o NULL;
                                  REFUTED su insiemi qualsiasi: il controesempio,
-                                 come certificato accettato (28f) */
+                                 come certificato accettato (28f); REFUTED e
+                                 SOLVED con la tabella dei segni: la tabella,
+                                 come certificato accettato (18p-15) */
 } Verdict;
 
 /* Il testo della dimostrazione dell'enunciato in corso: LaTeX, in inglese come
@@ -6143,6 +6155,13 @@ _Static_assert(LIBRARY_COUNT <= 32, "certificate_sequences ha un bit per ogni ri
  * italiano. Resta valido fino alla chiamata successiva. */
 static char certificate_problem[256];
 
+/* 1 mentre si scrive il certificato di una tabella dei segni (18p-15): solo
+ * allora il valore assoluto e la radice quadrata hanno una parola, (abs a) e
+ * (sqrt a), che il verificatore conosce nel suo capitolo 12. In un
+ * certificato di induzione resterebbero parole sconosciute: lì il
+ * certificato manca, e il verdetto dice perché. */
+static int cert_signs;
+
 /* Aggiunge un pezzo al certificato, con la sintassi di printf. */
 static void cert_add(const char *format, ...) {
     va_list arguments;
@@ -6235,6 +6254,10 @@ static void cert_node(const Node *n) {
             cert_call("fact", n->a, NULL);
         } else if (n->op == FN_BINOM) {
             cert_call("binom", n->a, n->b);
+        } else if (cert_signs && n->op == FN_ABS) {
+            cert_call("abs", n->a, NULL);
+        } else if (cert_signs && n->op == FN_ROOT && n->b->kind == N_NUM && n->b->value == 2) {
+            cert_call("sqrt", n->a, NULL);
         } else if (n->op == FN_LN || (n->op == FN_LOG && n->b)) {
             /* Il logaritmo di un valore assoluto ha una parola sua, perché
              * è definito anche dove l'argomento è negativo (vedi
@@ -11643,6 +11666,12 @@ static int residue_holds(const Formula *f) {
  *   18p-13. Le famiglie x = a + k T di un risultato, dentro un enunciato.
  *   18p-14. Le finestre: una condizione periodica ristretta a un intervallo.
  *
+ * E una regola che non decide nulla, ma fa ricontrollare ciò che si è
+ * deciso:
+ *
+ *   18p-15. Il certificato: la tabella, data a checker.c, che la ricontrolla
+ *           per conto suo (capitolo 12 di checker.c).
+ *
  * Le radici razionali si trovano a parte, con il teorema delle radici
  * razionali, e si tolgono: così ogni punto medio, che è razionale, non è mai
  * una radice, e nei numeri razionali si sa quali punti della tabella contano.
@@ -11670,6 +11699,13 @@ static int residue_holds(const Formula *f) {
  * una scrittura con i radicali e riceve un nome; il verdetto lo dichiara.
  * Lì il controllo è quello degli script di tools/fuzz/, i cui oracoli fanno
  * i conti per conto loro.
+ *
+ * Il terzo controllo, dove arriva, è il certificato (18p-15): con frazioni
+ * di polinomi e valori assoluti, senza radici, esponenziali, logaritmi e
+ * funzioni goniometriche, la tabella intera va al verificatore, che ne
+ * ricava da capo i polinomi, ne riconta le radici con le catene di Sturm e
+ * ricalcola la verità di ogni riga. DIMOSTRATO, FALSO e RISOLTO valgono
+ * allora solo se il verificatore accetta.
  */
 
 /* Un razionale con numeratore e denominatore a 128 bit: i punti in cui si
@@ -16514,6 +16550,269 @@ static void decide_by_signs(const Formula *thesis, Verdict *verdict) {
     verdict->proof = proof_text;
 }
 
+/* 18p-15. IL CERTIFICATO DELLA TABELLA
+ *
+ * La tabella appena usata da decide_by_signs() diventa un certificato per
+ * checker.c (capitolo 12 di checker.c): la condizione, ciò che si afferma, i
+ * polinomi che fanno da fattori, e le righe con la verità che la tabella vi
+ * ha trovato. Il verificatore non si fida di nulla di questo: ricava da capo
+ * i polinomi della condizione e controlla che siano prodotti dei fattori,
+ * riconta con Sturm le radici di ogni fattore, ricalcola la verità di ogni
+ * riga e ne trae il verdetto.
+ *
+ * Che cosa si scrive.
+ *
+ *   - La condizione, con dentro l'insieme su cui varia la variabile quando
+ *     non è tutto R o tutto Q: "per ogni x > 0, C" è "per ogni x, x > 0
+ *     implica C"; "esiste x > 0 con C" e le soluzioni in R \setminus \{1\}
+ *     sono "x > 0 e C", "x \neq 1 e C". Restano due insiemi, reals e
+ *     rationals, ed è ciò che il verificatore conosce.
+ *   - Ciò che si afferma: per ogni e esiste con la verità dell'enunciato
+ *     senza le negazioni davanti, oppure le soluzioni, rilette dal testo
+ *     scritto con il lettore del programma: il certificato dice ciò che il
+ *     testo dice, non ciò che il motore pensava di scrivere.
+ *   - I fattori: x - r per ogni punto razionale, e ogni elemento della base
+ *     (18p-4) di grado almeno due, anche senza radici reali. Ogni polinomio
+ *     della tabella ne è un prodotto (base_insert()).
+ *   - Le righe, con il campione di ogni intervallo, il punto razionale o
+ *     l'intervallo che isola una radice, e la verità della condizione.
+ *
+ * Le risposte. Accettato: il verdetto porta il certificato. Respinto: il
+ * motore e il verificatore non sono d'accordo, quindi nel dubbio non è
+ * dimostrato, e il passo conta tra quelli che non hanno superato il
+ * controllo. Non controllabile, o un enunciato che la notazione non sa dire
+ * (radici, esponenziali, logaritmi, funzioni goniometriche, soluzioni con
+ * una radice che ha solo un nome): il verdetto resta, e dice perché il
+ * certificato manca. */
+
+/* Ritorna 1 se l'espressione node si scrive nella notazione delle tabelle
+ * dei segni di checker.c: interi, la variabile name, + - * /, il meno,
+ * potenze con un intero scritto all'esponente e valori assoluti. */
+static int sign_node_plain(const Node *node, int name) {
+    switch (node->kind) {
+    case N_NUM: return 1;
+    case N_VAR: return node->name == name;
+    case N_NEG: return sign_node_plain(node->a, name);
+    case N_ADD: case N_SUB: case N_MUL: case N_DIV:
+        return sign_node_plain(node->a, name) && sign_node_plain(node->b, name);
+    case N_POW:
+        return (node->b->kind == N_NUM || (node->b->kind == N_NEG && node->b->a->kind == N_NUM)) && sign_node_plain(node->a, name);
+    case N_CALL:
+        return node->op == FN_ABS && sign_node_plain(node->a, name);
+    default:
+        return 0;
+    }
+}
+
+/* Ritorna 1 se la condizione f, senza quantificatori, è fatta di confronti
+ * che sign_node_plain() accetta. */
+static int sign_formula_plain(const Formula *f, int name) {
+    switch (f->kind) {
+    case F_EQUAL: case F_DISTINCT: case F_LESS: case F_LESS_EQ:
+        return sign_node_plain(f->left, name) && sign_node_plain(f->right, name);
+    case F_AND: case F_OR: case F_IMPLIES: case F_IFF:
+        return sign_formula_plain(f->a, name) && sign_formula_plain(f->b, name);
+    case F_NOT:
+        return sign_formula_plain(f->a, name);
+    default:
+        return 0;
+    }
+}
+
+/* Scrive la condizione f, senza quantificatori, nella notazione dei
+ * certificati. > e \ge sono già < e \le con i membri scambiati.
+ *
+ * Warning: si appoggia all'ordine di FormulaKind (parser.c): prima i quattro
+ * confronti, da F_EQUAL a F_LESS_EQ, poi i connettivi fino a F_NOT. Se
+ * cambia, cambia anche qui. */
+static void cert_formula(const Formula *f) {
+    static const char *const words[] = {[F_EQUAL] = "=", [F_DISTINCT] = "neq", [F_LESS] = "<", [F_LESS_EQ] = "<=",
+                                        [F_AND] = "and", [F_OR] = "or", [F_IMPLIES] = "implies", [F_IFF] = "iff", [F_NOT] = "not"};
+    if (f->kind > F_NOT) { certificate_broken = 1; return; }
+    cert_add("(%s ", words[f->kind]);
+    if (f->kind <= F_LESS_EQ) {
+        cert_node(f->left);
+        cert_add(" ");
+        cert_node(f->right);
+    } else {
+        cert_formula(f->a);
+        if (f->b) {
+            cert_add(" ");
+            cert_formula(f->b);
+        }
+    }
+    cert_add(")");
+}
+
+/* Scrive il razionale v; uno che non sta in 64 bit non ha scrittura. */
+static void cert_wide(Wide v) {
+    if (v.num > LLONG_MAX || v.num < -LLONG_MAX || v.den > LLONG_MAX) certificate_broken = 1;
+    else if (v.den == 1) cert_add("%lld", (long long)v.num);
+    else cert_add("(/ %lld %lld)", (long long)v.num, (long long)v.den);
+}
+
+/* Scrive il polinomio p, che non è nullo, nella lettera name: la somma dei
+ * termini dal grado più alto, "(+ primo (+ secondo ...))". */
+static void cert_uni(const Uni *p, int name) {
+    int terms = 0, written = 0;
+    for (int i = 0; i <= p->degree; i++) terms += p->c[i] != 0;
+    for (int i = p->degree; i >= 0; i--) {
+        __int128 c = p->c[i];
+        if (c == 0) continue;
+        if (c > LLONG_MAX || c < -LLONG_MAX) certificate_broken = 1;
+        if (++written < terms) cert_add("(+ ");
+        if (i > 0 && c != 1) cert_add("(* %lld ", (long long)c);
+        if (i == 0) cert_add("%lld", (long long)c);
+        if (i > 1) cert_add("(^ ");
+        if (i > 0) cert_letter(name);
+        if (i > 1) cert_add(" %d)", i);
+        if (i > 0 && c != 1) cert_add(")");
+        if (written < terms) cert_add(" ");
+    }
+    for (int i = 1; i < terms; i++) cert_add(")");
+}
+
+/* Scrive in certificate_text il certificato della tabella con cui
+ * decide_by_signs() ha deciso thesis, con il verdetto *verdict; ritorna
+ * NULL, oppure il motivo per cui il certificato non c'è. */
+static const char *sign_certificate(const Formula *thesis, const Verdict *verdict) {
+    const Formula *q = thesis;
+    int negated = 0;
+    while (q->kind == F_NOT) { q = q->a; negated = !negated; }
+    const Formula *body = q->a, *written = NULL;
+    const NumberSet *set = &q->numbers;
+    int name = q->variable, every = q->kind == F_FORALL, solving = q->kind == F_SOLVE;
+    if (!sign_formula_plain(body, name))
+        return "la notazione dei certificati della tabella dei segni ha solo frazioni di polinomi e valori assoluti, "
+               "non radici, esponenziali, logaritmi o funzioni goniometriche";
+
+    /* Le soluzioni, rilette dal testo; i due testi senza estremi sono le
+     * parole all e none. */
+    int all = solving && strncmp(solution_text, "\\forall", 7) == 0, none = solving && strncmp(solution_text, "\\nexists", 8) == 0;
+    if (solving && solution_note[0]) return "le soluzioni scritte nominano una radice che non ha una scrittura con i radicali";
+    if (solving && !all && !none) {
+        syntax_error = NULL;
+        cursor = solution_text;
+        next_token();
+        written = logic_formula();
+        if (syntax_error || token.kind != T_END) { syntax_error = NULL; return "le soluzioni scritte non si rileggono"; }
+    }
+
+    /* I posti, in sign_poly[], dei polinomi x - a dell'insieme: già nella
+     * tabella, sign_column() li ritrova. */
+    int floor_column = set->bounded ? sign_column((Uni){1, {-(__int128)set->low, 1}}) : -1, hole_column[MAX_HOLES];
+    for (int i = 0; i < set->holes; i++) hole_column[i] = sign_column((Uni){1, {-(__int128)set->hole[i].num, set->hole[i].den}});
+
+    /* La variabile, l'insieme, la condizione con dentro l'insieme. */
+    int terms = set->bounded + set->holes;
+    certificate_length = 0;
+    certificate_broken = 0;
+    cert_signs = 1;
+    cert_add("certificate signs\nvariable ");
+    cert_letter(name);
+    cert_add("\ndomain %s\ncondition ", set->reals ? "reals" : "rationals");
+    if (terms) cert_add(every ? "(implies " : "(and ");
+    for (int i = 0; i < terms; i++) {
+        if (i + 1 < terms) cert_add("(and ");
+        if (i == 0 && set->bounded) {
+            cert_add(set->strict ? "(< %lld " : "(<= %lld ", set->low);
+            cert_letter(name);
+        } else {
+            cert_add("(neq ");
+            cert_letter(name);
+            cert_add(" ");
+            cert_frac(set->hole[i - set->bounded]);
+        }
+        cert_add(i + 1 < terms ? ") " : ")");
+    }
+    for (int i = 1; i < terms; i++) cert_add(")");
+    if (terms) cert_add(" ");
+    cert_formula(body);
+    if (terms) cert_add(")");
+
+    /* Ciò che si afferma: la verità dell'enunciato senza le negazioni, o le
+     * soluzioni. */
+    if (!solving) cert_add("\nclaim %s %s", every ? "forall" : "exists", (verdict->outcome == PROVED) != negated ? "true" : "false");
+    else if (written) { cert_add("\nclaim solve\nsolution "); cert_formula(written); }
+    else cert_add("\nclaim solve\nsolution %s", all ? "all" : "none");
+
+    /* I fattori: prima x - r per i punti razionali, poi gli elementi della
+     * base di grado almeno due; place[k] è il numero dell'elemento k. */
+    int place[2 * MAX_CRITICAL], factors = 0;
+    for (int k = 0; k < sign_points_count; k++) {
+        if (!sign_point[k].exact) continue;
+        Uni linear = {1, {-sign_point[k].low.num, sign_point[k].low.den}};
+        cert_add("\nfactor ");
+        cert_uni(&linear, name);
+        factors++;
+    }
+    for (int k = 0; k < sign_bases; k++) {
+        place[k] = 0;
+        if (sign_base[k].degree < 2) continue;
+        cert_add("\nfactor ");
+        cert_uni(&sign_base[k], name);
+        place[k] = ++factors;
+    }
+
+    /* Le righe, con la verità della condizione: quella del corpo, e
+     * l'insieme come è scritto nella condizione. */
+    for (int row = 0; row < sign_rows; row++) {
+        const SignRow *r = &sign_row[row];
+        const Critical *point = &sign_point[row / 2];
+        int member = !(floor_column >= 0 && (r->sign[floor_column] < 0 || (r->sign[floor_column] == 0 && set->strict))), truth = sign_truth(body, r->sign);
+        for (int i = 0; i < set->holes; i++)
+            if (r->sign[hole_column[i]] == 0) member = 0;
+        if (row % 2 == 0) { cert_add("\ninterval "); cert_wide(r->sample); }
+        else if (point->exact) { cert_add("\npoint "); cert_wide(point->low); }
+        else {
+            /* Una radice irrazionale è di un elemento senza radici
+             * razionali, quindi di grado almeno due: ha il suo posto. */
+            if (!place[point->element]) certificate_broken = 1;
+            cert_add("\nroot %d ", place[point->element]);
+            cert_wide(point->low);
+            cert_add(" ");
+            cert_wide(point->high);
+        }
+        cert_add(" %s", (every ? !member || truth : member && truth) ? "true" : "false");
+    }
+    cert_add("\nend\n");
+    cert_signs = 0;
+    return certificate_broken ? "la tabella ha numeri troppo grandi per la notazione dei certificati, o è troppo lunga" : NULL;
+}
+
+/* 18p-15. Fa ricontrollare a checker.c il verdetto *verdict che
+ * decide_by_signs() ha dato su thesis, e lo aggiorna con la risposta: vedi
+ * in testa al paragrafo. */
+static void sign_certify(const Formula *thesis, Verdict *verdict) {
+    static char problem[512];
+    if (verdict->outcome != PROVED && verdict->outcome != REFUTED && verdict->outcome != SOLVED) return;
+    const char *why = sign_certificate(thesis, verdict), *text = certificate_text;
+    if (!why) {
+        CkAnswer answer = ck_check(&text, &why);
+        if (answer == CK_ACCEPTED) { verdict->certificate = certificate_text; return; }
+
+        /* Respinto: nel dubbio non è dimostrato, e il grafico, che illustra
+         * la tabella, non si mostra. */
+        if (answer == CK_REJECTED) {
+            unjustified_steps++;
+            snprintf(problem, sizeof problem, "il verificatore indipendente ha respinto il certificato della tabella dei segni: %s", why);
+            *verdict = (Verdict){NOT_PROVED, 0, 0, 0, problem, NULL, NULL, NULL, NULL, NULL};
+            if (figure) { pl_close(figure); figure = NULL; }
+            return;
+        }
+        snprintf(problem, sizeof problem, "il verificatore non sa controllarlo, %s", why);
+        why = problem;
+    }
+
+    /* Il motivo si scrive nella riga del verdetto, e per un insieme di
+     * soluzioni sta prima del ": " dopo il quale vengono le soluzioni: chi
+     * le legge (gli script di tools/fuzz/) le cerca lì. Per questo nel
+     * motivo i due punti diventano virgole. */
+    if (why != problem) snprintf(problem, sizeof problem, "%s", why);
+    for (char *colon = problem; (colon = strchr(colon, ':')) != NULL;) *colon = ',';
+    verdict->reason = problem;
+}
+
 /* 18t. DUE VARIABILI REALI: UN PARAMETRO
  *
  * A che cosa serve. Sono gli esercizi "con il parametro" dei libri di scuola:
@@ -19354,7 +19653,10 @@ static Verdict decide_quantified(const char *formula) {
         else if (formula_has_kind(thesis, F_IN) || formula_has_kind(thesis, F_DIVIDES))
             verdict.reason = "le relazioni d'ordine e i numeri reali non sono ancora trattati insieme all'appartenenza a un insieme numerico e alla divisibilità";
         else if (has_parameter(thesis)) decide_with_parameter(thesis, &verdict);
-        else decide_by_signs(thesis, &verdict);
+        else {
+            decide_by_signs(thesis, &verdict);
+            sign_certify(thesis, &verdict);
+        }
         return verdict;
     }
 
@@ -28739,8 +29041,11 @@ static void verdict_print(FILE *out, const Verdict *verdict) {
         if (verdict->note) fprintf(out, " (%s)", verdict->note);
 
         /* Il controesempio di un enunciato su insiemi qualsiasi è anche un
-         * certificato (28f), che il verificatore ha ricalcolato. */
+         * certificato (28f), che il verificatore ha ricalcolato; quello
+         * della tabella dei segni lo è la tabella (18p-15), che può anche
+         * mancare, e allora si dice perché. */
         if (verdict->certificate) fprintf(out, "; certificato verificato");
+        else if (verdict->reason) fprintf(out, "; senza certificato (%s)", verdict->reason);
         break;
     case NOT_PROVED:
         fprintf(out, "NON DIMOSTRATO: %s", verdict->reason);
@@ -28749,7 +29054,12 @@ static void verdict_print(FILE *out, const Verdict *verdict) {
         fprintf(out, "NON SUPPORTATO: %s", verdict->reason);
         break;
     case SOLVED:
-        fprintf(out, "RISOLTO %s: %s", verdict->method, verdict->detail);
+        /* Il certificato prima dei due punti: dopo vengono le soluzioni, e
+         * chi le rilegge (tools/fuzz/) le cerca subito dopo il primo ": ". */
+        fprintf(out, "RISOLTO %s", verdict->method);
+        if (verdict->certificate) fprintf(out, ", certificato verificato");
+        else if (verdict->reason) fprintf(out, ", senza certificato (%s)", verdict->reason);
+        fprintf(out, ": %s", verdict->detail);
         if (verdict->note) fprintf(out, " (%s)", verdict->note);
         break;
     }

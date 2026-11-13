@@ -19,7 +19,16 @@
  *   3. una dimostrazione senza certificato dice perché manca;
  *   4. i certificati scritti su file sono quelli verificati, uno per uno;
  *   5. ogni certificato dei due file dice anche che l'enunciato è definito
- *      per ogni n, perché lì il verificatore lo sa ricontrollare.
+ *      per ogni n, perché lì il verificatore lo sa ricontrollare;
+ *   6. le tabelle dei segni (regola 18p-15 di main.c): nei file delle
+ *      equazioni e delle disequazioni ogni verdetto della tabella ha il
+ *      certificato, almeno quanti se ne contano oggi, oppure dice perché
+ *      manca; ogni certificato riletto è accettato, e da ognuno se ne
+ *      ricavano tre sbagliati, nessuno dei quali deve essere accettato:
+ *
+ *          l'ultima riga con la verità rovesciata;
+ *          l'affermazione rovesciata, o le soluzioni "nessuna" ("tutte");
+ *          il primo punto tolto, con l'intervallo che lo segue.
  *
  * I certificati sbagliati non si tolgono e non si indeboliscono per far
  * passare una modifica: se uno viene accettato, si corregge il verificatore.
@@ -199,6 +208,106 @@ static int check_sets(const char *path, int expected) {
     return check_result(total > 0 && broken == 0 && certified >= expected, summary);
 }
 
+/* Scrive in out (di size byte) il certificato di una tabella dei segni
+ * alterato:
+ *
+ *   kind 0: l'ultima riga con la verità rovesciata;
+ *   kind 1: l'affermazione rovesciata (forall true diventa forall false, e
+ *           così via), oppure le soluzioni none al posto di quelle scritte, o
+ *           all al posto di none;
+ *   kind 2: tolti il primo punto della tabella e l'intervallo che lo segue.
+ *
+ * Ritorna 0 se il testo non ha la forma attesa, o se per kind 2 la tabella
+ * non ha punti. */
+static int alter_signs(const char *certificate, int kind, char *out, size_t size) {
+    const char *from, *to;
+    const char *replacement = "";
+    if (kind == 0) {
+        /* La parola prima di "\nend\n". */
+        to = strstr(certificate, "\nend\n");
+        if (!to) return 0;
+        for (from = to; from > certificate && from[-1] != ' '; from--) {}
+        replacement = strncmp(from, "true", 4) == 0 ? "false" : "true";
+    } else if (kind == 1) {
+        static const char *const claims[][2] = {{"claim forall true\n", "claim forall false\n"}, {"claim forall false\n", "claim forall true\n"},
+                                                {"claim exists true\n", "claim exists false\n"}, {"claim exists false\n", "claim exists true\n"}};
+        from = NULL;
+        for (int i = 0; i < 4 && !from; i++)
+            if ((from = strstr(certificate, claims[i][0])) != NULL) { to = from + strlen(claims[i][0]); replacement = claims[i][1]; }
+        if (!from) {
+            /* Le soluzioni: tutta la riga dopo "solution ". */
+            if (!(from = strstr(certificate, "\nsolution "))) return 0;
+            from += 10;
+            to = strchr(from, '\n');
+            replacement = strncmp(from, "none\n", 5) == 0 ? "all" : "none";
+        }
+    } else {
+        /* La riga del primo punto e quella dopo. */
+        const char *point = strstr(certificate, "\npoint "), *root = strstr(certificate, "\nroot ");
+        from = !point ? root : !root ? point : point < root ? point : root;
+        if (!from || !(to = strchr(from + 1, '\n')) || !(to = strchr(to + 1, '\n'))) return 0;
+    }
+    int written = snprintf(out, size, "%.*s%s%s", (int)(from - certificate), certificate, replacement, to);
+    return written > 0 && (size_t)written < size;
+}
+
+/* Controllo 6 sul file path: ogni verdetto della tabella dei segni ha un
+ * certificato che, riletto, è accettato, oppure il motivo per cui manca;
+ * i certificati sono almeno `expected`, e nessuna delle loro alterazioni
+ * (alter_signs()) è accettata. */
+static int check_sign_tables(const char *path, int expected) {
+    static char altered[2 * CERTIFICATE_BYTES];
+    char summary[512];
+    char *text = read_file(path);
+    if (!text) {
+        snprintf(summary, sizeof summary, "cannot read %s", path);
+        return check_result(0, summary);
+    }
+
+    const char *position = text, *item, *end;
+    int verdicts = 0, certified = 0, silent = 0, wrong = 0, wrong_accepted = 0;
+    while (next_item(&position, &item, &end)) {
+        Verdict verdict = prove_item(item, end);
+        if (!verdict.method || strcmp(verdict.method, "con la tabella dei segni") != 0) continue;
+        verdicts++;
+        if (!verdict.certificate) {
+            if (!verdict.reason || !verdict.reason[0]) silent++;
+            continue;
+        }
+
+        /* Il testo consegnato è quello che il verificatore accetta. */
+        const char *why, *reread = verdict.certificate;
+        if (ck_check(&reread, &why) != CK_ACCEPTED) {
+            printf("  statement %d: its certificate is not accepted when read again (%s)\n", verdicts, why);
+            silent++;
+            continue;
+        }
+        certified++;
+
+        /* Le tre alterazioni. Una tabella senza punti non ha la terza. */
+        for (int kind = 0; kind < 3; kind++) {
+            if (!alter_signs(verdict.certificate, kind, altered, sizeof altered)) {
+                if (kind == 2 && !strstr(verdict.certificate, "\npoint ") && !strstr(verdict.certificate, "\nroot ")) continue;
+                printf("  statement %d: cannot build altered certificate %d\n", verdicts, kind);
+                wrong_accepted++;
+                continue;
+            }
+            const char *cursor = altered;
+            wrong++;
+            if (ck_check(&cursor, &why) != CK_ACCEPTED) continue;
+            wrong_accepted++;
+            printf("  statement %d: altered certificate %d is accepted:\n%s", verdicts, kind, altered);
+        }
+    }
+    free(text);
+
+    snprintf(summary, sizeof summary, "%d of %d sign table verdicts carry a certificate the checker accepts (at least %d expected), the others say why not, in %s",
+             certified, verdicts, expected, path);
+    int passed = check_result(verdicts > 0 && silent == 0 && certified >= expected, summary);
+    snprintf(summary, sizeof summary, "%d of %d altered sign table certificates not accepted for %s", wrong - wrong_accepted, wrong, path);
+    return check_result(wrong_accepted == 0, summary) && passed;
+}
+
 int main(void) {
     engine_init();
     int passed = 1;
@@ -256,6 +365,44 @@ int main(void) {
     passed &= check_sets("tests/set_theory/cartesian_products.tex", 8);
     Verdict quantified = prove("\\forall n \\in \\mathbb{N}\\ \\left(\\sum_{k=1}^{n} k = \\frac{n\\left(n + 1\\right)}{2}\\right)", 'n', 0, 0);
     passed &= check_result(quantified.outcome == PROVED && !quantified.certificate, "a proof with quantifiers has no certificate of its own");
+
+    /* 6. Le tabelle dei segni. I file con le radici quadrate nelle
+     * condizioni non hanno certificati, ma ogni verdetto dice perché. */
+    passed &= check_sign_tables("tests/equations_inequalities/book_inequalities.tex", 62);
+    passed &= check_sign_tables("tests/equations_inequalities/false_inequalities.tex", 45);
+    passed &= check_sign_tables("tests/equations_inequalities/sign_table.tex", 30);
+    passed &= check_sign_tables("tests/equations_inequalities/solution_sets.tex", 22);
+    passed &= check_sign_tables("tests/equations_inequalities/book_irrational_equations.tex", 0);
+
+    /* Il testo di un certificato della tabella, fissato, e la riga del
+     * verdetto: per un insieme di soluzioni il certificato si dice prima
+     * dei due punti, dopo i quali vengono le soluzioni. */
+    Verdict quotient = prove("\\{x \\in \\mathbb{R} \\mid \\frac{x - 2}{x + 3} \\ge 0\\}", 'n', 0, 0);
+    const char *table = "certificate signs\nvariable x\ndomain reals\ncondition (<= 0 (/ (- x 2) (+ x 3)))\nclaim solve\n"
+                        "solution (or (< x (neg 3)) (<= 2 x))\nfactor (+ x 3)\nfactor (+ x -2)\n"
+                        "interval -5 true\npoint -3 false\ninterval -2 false\npoint 2 true\ninterval 4 true\nend\n";
+    passed &= check_result(quotient.outcome == SOLVED && quotient.certificate && strcmp(quotient.certificate, table) == 0,
+                           "the certificate of the solutions of (x - 2)/(x + 3) >= 0 has the expected text");
+    static const char *const lines[][2] = {
+        {"\\{x \\in \\mathbb{R} \\mid \\frac{x - 2}{x + 3} \\ge 0\\}", "RISOLTO con la tabella dei segni, certificato verificato: x < -3 \\lor x \\ge 2"},
+        {"\\forall x \\in \\mathbb{R}\\ (x^{2} - 2 \\neq 0)", "FALSO: controesempio x = -\\sqrt{2}; certificato verificato"},
+        {"\\exists x \\in \\mathbb{R}\\ (x^{3} - 2x < 0)", "DIMOSTRATO con la tabella dei segni; certificato verificato"},
+        {"\\forall x \\in \\mathbb{R}\\ (\\sqrt{x^{2}} \\ge 0)",
+         "DIMOSTRATO con la tabella dei segni; senza certificato (la notazione dei certificati della tabella dei segni ha solo frazioni di "
+         "polinomi e valori assoluti, non radici, esponenziali, logaritmi o funzioni goniometriche)"},
+    };
+    for (size_t i = 0; i < sizeof lines / sizeof *lines; i++) {
+        char line[512] = "";
+        Verdict verdict = prove(lines[i][0], 'n', 0, 0);
+        FILE *memory = tmpfile();
+        if (memory) {
+            verdict_print(memory, &verdict);
+            rewind(memory);
+            line[fread(line, 1, sizeof line - 1, memory)] = 0;
+            fclose(memory);
+        }
+        passed &= check_result(strcmp(line, lines[i][1]) == 0, lines[i][1]);
+    }
 
     passed &= check_result(unjustified_steps == 0, "no certificate was rejected and every proof step passed its independent check");
     return passed ? 0 : 1;

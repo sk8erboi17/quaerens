@@ -12,9 +12,12 @@
  * qualsiasi, con operazioni, applicazioni e relazioni di cui si sa solo ciò
  * che dicono le ipotesi, il certificato è un modello finito, su cui si
  * calcola, oppure i nomi e le istanze di una dimostrazione per assurdo, di
- * cui si controlla che portino a una contraddizione (capitolo 11). Il resto
- * di questo commento riguarda le induzioni; i teoremi degli altri tipi
- * sono più sotto. Questo programma legge il certificato e risponde:
+ * cui si controlla che portino a una contraddizione (capitolo 11). Per una
+ * disequazione, un'equazione o un insieme di soluzioni in una variabile
+ * reale il certificato è la tabella dei segni, di cui si ricontrolla ogni
+ * riga (capitolo 12). Il resto di questo commento riguarda le induzioni; i
+ * teoremi degli altri tipi sono più sotto. Questo programma legge il
+ * certificato e risponde:
  *
  *   - ACCETTATO: tutti i controlli sono riusciti;
  *   - RESPINTO: un controllo è fallito, il certificato non dimostra nulla;
@@ -22,8 +25,9 @@
  *     conosce, o i numeri sono troppo grandi. Non è un sì.
  *
  * Trovare una dimostrazione è difficile, controllarla è facile: qui non c'è
- * nessuna ricerca, solo somme e prodotti di polinomi e il confronto di due
- * risultati. Per questo il programma è piccolo, e lo si può leggere tutto.
+ * nessuna ricerca, solo somme, prodotti e divisioni di polinomi, catene di
+ * Sturm e il confronto di due risultati. Per questo il programma è piccolo,
+ * e lo si può leggere tutto.
  *
  * PERCHÉ È UN FILE A PARTE
  *
@@ -148,6 +152,13 @@
  *     simboli dichiarati (un elemento per un elemento con un nome, una
  *     funzione per un'applicazione, un sottoinsieme per una parte o una
  *     relazione).
+ *   - "certificate signs" (capitolo 12): con C la condizione nella variabile
+ *     x, e un confronto che vale in x solo dove i suoi due membri sono
+ *     definiti, "per ogni x in D vale C", "esiste x in D in cui C non vale",
+ *     "esiste x in D in cui vale C" o "per nessun x in D vale C", con D i
+ *     reali o i razionali, secondo ciò che il certificato afferma; oppure
+ *     "per ogni x reale, C(x) vale se e solo se valgono le soluzioni scritte
+ *     W(x)". Il teorema esatto è in testa al capitolo 12.
  *
  * COMPILAZIONE
  *
@@ -169,8 +180,9 @@
  *    9. Definito per ogni n
  *   10. Enunciati sugli insiemi
  *   11. Insiemi qualsiasi: modelli finiti e dimostrazioni per assurdo
- *   12. Controllo di un certificato
- *   13. main
+ *   12. Tabelle dei segni
+ *   13. Controllo di un certificato
+ *   14. main
  */
 
 /* =============================================================================
@@ -214,6 +226,12 @@
 #define CK_MAX_FORMULAS 2048 /* condizioni supposte vere in un caso */
 #define CK_MAX_CASES 64      /* voci case di un certificato */
 #define CK_MAX_SEARCH 200000 /* scelte parziali provate cercando un'assegnazione coerente, per certificato */
+#define CK_MAX_DEGREE 48     /* grado di un polinomio in una variabile, nel capitolo 12 */
+#define CK_MAX_FACTORS 128   /* voci factor di una tabella dei segni */
+#define CK_MAX_POINTS 200    /* punti di una tabella dei segni: le righe sono 2 CK_MAX_POINTS + 1 */
+#define CK_MAX_ABS 4         /* valori assoluti distinti in un confronto: le scelte dei segni sono 2^4 */
+#define CK_MAX_SEEN 1024     /* polinomi annotati calcolando un confronto */
+#define CK_MAX_TRIED 1000000 /* razionali provati come radici di un fattore, per una riga (12g) */
 
 /* La risposta su un certificato. */
 typedef enum { CK_ACCEPTED, CK_REJECTED, CK_UNSUPPORTED } CkAnswer;
@@ -623,6 +641,11 @@ static CkRat ck_rat_power(CkRat a, long long e) {
  *     (= a b)  (subset a b)  (neq a b)
  *     (and p q)  (or p q)  (implies p q)  (iff p q)  (not p)
  *
+ * Le tabelle dei segni (capitolo 12) aggiungono i confronti tra numeri, il
+ * valore assoluto e la radice quadrata:
+ *
+ *     (< a b)  (<= a b)  (abs a)  (sqrt a)
+ *
  * Un intero può avere il segno meno davanti. Una lettera è un solo
  * carattere: la variabile di induzione, un parametro, o un indice di somma.
  * Gli enunciati su insiemi qualsiasi (capitolo 11) hanno nomi più lunghi e
@@ -636,7 +659,9 @@ typedef enum {
     CK_EMPTY, CK_ONLYEMPTY, CK_POWER, CK_UNION, CK_INTER, CK_DIFF, CK_SYMDIFF, CK_TIMES,
     CK_EQ, CK_SUBSET, CK_NEQ, CK_AND, CK_OR, CK_IMPLIES, CK_IFF, CK_NOT,
     /* Enunciati su insiemi qualsiasi (capitolo 11). */
-    CK_TRUE, CK_FORALL, CK_EXISTS, CK_APP, CK_VAR, CK_ATOM
+    CK_TRUE, CK_FORALL, CK_EXISTS, CK_APP, CK_VAR, CK_ATOM,
+    /* Tabelle dei segni (capitolo 12). */
+    CK_LESS, CK_LESS_EQ, CK_ABS, CK_SQRT
 } CkKind;
 
 /* Un nodo dell'albero di un'espressione. I nodi stanno nell'arena.
@@ -652,7 +677,10 @@ typedef enum {
  *   FORALL, EXISTS: value è l'insieme, a la condizione.
  *   EQ: a = b tra due termini; con b NULL, a è una parte o una relazione
  *       applicata, e la condizione è che valga.
- *   ATOM: value è una condizione elementare (11e), in uno scheletro. */
+ *   ATOM: value è una condizione elementare (11e), in uno scheletro.
+ * Nel capitolo 12:
+ *   LESS, LESS_EQ: a < b, a <= b, come EQ e NEQ i due membri a e b.
+ *   ABS, SQRT: il valore assoluto, la radice quadrata di a. */
 typedef struct CkNode CkNode;
 struct CkNode {
     CkKind kind;
@@ -720,6 +748,7 @@ static const CkNode *ck_read(void) {
         {"union", CK_UNION, 2}, {"inter", CK_INTER, 2}, {"diff", CK_DIFF, 2}, {"symdiff", CK_SYMDIFF, 2}, {"times", CK_TIMES, 2},
         {"=", CK_EQ, 2}, {"subset", CK_SUBSET, 2}, {"neq", CK_NEQ, 2},
         {"and", CK_AND, 2}, {"or", CK_OR, 2}, {"implies", CK_IMPLIES, 2}, {"iff", CK_IFF, 2}, {"not", CK_NOT, 1},
+        {"<", CK_LESS, 2}, {"<=", CK_LESS_EQ, 2}, {"abs", CK_ABS, 1}, {"sqrt", CK_SQRT, 1},
     };
     long long value;
     CkNode *node = ck_node(CK_NUMBER);
@@ -1424,7 +1453,7 @@ typedef struct {
     int bricks;
     int defined;                        /* 1 se c'è la voce "defined" */
     const CkNode *sets;                 /* certificato "sets": l'enunciato; altrimenti NULL */
-    int structure;                      /* 1 per un certificato del capitolo 11, già controllato mentre lo si leggeva */
+    int checked;                        /* 1 per un certificato dei capitoli 11 e 12, già controllato mentre lo si leggeva */
 } CkCertificate;
 
 static int ck_never_zero(CkPoly q, long long from, long long *where, int depth);
@@ -2571,7 +2600,1016 @@ static void ck_check_structure(int kind) {
 }
 
 /* =============================================================================
- * 12. CONTROLLO DI UN CERTIFICATO
+ * 12. TABELLE DEI SEGNI
+ * ============================================================================
+ *
+ * Gli enunciati della regola 18p di mathresearcher hanno una variabile sola,
+ * che varia nei numeri reali o nei razionali, e confrontano espressioni
+ * razionali con =, \neq, <, \le: "per ogni x vale C", "esiste x per cui vale
+ * C", oppure "le soluzioni di C sono W". Il motore li decide con la tabella
+ * dei segni, e il certificato è la tabella:
+ *
+ *     certificate signs
+ *     variable x
+ *     domain reals
+ *     condition (<= 0 (/ (- x 2) (+ x 3)))
+ *     claim solve
+ *     solution (or (< x -3) (<= 2 x))
+ *     factor (- x 2)
+ *     factor (+ x 3)
+ *     interval -5 true
+ *     point -3 false
+ *     interval 0 false
+ *     point 2 true
+ *     interval 3 true
+ *     end
+ *
+ * Le voci, in quest'ordine:
+ *
+ *   variable   la variabile, una lettera;
+ *   domain     reals oppure rationals: dove varia;
+ *   condition  la condizione C: and, or, implies, iff e not di confronti
+ *              (= a b), (neq a b), (< a b), (<= a b), i cui membri sono
+ *              fatti di interi, della variabile, di + - * /, di neg, di
+ *              potenze (^ a k) con k un intero scritto e di (abs a);
+ *   claim      forall true, forall false, exists true, exists false, oppure
+ *              solve con la voce solution: le soluzioni scritte W, cioè
+ *              confronti della variabile con un numero, che può contenere la
+ *              radice quadrata di un intero, (sqrt 2); oppure all (ogni
+ *              numero) o none (nessuno);
+ *   factor     un polinomio nella variabile, quanti se ne vuole;
+ *   le righe   da sinistra: "interval s v" è un intervallo aperto, e s un
+ *              suo razionale; "point r v" è il razionale r; "root k a b v" è
+ *              l'unica radice del fattore numero k (da 1) tra i razionali a e
+ *              b. v è true o false: la verità di C dichiarata nella riga.
+ *              Intervalli e punti si alternano, e la tabella comincia e
+ *              finisce con un intervallo.
+ *
+ * IL TEOREMA. Un confronto vale in x solo se i suoi due membri sono definiti
+ * in x, cioè se nessuna divisione, nel loro calcolo, ha il divisore nullo
+ * (una potenza con esponente negativo è una divisione; x^0 vale 1). Sia D
+ * l'insieme dei numeri reali, o quello dei razionali. Se il certificato è
+ * accettato:
+ *
+ *   - forall true:  per ogni x in D vale C(x);
+ *   - forall false: esiste un x in D in cui C(x) non vale;
+ *   - exists true:  esiste un x in D in cui vale C(x);
+ *   - exists false: per nessun x in D vale C(x);
+ *   - solve, con D i numeri reali: per ogni numero reale x, C(x) vale se e
+ *     solo se vale W(x). W descrive esattamente le soluzioni di C.
+ *
+ * COME LO SI CONTROLLA. È il ragionamento della tabella dei segni: la verità
+ * di C in x dipende solo dai segni in x di certi polinomi, un polinomio
+ * cambia segno solo passando per una sua radice (teorema degli zeri), e
+ * quindi tra due radici consecutive la verità non cambia: basta guardarla in
+ * un punto di ogni intervallo e in ogni radice. Il motore ha trovato le
+ * radici; qui si controlla che non ne manchi nessuna, e si ricalcola la
+ * verità di ogni riga. Nessuna ricerca: divisioni, catene di Sturm e conti
+ * esatti.
+ *
+ *   12a. Polinomi in una variabile e catene di Sturm, che contano le radici
+ *        reali tra due numeri.
+ *   12b. I fattori: il segno di un polinomio in una radice irrazionale si
+ *        ricava dividendolo per i fattori; e si controlla che ogni sua
+ *        radice sia un punto della tabella.
+ *   12c. La condizione, calcolata in due modi che non hanno nulla in comune:
+ *        con un razionale al posto della variabile, e come frazione di
+ *        polinomi.
+ *   12d. I polinomi da cui dipende la verità di C, ricavati da capo dalla
+ *        condizione, hanno tutte le radici reali tra i punti della tabella:
+ *        allora la verità è costante tra due punti consecutivi.
+ *   12e. Le righe: ogni riga root isola una radice del suo fattore e nessuna
+ *        degli altri; ogni campione sta nel suo intervallo; nessuna radice di
+ *        un fattore manca. La verità di C in ogni riga, che deve essere
+ *        quella dichiarata.
+ *   12f. Nei razionali le righe root non contano: si controlla che le loro
+ *        radici non siano razionali.
+ *   12g. Le soluzioni scritte: ogni loro estremo è un punto della tabella, e
+ *        in ogni riga W ha la verità di C.
+ *   12h. La lettura del certificato e il verdetto, che segue dalle righe.
+ */
+
+/* 12a. POLINOMI IN UNA VARIABILE E CATENE DI STURM */
+
+/* Un polinomio nella variabile della tabella, a coefficienti razionali,
+ * scritto per gradi: c[0] + c[1] x + ... + c[degree] x^degree. Serve dove i
+ * polinomi dei capitoli 4 e 5, elenchi di termini, sarebbero scomodi: la
+ * divisione con resto e il valore in un numero. Invariante: c[degree] non è
+ * zero; il polinomio nullo ha degree -1. */
+typedef struct {
+    int degree;
+    CkNum c[CK_MAX_DEGREE + 1];
+} CkUni;
+
+/* Ritorna il segno del razionale a: -1, 0 o 1. */
+static int ck_num_sign(CkNum a) { return (a.num > 0) - (a.num < 0); }
+
+/* Ritorna il segno di a - b. */
+static int ck_num_cmp(CkNum a, CkNum b) { return ck_num_sign(ck_num_add(a, ck_num_neg(b))); }
+
+/* Ristabilisce l'invariante di p, dopo un conto che può averne annullato i
+ * coefficienti più alti. */
+static void ck_uni_trim(CkUni *p) {
+    while (p->degree >= 0 && p->c[p->degree].num == 0) p->degree--;
+}
+
+/* Mette in *out il polinomio p, che contiene al più l'indeterminata 0, la
+ * variabile della tabella (12c). Un grado oltre CK_MAX_DEGREE rende il
+ * certificato non controllabile. */
+static void ck_uni_of(CkPoly p, CkUni *out) {
+    out->degree = -1;
+    for (int i = 0; i < p.count; i++) {
+        int e = p.term[i].e[0];
+        if (e > CK_MAX_DEGREE) { ck_unsupported("polinomio di grado troppo alto per il verificatore"); out->degree = -1; return; }
+        while (out->degree < e) out->c[++out->degree] = ck_num_int(0);
+        out->c[e] = p.term[i].coef;
+    }
+    ck_uni_trim(out);
+}
+
+/* Ritorna il valore di p nel razionale x (schema di Horner). */
+static CkNum ck_uni_at(const CkUni *p, CkNum x) {
+    CkNum value = ck_num_int(0);
+    for (int i = p->degree; i >= 0; i--) value = ck_num_add(ck_num_mul(value, x), p->c[i]);
+    return value;
+}
+
+/* Divide a per b, che non è nullo: al ritorno *a è il resto, di grado minore
+ * di quello di b, e *q, se q non è NULL, il quoziente. È la divisione di
+ * scuola: a ogni passo si toglie ad a il multiplo di b che ne annulla il
+ * termine più alto. */
+static void ck_uni_divide(CkUni *a, const CkUni *b, CkUni *q) {
+    if (q) {
+        q->degree = a->degree >= b->degree ? a->degree - b->degree : -1;
+        for (int i = 0; i <= q->degree; i++) q->c[i] = ck_num_int(0);
+    }
+
+    /* Dopo un errore i coefficienti non contano, e il primo di b può essere
+     * zero: non lo si inverte. */
+    if (ck_status != CK_ACCEPTED) return;
+    CkNum lead = ck_num_inv(b->c[b->degree]);
+    while (a->degree >= b->degree && ck_status == CK_ACCEPTED) {
+        int shift = a->degree - b->degree;
+        CkNum factor = ck_num_mul(a->c[a->degree], lead);
+        if (q) q->c[shift] = factor;
+        for (int i = 0; i < b->degree; i++) a->c[i + shift] = ck_num_add(a->c[i + shift], ck_num_neg(ck_num_mul(factor, b->c[i])));
+
+        /* Il termine più alto si annulla per costruzione: lo si azzera senza
+         * conto, così il ciclo finisce anche dopo un errore. */
+        a->c[a->degree] = ck_num_int(0);
+        ck_uni_trim(a);
+    }
+}
+
+/* Moltiplica p, che non è nullo, per il razionale positivo che ne fa un
+ * polinomio a coefficienti interi senza divisori comuni: radici e segni
+ * restano quelli, e i numeri di una catena di Sturm restano piccoli. */
+static void ck_uni_primitive(CkUni *p) {
+    __int128 top = 0, bottom = 1;
+    if (ck_status != CK_ACCEPTED) return;
+    for (int i = 0; i <= p->degree; i++) {
+        top = ck_gcd(top, p->c[i].num);
+        if (__builtin_mul_overflow(bottom, p->c[i].den / ck_gcd(bottom, p->c[i].den), &bottom)) {
+            ck_unsupported("numeri troppo grandi per il verificatore");
+            return;
+        }
+    }
+    if (top == 0) return;
+    CkNum scale = ck_num_make(bottom, top);
+    for (int i = 0; i <= p->degree; i++) p->c[i] = ck_num_mul(p->c[i], scale);
+}
+
+/* Ritorna il massimo comun divisore di a e b, che non sono nulli, a meno di
+ * un numero diverso da zero: algoritmo di Euclide, mcd(a, b) = mcd(b, resto
+ * di a diviso b). */
+static CkUni ck_uni_gcd(CkUni a, CkUni b) {
+    while (b.degree >= 0 && ck_status == CK_ACCEPTED) {
+        ck_uni_divide(&a, &b, NULL);
+        CkUni rest = a;
+        a = b;
+        b = rest;
+        if (b.degree >= 0) ck_uni_primitive(&b);
+    }
+    return a;
+}
+
+/* La catena di Sturm dell'ultimo polinomio passato a ck_roots(). */
+static CkUni ck_chain[CK_MAX_DEGREE + 2];
+static int ck_chain_length;
+
+/* Ritorna quante radici reali distinte ha p, che non è nullo, tra low e
+ * high, che non devono essere sue radici; NULL al posto di low o di high
+ * vuol dire meno o più infinito.
+ *
+ * Teorema di Sturm. Siano p_0 = p, p_1 = p' e p_{i+1} = -(resto della
+ * divisione di p_{i-1} per p_i), fino all'ultimo p_m non nullo, che è il
+ * massimo comun divisore di p e p' (algoritmo di Euclide). Detto V(t) il
+ * numero di cambi di segno della successione p_0(t), ..., p_m(t), saltando
+ * gli zeri, se a < b non sono radici di p allora p ha tra a e b esattamente
+ * V(a) - V(b) radici reali distinte. Per p senza radici multiple (p_m
+ * costante) è la forma classica: V cambia solo dove si annulla un p_i;
+ * attraversando una radice di p scende di uno, perché subito prima p e p'
+ * hanno segni opposti e subito dopo lo stesso; attraversando una radice di
+ * un p_i intermedio non cambia, perché lì p_{i-1} = -p_{i+1}, di segni
+ * opposti, e p_{i-1}, p_{i+1} non si annullano. Con radici multiple ogni p_i
+ * è un multiplo di p_m, e dividere tutta la successione per p_m non cambia i
+ * cambi di segno dove p_m non è zero: si ottiene la successione di p / p_m,
+ * che ha le stesse radici di p, ognuna una volta. p_m divide p, quindi non si
+ * annulla in a né in b. (Vedi Basu, Pollack, Roy, Algorithms in Real
+ * Algebraic Geometry, teorema 2.50.)
+ *
+ * All'infinito ogni p_i ha il segno del suo termine di grado più alto: a più
+ * infinito quello del coefficiente, a meno infinito lo stesso cambiato di
+ * segno se il grado è dispari. Moltiplicare i p_i per numeri positivi, come
+ * fa ck_uni_primitive(), non cambia i segni: il resto di alpha A diviso
+ * beta B, con alpha e beta positivi, è alpha volte quello di A diviso B. */
+static int ck_roots(const CkUni *p, const CkNum *low, const CkNum *high) {
+    /* La catena: p, p', poi i resti cambiati di segno. */
+    ck_chain[0] = *p;
+    ck_uni_primitive(&ck_chain[0]);
+    ck_chain[1].degree = p->degree - 1;
+    for (int i = 1; i <= p->degree; i++) ck_chain[1].c[i - 1] = ck_num_mul(ck_chain[0].c[i], ck_num_int(i));
+    ck_chain_length = p->degree > 0 ? 2 : 1;
+    while (ck_chain_length > 1 && ck_status == CK_ACCEPTED) {
+        CkUni *last = &ck_chain[ck_chain_length - 1], rest = ck_chain[ck_chain_length - 2];
+        ck_uni_primitive(last);
+        ck_uni_divide(&rest, last, NULL);
+        if (rest.degree < 0) break;
+        for (int i = 0; i <= rest.degree; i++) rest.c[i] = ck_num_neg(rest.c[i]);
+        ck_chain[ck_chain_length++] = rest;
+    }
+
+    /* V(low) - V(high). */
+    int changes[2] = {0, 0};
+    for (int end = 0; end < 2; end++) {
+        const CkNum *t = end ? high : low;
+        for (int i = 0, last = 0; i < ck_chain_length; i++) {
+            const CkUni *q = &ck_chain[i];
+            int sign = t ? ck_num_sign(ck_uni_at(q, *t)) : ck_num_sign(q->c[q->degree]) * (!end && q->degree % 2 ? -1 : 1);
+            if (sign && last && sign != last) changes[end]++;
+            if (sign) last = sign;
+        }
+    }
+    return changes[0] - changes[1];
+}
+
+/* 12b. I FATTORI
+ *
+ * Nelle righe dei punti della tabella si conoscono i segni dei fattori, e
+ * ogni radice reale di un fattore è uno di quei punti (12e). Di ogni
+ * polinomio p da cui dipende la verità della condizione servono due cose:
+ * che anche le sue radici reali siano tutte punti della tabella, e il suo
+ * segno in una radice irrazionale, dove non lo si può calcolare con i
+ * numeri. Si divide p per un fattore alla volta, finché la divisione è
+ * esatta: p = c f_1^e_1 ... f_m^e_m R, con c un numero e R un polinomio che
+ * nessun fattore divide (spesso un numero anche lui). Non serve che sia la
+ * scomposizione migliore: ogni passo è un'uguaglianza vera.
+ *
+ *   - Le radici di p sono quelle dei fattori con e_i > 0, che sono punti, e
+ *     quelle di R. Di R si contano le radici reali distinte (Sturm), e
+ *     devono essere tante quante le righe dei punti in cui R si annulla:
+ *     allora sono tutte punti.
+ *   - Il segno di p in un punto è quello di c, per quelli dei fattori
+ *     elevati ai loro esponenti, per quello di R.
+ *   - Se R si annulla nella radice rho di una riga root, del fattore f tra
+ *     a e b, lo dice il massimo comun divisore g di R e f: le radici di g
+ *     sono radici di f, che tra a e b ne ha una sola, rho; quindi R(rho) = 0
+ *     esattamente quando g ha una radice tra a e b (Sturm; g non si annulla
+ *     in a né in b, perché f non lo fa). Se R(rho) non è zero, R ha in rho
+ *     il segno che ha in a: le sue radici sono punti della tabella, e tra a
+ *     e b l'unico punto è rho.
+ *
+ * Il motore dà come fattori gli elementi della sua base (18p-4 di main.c),
+ * che non hanno radici in comune; un polinomio della condizione può
+ * contenerne i fattori irriducibili con esponenti diversi, come (x^2 + 1)^2
+ * (x^4 - x^3 + x^2 - x + 1) con il fattore (x^2 + 1)(x^4 - x^3 + x^2 - x + 1):
+ * è il caso di R. */
+
+/* I fattori del certificato in corso, nell'ordine delle voci factor. */
+static CkUni ck_factor[CK_MAX_FACTORS];
+static int ck_factor_count;
+
+/* I tre tipi di riga di una tabella. */
+typedef enum { CK_INTERVAL, CK_POINT, CK_ROOT } CkRowKind;
+
+/* Una riga della tabella: un intervallo aperto tra due punti consecutivi, o
+ * un punto. value è il campione dell'intervallo, il razionale di un punto,
+ * l'estremo inferiore dell'intervallo che isola una radice; high ne è
+ * l'estremo superiore, e factor il fattore che vi si annulla (da 0). claimed
+ * è la verità di C dichiarata nella riga, 1 o 0. */
+typedef struct {
+    CkRowKind kind;
+    CkNum value, high;
+    int factor;
+    int claimed;
+} CkRow;
+
+/* Le righe del certificato in corso; nelle righe dei punti, il segno di ogni
+ * fattore (12e). */
+static CkRow ck_rows[2 * CK_MAX_POINTS + 1];
+static int ck_row_count;
+static signed char ck_row_sign[2 * CK_MAX_POINTS + 1][CK_MAX_FACTORS];
+
+/* Ritorna 1 se il polinomio r, non nullo, si annulla nella radice della
+ * riga row, una riga root: se il massimo comun divisore di r e del fattore
+ * della riga ha una radice tra i suoi estremi (vedi in testa a 12b). */
+static int ck_vanishes(const CkUni *r, int row) {
+    const CkRow *at = &ck_rows[row];
+    CkUni g = ck_uni_gcd(*r, ck_factor[at->factor]);
+    return g.degree > 0 && ck_roots(&g, &at->value, &at->high) == 1;
+}
+
+/* Ritorna il segno nella riga row, una riga root, del polinomio p
+ * nell'indeterminata 0, come spiegato in testa a 12b. Con row negativo
+ * controlla invece che ogni radice reale di p sia un punto della tabella, e
+ * se non lo è il certificato è sbagliato: alla tabella manca un punto in cui
+ * la condizione può cambiare verità. */
+static int ck_sign_in_row(CkPoly p, int row) {
+    CkUni rest, quotient, left;
+    int sign = 1, declared = 0;
+    ck_uni_of(p, &rest);
+    if (rest.degree < 0 || ck_status != CK_ACCEPTED) return 0;
+
+    /* p = c f_1^e_1 ... f_m^e_m R: i fattori, e il loro segno. */
+    for (int i = 0; i < ck_factor_count && rest.degree > 0 && ck_status == CK_ACCEPTED; i++)
+        while (rest.degree >= ck_factor[i].degree) {
+            left = rest;
+            ck_uni_divide(&left, &ck_factor[i], &quotient);
+            if (left.degree >= 0 || ck_status != CK_ACCEPTED) break;
+            rest = quotient;
+            if (row >= 0) sign *= ck_row_sign[row][i];
+        }
+    if (rest.degree == 0 || ck_status != CK_ACCEPTED) return sign * ck_num_sign(rest.c[0]);
+
+    /* R: nella riga, o le sue radici. */
+    if (row >= 0) return ck_vanishes(&rest, row) ? 0 : sign * ck_num_sign(ck_uni_at(&rest, ck_rows[row].value));
+    for (int j = 1; j < ck_row_count && ck_status == CK_ACCEPTED; j += 2)
+        declared += ck_rows[j].kind == CK_POINT ? ck_uni_at(&rest, ck_rows[j].value).num == 0 : ck_vanishes(&rest, j);
+    if (ck_roots(&rest, NULL, NULL) != declared && ck_status == CK_ACCEPTED)
+        ck_reject("un polinomio della condizione ha una radice che non è un punto della tabella");
+    return 0;
+}
+
+/* 12c. LA CONDIZIONE, CALCOLATA IN DUE MODI
+ *
+ * Il primo sostituisce alla variabile un razionale e fa i conti con i
+ * numeri: dà la verità in quel punto senza nessun polinomio. Il secondo
+ * calcola i membri di un confronto come frazioni di polinomi nella variabile,
+ * che è l'indeterminata 0 dei capitoli 4 e 5, con i valori assoluti sciolti
+ * secondo una scelta dei segni, e annota i divisori incontrati: serve dove
+ * la variabile è una radice irrazionale, e a sapere da quali polinomi
+ * dipende la verità (12d). */
+
+/* La variabile della tabella in corso. */
+static char ck_x;
+
+/* Il confronto in corso: i suoi valori assoluti, i più interni per primi
+ * (ck_collect_abs()); i numeratori dei divisori annotati calcolandolo come
+ * frazione; ck_nowhere è 1 se si è diviso per la frazione nulla, e allora,
+ * con quella scelta dei segni, il confronto non ha valore in nessun punto. */
+static const CkNode *ck_abs[CK_MAX_ABS];
+static int ck_abs_count;
+static CkPoly ck_seen[CK_MAX_SEEN];
+static int ck_seen_count, ck_nowhere;
+
+/* Mette in *k l'esponente e di una potenza, se è un intero scritto: k
+ * oppure (neg k). Altrimenti ritorna 0. */
+static int ck_exponent(const CkNode *e, long long *k) {
+    if (e->kind == CK_NUMBER) { *k = e->value; return 1; }
+    if (e->kind == CK_NEG && e->a->kind == CK_NUMBER) { *k = -e->a->value; return 1; }
+    return 0;
+}
+
+/* Ritorna 1 se node è un membro di un confronto della condizione (surd = 0):
+ * interi, la variabile, + - * /, neg, potenze a esponente intero scritto e
+ * valori assoluti. Con surd = 1 è invece un numero delle soluzioni scritte:
+ * senza la variabile e senza valori assoluti, ma con la radice quadrata di
+ * un intero scritto. */
+static int ck_expression_ok(const CkNode *node, int surd) {
+    long long k;
+    switch (node->kind) {
+    case CK_NUMBER: return 1;
+    case CK_LETTER: return !surd && node->name == ck_x;
+    case CK_NEG:    return ck_expression_ok(node->a, surd);
+    case CK_ABS:    return !surd && ck_expression_ok(node->a, surd);
+    case CK_SQRT:   return surd && node->a->kind == CK_NUMBER;
+    case CK_ADD: case CK_SUB: case CK_MUL: case CK_DIV:
+        return ck_expression_ok(node->a, surd) && ck_expression_ok(node->b, surd);
+    case CK_POW:
+        return ck_exponent(node->b, &k) && k <= CK_MAX_POWER && k >= -CK_MAX_POWER && ck_expression_ok(node->a, surd);
+    default:        return 0;
+    }
+}
+
+/* Ritorna 1 se c è una condizione: and, or, implies, iff, not di confronti.
+ * Con written = 1 sono le soluzioni scritte, e ogni confronto ha da una
+ * parte la variabile e dall'altra un numero (ck_expression_ok() con surd =
+ * 1). */
+static int ck_condition_ok(const CkNode *c, int written) {
+    switch (c->kind) {
+    case CK_AND: case CK_OR: case CK_IMPLIES: case CK_IFF:
+        return ck_condition_ok(c->a, written) && ck_condition_ok(c->b, written);
+    case CK_NOT:
+        return ck_condition_ok(c->a, written);
+    case CK_EQ: case CK_NEQ: case CK_LESS: case CK_LESS_EQ:
+        if (!written) return ck_expression_ok(c->a, 0) && ck_expression_ok(c->b, 0);
+        return (c->a->kind == CK_LETTER && c->a->name == ck_x && ck_expression_ok(c->b, 1)) ||
+               (c->b->kind == CK_LETTER && c->b->name == ck_x && ck_expression_ok(c->a, 1));
+    default:
+        return 0;
+    }
+}
+
+/* Ritorna 1 se un confronto di tipo kind vale quando la differenza dei suoi
+ * membri ha il segno side. */
+static int ck_compared(CkKind kind, int side) {
+    return kind == CK_EQ ? side == 0 : kind == CK_NEQ ? side != 0 : kind == CK_LESS ? side < 0 : side <= 0;
+}
+
+/* Ritorna il valore dell'espressione node, che ck_expression_ok() ha
+ * accettato con surd = 0, quando la variabile vale x; mette 0 in *defined
+ * se una divisione ha il divisore nullo, e allora il valore non conta. */
+static CkNum ck_value_at(const CkNode *node, CkNum x, int *defined) {
+    CkNum a, b;
+    long long k = 0;
+    if (ck_status != CK_ACCEPTED) return ck_num_int(0);
+    switch (node->kind) {
+    case CK_NUMBER: return ck_num_int(node->value);
+    case CK_LETTER: return x;
+    case CK_NEG:    return ck_num_neg(ck_value_at(node->a, x, defined));
+    case CK_ABS:    a = ck_value_at(node->a, x, defined); return a.num < 0 ? ck_num_neg(a) : a;
+    case CK_ADD: case CK_SUB:
+        a = ck_value_at(node->a, x, defined);
+        b = ck_value_at(node->b, x, defined);
+        return ck_num_add(a, node->kind == CK_SUB ? ck_num_neg(b) : b);
+    case CK_MUL:
+        a = ck_value_at(node->a, x, defined);
+        return ck_num_mul(a, ck_value_at(node->b, x, defined));
+    case CK_DIV:
+        a = ck_value_at(node->a, x, defined);
+        b = ck_value_at(node->b, x, defined);
+        if (b.num == 0) { *defined = 0; return b; }
+        return ck_num_mul(a, ck_num_inv(b));
+    default:
+        /* Una potenza: un esponente negativo è una divisione. */
+        a = ck_value_at(node->a, x, defined);
+        ck_exponent(node->b, &k);
+        if (k < 0 && a.num == 0) { *defined = 0; return a; }
+        if (k < 0) { a = ck_num_inv(a); k = -k; }
+        for (b = ck_num_int(1); k > 0 && ck_status == CK_ACCEPTED; k--) b = ck_num_mul(b, a);
+        return b;
+    }
+}
+
+/* Mette in ck_abs[] i valori assoluti dell'espressione node, i più interni
+ * per primi, una volta ciascuno: due scritti allo stesso modo hanno lo
+ * stesso argomento, quindi lo stesso valore. Così l'argomento del valore
+ * assoluto numero i contiene solo valori assoluti di numero minore. */
+static void ck_collect_abs(const CkNode *node) {
+    if (!node) return;
+    ck_collect_abs(node->a);
+    ck_collect_abs(node->b);
+    if (node->kind != CK_ABS) return;
+    for (int i = 0; i < ck_abs_count; i++)
+        if (ck_same(ck_abs[i], node)) return;
+    if (ck_abs_count == CK_MAX_ABS) { ck_unsupported("troppi valori assoluti in un confronto per il verificatore"); return; }
+    ck_abs[ck_abs_count++] = node;
+}
+
+/* Ritorna a / b, annotando il numeratore di b tra i divisori; se b è la
+ * frazione nulla annota invece che il confronto non ha valore. */
+static CkRat ck_divide(CkRat a, CkRat b) {
+    if (b.num.count == 0) { ck_nowhere = 1; return a; }
+    if (ck_seen_count == CK_MAX_SEEN) { ck_unsupported("condizione troppo complessa per il verificatore"); return a; }
+    ck_seen[ck_seen_count++] = b.num;
+    return (CkRat){ck_poly_mul(a.num, b.den), ck_poly_mul(a.den, b.num)};
+}
+
+/* Ritorna il valore di node, che ck_expression_ok() ha accettato con surd =
+ * 0, come frazione di polinomi nella variabile: il valore assoluto numero i
+ * di ck_abs[] vale il suo argomento, oppure, se il bit i di pattern è 1, il
+ * suo argomento cambiato di segno. Le frazioni non si semplificano: il
+ * denominatore è un prodotto di numeratori di divisori annotati.
+ *
+ * Che cosa vale questo conto in un numero x0. Si supponga che pattern sia la
+ * scelta giusta in x0: il bit i è 1 se l'argomento del valore assoluto i è
+ * negativo in x0. Allora l'espressione è definita in x0 se e solo se non si
+ * è annotata la frazione nulla e nessun divisore annotato si annulla in x0,
+ * e il suo valore è num(x0) / den(x0), con den(x0) diverso da zero. Per
+ * induzione sull'albero: mettere x0 al posto della variabile rispetta somme
+ * e prodotti, quindi una somma o un prodotto di frazioni vale in x0 ciò che
+ * vale il conto con i numeri; il denominatore è un prodotto di divisori, che
+ * non si annullano; in a / b, con a e b definiti, b vale num_b(x0) /
+ * den_b(x0), che è zero esattamente quando lo è num_b(x0), il divisore
+ * annotato, e se num_b è il polinomio nullo b vale zero dovunque sia
+ * definito; |u| vale u o -u secondo il segno di u, cioè secondo pattern. */
+static CkRat ck_fraction(const CkNode *node, unsigned pattern) {
+    CkRat a, result;
+    long long k = 0;
+    int i = 0;
+    if (ck_status != CK_ACCEPTED) return ck_rat_int(0);
+    switch (node->kind) {
+    case CK_NUMBER: return ck_rat_int(node->value);
+    case CK_LETTER: return ck_rat_poly(ck_poly_variable(0));
+    case CK_NEG:    return ck_rat_add(ck_rat_int(0), ck_fraction(node->a, pattern), 1);
+    case CK_ADD: case CK_SUB:
+        a = ck_fraction(node->a, pattern);
+        return ck_rat_add(a, ck_fraction(node->b, pattern), node->kind == CK_SUB);
+    case CK_MUL:
+        a = ck_fraction(node->a, pattern);
+        return ck_rat_mul(a, ck_fraction(node->b, pattern));
+    case CK_DIV:
+        a = ck_fraction(node->a, pattern);
+        return ck_divide(a, ck_fraction(node->b, pattern));
+    case CK_ABS:
+        while (i < ck_abs_count - 1 && !ck_same(ck_abs[i], node)) i++;
+        a = ck_fraction(node->a, pattern);
+        return pattern >> i & 1 ? ck_rat_add(ck_rat_int(0), a, 1) : a;
+    default:
+        /* Una potenza: con esponente negativo, la potenza di 1 / base. */
+        a = ck_fraction(node->a, pattern);
+        ck_exponent(node->b, &k);
+        if (k < 0) { a = ck_divide(ck_rat_int(1), a); k = -k; }
+        for (result = ck_rat_int(1); k > 0 && ck_status == CK_ACCEPTED; k--) result = ck_rat_mul(result, a);
+        return result;
+    }
+}
+
+/* 12d. Controlla che ogni radice reale di ogni polinomio da cui dipende la
+ * verità della condizione c sia un punto della tabella (ck_sign_in_row()).
+ * I polinomi sono, per ogni confronto e per ogni scelta dei segni dei suoi
+ * valori assoluti: numeratore e denominatore di ogni argomento di un valore
+ * assoluto, ogni divisore, numeratore e denominatore della differenza dei
+ * membri. Dove il conto ha diviso per la frazione nulla (ck_fraction())
+ * quel pezzo non ha valore in nessun punto, e i suoi polinomi non contano.
+ *
+ * Perché basta a dire che la verità di c non cambia su un intervallo aperto
+ * I tra due punti consecutivi della tabella. Nessuno di quei polinomi si
+ * annulla in I, quindi ognuno vi ha un segno costante: zero se è il
+ * polinomio nullo, altrimenti sempre lo stesso, perché un polinomio cambia
+ * segno solo passando per una radice. Si fissi un confronto, con i valori assoluti |u_1|,
+ * ..., |u_k| dal più interno. Per induzione su i: se le scelte giuste per
+ * u_1, ..., u_{i-1} sono costanti in I, u_i è in I una frazione fissa N_i /
+ * D_i di polinomi di segno costante, quindi anche la scelta giusta per u_i
+ * lo è (dove u_i non ha valore non ce l'ha nemmeno il confronto, e la scelta
+ * non conta). Con la scelta giusta, costante, il confronto in I è definito
+ * o no a seconda dei segni dei divisori, costanti, e la differenza dei
+ * membri ha il segno del numeratore per quello del denominatore, costanti:
+ * la verità del confronto è costante, e con lei quella di c. */
+static void ck_cover(const CkNode *c) {
+    if (c->kind == CK_AND || c->kind == CK_OR || c->kind == CK_IMPLIES || c->kind == CK_IFF || c->kind == CK_NOT) {
+        ck_cover(c->a);
+        if (c->b) ck_cover(c->b);
+        return;
+    }
+    ck_abs_count = 0;
+    ck_collect_abs(c->a);
+    ck_collect_abs(c->b);
+    for (unsigned pattern = 0; pattern < 1u << ck_abs_count && ck_status == CK_ACCEPTED; pattern++) {
+        /* Ciò che si calcola qui non serve più dopo: la memoria si rende. */
+        size_t mark = ck_used;
+        for (int i = 0; i < ck_abs_count && ck_status == CK_ACCEPTED; i++) {
+            ck_seen_count = ck_nowhere = 0;
+            CkRat argument = ck_fraction(ck_abs[i]->a, pattern);
+            if (ck_nowhere) continue;
+            ck_sign_in_row(argument.num, -1);
+            ck_sign_in_row(argument.den, -1);
+        }
+        ck_seen_count = ck_nowhere = 0;
+        CkRat gap = ck_rat_add(ck_fraction(c->a, pattern), ck_fraction(c->b, pattern), 1);
+        if (!ck_nowhere) {
+            ck_sign_in_row(gap.num, -1);
+            ck_sign_in_row(gap.den, -1);
+            for (int i = 0; i < ck_seen_count; i++) ck_sign_in_row(ck_seen[i], -1);
+        }
+        ck_used = mark;
+    }
+}
+
+/* 12e. LE RIGHE */
+
+/* Ritorna 1 se la condizione c vale nella riga row.
+ *
+ * In un razionale, il campione di un intervallo o un punto, la si calcola
+ * con i numeri (ck_value_at()). In una riga root la variabile è una radice
+ * irrazionale, e si usano i segni dei fattori (ck_sign_in_row()): prima la
+ * scelta dei segni dei valori assoluti, dal più interno, dal segno del loro
+ * argomento; poi, con quella scelta, che è la giusta, il confronto è
+ * definito se nessun divisore si annulla, e la differenza dei membri ha il
+ * segno del suo numeratore per quello del suo denominatore (il perché è in
+ * testa a ck_fraction()). */
+static int ck_row_truth(const CkNode *c, int row) {
+    const CkRow *r = &ck_rows[row];
+    switch (c->kind) {
+    case CK_AND:     return ck_row_truth(c->a, row) && ck_row_truth(c->b, row);
+    case CK_OR:      return ck_row_truth(c->a, row) || ck_row_truth(c->b, row);
+    case CK_IMPLIES: return !ck_row_truth(c->a, row) || ck_row_truth(c->b, row);
+    case CK_IFF:     return ck_row_truth(c->a, row) == ck_row_truth(c->b, row);
+    case CK_NOT:     return !ck_row_truth(c->a, row);
+    default:         break;
+    }
+
+    /* Un razionale: il conto con i numeri. */
+    if (r->kind != CK_ROOT) {
+        int defined = 1;
+        CkNum left = ck_value_at(c->a, r->value, &defined), right = ck_value_at(c->b, r->value, &defined);
+        return defined && ck_compared(c->kind, ck_num_cmp(left, right));
+    }
+
+    /* Una radice: la scelta dei segni dei valori assoluti, poi il
+     * confronto. */
+    size_t mark = ck_used;
+    unsigned pattern = 0;
+    ck_abs_count = 0;
+    ck_collect_abs(c->a);
+    ck_collect_abs(c->b);
+    for (int i = 0; i < ck_abs_count && ck_status == CK_ACCEPTED; i++) {
+        ck_seen_count = ck_nowhere = 0;
+        CkRat argument = ck_fraction(ck_abs[i]->a, pattern);
+        if (!ck_nowhere && ck_sign_in_row(argument.num, row) * ck_sign_in_row(argument.den, row) < 0) pattern |= 1u << i;
+    }
+    ck_seen_count = ck_nowhere = 0;
+    CkRat gap = ck_rat_add(ck_fraction(c->a, pattern), ck_fraction(c->b, pattern), 1);
+    int defined = !ck_nowhere, side = 0;
+    for (int i = 0; i < ck_seen_count && defined; i++)
+        if (ck_sign_in_row(ck_seen[i], row) == 0) defined = 0;
+    if (defined) side = ck_sign_in_row(gap.num, row) * ck_sign_in_row(gap.den, row);
+    ck_used = mark;
+    return defined && ck_compared(c->kind, side);
+}
+
+/* Controlla le righe appena lette e mette in ck_row_sign[] i segni dei
+ * fattori nelle righe dei punti:
+ *
+ *   - una riga root contiene una sola radice del suo fattore, e nessuna
+ *     degli altri, e i suoi estremi non sono radici di nessun fattore (Sturm,
+ *     ck_roots()): allora il suo fattore vi si annulla, e ogni altro ha lì il
+ *     segno che ha nell'estremo inferiore, perché tra i due estremi non
+ *     cambia segno;
+ *   - in una riga point i segni si calcolano con i numeri;
+ *   - ogni campione sta tra i punti che lo chiudono: gli intervalli delle
+ *     righe sono in ordine, e non si toccano;
+ *   - nessuna radice manca: ogni fattore ha, tra i reali, tante radici
+ *     distinte (Sturm, da meno a più infinito) quante sono le righe dei
+ *     punti in cui si annulla. Quelle righe sono numeri diversi, ognuno una
+ *     sua radice: se sono tante quante le radici, sono tutte. */
+static void ck_check_rows(void) {
+    /* I punti. */
+    for (int row = 1; row < ck_row_count && ck_status == CK_ACCEPTED; row += 2) {
+        const CkRow *r = &ck_rows[row];
+        if (r->kind == CK_ROOT && ck_num_cmp(r->value, r->high) >= 0) { ck_reject("l'intervallo di una radice ha gli estremi in ordine sbagliato"); return; }
+        for (int i = 0; i < ck_factor_count && ck_status == CK_ACCEPTED; i++) {
+            const CkUni *f = &ck_factor[i];
+            int low = ck_num_sign(ck_uni_at(f, r->value)), wanted = i == r->factor;
+            ck_row_sign[row][i] = (signed char)low;
+            if (r->kind == CK_POINT) continue;
+            if (low == 0 || ck_num_sign(ck_uni_at(f, r->high)) == 0 || ck_roots(f, &r->value, &r->high) != wanted) {
+                ck_reject(wanted ? "l'intervallo di una radice non contiene una sola radice del suo fattore"
+                                 : "l'intervallo di una radice contiene una radice di un altro fattore");
+                return;
+            }
+            if (wanted) ck_row_sign[row][i] = 0;
+        }
+    }
+
+    /* L'ordine: ogni campione sta tra i punti vicini. */
+    for (int row = 0; row < ck_row_count && ck_status == CK_ACCEPTED; row += 2) {
+        const CkRow *r = &ck_rows[row], *before = row > 0 ? &ck_rows[row - 1] : NULL, *after = row + 1 < ck_row_count ? &ck_rows[row + 1] : NULL;
+        if ((before && ck_num_cmp(r->value, before->kind == CK_ROOT ? before->high : before->value) <= 0) || (after && ck_num_cmp(r->value, after->value) >= 0))
+            ck_reject("il campione di un intervallo non sta tra i punti che lo chiudono");
+    }
+
+    /* Nessuna radice manca. */
+    for (int i = 0; i < ck_factor_count && ck_status == CK_ACCEPTED; i++) {
+        int declared = 0;
+        for (int row = 1; row < ck_row_count; row += 2) declared += ck_row_sign[row][i] == 0;
+        if (ck_roots(&ck_factor[i], NULL, NULL) != declared && ck_status == CK_ACCEPTED) ck_reject("a un fattore manca una radice tra i punti della tabella");
+    }
+}
+
+/* 12f. NEI RAZIONALI
+ *
+ * Ritorna 1 se la radice della riga row, una riga root, non è un numero
+ * razionale.
+ *
+ * Teorema delle radici razionali. Se p/q, ridotta ai minimi termini, è una
+ * radice di a_d x^d + ... + a_0 a coefficienti interi, allora q divide a_d:
+ * moltiplicando per q^d si ha a_d p^d = -q (a_{d-1} p^{d-1} + ... + a_0
+ * q^{d-1}), quindi q divide a_d p^d, e non avendo fattori in comune con p
+ * divide a_d. Il fattore, reso a coefficienti interi (ck_uni_primitive()),
+ * ha in (a, b) una radice sola: è razionale se e solo se uno dei numeri p/q
+ * di (a, b), con q un divisore di a_d, lo annulla. Sono in numero finito, e
+ * si provano tutti: è un conto completo. Oltre CK_MAX_TRIED prove il
+ * certificato non è controllabile. */
+static int ck_irrational(int row) {
+    const CkRow *r = &ck_rows[row];
+    CkUni f = ck_factor[r->factor];
+    long long tried = 0;
+    ck_uni_primitive(&f);
+    __int128 lead = f.c[f.degree].num < 0 ? -f.c[f.degree].num : f.c[f.degree].num;
+    if (ck_status != CK_ACCEPTED || lead > CK_MAX_FACTORED) { ck_unsupported("coefficiente troppo grande per cercarne i divisori"); return 0; }
+    for (long long d = 1; d * d <= (long long)lead; d++) {
+        if (lead % d) continue;
+        for (int twice = 0; twice < 2; twice++) {
+            long long q = twice ? (long long)lead / d : d;
+            if (twice && q == d) continue;
+
+            /* I numeratori p con a < p/q < b: da floor(a q) + 1 a ceil(b q) - 1. */
+            CkNum low = ck_num_mul(r->value, ck_num_int(q)), high = ck_num_mul(r->high, ck_num_int(q));
+            __int128 first = low.num / low.den - (low.num % low.den < 0) + 1, last = high.num / high.den + (high.num % high.den > 0) - 1;
+            for (__int128 p = first; p <= last && ck_status == CK_ACCEPTED; p++) {
+                if (++tried > CK_MAX_TRIED) { ck_unsupported("troppi razionali da provare come radici di un fattore"); return 0; }
+                if (ck_uni_at(&f, ck_num_make(p, q)).num == 0) return 0;
+            }
+        }
+    }
+    return ck_status == CK_ACCEPTED;
+}
+
+/* 12g. LE SOLUZIONI SCRITTE
+ *
+ * Gli estremi delle soluzioni scritte sono razionali oppure numeri come
+ * 1 - sqrt(2) / 2: li si calcola come a + b sqrt(k), con a e b razionali e
+ * k un intero che non è un quadrato, una radice per estremo. sqrt(k) è
+ * allora irrazionale, e a + b sqrt(k) è zero solo con a = b = 0. Due
+ * controlli: ogni estremo è uno dei punti della tabella, così W non cambia
+ * verità dentro un intervallo, e si può calcolare nel campione; e in ogni
+ * riga W vale esattamente quando vale C. */
+
+/* Il numero a + b sqrt(k). k è 0 per un razionale, e allora b è 0;
+ * altrimenti è un intero positivo che non è un quadrato. */
+typedef struct {
+    CkNum a, b;
+    long long k;
+} CkSurd;
+
+/* Ritorna x + y, oppure x - y se minus è diverso da zero. */
+static CkSurd ck_surd_add(CkSurd x, CkSurd y, int minus) {
+    if (x.k && y.k && x.k != y.k) ck_unsupported("un estremo delle soluzioni scritte con radici di numeri diversi");
+    if (minus) y = (CkSurd){ck_num_neg(y.a), ck_num_neg(y.b), y.k};
+    return (CkSurd){ck_num_add(x.a, y.a), ck_num_add(x.b, y.b), x.k ? x.k : y.k};
+}
+
+/* Ritorna x y: (a + b r)(c + d r) = a c + b d k + (a d + b c) r, con r =
+ * sqrt(k). */
+static CkSurd ck_surd_mul(CkSurd x, CkSurd y) {
+    if (x.k && y.k && x.k != y.k) ck_unsupported("un estremo delle soluzioni scritte con radici di numeri diversi");
+    long long k = x.k ? x.k : y.k;
+    return (CkSurd){ck_num_add(ck_num_mul(x.a, y.a), ck_num_mul(ck_num_int(k), ck_num_mul(x.b, y.b))),
+                    ck_num_add(ck_num_mul(x.a, y.b), ck_num_mul(x.b, y.a)), k};
+}
+
+/* Ritorna il segno di x = a + b sqrt(k). Se a e b hanno lo stesso segno, o
+ * uno dei due è zero, è quello; se hanno segni opposti vince il più grande
+ * in valore assoluto tra a e b sqrt(k), cioè, confrontando i quadrati, il
+ * segno è quello di a per quello di a^2 - b^2 k. */
+static int ck_surd_sign(CkSurd x) {
+    int a = ck_num_sign(x.a), b = ck_num_sign(x.b);
+    if (b == 0) return a;
+    if (a == 0 || a == b) return b;
+    return a * ck_num_sign(ck_num_add(ck_num_mul(x.a, x.a), ck_num_neg(ck_num_mul(ck_num_int(x.k), ck_num_mul(x.b, x.b)))));
+}
+
+/* Ritorna il razionale r come numero a + b sqrt(k). */
+static CkSurd ck_surd_of(CkNum r) { return (CkSurd){r, ck_num_int(0), 0}; }
+
+/* Ritorna il valore del numero node, che ck_expression_ok() ha accettato con
+ * surd = 1. Dividere per zero, o la radice di un negativo, rendono sbagliate
+ * le soluzioni scritte. 1 / (a + b r) = (a - b r) / (a^2 - b^2 k), e il
+ * denominatore non è zero se a + b r non lo è, perché r è irrazionale. */
+static CkSurd ck_surd_value(const CkNode *node) {
+    CkSurd x, y;
+    long long k = 0;
+    if (ck_status != CK_ACCEPTED) return ck_surd_of(ck_num_int(0));
+    switch (node->kind) {
+    case CK_NUMBER: return ck_surd_of(ck_num_int(node->value));
+    case CK_NEG:    return ck_surd_add(ck_surd_of(ck_num_int(0)), ck_surd_value(node->a), 1);
+    case CK_ADD: case CK_SUB:
+        x = ck_surd_value(node->a);
+        return ck_surd_add(x, ck_surd_value(node->b), node->kind == CK_SUB);
+    case CK_MUL:
+        x = ck_surd_value(node->a);
+        return ck_surd_mul(x, ck_surd_value(node->b));
+    case CK_SQRT: {
+        /* La parte intera della radice, per bisezione: se è esatta il
+         * numero è razionale. */
+        long long n = node->a->value, low = 0, high = 1;
+        if (n < 0) { ck_reject("le soluzioni scritte contengono la radice di un numero negativo"); return ck_surd_of(ck_num_int(0)); }
+        while (high * high <= n) high *= 2;
+        while (high - low > 1) {
+            long long middle = low + (high - low) / 2;
+            if (middle * middle <= n) low = middle; else high = middle;
+        }
+        return low * low == n ? ck_surd_of(ck_num_int(low)) : (CkSurd){ck_num_int(0), ck_num_int(1), n};
+    }
+    default:
+        /* Una divisione, o una potenza: entrambe con l'inverso. */
+        x = ck_surd_value(node->a);
+        y = node->kind == CK_DIV ? ck_surd_value(node->b) : x;
+        if (node->kind == CK_POW) ck_exponent(node->b, &k);
+        if (node->kind == CK_DIV || k < 0) {
+            CkNum norm = ck_num_add(ck_num_mul(y.a, y.a), ck_num_neg(ck_num_mul(ck_num_int(y.k), ck_num_mul(y.b, y.b))));
+            if (norm.num == 0) { ck_reject("le soluzioni scritte dividono per zero"); return y; }
+            y = ck_surd_mul((CkSurd){y.a, ck_num_neg(y.b), y.k}, ck_surd_of(ck_num_inv(norm)));
+        }
+        if (node->kind == CK_DIV) return ck_surd_mul(x, y);
+        for (x = ck_surd_of(ck_num_int(1)), k = k < 0 ? -k : k; k > 0 && ck_status == CK_ACCEPTED; k--) x = ck_surd_mul(x, y);
+        return x;
+    }
+}
+
+/* Ritorna la riga della tabella, un punto, che è il numero e; -1 se e non è
+ * nessuno dei punti. Una riga root ha in (a, b) una radice sola del suo
+ * fattore (12e): se e sta in (a, b) e annulla il fattore, è quella. */
+static int ck_row_of(CkSurd e) {
+    for (int row = 1; row < ck_row_count && ck_status == CK_ACCEPTED; row += 2) {
+        const CkRow *r = &ck_rows[row];
+        if (r->kind == CK_POINT && ck_surd_sign(ck_surd_add(e, ck_surd_of(r->value), 1)) == 0) return row;
+        if (r->kind != CK_ROOT || ck_surd_sign(ck_surd_add(e, ck_surd_of(r->value), 1)) <= 0 || ck_surd_sign(ck_surd_add(ck_surd_of(r->high), e, 1)) <= 0) continue;
+
+        /* Il fattore in e, con lo schema di Horner. */
+        const CkUni *f = &ck_factor[r->factor];
+        CkSurd value = ck_surd_of(ck_num_int(0));
+        for (int i = f->degree; i >= 0; i--) value = ck_surd_add(ck_surd_mul(value, e), ck_surd_of(f->c[i]), 0);
+        if (ck_surd_sign(value) == 0) return row;
+    }
+    return -1;
+}
+
+/* Controlla che ogni numero con cui le soluzioni scritte w confrontano la
+ * variabile sia un punto della tabella. */
+static void ck_check_endpoints(const CkNode *w) {
+    if (w->kind == CK_AND || w->kind == CK_OR || w->kind == CK_IMPLIES || w->kind == CK_IFF || w->kind == CK_NOT) {
+        ck_check_endpoints(w->a);
+        if (w->b) ck_check_endpoints(w->b);
+        return;
+    }
+    if (ck_row_of(ck_surd_value(w->a->kind == CK_LETTER ? w->b : w->a)) < 0) ck_reject("un estremo delle soluzioni scritte non è un punto della tabella");
+}
+
+/* Ritorna 1 se le soluzioni scritte w valgono nella riga row. In ogni
+ * confronto la variabile sta da una parte, e il numero e dall'altra: conta
+ * il segno di x - e. In un razionale lo si calcola; in una radice è zero se
+ * e è proprio quella radice, altrimenti è il segno di a - e, con a
+ * l'estremo inferiore della riga: e è un altro punto della tabella
+ * (ck_check_endpoints()), quindi non sta tra gli estremi. */
+static int ck_written(const CkNode *w, int row) {
+    switch (w->kind) {
+    case CK_AND:     return ck_written(w->a, row) && ck_written(w->b, row);
+    case CK_OR:      return ck_written(w->a, row) || ck_written(w->b, row);
+    case CK_IMPLIES: return !ck_written(w->a, row) || ck_written(w->b, row);
+    case CK_IFF:     return ck_written(w->a, row) == ck_written(w->b, row);
+    case CK_NOT:     return !ck_written(w->a, row);
+    default:         break;
+    }
+    int left = w->a->kind == CK_LETTER, side;
+    const CkRow *r = &ck_rows[row];
+    CkSurd e = ck_surd_value(left ? w->b : w->a);
+    if (r->kind != CK_ROOT) side = ck_surd_sign(ck_surd_add(ck_surd_of(r->value), e, 1));
+    else if (ck_row_of(e) == row) side = 0;
+    else {
+        side = ck_surd_sign(ck_surd_add(ck_surd_of(r->value), e, 1));
+        if (side != ck_surd_sign(ck_surd_add(ck_surd_of(r->high), e, 1))) ck_reject("un estremo delle soluzioni scritte sta nell'intervallo di una radice");
+    }
+    return ck_compared(w->kind, left ? side : -side);
+}
+
+/* 12h. LA LETTURA E IL VERDETTO */
+
+/* Legge un razionale: un'espressione senza la variabile, che ha un valore. */
+static CkNum ck_read_rational(void) {
+    int defined = 1;
+    const CkNode *node = ck_read();
+    if (ck_status != CK_ACCEPTED) return ck_num_int(0);
+    if (!ck_expression_ok(node, 0) || ck_mentions(node, ck_x)) { ck_reject("certificato scritto male: numero atteso"); return ck_num_int(0); }
+    CkNum value = ck_value_at(node, ck_num_int(0), &defined);
+    if (!defined) ck_reject("certificato scritto male: un numero divide per zero");
+    return value;
+}
+
+/* Legge "true" o "false" e ritorna 1 o 0; altrimenti il certificato è
+ * scritto male. */
+static int ck_read_truth(void) {
+    if (ck_word("true")) return 1;
+    if (!ck_word("false")) ck_reject("certificato scritto male: true o false attesi");
+    return 0;
+}
+
+/* Salta spazi e fini di riga fino alla voce successiva. */
+static void ck_next_line(void) {
+    while (isspace((unsigned char)*ck_cursor)) ck_cursor++;
+}
+
+/* Legge e controlla un certificato signs, dalla riga dopo l'intestazione
+ * fino a "end" compreso. */
+static void ck_check_signs(void) {
+    const CkNode *condition = NULL, *written = NULL;
+    int rationals, claim, claimed = 0, everywhere = 0;
+    ck_sign_var = -1;
+    ck_factor_count = ck_row_count = 0;
+
+    /* La variabile, l'insieme, la condizione, ciò che si afferma. */
+    ck_next_line();
+    int named = ck_word("variable");
+    ck_skip();
+    if (!named || !isalpha((unsigned char)*ck_cursor) || isalnum((unsigned char)ck_cursor[1])) { ck_reject("certificato scritto male: manca la variabile"); return; }
+    ck_x = *ck_cursor++;
+    ck_next_line();
+    if (!ck_word("domain")) { ck_reject("certificato scritto male: manca l'insieme"); return; }
+    rationals = ck_word("rationals");
+    if (!rationals && !ck_word("reals")) { ck_reject("certificato scritto male: domain reals o domain rationals"); return; }
+    ck_next_line();
+    if (!ck_word("condition")) { ck_reject("certificato scritto male: manca la condizione"); return; }
+    condition = ck_read();
+    if (ck_status != CK_ACCEPTED) return;
+    if (!ck_condition_ok(condition, 0)) { ck_unsupported("la condizione usa qualcosa che il verificatore delle tabelle dei segni non conosce"); return; }
+    ck_next_line();
+    if (!ck_word("claim")) { ck_reject("certificato scritto male: manca ciò che si afferma"); return; }
+    claim = ck_word("forall") ? 0 : ck_word("exists") ? 1 : ck_word("solve") ? 2 : -1;
+    if (claim < 0) { ck_reject("certificato scritto male: claim forall, exists o solve"); return; }
+    if (claim < 2) claimed = ck_read_truth();
+
+    /* Le soluzioni scritte, che si cercano solo nei reali. */
+    if (claim == 2) {
+        ck_next_line();
+        if (rationals || !ck_word("solution")) { ck_reject("certificato scritto male: solve vuole i reali e le soluzioni"); return; }
+        if (ck_word("all")) everywhere = 1;
+        else if (!ck_word("none")) {
+            written = ck_read();
+            if (ck_status == CK_ACCEPTED && !ck_condition_ok(written, 1)) { ck_unsupported("le soluzioni scritte usano qualcosa che il verificatore non conosce"); return; }
+        }
+    }
+
+    /* I fattori: polinomi non costanti. */
+    for (ck_next_line(); ck_status == CK_ACCEPTED && ck_word("factor"); ck_next_line()) {
+        const CkNode *node = ck_read();
+        size_t mark = ck_used;
+        if (ck_status != CK_ACCEPTED) return;
+        if (ck_factor_count == CK_MAX_FACTORS) { ck_unsupported("troppi fattori per il verificatore"); return; }
+        int plain = ck_expression_ok(node, 0);
+        ck_abs_count = ck_seen_count = ck_nowhere = 0;
+        if (plain) ck_collect_abs(node);
+        if (!plain || ck_abs_count) { ck_reject("certificato scritto male: un fattore non è un polinomio"); return; }
+        CkRat value = ck_fraction(node, 0);
+        if (ck_nowhere || !ck_poly_is_constant(value.den)) { ck_reject("un fattore non è un polinomio"); return; }
+        ck_uni_of(value.num, &ck_factor[ck_factor_count]);
+        if (ck_factor[ck_factor_count++].degree < 1 && ck_status == CK_ACCEPTED) { ck_reject("un fattore è un numero"); return; }
+        ck_used = mark;
+    }
+
+    /* Le righe, fino a "end". */
+    while (ck_status == CK_ACCEPTED && !ck_word("end")) {
+        CkRow *r = &ck_rows[ck_row_count];
+        long long k = 0;
+        if (ck_row_count == 2 * CK_MAX_POINTS + 1) { ck_unsupported("tabella troppo lunga per il verificatore"); return; }
+        memset(r, 0, sizeof *r);
+        if (ck_word("interval")) r->kind = CK_INTERVAL;
+        else if (ck_word("point")) r->kind = CK_POINT;
+        else if (ck_word("root")) r->kind = CK_ROOT;
+        else { ck_reject("certificato scritto male: voce sconosciuta o \"end\" mancante"); return; }
+        if (r->kind == CK_ROOT && (!ck_read_integer(&k) || k < 1 || k > ck_factor_count)) { ck_reject("certificato scritto male: una radice nomina un fattore che non c'è"); return; }
+        r->factor = (int)k - 1;
+        r->value = ck_read_rational();
+        if (r->kind == CK_ROOT) r->high = ck_read_rational();
+        r->claimed = ck_read_truth();
+        if ((r->kind == CK_INTERVAL) != (ck_row_count % 2 == 0)) { ck_reject("certificato scritto male: intervalli e punti devono alternarsi"); return; }
+        ck_row_count++;
+        ck_next_line();
+    }
+    if (ck_status != CK_ACCEPTED) return;
+    if (ck_row_count % 2 == 0) { ck_reject("certificato scritto male: la tabella deve finire con un intervallo"); return; }
+
+    /* 12e, 12d, 12g: le righe, i polinomi della condizione, gli estremi
+     * delle soluzioni scritte; poi la verità in ogni riga. */
+    ck_check_rows();
+    if (ck_status == CK_ACCEPTED) ck_cover(condition);
+    if (written && ck_status == CK_ACCEPTED) ck_check_endpoints(written);
+    int all = 1, some = 0, same = 1;
+    for (int row = 0; row < ck_row_count && ck_status == CK_ACCEPTED; row++) {
+        int truth = ck_row_truth(condition, row);
+        if (ck_status != CK_ACCEPTED) return;
+        if (truth != ck_rows[row].claimed) { ck_reject("in una riga la condizione non ha la verità dichiarata"); return; }
+
+        /* 12f. Nei razionali una riga root non conta, se la sua radice non è
+         * razionale; e se lo è, il certificato doveva dirla con un punto. */
+        if (rationals && ck_rows[row].kind == CK_ROOT) {
+            if (!ck_irrational(row)) ck_reject("una radice di una riga root è razionale: va scritta con una riga point");
+            continue;
+        }
+        all = all && truth;
+        some = some || truth;
+
+        /* 12g. */
+        if (claim == 2) same = same && truth == (written ? ck_written(written, row) : everywhere);
+    }
+    if (ck_status != CK_ACCEPTED) return;
+
+    /* 12h. Il verdetto: le righe che contano coprono D (12d, 12e). */
+    if (claim == 0 ? all != claimed : claim == 1 ? some != claimed : !same) ck_reject("la tabella non dà ciò che il certificato afferma");
+}
+
+/* =============================================================================
+ * 13. CONTROLLO DI UN CERTIFICATO
  * ============================================================================
  *
  * I tre controlli descritti in testa al file, più le condizioni che rendono
@@ -2602,10 +3640,18 @@ static void ck_read_certificate(CkCertificate *cert) {
     static const char *const structures[] = {"counterexample", "example", "structure"};
     for (int kind = 0; kind < 3; kind++)
         if (ck_word(structures[kind])) {
-            cert->structure = 1;
+            cert->checked = 1;
             ck_check_structure(kind);
             return;
         }
+
+    /* Una tabella dei segni: anche lei si controlla mentre la si legge
+     * (capitolo 12). */
+    if (ck_word("signs")) {
+        cert->checked = 1;
+        ck_check_signs();
+        return;
+    }
     if (!ck_word("induction")) { ck_reject("certificato scritto male: manca l'intestazione"); return; }
     while (ck_status == CK_ACCEPTED && !ended) {
         while (isspace((unsigned char)*ck_cursor)) ck_cursor++;
@@ -2824,7 +3870,7 @@ static CkAnswer ck_check(const char **text, const char **why) {
     /* Un'induzione: la valutazione di prova e quella vera. Tra l'una e
      * l'altra restano le indeterminate con i loro riferimenti; i polinomi si
      * ricalcolano. */
-    for (int pass = 0; pass < 2 && ck_status == CK_ACCEPTED && !cert.sets && !cert.structure; pass++) {
+    for (int pass = 0; pass < 2 && ck_status == CK_ACCEPTED && !cert.sets && !cert.checked; pass++) {
         ck_trial = pass == 0;
         if (pass == 0) {
             ck_var_count = 0;
@@ -2839,7 +3885,7 @@ static CkAnswer ck_check(const char **text, const char **why) {
 }
 
 /* =============================================================================
- * 13. MAIN
+ * 14. MAIN
  * ============================================================================
  *
  * Il verificatore come programma a sé: legge un file di certificati, uno
