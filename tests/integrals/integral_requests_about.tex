@@ -22,7 +22,7 @@ This note explains what the test data in \texttt{integral\_requests.tex} is used
 
 \item \textbf{The answers need not look like the book's.} The engine integrates $\sin^{3} x \cos^{4} x$ by writing it as a sum of cosines of multiple angles, $-\frac{3}{64}\cos x - \frac{1}{64}\cos 3x + \frac{1}{320}\cos 5x + \frac{1}{448}\cos 7x$, while the book has $\frac{1}{7}\cos^{7} x - \frac{1}{5}\cos^{5} x$; the two differ by a constant, and the test checks exactly that.
 
-\item \textbf{Expected result.} The line \texttt{PASS: 58 of 80 requests \ldots{} answered (at least 58 wanted)}. The other 22 are the integrals of the statements the engine does not decide (improper integrals, $\cosh$, a fifth root of negative numbers, $\ln e$), and eight whose antiderivative it does not find: seven square roots of quadratics, which need the substitutions of Euler or the trigonometric and hyperbolic ones, and $x^{3}\sqrt{2 - x^{2}}$.
+\item \textbf{Expected result.} The line \texttt{PASS: 59 of 80 requests \ldots{} answered (at least 59 wanted)}. The other 21 are the integrals of the statements the engine does not decide (improper integrals, a fifth root of negative numbers, $\ln e$), and eight whose antiderivative it does not find: seven square roots of quadratics, which need the substitutions of Euler or the trigonometric and hyperbolic ones, and $x^{3}\sqrt{2 - x^{2}}$.
 
 \item \textbf{How to run it.} From the top folder of the repository:
 \begin{verbatim}

@@ -165,6 +165,13 @@
  * radice di 12 e 2 per la radice di 3 diventano lo stesso monomio, e
  * ln(n+1) - ln(n) e ln(1 + 1/n) la stessa somma (capitoli 11 e 12).
  *
+ * Perché il test di annullamento conosce il dominio, ma solo a volte. Una
+ * derivata o una primitiva si affermano "dove i due membri sono definiti", e
+ * lì valgono fatti che altrove sono falsi: dove \sqrt{x} è definita x >= 0,
+ * e quindi \sqrt[3]{x} = (\sqrt[6]{x})^2 e \sqrt{x^2} = x. Il test di quelle
+ * uguaglianze li usa (11q, 12d); nessun'altra decisione li vede, perché
+ * parlerebbe anche dei punti in cui non valgono.
+ *
  * COSA NON C'È ANCORA, E DOVE ANDREBBE
  *
  *   - Disuguaglianze con un parametro (Bernoulli con una lettera), o il cui
@@ -189,9 +196,10 @@
  *     formula o dentro un'espressione (capitolo 27), non f'(x); nelle
  *     formule n-esime mancano il doppio fattoriale e le funzioni che
  *     cambiano con n. Per confrontare una derivata con la forma stampata
- *     sui libri mancano identità che valgono solo sotto condizioni sui
- *     segni: la radice di un quadrato, sqrt(w^2) = |w|, e la radice di un
- *     prodotto di fattori di segno noto solo dal dominio. Negli studi di
+ *     sui libri il test di annullamento usa i segni che dà il dominio
+ *     (11q); mancano quelli che vengono da altro, come 1 - \cos x >= 0
+ *     dall'immagine del coseno, e la radice di un prodotto di fattori il cui
+ *     segno è noto ma che il conto non vede separati. Negli studi di
  *     funzione mancano gli esponenziali con l'esponente non di primo grado
  *     (e^{1/x}, e^{-x^2}: sono della tabella dei segni, 18p-8) e i punti in
  *     cui la funzione è definita da tutte e due le parti ma le regole non
@@ -438,6 +446,8 @@
 #define MAX_SEARCH 20000     /* passi di ricerca per un enunciato con quantificatori */
 #define MAX_POINT 8          /* parametri a cui la verifica numerica dà un valore */
 #define MAX_CONDITIONS 64    /* condizioni di esistenza annotate in un conto */
+#define MAX_DOMAIN_FACTS 16  /* fatti del dominio di un'uguaglianza "dove i due membri sono definiti" (11q) */
+#define DOMAIN_PASSES 3      /* volte che quell'uguaglianza si calcola, con i fatti trovati nelle volte prima (12d) */
 #define MAX_SIGN_FACTORS 8   /* fattori di cui una condizione chiede il segno del prodotto */
 #define MAX_CASES 12         /* casi sul resto di una divisione, in una dimostrazione */
 #define MAX_EQUATIONS 12     /* uguaglianze provate per ricavare il valore di un "esiste" */
@@ -1558,6 +1568,10 @@ static void engine_init(void) {
  *   - radici e logaritmi: fractional_power() e logarithm(), che si appoggiano
  *     alla scomposizione in fattori di factorize();
  *   - seni e coseni: exp_i().
+ *
+ * Nel conto di un'uguaglianza che vale "dove i due membri sono definiti" la
+ * scomposizione usa anche i fatti del dominio (11q): i segni che in tutti
+ * quei punti, e solo lì, sono certi.
  */
 
 /* Una variabile legata e il suo valore. */
@@ -1591,6 +1605,20 @@ static long long domain_floor;
 static int point_name[MAX_POINT];
 static Frac point_value[MAX_POINT];
 static int point_count;
+
+/* I fatti del dominio (11q, più sotto): mentre domain_on è diverso da zero si
+ * sta calcolando un'uguaglianza che vale "dove i due membri sono definiti", e
+ * ogni domain_fact[i] è un polinomio negli atomi che in tutti quei punti è
+ * >= 0. Li accende e li spegne solo vanishes_where_defined() (12d).
+ *
+ * Warning: un conto ausiliario fatto durante la valutazione, che non calcola
+ * una parte dell'enunciato ma una prova con la lettera ausiliaria (come
+ * body_is_positive() e binomial_sum()), deve spegnere domain_on finché dura e
+ * poi rimetterlo com'era: i fatti valgono per i valori dell'enunciato, non per
+ * quella lettera. */
+static Poly domain_fact[MAX_DOMAIN_FACTS];
+static int domain_fact_count;
+static int domain_on;
 
 /* Lega name a value. */
 static void env_push(int name, Rat value) {
@@ -1717,15 +1745,18 @@ static int poly_is_positive(Poly p) {
  * Un errore durante questa prova non riguarda l'enunciato e viene scartato. */
 static int body_is_positive(const Node *node, long long lower) {
     const char *saved = failure;
-    int recording = conditions_on;
+    int recording = conditions_on, domain = domain_on;
 
     /* È una prova fatta con una lettera ausiliaria, non un conto
-     * dell'enunciato: le sue divisioni non pongono condizioni. */
-    conditions_on = 0;
+     * dell'enunciato: le sue divisioni non pongono condizioni, e i fatti del
+     * dominio (11q) non la riguardano. Il risultato resta nell'atomo anche
+     * dopo il conto in cui è nato: per questo non deve dipendere da loro. */
+    conditions_on = domain_on = 0;
     Rat value = eval_body(node, rat_add(rat_int(lower), rat_atom(atom_var(VAR_SLACK)), 0));
     int positive = failure == saved && poly_is_positive(value.num) && poly_is_positive(value.den);
     failure = saved;
     conditions_on = recording;
+    domain_on = domain;
     return positive;
 }
 
@@ -2286,6 +2317,162 @@ static Poly split_linear_factors(Poly p, Factorization *f) {
     return changed ? poly_univariate(c, degree) : p;
 }
 
+/* 11q. I FATTI DEL DOMINIO
+ *
+ * A che cosa servono. Molte uguaglianze tra espressioni in x si affermano
+ * "dove i due membri sono definiti": che F' = f (30a), che la derivata di f
+ * è g (27a). In ognuno di quei punti ogni radice di indice pari scritta in
+ * un membro ha il radicando >= 0, ogni logaritmo scritto senza valore
+ * assoluto ha l'argomento > 0, ogni potenza a esponente costante non intero
+ * ha la base >= 0 (come u^{1/3}, 11o). Chi dimostra l'uguaglianza a mano li
+ * usa: "dove \sqrt{x} è definita x >= 0, e lì \sqrt[3]{x} = (\sqrt[6]{x})^2".
+ * Senza di loro il conto esatto non può: per x < 0 la radice cubica reale di
+ * x è definita (11o) e la radice sesta no, e due atomi diversi restano
+ * diversi.
+ *
+ * Che cosa sono. Un fatto è un polinomio negli atomi che vale >= 0 in ogni
+ * punto in cui i due membri sono definiti. Si annota (domain_note()) nel
+ * punto in cui la valutazione incontra l'operazione che lo chiede: il
+ * radicando in fractional_power() con la lettura non negativa (odd = 0),
+ * l'argomento in logarithm_of_positive(); e, nei casi dei valori assoluti di
+ * derivative_identity() (27a), il segno scelto per ogni |u|. Vengono dai due
+ * membri e da un'espressione che è definita dove l'uguaglianza si afferma:
+ * la funzione di cui un membro è la derivata, la primitiva (vedi 12d). Si
+ * usano in quattro modi:
+ *
+ *   11q-1. Un atomo reale x con il fatto x >= 0 è un fattore di segno noto
+ *          per factorize(): la radice cubica di x diventa x^{1/3}, come il
+ *          quadrato della radice sesta, invece di prendere due strade (11o
+ *          per la prima, la base "x presa come lettera" per la seconda).
+ *   11q-2. Un resto di segno non noto che è c w o c w^2, con w un fatto e c
+ *          un razionale positivo, diventa un fattore di segno noto: così
+ *          \sqrt{w^2} = w, come \sqrt{\cos^2 x} = \cos x dove \cos x >= 0;
+ *          \sqrt{u v} = \sqrt{u} \sqrt{v} quando u >= 0 e v >= 0 sono fatti;
+ *          la radice di una frazione i cui due termini sono fatti.
+ *   11q-3. |u| = u se u >= 0 è un fatto, |u| = -u se lo è -u.
+ *   11q-4. Un radicando perde le potenze intere delle radici che contiene:
+ *          (\sqrt{u})^2 = u dove \sqrt{u} è definita. Così il radicando di
+ *          \sqrt{1 - (\sqrt{1 - 2x})^2} è 2x, e la radice è \sqrt{2} \sqrt{x}.
+ *
+ * Perché è giusto. Sia D l'insieme dei punti in cui l'uguaglianza si
+ * afferma: quelli in cui i due membri sono definiti (e la funzione derivata,
+ * o la primitiva, lo è). Un fatto vale in ogni punto di D: è il valore, in
+ * quel punto, di un radicando o di un argomento scritto in un'espressione
+ * definita in D, calcolato con regole che in D sono identità, comprese
+ * quelle che usano i fatti annotati prima (ognuno vero in D, per lo stesso
+ * motivo: si ragiona sull'ordine in cui sono stati annotati). Ogni
+ * riscrittura che usa un fatto sostituisce un'espressione con un'altra che
+ * ha lo stesso valore in ogni punto di D. Quindi se L - R si riduce a zero,
+ * L = R in ogni punto di D, che è proprio ciò che si afferma. In un caso dei
+ * valori assoluti tutto questo vale nei punti di D in cui valgono i segni di
+ * quel caso, e i casi insieme coprono D. Che D non sia vuoto non lo dice il
+ * conto: lo dicono i numeri, perché DIMOSTRATO chiede almeno un punto di
+ * prova in cui i due membri sono definiti e uguali (27h, 30b).
+ *
+ * Una riserva, che c'era già prima dei fatti: dove un fattore di segno noto
+ * di un radicando si annulla, la scomposizione può chiedere più di quanto
+ * l'espressione scritta chieda (\sqrt{x (x - 1)}, con x >= 0, diventa
+ * \sqrt{x} \sqrt{x - 1}, che in x = 0 non è definita). Sono punti in cui il
+ * fattore è zero, isolati se non lo è su un intervallo, e non interni a D;
+ * le derivate e le primitive si affermano sugli intervalli aperti, dove il
+ * conto copre ogni punto.
+ *
+ * Perché solo lì. Un fatto è vero in D e non fuori: x >= 0, che viene da
+ * \sqrt{x}, è falso in x = -1, e con lui \sqrt{x^2} = x. Per questo i fatti
+ * non devono entrare in nessuna decisione che parli di altri punti: un
+ * FALSO (che dice qualcosa di un punto, e lo decidono i numeri, mai il test
+ * di annullamento), un "esiste", la tabella dei segni (che dà il segno in
+ * ogni punto di un intervallo, anche dove i fatti non valgono), le
+ * condizioni di esistenza di 13c (da controllare, non da supporre), un
+ * enunciato con \forall x \in \mathbb{R}, che parla anche dei punti in cui
+ * un membro non è definito. domain_on lo accende solo vanishes_where_defined()
+ * (12d), che chiamano solo i test di annullamento delle uguaglianze "dove i
+ * due membri sono definiti", e lo spegne prima di tornare. Ciò che il conto
+ * lascia dopo di sé, gli atomi e le loro basi, non dipende dai fatti: un
+ * atomo è una quantità con un significato fisso, e i fatti scelgono solo
+ * quali atomi scrivere. L'unica eccezione, il segno di un prodotto \prod
+ * deciso quando il suo atomo nasce, è calcolata con i fatti spenti
+ * (body_is_positive()). Oggi quel conto, come quello di binomial_sum(), nei
+ * due test non avviene: lì n è legata a un numero, e le somme e i prodotti
+ * si svolgono (11a). Spegnere i fatti costa una riga e tiene vera la
+ * garanzia anche se un giorno avverrà.
+ *
+ * Che cosa manca. Dividere un resto per un fatto (\sqrt{w^2 v} con v non
+ * costante resta un atomo); i fatti che non vengono da ciò che il conto
+ * calcola, come |u| <= 1 per l'arcoseno o 1 - \cos x >= 0, che chiede
+ * \sqrt{\frac{1 + \cos x}{1 - \cos x}} = \frac{|\sin x|}{1 - \cos x}
+ * (vedi tests/derivatives/book_derivatives_beyond_about.tex). */
+
+/* Ritorna 1 se r = c w per un razionale c > 0, che mette in *c. */
+static int positive_multiple(Poly r, Poly w, Frac *c) {
+    if (!poly_proportional(r, w)) return 0;
+    Num ratio = num_mul(r.term[0].coef, num_inv(w.term[0].coef));
+    *c = ratio.re;
+    return ratio.im.num == 0 && ratio.re.num > 0;
+}
+
+/* Annota il fatto r >= 0, se è acceso il conto di un'uguaglianza dove i due
+ * membri sono definiti. Il fatto è il polinomio num * den, che ha il segno
+ * della frazione dove questa è definita. Una costante non dice nulla, e un
+ * multiplo positivo di un fatto già annotato non si ripete. Oltre
+ * MAX_DOMAIN_FACTS il fatto si perde: ne segue solo un conto meno
+ * semplificato. */
+static void domain_note(Rat r) {
+    Frac c;
+    if (!domain_on || failure) return;
+    Poly p = poly_mul(r.num, r.den);
+    if (p.count == 0 || (p.count == 1 && p.term[0].mono.count == 0)) return;
+    for (int i = 0; i < domain_fact_count; i++)
+        if (positive_multiple(p, domain_fact[i], &c)) return;
+    if (domain_fact_count < MAX_DOMAIN_FACTS) domain_fact[domain_fact_count++] = p;
+}
+
+/* Ritorna 1 se un fatto dice che r >= 0 dove i due membri sono definiti,
+ * cioè se num * den è un suo multiplo positivo; -1 se lo dice di -r; 0 se i
+ * fatti non lo dicono, e sempre a fatti spenti. */
+static int domain_sign(Rat r) {
+    Frac c;
+    if (!domain_on || failure || r.num.count == 0) return 0;
+    Poly p = poly_mul(r.num, r.den), minus = poly_add(poly_const(num_int(0)), p, 1);
+    for (int i = 0; i < domain_fact_count; i++) {
+        if (positive_multiple(p, domain_fact[i], &c)) return 1;
+        if (positive_multiple(minus, domain_fact[i], &c)) return -1;
+    }
+    return 0;
+}
+
+/* 11q-1. Ritorna 1 se l'atomo è reale e un fatto dice che è >= 0. */
+static int domain_nonnegative(int atom) {
+    return domain_on && atom_is_real(atom) && domain_sign(rat_atom(atom)) > 0;
+}
+
+/* 11q-2. Se rest, di segno non noto, è c w^k con w un fatto, k = 1 o 2 e c
+ * un razionale positivo, aggiunge a f i fattori primi di c e la base w con
+ * esponente k, e ritorna il polinomio 1, ciò che resta; altrimenti ritorna
+ * rest. La base w è >= 0 per il fatto stesso, quindi è un fattore come gli
+ * altri della scomposizione (vedi Factorization).
+ *
+ * I quadrati si cercano per primi: il radicando di \sqrt{1 - \sin^2 x} è
+ * a sua volta un fatto, e riconoscerlo come tale (k = 1) non direbbe nulla
+ * di nuovo, mentre come quadrato di \cos x, quando \cos x >= 0 è un fatto,
+ * la radice si estrae. */
+static Poly domain_split(Poly rest, Factorization *f) {
+    for (int k = 2; k >= 1; k--)
+        for (int i = 0; domain_on && !failure && i < domain_fact_count; i++) {
+            Frac c;
+            Poly power = k == 2 ? poly_mul(domain_fact[i], domain_fact[i]) : domain_fact[i];
+            if (!positive_multiple(rest, power, &c)) continue;
+            if (c.num > 1000000000000LL || c.den > 1000000000000LL) return rest;
+            for (int side = 0; side < 2; side++) {
+                long long value = side ? c.den : c.num, prime, times;
+                while (pop_prime(&value, &prime, &times)) part_add(f, BASE_PRIME, prime, frac_int(side ? -times : times));
+            }
+            part_add(f, BASE_POLY, base_poly_intern(domain_fact[i]), frac_int(k));
+            return poly_const(num_int(1));
+        }
+    return rest;
+}
+
 /* Scompone il polinomio non nullo p in fattori di segno noto (vedi
  * Factorization). Serve a radici e logaritmi, che si distribuiscono sui
  * fattori solo quando questi sono non negativi:
@@ -2301,7 +2488,10 @@ static Poly split_linear_factors(Poly p, Factorization *f) {
  *   11m. I fattori di primo grado in n, con split_linear_factors().
  *
  * Se i coefficienti non sono tutti reali (succede con seni e coseni) si fa
- * solo il passo 11k. */
+ * solo il passo 11k. Nel conto di un'uguaglianza dove i due membri sono
+ * definiti contano anche i fatti del dominio: un atomo >= 0 per un fatto è
+ * di segno noto in 11k (11q-1), e il resto viene confrontato con i fatti
+ * (11q-2). */
 static Factorization factorize(Poly p) {
     Factorization f;
     f.count = 0;
@@ -2312,8 +2502,9 @@ static Factorization factorize(Poly p) {
     unknown.coef = num_int(1);
     unknown.mono.count = 0;
     for (int i = 0; i < common.count; i++) {
-        if (atom_is_nonnegative(common.factor[i].atom)) part_add(&f, BASE_ATOM, common.factor[i].atom, common.factor[i].exp);
-        else term_times(&unknown, common.factor[i].atom, common.factor[i].exp);
+        int atom = common.factor[i].atom;
+        if (atom_is_nonnegative(atom) || domain_nonnegative(atom)) part_add(&f, BASE_ATOM, atom, common.factor[i].exp);
+        else term_times(&unknown, atom, common.factor[i].exp);
     }
     Term divisor;
     divisor.coef = num_int(1);
@@ -2345,7 +2536,9 @@ static Factorization factorize(Poly p) {
         /* 11m. Fattori di primo grado. */
         if (!failure) rest = split_linear_factors(rest, &f);
     }
-    f.rest = poly_mul(rest, poly_term(unknown));
+
+    /* 11q-2. Il resto, se è un fatto o il quadrato di un fatto. */
+    f.rest = domain_split(poly_mul(rest, poly_term(unknown)), &f);
     return f;
 }
 
@@ -2373,12 +2566,36 @@ static Factorization factorize(Poly p) {
  * -1. Così la parte di segno non noto si distribuisce come le altre: ogni
  * atomo del suo monomio comune riceve il suo esponente (la radice cubica di
  * x^5 è x^{5/3}), il segno esce come (-1)^p con q = p/m, e il polinomio che
- * resta diventa un atomo. Nessuna condizione da annotare. */
+ * resta diventa un atomo. Nessuna condizione da annotare.
+ *
+ * Nel conto di un'uguaglianza dove i due membri sono definiti (11q) la base
+ * perde prima le potenze intere delle radici che contiene (11q-4), e con la
+ * lettura non negativa (odd = 0) diventa un fatto: base >= 0 lì dove la
+ * radice è definita. Una radice dispari non dà fatti, perché è definita per
+ * ogni base; ma se un fatto dice che la base è >= 0, factorize() la
+ * scompone tutta in fattori di segno noto, e la radice dispari prende la
+ * strada di quella pari: per una base >= 0 le due letture coincidono.
+ *
+ * Prototipo in avanti necessario: 11q-4 usa la regola 12a, che sta nel
+ * capitolo del test di annullamento. */
+static Poly poly_reduce_radicals(Poly p, int keep_value);
 static Rat fractional_power(Rat base, Frac q, int odd) {
     Term out;
     Mono none;
     out.coef = num_int(1);
     out.mono.count = none.count = 0;
+
+    /* 11q-4. (\sqrt{u})^2 = u dove \sqrt{u} è definita: il conto non cambia
+     * valore in nessun punto in cui i due membri lo sono. Un denominatore
+     * che diventa zero vuol dire che in quei punti la base non è mai
+     * definita: il conto si ferma, senza dire di più (fail() e non
+     * fail_undefined(), che direbbe qualcosa di un punto preciso). */
+    if (domain_on) {
+        base.num = poly_reduce_radicals(base.num, 1);
+        base.den = poly_reduce_radicals(base.den, 1);
+        if (base.den.count == 0) { fail("una radice con un denominatore che dove i due membri sono definiti vale zero"); return rat_int(0); }
+        if (!odd) domain_note(base);
+    }
 
     /* Zero: 0^q = 0 per q positivo. */
     if (base.num.count == 0) {
@@ -2482,7 +2699,8 @@ static Rat logarithm(Rat x) {
  * deve essere positivo. In generale è un'ipotesi dell'enunciato; quando x è un
  * numero la si controlla, e un argomento non positivo è un errore. Quando non
  * lo è, la condizione la annota chi chiama, che conosce l'argomento com'è
- * scritto (vedi require_positive()). */
+ * scritto (vedi require_positive()). Nel conto di un'uguaglianza dove i due
+ * membri sono definiti, x > 0 è un fatto del dominio (11q). */
 static Rat logarithm_of_positive(Rat x) {
     Num value;
     if (rat_number(x, &value) && (value.im.num != 0 || value.re.num <= 0)) {
@@ -2490,6 +2708,7 @@ static Rat logarithm_of_positive(Rat x) {
         return rat_int(0);
     }
 
+    domain_note(x);
     return logarithm(x);
 }
 
@@ -2726,10 +2945,14 @@ static int binomial_sum(const Node *node, long long lower, Rat upper, Rat *out) 
     const Node *binomial = binomial_factor(node->c);
     const char *saved = failure;
     int slack = atom_var(VAR_SLACK), listed = conditions_on, step = 0, shift = 0, fits = binomial && !failure && lower >= 0 && lower <= MAX_UNROLL;
+    int domain = domain_on;
     Rat total = rat_int(0), one = rat_int(1), g = one;
 
     /* Il termine con t al posto dell'indice: sopra il coefficiente deve
-     * esserci l'estremo superiore, sotto step t + shift; g è il resto. */
+     * esserci l'estremo superiore, sotto step t + shift; g è il resto. I
+     * fatti del dominio (11q) valgono per i valori dell'enunciato, non per
+     * la lettera t: la regola li spegne finché lavora. */
+    domain_on = 0;
     if (fits) {
         env_push(node->name, rat_atom(slack));
         binomial_live = 1;
@@ -2792,6 +3015,7 @@ static int binomial_sum(const Node *node, long long lower, Rat upper, Rat *out) 
 
     /* I termini prima di lower, che la formula conta e la somma no. */
     for (long long k = 0; fits && !failure && k < lower; k++) total = rat_add(total, eval_body(node, rat_int(k)), 1);
+    domain_on = domain;
     if (!fits || failure) { failure = saved; return 0; }
     *out = total;
     return 1;
@@ -3038,8 +3262,20 @@ static Rat eval_call(const Node *node) {
         Num value;
         int side;
         if (rat_number(x, &value) && value.im.num == 0) return value.re.num < 0 ? rat_add(rat_int(0), x, 1) : x;
+
+        /* Il caso scelto per questo valore assoluto. Nel conto di
+         * un'uguaglianza dove i due membri sono definiti (11q), il valore
+         * scelto, x oppure -x, è >= 0 nei punti di quel caso: un fatto. */
         for (int i = 0; i < abs_count; i++)
-            if (abs_node[i] == node || node_equal(abs_node[i], node)) return (abs_pattern >> i & 1) ? rat_add(rat_int(0), x, 1) : x;
+            if (abs_node[i] == node || node_equal(abs_node[i], node)) {
+                Rat chosen = (abs_pattern >> i & 1) ? rat_add(rat_int(0), x, 1) : x;
+                domain_note(chosen);
+                return chosen;
+            }
+
+        /* 11q-3. Un segno che dicono i fatti del dominio. */
+        int known = domain_sign(x);
+        if (known) return known < 0 ? rat_add(rat_int(0), x, 1) : x;
 
         /* Un numero con radici quadrate: il segno si trova stringendolo tra
          * due razionali (number_sign(), 18p). */
@@ -3155,6 +3391,12 @@ static Rat eval(const Node *node) {
  * Non sono complete: uno zero che dipende da altre identità (per esempio tra
  * radici di polinomi non scomposti) riceve un "no", e l'enunciato resta NON
  * DIMOSTRATO.
+ *
+ *   12d. Dove i due membri sono definiti. Il test di sempre, su L - R
+ *        calcolata con i fatti del dominio (11q): vanishes_where_defined().
+ *        Un "sì" vuol dire L = R in ogni punto in cui i due membri sono
+ *        definiti, e non altrove: lo usano solo le uguaglianze che
+ *        affermano questo, le derivate (27a) e le primitive (30a).
  */
 
 /* Ritorna un polinomio che è zero se e solo se lo è p, in cui ogni atomo
@@ -3169,8 +3411,14 @@ static Rat eval(const Node *node) {
  *
  * Si procede dall'atomo creato per ultimo al primo: la base di un atomo
  * contiene solo atomi creati prima di lui, quindi sostituirla può far
- * comparire solo esponenti ancora da sistemare, mai già sistemati. */
-static Poly poly_reduce_radicals(Poly p) {
+ * comparire solo esponenti ancora da sistemare, mai già sistemati.
+ *
+ * Con keep_value diverso da zero il risultato deve avere anche lo stesso
+ * valore di p, non solo lo stesso essere zero (serve a 11q-4): un atomo con
+ * una parte intera negativa, che chiederebbe di moltiplicare per x^{-k}, si
+ * lascia com'è. Con k = 0 la moltiplicazione non c'è, e la sostituzione di
+ * u^j al posto di x^j è un'identità dove la radice è definita. */
+static Poly poly_reduce_radicals(Poly p, int keep_value) {
     for (int x = atom_count - 1; x >= 0 && !failure; x--) {
         const Atom *atom = &atoms[x];
         if (atom->kind != ATOM_POW || atom->base != BASE_POLY || atom->exponent.count != 0) continue;
@@ -3182,7 +3430,7 @@ static Poly poly_reduce_radicals(Poly p) {
             if (whole < low) low = whole;
             if (whole > high) high = whole;
         }
-        if (low == 0 && high == 0) continue;
+        if ((low == 0 && high == 0) || (keep_value && low < 0)) continue;
         if (high - low > MAX_POWER) { fail("esponente di una radice troppo grande"); break; }
 
         /* Horner, dalla parte intera più alta alla più bassa. */
@@ -3265,8 +3513,8 @@ static int log_combination_vanishes(Poly p) {
         if (failure) return 0;
 
         /* Il gruppo è zero se il prodotto vale 1 oppure -1. */
-        if (poly_reduce_radicals(poly_add(product.num, product.den, 1)).count != 0 &&
-            poly_reduce_radicals(poly_add(product.num, product.den, 0)).count != 0)
+        if (poly_reduce_radicals(poly_add(product.num, product.den, 1), 0).count != 0 &&
+            poly_reduce_radicals(poly_add(product.num, product.den, 0), 0).count != 0)
             return 0;
     }
     return 1;
@@ -3369,9 +3617,84 @@ static int arctan_combination_vanishes(Poly p) {
 /* Ritorna 1 se p è zero, tenendo conto delle identità 12a, 12b e 12c. Un
  * errore durante il conto (in `failure`) vale come "no". */
 static int poly_vanishes(Poly p) {
-    p = poly_reduce_radicals(p);
+    p = poly_reduce_radicals(p, 0);
     if (failure) return 0;
     return p.count == 0 || log_combination_vanishes(p) || arctan_combination_vanishes(p);
+}
+
+/* Ritorna L - R per l'enunciato, con la variabile di induzione legata a n e i
+ * parametri legati ai valori del punto in uso, se ce n'è uno. */
+static Rat difference(const Statement *statement, Rat n) {
+    env_count = 0;
+    library_depth = 0;
+
+    /* I parametri vanno legati per primi: env_varies() li riconosce dal posto. */
+    for (int i = 0; i < point_count; i++) env_push(point_name[i], rat_frac(point_value[i]));
+    env_push(induction_var, n);
+    Rat left = eval(statement->lhs);
+    Rat right = eval(statement->rhs);
+    env_count = 0;
+    return rat_add(left, right, 1);
+}
+
+/* 12d. IL TEST DOVE I DUE MEMBRI SONO DEFINITI
+ *
+ * Ritorna 1 se L - R, calcolata come in difference(), si riduce a zero con i
+ * fatti del dominio (11q): allora L = R in ogni punto in cui i due membri
+ * sono definiti (e, in un caso dei valori assoluti di 27a, valgono i segni
+ * del caso). È il test di annullamento delle uguaglianze che si affermano
+ * così, e solo di quelle (vedi "Perché solo lì", in 11q): lo chiamano 27a,
+ * con la rilettura della derivata calcolata (27k), e 30a.
+ *
+ * source, se non è NULL, è un'espressione definita in ogni punto in cui
+ * l'uguaglianza si afferma, anche se non ne è un membro: la funzione di cui
+ * L è la derivata (27a), che deve essere definita dove è derivabile; la
+ * primitiva F di cui L è F' (30a), che l'enunciato considera solo dove è
+ * definita. Le sue radici e i suoi logaritmi danno fatti come quelli dei
+ * membri, ed è lei a darli quando le regole li perdono: la derivata di
+ * \ln(x + 3) è \frac{1}{x + 3}, definita anche per x < -3. Si calcola una
+ * volta, per prima, solo per i fatti: un errore nel suo conto (un arcoseno,
+ * che il conto esatto non ha) non riguarda l'uguaglianza, e i fatti trovati
+ * prima dell'errore valgono lo stesso.
+ *
+ * I fatti si annotano mentre si calcola, e uno trovato in un membro può
+ * servire a un'espressione calcolata prima: per questo il conto si rifà,
+ * ogni volta con tutti i fatti trovati nelle volte precedenti, finché ne
+ * compaiono di nuovi e la differenza non si è ridotta a zero, al più
+ * DOMAIN_PASSES volte. Un conto che fallisce (la radice di una frazione i
+ * cui termini non hanno segno noto, per esempio) si ferma al primo membro, e
+ * i fatti dell'altro non arrivano: per questo le volte dispari calcolano
+ * R - L, con il secondo membro per primo, che si annulla quando si annulla
+ * L - R. Dopo un conto riuscito senza fatti nuovi rifarlo non cambierebbe
+ * nulla; dopo uno fallito si prova almeno l'altro ordine. Se fallisce anche
+ * l'ultima volta, `failure` resta impostato. All'uscita i fatti sono spenti
+ * e dimenticati: non arrivano a nessun altro conto.
+ *
+ * Le condizioni di esistenza (capitolo 7) restano spente per tutto il test:
+ * sono ciò che 13c deve controllare, e i fatti, che le suppongono vere,
+ * cambierebbero quelle annotate. */
+static int vanishes_where_defined(const Statement *statement, const Node *source, Rat n) {
+    const char *was = failure;
+    Statement turned = {statement->rhs, statement->lhs, statement->relation};
+    int vanishes = 0, listed = conditions_on;
+    conditions_on = 0;
+    domain_on = 1;
+    domain_fact_count = 0;
+    if (source) {
+        Statement facts_only = {(Node *)source, node_num(0), REL_EQ};
+        difference(&facts_only, n);
+    }
+    for (int pass = 0; pass < DOMAIN_PASSES && !vanishes; pass++) {
+        int known = domain_fact_count;
+        failure = was;
+        Rat gap = difference(pass % 2 ? &turned : statement, n);
+        vanishes = !failure && poly_vanishes(gap.num);
+        if (domain_fact_count == known && (pass > 0 || !failure)) break;
+    }
+    domain_on = 0;
+    domain_fact_count = 0;
+    conditions_on = listed;
+    return vanishes;
 }
 
 /* =============================================================================
@@ -3495,21 +3818,6 @@ static void proof_add(const char *format, ...) {
     va_end(arguments);
     if (written > 0) proof_length += (size_t)written;
     if (proof_length >= PROOF_BYTES) proof_length = PROOF_BYTES - 1;
-}
-
-/* Ritorna L - R per l'enunciato, con la variabile di induzione legata a n e i
- * parametri legati ai valori del punto in uso, se ce n'è uno. */
-static Rat difference(const Statement *statement, Rat n) {
-    env_count = 0;
-    library_depth = 0;
-
-    /* I parametri vanno legati per primi: env_varies() li riconosce dal posto. */
-    for (int i = 0; i < point_count; i++) env_push(point_name[i], rat_frac(point_value[i]));
-    env_push(induction_var, n);
-    Rat left = eval(statement->lhs);
-    Rat right = eval(statement->rhs);
-    env_count = 0;
-    return rat_add(left, right, 1);
 }
 
 /* Passo induttivo (13b): d è D(n), d1 è D(n+1), scritte con gli stessi atomi.
@@ -21351,7 +21659,9 @@ static Node *node_euler(const Node *tree) {
 /* 27a, il conto. Ritorna 1 se left - right si riduce a zero con l'algebra
  * esatta, con la lettera order (0 se non c'è) uguale a base, dove i due
  * membri sono definiti; x è la variabile, che se è la lettera e non è il
- * numero di Nepero.
+ * numero di Nepero. left è una derivata della funzione function, che non
+ * entra nel conto ma ne dà i fatti del dominio (12d): dove la derivata
+ * esiste, la funzione è definita.
  *
  * I valori assoluti. La valutazione non sa calcolare |u| di
  * un'espressione: |u| vale u dove u >= 0 e -u dove u <= 0. Si fa allora il
@@ -21362,7 +21672,15 @@ static Node *node_euler(const Node *tree) {
  * una delle scelte, che è zero. Due valori assoluti scritti allo stesso modo
  * sono uno solo (abs_collect()); con argomenti diversi si provano tutte le
  * combinazioni, anche quelle che in nessun punto si verificano: si dimostra
- * qualcosa in meno, mai di più.
+ * qualcosa in meno, mai di più. Dentro una scelta il conto riguarda solo i
+ * punti in cui ogni u ha il segno scelto, e quel segno è un fatto (11q): con
+ * \cos x >= 0, \sqrt{1 - \sin^2 x} = \cos x.
+ *
+ * Il dominio. Il test è quello dove i due membri sono definiti (12d): i
+ * radicandi delle radici di indice pari e gli argomenti dei logaritmi sono
+ * fatti, e \sqrt[3]{x} accanto a \sqrt{x} è x^{1/3} come (\sqrt[6]{x})^2. Si
+ * può perché la derivata si afferma solo lì, e che lì ci sia almeno un punto
+ * lo dicono i controlli con i numeri, che chi chiama ha già fatto.
  *
  * Le potenze che la valutazione non sa calcolare. e^{\sin x} non ha una
  * forma esatta: il seno è scritto con gli esponenziali complessi, e
@@ -21407,19 +21725,24 @@ static const Node *shared_power(const Node *tree, const Node *other, int x) {
     return found ? found : shared_power(tree->c, other, x);
 }
 
-static int derivative_identity(const Node *left, const Node *right, int order, long long base, int x) {
+static int derivative_identity(const Node *left, const Node *right, const Node *function, int order, long long base, int x) {
     Statement s = {(Node *)left, (Node *)right, REL_EQ};
+    const Node *source = function;
     int holds = 1, kept = induction_var;
-    if (x != 'e') { s.lhs = node_euler(left); s.rhs = node_euler(right); }
+    if (x != 'e') { s.lhs = node_euler(left); s.rhs = node_euler(right); source = node_euler(function); }
 
     /* Le potenze in comune che il conto non sa fare, una lettera nuova
-     * per ognuna: le lettere maiuscole, che qui non nominano nulla. */
+     * per ognuna: le lettere maiuscole, che qui non nominano nulla. La
+     * funzione, che dà solo i fatti del dominio, cambia allo stesso modo, e
+     * nemmeno lei deve usare la lettera: due quantità diverse con lo stesso
+     * nome darebbero un fatto falso. */
     for (int letter = 'A', tries = 0; letter <= 'Z' && tries < 4; letter++) {
-        if (node_uses_letter(s.lhs, letter) || node_uses_letter(s.rhs, letter)) continue;
+        if (node_uses_letter(s.lhs, letter) || node_uses_letter(s.rhs, letter) || node_uses_letter(source, letter)) continue;
         const Node *power = shared_power(s.lhs, s.rhs, x);
         if (!power) break;
         s.lhs = node_swapped(s.lhs, power, letter);
         s.rhs = node_swapped(s.rhs, power, letter);
+        source = node_swapped(source, power, letter);
         tries++;
     }
     abs_count = 0;
@@ -21429,12 +21752,14 @@ static int derivative_identity(const Node *left, const Node *right, int order, l
     induction_var = order;
 
     /* Nessun parametro con un valore (13e): l'identità deve valere per ogni
-     * valore delle altre lettere, non per quelli di un conto precedente. */
+     * valore delle altre lettere, non per quelli di un conto precedente. Il
+     * test di annullamento è quello dove i due membri sono definiti (12d):
+     * l'uguaglianza si afferma solo lì, e in ogni caso dei valori assoluti
+     * il segno scelto per ognuno è un fatto (11q). */
     point_count = 0;
     for (abs_pattern = 0; holds && !failure && abs_pattern < 1u << count; abs_pattern++) {
         abs_count = count;
-        Rat gap = difference(&s, rat_int(base));
-        holds = !failure && poly_vanishes(gap.num);
+        holds = vanishes_where_defined(&s, source, rat_int(base));
     }
     abs_count = 0;
     abs_pattern = 0;
@@ -21676,7 +22001,7 @@ static Verdict solve_derivative(Node *f, int x, int order, Verdict verdict) {
         contradicted |= agreement < 0;
         agreed += agreement > 0;
     }
-    int sound = readable && !contradicted && agreed && !failure && derivative_identity(direct[order], reread, 0, 0, x);
+    int sound = readable && !contradicted && agreed && !failure && derivative_identity(direct[order], reread, f, 0, 0, x);
     if (!sound) {
         if (contradicted || !readable) unjustified_steps++;
         failure = syntax_error = NULL;
@@ -21825,7 +22150,7 @@ static Verdict prove_derivative(const char *formula, int variable, int has_base,
     if (!compared) { verdict.reason = "non riesco a confermare con i numeri la formula, in nessuno dei punti di prova"; return verdict; }
 
     /* 27a. Il caso base: un'uguaglianza tra espressioni, senza n. */
-    if (!derivative_identity(direct[base], fixed ? g : node_replace(g, variable, node_num(base)), variable, base, x)) {
+    if (!derivative_identity(direct[base], fixed ? g : node_replace(g, variable, node_num(base)), f, variable, base, x)) {
         snprintf(text, sizeof text, "la derivata di ordine %lld, calcolata con le regole, non si riduce alla formula%s%s", base,
                  failure ? ": " : "", failure ? failure : "");
         failure = NULL;
@@ -25829,7 +26154,9 @@ static Verdict prove_limit(const char *formula) {
  *
  * È il controllo del capitolo 27 ribaltato. derive() calcola F' con le
  * regole di derivazione (27c-27g) e il test di annullamento (capitolo 12)
- * decide se F' - f è zero, con i conti esatti; poi, per una strada che non
+ * decide se F' - f è zero, con i conti esatti, dove i due membri sono
+ * definiti: lì può usare i fatti del dominio (12d), come x >= 0 quando
+ * compare \sqrt{x}; poi, per una strada che non
  * usa quelle regole, la serie di Taylor di F nei punti di prova, calcolata
  * con gli intervalli (27h), dà F'(x0) con l'errore garantito e la si
  * confronta con f(x0). DIMOSTRATO vuole lo zero esatto e almeno un punto in
@@ -25961,13 +26288,13 @@ typedef struct {
 static PrimitiveCheck primitive_check(const Node *f, const Node *F, int x) {
     PrimitiveCheck check = {NOT_PROVED, NULL, {0, 1}, 0, {0, 1}, NULL};
 
-    /* 30a. F' con le regole, e F' - f con i conti esatti. */
+    /* 30a. F' con le regole, e F' - f con i conti esatti, dove i due membri
+     * sono definiti (12d): è lì che F' = f deve valere. */
     Node *derivative = derive(strip_log_abs(F), x);
     if (failure) { check.outcome = UNSUPPORTED; check.reason = failure; failure = NULL; return check; }
     check.derivative = derivative;
     Statement claim = {derivative, (Node *)f, REL_EQ};
-    Rat gap = difference(&claim, rat_int(0));
-    int vanishes = !failure && poly_vanishes(gap.num);
+    int vanishes = vanishes_where_defined(&claim, F, rat_int(0));
     const char *trouble = failure;
     failure = NULL;
 

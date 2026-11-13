@@ -16,11 +16,11 @@
 This note explains what the test data in \texttt{book\_derivatives\_beyond.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_book\_derivatives.c} in this folder.
 
 \begin{enumerate}
-\item \textbf{Purpose.} The file holds the 3 derivatives of the exercise collections, confirmed by an independent oracle, that the engine does not prove yet. They are true, and the engine must never call them false.
+\item \textbf{Purpose.} The file holds the derivative of the exercise collections, confirmed by an independent oracle, that the engine does not prove yet. It is true, and the engine must never call it false. There were three: $\frac{d}{dx} \arcsin\sqrt{1 - 2x}$ and $\frac{d}{dx} \arccos\sin x$ became provable when the zero test learnt to use the domain (rules 11q and 12d of \texttt{main.c}), and moved to \texttt{book\_derivatives.tex}.
 
-\item \textbf{What it exercises.} The honest refusal. The derivative given by the rules is right in all three (the request without the result is answered for the first two, and checked against the printed result), but the printed form needs identities that the exact algebra does not apply: $\sqrt{1 - (1 - 2x)} \sqrt{1 - 2x} = \sqrt{2x(1 - 2x)}$, which holds where the two roots are defined; $\sqrt{1 - \sin^{2} x} = |\cos x|$, the root of a square; and the root of a quotient whose two terms have no known sign. When one of them becomes provable, it moves to \texttt{book\_derivatives.tex}.
+\item \textbf{What it exercises.} The honest refusal. The derivative given by the rules is right, but the printed form needs $\sqrt{\frac{1 + \cos x}{1 - \cos x}} = \frac{|\sin x|}{1 - \cos x}$. The facts of the domain do not give it: where both sides are defined the radicand is positive and $\sin x \ne 0$, and each case of $|\sin x|$ gives the sign of $\sin x$, but the identity also needs $1 - \cos x \ge 0$, which comes from the range of the cosine, not from the domain; and it needs the root of the fraction rewritten as $\frac{\sqrt{(1 + \cos x)(1 - \cos x)}}{1 - \cos x}$, the root of a square over its denominator, instead of the root of the numerator over the root of the denominator. When it becomes provable, it moves to \texttt{book\_derivatives.tex}.
 
-\item \textbf{Expected result.} The line \texttt{PASS: none of the 3 true statements \ldots is called false}.
+\item \textbf{Expected result.} The line \texttt{PASS: none of the 1 true statements \ldots is called false}.
 
 \item \textbf{How to run it.} From the top folder of the repository:
 \begin{verbatim}

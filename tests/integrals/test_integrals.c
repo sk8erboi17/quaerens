@@ -23,11 +23,11 @@
  *   6. le richieste di integral_requests.tex: ogni risposta del motore,
  *      riscritta come enunciato, viene dimostrata, e differisce dal
  *      risultato del libro per una costante (per un integrale definito: è
- *      lo stesso numero); almeno 57 delle 80 hanno risposta, e nessuna è un
- *      verdetto diverso da RISOLTO o "non so". Erano 58: una primitiva che
- *      mescola \sqrt[3]{x} e \sqrt[6]{x} non si verifica più da quando
- *      \sqrt[3]{x} è la radice cubica reale (11o; vedi
- *      book_integrals_beyond_about.tex);
+ *      lo stesso numero); almeno 59 delle 80 hanno risposta, e nessuna è un
+ *      verdetto diverso da RISOLTO o "non so". Due delle 59 mescolano
+ *      \sqrt[3]{x}, la radice cubica reale (11o), con \sqrt[6]{x}: la loro
+ *      primitiva si verifica dove i due membri sono definiti, con i fatti
+ *      del dominio (11q, 12d);
  *   7. il lettore degli integrali (9j): che cosa accetta e che cosa rifiuta;
  *   8. le funzioni razionali (30d) prese da sole: ogni ramo dell'algoritmo,
  *      con la primitiva che scrive verificata come ogni altra, e un
@@ -344,7 +344,7 @@ int main(void) {
     ok &= check_all_proved("tests/integrals/integral_conventions.tex");
     ok &= check_none_proved("tests/integrals/false_integral_conventions.tex");
     ok &= check_refuted_at_least("tests/integrals/false_integrals.tex", 118);
-    ok &= check_requests("tests/integrals/integral_requests.tex", 57);
+    ok &= check_requests("tests/integrals/integral_requests.tex", 59);
     ok &= check_reader();
     ok &= check_rational();
     ok &= check_result(unjustified_steps == 0, "every step of the written proofs passed its independent check");

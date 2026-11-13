@@ -16,18 +16,18 @@
 This note explains what the test data in \texttt{book\_integrals\_beyond.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_integrals.c} in this folder.
 
 \begin{enumerate}
-\item \textbf{Purpose.} The file holds 18 true statements from the same sources as \texttt{book\_integrals.tex}, with the same changes of notation ($\ln$ for the natural $\log$ of the university sheets, $\arctan$ for $\operatorname{arctg}$). The engine does not decide them yet. It may say so; it must never call one of them false.
+\item \textbf{Purpose.} The file holds 16 true statements from the same sources as \texttt{book\_integrals.tex}, with the same changes of notation ($\ln$ for the natural $\log$ of the university sheets, $\arctan$ for $\operatorname{arctg}$). The engine does not decide them yet. It may say so; it must never call one of them false.
 
 \item \textbf{Why they are not decided.}
 \begin{itemize}
 \item Improper integrals, at an infinite bound or where the integrand is unbounded near a bound (11 statements): the engine refuses $\infty$, and applies the fundamental theorem only where the integrand is continuous on the closed interval. They need the limits of chapter 29.
 \item Functions or forms the engine does not handle yet (3 statements): $\arcsin$ of a fraction whose terms have no known sign, $\operatorname{arcosh}$. Two statements of this kind, $\int x \cosh 3x \, dx$ and $\int \frac{dx}{\sqrt{1 + 2x - x^{2}}} = \arcsin \frac{x - 1}{\sqrt{2}} + c$, became provable when $\arcsin$, $\sinh$ and $\cosh$ entered the reader and the rules of differentiation, and moved to \texttt{book\_integrals.tex}.
-\item The two statements at the end (from \texttt{book\_integrals.tex}) mix $\sqrt[3]{x}$ with $\sqrt{x}$ or $\sqrt[6]{x}$. Since $\sqrt[3]{x}$ is read as the real cube root, defined also for $x < 0$ (rule 11o of chapter 11, needed by derivatives such as $\frac{d}{dx} \sqrt[3]{x^{3} + 2x^{2} + 1}$), exact algebra no longer identifies $\sqrt[3]{x}$ with $(\sqrt[6]{x})^{2}$, which holds only where $x \ge 0$. Where both sides are defined the statements are true; the engine would need to use the domain ($x \ge 0$, forced by $\sqrt{x}$) in its zero test.
+\item Two statements that were here, $\int \frac{1 + \sqrt{x}}{x(1 + \sqrt[3]{x})} \, dx$ and $\int \frac{dx}{\sqrt{x} + \sqrt[3]{x}}$, went back to \texttt{book\_integrals.tex}. They mix $\sqrt[3]{x}$, the real cube root, defined also for $x < 0$ (rule 11o), with $\sqrt{x}$ and $\sqrt[6]{x}$: $\sqrt[3]{x} = (\sqrt[6]{x})^{2}$ holds only where $x \ge 0$. The zero test now uses the domain, where both sides are defined, and there $x \ge 0$ (rules 11q and 12d of \texttt{main.c}).
 \item $\int_{-1}^{0} \sqrt[5]{x} \, dx$: the fifth root of a negative number is real (rule 11o), but interval arithmetic (chapter 24) does not evaluate odd roots of negative numbers, so the continuity of the integrand on $[-1, 0]$ cannot be established.
 \item $\int_{e}^{e^{3/2}} \ldots$: exact algebra does not know that $\ln e = 1$, and the integrand has a square root that vanishes at the lower bound.
 \end{itemize}
 
-\item \textbf{Expected result.} The line \texttt{PASS: none of the 18 true statements \ldots{} is called false}, with the number of those proved. When one becomes provable it should move to \texttt{book\_integrals.tex}.
+\item \textbf{Expected result.} The line \texttt{PASS: none of the 16 true statements \ldots{} is called false}, with the number of those proved. When one becomes provable it should move to \texttt{book\_integrals.tex}.
 
 \item \textbf{How to run it.} From the top folder of the repository:
 \begin{verbatim}
