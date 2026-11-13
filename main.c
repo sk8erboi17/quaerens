@@ -255,13 +255,15 @@
  *   - Un certificato per tutto. Lo hanno le induzioni scritte con somme,
  *     prodotti, potenze, fattoriali, binomiali, successioni per ricorrenza
  *     e logaritmi, gli enunciati sugli insiemi senza "esiste", quelli su
- *     insiemi qualsiasi, dimostrati o smentiti, e quelli della tabella dei
- *     segni con frazioni di polinomi e valori assoluti (vedi "I
- *     certificati"). Non lo hanno le induzioni con radici, seni e
- *     arcotangenti, le tabelle dei segni con radici, esponenziali, logaritmi
- *     e funzioni goniometriche, o con un parametro, gli altri enunciati con
- *     quantificatori, i limiti e gli integrali (servirebbe
- *     un verificatore che sappia derivare): lì resta il solo controllo del
+ *     insiemi qualsiasi, dimostrati o smentiti, quelli della tabella dei
+ *     segni con frazioni di polinomi e valori assoluti, le derivate, le
+ *     primitive e gli integrali definiti (27m, 30cert), e i limiti calcolati
+ *     con le serie (vedi "I certificati"). Non lo hanno le induzioni con
+ *     radici, seni e arcotangenti, le tabelle dei segni con radici,
+ *     esponenziali, logaritmi e funzioni goniometriche, o con un parametro,
+ *     gli altri enunciati con quantificatori, i limiti decisi con l'algebra
+ *     dei limiti (29g) o con un confronto tra costanti che il verificatore
+ *     non sa fare, e gli integrali impropri: lì resta il solo controllo del
  *     motore su se stesso (numeri, campioni, passi riletti). Servirebbe
  *     che ogni regola del capitolo 18 emettesse un passo in una notazione
  *     che checker.c sappia ricontrollare. Anche "è definito per ogni n" è
@@ -358,7 +360,10 @@
  * verificatore deriva da sé, con regole sue, e decide con la sua algebra se
  * la differenza è zero; per un integrale ricontrolla anche, con Sturm, che le
  * funzioni siano definite su tutto l'intervallo, e il valore F(b) - F(a).
- * Anche lì un rifiuto rende il verdetto NON DIMOSTRATO.
+ * Anche lì un rifiuto rende il verdetto NON DIMOSTRATO. Lo stesso per un
+ * limite (29n): il certificato è l'enunciato con la sostituzione e la
+ * precisione di ogni lato, e il verificatore rifà gli sviluppi in serie con
+ * la sua aritmetica.
  *
  * Il certificato dimostra una cosa precisa, enunciata in testa a checker.c,
  * e non di più. La sua parte principale dice che per ogni n dal caso base in
@@ -373,8 +378,8 @@
  *
  * Il verdetto dice sempre che cosa il certificato copre: "definiti e uguali
  * per ogni n", "uguali dove sono definiti", oppure "senza certificato", con
- * il motivo quando è un'induzione, una tabella dei segni, una derivata o un
- * integrale.
+ * il motivo quando è un'induzione, una tabella dei segni, una derivata, un
+ * integrale o un limite.
  *
  * COMPILAZIONE
  *
@@ -25703,7 +25708,9 @@ static Verdict prove_abstract(const char *formula) {
  * O(t^q)) = AB + O(t^{min(p + val B, q + val A)}), dove val è l'esponente
  * più basso. Il resto può anche non tendere a zero: O(t^0) è una funzione
  * limitata. Così sin(1/x) vicino a 0 è O(1), e x sin(1/x) è O(t): tende a
- * 0 anche se sin(1/x) non ha limite. Una serie esatta non ha resto.
+ * 0 anche se sin(1/x) non ha limite. Una serie esatta non ha resto. Quando
+ * i coefficienti contengono la lettera L di 29d il resto vale a meno di una
+ * potenza di L: O(t^{E}) vuol dire al più C t^{E} L^{m} (lim_logs).
  *
  * 29c. IL TERMINE PRINCIPALE E IL QUOZIENTE
  *
@@ -25903,8 +25910,13 @@ static Verdict prove_abstract(const char *formula) {
  * esiste; i parametri; le funzioni definite a pezzi; un esponenziale di un
  * esponenziale come fattore (e^{e^{x}} - e^{e^{x} - x}); i logaritmi annidati
  * più di una volta (ln ln ln x), che chiederebbero di salire di due piani.
- * Non c'è un certificato: il verificatore non ha serie né funzioni
- * trascendenti.
+ *
+ * 29n. IL CERTIFICATO
+ *
+ * Il verdetto va a checker.c come certificato: l'enunciato, la sostituzione
+ * e la precisione di ogni lato. Il verificatore rifà gli sviluppi con la sua
+ * aritmetica e le sue regole (il suo capitolo 14), e il verdetto vuole che
+ * lo accetti; vedi limit_certify().
  */
 
 /* Il nome interno della lettera L = ln(1/t) (29d): non è un carattere. */
@@ -25986,6 +25998,13 @@ static const char *const NEEDS_PRECISION = "lo sviluppo, anche con più termini,
  * sostituzione di 29l, x = \pm e^{\pm 1/t}. */
 static int lim_x, lim_infinity, lim_side, lim_goal, lim_ell, lim_exponential, lim_moved;
 static Rat lim_point;
+
+/* 1 se il conto in corso ha scritto la lettera L in un coefficiente (lo fa
+ * solo value_ln()). Da quel momento un resto "O(t^{E})" vale a meno di una
+ * potenza di L: un O(1) moltiplicato per -L, come \sin\frac{1}{x} \ln x, è
+ * scritto O(t^{0}) ma non è limitato. Per i limiti non importa (t^{E} L^{m}
+ * tende a zero per ogni E > 0), per e^{O(1)} sì: vedi value_exp(). */
+static int lim_logs;
 
 /* Il valore di L durante il controllo con i numeri (29i), per gli intervalli
  * dei coefficienti che la contengono; "non so" in ogni altro momento, perché
@@ -26849,8 +26868,12 @@ static Value value_exp(Value v) {
         Rat constant, base;
         Lead lead;
 
-        /* Limitata: e^{O(1)} è O(1), e positiva. */
-        if (series_settle(&s, &lead) < 0 && s.end == 0) return value_series(series_bounded(), 1);
+        /* Limitata: e^{O(1)} è O(1), e positiva. Solo se l'O(1) è davvero
+         * limitato, cioè se nessun coefficiente contiene L (lim_logs):
+         * x \cdot x^{\sin(1/x)} = t e^{-L \sin(1/x)} risultava O(t), e il
+         * limite 0 DIMOSTRATO, mentre in x = 1/(3\pi/2 + 2k\pi) la funzione
+         * vale 1 (special_cases[] in tests/limits/test_limits.c). */
+        if (series_settle(&s, &lead) < 0 && s.end == 0 && !lim_logs) return value_series(series_bounded(), 1);
 
         /* 29k-f. Se il resto tende a zero i termini di esponente negativo
          * sono noti tutti: sono il fattore e^{N}, e il resto si scrive con
@@ -26940,6 +26963,7 @@ static Value value_ln(Value v) {
                 /* ln c - (low/D) L, più ln(1 + u). */
                 Rat ell = rat_mul(rat_frac(frac_make(-s.low, s.den)), rat_atom(lim_ell));
                 int ok;
+                if (s.low) lim_logs = 1;
                 Series sum = series_add(series_taylor(u, TAYLOR_LOG, frac_int(0), lim_goal * u.den), series_const(rat_add(logarithm_c, ell, 0)), 0, &ok);
                 if (ok) return value_series(sum, 0);
             }
@@ -27343,6 +27367,7 @@ typedef struct {
     CheckResult check; /* il controllo con i numeri */
     int first, last;   /* i k dei punti x = a \pm 2^{-k} o x = \pm 2^{k} che il controllo ha usato */
     int moved;         /* 1 se il conto è fatto con la sostituzione di 29l */
+    int goal;          /* la precisione del conto ritornato, lim_goal: l'ordine del certificato (29n) */
 } SideResult;
 
 /* Calcola in *r il limite di f dal lato side (29a), con precisioni via via
@@ -27364,9 +27389,10 @@ static void limit_side(const Node *f, int side, SideResult *r) {
         for (int g = 0; g < goals; g++) {
             Scratch mark = scratch_mark();
             failure = NULL;
-            lim_goal = series_goals[g];
+            lim_goal = r->goal = series_goals[g];
             lim_side = side;
             lim_moved = r->moved = moved;
+            lim_logs = 0;
             lim_ell = atom_var(VAR_LOG_SCALE);
             r->quotient = f->kind == N_DIV;
             if (r->quotient) {
@@ -27844,7 +27870,7 @@ static const char *limit_start(const char *formula, LimitStatement *st, Rat *cla
     failure = NULL;
     env_count = 0;
     conditions_on = 0;
-    lim_exponential = lim_moved = 0;
+    lim_exponential = lim_moved = lim_logs = 0;
     lim_point = *claimed = rat_int(0);
     if (!parse_limit_statement(formula, st)) return syntax_error;
     if (st->variable == 'e' || !limit_letters(st->function, st->variable) || !limit_letters(st->point, 0) || !limit_letters(st->value, 0))
@@ -27860,6 +27886,177 @@ static const char *limit_start(const char *formula, LimitStatement *st, Rat *cla
         return "il punto, o il valore dell'enunciato, non è un numero che il programma sa calcolare";
     }
     return NULL;
+}
+
+/* 29n. IL CERTIFICATO
+ *
+ * Il conto di ogni lato diventa un certificato per checker.c (il suo
+ * capitolo 14), che rifà gli sviluppi da sé, con la sua aritmetica: la
+ * funzione, il punto, ciò che si afferma con la sua verità, e per ogni lato
+ * la sostituzione (29a, o 29l se il conto è salito di un piano) con la
+ * precisione lim_goal a cui il conto è riuscito. Del conto del motore il
+ * verificatore non riceve nient'altro: ricalcola il termine principale, e da
+ * quello il limite.
+ *
+ * Che cosa si afferma: per DIMOSTRATO l'enunciato, vero; per FALSO
+ * l'enunciato, falso; per RISOLTO la risposta riletta dal testo scritto
+ * (29j), vera. Per una successione il certificato parla della funzione con
+ * n reale: se questa ha limite la successione ha lo stesso (teorema ponte).
+ * Un "non esiste" a +\infty non è mai vero per il verificatore, perché lì
+ * c'è un lato solo: e nemmeno per il motore, che lo dichiara falso.
+ *
+ * Le risposte, come per la tabella dei segni (18p-15). Accettato: il
+ * verdetto porta il certificato. Respinto: il motore e il verificatore non
+ * sono d'accordo, quindi nel dubbio non è dimostrato, e il passo conta tra
+ * quelli che non hanno superato il controllo. Non controllabile, o una
+ * funzione che la notazione non sa dire (l'arcocotangente): il verdetto resta
+ * e dice perché il certificato manca.
+ *
+ * La funzione si scrive con limit_cert_node(), non con cert_node() del
+ * capitolo 13: qui la lettera e è il numero di Nepero, non un parametro, e
+ * le funzioni elementari hanno le loro parole. */
+
+/* Scrive l'albero n nella notazione dei limiti di checker.c (i suoi capitoli
+ * 6 e 14), con x la variabile: (exp 1) per e, (exp u) per e^{u}, (pi), le
+ * funzioni con le loro parole, \log_{b} a come (/ (ln a) (ln b)), come lo
+ * calcola limit_call(). Ciò che la notazione non ha rende certificate_broken
+ * uguale a 1.
+ *
+ * Warning: se limit_call() impara una funzione nuova, aggiungila qui e nel
+ * capitolo 14 di checker.c. */
+static void limit_cert_node(const Node *n, int x) {
+    static const char *const binary[] = {[N_ADD] = "+", [N_SUB] = "-", [N_MUL] = "*", [N_DIV] = "/", [N_POW] = "^"};
+    static const struct { Function fn; const char *word; } calls[] = {
+        {FN_SIN, "sin"}, {FN_COS, "cos"}, {FN_TAN, "tan"}, {FN_COT, "cot"}, {FN_ARCTAN, "atan"},
+        {FN_ARCSIN, "arcsin"}, {FN_ARCCOS, "arccos"}, {FN_LN, "ln"}, {FN_ABS, "abs"},
+    };
+    switch (n->kind) {
+    case N_NUM:
+        cert_add("%lld", n->value);
+        return;
+    case N_VAR:
+        if (n->name == x) cert_letter(x);
+        else if (n->name == 'e') cert_add("(exp 1)");
+        else if (n->name == VAR_PI) cert_add("(pi)");
+        else certificate_broken = 1;
+        return;
+    case N_NEG:
+        cert_add("(neg ");
+        limit_cert_node(n->a, x);
+        cert_add(")");
+        return;
+    case N_ADD: case N_SUB: case N_MUL: case N_DIV: case N_POW:
+        if (n->kind == N_POW && n->a->kind == N_VAR && n->a->name == 'e') {
+            cert_add("(exp ");
+            limit_cert_node(n->b, x);
+            cert_add(")");
+            return;
+        }
+        cert_add("(%s ", binary[n->kind]);
+        limit_cert_node(n->a, x);
+        cert_add(" ");
+        limit_cert_node(n->b, x);
+        cert_add(")");
+        return;
+    case N_CALL:
+        if (n->op == FN_LOG && n->b) {
+            cert_add("(/ (ln ");
+            limit_cert_node(n->a, x);
+            cert_add(") (ln ");
+            limit_cert_node(n->b, x);
+            cert_add("))");
+            return;
+        }
+        if (n->op == FN_ROOT) {
+            /* (root m a): l'indice prima, come nel capitolo 6 di checker.c. */
+            cert_add("(root ");
+            limit_cert_node(n->b, x);
+            cert_add(" ");
+            limit_cert_node(n->a, x);
+            cert_add(")");
+            return;
+        }
+        for (size_t i = 0; i < sizeof calls / sizeof *calls; i++)
+            if (calls[i].fn == (Function)n->op) {
+                cert_add("(%s ", calls[i].word);
+                limit_cert_node(n->a, x);
+                cert_add(")");
+                return;
+            }
+        certificate_broken = 1;
+        return;
+    default:
+        certificate_broken = 1;
+    }
+}
+
+/* Scrive in certificate_text il certificato del limite st, calcolato nei
+ * lati sides[0..count-1], che afferma claim (con il valore value se è
+ * LIMIT_VALUE) con la verità truth. */
+static void limit_certificate(const LimitStatement *st, const SideResult *sides, int count, LimitClaim claim, const Node *value, int truth) {
+    static const char *const claims[] = {[LIMIT_ASKED] = "", [LIMIT_VALUE] = "value", [LIMIT_PLUS] = "plus", [LIMIT_MINUS] = "minus",
+                                         [LIMIT_UNSIGNED] = "unsigned", [LIMIT_NONE] = "none"};
+    certificate_length = 0;
+    certificate_broken = claim == LIMIT_ASKED;
+    cert_add("certificate limit\nvariable ");
+    cert_letter(st->variable);
+    cert_add("\npoint ");
+    if (st->infinity) {
+        cert_add(st->infinity > 0 ? "+infinity" : "-infinity");
+    } else {
+        limit_cert_node(st->point, st->variable);
+        if (st->side) cert_add(st->side > 0 ? " right" : " left");
+    }
+    cert_add("\nfunction ");
+    limit_cert_node(st->function, st->variable);
+    cert_add("\nclaim %s ", claims[claim]);
+    if (claim == LIMIT_VALUE) {
+        limit_cert_node(value, st->variable);
+        cert_add(" ");
+    }
+    cert_add(truth ? "true" : "false");
+
+    /* I lati, nell'ordine di prove_limit(): da destra, poi da sinistra. */
+    for (int i = 0; i < count; i++) {
+        const SideResult *r = &sides[i];
+        int toward = st->infinity ? st->infinity : r->side;
+        const char *substitution = st->infinity ? (r->moved ? (toward > 0 ? "e^(1/t)" : "-e^(1/t)") : (toward > 0 ? "1/t" : "-1/t"))
+                                                : (r->moved ? (toward > 0 ? "e^(-1/t)" : "-e^(-1/t)") : (toward > 0 ? "a+t" : "a-t"));
+        cert_add("\nside %s %s %d", st->infinity ? "infinity" : toward > 0 ? "right" : "left", substitution, r->goal);
+    }
+    cert_add("\nend\n");
+}
+
+/* 29n. Fa controllare a checker.c il verdetto *verdict sul limite st, con i
+ * lati sides[0..count-1], e lo aggiorna con la risposta (vedi "Le risposte"
+ * in testa a 29n). claim, value e truth sono ciò che il certificato
+ * afferma. */
+static void limit_certify(const LimitStatement *st, const SideResult *sides, int count, LimitClaim claim, const Node *value, int truth, Verdict *verdict) {
+    static char problem[512];
+    const char *why = "la funzione usa qualcosa che la notazione dei certificati non ha", *text = certificate_text;
+    limit_certificate(st, sides, count, claim, value, truth);
+    if (!certificate_broken) {
+        CkAnswer answer = ck_check(&text, &why);
+        if (answer == CK_ACCEPTED) {
+            verdict->certificate = certificate_text;
+            verdict->reason = NULL;
+            return;
+        }
+        if (answer == CK_REJECTED) {
+            unjustified_steps++;
+            snprintf(problem, sizeof problem, "il verificatore indipendente ha respinto il certificato del limite: %s", why);
+            *verdict = (Verdict){NOT_PROVED, 0, 0, 0, problem, NULL, NULL, NULL, NULL, NULL};
+            return;
+        }
+        snprintf(problem, sizeof problem, "il verificatore non sa controllarlo, %s", why);
+    } else {
+        snprintf(problem, sizeof problem, "%s", why);
+    }
+
+    /* Il motivo sta nella riga del verdetto, e per una richiesta prima del
+     * ": " dopo il quale viene la risposta (vedi sign_certify()). */
+    for (char *colon = problem; (colon = strchr(colon, ':')) != NULL;) *colon = ',';
+    verdict->reason = problem;
 }
 
 /* 29j. Prova a dimostrare, smentire o risolvere l'enunciato sul limite
@@ -27953,13 +28150,16 @@ static Verdict prove_limit(const char *formula) {
         holds = known == 0;
         break;
     }
+    /* Ciò che il certificato afferma (29n): l'enunciato, oppure la risposta
+     * riletta. */
+    LimitStatement reread = st;
+    int truth = holds;
     if (st.claim == LIMIT_ASKED) {
         /* La risposta: l'enunciato con il valore, scritto e riletto. Deve
          * rileggersi come un enunciato sul limite, e il valore come quello
          * calcolato. */
         const char *from = st.from, *to = st.to;
         char value[MAX_FORMULA];
-        LimitStatement reread;
         while (to > from && isspace((unsigned char)to[-1])) to--;
         if (!exists) {
             snprintf(answer, sizeof answer, "\\nexists %.*s", (int)(to - from), from);
@@ -27982,7 +28182,6 @@ static Verdict prove_limit(const char *formula) {
         proof_add("This is what the statement says.");
         verdict.outcome = PROVED;
         verdict.method = "con le serie troncate";
-        verdict.reason = "i limiti non hanno una notazione nei certificati";
     } else {
         proof_add("The statement says otherwise, so it is false.");
         verdict.outcome = REFUTED;
@@ -27996,6 +28195,8 @@ static Verdict prove_limit(const char *formula) {
         return verdict;
     }
     verdict.proof = proof_text;
+    if (st.claim == LIMIT_ASKED) truth = 1;
+    limit_certify(&st, sides, count, reread.claim, reread.value, truth, &verdict);
     return verdict;
 }
 

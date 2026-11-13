@@ -17,10 +17,11 @@
  * reale il certificato è la tabella dei segni, di cui si ricontrolla ogni
  * riga (capitolo 12). Per una derivata, una primitiva o un integrale
  * definito il certificato porta le espressioni, e questo programma deriva da
- * sé, con regole sue (capitolo 13). Il resto di questo commento riguarda le
- * induzioni; i
- * teoremi degli altri tipi sono più sotto. Questo programma legge il
- * certificato e risponde:
+ * sé, con regole sue (capitolo 13). Per un limite il certificato è
+ * l'enunciato con la sostituzione e l'ordine degli sviluppi in serie, che
+ * questo programma rifà da sé (capitolo 14). Il resto di questo commento
+ * riguarda le induzioni; i teoremi degli altri tipi sono più sotto. Questo
+ * programma legge il certificato e risponde:
  *
  *   - ACCETTATO: tutti i controlli sono riusciti;
  *   - RESPINTO: un controllo è fallito, il certificato non dimostra nulla;
@@ -171,6 +172,12 @@
  *     primitiva F è regolare e f è definita, le primitive di f sono le F + c.
  *   - "certificate integral": f è continua su [a, b] e il suo integrale da
  *     a a b vale V. I teoremi esatti sono in testa al capitolo 13.
+ *   - "certificate limit" (capitolo 14): da ogni lato del punto la funzione,
+ *     preso il suo dominio naturale, o non ha valori in un intorno bucato, o
+ *     li ha tutti e ha un limite; e il limite nel punto, dentro il dominio,
+ *     è (o non è, o non esiste) ciò che il certificato afferma. Il teorema
+ *     esatto, con ciò che si cita senza dimostrarlo (il teorema di Taylor con
+ *     il resto di Peano, la scala delle crescite), è in testa al capitolo 14.
  *
  * COMPILAZIONE
  *
@@ -194,8 +201,9 @@
  *   11. Insiemi qualsiasi: modelli finiti e dimostrazioni per assurdo
  *   12. Tabelle dei segni
  *   13. Derivate e primitive
- *   14. Controllo di un certificato
- *   15. main
+ *   14. Limiti
+ *   15. Controllo di un certificato
+ *   16. main
  */
 
 /* =============================================================================
@@ -245,6 +253,11 @@
 #define CK_MAX_ABS 4         /* valori assoluti distinti in un confronto: le scelte dei segni sono 2^4 */
 #define CK_MAX_SEEN 1024     /* polinomi annotati calcolando un confronto */
 #define CK_MAX_TRIED 1000000 /* razionali provati come radici di un fattore, per una riga (12g) */
+#define CK_FLAT 1000000      /* esponente del resto di una funzione più piccola di ogni potenza (14c) */
+#define CK_MAX_SERIES 48     /* coefficienti noti di una serie (14c) */
+#define CK_MAX_SERIES_DEN 24 /* denominatore degli esponenti di una serie */
+#define CK_MAX_TAYLOR 20     /* termini di una serie di Taylor (14d) */
+#define CK_MAX_GOAL 64       /* l'ordine di un lato di un limite */
 
 /* La risposta su un certificato. */
 typedef enum { CK_ACCEPTED, CK_REJECTED, CK_UNSUPPORTED } CkAnswer;
@@ -362,6 +375,17 @@ static CkNum ck_num_mul(CkNum a, CkNum b) {
         return ck_num_int(0);
     }
     return ck_num_make(num, den);
+}
+
+/* Mette in *out a b se il prodotto sta nei numeri del verificatore e ritorna
+ * 1; altrimenti ritorna 0, senza annotare nulla. Serve dove uscire dai
+ * numeri vuol dire solo fermarsi prima (14b, 14d). */
+static int ck_num_mul_fits(CkNum a, CkNum b, CkNum *out) {
+    __int128 g = ck_gcd(a.num, b.den), h = ck_gcd(b.num, a.den), num, den;
+    if (__builtin_mul_overflow(a.num / g, b.num / h, &num) || __builtin_mul_overflow(a.den / h, b.den / g, &den)) return 0;
+    if (num > CK_NUM_LIMIT || num < -CK_NUM_LIMIT || den > CK_NUM_LIMIT) return 0;
+    *out = ck_num_make(num, den);
+    return 1;
 }
 
 /* Ritorna -a. */
@@ -665,9 +689,14 @@ static CkRat ck_rat_power(CkRat a, long long e) {
  *     (< a b)  (<= a b)  (abs a)  (sqrt a)
  *
  * Le derivate e le primitive (capitolo 13) le funzioni di una variabile
- * reale:
+ * reale, che usano anche i limiti (capitolo 14), con altre quattro:
  *
  *     (exp a)  (sin a)  (cos a)  (atan a)  (root m a)  (pi)
+ *     (tan a)  (cot a)  (arcsin a)  (arccos a)
+ *
+ * (root m a) è la radice di indice m di a, con m un intero scritto prima del
+ * radicando; (atan a) l'arcotangente. Una parola sola per ogni funzione, con
+ * lo stesso significato nei due capitoli.
  *
  * Un intero può avere il segno meno davanti. Una lettera è un solo
  * carattere: la variabile di induzione, un parametro, o un indice di somma.
@@ -685,8 +714,15 @@ typedef enum {
     CK_TRUE, CK_FORALL, CK_EXISTS, CK_APP, CK_VAR, CK_ATOM,
     /* Tabelle dei segni (capitolo 12). */
     CK_LESS, CK_LESS_EQ, CK_ABS, CK_SQRT,
-    /* Derivate e primitive (capitolo 13). */
-    CK_EXP, CK_SIN, CK_COS, CK_ATAN, CK_RADICAL, CK_PI
+    /* Le funzioni di una variabile reale: derivate e primitive (capitolo 13)
+     * e limiti (capitolo 14). */
+    CK_EXP, CK_SIN, CK_COS, CK_ATAN, CK_RADICAL, CK_PI,
+    /* Solo nei limiti (capitolo 14).
+     *
+     * Warning: devono restare fuori dall'intervallo da CK_EXP a CK_PI, che
+     * ck_eval() passa a ck_real_eval() del capitolo 13: lì ogni parola che
+     * non ha un caso suo è presa per una potenza. */
+    CK_TAN, CK_COT, CK_ARCSIN, CK_ARCCOS
 } CkKind;
 
 /* Un nodo dell'albero di un'espressione. I nodi stanno nell'arena.
@@ -706,10 +742,12 @@ typedef enum {
  * Nel capitolo 12:
  *   LESS, LESS_EQ: a < b, a <= b, come EQ e NEQ i due membri a e b.
  *   ABS, SQRT: il valore assoluto, la radice quadrata di a.
- * Nel capitolo 13:
+ * Nei capitoli 13 e 14:
  *   EXP, SIN, COS, ATAN: e^a, sin a, cos a, arctan a.
  *   RADICAL: la radice di indice a (un intero scritto) di b.
- *   PI: pi greco, senza operandi. */
+ *   PI: pi greco, senza operandi.
+ * Nel capitolo 14:
+ *   TAN, COT, ARCSIN, ARCCOS: tan a, cot a, arcsin a, arccos a. */
 typedef struct CkNode CkNode;
 struct CkNode {
     CkKind kind;
@@ -779,6 +817,7 @@ static const CkNode *ck_read(void) {
         {"and", CK_AND, 2}, {"or", CK_OR, 2}, {"implies", CK_IMPLIES, 2}, {"iff", CK_IFF, 2}, {"not", CK_NOT, 1},
         {"<", CK_LESS, 2}, {"<=", CK_LESS_EQ, 2}, {"abs", CK_ABS, 1}, {"sqrt", CK_SQRT, 1},
         {"exp", CK_EXP, 1}, {"sin", CK_SIN, 1}, {"cos", CK_COS, 1}, {"atan", CK_ATAN, 1}, {"root", CK_RADICAL, 2}, {"pi", CK_PI, 0},
+        {"tan", CK_TAN, 1}, {"cot", CK_COT, 1}, {"arcsin", CK_ARCSIN, 1}, {"arccos", CK_ARCCOS, 1},
     };
     long long value;
     CkNode *node = ck_node(CK_NUMBER);
@@ -862,6 +901,10 @@ static int ck_same(const CkNode *p, const CkNode *q) {
  *       S = sin u e C = cos u (sempre in coppia), A = arctan u, R = la radice
  *       m-esima di u, e pi greco. u è una frazione di polinomi nelle lettere
  *       già create.
+ *   7h. CONST: nei limiti (capitolo 14), un numero positivo b^{1/m}: b è un
+ *       primo, e, pi, il logaritmo di un primo, oppure la lettera L. Sono
+ *       costanti, non funzioni di x come quelle di 7g, e hanno la regola loro,
+ *       (b^{1/m})^m = b (14a).
  *
  * Il riferimento. Per ogni somma serve l'estremo più basso con cui compare,
  * così ogni altra occorrenza si ottiene aggiungendo termini e mai
@@ -874,7 +917,9 @@ static int ck_same(const CkNode *p, const CkNode *q) {
 typedef enum {
     CK_VAR_LETTER, CK_VAR_BIG, CK_VAR_EXP, CK_VAR_SIGN, CK_VAR_SEQ, CK_VAR_LN,
     /* 7g. */
-    CK_VAR_E, CK_VAR_SIN, CK_VAR_COS, CK_VAR_ATAN, CK_VAR_ROOT, CK_VAR_PI
+    CK_VAR_E, CK_VAR_SIN, CK_VAR_COS, CK_VAR_ATAN, CK_VAR_ROOT, CK_VAR_PI,
+    /* 7h. */
+    CK_VAR_CONST
 } CkVarKind;
 
 /* Un'indeterminata. I campi usati dipendono da kind:
@@ -889,11 +934,16 @@ typedef enum {
  *           ROOT prime è l'indice m della radice. La COS di una coppia sta
  *           subito dopo la sua SIN.
  *   PI:     nessun campo.
+ *   CONST:  il numero b^{1/position} (14a): name dice b, 'p' il primo prime,
+ *           'e' il numero di Nepero, 'q' pi greco, 'l' il logaritmo del primo
+ *           prime, 'L' la lettera L = ln(1/t); position è l'indice m >= 1.
  * stated vale 1 per una somma o un prodotto che compare nell'enunciato
  * calcolato con i parametri fissati (capitolo 9), e non solo nel fattore.
  *
  * Warning: se aggiungi un tipo, decidi che cosa ne fanno ck_ln_poly() (8g),
- * ck_var_derivative() e ck_certainly_nonzero() (capitolo 13). */
+ * ck_var_derivative() e ck_certainly_nonzero() (capitolo 13). Le lettere
+ * CONST nascono e restano nei certificati dei limiti (ck_check_limit()
+ * svuota la tabella), e quelle funzioni non le vedono mai. */
 typedef struct {
     CkVarKind kind;
     char name;
@@ -1453,6 +1503,11 @@ static CkRat ck_eval(const CkNode *node) {
     }
     case CK_EXP: case CK_SIN: case CK_COS: case CK_ATAN: case CK_RADICAL: case CK_PI:
         ck_unsupported("il certificato di induzione usa un operatore delle funzioni di una variabile reale, che lì il verificatore non conosce");
+        break;
+    case CK_TAN: case CK_COT: case CK_ARCSIN: case CK_ARCCOS:
+        /* Le parole dei soli limiti (capitolo 14): qui arrivano da un
+         * certificato di induzione o del capitolo 13, che non le conoscono. */
+        ck_unsupported("un operatore dei limiti (tan, cot, arcsin, arccos), che qui il verificatore non conosce");
         break;
     case CK_ABS:
         ck_unsupported("il valore assoluto non si calcola in un certificato di induzione");
@@ -4802,7 +4857,1775 @@ static void ck_check_calculus(int kind) {
 }
 
 /* =============================================================================
- * 14. CONTROLLO DI UN CERTIFICATO
+ * 14. LIMITI
+ * ============================================================================
+ *
+ * Gli enunciati del capitolo 29 di mathresearcher dicono quanto vale il
+ * limite di una funzione di una variabile reale in un punto, da un lato o
+ * dai due, oppure a +infinito o a -infinito. Il motore li decide con gli
+ * sviluppi in serie troncati, a coefficienti esatti, e il certificato è
+ * l'enunciato con la sostituzione e l'ordine di ogni lato:
+ *
+ *     certificate limit
+ *     variable x
+ *     point 0
+ *     function (/ (- 1 (cos x)) (^ x 2))
+ *     claim value (/ 1 2) true
+ *     side right a+t 4
+ *     side left a-t 4
+ *     end
+ *
+ * Le voci, in quest'ordine:
+ *
+ *   variable  la variabile, una lettera;
+ *   point     il punto, un'espressione costante, seguita da right o left per
+ *             un limite da un lato solo; oppure +infinity o -infinity;
+ *   function  la funzione: interi, la variabile, + - * / neg ^, e le parole
+ *             pi, exp, ln, lnabs, abs, sin, cos, tan, cot, atan, arcsin,
+ *             arccos e (root m a) del capitolo 6;
+ *   claim     ciò che si afferma, poi true o false: value V, il limite è il
+ *             numero V (un'espressione costante); plus, è +infinito; minus,
+ *             è -infinito; unsigned, |f| tende a +infinito; none, il limite
+ *             non esiste;
+ *   side      un lato, la sostituzione e l'ordine. Un punto senza lato vuole
+ *             le righe right e left, in quest'ordine; un punto con il lato,
+ *             quella sola; un infinito, una riga infinity. Le sostituzioni:
+ *             a+t da destra del punto a, a-t da sinistra, 1/t a +infinito,
+ *             -1/t a -infinito; e^(-1/t) e -e^(-1/t) da destra e da sinistra
+ *             di 0, e^(1/t) e -e^(1/t) a +infinito e a -infinito (14h).
+ *             L'ordine N, da 1 a CK_MAX_GOAL, dice dove si fermano gli
+ *             sviluppi (14d).
+ *
+ * IL TEOREMA. Sia f la funzione scritta nel certificato, con il suo dominio
+ * naturale D: gli x in cui ogni operazione del suo calcolo ha senso. Ogni
+ * divisore è diverso da zero (una potenza con esponente intero negativo è
+ * una divisione; x^0 vale 1); ogni argomento di ln è positivo, di lnabs
+ * diverso da zero; la base di una potenza con esponente non intero, o non
+ * costante, è positiva (o nulla, con un esponente razionale positivo); il
+ * radicando di una radice di indice pari non è negativo; l'argomento di
+ * arcsin e di arccos sta tra -1 e 1; quello di tan non annulla il coseno,
+ * quello di cot il seno. Per ogni lato del certificato sia I_d l'intorno
+ * bucato di ampiezza d da quel lato: (a, a + d), (a - d, a), (1/d,
+ * +infinito) o (-infinito, -1/d). Il verificatore stabilisce una di due cose:
+ *
+ *   - per un d > 0, I_d non ha punti di D: da quel lato f non ha valori;
+ *   - per un d > 0, I_d sta tutto in D, e da quel lato f ha limite: un
+ *     numero, +infinito o -infinito.
+ *
+ * Il limite di f nel punto è quello di f ristretta a D: se un lato non ha
+ * valori conta solo l'altro; se non ne ha nessuno dei due il limite non ha
+ * senso, e il certificato è respinto. Se il certificato è accettato, ciò
+ * che dice claim, con la verità dichiarata, è vero:
+ *
+ *   - value V: true, il limite esiste ed è V; false, non è V (è un altro, o
+ *     non esiste);
+ *   - plus, minus: true, il limite è +infinito, -infinito; false, non lo è;
+ *   - unsigned: true, ogni lato con valori ha limite infinito, quindi |f|
+ *     tende a +infinito; false, un lato ha un limite finito;
+ *   - none: true, i due lati hanno valori e limiti diversi, quindi il limite
+ *     non esiste; false, il limite esiste.
+ *
+ * Il limite di una successione a_n è quello della funzione con n reale,
+ * quando questa ha limite (teorema ponte): lo usa chi scrive il
+ * certificato, non il verificatore.
+ *
+ * COME LO SI CONTROLLA. La sostituzione porta la variabile a una t > 0 che
+ * tende a 0 (14h). t -> a + t, a - t, 1/t, -1/t sono biiezioni monotone da
+ * un intervallo (0, d') all'intorno I_d, e x tende al punto da quel lato se
+ * e solo se t tende a 0 da destra: il limite di f da quel lato è il limite
+ * di f(x(t)) per t -> 0^{+}. La funzione si sviluppa in potenze di t, anche
+ * frazionarie (le radici), con un resto O(t^{E}) (14c), un'operazione alla
+ * volta; i coefficienti sono numeri esatti (14a), che possono contenere la
+ * lettera L = ln(1/t). Ogni operazione con una condizione la controlla sul
+ * termine principale del suo argomento, c t^{e} (1 + o(1)): con c diverso
+ * da zero l'argomento non si annulla per t piccolo e ha il segno di c. È
+ * così che si stabilisce che I_d sta in D, o che non ne ha punti (un
+ * radicando con c < 0). Il limite si legge dal termine principale di f
+ * (14i), e da quello di ogni lato la verità di claim (14j).
+ *
+ * Non c'è nessuna ricerca: l'ordine del certificato fissa ogni sviluppo, e i
+ * conti sono somme, prodotti e quozienti di numeri esatti. Ciò che si cita
+ * senza dimostrarlo:
+ *
+ *   - il teorema di Taylor con il resto di Peano: per g una tra exp, sin,
+ *     cos, ln(1 + w), arctan, (1 + w)^q e per K >= 1, g(w) = a_0 + a_1 w +
+ *     ... + a_{K-1} w^{K-1} + O(w^{K}) per w -> 0, con gli a_k della serie
+ *     di Taylor di g in 0 (14d);
+ *   - che L = ln(1/t) cresce meno di ogni potenza di 1/t: t^{eps} L^{m}
+ *     tende a 0 per ogni eps > 0 e ogni m;
+ *   - le identità delle funzioni elementari: e^{u + v} = e^{u} e^{v},
+ *     ln(u v) = ln u + ln v e (u v)^q = u^q v^q per u, v > 0; le formule di
+ *     addizione di seno e coseno, quella di sottrazione dell'arcotangente e
+ *     quella che scrive l'arcoseno con l'arcotangente; i valori di seno,
+ *     coseno e arcotangente negli angoli multipli di 30 e di 45 gradi (14e);
+ *   - la scala delle crescite: un'esponenziale e^{G}, con G che tende a
+ *     +infinito come una potenza negativa di t, cresce più di ogni potenza di
+ *     1/t e di L (14g).
+ *
+ * I paragrafi:
+ *
+ *   14a. Le costanti: le lettere positive e la loro regola.
+ *   14b. Il segno di una costante e il termine principale di un coefficiente.
+ *   14c. Le serie troncate: somma, prodotto, il resto.
+ *   14d. Le serie di Taylor, l'inverso, le potenze.
+ *   14e. Le funzioni delle costanti.
+ *   14f. Le funzioni vicino al punto.
+ *   14g. Il fattore e^{G}: la scala delle crescite.
+ *   14h. Il valore di un'espressione.
+ *   14i. Il limite da un lato.
+ *   14j. La lettura del certificato e la verità di ciò che afferma.
+ */
+
+/* 14a. LE COSTANTI
+ *
+ * I coefficienti degli sviluppi sono frazioni di polinomi (capitolo 5), le
+ * cui indeterminate sono numeri positivi: le lettere CONST di 7h, b^{1/m},
+ * con b un primo p (e allora m >= 2: p stesso è un razionale), e, pi, il
+ * logaritmo ln p di un primo, oppure la lettera L = ln(1/t). Così \sqrt{2},
+ * e^{-7/2} = (e^{1/2}) / e^{4}, \pi / (4 \ln 2) sono frazioni di polinomi.
+ *
+ * Un coefficiente è zero se il suo numeratore è il polinomio nullo, dopo la
+ * sola regola (b^{1/m})^{m} = b, applicata a ogni conto (ck_const_reduce()).
+ * È una conclusione vera, perché ogni passo è un'uguaglianza vera; il
+ * contrario non vale: \sqrt{2} \sqrt{3} - \sqrt{6} non risulta zero, ed
+ * e^{1/2} e^{1/3} non è e^{5/6}, perché le lettere sono diverse. Non è un
+ * errore: un numero così il verificatore saprà dirlo diverso da zero solo
+ * se le regole del segno (14b) lo provano, e uno zero non lo provano mai;
+ * altrimenti il certificato non è controllabile. */
+
+/* Il polinomio 1, comune a tutti i coefficienti del certificato in corso:
+ * i polinomi non si modificano mai, quindi si possono condividere. */
+static CkPoly ck_one;
+
+/* Ritorna l'indeterminata CONST b^{1/root} (7h), creandola se manca. */
+static int ck_const_var(char base, long long prime, int root) {
+    for (int i = 0; i < ck_var_count; i++)
+        if (ck_vars[i].kind == CK_VAR_CONST && ck_vars[i].name == base && ck_vars[i].prime == prime && ck_vars[i].position == root) return i;
+    return ck_var_new((CkVar){.kind = CK_VAR_CONST, .name = base, .prime = prime, .position = root});
+}
+
+/* Ritorna 1 se il polinomio p contiene la lettera L, con qualunque indice. */
+static int ck_poly_has_ell(CkPoly p) {
+    for (int i = 0; i < p.count; i++)
+        for (int v = 0; v < ck_var_count; v++)
+            if (p.term[i].e[v] && ck_vars[v].kind == CK_VAR_CONST && ck_vars[v].name == 'L') return 1;
+    return 0;
+}
+
+/* Ritorna 1 se il coefficiente c contiene la lettera L. */
+static int ck_c_has_ell(CkRat c) { return ck_poly_has_ell(c.num) || ck_poly_has_ell(c.den); }
+
+/* Ritorna p con la regola (b^{1/m})^{m} = b applicata finché si può: un
+ * esponente k >= m diventa k - m, e b entra nel coefficiente se è un primo,
+ * altrimenti come la lettera b^{1/1}. Le lettere create qui hanno indice 1,
+ * a cui la regola non si applica: un passo basta. */
+static CkPoly ck_const_reduce(CkPoly p) {
+    int any = 0;
+    for (int i = 0; i < p.count && !any; i++)
+        for (int v = 0; v < ck_var_count; v++)
+            if (ck_vars[v].kind == CK_VAR_CONST && ck_vars[v].position > 1 && p.term[i].e[v] >= ck_vars[v].position) any = 1;
+    if (!any) return p;
+    CkTerm *t = ck_alloc(sizeof *t * (size_t)(p.count + 1));
+    if (ck_status != CK_ACCEPTED) return (CkPoly){0, t};
+    memcpy(t, p.term, sizeof *t * (size_t)p.count);
+    for (int i = 0; i < p.count; i++)
+        for (int v = 0; v < ck_var_count && ck_status == CK_ACCEPTED; v++) {
+            int m = ck_vars[v].position, k = t[i].e[v] / (m > 0 ? m : 1);
+            if (ck_vars[v].kind != CK_VAR_CONST || m < 2 || k == 0) continue;
+            t[i].e[v] = (signed char)(t[i].e[v] - k * m);
+            if (ck_vars[v].name == 'p') {
+                for (int j = 0; j < k; j++) t[i].coef = ck_num_mul(t[i].coef, ck_num_int(ck_vars[v].prime));
+                continue;
+            }
+            int whole = ck_const_var(ck_vars[v].name, ck_vars[v].prime, 1);
+            if (t[i].e[whole] + k > CK_MAX_EXPONENT) { ck_unsupported("esponenti troppo grandi per il verificatore"); break; }
+            t[i].e[whole] = (signed char)(t[i].e[whole] + k);
+        }
+    return ck_poly_build(t, p.count);
+}
+
+/* Ritorna il razionale n come coefficiente. */
+static CkRat ck_c_num(CkNum n) { return (CkRat){ck_poly_number(n), ck_one}; }
+
+/* Ritorna l'indeterminata v come coefficiente. */
+static CkRat ck_c_var(int v) { return (CkRat){ck_poly_variable(v), ck_one}; }
+
+/* Se il coefficiente c è un razionale lo mette in *n e ritorna 1. */
+static int ck_c_rational(CkRat c, CkNum *n) {
+    if (!ck_poly_is_constant(c.num) || !ck_poly_is_constant(c.den) || c.den.count == 0) return 0;
+    *n = c.num.count ? ck_num_mul(c.num.term[0].coef, ck_num_inv(c.den.term[0].coef)) : ck_num_int(0);
+    return 1;
+}
+
+/* Ritorna c in forma più piccola, con lo stesso valore: la regola di 14a; un
+ * denominatore costante passa nel numeratore; un altro si rende monico, e
+ * se divide il numeratore la frazione diventa un polinomio. */
+static CkRat ck_c_norm(CkRat c) {
+    CkNum lead;
+    CkPoly quotient;
+    c.num = ck_const_reduce(c.num);
+    c.den = ck_const_reduce(c.den);
+    if (ck_status != CK_ACCEPTED || c.den.count == 0) return (CkRat){ck_poly_number(ck_num_int(0)), ck_one};
+    if (ck_poly_is_constant(c.den)) return (CkRat){ck_poly_mul(c.num, ck_poly_number(ck_num_inv(c.den.term[0].coef))), ck_one};
+    c.den = ck_poly_monic(c.den, &lead);
+    c.num = ck_poly_mul(c.num, ck_poly_number(ck_num_inv(lead)));
+    if (c.num.count == 0 || ck_poly_divides(c.den, c.num, &quotient)) return (CkRat){c.num.count ? quotient : c.num, ck_one};
+    return c;
+}
+
+/* a + b, oppure a - b se minus è diverso da zero. I razionali, che sono la
+ * gran parte, si sommano senza polinomi. */
+static CkRat ck_c_add(CkRat a, CkRat b, int minus) {
+    CkNum x, y;
+    if (ck_c_rational(a, &x) && ck_c_rational(b, &y)) return ck_c_num(ck_num_add(x, minus ? ck_num_neg(y) : y));
+    return ck_c_norm(ck_rat_add(a, b, minus));
+}
+
+/* a b. */
+static CkRat ck_c_mul(CkRat a, CkRat b) {
+    CkNum x, y;
+    if (ck_c_rational(a, &x) && ck_c_rational(b, &y)) return ck_c_num(ck_num_mul(x, y));
+    return ck_c_norm(ck_rat_mul(a, b));
+}
+
+/* 1 / a, con a diverso da zero. */
+static CkRat ck_c_inv(CkRat a) { return ck_c_norm((CkRat){a.den, a.num}); }
+
+/* -a. */
+static CkRat ck_c_neg(CkRat a) { return ck_c_mul(a, ck_c_num(ck_num_int(-1))); }
+
+/* 14b. IL SEGNO DI UNA COSTANTE
+ *
+ * Le lettere CONST sono tutte numeri positivi (L lo è per t < 1). Il segno di
+ * un polinomio in queste lettere si stabilisce con tre regole, con conti
+ * esatti tra razionali e senza nessun numero approssimato:
+ *
+ *   14b-1. se tutti i coefficienti hanno lo stesso segno, è quello: una
+ *          somma di numeri dello stesso segno ha quel segno;
+ *   14b-2. tolto il monomio che divide tutti i termini, che è positivo, resta
+ *          una combinazione q_1 ln p_1 + ... + q_k ln p_k di logaritmi di
+ *          primi diversi, con i q_i razionali non nulli. Con N il minimo
+ *          comune multiplo dei loro denominatori e a_i = N q_i, che sono
+ *          interi, ha il segno di ln(p_1^{a_1} ... p_k^{a_k}), cioè di P - Q,
+ *          con P il prodotto dei p_i^{a_i} con a_i > 0 e Q quello dei
+ *          p_i^{-a_i} con a_i < 0. P e Q sono interi diversi, per l'unicità
+ *          della scomposizione in primi: il segno è un confronto tra due
+ *          interi. Così ln 2 - ln 3 < 0;
+ *   14b-3. tolto il monomio comune, restano le lettere di una base sola b,
+ *          tra e, pi (senza radici) e un primo p: b^{1/m_1}, b^{1/m_2}, ...
+ *          Con M il minimo comune multiplo degli m_i e Y = b^{1/M}, ognuna è
+ *          una potenza di Y, b^{1/m_i} = Y^{M/m_i}, e il polinomio diventa un
+ *          polinomio P(Y) in una variabile, a coefficienti razionali. Due
+ *          razionali low < Y < high li dà un conto finito (ck_root_bounds());
+ *          se P non si annulla in low né in high e non ha radici tra i due
+ *          (teorema di Sturm, 12a), P ha lo stesso segno in tutto [low,
+ *          high], e in Y ha quello di P(low). Così e^2 - e^3 < 0, e
+ *          \sqrt{2}/2 - 1 < 0.
+ *
+ * Il resto, come \pi - e o 1 - \ln 2, ha un segno che le regole non danno:
+ * il certificato che ne ha bisogno non è controllabile. */
+
+/* Ritorna p^k in *out, se non esce dai numeri del verificatore: 0 se esce,
+ * senza annotare nulla. */
+static int ck_power_fits(long long p, __int128 k, __int128 *out) {
+    *out = 1;
+    for (__int128 i = 0; i < k; i++)
+        if (__builtin_mul_overflow(*out, (__int128)p, out) || *out > CK_NUM_LIMIT) return 0;
+    return 1;
+}
+
+/* 14b-2. Ritorna il segno di p, tolto il monomio low comune a tutti i suoi
+ * termini, se ciò che resta è una combinazione di logaritmi di primi; 2
+ * altrimenti. */
+static int ck_log_sign(CkPoly p, const signed char *low) {
+    /* Ogni termine deve essere q ln p: N è il minimo comune multiplo dei
+     * denominatori, top e bottom i prodotti P e Q. */
+    __int128 n = 1, top = 1, bottom = 1;
+    for (int i = 0; i < p.count; i++) {
+        int letter = -1, extra = 0;
+        for (int v = 0; v < ck_var_count; v++) {
+            int e = p.term[i].e[v] - low[v];
+            if (e == 1 && letter < 0) letter = v;
+            else if (e) extra = 1;
+        }
+        if (letter < 0 || extra || ck_vars[letter].kind != CK_VAR_CONST || ck_vars[letter].name != 'l' || ck_vars[letter].position != 1) return 2;
+        __int128 g = ck_gcd(n, p.term[i].coef.den);
+        if (__builtin_mul_overflow(n / g, p.term[i].coef.den, &n) || n > CK_NUM_LIMIT) return 2;
+    }
+    for (int i = 0; i < p.count; i++) {
+        int letter = 0;
+        __int128 a, power;
+        for (int v = 0; v < ck_var_count; v++)
+            if (p.term[i].e[v] - low[v] == 1) letter = v;
+        if (__builtin_mul_overflow(p.term[i].coef.num, n / p.term[i].coef.den, &a)) return 2;
+        if (!ck_power_fits(ck_vars[letter].prime, a > 0 ? a : -a, &power)) return 2;
+        if (__builtin_mul_overflow(a > 0 ? top : bottom, power, a > 0 ? &top : &bottom) || top > CK_NUM_LIMIT || bottom > CK_NUM_LIMIT) return 2;
+    }
+    return top > bottom ? 1 : top < bottom ? -1 : 2;
+}
+
+/* Le somme parziali dell'arcotangente di x, con 0 < x < 1: la serie
+ * x - x^3/3 + x^5/5 - ... ha i termini di segno alterno e in valore
+ * assoluto decrescenti, quindi una somma parziale che finisce con un termine
+ * positivo sta sopra la somma, una che finisce con un termine negativo sotto
+ * (criterio di Leibniz). Mette in *high la somma dei primi 2 terms - 1
+ * termini, che finisce con un termine positivo, e in *low quella dei primi
+ * 2 terms. */
+static void ck_arctan_bounds(CkNum x, int terms, CkNum *low, CkNum *high) {
+    CkNum power = x, sum = ck_num_int(0);
+    for (int k = 0; k < 2 * terms; k++) {
+        if (k == 2 * terms - 1) *high = sum;
+        sum = ck_num_add(sum, ck_num_mul(ck_num_make(k % 2 ? -1 : 1, 2 * k + 1), power));
+        power = ck_num_mul(power, ck_num_mul(x, x));
+    }
+    *low = sum;
+}
+
+/* 14b-3. Mette in *low e *high due razionali con low < b^{1/m} < high, per
+ * b il numero di Nepero ('e'), pi ('q', con m = 1) o il primo prime ('p'), e
+ * ritorna 1; ritorna 0 se non li sa dare. I conti possono uscire dai numeri
+ * del verificatore: chi chiama se ne accorge da ck_status.
+ *
+ *   - e^{x} con x = 1/m <= 1: la somma dei x^k/k! per k da 0 a n = 12 è
+ *     N/D, con D = n! m^{n} e N = somma di m^{n-k} n!/k!, interi; il resto,
+ *     la somma dei termini da k = n + 1, è positivo e al più x^{n+1}/(n+1)!
+ *     (1 + x/(n+2) + (x/(n+2))^2 + ...) <= 2 x^{n+1}/(n+1)! = 2 / ((n + 1)
+ *     m D) <= 1/D. Quindi N/D < e^{x} < (N + 1)/D;
+ *   - pi = 16 arctan(1/5) - 4 arctan(1/239) (formula di Machin), con le
+ *     somme parziali di ck_arctan_bounds();
+ *   - p^{1/m}: il numero positivo il cui m-esima potenza è p, tra 1 e p;
+ *     si dimezza l'intervallo confrontando mid^m con p, in modo esatto. */
+static int ck_root_bounds(char base, long long prime, int m, CkNum *low, CkNum *high) {
+    if (base == 'e') {
+        /* N e D, con m <= CK_MAX_DEGREE: D = 12! 48^{12} sta sotto 10^{29}.
+         * Il termine k di N è m^{n-k} n!/k!: lo si costruisce da k = n in
+         * giù, moltiplicando per k m. */
+        __int128 n = 0, term = 1, den = 1;
+        for (int k = 12; k >= 0; k--) {
+            n += term;
+            term *= (__int128)k * m;
+        }
+        for (int k = 1; k <= 12; k++) den *= (__int128)k * m;
+        *low = ck_num_make(n, den);
+        *high = ck_num_make(n + 1, den);
+        return 1;
+    }
+    if (base == 'q' && m == 1) {
+        CkNum a_low, a_high, b_low, b_high;
+        ck_arctan_bounds(ck_num_make(1, 5), 3, &a_low, &a_high);
+        ck_arctan_bounds(ck_num_make(1, 239), 1, &b_low, &b_high);
+        *low = ck_num_add(ck_num_mul(ck_num_int(16), a_low), ck_num_mul(ck_num_int(-4), b_high));
+        *high = ck_num_add(ck_num_mul(ck_num_int(16), a_high), ck_num_mul(ck_num_int(-4), b_low));
+        return 1;
+    }
+    if (base != 'p') return 0;
+    *low = ck_num_int(1);
+    *high = ck_num_int(prime);
+    for (int step = 0; step < 48 && ck_status == CK_ACCEPTED; step++) {
+        CkNum middle = ck_num_mul(ck_num_add(*low, *high), ck_num_make(1, 2)), power = ck_num_int(1);
+        for (int i = 0; i < m; i++)
+            if (!ck_num_mul_fits(power, middle, &power)) return 1;
+        int side = ck_num_cmp(power, ck_num_int(prime));
+        if (side == 0) return 0;
+        *(side < 0 ? low : high) = middle;
+    }
+    return 1;
+}
+
+/* Ritorna il multiplo di 2^{-bits} più vicino a x da sotto (up = 0) o da
+ * sopra (up = 1): la divisione per il denominatore, una cifra binaria alla
+ * volta. Il resto sta sotto il denominatore, quindi il suo doppio sta nei
+ * 128 bit. */
+static CkNum ck_num_round(CkNum x, int bits, int up) {
+    __int128 whole = x.num / x.den - (x.num % x.den < 0), rest = x.num - whole * x.den, scaled = whole;
+    for (int i = 0; i < bits; i++) {
+        rest *= 2;
+        scaled = scaled * 2 + (rest >= x.den);
+        if (rest >= x.den) rest -= x.den;
+    }
+    return ck_num_make(scaled + (up && rest), (__int128)1 << bits);
+}
+
+/* 14b-3. Ritorna il segno di p, tolto il monomio low comune a tutti i suoi
+ * termini, se ciò che resta è un polinomio nelle radici di una base sola; 2
+ * altrimenti. Gli estremi low e high si arrotondano verso l'esterno a
+ * multipli di 2^{-bits}, con bits tanto più piccolo quanto più alto è il
+ * grado di P, perché P(low) e i polinomi della catena di Sturm stiano nei
+ * numeri del verificatore. Un conto che ne esce vuol dire solo "non si sa":
+ * lo stato del controllo torna com'era. */
+static int ck_root_sign(CkPoly p, const signed char *low) {
+    char base = 0;
+    long long prime = 0;
+    int m = 1, sign = 2;
+    CkUni u;
+    CkNum below, above;
+
+    /* La base, e il minimo comune multiplo M degli indici. */
+    for (int i = 0; i < p.count; i++)
+        for (int v = 0; v < ck_var_count; v++) {
+            if (p.term[i].e[v] == low[v]) continue;
+            const CkVar *x = &ck_vars[v];
+            if (x->kind != CK_VAR_CONST || (x->name != 'e' && x->name != 'q' && x->name != 'p') || (base && (x->name != base || x->prime != prime))) return 2;
+            base = x->name;
+            prime = x->prime;
+            m = (int)(m / ck_gcd(m, x->position) * x->position);
+            if (m > CK_MAX_DEGREE) return 2;
+        }
+    if (!base) return 2;
+
+    /* P(Y), con b^{1/m_i} = Y^{M/m_i}. */
+    u.degree = -1;
+    for (int i = 0; i < p.count; i++) {
+        int d = 0;
+        for (int v = 0; v < ck_var_count; v++) d += (p.term[i].e[v] - low[v]) * (m / (ck_vars[v].position ? ck_vars[v].position : 1));
+        if (d > CK_MAX_DEGREE) return 2;
+        while (u.degree < d) u.c[++u.degree] = ck_num_int(0);
+        u.c[d] = ck_num_add(u.c[d], p.term[i].coef);
+    }
+    ck_uni_trim(&u);
+
+    /* low < Y < high, e P senza radici in [low, high]. */
+    CkAnswer saved = ck_status;
+    const char *reason = ck_reason;
+    if (u.degree >= 0 && ck_root_bounds(base, prime, m, &below, &above) && ck_status == CK_ACCEPTED) {
+        int bits = 110 / (u.degree > 0 ? u.degree : 1);
+        for (__int128 top = above.num / above.den + 1; top > 0; top /= 2) bits--;
+        if (bits > 64) bits = 64;
+        if (bits < 2) return 2;
+        below = ck_num_round(below, bits, 0);
+        above = ck_num_round(above, bits, 1);
+        int at_low = ck_num_sign(ck_uni_at(&u, below)), at_high = ck_num_sign(ck_uni_at(&u, above));
+        if (at_low && at_high && ck_roots(&u, &below, &above) == 0 && ck_status == CK_ACCEPTED) sign = at_low;
+    }
+    if (ck_status != saved) { ck_status = saved; ck_reason = reason; sign = 2; }
+    return sign;
+}
+
+/* Ritorna il segno del polinomio p nelle lettere CONST: 0 per il polinomio
+ * nullo, -1 o 1 se 14b-1, 14b-2 o 14b-3 lo stabiliscono, 2 se non si sa. */
+static int ck_poly_sign(CkPoly p) {
+    int first, same = 1;
+    if (p.count == 0) return 0;
+    first = ck_num_sign(p.term[0].coef);
+    for (int i = 1; i < p.count; i++)
+        if (ck_num_sign(p.term[i].coef) != first) same = 0;
+    if (same) return first;
+
+    /* 14b-2. Il monomio comune: l'esponente più basso di ogni lettera. */
+    signed char low[CK_MAX_VARS];
+    for (int v = 0; v < CK_MAX_VARS; v++) {
+        low[v] = p.term[0].e[v];
+        for (int i = 1; i < p.count; i++)
+            if (p.term[i].e[v] < low[v]) low[v] = p.term[i].e[v];
+    }
+
+    int sign = ck_log_sign(p, low);
+    return sign != 2 ? sign : ck_root_sign(p, low);
+}
+
+/* IL TERMINE PRINCIPALE DI UN COEFFICIENTE
+ *
+ * Un coefficiente c(L) = P(L) / Q(L) contiene L con esponenti razionali: la
+ * lettera L^{1/m} vale 1/m. Si raccolgono i termini di P con la potenza più
+ * alta di L, d_P: tolta L, dove hanno tutti lo stesso valore L^{d_P}, danno
+ * un polinomio k_P nelle altre costanti. Se k_P è zero quei termini insieme
+ * valgono zero, e si passa alla potenza successiva. Allora, per L grande,
+ *
+ *     c(L) = (k_P L^{d_P} + potenze più basse) / (k_Q L^{d_Q} + ...)
+ *          = (k_P / k_Q) L^{d_P - d_Q} (1 + o(1)),
+ *
+ * perché L^{d - d_P} -> 0 per ogni d < d_P: c(L) ha il segno di k_P / k_Q,
+ * non si annulla per L abbastanza grande, cioè per t abbastanza piccolo, e
+ * va come L^{d_P - d_Q}. Senza L, c è una costante e la potenza è 0. */
+
+/* Ciò che il termine principale dice del coefficiente c(L). */
+typedef struct {
+    int known;     /* 1 se si sa se c è zero e, se non lo è, il suo segno */
+    int zero;      /* 1 se c vale zero */
+    int side;      /* il segno di c(L) per L grande: +1 o -1 */
+    CkNum degree;  /* d_P - d_Q */
+    CkRat value;   /* k_P / k_Q, senza L */
+} CkLead;
+
+/* Ritorna la potenza di L del termine t: la somma degli esponenti delle
+ * lettere L^{1/m}, divisi per m. */
+static CkNum ck_ell_degree(const CkTerm *t) {
+    CkNum degree = ck_num_int(0);
+    for (int v = 0; v < ck_var_count; v++)
+        if (t->e[v] && ck_vars[v].kind == CK_VAR_CONST && ck_vars[v].name == 'L')
+            degree = ck_num_add(degree, ck_num_make(t->e[v], ck_vars[v].position));
+    return degree;
+}
+
+/* Mette in *degree la potenza più alta di L in p con k_P non nullo, e in
+ * *top quel k_P. Ritorna il segno di k_P, 0 se p vale zero, 2 se il segno
+ * non si sa. */
+static int ck_poly_top(CkPoly p, CkNum *degree, CkPoly *top) {
+    while (p.count > 0 && ck_status == CK_ACCEPTED) {
+        CkTerm *high = ck_alloc(sizeof *high * (size_t)p.count), *low = ck_alloc(sizeof *low * (size_t)p.count);
+        int highs = 0, lows = 0;
+        if (ck_status != CK_ACCEPTED) return 2;
+        *degree = ck_ell_degree(&p.term[0]);
+        for (int i = 1; i < p.count; i++)
+            if (ck_num_cmp(ck_ell_degree(&p.term[i]), *degree) > 0) *degree = ck_ell_degree(&p.term[i]);
+        for (int i = 0; i < p.count; i++) {
+            if (ck_num_cmp(ck_ell_degree(&p.term[i]), *degree) != 0) { low[lows++] = p.term[i]; continue; }
+            high[highs] = p.term[i];
+            for (int v = 0; v < ck_var_count; v++)
+                if (ck_vars[v].kind == CK_VAR_CONST && ck_vars[v].name == 'L') high[highs].e[v] = 0;
+            highs++;
+        }
+        *top = ck_poly_build(high, highs);
+        if (top->count) return ck_poly_sign(*top);
+        p = ck_poly_build(low, lows);
+    }
+    return 0;
+}
+
+/* Il termine principale del coefficiente c. */
+static CkLead ck_lead(CkRat c) {
+    CkLead out = {0, 0, 0, {0, 1}, {{0, NULL}, {0, NULL}}};
+    CkNum above, below;
+    CkPoly top, bottom;
+    int up = ck_poly_top(c.num, &above, &top), down;
+    if (up == 0) { out.known = out.zero = 1; return out; }
+    down = ck_poly_top(c.den, &below, &bottom);
+    if (up == 2 || down == 2 || down == 0) return out;
+    out.known = 1;
+    out.side = up * down;
+    out.degree = ck_num_add(above, ck_num_neg(below));
+    out.value = ck_c_norm((CkRat){top, bottom});
+    return out;
+}
+
+/* Ritorna 1 se i coefficienti a e b sono uguali, 0 se sono certamente
+ * diversi (14b), -1 se non si sa. */
+static int ck_c_equal(CkRat a, CkRat b) {
+    CkLead lead = ck_lead(ck_c_add(a, b, 1));
+    return !lead.known ? -1 : lead.zero;
+}
+
+/* 14c. LE SERIE TRONCATE
+ *
+ * Una serie in t, con t > 0 piccolo, è una somma finita di termini
+ * c_i t^{(low + i)/D} più un resto r(t), con |r(t)| <= C t^{E/D} L^{m} per
+ * t abbastanza piccolo, dove C e m sono numeri che non servono, m = 0 se la
+ * serie non ha la voce logs. Una serie esatta non ha resto. E = CK_FLAT vuol
+ * dire che il resto è più piccolo di ogni potenza di t (14g). Che una serie
+ * descriva una funzione g, vicino a 0, è ciò che ogni operazione conserva:
+ *
+ *   14c-1. somma: i resti si sommano, e vince il più grande, quello con E
+ *          più basso;
+ *   14c-2. prodotto: (A + r_A)(B + r_B) = A B + A r_B + B r_A + r_A r_B, e
+ *          |A| <= C t^{v_A}, con v_A l'esponente più basso di A (o E_A se A
+ *          non ha termini): il resto del prodotto ha l'esponente più basso tra
+ *          v_A + E_B e v_B + E_A. Un coefficiente che contiene L porta nel
+ *          resto una potenza di L: la voce logs;
+ *   14c-3. tagliare: un termine c t^{k} con k >= E si può togliere e mettere
+ *          nel resto O(t^{E}), perché t^{k} <= t^{E} per t < 1; con c(L) ci
+ *          mette anche una potenza di L.
+ *
+ * Che logs serva lo mostra x x^{\sin(1/x)} da destra di 0: x^{\sin(1/x)} =
+ * e^{-L \sin(1/x)}, e -L \sin(1/x) è O(1) a meno di una potenza di L, non
+ * limitata. Presa per limitata, e^{O(1)} sarebbe limitata e x x^{\sin(1/x)}
+ * tenderebbe a 0, che è falso: in x = 1/(3\pi/2 + 2k\pi) vale 1. */
+typedef struct {
+    int den;      /* D >= 1: gli esponenti sono multipli di 1/D */
+    int low;      /* l'esponente, in unità 1/D, di coef[0] */
+    int count;    /* coefficienti noti */
+    int end;      /* E: l'esponente del resto, in unità 1/D; CK_FLAT se è più piccolo di ogni potenza */
+    int exact;    /* 1 se non c'è resto, e allora end è CK_FLAT */
+    int logs;     /* 1 se il resto può avere un fattore L^{m} con m > 0 */
+    CkRat *coef;  /* i coefficienti, nell'arena */
+} CkSeries;
+
+/* La precisione del lato in corso: l'ordine N del certificato (14d). */
+static int ck_goal;
+
+/* Ritorna a + b, esponenti in unità 1/D: CK_FLAT se uno dei due lo è. Due
+ * esponenti veri non devono mai avvicinarsi a CK_FLAT. */
+static int ck_exp_plus(int a, int b) {
+    if (a >= CK_FLAT || b >= CK_FLAT) return CK_FLAT;
+    long long sum = (long long)a + b;
+    if (sum > CK_FLAT / 16 || sum < -CK_FLAT / 16) { ck_unsupported("esponenti troppo grandi in uno sviluppo"); return 0; }
+    return (int)sum;
+}
+
+/* Ritorna una serie con i coefficienti tutti zero. */
+static CkSeries ck_ser_make(int den, int low, int count, int end, int exact) {
+    CkSeries s = {den, low, count > 0 ? count : 0, exact ? CK_FLAT : end, exact, 0, NULL};
+    CkRat zero = {ck_poly_number(ck_num_int(0)), ck_one};
+    s.coef = ck_alloc(sizeof *s.coef * (size_t)(s.count + 1));
+    if (ck_status != CK_ACCEPTED) s.count = 0;
+    for (int i = 0; i < s.count; i++) s.coef[i] = zero;
+    return s;
+}
+
+/* Ritorna la costante c come serie esatta. */
+static CkSeries ck_ser_const(CkRat c) {
+    CkSeries s = ck_ser_make(1, 0, c.num.count ? 1 : 0, CK_FLAT, 1);
+    if (s.count) s.coef[0] = c;
+    return s;
+}
+
+/* Ritorna una funzione limitata, di cui non si sa altro: O(1). */
+static CkSeries ck_ser_bounded(void) { return ck_ser_make(1, 0, 0, 0, 0); }
+
+/* Toglie i primi coefficienti nulli e, da una serie esatta, gli ultimi: la
+ * funzione non cambia. */
+static CkSeries ck_ser_trim(CkSeries s) {
+    while (s.count > 0 && s.coef[0].num.count == 0) { s.coef++; s.count--; s.low++; }
+    while (s.exact && s.count > 0 && s.coef[s.count - 1].num.count == 0) s.count--;
+    if (s.count == 0) s.low = s.exact ? 0 : s.end;
+    return s;
+}
+
+/* 14c-3. Ritorna s con il resto O(t^{end/D}), se end è più basso del suo. */
+static CkSeries ck_ser_cut(CkSeries s, int end) {
+    if (end >= s.end) return s;
+    for (int i = end - s.low > 0 ? end - s.low : 0; i < s.count; i++)
+        if (ck_c_has_ell(s.coef[i])) s.logs = 1;
+    if (s.low + s.count > end) s.count = end > s.low ? end - s.low : 0;
+    s.exact = 0;
+    s.end = end;
+    if (s.count == 0) s.low = end;
+    return s;
+}
+
+/* Ritorna s con gli esponenti scritti in unità 1/den, multiplo di s.den. */
+static CkSeries ck_ser_rescale(CkSeries s, int den) {
+    int k = den / s.den;
+    if (k == 1) return s;
+    CkSeries r = ck_ser_make(den, s.low * k, s.count ? (s.count - 1) * k + 1 : 0, s.end < CK_FLAT ? s.end * k : CK_FLAT, s.exact);
+    for (int i = 0; i < s.count && r.count; i++) r.coef[i * k] = s.coef[i];
+    r.logs = s.logs;
+    if (s.count == 0) r.low = s.exact ? 0 : r.end;
+    return r;
+}
+
+/* Porta a e b allo stesso denominatore degli esponenti. Ritorna 0, dopo
+ * averlo annotato, se sarebbe troppo grande. */
+static int ck_ser_common(CkSeries *a, CkSeries *b) {
+    long long den = (long long)a->den / ck_gcd(a->den, b->den) * b->den;
+    if (den > CK_MAX_SERIES_DEN) { ck_unsupported("denominatori degli esponenti troppo grandi per il verificatore"); return 0; }
+    *a = ck_ser_rescale(*a, (int)den);
+    *b = ck_ser_rescale(*b, (int)den);
+    return 1;
+}
+
+/* Ritorna 1 se un coefficiente di s contiene L. */
+static int ck_ser_has_ell(CkSeries s) {
+    for (int i = 0; i < s.count; i++)
+        if (ck_c_has_ell(s.coef[i])) return 1;
+    return 0;
+}
+
+/* Ritorna c s. Con c che contiene L, anche il resto prende una potenza di L. */
+static CkSeries ck_ser_scale(CkSeries s, CkRat c) {
+    if (c.num.count == 0) return ck_ser_const(c);
+    CkSeries r = ck_ser_make(s.den, s.low, s.count, s.end, s.exact);
+    for (int i = 0; i < r.count; i++) r.coef[i] = ck_c_mul(s.coef[i], c);
+    r.logs = s.logs || (!s.exact && ck_c_has_ell(c));
+    return ck_ser_trim(r);
+}
+
+/* Ritorna s t^{shift/D}. */
+static CkSeries ck_ser_shift(CkSeries s, int shift) {
+    s.low = ck_exp_plus(s.low, shift);
+    s.end = ck_exp_plus(s.end, shift);
+    return s;
+}
+
+/* 14c-1, 14c-3. Ritorna a + b, oppure a - b se minus è diverso da zero; al
+ * più CK_MAX_SERIES coefficienti, gli altri vanno nel resto. */
+static CkSeries ck_ser_add(CkSeries a, CkSeries b, int minus) {
+    if (!ck_ser_common(&a, &b)) return a;
+    int end = a.end < b.end ? a.end : b.end, low = CK_FLAT, top = -CK_FLAT;
+    if (a.count) { low = a.low; top = a.low + a.count; }
+    if (b.count && b.low < low) low = b.low;
+    if (b.count && b.low + b.count > top) top = b.low + b.count;
+    if (low > top) low = top = end < CK_FLAT ? end : 0;
+
+    /* La somma per esteso, poi i tagli: al resto, e al numero massimo. */
+    CkSeries r = ck_ser_make(a.den, low, top - low, CK_FLAT, 1);
+    for (int i = 0; i < r.count; i++) {
+        int e = low + i, ia = e - a.low, ib = e - b.low;
+        CkRat sum = ia >= 0 && ia < a.count ? a.coef[ia] : r.coef[i];
+        if (ib >= 0 && ib < b.count) sum = ck_c_add(sum, b.coef[ib], minus);
+        r.coef[i] = sum;
+    }
+    if (!(a.exact && b.exact)) {
+        r = ck_ser_cut(r, end);
+        r.exact = 0;
+        r.end = end;
+    }
+    if (r.count > CK_MAX_SERIES) r = ck_ser_cut(r, r.low + CK_MAX_SERIES);
+    r.logs = r.logs || a.logs || b.logs;
+    return ck_ser_trim(r);
+}
+
+/* 14c-2, 14c-3. Ritorna a b. */
+static CkSeries ck_ser_mul(CkSeries a, CkSeries b) {
+    if (!ck_ser_common(&a, &b)) return a;
+    if ((a.exact && a.count == 0) || (b.exact && b.count == 0)) return ck_ser_const(ck_c_num(ck_num_int(0)));
+    int va = a.count ? a.low : a.end, vb = b.count ? b.low : b.end, exact = a.exact && b.exact;
+    int end = ck_exp_plus(va, b.end), other = ck_exp_plus(vb, a.end), low = ck_exp_plus(va, vb);
+    if (other < end) end = other;
+    int top = a.count && b.count ? a.low + a.count - 1 + b.low + b.count : low;
+    if (top > low + CK_MAX_SERIES) top = low + CK_MAX_SERIES;
+    if (!exact && top > end) top = end;
+    if (top < low) top = low;
+
+    /* I prodotti dei termini, fino a top: quelli oltre vanno nel resto. */
+    CkSeries r = ck_ser_make(a.den, low, top - low, CK_FLAT, 1);
+    int dropped = 0;
+    for (int i = 0; i < a.count; i++)
+        for (int j = 0; j < b.count; j++) {
+            int k = a.low + i + b.low + j - low;
+            if (a.coef[i].num.count == 0 || b.coef[j].num.count == 0) continue;
+            if (k >= r.count) { dropped = 1; continue; }
+            r.coef[k] = ck_c_add(r.coef[k], ck_c_mul(a.coef[i], b.coef[j]), 0);
+        }
+    if (!exact || dropped) {
+        r.exact = 0;
+        r.end = exact ? top : end;
+        r.logs = a.logs || b.logs || (!exact && (ck_ser_has_ell(a) || ck_ser_has_ell(b)));
+        for (int i = 0; dropped && i < a.count; i++)
+            for (int j = 0; j < b.count; j++)
+                if (a.low + i + b.low + j >= top && (ck_c_has_ell(a.coef[i]) || ck_c_has_ell(b.coef[j]))) r.logs = 1;
+    }
+    return ck_ser_trim(r);
+}
+
+/* Toglie da *s i primi coefficienti che valgono zero e mette in *lead il
+ * termine principale del primo che resta (14b). Ritorna 1 se c'è e non è
+ * zero, 0 se non si sa se lo sia, -1 se non resta nessun coefficiente. */
+static int ck_ser_settle(CkSeries *s, CkLead *lead) {
+    for (;;) {
+        *s = ck_ser_trim(*s);
+        if (s->count == 0) return -1;
+        *lead = ck_lead(s->coef[0]);
+        if (!lead->known) return 0;
+        if (!lead->zero) return 1;
+        s->coef++;
+        s->count--;
+        s->low++;
+    }
+}
+
+/* Come ck_ser_settle(), per chi ha bisogno del termine principale: se non si
+ * sa il segno del primo coefficiente il certificato non è controllabile, con
+ * il motivo unknown; se una serie con il resto non ha nessun coefficiente è
+ * respinto, con il motivo missing, perché l'ordine non basta. Una serie
+ * esattamente nulla la lascia a chi chiama. Ritorna 1 se il termine c'è. */
+static int ck_ser_head(CkSeries *s, CkLead *lead, const char *unknown, const char *missing) {
+    int found = ck_ser_settle(s, lead);
+    if (found == 0) ck_unsupported(unknown);
+    if (found < 0 && !s->exact) ck_reject(missing);
+    return found == 1;
+}
+
+/* 14d. LE SERIE DI TAYLOR, L'INVERSO, LE POTENZE
+ *
+ * Per una funzione g tra quelle di 14d-1 e un argomento w che tende a 0,
+ * g(w) = a_0 + a_1 w + ... + a_{K-1} w^{K-1} + O(w^{K}) (teorema di Taylor
+ * con il resto di Peano). Se |w| <= C t^{v} L^{m}, con v > 0 l'esponente più
+ * basso di w, il resto è O(t^{K v}), con un fattore L^{K m} se w contiene L.
+ * La somma si calcola con lo schema di Horner, con le operazioni di 14c.
+ *
+ * Quanti termini, cioè l'ordine. Se w ha un resto O(t^{E}), non serve
+ * andare oltre: K è il più piccolo intero con K v >= E. Se w è esatta,
+ * l'ordine N del certificato fissa l'esponente a cui fermarsi, che chi
+ * chiama dà come target: N per l'esponenziale, il logaritmo, il seno, il
+ * coseno, l'arcotangente e (1 + w)^q; N + e per l'inverso di c t^{e} (1 + w),
+ * che dopo la moltiplicazione per t^{-e} ha il resto O(t^{N}). Al più
+ * CK_MAX_TAYLOR termini, meno se i coefficienti escono dai numeri del
+ * verificatore: il resto lo dice.
+ *
+ *   14d-1. I coefficienti a_k: e^{w}, 1/k!; ln(1 + w), (-1)^{k+1}/k per
+ *          k >= 1; sin w e cos w, (-1)^{j}/(2j+1)! e (-1)^{j}/(2j)!;
+ *          arctan w, (-1)^{j}/(2j+1); (1 + w)^{q}, q (q - 1) ... (q - k + 1)
+ *          / k!.
+ *   14d-2. L'inverso. s = c t^{e} (1 + u), con c t^{e} il termine
+ *          principale: c(L) non si annulla per t piccolo (14b), e u, la
+ *          serie dei termini successivi divisi per c t^{e}, ha esponenti
+ *          positivi e tende a 0. Allora 1/s = c^{-1} t^{-e} (1 + u)^{-1}: il
+ *          limite di un quoziente è il quoziente dei termini principali.
+ *   14d-3. Le potenze. s^{n} con n intero è un prodotto, o l'inverso di un
+ *          prodotto; s^{q} con q non intero è c^{q} t^{e q} (1 + u)^{q}, con
+ *          c > 0 perché sia definita; con una radice di indice dispari e
+ *          c < 0, -((-c)^{q} t^{e q} (1 + u)^{q}). */
+
+typedef enum { CK_TAYLOR_EXP, CK_TAYLOR_LOG, CK_TAYLOR_SIN, CK_TAYLOR_COS, CK_TAYLOR_ATAN, CK_TAYLOR_BINOMIAL } CkTaylor;
+
+/* 14d-1. Mette in a[k] il coefficiente di w^{k} della serie kind, con
+ * l'esponente q per la binomiale, e ritorna quanti ne ha messi. */
+static int ck_taylor_coefficients(CkTaylor kind, CkNum q, CkNum *a) {
+    CkNum factorial = ck_num_int(1), binomial = ck_num_int(1);
+    int count = 0;
+    for (int k = 0; k < CK_MAX_TAYLOR; k++) {
+        if (k > 0) {
+            CkNum next = ck_num_add(q, ck_num_int(1 - k));
+            if (!ck_num_mul_fits(factorial, ck_num_int(k), &factorial) || !ck_num_mul_fits(binomial, next, &binomial) ||
+                !ck_num_mul_fits(binomial, ck_num_make(1, k), &binomial)) break;
+        }
+        int sign = (k / 2) % 2 ? -1 : 1;
+        CkNum c = ck_num_int(0);
+        switch (kind) {
+        case CK_TAYLOR_EXP: c = ck_num_inv(factorial); break;
+        case CK_TAYLOR_LOG: if (k) c = ck_num_make(k % 2 ? 1 : -1, k); break;
+        case CK_TAYLOR_SIN: if (k % 2) c = ck_num_mul(ck_num_int(sign), ck_num_inv(factorial)); break;
+        case CK_TAYLOR_COS: if (k % 2 == 0) c = ck_num_mul(ck_num_int(sign), ck_num_inv(factorial)); break;
+        case CK_TAYLOR_ATAN: if (k % 2) c = ck_num_make(sign, k); break;
+        case CK_TAYLOR_BINOMIAL: c = binomial; break;
+        }
+        a[count++] = c;
+    }
+    return count;
+}
+
+/* Ritorna g(w) per la funzione kind (14d), con w che tende a 0 e target
+ * l'esponente, in unità 1/D di w, a cui fermarsi se w è esatta. */
+static CkSeries ck_ser_taylor(CkSeries w, CkTaylor kind, CkNum q, int target) {
+    CkNum a[CK_MAX_TAYLOR];
+    int terms = ck_taylor_coefficients(kind, q, a);
+    w = ck_ser_trim(w);
+    if (w.exact && w.count == 0) return ck_ser_rescale(ck_ser_const(ck_c_num(a[0])), w.den);
+    int v = w.count ? w.low : w.end, end = w.exact ? target : w.end;
+    if (v < 1) { ck_reject("uno sviluppo di Taylor con un argomento che non tende a 0"); return w; }
+    if (end < v) end = v;
+    int used = end / v + (end % v != 0);
+    if (used > terms) used = terms;
+    if (used < 1) used = 1;
+
+    /* Horner: a_0 + w (a_1 + w (a_2 + ...)). */
+    CkSeries sum = ck_ser_rescale(ck_ser_const(ck_c_num(a[used - 1])), w.den);
+    for (int k = used - 2; k >= 0 && ck_status == CK_ACCEPTED; k--)
+        sum = ck_ser_add(ck_ser_cut(ck_ser_mul(w, sum), end), ck_ser_rescale(ck_ser_const(ck_c_num(a[k])), w.den), 0);
+
+    /* Il resto di Taylor, O(w^{used}); con le potenze di L se w ne ha. */
+    long long rest = (long long)used * v;
+    sum = ck_ser_cut(sum, rest >= CK_FLAT ? CK_FLAT : (int)rest);
+    sum.exact = 0;
+    if (sum.end >= CK_FLAT) sum.end = CK_FLAT;
+    sum.logs = sum.logs || w.logs || ck_ser_has_ell(w);
+    return sum;
+}
+
+/* Toglie da s, che ha il primo coefficiente c diverso da zero, il termine
+ * principale: s = c t^{low} (1 + u). Mette u in *u e ritorna c. */
+static CkRat ck_ser_unit(CkSeries s, CkSeries *u) {
+    CkRat c = s.coef[0], inverse = ck_c_inv(c);
+    *u = ck_ser_make(s.den, 1, s.count - 1, ck_exp_plus(s.end, -s.low), s.exact);
+    for (int i = 1; i < s.count && i - 1 < u->count; i++) u->coef[i - 1] = ck_c_mul(s.coef[i], inverse);
+    u->logs = s.logs || (!s.exact && ck_c_has_ell(c));
+    *u = ck_ser_trim(*u);
+    return c;
+}
+
+/* 14d-2. Mette 1/s in *out e ritorna 1; ritorna -1 se s è esattamente zero,
+ * e allora 1/s non ha valori; 0 se il conto non si fa, dopo averlo annotato
+ * (ck_ser_head()). positive è 1 se chi chiama sa già che il primo
+ * coefficiente di s è un numero positivo. */
+static int ck_ser_inverse(CkSeries s, CkSeries *out, int positive) {
+    CkLead lead;
+    s = ck_ser_trim(s);
+    if (s.exact && s.count == 0) return -1;
+    if (!positive && !ck_ser_head(&s, &lead, "il segno del primo coefficiente di un divisore non si sa stabilire",
+                                  "un divisore non ha un termine principale entro l'ordine dato")) return 0;
+    if (positive && s.count == 0) { ck_reject("un divisore non ha un termine principale entro l'ordine dato"); return 0; }
+    CkSeries u;
+    CkRat c = ck_ser_unit(s, &u);
+    CkSeries sum = ck_ser_taylor(u, CK_TAYLOR_BINOMIAL, ck_num_int(-1), ck_goal * s.den + s.low);
+    *out = ck_ser_shift(ck_ser_scale(sum, ck_c_inv(c)), -s.low);
+    return ck_status == CK_ACCEPTED;
+}
+
+/* 14d-3. Mette s^{n} in *out, per n intero; ritorna come ck_ser_inverse(). */
+static int ck_ser_power_int(CkSeries s, long long n, CkSeries *out) {
+    if (n > CK_MAX_POWER || n < -CK_MAX_POWER) { ck_unsupported("esponente troppo grande per il verificatore"); return 0; }
+    if (n < 0) {
+        int inverted = ck_ser_inverse(s, &s, 0);
+        if (inverted <= 0) return inverted;
+        n = -n;
+    }
+    CkSeries result = ck_ser_const(ck_c_num(ck_num_int(1))), square = s;
+    for (; n > 0 && ck_status == CK_ACCEPTED; n /= 2) {
+        if (n % 2) result = ck_ser_mul(result, square);
+        if (n > 1) square = ck_ser_mul(square, square);
+    }
+    *out = result;
+    return ck_status == CK_ACCEPTED;
+}
+
+static int ck_const_power(CkRat c, CkNum q, CkRat *out);
+
+/* 14d-3. Mette s^{q} in *out, per q razionale non intero; odd è 1 per una
+ * radice di indice dispari, che vale anche per una base negativa. Ritorna 1;
+ * -1 se la potenza non ha valori vicino al punto; 0 se il conto non si fa,
+ * dopo averlo annotato. */
+static int ck_ser_power(CkSeries s, CkNum q, int odd, CkSeries *out) {
+    CkLead lead;
+    s = ck_ser_trim(s);
+    if (s.exact && s.count == 0) {
+        *out = s;
+        return q.num > 0 ? 1 : -1;
+    }
+    if (!ck_ser_head(&s, &lead, "il segno della base di una potenza non si sa stabilire", "la base di una potenza non ha un termine principale entro l'ordine dato"))
+        return 0;
+    if (lead.side < 0 && !odd) return -1;
+
+    /* c^{q}, con il segno tolto e rimesso per una radice dispari. */
+    CkSeries u;
+    CkRat c = ck_ser_unit(s, &u), cq;
+    if (lead.side < 0) c = ck_c_neg(c);
+    if (!ck_const_power(c, q, &cq)) return 0;
+    if (lead.side < 0) cq = ck_c_neg(cq);
+
+    /* t^{e q}, con e = low/D: il denominatore degli esponenti che serve. */
+    CkNum shift = ck_num_mul(ck_num_make(s.low, s.den), q);
+    long long den = (long long)s.den / ck_gcd(s.den, shift.den) * (long long)shift.den;
+    if (den > CK_MAX_SERIES_DEN || shift.num > CK_FLAT / 16 || shift.num < -CK_FLAT / 16) { ck_unsupported("denominatori degli esponenti troppo grandi per il verificatore"); return 0; }
+    CkSeries sum = ck_ser_rescale(ck_ser_taylor(u, CK_TAYLOR_BINOMIAL, q, ck_goal * s.den), (int)den);
+    *out = ck_ser_shift(ck_ser_scale(sum, cq), (int)(shift.num * (den / shift.den)));
+    return ck_status == CK_ACCEPTED;
+}
+
+/* 14e. LE FUNZIONI DELLE COSTANTI
+ *
+ * Il valore di una funzione nel numero a cui tende il suo argomento, scritto
+ * in modo esatto con le lettere di 14a. Le regole, tutte identità vere:
+ *
+ *   14e-1. b^{r}, con r = n/d razionale positivo: b^{floor(r)} per la
+ *          lettera b^{1/d} elevata al resto, e per un primo b^{floor(r)} è un
+ *          numero; con r negativo, 1 / b^{-r};
+ *   14e-2. e^{a}, con a una somma di termini r (un razionale) e q ln p:
+ *          e^{r} per i p^{q}, perché e^{u + v} = e^{u} e^{v} ed e^{q ln p} =
+ *          p^{q}. Ogni altra costante all'esponente non ha scrittura;
+ *   14e-3. ln c, con c = r b_1^{k_1} ... un monomio positivo: ln r + k_1 ln
+ *          b_1 + ..., perché ln(u v) = ln u + ln v per u, v > 0; ln r si
+ *          scompone nei primi, ln(p^{1/m}) = (1/m) ln p, ln(e^{1/m}) = 1/m;
+ *   14e-4. c^{q} con c monomio positivo: r^{q} b_1^{k_1 q} ..., perché
+ *          (u v)^{q} = u^{q} v^{q} per u, v > 0; poi 14e-1;
+ *   14e-5. sin e cos di k pi / 12 con k multiplo di 2 o di 3, cioè degli
+ *          angoli multipli di 30 e di 45 gradi: dai triangoli con angoli di
+ *          30, 60, 90 gradi e di 45, 45, 90, cos(pi/6) = \sqrt{3}/2,
+ *          cos(pi/4) = \sqrt{2}/2, cos(pi/3) = 1/2, e gli altri per simmetria;
+ *   14e-6. arctan di 0, \pm 1, \pm \sqrt{3}, \pm \sqrt{3}/3: 0, \pm pi/4,
+ *          \pm pi/3, \pm pi/6, gli angoli di cui sono le tangenti.
+ *
+ * Un argomento fuori da queste forme rende il certificato non controllabile. */
+
+/* 14e-1. Ritorna b^{r} come coefficiente: b è 'p' con il primo prime, oppure
+ * il nome di una lettera CONST. */
+static CkRat ck_const_base_power(char base, long long prime, CkNum r) {
+    /* Un esponente negativo dà l'inverso: e^{-1/6} è 1 / e^{1/6}, non
+     * e^{1/6}^{5} / e, che ha lo stesso valore ma un grado più alto (14b-3). */
+    if (r.num < 0) return ck_c_inv(ck_const_base_power(base, prime, ck_num_neg(r)));
+    __int128 whole = r.num / r.den, rest = r.num - whole * r.den;
+    CkRat value = ck_c_num(ck_num_int(1));
+    if (whole > CK_MAX_POWER || r.den > CK_MAX_EXPONENT) { ck_unsupported("potenza di una costante troppo grande per il verificatore"); return value; }
+    for (__int128 i = 0; i < whole && ck_status == CK_ACCEPTED; i++)
+        value = ck_c_mul(value, base == 'p' ? ck_c_num(ck_num_int(prime)) : ck_c_var(ck_const_var(base, prime, 1)));
+    for (__int128 i = 0; i < rest && ck_status == CK_ACCEPTED; i++) value = ck_c_mul(value, ck_c_var(ck_const_var(base, prime, (int)r.den)));
+    return value;
+}
+
+/* Mette in *r il razionale numeratore / denominatore del monomio c, cioè di
+ * una frazione di due polinomi di un termine solo, e ritorna 1; ritorna 0 se c
+ * non è un monomio. */
+static int ck_c_monomial(CkRat c, CkNum *r) {
+    if (c.num.count != 1 || c.den.count != 1) return 0;
+    *r = ck_num_mul(c.num.term[0].coef, ck_num_inv(c.den.term[0].coef));
+    return 1;
+}
+
+/* 14e-2. Mette e^{a} in *out e ritorna 1; ritorna 0, dopo averlo annotato, se
+ * a non ha la forma voluta. */
+static int ck_const_exp(CkRat a, CkRat *out) {
+    *out = ck_c_num(ck_num_int(1));
+    if (!ck_poly_is_constant(a.den)) { ck_unsupported("l'esponenziale di una costante che il verificatore non sa scrivere"); return 0; }
+    CkNum scale = ck_num_inv(a.den.term[0].coef);
+    for (int i = 0; i < a.num.count && ck_status == CK_ACCEPTED; i++) {
+        const CkTerm *t = &a.num.term[i];
+        CkNum q = ck_num_mul(t->coef, scale);
+        int letter = -1, letters = 0;
+        for (int v = 0; v < ck_var_count; v++)
+            if (t->e[v]) { letter = v; letters++; }
+        if (letters == 0) *out = ck_c_mul(*out, ck_const_base_power('e', 0, q));
+        else if (letters == 1 && t->e[letter] == 1 && ck_vars[letter].kind == CK_VAR_CONST && ck_vars[letter].name == 'l' && ck_vars[letter].position == 1)
+            *out = ck_c_mul(*out, ck_const_base_power('p', ck_vars[letter].prime, q));
+        else { ck_unsupported("l'esponenziale di una costante che il verificatore non sa scrivere"); return 0; }
+    }
+    return ck_status == CK_ACCEPTED;
+}
+
+/* Aggiunge a *sum times volte la quantità di ogni primo di n, moltiplicata per
+ * scale: ln n = somma di e_p ln p, se letters è 1; altrimenti n^{scale} =
+ * prodotto dei p^{e_p scale} (14e-3, 14e-4). */
+static void ck_prime_parts(__int128 n, CkNum scale, int letters, CkRat *sum) {
+    if (n > CK_MAX_FACTORED) { ck_unsupported("numero troppo grande da scomporre in fattori primi"); return; }
+    for (long long rest = (long long)n, times; rest > 1 && ck_status == CK_ACCEPTED;) {
+        long long p = ck_pop_prime(&rest, &times);
+        CkNum amount = ck_num_mul(ck_num_int(times), scale);
+        if (letters) *sum = ck_c_add(*sum, ck_c_mul(ck_c_num(amount), ck_c_var(ck_const_var('l', p, 1))), 0);
+        else *sum = ck_c_mul(*sum, ck_const_base_power('p', p, amount));
+    }
+}
+
+/* 14e-3. Mette ln c in *out, per c positiva senza L, e ritorna 1; ritorna 0,
+ * dopo averlo annotato, se c non è un monomio o contiene pi. */
+static int ck_const_ln(CkRat c, CkRat *out) {
+    CkNum r;
+    *out = ck_c_num(ck_num_int(0));
+    if (!ck_c_monomial(c, &r) || r.num <= 0) { ck_unsupported("il logaritmo di una costante che il verificatore non sa scrivere"); return 0; }
+    ck_prime_parts(r.num, ck_num_int(1), 1, out);
+    ck_prime_parts(r.den, ck_num_int(-1), 1, out);
+    for (int v = 0; v < ck_var_count && ck_status == CK_ACCEPTED; v++) {
+        int k = c.num.term[0].e[v] - c.den.term[0].e[v];
+        if (!k) continue;
+        CkNum share = ck_num_make(k, ck_vars[v].position);
+        if (ck_vars[v].name == 'p') *out = ck_c_add(*out, ck_c_mul(ck_c_num(share), ck_c_var(ck_const_var('l', ck_vars[v].prime, 1))), 0);
+        else if (ck_vars[v].name == 'e') *out = ck_c_add(*out, ck_c_num(share), 0);
+        else { ck_unsupported("il logaritmo di una costante che il verificatore non sa scrivere"); return 0; }
+    }
+    return ck_status == CK_ACCEPTED;
+}
+
+/* 14e-4. Mette c^{q} in *out, per c positiva, e ritorna 1; ritorna 0, dopo
+ * averlo annotato, se c non è un monomio. */
+static int ck_const_power(CkRat c, CkNum q, CkRat *out) {
+    CkNum r;
+    *out = ck_c_num(ck_num_int(1));
+    if (!ck_c_monomial(c, &r) || r.num <= 0) { ck_unsupported("la potenza di una costante che il verificatore non sa scrivere"); return 0; }
+    ck_prime_parts(r.num, q, 0, out);
+    ck_prime_parts(r.den, ck_num_neg(q), 0, out);
+    for (int v = 0; v < ck_var_count && ck_status == CK_ACCEPTED; v++) {
+        int k = c.num.term[0].e[v] - c.den.term[0].e[v];
+        if (k) *out = ck_c_mul(*out, ck_const_base_power(ck_vars[v].name, ck_vars[v].prime, ck_num_mul(ck_num_make(k, ck_vars[v].position), q)));
+    }
+    return ck_status == CK_ACCEPTED;
+}
+
+/* Ritorna il numero n/d \sqrt{root} (root 1: il razionale n/d). */
+static CkRat ck_const_surd(long long n, long long d, int root) {
+    CkRat value = ck_c_num(ck_num_make(n, d));
+    return root == 1 ? value : ck_c_mul(value, ck_c_var(ck_const_var('p', root, 2)));
+}
+
+/* 14e-5. Mette sin u e cos u in *sine e *cosine, per u = k pi / 12 con k
+ * multiplo di 2 o di 3, e ritorna 1; ritorna 0, dopo averlo annotato, per
+ * ogni altra costante. cos(k pi/12) per k da 0 a 12, come n/d \sqrt{root};
+ * per k da 12 a 24 cos(theta) = cos(2 pi - theta), e sin(theta) =
+ * cos(pi/2 - theta). */
+static int ck_const_sin_cos(CkRat u, CkRat *sine, CkRat *cosine) {
+    static const int table[13][3] = {{1, 1, 1}, {0, 0, 0}, {1, 2, 3}, {1, 2, 2}, {1, 2, 1}, {0, 0, 0}, {0, 1, 1},
+                                     {0, 0, 0}, {-1, 2, 1}, {-1, 2, 2}, {-1, 2, 3}, {0, 0, 0}, {-1, 1, 1}};
+    CkNum r = ck_num_int(0);
+    int pi = ck_const_var('q', 0, 1);
+
+    /* u = r pi: un monomio di pi al primo grado, oppure zero. */
+    if (u.num.count && (!ck_c_monomial(u, &r) || ck_poly_is_constant(u.num) || u.num.term[0].e[pi] != 1 || u.den.term[0].e[pi] != 0)) r.den = 0;
+    for (int v = 0; v < ck_var_count && u.num.count && r.den; v++)
+        if (v != pi && (u.num.term[0].e[v] || u.den.term[0].e[v])) r.den = 0;
+    CkNum twelfths = r.den ? ck_num_mul(r, ck_num_int(12)) : r;
+    if (!r.den || twelfths.den != 1) { ck_unsupported("seno e coseno di una costante che il verificatore non sa scrivere"); return 0; }
+    long long k[2] = {(long long)(((twelfths.num % 24) + 24) % 24), 0};
+    k[1] = (6 - k[0] + 24) % 24;
+    for (int i = 0; i < 2; i++) {
+        long long fold = k[i] <= 12 ? k[i] : 24 - k[i];
+        if (!table[fold][1]) { ck_unsupported("seno e coseno di una costante che il verificatore non sa scrivere"); return 0; }
+        *(i ? sine : cosine) = ck_const_surd(table[fold][0], table[fold][1], table[fold][2]);
+    }
+    return 1;
+}
+
+/* 14e-6. Mette arctan u in *out e ritorna 1; ritorna 0, dopo averlo
+ * annotato, se u non è uno dei numeri di 14e-6. */
+static int ck_const_arctan(CkRat u, CkRat *out) {
+    static const struct { long long n, d; int root; long long angle; } table[] = {
+        {0, 1, 1, 0}, {1, 1, 1, 3}, {1, 1, 3, 4}, {1, 3, 3, 2},
+    };
+    CkRat pi12 = ck_c_mul(ck_c_var(ck_const_var('q', 0, 1)), ck_c_num(ck_num_make(1, 12)));
+    for (size_t i = 0; i < sizeof table / sizeof *table; i++)
+        for (int sign = 1; sign >= -1; sign -= 2) {
+            if (ck_c_equal(u, ck_const_surd(sign * table[i].n, table[i].d, table[i].root)) != 1) continue;
+            *out = ck_c_mul(pi12, ck_c_num(ck_num_int(sign * table[i].angle)));
+            return 1;
+        }
+    ck_unsupported("l'arcotangente di una costante che il verificatore non sa scrivere");
+    return 0;
+}
+
+/* 14f. LE FUNZIONI VICINO AL PUNTO
+ *
+ * Ciò che si sa di una funzione vicino al punto, da un lato: che non ha
+ * valori per nessun t piccolo, oppure e^{G} S, con S una serie (14c) e G un
+ * esponente esatto fatto di potenze negative di t (14g; senza termini G è
+ * zero e il fattore manca). Una funzione senza valori rende senza valori
+ * ogni espressione che la contiene: il suo calcolo non ha senso in nessun
+ * punto vicino.
+ *
+ * Le regole, per una serie s che non ha il fattore:
+ *
+ *   14f-1. e^{s}. Se s è O(1), e^{s} lo è: e^{-C} <= e^{s} <= e^{C}, purché
+ *          s sia limitata davvero (senza logs). Se il resto di s tende a 0,
+ *          tutti i termini con esponente negativo sono noti, e sono il
+ *          fattore e^{G} (14g); il termine costante a + b L dà
+ *          e^{a} t^{-b} (14e-2: e^{b L} = t^{-b}); il resto P tende a 0, ed
+ *          e^{P} è una serie di Taylor.
+ *   14f-2. ln s, con s = c t^{e} (1 + u) e c > 0 senza L: ln c - e L +
+ *          ln(1 + u). Con c < 0 il logaritmo non ha valori.
+ *   14f-3. sin e cos di s che tende a un numero u0 senza L: con s = u0 + w,
+ *          sin u0 cos w + cos u0 sin w e cos u0 cos w - sin u0 sin w. Se s
+ *          non tende a un numero, il seno e il coseno sono comunque limitati,
+ *          tra -1 e 1: O(1). La tangente e la cotangente sono quozienti.
+ *   14f-4. arctan s. Se s tende a +infinito o -infinito, arctan s =
+ *          \pm pi/2 - arctan(1/s), che vale per ogni s diverso da zero con il
+ *          segno di s. Se tende a u0: arctan u0 + arctan(w / (1 + u0 s)),
+ *          la formula di sottrazione arctan a - arctan b = arctan((a - b) /
+ *          (1 + a b)), valida per a b > -1: qui a b = u0 s tende a u0^2 >= 0,
+ *          e 1 + u0 s tende a 1 + u0^2 > 0. Altrimenti arctan s è limitato.
+ *   14f-5. arcsin u = 2 arctan(u / (1 + \sqrt{1 - u^2})) e arccos u = pi/2 -
+ *          arcsin u, per u tra -1 e 1: con a = arcsin u, tra -pi/2 e pi/2,
+ *          tan(a/2) = sin a / (1 + cos a) = u / (1 + \sqrt{1 - u^2}), perché
+ *          cos a = \sqrt{1 - u^2}, e a/2 sta tra -pi/4 e pi/4, dove
+ *          l'arcotangente inverte la tangente. Fuori da [-1, 1] la radice non
+ *          c'è: il dominio è lo stesso.
+ *   14f-6. |s| è s o -s con il segno del termine principale; una serie senza
+ *          coefficienti noti resta com'è, perché il resto è già un valore
+ *          assoluto. */
+
+/* Una funzione vicino al punto, da un lato (vedi in testa a 14f). */
+typedef struct {
+    int undefined;     /* 1 se non ha valori per nessun t piccolo */
+    CkSeries series;   /* S */
+    CkSeries growth;   /* G (14g): esatta, con i soli esponenti negativi; senza termini se il fattore manca */
+} CkNear;
+
+/* Ritorna la funzione e^{growth} s, senza valori se undefined è 1. */
+static CkNear ck_near(CkSeries s, CkSeries growth, int undefined) {
+    CkNear v = {undefined, s, growth};
+    return v;
+}
+
+/* L'esponente nullo: nessun fattore e^{G}. */
+static CkSeries ck_no_growth(void) { return ck_ser_const(ck_c_num(ck_num_int(0))); }
+
+/* Ritorna la serie s, senza fattore. */
+static CkNear ck_near_series(CkSeries s) { return ck_near(s, ck_no_growth(), 0); }
+
+/* Ritorna una funzione senza valori. */
+static CkNear ck_near_nowhere(void) { return ck_near(ck_ser_bounded(), ck_no_growth(), 1); }
+
+/* Ritorna la costante c. */
+static CkNear ck_near_const(CkRat c) { return ck_near_series(ck_ser_const(c)); }
+
+/* 14g. IL FATTORE e^{G}: LA SCALA DELLE CRESCITE
+ *
+ * e^{x} / x^{5} a +infinito non ha una serie in t = 1/x: e^{1/t} cresce più
+ * di ogni potenza. Lo si scrive allora e^{G} S, con G = somma di g_i(L)
+ * t^{-k_i}, k_i > 0, un esponente esatto. I fatti su cui si regge (è la
+ * scala delle crescite dei libri: D. Gruntz, "On computing limits in a
+ * symbolic manipulation system", ETH Zurigo 1996; G. H. Hardy, "Orders of
+ * infinity", 1910):
+ *
+ *   14g-1. se H = lambda(L) t^{-k} (1 + o(1)) con k > 0 e lambda(L) ~ c L^{j},
+ *          c diverso da zero, allora H tende a +infinito o -infinito con il
+ *          segno di c, e per ogni e e d, e^{H} t^{e} L^{d} = exp(H - e L +
+ *          d ln L) tende a +infinito o a 0, perché H - e L + d ln L = H (1 +
+ *          o(1)): t^{-k} L^{j} cresce più di L e di ln L. e^{H} sta sopra o
+ *          sotto ogni potenza di t e di L;
+ *   14g-2. somma: se G1 - G2 = H come in 14g-1 con c > 0, e^{G1} S1 +
+ *          e^{G2} S2 = e^{G1} (S1 + e^{-H} S2), ed e^{-H} S2 è più piccola di
+ *          ogni potenza di t: è un resto O(t^{CK_FLAT}). Se G1 - G2 è zero le
+ *          serie si sommano;
+ *   14g-3. prodotto e quoziente: e^{G1} S1 e^{G2} S2 = e^{G1 + G2} S1 S2, e
+ *          1 / (e^{G} S) = e^{-G} / S;
+ *   14g-4. potenze, logaritmo, valore assoluto: (e^{G} S)^{q} = e^{q G}
+ *          S^{q}, ln(e^{G} S) = G + ln S, |e^{G} S| = e^{G} |S|, perché
+ *          e^{G} > 0;
+ *   14g-5. per le funzioni che il fattore non lo trattano si usa solo dove
+ *          va: con G che tende a -infinito e^{G} S è più piccola di ogni
+ *          potenza di t, una serie O(t^{CK_FLAT}); con G che tende a
+ *          +infinito seno e coseno restano limitati, l'arcotangente è
+ *          \pm pi/2 - arctan(e^{-G} / S) (14f-4), e e^{e^{G} S} con S < 0 è
+ *          più piccola di ogni potenza.
+ *
+ * Il limite di e^{G} S, con il termine principale di S noto: G tende a
+ * +infinito, e allora la funzione tende all'infinito con il segno di S, o a
+ * -infinito, e allora tende a 0 (14g-1). */
+
+/* Dove va l'esponente g (14g-1): mette in *dir +1 se tende a +infinito, -1
+ * se tende a -infinito, e ritorna 1; ritorna 0 se g vale zero; -1 dopo aver
+ * annotato che il segno del suo termine principale non si sa. */
+static int ck_growth_direction(CkSeries g, int *dir) {
+    CkLead lead;
+    int found = ck_ser_settle(&g, &lead);
+    if (found < 0) return 0;
+    if (found == 0) { ck_unsupported("un esponenziale di cui non si sa se cresce o decresce"); return -1; }
+    *dir = lead.side;
+    return 1;
+}
+
+/* Ritorna e^{g} s: un esponente nullo si toglie, e così quello di una serie
+ * esattamente nulla. */
+static CkNear ck_near_grown(CkSeries s, CkSeries g) {
+    int dir;
+    g = ck_ser_trim(g);
+    s = ck_ser_trim(s);
+    if (!g.exact) { ck_unsupported("un esponente con troppi termini"); return ck_near_series(s); }
+    if (ck_growth_direction(g, &dir) <= 0 || (s.exact && s.count == 0)) return ck_near_series(s);
+    return ck_near(s, g, 0);
+}
+
+/* Ritorna 1 se v ha il fattore e^{G}. */
+static int ck_near_grows(CkNear v) { return !v.undefined && v.growth.count > 0; }
+
+/* 14g-5. Se v ha il fattore e G tende a -infinito, ritorna la funzione come
+ * serie più piccola di ogni potenza, e *dir = -1; con G che tende a
+ * +infinito ritorna v e *dir = +1; senza fattore ritorna v e *dir = 0. */
+static CkNear ck_near_plain(CkNear v, int *dir) {
+    *dir = 0;
+    if (!ck_near_grows(v)) return v;
+    ck_growth_direction(v.growth, dir);
+    if (*dir < 0) return ck_near_series(ck_ser_make(1, CK_FLAT, 0, CK_FLAT, 0));
+    return v;
+}
+
+/* 14g-2, 14g-3. a + b, a - b, a b, a / b con il fattore in almeno uno dei due:
+ * op è CK_ADD, CK_SUB, CK_MUL o CK_DIV. */
+static CkNear ck_near_grown_binary(CkKind op, CkNear a, CkNear b) {
+    int dir;
+    if (op == CK_MUL || op == CK_DIV) {
+        CkSeries factor = b.series;
+        if (op == CK_DIV) {
+            int inverted = ck_ser_inverse(b.series, &factor, 0);
+            if (inverted < 0) return ck_near_nowhere();
+            if (inverted == 0) return a;
+        }
+        return ck_near_grown(ck_ser_mul(a.series, factor), ck_ser_add(a.growth, b.growth, op == CK_DIV));
+    }
+
+    /* Una somma con uno zero esatto è l'altro addendo. */
+    CkSeries sa = ck_ser_trim(a.series), sb = ck_ser_trim(b.series);
+    if (sa.exact && sa.count == 0) return op == CK_SUB ? ck_near_grown(ck_ser_scale(b.series, ck_c_num(ck_num_int(-1))), b.growth) : b;
+    if (sb.exact && sb.count == 0) return a;
+
+    /* Chi cresce di più, con la differenza degli esponenti. */
+    CkSeries delta = ck_ser_add(a.growth, b.growth, 1);
+    int known = ck_growth_direction(delta, &dir);
+    if (known < 0) return a;
+    if (known == 0) return ck_near_grown(ck_ser_add(a.series, b.series, op == CK_SUB), a.growth);
+    CkNear big = dir > 0 ? a : b;
+    CkSeries s = dir < 0 && op == CK_SUB ? ck_ser_scale(big.series, ck_c_num(ck_num_int(-1))) : big.series;
+    return ck_near_grown(ck_ser_add(s, ck_ser_make(1, CK_FLAT, 0, CK_FLAT, 0), 0), big.growth);
+}
+
+/* Ritorna a + b, a - b, a b o a / b, secondo op. */
+static CkNear ck_near_binary(CkKind op, CkNear a, CkNear b) {
+    CkSeries inverse;
+    if (a.undefined) return a;
+    if (b.undefined) return b;
+    if (ck_near_grows(a) || ck_near_grows(b)) return ck_near_grown_binary(op, a, b);
+    if (op == CK_ADD || op == CK_SUB) return ck_near_series(ck_ser_add(a.series, b.series, op == CK_SUB));
+    if (op == CK_MUL) return ck_near_series(ck_ser_mul(a.series, b.series));
+    int inverted = ck_ser_inverse(b.series, &inverse, 0);
+    if (inverted < 0) return ck_near_nowhere();
+    return ck_near_series(inverted > 0 ? ck_ser_mul(a.series, inverse) : a.series);
+}
+
+/* Divide s, che tende a un numero o a 0 (il resto tende a 0), nei suoi
+ * termini con esponente negativo, *negative, esatti perché il resto tende a
+ * 0, nel termine costante, *constant, e nel resto della serie, *rest, che
+ * tende a 0. */
+static void ck_ser_split(CkSeries s, CkSeries *negative, CkRat *constant, CkSeries *rest) {
+    int count = s.low < 0 ? -s.low : 0;
+    if (count > s.count) count = s.count;
+    *negative = ck_ser_make(s.den, s.low, count, CK_FLAT, 1);
+    for (int i = 0; i < negative->count; i++) negative->coef[i] = s.coef[i];
+    *negative = ck_ser_trim(*negative);
+    *rest = s;
+    rest->coef += count;
+    rest->count -= count;
+    rest->low += count;
+    *constant = ck_c_num(ck_num_int(0));
+    if (rest->count && rest->low == 0) {
+        *constant = rest->coef[0];
+        rest->coef++;
+        rest->count--;
+        rest->low++;
+    }
+    if (rest->count == 0) rest->low = rest->exact ? 0 : rest->end;
+}
+
+/* 14f-1. e^{v}. */
+static CkNear ck_near_exp(CkNear v) {
+    int dir;
+    if (v.undefined) return v;
+
+    /* 14g-5: e^{e^{G} S} si sa scrivere solo se va a 0, o se G va a -infinito. */
+    if (ck_near_grows(v)) {
+        CkLead lead;
+        CkSeries s = v.series;
+        v = ck_near_plain(v, &dir);
+        if (dir > 0) {
+            if (ck_ser_settle(&s, &lead) == 1 && lead.side < 0) return ck_near_series(ck_ser_make(1, CK_FLAT, 0, CK_FLAT, 0));
+            ck_unsupported("l'esponenziale di una funzione che cresce più di ogni potenza");
+            return v;
+        }
+    }
+    CkSeries s = ck_ser_trim(v.series), negative, rest;
+    if (s.count == 0 && s.end == 0 && !s.logs) return ck_near_series(ck_ser_bounded());
+    if (s.end <= 0) { ck_unsupported("l'esponenziale di una funzione di cui lo sviluppo non dice dove va"); return v; }
+
+    /* Il termine costante a + b L: b razionale, a senza L. */
+    CkRat constant, a = ck_c_num(ck_num_int(0)), base;
+    CkNum b = ck_num_int(0);
+    ck_ser_split(s, &negative, &constant, &rest);
+    if (ck_c_has_ell(constant)) {
+        if (!ck_poly_is_constant(constant.den)) { ck_unsupported("l'esponenziale di una funzione di L che il verificatore non sa scrivere"); return v; }
+        for (int i = 0; i < constant.num.count; i++) {
+            CkTerm t = constant.num.term[i];
+            CkNum degree = ck_ell_degree(&t), c = ck_num_mul(t.coef, ck_num_inv(constant.den.term[0].coef));
+            int others = 0;
+            for (int w = 0; w < ck_var_count; w++)
+                if (t.e[w] && !(ck_vars[w].kind == CK_VAR_CONST && ck_vars[w].name == 'L' && ck_vars[w].position == 1)) others = 1;
+            if (degree.num == 0) {
+                CkTerm *piece = ck_alloc(sizeof *piece);
+                *piece = t;
+                a = ck_c_add(a, (CkRat){{1, piece}, constant.den}, 0);
+                continue;
+            }
+            if (others || degree.num != 1 || degree.den != 1) { ck_unsupported("l'esponenziale di una funzione di L che il verificatore non sa scrivere"); return v; }
+            b = ck_num_add(b, c);
+        }
+    } else {
+        a = constant;
+    }
+    if (!ck_const_exp(a, &base)) return v;
+
+    /* e^{a} t^{-b} e^{P}, con il denominatore degli esponenti che serve. */
+    long long den = (long long)rest.den / ck_gcd(rest.den, b.den) * (long long)b.den;
+    if (den > CK_MAX_SERIES_DEN || b.num > CK_FLAT / 16 || b.num < -CK_FLAT / 16) { ck_unsupported("denominatori degli esponenti troppo grandi per il verificatore"); return v; }
+    CkSeries sum = ck_ser_rescale(ck_ser_scale(ck_ser_taylor(rest, CK_TAYLOR_EXP, ck_num_int(0), ck_goal * rest.den), base), (int)den);
+    return ck_near_grown(ck_ser_shift(sum, (int)(-b.num * (den / b.den))), negative);
+}
+
+/* 14f-2, 14g-4. ln v. */
+static CkNear ck_near_ln(CkNear v) {
+    CkLead lead;
+    CkSeries s = v.series, u;
+    CkRat ln_c;
+    if (v.undefined) return v;
+    /* Un argomento che vale esattamente zero non ha logaritmo, come uno
+     * negativo: ln 0 non è un numero. */
+    if (!ck_ser_head(&s, &lead, "il segno dell'argomento di un logaritmo non si sa stabilire", "l'argomento di un logaritmo non ha un termine principale entro l'ordine dato"))
+        return s.exact && s.count == 0 && ck_status == CK_ACCEPTED ? ck_near_nowhere() : v;
+    if (lead.side < 0) return ck_near_nowhere();
+    if (ck_c_has_ell(s.coef[0])) { ck_unsupported("il logaritmo di un coefficiente che contiene L"); return v; }
+    CkRat c = ck_ser_unit(s, &u);
+    if (!ck_const_ln(c, &ln_c)) return v;
+
+    /* ln c - (low/D) L + ln(1 + u), e con il fattore anche G. */
+    CkRat ell = ck_c_mul(ck_c_num(ck_num_make(-s.low, s.den)), ck_c_var(ck_const_var('L', 0, 1)));
+    CkSeries sum = ck_ser_add(ck_ser_taylor(u, CK_TAYLOR_LOG, ck_num_int(0), ck_goal * u.den), ck_ser_const(ck_c_add(ln_c, ell, 0)), 0);
+    return ck_near_series(ck_near_grows(v) ? ck_ser_add(v.growth, sum, 0) : sum);
+}
+
+/* 14f-3, 14g-5. sin v, cos v, tan v, cot v: fn dice quale. */
+static CkNear ck_near_trig(CkNear v, CkKind fn) {
+    int quotient = fn == CK_TAN || fn == CK_COT, dir;
+    CkRat u0, sine, cosine;
+    CkSeries negative, w, s, c, inverse;
+    if (v.undefined) return v;
+    v = ck_near_plain(v, &dir);
+
+    /* Se l'argomento non tende a un numero senza L: limitati, tra -1 e 1. */
+    s = ck_ser_trim(v.series);
+    int converges = dir <= 0 && s.end > 0 && (s.count == 0 || s.low >= 0);
+    if (converges) {
+        ck_ser_split(s, &negative, &u0, &w);
+        converges = !ck_c_has_ell(u0);
+    }
+    if (!converges) {
+        if (quotient) ck_unsupported("la tangente di qualcosa che non tende a un numero");
+        return ck_near_series(ck_ser_bounded());
+    }
+    if (!ck_const_sin_cos(u0, &sine, &cosine)) return v;
+    CkSeries ws = ck_ser_taylor(w, CK_TAYLOR_SIN, ck_num_int(0), ck_goal * w.den), wc = ck_ser_taylor(w, CK_TAYLOR_COS, ck_num_int(0), ck_goal * w.den);
+    s = ck_ser_add(ck_ser_scale(wc, sine), ck_ser_scale(ws, cosine), 0);
+    c = ck_ser_add(ck_ser_scale(wc, cosine), ck_ser_scale(ws, sine), 1);
+    if (fn == CK_SIN) return ck_near_series(s);
+    if (fn == CK_COS) return ck_near_series(c);
+    int inverted = ck_ser_inverse(fn == CK_TAN ? c : s, &inverse, 0);
+    if (inverted < 0) return ck_near_nowhere();
+    return ck_near_series(inverted > 0 ? ck_ser_mul(fn == CK_TAN ? s : c, inverse) : s);
+}
+
+/* 14f-4, 14g-5. arctan v. */
+static CkNear ck_near_arctan(CkNear v) {
+    CkRat half_pi = ck_c_mul(ck_c_var(ck_const_var('q', 0, 1)), ck_c_num(ck_num_make(1, 2))), u0, angle;
+    CkSeries s, negative, w, inverse, z;
+    CkLead lead;
+    int dir;
+    if (v.undefined) return v;
+
+    /* Verso un infinito: \pm pi/2 - arctan(1/v); con il fattore, 1/v =
+     * e^{-G} / S è più piccola di ogni potenza. */
+    if (ck_near_grows(v)) {
+        s = v.series;
+        CkNear plain = ck_near_plain(v, &dir);
+        if (dir < 0) return ck_near_arctan(plain);
+        if (ck_ser_settle(&s, &lead) != 1) { ck_unsupported("l'arcotangente di un esponenziale di cui non si sa il segno"); return v; }
+        return ck_near_series(ck_ser_add(ck_ser_const(lead.side > 0 ? half_pi : ck_c_neg(half_pi)), ck_ser_make(1, CK_FLAT, 0, CK_FLAT, 0), 0));
+    }
+    s = v.series;
+    if (ck_ser_settle(&s, &lead) == 1 && s.low < 0) {
+        if (ck_ser_inverse(s, &inverse, 0) <= 0) return v;
+        CkSeries sum = ck_ser_taylor(inverse, CK_TAYLOR_ATAN, ck_num_int(0), ck_goal * inverse.den);
+        return ck_near_series(ck_ser_add(ck_ser_const(lead.side > 0 ? half_pi : ck_c_neg(half_pi)), sum, 1));
+    }
+
+    /* Verso un numero u0: la formula di sottrazione. */
+    s = ck_ser_trim(v.series);
+    if (s.end <= 0 || (s.count && s.low < 0)) return ck_near_series(ck_ser_bounded());
+    ck_ser_split(s, &negative, &u0, &w);
+    if (ck_c_has_ell(u0)) return ck_near_series(ck_ser_bounded());
+    if (!ck_const_arctan(u0, &angle)) return v;
+    CkSeries below = ck_ser_add(ck_ser_const(ck_c_num(ck_num_int(1))), ck_ser_scale(s, u0), 0);
+    if (ck_ser_inverse(below, &z, 1) <= 0) return v;
+    z = ck_ser_mul(w, z);
+    return ck_near_series(ck_ser_add(ck_ser_const(angle), ck_ser_taylor(z, CK_TAYLOR_ATAN, ck_num_int(0), ck_goal * z.den), 0));
+}
+
+/* 14f-6, 14g-4. |v|. */
+static CkNear ck_near_abs(CkNear v) {
+    CkLead lead;
+    CkSeries s = v.series;
+    if (v.undefined) return v;
+    int found = ck_ser_settle(&s, &lead);
+    if (found == 0) { ck_unsupported("il segno dell'argomento di un valore assoluto non si sa stabilire"); return v; }
+    if (found > 0 && lead.side < 0) s = ck_ser_scale(s, ck_c_num(ck_num_int(-1)));
+    return ck_near_grows(v) ? ck_near_grown(s, v.growth) : ck_near_series(s);
+}
+
+/* 14d-3, 14g-4. v^{n} per n intero. */
+static CkNear ck_near_power_int(CkNear v, long long n) {
+    CkSeries result;
+    if (v.undefined) return v;
+    if (n == 0) return ck_near_const(ck_c_num(ck_num_int(1)));
+    int done = ck_ser_power_int(v.series, n, &result);
+    if (done < 0) return ck_near_nowhere();
+    if (!done) return v;
+    return ck_near_grows(v) ? ck_near_grown(result, ck_ser_scale(v.growth, ck_c_num(ck_num_int(n)))) : ck_near_series(result);
+}
+
+/* 14d-3, 14g-4. v^{q} per q razionale non intero; odd è 1 per una radice
+ * di indice dispari. */
+static CkNear ck_near_power(CkNear v, CkNum q, int odd) {
+    CkSeries result;
+    if (v.undefined) return v;
+    int done = ck_ser_power(v.series, q, odd, &result);
+    if (done < 0) return ck_near_nowhere();
+    if (!done) return v;
+    return ck_near_grows(v) ? ck_near_grown(result, ck_ser_scale(v.growth, ck_c_num(q))) : ck_near_series(result);
+}
+
+/* 14h. IL VALORE DI UN'ESPRESSIONE
+ *
+ * La variabile vale la sostituzione del lato in corso: a + t, a - t, t^{-1},
+ * -t^{-1}, come serie esatte; oppure, salendo di un piano (D. Gruntz, il
+ * "moving up"), x = e^{1/t} a +infinito, -e^{1/t} a -infinito, e^{-1/t} e
+ * -e^{-1/t} da destra e da sinistra di 0: e^{G} per \pm 1, con G = \pm 1/t.
+ * Anche queste sono biiezioni monotone da un (0, d') all'intorno del lato,
+ * con x che tende al punto se e solo se t tende a 0^{+}: il limite non
+ * cambia. Con x = e^{1/t} un \ln x vale 1/t e un \ln \ln x vale L: i
+ * logaritmi scendono di un piano.
+ *
+ * Per il punto e per il valore dell'affermazione la variabile non c'è
+ * (ck_numbers): il risultato deve essere una serie esatta costante. */
+
+/* Il limite in corso: la variabile, la sua sostituzione, e 1 mentre si
+ * calcola un numero del certificato, in cui la variabile non è ammessa. */
+static char ck_lim_x;
+static CkNear ck_lim_value;
+static int ck_numbers;
+
+/* Ritorna il valore di node vicino al punto, dal lato in corso. */
+static CkNear ck_lim_eval(const CkNode *node) {
+    CkNear a, b;
+    CkNum q;
+    if (ck_status != CK_ACCEPTED) return ck_near_nowhere();
+    switch (node->kind) {
+    case CK_NUMBER:
+        return ck_near_const(ck_c_num(ck_num_int(node->value)));
+    case CK_LETTER:
+        if (ck_numbers || node->name != ck_lim_x) { ck_unsupported("nei limiti la sola lettera è la variabile, e un numero non la contiene"); return ck_near_nowhere(); }
+        return ck_lim_value;
+    case CK_PI:
+        return ck_near_const(ck_c_var(ck_const_var('q', 0, 1)));
+    case CK_NEG:
+        return ck_near_binary(CK_SUB, ck_near_const(ck_c_num(ck_num_int(0))), ck_lim_eval(node->a));
+    case CK_ADD: case CK_SUB: case CK_MUL: case CK_DIV:
+        a = ck_lim_eval(node->a);
+        b = ck_lim_eval(node->b);
+        return ck_near_binary(node->kind, a, b);
+    case CK_POW: {
+        /* Un esponente costante razionale è una potenza (14d-3); ogni altro
+         * vuol dire e^{b ln a}, definita dove a > 0. */
+        b = ck_lim_eval(node->b);
+        a = ck_lim_eval(node->a);
+        CkSeries e = ck_ser_trim(b.series);
+        int constant = !b.undefined && !ck_near_grows(b) && e.exact && (e.count == 0 || (e.count == 1 && e.low == 0));
+        if (constant && ck_c_rational(e.count ? e.coef[0] : ck_c_num(ck_num_int(0)), &q)) {
+            if (q.den != 1) return ck_near_power(a, q, 0);
+            if (q.num > CK_MAX_POWER || q.num < -CK_MAX_POWER) { ck_unsupported("esponente troppo grande per il verificatore"); return a; }
+            return ck_near_power_int(a, (long long)q.num);
+        }
+        if (a.undefined) return a;
+        if (b.undefined) return b;
+        return ck_near_exp(ck_near_binary(CK_MUL, b, ck_near_ln(a)));
+    }
+    case CK_RADICAL:
+        /* (root m a): l'indice m è un intero scritto, da 2 in su, come nel
+         * capitolo 13. */
+        if (node->a->kind != CK_NUMBER || node->a->value < 2 || node->a->value > CK_MAX_EXPONENT) {
+            ck_unsupported("radice con un indice che il verificatore non tratta");
+            return ck_near_nowhere();
+        }
+        return ck_near_power(ck_lim_eval(node->b), ck_num_make(1, node->a->value), (int)(node->a->value % 2));
+    case CK_EXP:
+        return ck_near_exp(ck_lim_eval(node->a));
+    case CK_LN:
+        return ck_near_ln(ck_lim_eval(node->a));
+    case CK_LNABS:
+        return ck_near_ln(ck_near_abs(ck_lim_eval(node->a)));
+    case CK_ABS:
+        return ck_near_abs(ck_lim_eval(node->a));
+    case CK_SIN: case CK_COS: case CK_TAN: case CK_COT:
+        return ck_near_trig(ck_lim_eval(node->a), node->kind);
+    case CK_ATAN:
+        return ck_near_arctan(ck_lim_eval(node->a));
+    case CK_ARCSIN: case CK_ARCCOS: {
+        /* 14f-5: 2 arctan(u / (1 + (1 - u^2)^{1/2})), e pi/2 meno quello.
+         * L'argomento si calcola una volta sola: riscritto come albero
+         * comparirebbe due volte, e un arcoseno dentro l'altro costerebbe il
+         * doppio a ogni livello. */
+        CkNear u = ck_lim_eval(node->a), one = ck_near_const(ck_c_num(ck_num_int(1)));
+        CkNear root = ck_near_power(ck_near_binary(CK_SUB, one, ck_near_power_int(u, 2)), ck_num_make(1, 2), 0);
+        CkNear angle = ck_near_arctan(ck_near_binary(CK_DIV, u, ck_near_binary(CK_ADD, one, root)));
+        a = ck_near_binary(CK_MUL, ck_near_const(ck_c_num(ck_num_int(2))), angle);
+        if (node->kind == CK_ARCSIN) return a;
+        return ck_near_binary(CK_SUB, ck_near_const(ck_c_mul(ck_c_var(ck_const_var('q', 0, 1)), ck_c_num(ck_num_make(1, 2)))), a);
+    }
+    default:
+        ck_unsupported("il certificato usa una parola che i limiti non conoscono");
+        return ck_near_nowhere();
+    }
+}
+
+/* Mette in *value il numero scritto in node, senza la variabile, e ritorna 1;
+ * ritorna 0, dopo averlo annotato, se non è un numero. */
+static int ck_lim_number(const CkNode *node, CkRat *value) {
+    ck_numbers = 1;
+    ck_goal = 1;
+    CkNear v = ck_lim_eval(node);
+    ck_numbers = 0;
+    CkSeries s = ck_ser_trim(v.series);
+    if (ck_status != CK_ACCEPTED) return 0;
+    if (v.undefined || ck_near_grows(v) || !s.exact || s.count > 1 || (s.count == 1 && s.low != 0)) { ck_reject("un numero del certificato non ha un valore"); return 0; }
+    *value = s.count ? s.coef[0] : ck_c_num(ck_num_int(0));
+    return 1;
+}
+
+/* 14i. IL LIMITE DA UN LATO
+ *
+ * Dal termine principale c(L) t^{e} della serie S di f, con c(L) ~ k
+ * L^{d} (14b), e il resto O(t^{E}) con E > e: f = k t^{e} L^{d} (1 + o(1)),
+ * perché ogni termine successivo e il resto, divisi per t^{e} L^{d}, sono
+ * una potenza positiva di t per una di L, che tende a 0. Quindi f tende
+ * all'infinito con il segno di k se e < 0, o e = 0 e d > 0; a 0 se e > 0, o
+ * e = 0 e d < 0; a k se e = d = 0. Senza coefficienti noti, f = O(t^{E})
+ * tende a 0 se E > 0; se E <= 0 l'ordine del certificato non basta, e il
+ * certificato è respinto. Con il fattore e^{G}, 14g-1. */
+
+/* Il limite da un lato. */
+typedef enum { CK_SIDE_NOWHERE, CK_SIDE_FINITE, CK_SIDE_PLUS, CK_SIDE_MINUS } CkSideKind;
+
+typedef struct {
+    CkSideKind kind;
+    CkRat value;   /* CK_SIDE_FINITE: il numero */
+} CkSideLimit;
+
+/* Ritorna il limite da un lato della funzione f. */
+static CkSideLimit ck_side_limit(CkNear f) {
+    CkSideLimit out = {CK_SIDE_FINITE, ck_c_num(ck_num_int(0))};
+    CkSeries s = f.series;
+    CkLead lead;
+    int dir = 0;
+    if (f.undefined) { out.kind = CK_SIDE_NOWHERE; return out; }
+
+    /* 14g-1: con il fattore che va a 0 il limite è 0; con quello che va
+     * all'infinito conta il segno di S. */
+    if (ck_near_grows(f)) ck_growth_direction(f.growth, &dir);
+    if (dir < 0) return out;
+    int found = ck_ser_settle(&s, &lead);
+    if (found == 0) ck_unsupported("il segno del primo coefficiente dello sviluppo non si sa stabilire");
+    if (ck_status != CK_ACCEPTED) return out;
+    if (found < 0) {
+        if (dir == 0 && (s.exact || s.end > 0)) return out;
+        ck_reject("lo sviluppo non ha un termine principale entro l'ordine dato");
+        return out;
+    }
+    int e = s.low, d = ck_num_sign(lead.degree);
+    if (dir > 0 || e < 0 || (e == 0 && d > 0)) { out.kind = lead.side > 0 ? CK_SIDE_PLUS : CK_SIDE_MINUS; return out; }
+    if (e > 0 || d < 0) return out;
+    out.value = ck_c_has_ell(s.coef[0]) ? lead.value : s.coef[0];
+    return out;
+}
+
+/* 14j. LA LETTURA DEL CERTIFICATO E LA VERITÀ DI CIÒ CHE AFFERMA
+ *
+ * Con i limiti dei lati, ciò che claim dice si decide come in testa al
+ * capitolo: due limiti finiti sono uguali se la loro differenza è zero (14a),
+ * diversi se 14b lo prova; un infinito non è un numero, +infinito non è
+ * -infinito. Se la verità che ne viene non è quella dichiarata il
+ * certificato è respinto; se dipende da un confronto che non si sa fare non
+ * è controllabile. */
+
+/* Ritorna 1 se i limiti a e b sono uguali, 0 se sono diversi, -1 se non si
+ * sa. */
+static int ck_sides_equal(CkSideLimit a, CkSideLimit b) {
+    if (a.kind != b.kind) return 0;
+    return a.kind != CK_SIDE_FINITE ? 1 : ck_c_equal(a.value, b.value);
+}
+
+/* Le sostituzioni (14h): il nome nel certificato, il lato, e se è quella che
+ * sale di un piano. */
+static const struct { const char *word; int side; int moved; } ck_substitutions[] = {
+    {"a+t", 1, 0}, {"a-t", -1, 0}, {"1/t", 2, 0}, {"-1/t", -2, 0},
+    {"e^(-1/t)", 1, 1}, {"-e^(-1/t)", -1, 1}, {"e^(1/t)", 2, 1}, {"-e^(1/t)", -2, 1},
+};
+
+/* Legge e controlla un certificato limit, dalla riga dopo l'intestazione
+ * fino a "end" compreso. */
+static void ck_check_limit(void) {
+    static const char *const claims[] = {"value", "plus", "minus", "unsigned", "none"};
+    const CkNode *point = NULL, *function, *value = NULL;
+    int infinity = 0, side = 0, claim = -1, truth, sides = 0, wanted[2], kinds[2] = {0, 0}, goals[2] = {1, 1};
+    CkRat at = {{0, NULL}, {0, NULL}}, number = at;
+    CkSideLimit limit[2] = {{CK_SIDE_NOWHERE, at}, {CK_SIDE_NOWHERE, at}};
+    ck_var_count = 0;
+    ck_sign_var = -1;
+    ck_one = ck_poly_number(ck_num_int(1));
+
+    /* La variabile, il punto, la funzione, ciò che si afferma. */
+    ck_next_line();
+    int named = ck_word("variable");
+    ck_skip();
+    if (!named || !isalpha((unsigned char)*ck_cursor) || isalnum((unsigned char)ck_cursor[1])) { ck_reject("certificato scritto male: manca la variabile"); return; }
+    ck_lim_x = *ck_cursor++;
+    ck_next_line();
+    if (!ck_word("point")) { ck_reject("certificato scritto male: manca il punto"); return; }
+    if (ck_word("+infinity")) infinity = 1;
+    else if (ck_word("-infinity")) infinity = -1;
+    else {
+        point = ck_read();
+        side = ck_word("right") ? 1 : ck_word("left") ? -1 : 0;
+    }
+    ck_next_line();
+    if (!ck_word("function")) { ck_reject("certificato scritto male: manca la funzione"); return; }
+    function = ck_read();
+    ck_next_line();
+    if (!ck_word("claim")) { ck_reject("certificato scritto male: manca ciò che si afferma"); return; }
+    for (int i = 0; i < 5 && claim < 0; i++)
+        if (ck_word(claims[i])) claim = i;
+    if (claim < 0) { ck_reject("certificato scritto male: claim value, plus, minus, unsigned o none"); return; }
+    if (claim == 0) value = ck_read();
+    truth = ck_read_truth();
+    if (ck_status != CK_ACCEPTED) return;
+
+    /* I lati: quelli che il punto vuole, in quest'ordine. */
+    wanted[0] = infinity ? 2 * infinity : side ? side : 1;
+    wanted[1] = -1;
+    int needed = infinity || side ? 1 : 2;
+    for (ck_next_line(); ck_status == CK_ACCEPTED && ck_word("side"); ck_next_line()) {
+        int kind = -1;
+        long long goal = 0;
+        int named_side = ck_word("right") ? 1 : ck_word("left") ? -1 : ck_word("infinity") ? 2 * infinity : 0;
+        for (int i = 0; i < (int)(sizeof ck_substitutions / sizeof *ck_substitutions) && kind < 0; i++)
+            if (ck_word(ck_substitutions[i].word)) kind = i;
+        if (sides == needed || !named_side || named_side != wanted[sides]) { ck_reject("certificato scritto male: i lati non sono quelli del punto"); return; }
+        if (kind < 0 || !ck_read_integer(&goal) || goal < 1 || goal > CK_MAX_GOAL) { ck_reject("certificato scritto male: un lato vuole la sostituzione e l'ordine"); return; }
+        kinds[sides] = kind;
+        goals[sides++] = (int)goal;
+    }
+    if (ck_status != CK_ACCEPTED) return;
+    if (!ck_word("end")) { ck_reject("certificato scritto male: voce sconosciuta o \"end\" mancante"); return; }
+    if (sides != needed) { ck_reject("certificato scritto male: i lati non sono quelli del punto"); return; }
+
+    /* I numeri del certificato: il punto e il valore. */
+    if (point && !ck_lim_number(point, &at)) return;
+    if (value && !ck_lim_number(value, &number)) return;
+
+    /* Ogni lato: la sostituzione deve portare quel lato del punto in t ->
+     * 0^{+}; quella che sale di un piano, in un punto finito, vuole lo 0. */
+    for (int i = 0; i < sides && ck_status == CK_ACCEPTED; i++) {
+        int k = kinds[i], sign = ck_substitutions[k].side;
+        if (sign != wanted[i] || (ck_substitutions[k].moved && point && ck_c_equal(at, ck_c_num(ck_num_int(0))) != 1)) {
+            ck_reject("la sostituzione non porta quel lato del punto in t -> 0+");
+            return;
+        }
+        ck_goal = goals[i];
+        if (ck_substitutions[k].moved) {
+            /* x = \pm e^{\pm 1/t}: e^{G} per \pm 1, con G = \pm t^{-1}. */
+            CkSeries g = ck_ser_make(1, -1, 1, CK_FLAT, 1);
+            g.coef[0] = ck_c_num(ck_num_int(point ? -1 : 1));
+            ck_lim_value = ck_near(ck_ser_const(ck_c_num(ck_num_int(sign > 0 ? 1 : -1))), g, 0);
+        } else if (!point) {
+            /* x = 1/t o x = -1/t. */
+            CkSeries s = ck_ser_make(1, -1, 1, CK_FLAT, 1);
+            s.coef[0] = ck_c_num(ck_num_int(sign > 0 ? 1 : -1));
+            ck_lim_value = ck_near_series(s);
+        } else {
+            /* x = a + t o x = a - t. */
+            CkSeries s = ck_ser_make(1, 0, 2, CK_FLAT, 1);
+            s.coef[0] = at;
+            s.coef[1] = ck_c_num(ck_num_int(sign));
+            ck_lim_value = ck_near_series(ck_ser_trim(s));
+        }
+        limit[i] = ck_side_limit(ck_lim_eval(function));
+    }
+    if (ck_status != CK_ACCEPTED) return;
+
+    /* La verità di claim: dai lati con valori (14j). */
+    int defined = 0, all = 1, some = 0, unknown = 0;
+    for (int i = 0; i < sides; i++) {
+        if (limit[i].kind == CK_SIDE_NOWHERE) continue;
+        defined++;
+        int here = claim == 0 ? (limit[i].kind == CK_SIDE_FINITE ? ck_c_equal(limit[i].value, number) : 0)
+                 : claim == 1 ? limit[i].kind == CK_SIDE_PLUS
+                 : claim == 2 ? limit[i].kind == CK_SIDE_MINUS
+                 : claim == 3 ? limit[i].kind != CK_SIDE_FINITE : 1;
+        if (here < 0) unknown = 1;
+        all = all && here == 1;
+        some = some || here == 0;
+    }
+    if (!defined) { ck_reject("da nessun lato la funzione ha valori: il limite non ha senso"); return; }
+    int holds = all ? 1 : some ? 0 : -1;
+    if (claim == 4) {
+        int same = sides == 2 && defined == 2 ? ck_sides_equal(limit[0], limit[1]) : 1;
+        holds = same < 0 ? -1 : !same;
+    } else if (unknown && !some) {
+        holds = -1;
+    }
+    if (holds < 0) { ck_unsupported("non si sa confrontare il limite calcolato con quello dell'affermazione"); return; }
+    if (holds != truth) ck_reject("i limiti calcolati non danno ciò che il certificato afferma");
+}
+
+/* =============================================================================
+ * 15. CONTROLLO DI UN CERTIFICATO
  * ============================================================================
  *
  * I tre controlli descritti in testa al file, più le condizioni che rendono
@@ -4854,6 +6677,13 @@ static void ck_read_certificate(CkCertificate *cert) {
             ck_check_calculus(kind);
             return;
         }
+
+    /* Un limite (capitolo 14). */
+    if (ck_word("limit")) {
+        cert->checked = 1;
+        ck_check_limit();
+        return;
+    }
     if (!ck_word("induction")) { ck_reject("certificato scritto male: manca l'intestazione"); return; }
     while (ck_status == CK_ACCEPTED && !ended) {
         while (isspace((unsigned char)*ck_cursor)) ck_cursor++;
@@ -5088,7 +6918,7 @@ static CkAnswer ck_check(const char **text, const char **why) {
 }
 
 /* =============================================================================
- * 15. MAIN
+ * 16. MAIN
  * ============================================================================
  *
  * Il verificatore come programma a sé: legge un file di certificati, uno

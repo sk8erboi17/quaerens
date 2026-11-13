@@ -44,6 +44,18 @@
  *      Il numero di alterazioni respinte, e non solo non controllabili, si
  *      riferisce; e alcune righe di verdetto sono fissate.
  *
+ *   8. i limiti (29n di main.c): nei file di tests/limits ogni verdetto del
+ *      capitolo 29 ha il certificato, almeno quanti se ne contano oggi,
+ *      oppure dice perché manca; ogni certificato riletto è accettato, e da
+ *      ognuno se ne ricavano tre che affermano il falso, nessuno dei quali
+ *      deve essere accettato:
+ *
+ *          la verità di ciò che si afferma rovesciata;
+ *          un'affermazione vera cambiata (il valore più 1, l'infinito con
+ *          l'altro segno, il valore 0 per un limite infinito o che non
+ *          esiste);
+ *          la sostituzione del primo lato scambiata con quella dell'altro.
+ *
  * I certificati sbagliati non si tolgono e non si indeboliscono per far
  * passare una modifica: se uno viene accettato, si corregge il verificatore.
  */
@@ -418,6 +430,111 @@ static int check_calculus(const char *path, int expected) {
     return check_result(wrong_accepted == 0, summary) && passed;
 }
 
+/* Scrive in out (di size byte) il certificato di un limite alterato, in modo
+ * che affermi il falso:
+ *
+ *   kind 0: la verità di ciò che si afferma rovesciata;
+ *   kind 1: un'affermazione vera cambiata: value V diventa value V + 1, plus
+ *           e minus si scambiano, unsigned diventa value 0, none diventa
+ *           value 0 (un limite che non esiste non vale 0); per
+ *           un'affermazione falsa, la sostituzione del primo lato scambiata;
+ *   kind 2: la sostituzione del primo lato scambiata (a + t con a - t, 1/t
+ *           con -1/t, e^(1/t) con -e^(1/t), e^(-1/t) con -e^(-1/t)), che non
+ *           porta più quel lato del punto in t -> 0+.
+ *
+ * Ritorna 0 se il testo non ha la forma attesa. */
+static int alter_limit(const char *certificate, int kind, char *out, size_t size) {
+    static const char *const swaps[][2] = {{" a+t ", " a-t "}, {" a-t ", " a+t "}, {" -1/t ", " 1/t "}, {" 1/t ", " -1/t "},
+                                           {" -e^(1/t) ", " e^(1/t) "}, {" e^(1/t) ", " -e^(1/t) "}, {" -e^(-1/t) ", " e^(-1/t) "}, {" e^(-1/t) ", " -e^(-1/t) "}};
+    const char *claim = strstr(certificate, "\nclaim "), *side = strstr(certificate, "\nside "), *from = NULL, *to = NULL;
+    const char *replacement = "";
+    char value[CERTIFICATE_BYTES];
+    if (!claim || !side) return 0;
+    const char *line_end = strchr(claim + 1, '\n');
+    int truth = line_end && line_end - claim > 5 && strncmp(line_end - 5, " true", 5) == 0;
+    if (kind == 1 && truth) {
+        /* Tutta la riga claim, riscritta. */
+        from = claim + 7;
+        to = line_end;
+        if (strncmp(from, "value ", 6) == 0) {
+            snprintf(value, sizeof value, "value (+ %.*s 1) true", (int)(to - 5 - (from + 6)), from + 6);
+            replacement = value;
+        } else {
+            replacement = strncmp(from, "plus", 4) == 0 ? "minus true" : strncmp(from, "minus", 5) == 0 ? "plus true" : "value 0 true";
+        }
+    } else if (kind == 0) {
+        from = line_end - (truth ? 4 : 5);
+        to = line_end;
+        replacement = truth ? "false" : "true";
+    } else {
+        const char *line = strchr(side + 1, '\n');
+        for (size_t i = 0; i < sizeof swaps / sizeof *swaps && !from; i++) {
+            const char *at = strstr(side, swaps[i][0]);
+            if (at && line && at < line) { from = at; to = at + strlen(swaps[i][0]); replacement = swaps[i][1]; }
+        }
+        if (!from) return 0;
+    }
+    int written = snprintf(out, size, "%.*s%s%s", (int)(from - certificate), certificate, replacement, to);
+    return written > 0 && (size_t)written < size;
+}
+
+/* Controllo 8 sul file path: ogni verdetto dei limiti (capitolo 29) ha un
+ * certificato che, riletto, è accettato, oppure il motivo per cui manca; i
+ * certificati sono almeno `expected`, e nessuna delle loro alterazioni
+ * (alter_limit()) è accettata. */
+static int check_limits(const char *path, int expected) {
+    static char altered[2 * CERTIFICATE_BYTES];
+    char summary[512];
+    char *text = read_file(path);
+    if (!text) {
+        snprintf(summary, sizeof summary, "cannot read %s", path);
+        return check_result(0, summary);
+    }
+
+    const char *position = text, *item, *end;
+    int verdicts = 0, certified = 0, silent = 0, wrong = 0, wrong_accepted = 0;
+    while (next_item(&position, &item, &end)) {
+        /* Un verdetto del capitolo 29: dimostrato, falso o risolto. */
+        Verdict verdict = prove_item(item, end);
+        if (verdict.outcome != PROVED && verdict.outcome != REFUTED && verdict.outcome != SOLVED) continue;
+        verdicts++;
+        if (!verdict.certificate) {
+            if (!verdict.reason || !verdict.reason[0]) silent++;
+            continue;
+        }
+
+        /* Il testo consegnato è quello che il verificatore accetta. */
+        const char *why, *reread = verdict.certificate;
+        if (ck_check(&reread, &why) != CK_ACCEPTED) {
+            printf("  statement %d: its certificate is not accepted when read again (%s)\n", verdicts, why);
+            silent++;
+            continue;
+        }
+        certified++;
+
+        /* Le tre alterazioni. */
+        for (int kind = 0; kind < 3; kind++) {
+            if (!alter_limit(verdict.certificate, kind, altered, sizeof altered)) {
+                printf("  statement %d: cannot build altered certificate %d\n", verdicts, kind);
+                wrong_accepted++;
+                continue;
+            }
+            const char *cursor = altered;
+            wrong++;
+            if (ck_check(&cursor, &why) != CK_ACCEPTED) continue;
+            wrong_accepted++;
+            printf("  statement %d: altered certificate %d is accepted:\n%s", verdicts, kind, altered);
+        }
+    }
+    free(text);
+
+    snprintf(summary, sizeof summary, "%d of %d limit verdicts carry a certificate the checker accepts (at least %d expected), the others say why not, in %s",
+             certified, verdicts, expected, path);
+    int passed = check_result(verdicts > 0 && silent == 0 && certified >= expected, summary);
+    snprintf(summary, sizeof summary, "%d of %d altered limit certificates not accepted for %s", wrong - wrong_accepted, wrong, path);
+    return check_result(wrong_accepted == 0, summary) && passed;
+}
+
 int main(void) {
     engine_init();
     int passed = 1;
@@ -559,6 +676,45 @@ int main(void) {
         }
         if (strcmp(line, calculus[i][1]) != 0) printf("  got: %s\n", line);
         passed &= check_result(strcmp(line, calculus[i][1]) == 0, calculus[i][1]);
+    }
+
+    /* 8. I limiti (29n di main.c). I numeri sono quelli di oggi: dei 593
+     * verdetti dei cinque file ne restano senza certificato 6, che dicono
+     * perché (un esponenziale di una funzione di L, che il motore tratta con
+     * l'algebra dei limiti; un confronto tra radici di basi diverse). */
+    passed &= check_limits("tests/limits/book_limits.tex", 155);
+    passed &= check_limits("tests/limits/false_limits.tex", 252);
+    passed &= check_limits("tests/limits/limit_requests.tex", 45);
+    passed &= check_limits("tests/limits/growth_scale_limits.tex", 34);
+    passed &= check_limits("tests/limits/false_growth_scale_limits.tex", 101);
+
+    /* Il testo di un certificato di un limite, fissato, e le righe dei
+     * verdetti. */
+    Verdict cosine = prove("\\lim_{x \\to 0} \\frac{1 - \\cos x}{x^{2}} = \\frac{1}{2}", 'n', 0, 0);
+    const char *limit = "certificate limit\nvariable x\npoint 0\nfunction (/ (- 1 (cos x)) (^ x 2))\nclaim value (/ 1 2) true\n"
+                        "side right a+t 4\nside left a-t 4\nend\n";
+    passed &= check_result(cosine.outcome == PROVED && cosine.certificate && strcmp(cosine.certificate, limit) == 0,
+                           "the certificate of the limit of (1 - cos x)/x^2 has the expected text");
+    static const char *const limit_lines[][2] = {
+        {"\\lim_{x \\to 0} \\frac{1 - \\cos x}{x^{2}} = \\frac{1}{2}", "DIMOSTRATO con le serie troncate; certificato verificato"},
+        {"\\lim_{x \\to 0} \\frac{1}{x} = +\\infty",
+         "FALSO: è dimostrata la sua negazione (il limite non esiste: i limiti da destra e da sinistra sono diversi); certificato verificato"},
+        {"\\lim_{x \\to +\\infty} \\frac{\\ln x}{\\ln \\ln x}", "RISOLTO con le serie troncate, certificato verificato: \\lim_{x \\to +\\infty} \\frac{\\ln x}{\\ln \\ln x} = +\\infty"},
+        {"\\lim_{x \\to +\\infty} \\left(\\frac{1}{3x}\\right)^{\\frac{1}{\\ln(2x)}} = e^{-1}",
+         "DIMOSTRATO con le serie troncate; senza certificato (il verificatore non sa controllarlo, l'esponenziale di una funzione di L che il "
+         "verificatore non sa scrivere)"},
+    };
+    for (size_t i = 0; i < sizeof limit_lines / sizeof *limit_lines; i++) {
+        char line[512] = "";
+        Verdict verdict = prove(limit_lines[i][0], 'n', 0, 0);
+        FILE *memory = tmpfile();
+        if (memory) {
+            verdict_print(memory, &verdict);
+            rewind(memory);
+            line[fread(line, 1, sizeof line - 1, memory)] = 0;
+            fclose(memory);
+        }
+        passed &= check_result(strcmp(line, limit_lines[i][1]) == 0, limit_lines[i][1]);
     }
 
     passed &= check_result(unjustified_steps == 0, "no certificate was rejected and every proof step passed its independent check");

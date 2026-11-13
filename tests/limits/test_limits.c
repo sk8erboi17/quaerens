@@ -27,7 +27,10 @@
  *      enunciato di false_growth_scale_limits.tex viene dichiarato falso;
  *   8. gli enunciati di special_cases[] (la lettura, le convenzioni, gli
  *      errori trovati) ricevono l'esito atteso;
- *   9. nessun passo scartato dai controlli indipendenti.
+ *   9. nessun passo scartato dai controlli indipendenti: né dal controllo
+ *      con i numeri, né dalla rilettura, né dal verificatore, che riceve il
+ *      certificato di ogni verdetto (29n; i certificati da soli sono in
+ *      tests/checker/test_limit_certificates.c).
  *
  * Il metodo sotto esame sono le serie troncate del capitolo 29, con il
  * fattore e^{G} della scala delle crescite (29k), la sostituzione
@@ -173,6 +176,14 @@ static const LimitCase special_cases[] = {
      * risultava 0. Il controllo con i numeri lo aveva fermato. */
     {"the denominator of the exponents survives a constant expansion", "\\lim_{x \\to +\\infty} \\frac{x^{5/2}}{2x^{5/2} - 1} = \\frac{1}{2}", PROVED},
     {"and the wrong value it used to give is false", "\\lim_{x \\to +\\infty} \\frac{x^{5/2}}{2x^{5/2} - 1} = 0", REFUTED},
+
+    /* Antiregressione: e^{O(1)} era preso per limitato anche quando l'O(1)
+     * nascondeva una potenza di L = ln(1/t). x^{\sin(1/x)} = e^{-L \sin(1/x)}
+     * risultava limitato, e x x^{\sin(1/x)} = 0 DIMOSTRATO: in
+     * x = 1/(3\pi/2 + 2k\pi) la funzione vale 1, il limite non esiste. */
+    {"a bounded factor times L is not bounded under e^{...}", "\\lim_{x \\to 0^{+}} x \\cdot x^{\\sin\\frac{1}{x}} = 0", NOT_PROVED},
+    {"the same, written with the exponential", "\\lim_{x \\to 0^{+}} e^{\\sin\\frac{1}{x} \\ln x} x = 0", NOT_PROVED},
+    {"a truly bounded exponent still gives a bounded exponential", "\\lim_{x \\to 0} x e^{\\sin\\frac{1}{x}} = 0", PROVED},
 };
 
 /* Nome di un esito, per i messaggi. */
