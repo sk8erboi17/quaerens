@@ -1,0 +1,31 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{book\_notation.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{book\_notation.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_set\_theory.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 26 true statements written in the notation of the books: images $f(X)$ and preimages $f^{-1}(Y)$ of parts, relations given as sets of pairs $\{(x, y) \mid c\}$, their inverses and compositions, the diagonal $\{(x, x) \mid x \in S\}$, families of parts $X_{i}$ with $\bigcup$ and $\bigcap$, variables that range over a product $S \times T$, maps with values in a product, three examples, and (the last three) a relation and a map between the parts of a set given by a rule of set algebra. Each must be proved. They are not copies of the exercises of \texttt{maps.tex} or \texttt{correspondences.tex}: they are other facts of the same kinds, so that the reader and the unfolding of paragraphs 17p, 17q and 17r of \texttt{parser.c} are tested on statements the books do not contain.
+
+\item \textbf{What is being tested.} That the notation is read and unfolded into conditions on elements, that the unfolded statement agrees with the one as written on finite models (paragraph 28h of \texttt{main.c}), and that chapter 28 proves it, with a certificate that \texttt{checker.c} accepts. The last three are unfolded into statements of chapter 14 (paragraph 17r), checked against the statement as written on small universes, and decided by regions (chapter 15), without a certificate because they have quantifiers over sets.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_set_theory \
+    tests/set_theory/test_set_theory.c && /tmp/test_set_theory
+\end{verbatim}
+
+\item \textbf{Expected result.} One \texttt{PASS} line for the file: every statement is proved, with its written proof. The false statements of the same kinds are in \texttt{false\_book\_relations.tex} and \texttt{false\_book\_maps.tex}.
+\end{enumerate}
+\end{document}

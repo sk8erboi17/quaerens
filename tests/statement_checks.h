@@ -6,7 +6,7 @@
  * di dominio dicono solo quali file leggere. Questo non è un test: non ha un
  * main() e non contiene enunciati.
  *
- * I controlli sono quattro.
+ * I controlli sono cinque.
  *
  *   1. check_all_proved(): ogni enunciato del file è dimostrato, e il motore
  *      ne ha scritto la dimostrazione.
@@ -29,6 +29,12 @@
  *   4. check_none_refuted(): l'altro verso. Nessun enunciato di un file di
  *      enunciati veri che il motore non sa ancora decidere è dichiarato
  *      falso: può rispondere che non lo sa, non che è falso.
+ *
+ *   5. check_structure_certificates(): ogni verdetto del capitolo 28 del
+ *      file, DIMOSTRATO o FALSO, porta un certificato che il verificatore,
+ *      rileggendolo, accetta; e lo stesso certificato alterato (senza le
+ *      voci instance e witness, o con il modello dichiarato del tipo
+ *      opposto) non è accettato.
  *
  * Ogni funzione stampa i casi che non vanno e una riga finale PASS o FAIL, e
  * ritorna 1 se il controllo è riuscito. Sono `static inline` perché un test può
@@ -202,4 +208,88 @@ static inline int check_none_refuted(const char *path) {
 
     snprintf(summary, sizeof summary, "none of the %d true statements of %s is called false (%d are proved)", total, path, proved);
     return check_result(total > 0 && refuted == 0, summary);
+}
+
+/* Ritorna 1 se il verdetto viene dal capitolo 28: il metodo è uno dei suoi
+ * due. */
+static inline int from_chapter_28(const Verdict *verdict) {
+    return (verdict->outcome == PROVED || verdict->outcome == REFUTED) && verdict->method &&
+           (strcmp(verdict->method, "con istanze delle ipotesi e uguali al posto di uguali") == 0 ||
+            strcmp(verdict->method, "con un esempio") == 0);
+}
+
+/* Scrive in out il certificato certificate alterato: una dimostrazione
+ * senza le sue righe instance e witness; un modello con il tipo scambiato,
+ * counterexample al posto di example o il contrario. Ritorna 0 se il testo
+ * non ha la forma attesa o se l'alterazione non cambia nulla. */
+static inline int alter_structure(const char *certificate, char *out, size_t size) {
+    static const char *const kinds[][2] = {{"certificate counterexample\n", "certificate example\n"},
+                                          {"certificate example\n", "certificate counterexample\n"}};
+    for (int i = 0; i < 2; i++) {
+        size_t length = strlen(kinds[i][0]);
+        if (strncmp(certificate, kinds[i][0], length) != 0) continue;
+        return snprintf(out, size, "%s%s", kinds[i][1], certificate + length) < (int)size;
+    }
+    if (strncmp(certificate, "certificate structure\n", 22) != 0) return 0;
+
+    /* Riga per riga, saltando le voci della dimostrazione. */
+    size_t used = 0, dropped = 0;
+    for (const char *line = certificate; *line;) {
+        const char *next = strchr(line, '\n');
+        size_t length = next ? (size_t)(next - line) + 1 : strlen(line);
+        if (strncmp(line, "instance ", 9) == 0 || strncmp(line, "witness ", 8) == 0) dropped++;
+        else if (used + length < size) { memcpy(out + used, line, length); used += length; }
+        else return 0;
+        line += length;
+    }
+    out[used] = 0;
+    return dropped > 0;
+}
+
+/* Controllo 5 sul file path: ogni verdetto del capitolo 28 ha un certificato
+ * accettato, e la sua alterazione no. `expected` è quanti verdetti del
+ * capitolo 28 ci si aspetta almeno, perché il controllo non passi a vuoto.
+ *
+ * Una dimostrazione da cui si tolgono le istanze e i nomi non deve essere
+ * più accettata: se lo fosse, il verificatore avrebbe deciso da solo, e il
+ * controllo non direbbe nulla delle voci che il motore ha scritto. */
+static inline int check_structure_certificates(const char *path, int expected) {
+    static char altered[2 * CERTIFICATE_BYTES];
+    char summary[512];
+    char *text = read_file(path);
+    if (!text) {
+        snprintf(summary, sizeof summary, "cannot read %s", path);
+        return check_result(0, summary);
+    }
+    const char *position = text, *item, *end;
+    int number = 0, verdicts = 0, certified = 0, wrong = 0, wrong_accepted = 0;
+    while (next_item(&position, &item, &end)) {
+        Verdict verdict = prove_item(item, end);
+        number++;
+        if (!from_chapter_28(&verdict)) continue;
+        verdicts++;
+        const char *why = "", *reread = verdict.certificate;
+        if (!reread || ck_check(&reread, &why) != CK_ACCEPTED) {
+            printf("  statement %d has no certificate the checker accepts (%s): ", number, why);
+            verdict_print(stdout, &verdict);
+            putchar('\n');
+            continue;
+        }
+        certified++;
+        if (!alter_structure(verdict.certificate, altered, sizeof altered)) {
+            printf("  statement %d: cannot build the altered certificate\n", number);
+            wrong_accepted++;
+            continue;
+        }
+        const char *cursor = altered;
+        wrong++;
+        if (ck_check(&cursor, &why) != CK_ACCEPTED) continue;
+        wrong_accepted++;
+        printf("  statement %d: the altered certificate is accepted:\n%s", number, altered);
+    }
+    free(text);
+    snprintf(summary, sizeof summary, "%d of %d verdicts of chapter 28 carry a certificate the checker accepts, in %s", certified, verdicts, path);
+    int passed = check_result(verdicts >= expected && certified == verdicts, summary);
+    snprintf(summary, sizeof summary, "%d of %d altered certificates not accepted for %s", wrong - wrong_accepted, wrong, path);
+    return check_result(wrong == certified && wrong_accepted == 0, summary) && passed;
 }

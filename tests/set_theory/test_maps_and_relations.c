@@ -6,16 +6,25 @@
  * insiemi finiti e infiniti. Gli enunciati sono dati: il motore non ne conosce
  * nessuno in anticipo.
  *
- * Oggi il motore dimostra una parte di maps.tex (le applicazioni tra insiemi
- * di numeri date da una sola formula), nove enunciati di correspondences.tex
- * (le sei corrispondenze tra insiemi di numeri e tre enunciati su una
- * relazione qualsiasi) e cinque di equivalence_relations.tex (relazioni date
- * da una regola, un esempio, una relazione qualsiasi), e nulla degli altri
- * file: il test fallisce, e indica il lavoro ancora da fare. Ciò che deve restare vero da
- * subito ha un test a parte, test_set_theory.c: lì stanno gli enunciati sugli
- * insiemi già dimostrati e gli enunciati falsi, anche quelli sulle
- * applicazioni. Il file to_determine.tex non è tra i controllati: contiene
- * domande, non enunciati.
+ * Oggi il motore dimostra 14 dei 16 enunciati di correspondences.tex, 23
+ * dei 54 di maps.tex, 11 dei 28 di equivalence_relations.tex, 1 dei 14 di
+ * order_relations.tex, e nessuno di finite_sets.tex e infinite_sets.tex: il
+ * test fallisce, e indica il lavoro ancora da fare. Gli enunciati dimostrati
+ * sono quelli sulle applicazioni tra insiemi di numeri date da una sola
+ * formula e sulle relazioni tra numeri date da una regola (capitoli 17-18),
+ * e quelli su insiemi qualsiasi scritti come nei libri: immagini e
+ * controimmagini, relazioni come insiemi di coppie, inverse e
+ * composizioni, coppie, relazioni e applicazioni tra le parti di un insieme
+ * (17p-17r di parser.c, capitoli 28 e 15). Mancano soprattutto le ipotesi su
+ * tutte le parti di un insieme, le applicazioni da costruire, il numero di
+ * elementi e l'equipotenza, il massimo comun divisore e i numeri primi, le
+ * relazioni d'ordine scritte tra gli elementi: il verdetto dice quale.
+ *
+ * Ciò che deve restare vero da subito ha un test a parte,
+ * test_set_theory.c: lì stanno gli enunciati sugli insiemi già dimostrati,
+ * altri della stessa notazione dei libri, e gli enunciati falsi, anche
+ * quelli sulle applicazioni. Il file to_determine.tex non è tra i
+ * controllati: contiene domande, non enunciati.
  *
  * Compilazione ed esecuzione, dalla cartella principale del repository:
  *

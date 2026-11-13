@@ -28,6 +28,6 @@ cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_maps_and_relations \
     tests/set_theory/test_maps_and_relations.c && /tmp/test_maps_and_relations
 \end{verbatim}
 
-\item \textbf{Expected result.} One \texttt{PASS} line for the file when every statement is proved with a written proof. The engine does not yet treat statements of this kind: each one is reported as not supported, and the test fails. The file states the goal.
+\item \textbf{Expected result.} One \texttt{PASS} line for the file when every statement is proved with a written proof. The engine does not yet treat statements of this kind: each one is reported as not supported, and the test fails. Each speaks of equipotence ($A \sim B$) or of infinite sets ($|S| = \infty$), and all but one are refused before any reader, with the reason that deciding them needs bijections to be built (chapter 20 of \texttt{main.c}). The file states the goal.
 \end{enumerate}
 \end{document}

@@ -1,0 +1,46 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Images, preimages and relations written as sets (26)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+$f(X) = \{f(x) \mid x \in X\}$, $f^{-1}(Y) = \{x \mid f(x) \in Y\}$; a relation is a set of pairs; $\exists! y$: there is exactly one $y$. Every statement below is true.
+
+\begin{enumerate}
+\item $\displaystyle f \colon S \to T \implies (\forall X, Y \subseteq S\ (f(X \cup Y) = f(X) \cup f(Y)))$
+\item $\displaystyle f \colon S \to T \implies (\forall X, Y \subseteq S\ (f(X \cap Y) \subseteq f(X) \cap f(Y)))$
+\item $\displaystyle f \colon S \to T \implies (\forall X, Y \subseteq T\ (f^{-1}(X \cup Y) = f^{-1}(X) \cup f^{-1}(Y)))$
+\item $\displaystyle f \colon S \to T \implies (\forall X, Y \subseteq T\ (f^{-1}(X \setminus Y) = f^{-1}(X) \setminus f^{-1}(Y)))$
+\item $\displaystyle f \colon S \to T \implies (\forall X \subseteq S\ (X \subseteq f^{-1}(f(X))))$
+\item $\displaystyle f \colon S \to T \implies (\forall Y \subseteq T\ (f(f^{-1}(Y)) \subseteq Y))$
+\item $\displaystyle f \colon S \to T \implies (\forall Y \subseteq T\ (f(f^{-1}(Y)) = Y \cap f(S)))$
+\item $\displaystyle (f \colon S \to T \land g \colon T \to V) \implies (\forall Z \subseteq V\ (f^{-1}(g^{-1}(Z)) = \{x \in S \mid g(f(x)) \in Z\}))$
+\item $\displaystyle (f \colon S \to T \land \forall a, b \in S\ (f(a) = f(b) \implies a = b)) \implies (\forall X \subseteq S\ (f^{-1}(f(X)) = X))$
+\item $\displaystyle (f \colon S \to T \land u \in S) \implies (f(u) \in f(\{u\}))$
+\item $\displaystyle (f \colon S \to T \land \forall i \in I\ (X_{i} \subseteq S)) \implies (f(\bigcap_{i \in I} X_{i}) \subseteq \bigcap_{i \in I} f(X_{i}))$
+\item $\displaystyle (f \colon S \to T \land \forall i \in I\ (Y_{i} \subseteq T)) \implies (f^{-1}(\bigcup_{i \in I} Y_{i}) = \bigcup_{i \in I} f^{-1}(Y_{i}))$
+\item $\displaystyle (R \subseteq S \times T \land R^{*} = \{(y, x) \mid (x, y) \in R\} \land G = \{(x, y) \mid (y, x) \in R^{*}\}) \implies (G = R)$
+\item $\displaystyle (R_{1} \subseteq S \times T \land R_{2} \subseteq T \times V \land R_{3} \subseteq V \times W) \implies (\{(x, w) \mid \exists z\ ((x, z) \in \{(x, z) \mid \exists y\ ((x, y) \in R_{1} \land (y, z) \in R_{2})\} \land (z, w) \in R_{3})\} = \{(x, w) \mid \exists y\ ((x, y) \in R_{1} \land (y, w) \in \{(y, w) \mid \exists z\ ((y, z) \in R_{2} \land (z, w) \in R_{3})\})\})$
+\item $\displaystyle (R \subseteq S \times T \land D = \{(x, x) \mid x \in S\}) \implies (\{(x, z) \mid \exists y\ ((x, y) \in D \land (y, z) \in R)\} = R)$
+\item $\displaystyle (R \subseteq S \times S \land \forall x, y\ ((x, y) \in R \implies (y, x) \in R)) \implies (\{(y, x) \mid (x, y) \in R\} = R)$
+\item $\displaystyle (R_{1} \subseteq S \times S \land R_{2} \subseteq S \times S) \implies (\{(y, x) \mid (x, y) \in R_{1} \cap R_{2}\} = \{(y, x) \mid (x, y) \in R_{1}\} \cap \{(y, x) \mid (x, y) \in R_{2}\})$
+\item $\displaystyle (R \subseteq S \times S \land \forall x \in S\ ((x, x) \in R)) \implies (R \subseteq \{(x, z) \mid \exists y\ ((x, y) \in R \land (y, z) \in R)\})$
+\item $\displaystyle (f \colon S \times T \to T \times S \land g \colon T \times S \to S \times T \land \forall x \in S\ \forall y \in T\ (f(x, y) = (y, x)) \land \forall y \in T\ \forall x \in S\ (g(y, x) = (x, y))) \implies (\forall a \in S \times T\ (g(f(a)) = a))$
+\item $\displaystyle (S \neq \emptyset \land R = \{((x_{1}, y_{1}), (x_{2}, y_{2})) \in (S \times T)^{2} \mid x_{1} = x_{2}\}) \implies (\forall x, y\ ((x, y) \in R \implies (y, x) \in R))$
+\item $\displaystyle \exists S, T\ \exists f \colon S \to T\ \exists X \subseteq S\ (f^{-1}(f(X)) \neq X)$
+\item $\displaystyle \exists S, T\ \exists f \colon S \to T\ \exists Y \subseteq T\ (f(f^{-1}(Y)) \neq Y)$
+\item $\displaystyle \exists S\ \exists R_{1}, R_{2} \subseteq S \times S\ (\{(x, z) \mid \exists y\ ((x, y) \in R_{1} \land (y, z) \in R_{2})\} \neq \{(x, z) \mid \exists y\ ((x, y) \in R_{2} \land (y, z) \in R_{1})\})$
+\item $\displaystyle R = \{(X, Y) \in \mathcal{P}(S)^{2} \mid X \subseteq Y\} \implies (\forall X, Y\ (((X, Y) \in R \land (Y, X) \in R) \implies X = Y))$
+\item $\displaystyle (f \colon \mathcal{P}(S) \to \mathcal{P}(S) \land \forall X \in \mathcal{P}(S)\ (f(X) = S \setminus X)) \implies (\forall a \in \mathcal{P}(S)\ (f(f(a)) = a))$
+\item $\displaystyle (E \subseteq S \land R = \{(X, Y) \in \mathcal{P}(S)^{2} \mid X \cap E = Y \cap E\}) \implies (\forall X, Y\ ((X, Y) \in R \implies (Y, X) \in R))$
+\end{enumerate}
+\end{document}

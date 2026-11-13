@@ -1,0 +1,40 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{False statements about relations written as sets of pairs (20)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+A relation is a set of pairs; $\exists! y$: there is exactly one $y$. Every statement below is false; item 14 asks for an example that does not exist. Items 17 to 20 are about relations between the parts of a set; item 19 is true only when $S$ is empty.
+
+\begin{enumerate}
+\item $\displaystyle R \subseteq S \times S \implies (\{(x, z) \mid \exists y\ ((x, y) \in R \land (y, z) \in R)\} = R)$
+\item $\displaystyle (R_{1} \subseteq S \times S \land R_{2} \subseteq S \times S) \implies (\{(x, z) \mid \exists y\ ((x, y) \in R_{1} \land (y, z) \in R_{2})\} = \{(x, z) \mid \exists y\ ((x, y) \in R_{2} \land (y, z) \in R_{1})\})$
+\item $\displaystyle (R \subseteq S \times S \land R^{*} = \{(y, x) \mid (x, y) \in R\}) \implies (\forall x, y \in S\ ((x, y) \in R \implies (x, y) \in R^{*}))$
+\item $\displaystyle (R \subseteq S \times S \land \forall x \in S\ ((x, x) \in R)) \implies (\{(x, z) \mid \exists y\ ((x, y) \in R \land (y, z) \in R)\} \subseteq R)$
+\item $\displaystyle R \subseteq S \times S \implies (((\forall x \in S\ ((x, x) \in R)) \land (\forall x, y\ ((x, y) \in R \implies (y, x) \in R))) \iff R = \{(x, x) \mid x \in S\})$
+\item $\displaystyle (R_{1} \subseteq S \times S \land R_{2} \subseteq S \times S \land R_{3} \subseteq S \times S) \implies (\{(x, z) \mid \exists y\ ((x, y) \in R_{1} \land (y, z) \in R_{2} \cap R_{3})\} = \{(x, z) \mid \exists y\ ((x, y) \in R_{1} \land (y, z) \in R_{2})\} \cap \{(x, z) \mid \exists y\ ((x, y) \in R_{1} \land (y, z) \in R_{3})\})$
+\item $\displaystyle (S \neq \emptyset \land R \subseteq S \times S \land \forall x \in S\ ((x, x) \in R)) \implies (\forall x \in S\ \exists! y \in S\ ((x, y) \in R))$
+\item $\displaystyle (R \subseteq S \times S \land \forall x \in S\ ((x, x) \in R)) \implies (R = \emptyset)$
+\item $\displaystyle (R \subseteq S \times S \land \forall x, y\ ((x, y) \in R \implies (y, x) \in R)) \implies (R \subseteq \{(x, x) \mid x \in S\})$
+\item $\displaystyle (f \colon S \times T \to S \land \forall x \in S\ \forall y \in T\ (f(x, y) = x)) \implies (\forall a, b \in S \times T\ (f(a) = f(b) \implies a = b))$
+\item $\displaystyle (f \colon S \times T \to T \times S \land \forall x \in S\ \forall y \in T\ (f(x, y) = (y, x))) \implies \lnot (\forall y \in T \times S\ \exists x \in S \times T\ (f(x) = y))$
+\item $\displaystyle R = \{((x_{1}, y_{1}), (x_{2}, y_{2})) \in (S \times S)^{2} \mid x_{1} = y_{2}\} \implies (\forall x \in S \times S\ ((x, x) \in R))$
+\item $\displaystyle (S \neq \emptyset \land R = \{((x_{1}, y_{1}), (x_{2}, y_{2})) \in (S \times S)^{2} \mid x_{1} = x_{2}\}) \implies (\forall x, y\ ((x, y) \in R \implies x = y))$
+\item $\displaystyle \exists S \neq \emptyset\ \exists R \subseteq S \times S\ ((\forall x \in S\ ((x, x) \in R)) \land \lnot (R \subseteq \{(x, z) \mid \exists y\ ((x, y) \in R \land (y, z) \in R)\}))$
+\item $\displaystyle (R \subseteq S \times S \land \forall x \in S\ \exists! y \in S\ ((x, y) \in R)) \implies (\forall x, y\ ((x, y) \in R \implies (y, x) \in R))$
+\item $\displaystyle (R_{1} \subseteq S \times S \land R_{2} \subseteq S \times S) \implies (\{(x, z) \mid \exists y\ ((x, y) \in R_{1} \cup R_{2} \land (y, z) \in R_{1} \cup R_{2})\} = \{(x, z) \mid \exists y\ ((x, y) \in R_{1} \land (y, z) \in R_{1})\} \cup \{(x, z) \mid \exists y\ ((x, y) \in R_{2} \land (y, z) \in R_{2})\})$
+\item $\displaystyle (S \neq \emptyset \land G = \{(X, Y) \in \mathcal{P}(S)^{2} \mid X \cap Y = \emptyset\}) \implies (\forall X \in \mathcal{P}(S)\ ((X, X) \in G))$
+\item $\displaystyle (S \neq \emptyset \land G = \{(X, Y) \in \mathcal{P}(S)^{2} \mid X \cap Y = \emptyset\}) \implies (\forall X, Y, Z\ (((X, Y) \in G \land (Y, Z) \in G) \implies (X, Z) \in G))$
+\item $\displaystyle G = \{(X, Y) \in \mathcal{P}(S)^{2} \mid X \cap Y = \emptyset\} \implies (\forall X \in \mathcal{P}(S)\ ((X, X) \in G))$
+\item $\displaystyle R = \{(X, Y) \in \mathcal{P}(S)^{2} \mid X \subseteq Y\} \implies (\forall X, Y\ ((X, Y) \in R \implies (Y, X) \in R))$
+\end{enumerate}
+\end{document}

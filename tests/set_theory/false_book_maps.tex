@@ -1,0 +1,44 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{False statements about images and preimages (24)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+$f(X) = \{f(x) \mid x \in X\}$, $f^{-1}(Y) = \{x \mid f(x) \in Y\}$. Every statement below is false. Items 8 and 9 ask for an example that does not exist. Items 11, 12 and 13 hold on every finite set and fail on an infinite one: no finite model refutes them, and they must not be proved. Item 16 has a hypothesis on every part of a set. Items 22 to 24 are about maps from the parts of a set to its parts; item 24 is true only when $S$ is empty.
+
+\begin{enumerate}
+\item $\displaystyle (R \subseteq S \times S \land \exists x \in S\ (x = x)) \implies (R = \emptyset)$
+\item $\displaystyle f \colon S \to S \implies (\forall X \subseteq S\ (f(X) = f^{-1}(X)))$
+\item $\displaystyle f \colon S \to T \implies (\forall X, Y \subseteq S\ (f(X \cap Y) = f(X) \cap f(Y)))$
+\item $\displaystyle f \colon S \to T \implies (\forall X, Y \subseteq S\ (f(X \setminus Y) = f(X) \setminus f(Y)))$
+\item $\displaystyle f \colon S \to T \implies (\forall X \subseteq S\ (f^{-1}(f(X)) = X))$
+\item $\displaystyle f \colon S \to T \implies (\forall Y \subseteq T\ (f(f^{-1}(Y)) = Y))$
+\item $\displaystyle f \colon S \to T \implies (\forall X \subseteq S\ (f(S \setminus X) = T \setminus f(X)))$
+\item $\displaystyle \exists S, T\ \exists f \colon S \to T\ \exists X, Y \subseteq S\ (f(X \cup Y) \neq f(X) \cup f(Y))$
+\item $\displaystyle \exists S, T\ \exists f \colon S \to T\ \exists X, Y \subseteq T\ (f^{-1}(X \cap Y) \neq f^{-1}(X) \cap f^{-1}(Y))$
+\item $\displaystyle (S \neq \emptyset \land f \colon S \to T \land \forall i \in I\ (X_{i} \subseteq S)) \implies (f(\bigcap_{i \in I} X_{i}) = \bigcap_{i \in I} f(X_{i}))$
+\item $\displaystyle (f \colon S \to S \land \forall a, b \in S\ (f(a) = f(b) \implies a = b)) \implies (f(S) = S)$
+\item $\displaystyle (f \colon S \to S \land f(S) = S) \implies (\forall a, b \in S\ (f(a) = f(b) \implies a = b))$
+\item $\displaystyle (f \colon S \to S \land \forall a, b \in S\ (f(a) = f(b) \implies a = b)) \implies (\forall y \in S\ \exists x \in S\ (f(x) = y))$
+\item $\displaystyle (S \neq \emptyset \land f \colon S \to T) \implies (f(S) = \emptyset)$
+\item $\displaystyle f \colon S \to T \implies (\forall X \subseteq S\ (f(X) = \emptyset))$
+\item $\displaystyle (f \colon S \to T \land \forall Y \subseteq T\ (f^{-1}(Y) = \emptyset \iff Y = \emptyset)) \implies (\forall a, b \in S\ (f(a) = f(b) \implies a = b))$
+\item $\displaystyle f \colon S \to T \implies (\forall X \subseteq S\ \forall Y \subseteq T\ (f(X) \subseteq Y \iff X = f^{-1}(Y)))$
+\item $\displaystyle (S \neq \emptyset \land f \colon S \to T) \implies (\forall x \in S\ \exists! y \in S\ (f(x) = f(y)))$
+\item $\displaystyle f \colon S \to T \implies (\forall X \subseteq S\ (f^{-1}(f(X)) \subseteq X))$
+\item $\displaystyle (f \colon S \to T \land u \in S) \implies (f^{-1}(\{f(u)\}) = \{u\})$
+\item $\displaystyle (S \neq \emptyset \land f \colon S \to T \land \forall i \in I\ (X_{i} \subseteq S)) \implies (\bigcup_{i \in I} f(X_{i}) \subseteq f(\bigcap_{i \in I} X_{i}))$
+\item $\displaystyle (f \colon \mathcal{P}(S) \to \mathcal{P}(S) \land (S \neq \emptyset \land E \subseteq S \land \forall X \in \mathcal{P}(S)\ (f(X) = X \cap E))) \implies ((\forall a, b \in \mathcal{P}(S)\ (f(a) = f(b) \implies a = b)) \iff E = \emptyset)$
+\item $\displaystyle (f \colon \mathcal{P}(S) \to \mathcal{P}(S) \land \forall X \in \mathcal{P}(S)\ (f(X) = X \cup X)) \implies (\lnot (\forall a, b \in \mathcal{P}(S)\ (f(a) = f(b) \implies a = b)))$
+\item $\displaystyle (f \colon \mathcal{P}(S) \to \mathcal{P}(S) \land \forall X \in \mathcal{P}(S)\ (f(X) = S \setminus X)) \implies (\forall a \in \mathcal{P}(S)\ (f(a) = a))$
+\end{enumerate}
+\end{document}

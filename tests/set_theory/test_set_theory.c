@@ -1,26 +1,31 @@
 /* Test di dominio: teoria degli insiemi.
  *
- * Otto controlli, descritti in tests/statement_checks.h:
+ * Undici controlli, descritti in tests/statement_checks.h:
  *
  *   1. ogni enunciato di set_operations.tex viene dimostrato, con la sua
  *      dimostrazione scritta;
  *   2. lo stesso per cartesian_products.tex;
  *   3. lo stesso per relations_by_rule.tex;
  *   4. lo stesso per set_quantifiers.tex;
- *   5. nessun enunciato di false_set_statements.tex viene dimostrato;
- *   6. nessun enunciato di false_map_statements.tex viene dimostrato;
- *   7. nessun enunciato di false_relation_statements.tex viene dimostrato;
- *   8. nessun enunciato di false_set_quantifiers.tex viene dimostrato.
+ *   5. lo stesso per book_notation.tex: immagini, controimmagini e
+ *      relazioni scritte come insiemi di coppie (17p e 17q di parser.c);
+ *   6. nessun enunciato di false_set_statements.tex viene dimostrato;
+ *   7. nessun enunciato di false_map_statements.tex viene dimostrato;
+ *   8. nessun enunciato di false_relation_statements.tex viene dimostrato;
+ *   9. nessun enunciato di false_set_quantifiers.tex viene dimostrato;
+ *  10. nessun enunciato di false_book_relations.tex viene dimostrato;
+ *  11. nessun enunciato di false_book_maps.tex viene dimostrato.
  *
- * I controlli da 5 a 8 sono l'antiregressione: impediscono che il motore
+ * I controlli da 6 a 11 sono l'antiregressione: impediscono che il motore
  * cominci ad approvare enunciati falsi. Qui non si usano le varianti false
  * ricavate dagli enunciati veri, perché aggiungere 1 a un membro ha senso solo
  * per le uguaglianze tra numeri. Gli enunciati sono dati: il motore non ne
  * conosce nessuno in anticipo.
  *
- * I controlli 3, 6 e 7 stanno qui, e non in test_maps_and_relations.c, perché
- * questo test deve passare sempre: l'altro elenca enunciati ancora da
- * dimostrare, e fallisce finché non lo sono tutti.
+ * I controlli 3, 5, 7, 8, 10 e 11 stanno qui, e non in
+ * test_maps_and_relations.c, perché questo test deve passare sempre: l'altro
+ * elenca enunciati ancora da dimostrare, e fallisce finché non lo sono
+ * tutti.
  *
  * Compilazione ed esecuzione, dalla cartella principale del repository:
  *
@@ -39,10 +44,22 @@ int main(void) {
     passed = check_all_proved("tests/set_theory/cartesian_products.tex") && passed;
     passed = check_all_proved("tests/set_theory/relations_by_rule.tex") && passed;
     passed = check_all_proved("tests/set_theory/set_quantifiers.tex") && passed;
+    passed = check_all_proved("tests/set_theory/book_notation.tex") && passed;
     passed = check_none_proved("tests/set_theory/false_set_statements.tex") && passed;
     passed = check_none_proved("tests/set_theory/false_map_statements.tex") && passed;
     passed = check_none_proved("tests/set_theory/false_relation_statements.tex") && passed;
     passed = check_none_proved("tests/set_theory/false_set_quantifiers.tex") && passed;
+    passed = check_none_proved("tests/set_theory/false_book_relations.tex") && passed;
+    passed = check_none_proved("tests/set_theory/false_book_maps.tex") && passed;
+
+    /* I verdetti sulla notazione dei libri vengono dal capitolo 28: ognuno
+     * porta un certificato che il verificatore accetta, e alterato no
+     * (controllo 5). I numeri sono quanti verdetti di quel capitolo ci si
+     * aspetta almeno: tutti gli enunciati veri, e i falsi che un modello
+     * finito smentisce. */
+    passed = check_structure_certificates("tests/set_theory/book_notation.tex", 23) && passed;
+    passed = check_structure_certificates("tests/set_theory/false_book_relations.tex", 15) && passed;
+    passed = check_structure_certificates("tests/set_theory/false_book_maps.tex", 15) && passed;
 
     /* Ogni fatto scritto in una dimostrazione viene ricontrollato dal
      * programma con un metodo indipendente: nessuno deve essere stato

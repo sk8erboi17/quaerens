@@ -671,8 +671,12 @@ static const Case cases[] = {
      "\\exists S\\ \\exists R \\subseteq S \\times S\\ ((\\forall x \\in S\\ ((x, x) \\in R)) \\land \\exists x \\in S\\ ((x, x) \\notin R))", NOT_PROVED},
     {"twenty-four quantifiers: the models with three elements are too many to try, and the search stops",
      "\\forall a, b, c, d, e, g, h, i \\in S\\ \\forall j, k, l, m, n, o, p, q \\in S\\ \\forall r, s, t, u, v, w, x, y \\in S\\ (a = a)", PROVED},
-    {"one quantifier more than the reader keeps", "\\forall a, b, c, d, e, g, h, i \\in S\\ \\forall j, k, l, m, n, o, p, q \\in S\\ "
-     "\\forall r, s, t, u, v, w, x, y \\in S\\ \\forall z \\in S\\ (a = a)", UNSUPPORTED},
+    {"one quantifier more than the reader keeps (64 variables, MAX_SLOTS)",
+     "\\forall a_{1}, a_{2}, a_{3}, a_{4}, a_{5}, a_{6}, a_{7}, a_{8} \\in S\\ \\forall b_{1}, b_{2}, b_{3}, b_{4}, b_{5}, b_{6}, b_{7}, b_{8} \\in S\\ "
+     "\\forall c_{1}, c_{2}, c_{3}, c_{4}, c_{5}, c_{6}, c_{7}, c_{8} \\in S\\ \\forall d_{1}, d_{2}, d_{3}, d_{4}, d_{5}, d_{6}, d_{7}, d_{8} \\in S\\ "
+     "\\forall g_{1}, g_{2}, g_{3}, g_{4}, g_{5}, g_{6}, g_{7}, g_{8} \\in S\\ \\forall h_{1}, h_{2}, h_{3}, h_{4}, h_{5}, h_{6}, h_{7}, h_{8} \\in S\\ "
+     "\\forall k_{1}, k_{2}, k_{3}, k_{4}, k_{5}, k_{6}, k_{7}, k_{8} \\in S\\ \\forall m_{1}, m_{2}, m_{3}, m_{4}, m_{5}, m_{6}, m_{7}, m_{8} \\in S\\ "
+     "\\forall z \\in S\\ (a_{1} = a_{1})", UNSUPPORTED},
     {"a map quantified among the hypotheses is not a declaration",
      "(\\forall f \\in S^{S}\\ \\forall x \\in S\\ (f(x) = x)) \\implies \\forall a, b \\in S\\ (a = b)", UNSUPPORTED},
     {"a declaration outside the hypotheses", "\\forall x \\in S\\ (x = x) \\implies f \\colon S \\to S", UNSUPPORTED},

@@ -53,6 +53,15 @@
  *     elemento neutro a sinistra e uno a destra coincidono". Si smentiscono
  *     con un modello finito e si dimostrano per assurdo, con istanze delle
  *     ipotesi e uguali al posto di uguali (17o in parser.c, capitolo 28).
+ *     Vi si scrive anche come nei libri: immagini f(X) e controimmagini
+ *     f^{-1}(Y) di parti, relazioni come insiemi di coppie \{(x, y) \mid
+ *     ...\}, le loro inverse e composizioni, uguaglianze e inclusioni tra
+ *     insiemi, \exists!, coppie x \in S \times T (17p in parser.c). Il
+ *     lettore svolge quella notazione nelle condizioni sugli elementi
+ *     (17q), e lo svolgimento si ricontrolla sui modelli finiti (28h).
+ *     Le relazioni e le applicazioni tra le parti di un insieme date da una
+ *     regola, come (X, Y) \in G con X \cap Y = \emptyset, si svolgono invece
+ *     in un enunciato del capitolo 14 (17r).
  *
  * I metodi si combinano dove serve. Dentro un enunciato con quantificatori
  * un "per ogni n naturale" seguito da un'uguaglianza con somme viene
@@ -224,10 +233,16 @@
  *     di ragionare è una regola in più nel capitolo 18. L'induzione vi
  *     entra solo per un "per ogni n" senza altre variabili intorno.
  *   - Negli enunciati su insiemi qualsiasi: le applicazioni e le parti da
- *     costruire, le immagini e le controimmagini di una parte, l'insieme
- *     delle parti, la composizione come operazione, le potenze di un
- *     elemento. E un insieme qualsiasi insieme a un insieme numerico nello
- *     stesso enunciato: i due linguaggi non si parlano. Vedi il capitolo 28.
+ *     costruire, le ipotesi su tutte le parti di un insieme (\forall X
+ *     \subseteq S tra le ipotesi, o in un'equivalenza), l'insieme delle
+ *     parti come insieme di oggetti (le famiglie di parti, le partizioni),
+ *     gli insiemi di applicazioni T^{S} come insiemi di oggetti, le
+ *     relazioni scritte tra gli elementi (x \le y), la composizione come
+ *     operazione, le potenze di un elemento. E un insieme qualsiasi insieme
+ *     a un insieme numerico nello stesso enunciato: i due linguaggi non si
+ *     parlano. Il numero di elementi di un insieme e l'equipotenza non sono
+ *     trattati, e il verdetto lo dice (capitolo 20). Vedi i capitoli 17
+ *     (17p) e 28.
  *   - Un certificato per tutto. Lo hanno le induzioni scritte con somme,
  *     prodotti, potenze, fattoriali, binomiali, successioni per ricorrenza
  *     e logaritmi, gli enunciati sugli insiemi senza "esiste", quelli su
@@ -441,6 +456,9 @@
 #define MAX_FORMULA 4096     /* lunghezza di un enunciato */
 #define SEARCH_SPAN 10       /* valori di n provati in cerca di un controesempio */
 #define MAX_SET_VARS 4       /* insiemi distinti in un enunciato sugli insiemi */
+#define MAX_SET_LETTERS 12   /* lettere lette in un enunciato su relazioni e applicazioni tra parti (17r),
+                                prima che lo svolgimento le riduca a MAX_SET_VARS */
+#define MAX_PART_RULES 4     /* relazioni e applicazioni tra parti date da una regola, in un enunciato (17r) */
 #define MAX_CONFIGS 16       /* configurazioni elencate in una dimostrazione */
 #define PROOF_BYTES 65536    /* lunghezza massima di una dimostrazione scritta */
 #define CERTIFICATE_BYTES 65536  /* lunghezza massima di un certificato */
@@ -494,7 +512,14 @@
                                 Warning: se lo alzi, cambia anche i motivi scritti in decide_quantified() e in records_doubt() */
 #define MAX_SORTS 4          /* insiemi qualsiasi distinti in un enunciato (17o) */
 #define MAX_SYMBOLS 64       /* simboli di un enunciato su insiemi qualsiasi, compresi gli elementi a cui la dimostrazione dà un nome */
-#define MAX_SLOTS 24         /* variabili quantificate in un enunciato su insiemi qualsiasi */
+#define MAX_SLOTS 64         /* variabili quantificate in un enunciato su insiemi qualsiasi, comprese quelle
+                                che nascono svolgendo le definizioni (17q). Non più di 64: il capitolo 28
+                                le tiene anche come bit di un unsigned long long (Rule.all, elem_slots()) */
+#define MAX_ARITY 4          /* componenti di un membro di un insieme scritto come nei libri: 4 per una
+                                relazione tra coppie (17p) */
+#define MAX_LISTED 4         /* elementi scritti tra graffe, \{a, b\} (17p) */
+#define MAX_DEFINITIONS 8    /* nomi dati dall'enunciato a un insieme, G = \{...\} (17p) */
+#define MAX_CHECK_MODELS 4000  /* modelli su cui si confrontano l'enunciato scritto e quello svolto (28h) */
 #define GREEK_NAMES 3000     /* "nomi" delle lettere greche usate come applicazioni (17o): non sono caratteri */
 #define MAX_MODEL_SIZE 4     /* elementi di un insieme in un modello finito (28a) */
 #define MAX_MODELS 400000    /* tabelle provate per una scelta delle grandezze degli insiemi */
@@ -7091,7 +7116,7 @@ static int counts_valid(const SetNode *root, unsigned char *count) {
  *
  * In tutti e tre i casi unione, intersezione e differenza sono le operazioni
  * sui bit. size non deve superare 5, perché le maschere abbiano 32 bit. */
-static unsigned concrete(const SetNode *n, const unsigned *value, int size) {
+static unsigned concrete(const SetNode *n, unsigned *value, int size) {
     unsigned a = n->a ? concrete(n->a, value, size) : 0, b = n->b ? concrete(n->b, value, size) : 0;
     unsigned result = 0;
     switch (n->kind) {
@@ -7110,6 +7135,17 @@ static unsigned concrete(const SetNode *n, const unsigned *value, int size) {
     case SET_INTER:      return a & b;
     case SET_DIFF:       return a & ~b;
     case SET_SYMDIFF:    return a ^ b;
+    case SET_APPLY: {
+        /* 17r: la regola di f, con la sua lettera che vale a. È il calcolo
+         * dell'enunciato com'è scritto, per il controllo dello svolgimento:
+         * value[] deve avere MAX_SET_LETTERS posti. */
+        const PartRule *rule = &part_rules[n->var];
+        unsigned saved = value[rule->param[0]];
+        value[rule->param[0]] = a;
+        result = concrete(rule->rule, value, size);
+        value[rule->param[0]] = saved;
+        return result;
+    }
     default:             return 0;  /* SET_EMPTY */
     }
 }
@@ -7134,6 +7170,21 @@ static int concrete_holds(const SetNode *n, unsigned *value, int size) {
     case SET_IMPLIES: return !concrete_holds(n->a, value, size) || concrete_holds(n->b, value, size);
     case SET_IFF:     return concrete_holds(n->a, value, size) == concrete_holds(n->b, value, size);
     case SET_NOT:     return !concrete_holds(n->a, value, size);
+    case SET_PAIR_IN: {
+        /* 17r: A e B sono parti dell'insieme della relazione, e la regola
+         * vale con le sue lettere che valgono A e B (vedi SET_APPLY in
+         * concrete()). */
+        const PartRule *rule = &part_rules[n->var];
+        unsigned first = concrete(n->a, value, size), second = concrete(n->b, value, size), base = value[rule->base];
+        if ((first & ~base) || (second & ~base)) return 0;
+        unsigned saved[2] = {value[rule->param[0]], value[rule->param[1]]};
+        value[rule->param[0]] = first;
+        value[rule->param[1]] = second;
+        int holds = concrete_holds(rule->rule, value, size);
+        value[rule->param[0]] = saved[0];
+        value[rule->param[1]] = saved[1];
+        return holds;
+    }
     default:          /* SET_EXISTS */
         for (unsigned candidate = 0; candidate < (1u << (size + 1)); candidate++) {
             value[n->var] = candidate;
@@ -8332,29 +8383,12 @@ static Verdict prove_sets_by_counting(const SetNode *root, Verdict verdict) {
     return verdict;
 }
 
-/* Decide l'enunciato sugli insiemi scritto in formula e ne ritorna il
- * verdetto, con la dimostrazione scritta o il controesempio.
- *
- * Svuota l'arena: i risultati di chiamate precedenti non sono più validi. */
-static Verdict prove_sets(const char *formula) {
+/* Decide l'enunciato sugli insiemi root, già letto e con i tipi controllati
+ * (set_check()), e ne ritorna il verdetto, con la dimostrazione scritta o il
+ * controesempio. È la seconda metà di prove_sets(), che serve anche a
+ * prove_parts() (17r). */
+static Verdict prove_set_tree(SetNode *root) {
     Verdict verdict = {UNSUPPORTED, 0, 0, 0, NULL, NULL, NULL, "per ogni scelta degli insiemi", NULL, NULL};
-
-    /* Ripartenza da zero e parsing. */
-    proof_reset();
-    arena_used = arena_keep;
-    failure = NULL;
-    set_var_count = 0;
-    syntax_error = NULL;
-    cursor = formula;
-    next_token();
-    SetNode *root = set_formula();
-    if (token.kind != T_END) syntax("testo inatteso dopo l'enunciato");
-    if (syntax_error) { verdict.reason = syntax_error; return verdict; }
-    if (failure) { verdict.reason = failure; return verdict; }
-    if (set_check(root) != TY_FORMULA) {
-        verdict.reason = "enunciato sugli insiemi mal formato: operandi di tipo diverso, o manca una relazione";
-        return verdict;
-    }
     set_prepare(root);
     if (failure) { verdict.reason = failure; return verdict; }
 
@@ -8468,6 +8502,134 @@ static Verdict prove_sets(const char *formula) {
     }
     verdict.outcome = PROVED;
     verdict.proof = proof_text;
+    return verdict;
+}
+
+/* Decide l'enunciato sugli insiemi scritto in formula e ne ritorna il
+ * verdetto, con la dimostrazione scritta o il controesempio.
+ *
+ * Svuota l'arena: i risultati di chiamate precedenti non sono più validi. */
+static Verdict prove_sets(const char *formula) {
+    Verdict verdict = {UNSUPPORTED, 0, 0, 0, NULL, NULL, NULL, "per ogni scelta degli insiemi", NULL, NULL};
+
+    /* Ripartenza da zero e parsing. */
+    proof_reset();
+    arena_used = arena_keep;
+    failure = NULL;
+    set_var_count = 0;
+    syntax_error = NULL;
+    cursor = formula;
+    next_token();
+    SetNode *root = set_formula();
+    if (token.kind != T_END) syntax("testo inatteso dopo l'enunciato");
+    if (syntax_error) { verdict.reason = syntax_error; return verdict; }
+    if (failure) { verdict.reason = failure; return verdict; }
+    if (set_check(root) != TY_FORMULA) {
+        verdict.reason = "enunciato sugli insiemi mal formato: operandi di tipo diverso, o manca una relazione";
+        return verdict;
+    }
+    return prove_set_tree(root);
+}
+
+/* 17r. Il controllo dello svolgimento di un enunciato su relazioni e
+ * applicazioni tra parti (vedi la testa di 17r in parser.c). written è
+ * l'enunciato com'è scritto, con le sue letters lettere; unfolded quello
+ * svolto, con le lettere di parts_reindex(), e free_map[] dice l'indice
+ * nuovo di ogni lettera libera. Per ogni scelta delle lettere libere tra le
+ * parti di un universo piccolo, i due enunciati devono avere lo stesso
+ * valore: written calcolato con le regole (concrete_holds() su SET_PAIR_IN e
+ * SET_APPLY), unfolded con le regole già sostituite. Ritorna quante scelte
+ * ha confrontato, o -1 se in una i due valori sono diversi.
+ *
+ * Gli universi hanno uno, due e, se i quantificatori uno dentro l'altro
+ * sono al più due, tre elementi: ogni quantificatore li fa crescere di uno
+ * (concrete_holds()), e le scelte crescono in fretta. */
+static long long parts_check(const SetNode *written, int letters, const SetNode *unfolded, const int *free_map) {
+    unsigned book[MAX_SET_LETTERS], plain[MAX_SET_LETTERS];
+    long long compared = 0;
+    int frees = 0, depth = set_depth(unfolded);
+    for (int i = 0; i < letters; i++) frees += free_map[i] >= 0;
+    for (int size = 1; size <= (depth <= 2 ? 3 : 2); size++) {
+        unsigned choices = 1u << (size * frees);
+        for (unsigned code = 0; code < choices; code++) {
+            /* La scelta code: le parti delle lettere libere, size bit l'una,
+             * le stesse nei due enunciati. */
+            memset(book, 0, sizeof book);
+            memset(plain, 0, sizeof plain);
+            for (int i = 0; i < letters; i++) {
+                if (free_map[i] < 0) continue;
+                book[i] = plain[free_map[i]] = (code >> (size * free_map[i])) & ((1u << size) - 1);
+            }
+            if (concrete_holds(written, book, size) != concrete_holds(unfolded, plain, size)) return -1;
+            compared++;
+        }
+    }
+    return compared;
+}
+
+/* 17r. Decide l'enunciato su relazioni e applicazioni tra le parti di un
+ * insieme scritto in formula: lo legge con il lettore del capitolo 14 e le
+ * scritture di 17r, lo svolge, ricontrolla lo svolgimento (parts_check()) e
+ * passa l'enunciato svolto al capitolo 15. Il verdetto è quello del capitolo
+ * 15, e la dimostrazione dice in più che cosa è stato svolto e come lo si è
+ * ricontrollato.
+ *
+ * Svuota l'arena: i risultati di chiamate precedenti non sono più validi. */
+static Verdict prove_parts(const char *formula) {
+    Verdict verdict = {UNSUPPORTED, 0, 0, 0, NULL, NULL, NULL, "per ogni scelta degli insiemi", NULL, NULL};
+    int free_map[MAX_SET_LETTERS];
+
+    /* Ripartenza da zero e parsing, con le scritture di 17r. */
+    proof_reset();
+    arena_used = arena_keep;
+    failure = NULL;
+    set_var_count = part_rule_count = 0;
+    syntax_error = NULL;
+    cursor = formula;
+    next_token();
+    parts_world = 1;
+    SetNode *written = set_formula();
+    parts_world = 0;
+    if (token.kind != T_END) syntax("testo inatteso dopo l'enunciato");
+    for (int i = 0; i < part_rule_count && !syntax_error; i++)
+        if (!part_rules[i].rule) syntax("un'applicazione tra parti dichiarata va data con la sua regola, \\forall X \\in \\mathcal{P}(S)\\ (f(X) = ...)");
+    if (syntax_error || failure) { verdict.reason = syntax_error ? syntax_error : failure; return verdict; }
+    if (set_check(written) != TY_FORMULA) {
+        verdict.reason = "enunciato sugli insiemi mal formato: operandi di tipo diverso, o manca una relazione";
+        return verdict;
+    }
+
+    /* Lo svolgimento, le lettere nuove, e il controllo. */
+    int letters = set_var_count;
+    memset(parts_to, 0, sizeof parts_to);
+    SetNode *root = parts_unfold(written);
+    if (root == &parts_declared) { verdict.reason = "l'enunciato dichiara delle relazioni o delle applicazioni tra parti, ma non ne dice nulla"; return verdict; }
+    if (parts_declaration_left(root)) {
+        verdict.reason = "una relazione o un'applicazione tra parti si dichiara solo tra le ipotesi, in cima all'enunciato";
+        return verdict;
+    }
+    parts_reindex(root, free_map);
+    if (syntax_error) { verdict.reason = syntax_error; return verdict; }
+    if (set_check(root) != TY_FORMULA) {
+        verdict.reason = "enunciato sugli insiemi mal formato, una volta svolte le relazioni e le applicazioni tra parti";
+        return verdict;
+    }
+    long long compared = parts_check(written, letters, root, free_map);
+    if (compared < 0) {
+        unjustified_steps++;
+        verdict.outcome = NOT_PROVED;
+        verdict.reason = "lo svolgimento delle relazioni e delle applicazioni tra parti, ricalcolato su universi piccoli, non dà lo stesso enunciato";
+        return verdict;
+    }
+
+    /* La decisione del capitolo 15, e nella dimostrazione ciò che è stato
+     * svolto. */
+    verdict = prove_set_tree(root);
+    if (verdict.outcome == PROVED || verdict.outcome == REFUTED)
+        proof_add(" The relations and maps between parts of a set are read as their rules, with the arguments in place of the "
+                  "letters of each rule, and (A, B) in a relation as A and B parts of its set that satisfy the rule; the statement "
+                  "decided above is the result. The statement as written and that one take the same value for each of the %lld "
+                  "choices of the free sets tried in universes of one, two and three elements.", compared);
     return verdict;
 }
 
@@ -22747,11 +22909,37 @@ static const char *derivative_doubt(const Formula *thesis) {
  * ha già fatto con limiti più stretti: se il verificatore non lo sa rifare,
  * il verdetto non c'è.
  *
+ * LA NOTAZIONE DEI LIBRI (28h)
+ *
+ * Gli enunciati scritti con gli insiemi, f(X) = f(Y), R = \{(x, x) \mid x
+ * \in S\}, arrivano qui già svolti nelle condizioni sugli elementi (17p,
+ * 17q in parser.c): il capitolo non conosce altro linguaggio. Lo svolgimento
+ * è una riscrittura, e prima di tutto si ricontrolla: 28h calcola su molti
+ * modelli finiti l'enunciato com'è scritto, senza sostituire nulla, e quello
+ * svolto, e vuole lo stesso valore. Il certificato è dell'enunciato svolto:
+ * il verificatore non legge la notazione dei libri, come non legge il
+ * LaTeX.
+ *
  * CHE COSA NON C'È
  *
- * Applicazioni e parti da costruire (\exists f \in S^{S}), immagini e
- * controimmagini di parti, l'insieme delle parti, potenze x^{n} con n
- * numero: il linguaggio non le legge.
+ * Applicazioni e parti da costruire (\exists f \in S^{S} dentro
+ * l'enunciato, \exists X \subseteq S nella tesi), ipotesi su tutte le
+ * parti di un insieme (che chiederebbero istanze su parti scelte, come
+ * \{a\} o \emptyset), l'insieme delle parti come insieme di oggetti,
+ * potenze x^{n} con n numero: il lettore le respinge, dicendo quale.
+ *
+ * I modelli finiti dimostrano solo un esempio; un enunciato "per ogni" lo
+ * dimostrano le istanze. Una dimostrazione dai soli modelli sarebbe lecita
+ * nella classe di Bernays, Schönfinkel e Ramsey (gli "esiste" della
+ * negazione, messa in forma prenessa, tutti prima dei "per ogni", e nessuna
+ * applicazione che riporti un insieme in un insieme da cui si parte, così
+ * che i termini chiusi siano finiti): lì un controesempio, se c'è, ne ha uno
+ * con al più tanti elementi quanti sono gli "esiste". Non è usata: andrebbe
+ * riconosciuta la classe, scritto il limite, e certificato il conto su tutti
+ * i modelli fino a quel limite, che il verificatore oggi non fa; le
+ * dimostrazioni per istanze hanno già il loro certificato. Fuori da quella
+ * classe è proprio dove i modelli ingannano: "un'applicazione iniettiva di
+ * un insieme in sé è suriettiva" vale in ogni modello finito ed è falso.
  */
 
 /* 28a. I MODELLI FINITI */
@@ -22810,6 +22998,10 @@ static int model_holds(const Model *m, const Sentence *s, int *value) {
         return model_holds(m, s->a, value) == model_holds(m, s->b, value);
     case S_FORALL: case S_EXISTS:
         break;
+    case S_MEMBER: case S_INCLUDED: case S_SAME: case S_UNIQUE:
+        /* La notazione dei libri non arriva qui: lo svolgimento (17q) la
+         * toglie, e book_holds() (28h) la calcola a parte. */
+        return 0;
     }
     int every = s->kind == S_FORALL;
     for (int x = 0; x < m->size[slot_sort[s->slot]]; x++) {
@@ -22948,6 +23140,248 @@ static void put_model(const Model *m) {
         if (symbol->range == TRUTH) proof_add(written ? "\\}" : "\\} = \\emptyset");
         proof_add("$");
     }
+}
+
+/* 28h. LA NOTAZIONE DEI LIBRI, RICONTROLLATA SUI MODELLI
+ *
+ * (Sta qui, subito dopo 28a, perché usa i suoi modelli; la lettera è venuta
+ * dopo le altre.)
+ *
+ * Il paragrafo 17q svolge la notazione dei libri sostituendo, sull'albero:
+ * f(X) = f(Y) diventa "per ogni t, esiste u in X con f(u) = t se e solo se
+ * ...". Un errore lì farebbe dimostrare un altro enunciato, e ogni controllo
+ * successivo, compreso il certificato, lo confermerebbe, perché tutti
+ * guardano l'enunciato svolto. Per questo l'enunciato com'è scritto si
+ * calcola anche per un'altra strada, su molti modelli finiti, e deve dare
+ * lo stesso valore di quello svolto.
+ *
+ * L'altra strada non sostituisce nulla. Per sapere se il membro t sta in
+ * \{(x, y) \mid c\} prova ogni valore di x e di y e guarda se uno dà proprio
+ * t e rende vera c, come dice la definizione ("esiste (x, y) uguale a t per
+ * cui vale c"); per un'immagine prova ogni elemento del dominio; per
+ * un'uguaglianza tra insiemi prova ogni membro possibile; per "esiste un
+ * solo x" conta. Le lettere legate prendono i loro valori in value[], come
+ * quelle dei quantificatori: è un ambiente, e una lettera non può prendere
+ * il posto di un'altra. Le due strade hanno in comune solo l'albero letto e
+ * le tabelle dei simboli.
+ *
+ * I modelli sono quelli di 28a: per ogni scelta delle grandezze degli
+ * insiemi, dalla più piccola, tutte le tabelle se sono poche, altrimenti un
+ * campione preso a caso con un seme fisso, fino a MAX_CHECK_MODELS modelli o
+ * al limite di MAX_MODEL_STEPS. Non dimostra che le due strade coincidano
+ * sempre, e non serve: è il controllo contro gli errori dello svolgimento,
+ * e un errore di sostituzione cambia l'enunciato quasi sempre già in un
+ * modello di due o tre elementi.
+ */
+
+static int book_holds(const Model *m, const Sentence *s, int *value);
+
+/* Ritorna il valore della tabella del simbolo symbol nel modello m, con gli
+ * argomenti a e b (b conta solo con due argomenti). */
+static int book_cell(const Model *m, int symbol, int a, int b) {
+    return m->table[symbol][a + b * m->size[symbols[symbol].domain[0]]];
+}
+
+/* Ritorna 1 se il membro t[], di set->arity componenti già calcolate, sta
+ * nell'insieme set del modello m, con le variabili libere ai valori di
+ * value[]. Calcola dalla definizione, senza sostituire nulla (vedi la testa
+ * del paragrafo); value[] viene usato anche per le lettere che set lega, e
+ * rimesso com'era. */
+static int book_member(const Model *m, const int *t, const SetTerm *set, int *value) {
+    int found = 0, saved[MAX_ARITY], arg;
+    switch (set->kind) {
+    case ST_SYMBOL:
+        return book_cell(m, set->symbol, t[0], set->arity == 2 ? t[1] : 0);
+    case ST_SECTION:
+        return book_cell(m, set->symbol, t[0], model_element(m, set->item[0], value));
+    case ST_SORT:
+        return 1;
+    case ST_EMPTY:
+        return 0;
+    case ST_LIST:
+        for (int i = 0; i < set->items && !found; i++) found = t[0] == model_element(m, set->item[i], value);
+        return found;
+    case ST_BUILDER: {
+        /* Ogni valore delle lettere dello schema, come un contachilometri:
+         * t sta nell'insieme se uno di loro dà t e rende vera la condizione. */
+        for (int i = 0; i < set->bounds; i++) { saved[i] = value[set->bound[i]]; value[set->bound[i]] = 0; }
+        for (int more = 1; more && !found; ) {
+            if (++model_steps > MAX_MODEL_STEPS) break;
+            int same = 1;
+            for (int i = 0; i < set->arity && same; i++) same = value[set->item[i]->slot] == t[i];
+            found = same && book_holds(m, set->condition, value);
+            more = 0;
+            for (int i = 0; i < set->bounds && !more; i++) {
+                if (++value[set->bound[i]] < m->size[slot_sort[set->bound[i]]]) more = 1; else value[set->bound[i]] = 0;
+            }
+        }
+        for (int i = 0; i < set->bounds; i++) value[set->bound[i]] = saved[i];
+        return found;
+    }
+    case ST_IMAGE:
+        for (arg = 0; arg < m->size[symbols[set->symbol].domain[0]] && !found; arg++)
+            found = book_cell(m, set->symbol, arg, 0) == t[0] && book_member(m, &arg, set->a, value);
+        return found;
+    case ST_PREIMAGE:
+        arg = book_cell(m, set->symbol, t[0], 0);
+        return book_member(m, &arg, set->a, value);
+    case ST_UNION:
+        return book_member(m, t, set->a, value) || book_member(m, t, set->b, value);
+    case ST_INTER:
+        return book_member(m, t, set->a, value) && book_member(m, t, set->b, value);
+    case ST_DIFF:
+        return book_member(m, t, set->a, value) && !book_member(m, t, set->b, value);
+    case ST_SYMDIFF:
+        return book_member(m, t, set->a, value) != book_member(m, t, set->b, value);
+    case ST_BIG_UNION: case ST_BIG_INTER: {
+        /* Ogni valore dell'indice, nel suo insieme o nella sua parte. */
+        int index = set->bound[0], every = set->kind == ST_BIG_INTER, result = every;
+        saved[0] = value[index];
+        for (int i = 0; i < m->size[slot_sort[index]] && result == every; i++) {
+            if (set->symbol >= 0 && !book_cell(m, set->symbol, i, 0)) continue;
+            value[index] = i;
+            if (book_member(m, t, set->a, value) != every) result = !every;
+        }
+        value[index] = saved[0];
+        return result;
+    }
+    }
+    return 0;
+}
+
+/* Ritorna 1 se, per ogni membro possibile t (ogni scelta delle componenti
+ * nei loro insiemi), "t sta in set" e "t sta in other" valgono come chiede
+ * how: 0 per "il primo implica il secondo", 1 per "hanno lo stesso valore".
+ * Con how = 2 ritorna 1 se c'è un t che sta in other e non in set. */
+static int book_compare(const Model *m, const SetTerm *set, const SetTerm *other, int how, int *value) {
+    int t[MAX_ARITY] = {0};
+    for (;;) {
+        if (++model_steps > MAX_MODEL_STEPS) return 0;
+        int in_set = book_member(m, t, set, value), in_other = book_member(m, t, other, value);
+        if (how == 0 && in_set && !in_other) return 0;
+        if (how == 1 && in_set != in_other) return 0;
+        if (how == 2 && in_other && !in_set) return 1;
+        int i = 0;
+        for (; i < set->arity; i++) {
+            if (++t[i] < m->size[set->sort[i]]) break;
+            t[i] = 0;
+        }
+        if (i == set->arity) return how != 2;
+    }
+}
+
+/* Ritorna 1 se la condizione s, scritta come nei libri (17p), vale nel
+ * modello m, con le variabili libere ai valori di value[]. È model_holds()
+ * per le condizioni di 17o, con in più i nodi di 17p calcolati dalla loro
+ * definizione. Se model_steps supera MAX_MODEL_STEPS la risposta non vuol
+ * dire nulla. */
+static int book_holds(const Model *m, const Sentence *s, int *value) {
+    int t[MAX_ARITY], count = 0, every;
+    switch (s->kind) {
+    case S_TRUE:    return 1;
+    case S_EQUAL:   return model_element(m, s->left, value) == model_element(m, s->right, value);
+    case S_HOLDS:   return model_element(m, s->left, value);
+    case S_NOT:     return !book_holds(m, s->a, value);
+    case S_AND:     return book_holds(m, s->a, value) && book_holds(m, s->b, value);
+    case S_OR:      return book_holds(m, s->a, value) || book_holds(m, s->b, value);
+    case S_IMPLIES: return !book_holds(m, s->a, value) || book_holds(m, s->b, value);
+    case S_IFF:     return book_holds(m, s->a, value) == book_holds(m, s->b, value);
+    case S_MEMBER:
+        for (int i = 0; i < s->items; i++) t[i] = model_element(m, s->item[i], value);
+        return book_member(m, t, s->set, value);
+    case S_INCLUDED:
+        return book_compare(m, s->set, s->other, 0, value) && (!s->proper || book_compare(m, s->set, s->other, 2, value));
+    case S_SAME:
+        return book_compare(m, s->set, s->other, 1, value);
+    case S_UNIQUE:
+        /* Si contano gli elementi per cui vale. */
+        for (int x = 0; x < m->size[slot_sort[s->slot]] && count < 2; x++) {
+            if (++model_steps > MAX_MODEL_STEPS) return 0;
+            value[s->slot] = x;
+            count += book_holds(m, s->a, value);
+        }
+        return count == 1;
+    case S_FORALL: case S_EXISTS:
+        break;
+    }
+    every = s->kind == S_FORALL;
+    for (int x = 0; x < m->size[slot_sort[s->slot]]; x++) {
+        if (++model_steps > MAX_MODEL_STEPS) return 0;
+        value[s->slot] = x;
+        if (book_holds(m, s->a, value) != every) return !every;
+    }
+    return every;
+}
+
+/* Dà alle tabelle di m valori presi a caso, con il generatore che parte da
+ * *state: lo stesso seme dà gli stessi modelli, quindi lo stesso verdetto. */
+static void book_random_tables(Model *m, unsigned *state) {
+    for (int s = 0; s < symbol_count; s++) {
+        int cells, values = model_cells(m, s, &cells);
+        for (int c = 0; c < cells; c++) {
+            *state ^= *state << 13;
+            *state ^= *state >> 17;
+            *state ^= *state << 5;
+            m->table[s][c] = (unsigned char)(*state % (unsigned)values);
+        }
+    }
+}
+
+/* Confronta l'enunciato com'è scritto, written, calcolato da book_holds(),
+ * con quello svolto, unfolded, calcolato da model_holds(), sui modelli
+ * descritti in testa al paragrafo. Ritorna quanti modelli ha confrontato, o
+ * -1 se in uno i due valori sono diversi. */
+static long long book_check(const Sentence *written, const Sentence *unfolded) {
+    static Model m;
+    int value[MAX_SLOTS] = {0}, codes = 1;
+    unsigned state = 2463534242u;
+    long long compared = 0;
+    model_steps = 0;
+    for (int i = 0; i < sort_count; i++) codes *= MAX_MODEL_SIZE;
+    for (int total = sort_count; sort_count && total <= sort_count * MAX_MODEL_SIZE; total++) {
+        for (int code = 0; code < codes; code++) {
+            int sum = 0, rest = code;
+            for (int i = 0; i < sort_count; i++, rest /= MAX_MODEL_SIZE) sum += m.size[i] = 1 + rest % MAX_MODEL_SIZE;
+            if (sum != total) continue;
+
+            /* Tutte le tabelle se sono al più 256, altrimenti 256 a caso. */
+            double count = 1;
+            for (int s = 0; s < symbol_count && count <= 256; s++) {
+                int cells, values = model_cells(&m, s, &cells);
+                for (int c = 0; c < cells && count <= 256; c++) count *= values;
+            }
+            memset(m.table, 0, sizeof m.table);
+            for (int tried = 0, more = 1; more; tried++) {
+                if (count > 256) book_random_tables(&m, &state);
+                int book = book_holds(&m, written, value), plain = model_holds(&m, unfolded, value);
+                if (model_steps > MAX_MODEL_STEPS) return compared;
+                if (book != plain) return -1;
+                if (++compared >= MAX_CHECK_MODELS) return compared;
+
+                /* La tabella successiva, come in model_search(). */
+                more = 0;
+                if (count > 256) { more = tried + 1 < 256; continue; }
+                for (int s = 0; s < symbol_count && !more; s++) {
+                    int cells, values = model_cells(&m, s, &cells);
+                    for (int c = 0; c < cells && !more; c++) {
+                        if (++m.table[s][c] < values) more = 1; else m.table[s][c] = 0;
+                    }
+                }
+            }
+        }
+    }
+    return compared;
+}
+
+/* Scrive nella dimostrazione che la notazione degli insiemi è stata svolta,
+ * e su quanti modelli lo svolgimento è stato ricontrollato: compared, che è
+ * 0 se non c'era nulla da svolgere, e allora non scrive nulla. */
+static void put_unfolding_note(long long compared) {
+    if (!compared) return;
+    proof_add(" The notation of sets (sets of elements or of pairs given by a rule, images and preimages, equalities and "
+              "inclusions between sets) is read as the conditions on elements it stands for, and that is the statement "
+              "written above; the statement as written and that one take the same value in each of the %lld finite models "
+              "tried.", compared);
 }
 
 /* 28b. GLI ELEMENTI DI CUI SI PARLA */
@@ -23150,11 +23584,18 @@ static void put_ground(int id, int tight) {
     proof_add("\\right)");
 }
 
+/* Scrive il nome della variabile di posto slot: la lettera, con il pedice se
+ * c'è. */
+static void put_slot(int slot) {
+    proof_add("%c", slot_letter[slot]);
+    if (slot_index[slot]) proof_add("_{%d}", slot_index[slot]);
+}
+
 /* Scrive l'elemento e, con gli elementi di value[] al posto delle variabili
  * sostituite e la lettera per le altre. */
 static void put_elem(const Elem *e, const short *value, int tight) {
     if (e->symbol < 0) {
-        if (value[e->slot] >= 0) put_ground(value[e->slot], tight); else proof_add("%c", slot_letter[e->slot]);
+        if (value[e->slot] >= 0) put_ground(value[e->slot], tight); else put_slot(e->slot);
         return;
     }
     int name = symbols[e->symbol].name;
@@ -23194,7 +23635,17 @@ static void put_sentence(const Sentence *s, int negated, const short *value, int
         put_elem(s->right, value, 0);
         return;
     case S_HOLDS:
-        /* Una parte: x \in X. Una relazione: (x, y) \in R. */
+        /* Una parte: x \in X. Una relazione: (x, y) \in R. Una famiglia di
+         * parti (17p): x \in X_{i}. */
+        if (symbols[s->left->symbol].family) {
+            put_elem(s->left->arg[0], value, 0);
+            proof_add(negated ? " \\notin " : " \\in ");
+            put_symbol(s->left->symbol);
+            proof_add("_{");
+            put_elem(s->left->arg[1], value, 0);
+            proof_add("}");
+            return;
+        }
         if (s->left->arg[1]) proof_add("(");
         put_elem(s->left->arg[0], value, 0);
         if (s->left->arg[1]) { proof_add(", "); put_elem(s->left->arg[1], value, 0); proof_add(")"); }
@@ -23210,10 +23661,14 @@ static void put_sentence(const Sentence *s, int negated, const short *value, int
         if (negated || tight) proof_add(")");
         return;
     case S_FORALL: case S_EXISTS:
-        proof_add("%s\\%s %c \\in %c\\ (", negated ? "\\lnot " : "", s->kind == S_FORALL ? "forall" : "exists",
-                  slot_letter[s->slot], sort_name[slot_sort[s->slot]]);
+        proof_add("%s\\%s ", negated ? "\\lnot " : "", s->kind == S_FORALL ? "forall" : "exists");
+        put_slot(s->slot);
+        proof_add(" \\in %c\\ (", sort_name[slot_sort[s->slot]]);
         put_sentence(s->a, 0, value, 0);
         proof_add(")");
+        return;
+    case S_MEMBER: case S_INCLUDED: case S_SAME: case S_UNIQUE:
+        /* Non arrivano qui: lo svolgimento (17q) li toglie. */
         return;
     }
 }
@@ -23467,6 +23922,7 @@ static int truth(const Sentence *s, int negated, const short *value) {
         if (a >= 0 && b >= 0) known = a == b;
         break;
     case S_FORALL: case S_EXISTS:
+    case S_MEMBER: case S_INCLUDED: case S_SAME: case S_UNIQUE:  /* questi non arrivano qui (17q) */
         break;
     }
     return known < 0 ? -1 : known != negated;
@@ -23512,12 +23968,15 @@ static void known_open(int i) {
         return;
     case S_FORALL: case S_EXISTS:
         break;
+    case S_MEMBER: case S_INCLUDED: case S_SAME: case S_UNIQUE:
+        /* Non arrivano qui: lo svolgimento (17q) li toglie. */
+        return;
     }
     if ((s->kind == S_FORALL) != k->negated) { k->stage = K_RULE; return; }
 
     /* 28-2. Un nome nuovo: la lettera della variabile, con il primo pedice
      * che non sia già di un altro simbolo. */
-    Symbol name = {slot_letter[s->slot], 0, 0, {0, 0}, slot_sort[s->slot]};
+    Symbol name = {slot_letter[s->slot], 0, 0, {0, 0}, slot_sort[s->slot], 0, 0};
     short value[MAX_SLOTS];
     while (symbol_find(name.name, name.index) >= 0) name.index++;
     if (symbol_count == MAX_SYMBOLS) { exhausted = 1; return; }
@@ -23599,7 +24058,7 @@ typedef struct {
     int known;             /* il suo posto in known[] */
     int slot[MAX_BOUND];   /* le variabili, dalla più esterna */
     int slots;
-    unsigned all;          /* le stesse, come bit: il bit i è la variabile di posto i */
+    unsigned long long all;  /* le stesse, come bit: il bit i è la variabile di posto i */
     const Sentence *body;  /* la condizione che segue i "per ogni" */
     int negated;           /* il segno con cui è vera */
 } Rule;
@@ -23618,8 +24077,8 @@ static int instance_add(const Rule *rule, const short *value) {
 }
 
 /* Ritorna le variabili che compaiono nell'elemento e, come bit. */
-static unsigned elem_slots(const Elem *e) {
-    if (e->symbol < 0) return 1u << e->slot;
+static unsigned long long elem_slots(const Elem *e) {
+    if (e->symbol < 0) return 1ull << e->slot;
     return (e->arg[0] ? elem_slots(e->arg[0]) : 0) | (e->arg[1] ? elem_slots(e->arg[1]) : 0);
 }
 
@@ -23769,7 +24228,7 @@ static int instantiate(void) {
         Rule rule = {r, {0}, 0, 0, now->known[r].source, now->known[r].negated};
         while (rule.slots < MAX_BOUND && (rule.body->kind == S_FORALL || rule.body->kind == S_EXISTS) &&
                (rule.body->kind == S_FORALL) != rule.negated) {
-            rule.all |= 1u << rule.body->slot;
+            rule.all |= 1ull << rule.body->slot;
             rule.slot[rule.slots++] = rule.body->slot;
             rule.body = rule.body->a;
         }
@@ -24061,7 +24520,9 @@ static int leaf_write(int leaf) {
             const Known *p = &now->known[k->parent];
             int written = 0;
             for (const Sentence *q = p->source; (q->kind == S_FORALL || q->kind == S_EXISTS) && (q->kind == S_FORALL) != p->negated; q = q->a) {
-                proof_add("%s $%c := ", written++ ? "," : "", slot_letter[q->slot]);
+                proof_add("%s $", written++ ? "," : "");
+                put_slot(q->slot);
+                proof_add(" := ");
                 put_ground(k->value[q->slot], 0);
                 proof_add("$");
             }
@@ -24169,12 +24630,21 @@ static void cert_ground(int id) {
     if (g->arg[0] >= 0) cert_add(")");
 }
 
+/* Scrive nel certificato il nome della variabile di posto slot: la
+ * lettera, seguita dal pedice se c'è (x_{1} diventa x1). Non si confonde con
+ * un simbolo: il lettore (17o, 17p) non lega mai una lettera che è il nome di
+ * un simbolo in vista, e i nomi dati da 28-2 hanno il trattino basso. */
+static void cert_slot(int slot) {
+    cert_add("%c", slot_letter[slot]);
+    if (slot_index[slot]) cert_add("%d", slot_index[slot]);
+}
+
 /* Scrive nel certificato l'elemento e, con gli elementi di value[] al posto
  * delle variabili sostituite. Una parte o una relazione applicata, (X a),
  * è nella notazione del verificatore anche la condizione che valga. */
 static void cert_elem(const Elem *e, const short *value) {
     if (e->symbol < 0) {
-        if (value[e->slot] >= 0) cert_ground(value[e->slot]); else cert_add("%c", slot_letter[e->slot]);
+        if (value[e->slot] >= 0) cert_ground(value[e->slot]); else cert_slot(e->slot);
         return;
     }
     if (e->arg[0]) cert_add("(");
@@ -24203,9 +24673,16 @@ static void cert_sentence(const Sentence *s, const short *value) {
         cert_elem(s->left, value);
         return;
     case S_FORALL: case S_EXISTS:
-        cert_add("(%s %c %c ", s->kind == S_FORALL ? "forall" : "exists", slot_letter[s->slot], sort_name[slot_sort[s->slot]]);
+        cert_add("(%s ", s->kind == S_FORALL ? "forall" : "exists");
+        cert_slot(s->slot);
+        cert_add(" %c ", sort_name[slot_sort[s->slot]]);
         cert_sentence(s->a, value);
         cert_add(")");
+        return;
+    case S_MEMBER: case S_INCLUDED: case S_SAME: case S_UNIQUE:
+        /* Non arrivano qui (17q); se arrivassero, il certificato non le sa
+         * dire. */
+        certificate_broken = 1;
         return;
     default:
         cert_add("(%s ", word[s->kind]);
@@ -24380,12 +24857,23 @@ static int abstract_claim(const Sentence **hypothesis, int hypotheses, const Sen
     int declared = symbol_count;
     memset(nothing, -1, sizeof nothing);
 
-    /* Il ramo di partenza: "vero" al posto 0, le ipotesi, la tesi negata. */
+    /* Il ramo di partenza: "vero" al posto 0, gli elementi con un nome che
+     * l'enunciato dichiara, le ipotesi, la tesi negata.
+     *
+     * Perché gli elementi dichiarati subito. Un elemento entra nella tabella
+     * quando lo nomina un fatto; ma u, dichiarato con u \in S, può comparire
+     * solo sotto un quantificatore, come in f(u) \in f(\{u\}), e allora
+     * nessuna istanza lo proverebbe. Metterlo in tabella è lecito: u è un
+     * elemento di S, e un'istanza su u è un'istanza su un termine chiuso
+     * fatto di simboli dichiarati, che il verificatore accetta (11d, 11f di
+     * checker.c). */
     now = &branch[0];
     now->knowns = now->differents = now->clock = 0;
     now->grounds = 0;
     memset(exact, -1, sizeof exact);
     ground_lookup(-1, -1, -1, G_CREATE);
+    for (int s = 0; s < declared; s++)
+        if (symbols[s].arity == 0) ground_lookup(s, -1, -1, G_CREATE);
     for (int i = 0; i < hypotheses; i++) known_add(hypothesis[i], 0, nothing, K_GIVEN, -1);
     known_add(claim, 1, nothing, K_DENIED, -1);
 
@@ -24444,21 +24932,46 @@ static Verdict prove_abstract(const char *formula) {
     syntax_error = NULL;
     cursor = formula;
     next_token();
-    const Sentence *root = abstract_statement();
+    const Sentence *written = abstract_statement();
     if (syntax_error || failure) { verdict.reason = syntax_error ? syntax_error : failure; return verdict; }
     memset(nothing, -1, sizeof nothing);
     declared_symbols = symbol_count;
+
+    /* 17q, 28h. La notazione dei libri, se c'è, si svolge; e lo svolgimento
+     * si ricontrolla sui modelli finiti prima di ragionare sull'enunciato
+     * svolto. Se non è d'accordo con l'enunciato scritto è un errore del
+     * programma: nessun verdetto. */
+    const Sentence *root = written;
+    long long compared = 0;
+    if (sentence_has_book_notation(written)) {
+        root = abstract_unfold(written);
+        if (syntax_error) { verdict.reason = syntax_error; return verdict; }
+        compared = book_check(written, root);
+        if (compared < 0) {
+            unjustified_steps++;
+            verdict.outcome = NOT_PROVED;
+            verdict.reason = "lo svolgimento della notazione degli insiemi, ricalcolato sui modelli finiti, non dà lo stesso enunciato";
+            return verdict;
+        }
+        if (compared == 0) {
+            verdict.outcome = NOT_PROVED;
+            verdict.reason = "lo svolgimento della notazione degli insiemi non si è potuto ricontrollare: l'enunciato è troppo lungo da calcolare anche sul modello più piccolo";
+            return verdict;
+        }
+    }
 
     /* 28a. I modelli finiti. Per chi chiede un esempio, uno in cui la
      * condizione vale; per gli altri, uno in cui non vale. */
     int found = model_search(root, abstract_example, &model, &tried, &bound);
     if (found) {
         /* Il modello trovato viene ricalcolato pezzo per pezzo: ipotesi
-         * vere e tesi falsa, e non solo "l'implicazione è falsa". */
+         * vere e tesi falsa, e non solo "l'implicazione è falsa". Con la
+         * notazione dei libri, anche l'enunciato com'è scritto (28h). */
         model_steps = 0;
         int confirmed = abstract_example ? model_holds(&model, root, value)
                       : root->kind == S_IMPLIES ? model_holds(&model, root->a, value) && !model_holds(&model, root->b, value)
                       : !model_holds(&model, root, value);
+        if (written != root) confirmed = confirmed && book_holds(&model, written, value) == abstract_example;
         if (!confirmed) {
             unjustified_steps++;
             verdict.outcome = NOT_PROVED;
@@ -24469,8 +24982,9 @@ static Verdict prove_abstract(const char *formula) {
         size_t from = proof_length;
         put_model(&model);
         snprintf(model_text, sizeof model_text, "%s", proof_text + from);
-        proof_add(abstract_example ? ". Computing with these tables, the condition holds. $\\Box$"
-                                   : ". Computing with these tables, the hypotheses hold and the conclusion fails.");
+        proof_add(abstract_example ? ". Computing with these tables, the condition holds." : ". Computing with these tables, the hypotheses hold and the conclusion fails.");
+        put_unfolding_note(compared);
+        if (abstract_example) proof_add(" $\\Box$");
         verdict.outcome = abstract_example ? PROVED : REFUTED;
         verdict.method = "con un esempio";
         verdict.detail = abstract_example ? NULL : model_text;
@@ -24526,7 +25040,9 @@ static Verdict prove_abstract(const char *formula) {
         return verdict;
     }
     proof_add("\\end{itemize}\nIndependent check: no choice of sets with at most $%d$ element%s each, and of tables for what is declared, "
-              "contradicts the statement (%lld were tried). $\\Box$", bound, bound == 1 ? "" : "s", tried);
+              "contradicts the statement (%lld were tried).", bound, bound == 1 ? "" : "s", tried);
+    put_unfolding_note(compared);
+    proof_add(" $\\Box$");
     verdict.outcome = PROVED;
     verdict.proof = proof_text;
 
@@ -28884,6 +29400,15 @@ static Verdict prove_integral(const char *formula) {
  *
  * Il punto d'ingresso unico: sceglie il metodo guardando la notazione.
  *
+ * Due notazioni vengono guardate subito, dopo il segno di integrale, perché
+ * nessun metodo le tratta e il verdetto deve dirlo con il suo motivo: il numero di
+ * elementi di un insieme, |S|, e l'equipotenza, A \sim B
+ * (uses_cardinality()). Poi un enunciato che dichiara una relazione o
+ * un'applicazione tra le parti di un insieme, con \mathcal{P}(S)^{2} o
+ * \colon \mathcal{P}(S), va allo svolgimento di 17r e da lì al capitolo 15
+ * (uses_parts_relations()); uno che scrive un insieme con una regola,
+ * \{(x, y) \mid ...\}, parla di elementi (uses_elements()).
+ *
  * Le convenzioni, nell'ordine in cui si applicano. Un enunciato che nomina un
  * insieme numerico, con \mathbb, va alle regole sui quantificatori: ogni sua
  * lettera deve essere quantificata su uno di quegli insiemi, quindi non c'è
@@ -28937,20 +29462,83 @@ static int uses_set_notation(const char *formula) {
 /* Ritorna 1 se formula parla di elementi di insiemi qualsiasi, cioè è un
  * enunciato del linguaggio di 17o: dichiara qualcosa con \colon, oppure un
  * suo quantificatore lega una lettera minuscola, oppure dice di una lettera
- * minuscola che appartiene a qualcosa. Gli enunciati sugli insiemi del
- * capitolo 14 quantificano solo lettere maiuscole, non dichiarano nulla e
- * non nominano elementi. Usa il lettore di token del parser, e lascia il
- * suo stato da reimpostare. */
+ * minuscola che appartiene a qualcosa, oppure scrive un insieme con una
+ * regola, \{x \mid ...\} o \{(x, y) \mid ...\} (17p). Gli enunciati sugli
+ * insiemi del capitolo 14 quantificano solo lettere maiuscole, non
+ * dichiarano nulla, non nominano elementi, e tra graffe conoscono solo
+ * \emptyset. Usa il lettore di token del parser, e lascia il suo stato da
+ * reimpostare. */
 static int uses_elements(const char *formula) {
     int found = 0;
     syntax_error = NULL;
     cursor = formula;
     for (next_token(); token.kind != T_END && !found; ) {
         int quantifier = is_command("forall") || is_command("exists"), element = token.kind == T_LETTER && islower(token.ch);
+        int braces = is_char(ESCAPED + '{');
         found = is_command("colon");
         next_token();
         if (quantifier && token.kind == T_LETTER && islower(token.ch)) found = 1;
         if (element && (is_command("in") || is_command("notin"))) found = 1;
+        if (braces && (token.kind == T_OPEN || (token.kind == T_LETTER && islower(token.ch)))) found = 1;
+    }
+    syntax_error = NULL;
+    return found;
+}
+
+/* Ritorna 1 se formula parla del numero di elementi di un insieme, |S|, o
+ * dell'equipotenza di due insiemi, A \sim B. Nessun lettore conosce queste
+ * notazioni, e nessuna regola le saprebbe decidere: |\mathcal{P}(S)| = 2^n,
+ * "un insieme infinito ha una parte numerabile" chiedono di costruire delle
+ * biiezioni, o di contare per induzione sul numero degli elementi. Il
+ * verdetto deve dirlo, invece di riportare il simbolo su cui un lettore si
+ * è fermato.
+ *
+ * Una sbarra verticale è un numero di elementi quando la segue ciò che
+ * indica un insieme: una graffa \{, \mathcal o \bigcup, e, se letters è 1,
+ * una lettera maiuscola senza pedice (la convenzione di
+ * uses_set_notation()). Il valore assoluto dei capitoli 9 e 18 ha dentro
+ * un'espressione, che non comincia mai con le prime; in un enunciato con
+ * \mathbb una maiuscola può essere un numero, e lì chi chiama passa
+ * letters = 0. Usa il lettore di token del parser, e lascia il suo stato da
+ * reimpostare. */
+static int uses_cardinality(const char *formula, int letters) {
+    int found = 0;
+    syntax_error = NULL;
+    cursor = formula;
+    for (next_token(); token.kind != T_END && !found; ) {
+        int bar = is_char('|') || token.kind == T_ABS_OPEN;
+        found = is_command("sim");
+        next_token();
+        if (!bar || found) continue;
+        if (is_char(ESCAPED + '{') || is_command("mathcal") || is_command("bigcup") || is_command("bigcap")) found = 1;
+        else if (letters && token.kind == T_LETTER && isupper(token.ch)) { next_token(); found = !is_char('_'); }
+    }
+    syntax_error = NULL;
+    return found;
+}
+
+/* Ritorna 1 se formula dichiara una relazione o un'applicazione tra le
+ * parti di un insieme (17r): \colon \mathcal{P}(S), oppure \in
+ * \mathcal{P}(S)^{2} o \in \mathcal{P}(S) \times \mathcal{P}(S), che si
+ * scrivono solo nella regola di una relazione tra parti. \forall X \in
+ * \mathcal{P}(S), senza il quadrato, è del capitolo 14 e non conta. Usa il
+ * lettore di token del parser, e lascia il suo stato da reimpostare. */
+static int uses_parts_relations(const char *formula) {
+    int found = 0;
+    syntax_error = NULL;
+    cursor = formula;
+    for (next_token(); token.kind != T_END && !found; ) {
+        int colon = is_command("colon"), in = is_command("in");
+        next_token();
+        if (!is_command("mathcal") || (!colon && !in)) continue;
+        if (colon) { found = 1; continue; }
+
+        /* \in \mathcal{P}(L): dopo \mathcal, sette token, { P } ( L ); poi
+         * il quadrato, o \times e un altro \mathcal. */
+        for (int skip = 0; skip < 7 && token.kind != T_END; skip++) next_token();
+        int square = is_char('^'), times = is_command("times");
+        next_token();
+        found = square || (times && is_command("mathcal"));
     }
     syntax_error = NULL;
     return found;
@@ -28977,6 +29565,12 @@ static Verdict prove(const char *formula, int variable, int has_base, long long 
 
     /* \int in testa: un integrale (capitolo 30), qualunque cosa segua. */
     if (starts_with_integral(formula)) return prove_integral(formula);
+
+    /* Il numero di elementi di un insieme, o l'equipotenza: nessun metodo
+     * del programma li tratta, e il verdetto lo dice (uses_cardinality()). */
+    if (uses_cardinality(formula, !strstr(formula, "\\mathbb")))
+        return (Verdict){UNSUPPORTED, variable, 0, 0, "il numero di elementi di un insieme, |S|, e l'equipotenza, A \\sim B, non sono trattati: "
+                         "deciderli chiede di costruire delle biiezioni, o di contare per induzione sul numero degli elementi", NULL, NULL, NULL, NULL, NULL};
     if (strstr(formula, "\\mathbb")) return prove_quantified(formula);
 
     /* Il segno di derivata in testa: l'enunciato è del capitolo 27, anche
@@ -28998,6 +29592,7 @@ static Verdict prove(const char *formula, int variable, int has_base, long long 
      * e non va letto come altro. */
     if (has_derivative_sign(formula) && (uses_elements(formula) || uses_set_notation(formula) || strstr(formula, "\\implies")))
         return (Verdict){UNSUPPORTED, variable, 0, 0, "il segno di derivata non ha senso in un enunciato su insiemi o su una successione definita per ricorrenza", NULL, NULL, NULL, NULL, NULL};
+    if (uses_parts_relations(formula)) return prove_parts(formula);
     if (uses_elements(formula)) return prove_abstract(formula);
     if (uses_set_notation(formula)) return prove_sets(formula);
     if (strstr(formula, "\\implies")) return prove_sequence(formula, variable, has_base, base);

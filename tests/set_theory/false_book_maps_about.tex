@@ -1,0 +1,33 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_book\_maps.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_book\_maps.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_set\_theory.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} Anti-regression. The file holds 24 false statements about images and preimages of parts: an image claimed equal to a preimage, the image of an intersection or of a difference claimed equal to the intersection or the difference of the images, $f^{-1}(f(X)) = X$ and $f(f^{-1}(Y)) = Y$ without hypotheses, statements true only on the empty set ($f(S) = \emptyset$), two examples that do not exist, three statements that hold on every finite set and fail on an infinite one, and three about maps from the parts of a set to its parts given by a rule (the wrong condition for injectivity, an injective map claimed not injective, the complement claimed to fix every part).
+
+\item \textbf{The traps.} ``An injective map of a set into itself is surjective'' (items 11 and 13) and ``a surjective one is injective'' (item 12) hold on every finite set, so no finite model refutes them; on the natural numbers $n \mapsto n + 1$ is injective and not surjective, and $n \mapsto \lfloor n / 2 \rfloor$ is surjective and not injective. The engine must not prove them: the finite models of chapter 28 of \texttt{main.c} are only a check, never a proof.
+
+\item \textbf{What is being tested.} That none is proved. Item 16 has a hypothesis on every part of a set, which the reader does not take: it is refused today, and it must stay unproved when such hypotheses are read.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_set_theory \
+    tests/set_theory/test_set_theory.c && /tmp/test_set_theory
+\end{verbatim}
+
+\item \textbf{Expected result.} One \texttt{PASS} line for the file: none of the statements is proved.
+\end{enumerate}
+\end{document}

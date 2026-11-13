@@ -1,0 +1,31 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_book\_relations.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_book\_relations.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_set\_theory.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} Anti-regression. The file holds 20 false statements about relations written as sets of pairs, each a small change of a true one: a composition claimed equal to its reverse, a reflexive relation claimed transitive, a reflexive and symmetric relation claimed to be the diagonal, a composition claimed to distribute over an intersection, a projection of a product claimed injective, a relation between pairs with the wrong component compared, an example that does not exist, and four statements about relations between the parts of a set (``being disjoint'' claimed reflexive or transitive, inclusion claimed symmetric), one of them true only when the set is empty.
+
+\item \textbf{What is being tested.} That none is proved. Today each one but the example is refuted by a finite model: the first sixteen with a certificate that \texttt{checker.c} accepts, the last four by regions (chapter 15), with the counterexample computed again on concrete sets. The example is not proved, because none exists. If the unfolding of paragraphs 17q and 17r of \texttt{parser.c} put a component in the wrong place, or the checks of paragraph 28h and of \texttt{parts\_check()} in \texttt{main.c} stopped seeing it, one of these would be at risk.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_set_theory \
+    tests/set_theory/test_set_theory.c && /tmp/test_set_theory
+\end{verbatim}
+
+\item \textbf{Expected result.} One \texttt{PASS} line for the file: none of the statements is proved.
+\end{enumerate}
+\end{document}

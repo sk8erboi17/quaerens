@@ -63,85 +63,8 @@
 
 #include "../statement_checks.h"
 
-/* Ritorna 1 se il verdetto viene dal capitolo 28: il metodo è uno dei suoi
- * due. */
-static int from_chapter_28(const Verdict *verdict) {
-    return (verdict->outcome == PROVED || verdict->outcome == REFUTED) && verdict->method &&
-           (strcmp(verdict->method, "con istanze delle ipotesi e uguali al posto di uguali") == 0 ||
-            strcmp(verdict->method, "con un esempio") == 0);
-}
-
-/* Scrive in out il certificato certificate alterato: una dimostrazione
- * senza le sue righe instance e witness; un modello con il tipo scambiato,
- * counterexample al posto di example o il contrario. Ritorna 0 se il testo
- * non ha la forma attesa o se l'alterazione non cambia nulla. */
-static int alter_structure(const char *certificate, char *out, size_t size) {
-    static const char *const kinds[][2] = {{"certificate counterexample\n", "certificate example\n"},
-                                          {"certificate example\n", "certificate counterexample\n"}};
-    for (int i = 0; i < 2; i++) {
-        size_t length = strlen(kinds[i][0]);
-        if (strncmp(certificate, kinds[i][0], length) != 0) continue;
-        return snprintf(out, size, "%s%s", kinds[i][1], certificate + length) < (int)size;
-    }
-    if (strncmp(certificate, "certificate structure\n", 22) != 0) return 0;
-
-    /* Riga per riga, saltando le voci della dimostrazione. */
-    size_t used = 0, dropped = 0;
-    for (const char *line = certificate; *line;) {
-        const char *next = strchr(line, '\n');
-        size_t length = next ? (size_t)(next - line) + 1 : strlen(line);
-        if (strncmp(line, "instance ", 9) == 0 || strncmp(line, "witness ", 8) == 0) dropped++;
-        else if (used + length < size) { memcpy(out + used, line, length); used += length; }
-        else return 0;
-        line += length;
-    }
-    out[used] = 0;
-    return dropped > 0;
-}
-
-/* Controllo 9 sul file path: ogni verdetto del capitolo 28 ha un certificato
- * accettato, e la sua alterazione no. `expected` è quanti verdetti del
- * capitolo 28 ci si aspetta almeno, perché il controllo non passi a vuoto. */
-static int check_structure_certificates(const char *path, int expected) {
-    static char altered[2 * CERTIFICATE_BYTES];
-    char summary[512];
-    char *text = read_file(path);
-    if (!text) {
-        snprintf(summary, sizeof summary, "cannot read %s", path);
-        return check_result(0, summary);
-    }
-    const char *position = text, *item, *end;
-    int number = 0, verdicts = 0, certified = 0, wrong = 0, wrong_accepted = 0;
-    while (next_item(&position, &item, &end)) {
-        Verdict verdict = prove_item(item, end);
-        number++;
-        if (!from_chapter_28(&verdict)) continue;
-        verdicts++;
-        const char *why = "", *reread = verdict.certificate;
-        if (!reread || ck_check(&reread, &why) != CK_ACCEPTED) {
-            printf("  statement %d has no certificate the checker accepts (%s): ", number, why);
-            verdict_print(stdout, &verdict);
-            putchar('\n');
-            continue;
-        }
-        certified++;
-        if (!alter_structure(verdict.certificate, altered, sizeof altered)) {
-            printf("  statement %d: cannot build the altered certificate\n", number);
-            wrong_accepted++;
-            continue;
-        }
-        const char *cursor = altered;
-        wrong++;
-        if (ck_check(&cursor, &why) != CK_ACCEPTED) continue;
-        wrong_accepted++;
-        printf("  statement %d: the altered certificate is accepted:\n%s", number, altered);
-    }
-    free(text);
-    snprintf(summary, sizeof summary, "%d of %d verdicts of chapter 28 carry a certificate the checker accepts, in %s", certified, verdicts, path);
-    int passed = check_result(verdicts >= expected && certified == verdicts, summary);
-    snprintf(summary, sizeof summary, "%d of %d altered certificates not accepted for %s", wrong - wrong_accepted, wrong, path);
-    return check_result(wrong == certified && wrong_accepted == 0, summary) && passed;
-}
+/* Il controllo 9, check_structure_certificates(), sta in
+ * tests/statement_checks.h: lo usa anche tests/set_theory/test_set_theory.c. */
 
 /* Controllo 11: i controesempi di path scritti da prove_file() nel file dei
  * certificati, riletti, sono tutti accettati, e sono `expected`; tra i

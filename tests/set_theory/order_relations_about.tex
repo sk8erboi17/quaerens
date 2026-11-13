@@ -28,6 +28,6 @@ cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_maps_and_relations \
     tests/set_theory/test_maps_and_relations.c && /tmp/test_maps_and_relations
 \end{verbatim}
 
-\item \textbf{Expected result.} One \texttt{PASS} line for the file when every statement is proved with a written proof. The engine does not yet treat statements of this kind: each one is reported as not supported, and the test fails. The file states the goal.
+\item \textbf{Expected result.} One \texttt{PASS} line for the file when every statement is proved with a written proof. Today the engine proves 1 of the 14 statements: the fourth, a relation between the parts of a set given by a rule of set algebra, unfolded into a statement of chapter 14 and decided by regions (paragraph 17r of \texttt{parser.c}). The first two, relations between numbers, are not proved: the search of chapter 18 stops. The others are reported as not supported, each with its reason: primes, complex numbers, the number of elements of a set, an order written between the elements ($x \le y$ with ${\le} \subseteq S \times S$), and relations on sets of maps or of parts. The test fails; the file states the goal.
 \end{enumerate}
 \end{document}
