@@ -1,0 +1,31 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{function\_studies\_beyond.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{function\_studies\_beyond.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_book\_derivatives.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 10 true studies of functions that the engine does not decide yet. It must never call them false.
+
+\item \textbf{What it exercises.} Two honest refusals. Six studies of \texttt{derivate.jsonl} have an exponential whose exponent is not of first degree ($e^{\frac{1}{x - 2}}$, $e^{4 - x^{2}}$, $e^{x^{2}}$) or the number $e$ as a coefficient of a polynomial ($e x^{2} - \ln x$): the sign table (rule 18p-8) does not treat them. The other four have a point where the function is defined and the rules of differentiation give no derivative: $|x - 1|$ at $1$ and $x|x|$, $\sqrt{x^{4}}$, $x^{2}|x|$ at $0$. In the first the derivative does not exist there, in the other three it does; the engine cannot tell which, and does not decide (27l).
+
+\item \textbf{Expected result.} The line \texttt{PASS: none of the 10 true statements \ldots is called false}.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_book_derivatives \
+    tests/derivatives/test_book_derivatives.c && /tmp/test_book_derivatives
+\end{verbatim}
+\end{enumerate}
+\end{document}

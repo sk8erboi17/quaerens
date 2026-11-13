@@ -141,9 +141,9 @@ int main(void) {
     lead = coefficient_lead(rat_add(logarithm(rat_int(4)), rat_mul(rat_int(2), logarithm(rat_int(2))), 1));
     check(lead.known && lead.zero, "ln 4 - 2 ln 2 is zero, by the exact test");
     check(constant_exp(rat_mul(rat_frac((Frac){3, 2}), logarithm(rat_int(2))), &value) &&
-          rat_add(value, fractional_power(rat_int(8), (Frac){1, 2}), 1).num.count == 0, "e^{(3/2) ln 2} is the square root of 8");
+          rat_add(value, fractional_power(rat_int(8), (Frac){1, 2}, 0), 1).num.count == 0, "e^{(3/2) ln 2} is the square root of 8");
     Rat root_e = (Rat){poly_term((Term){num_int(1), mono_atom(atom_var('e'), (Frac){1, 2})}), poly_const(num_int(1))};
-    check(constant_ln(rat_mul(root_e, fractional_power(rat_int(2), (Frac){1, 2})), &value) &&
+    check(constant_ln(rat_mul(root_e, fractional_power(rat_int(2), (Frac){1, 2}, 0)), &value) &&
           rat_add(value, rat_mul(rat_frac(half), rat_add(rat_int(1), logarithm(rat_int(2)), 0)), 1).num.count == 0,
           "ln(e^{1/2} 2^{1/2}) = (1 + ln 2)/2");
     check(constant_power(rat_pow_int(rat_atom(atom_var('e')), 7), (Frac){-1, 2}, &other) && constant_exp(rat_frac((Frac){-7, 2}), &value) &&

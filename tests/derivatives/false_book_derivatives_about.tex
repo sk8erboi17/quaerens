@@ -1,0 +1,33 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_book\_derivatives.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_book\_derivatives.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_book\_derivatives.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 91 false statements about derivatives: 87 results of the exercise collections with one integer changed by one or a sign flipped (the \texttt{false\_checks} of \texttt{derivate.jsonl}), and the four results that the collections print wrong: an extra factor $x$ (matematika.it, 110), a dropped factor $x$ (matematika.it, 393), a sign in the last step of a chain of derivatives ($24x + 30$ for $24x - 30$), and the sign $(-1)^{n+1}$ for $(-1)^{n}$ in a formula for the derivative of order $n$.
+
+\item \textbf{What it exercises.} The anti-regression check against false proofs: none of them may be proved. A false derivative is refuted only where the rules of differentiation and the Taylor series of the function agree at a sample point and the formula differs from both (27i), so a refutation never rests on a rule that nobody checked there.
+
+\item \textbf{Variety.} Every rule and every kind of function of \texttt{book\_derivatives.tex}: products, quotients, chains, powers $u^{v}$, logarithms in any base, roots, inverse trigonometric functions, absolute values, derivatives of order two to four and of order $n$. Each false statement was rejected by the same independent oracle that confirmed the true ones.
+
+\item \textbf{Expected result.} The line \texttt{PASS: 91 of 91 statements \ldots are REFUTED (at least 91 wanted), 0 are PROVED (none allowed)}: today the engine finds a counterexample for all of them; if a change lowered this number, the engine would recognise fewer errors than today.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_book_derivatives \
+    tests/derivatives/test_book_derivatives.c && /tmp/test_book_derivatives
+\end{verbatim}
+\end{enumerate}
+\end{document}

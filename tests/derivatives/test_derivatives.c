@@ -101,28 +101,40 @@ typedef struct {
                                         ogni derivata deve essere confermata */
 } HandChain;
 
-/* I punti di prova sono 3/10, 7/5 e -9/10: 7 vuol dire tutti e tre, 3 solo
- * i due positivi, dove sono definiti ln x, la radice di x, x^x. */
+/* I punti di prova sono, nell'ordine dei bit, 3/10, 7/5, -9/10, 13/5,
+ * -11/5 e 23/4 (derivative_points[] in main.c). ALL vuol dire tutti e sei;
+ * POSITIVE i quattro positivi, dove sono definiti ln x, la radice di x,
+ * x^x; ABOVE_MINUS_2 tutti tranne -11/5, dove 1 + x e x + 2 sono negativi. */
+enum { ALL = 63, POSITIVE = 1 | 2 | 8 | 32, ABOVE_MINUS_2 = ALL & ~16 };
+
 static const HandChain chains[] = {
     /* Giuste: fino all'ordine più alto, e per ogni funzione che la serie
-     * di Taylor tratta, anche dove derive() non arriva (x^x, |x - 2|). */
-    {{"e^{x}", "e^{x}", "e^{x}", "e^{x}", "e^{x}", "e^{x}", "e^{x}", "e^{x}", NULL}, 0, 7},
-    {{"\\sin x", "\\cos x", "-\\sin x", "-\\cos x", "\\sin x", "\\cos x", "-\\sin x", "-\\cos x", NULL}, 0, 7},
-    {{"\\ln(1 + x)", "\\frac{1}{1 + x}", "-\\frac{1}{(1 + x)^{2}}", "\\frac{2}{(1 + x)^{3}}", "-\\frac{6}{(1 + x)^{4}}", "\\frac{24}{(1 + x)^{5}}", NULL}, 0, 7},
-    {{"\\ln x", "\\frac{1}{x}", "-\\frac{1}{x^{2}}", NULL}, 0, 3},
-    {{"\\tan x", "1 + \\tan^{2} x", "2 \\tan x (1 + \\tan^{2} x)", NULL}, 0, 7},
-    {{"\\cot x", "-1 - \\cot^{2} x", "2 \\cot x (1 + \\cot^{2} x)", NULL}, 0, 7},
-    {{"\\arctan x", "\\frac{1}{1 + x^{2}}", "-\\frac{2x}{(1 + x^{2})^{2}}", NULL}, 0, 7},
-    {{"\\sqrt{x}", "\\frac{1}{2\\sqrt{x}}", "-\\frac{1}{4 x \\sqrt{x}}", NULL}, 0, 3},
-    {{"\\sqrt[3]{x + 2}", "\\frac{1}{3 (x + 2)^{\\frac{2}{3}}}", "-\\frac{2}{9 (x + 2)^{\\frac{5}{3}}}", NULL}, 0, 7},
-    {{"\\log_{2} x", "\\frac{1}{x \\ln 2}", "-\\frac{1}{x^{2} \\ln 2}", NULL}, 0, 3},
-    {{"2^{x}", "2^{x} \\ln 2", "2^{x} (\\ln 2)^{2}", NULL}, 0, 7},
-    {{"x^{x}", "x^{x} (\\ln x + 1)", NULL}, 0, 3},
-    {{"\\sum_{j=0}^{4} x^{j}", "\\sum_{j=1}^{4} j x^{j - 1}", "\\sum_{j=2}^{4} j (j - 1) x^{j - 2}", NULL}, 0, 7},
-    {{"\\prod_{j=1}^{3} (x + j)", "(x + 2)(x + 3) + (x + 1)(x + 3) + (x + 1)(x + 2)", NULL}, 0, 7},
-    {{"\\left|x - 2\\right| x", "2 - 2x", NULL}, 0, 7},
-    {{"x e^{-2x}", "(1 - 2x) e^{-2x}", "(4x - 4) e^{-2x}", NULL}, 0, 7},
-    {{"\\frac{1}{1 - x}", "\\frac{1}{(1 - x)^{2}}", "\\frac{2}{(1 - x)^{3}}", NULL}, 0, 7},
+     * di Taylor tratta. Il valore assoluto |x - 6| vale 6 - x in tutti i
+     * punti di prova, il più grande dei quali è 23/4: lì la derivata del
+     * prodotto è 6 - 2x. (Era |x - 2|, con 2 - 2x, finché i punti erano
+     * tre, tutti sotto 2.) */
+    {{"e^{x}", "e^{x}", "e^{x}", "e^{x}", "e^{x}", "e^{x}", "e^{x}", "e^{x}", NULL}, 0, ALL},
+    {{"\\sin x", "\\cos x", "-\\sin x", "-\\cos x", "\\sin x", "\\cos x", "-\\sin x", "-\\cos x", NULL}, 0, ALL},
+    {{"\\ln(1 + x)", "\\frac{1}{1 + x}", "-\\frac{1}{(1 + x)^{2}}", "\\frac{2}{(1 + x)^{3}}", "-\\frac{6}{(1 + x)^{4}}", "\\frac{24}{(1 + x)^{5}}", NULL}, 0, ABOVE_MINUS_2},
+    {{"\\ln x", "\\frac{1}{x}", "-\\frac{1}{x^{2}}", NULL}, 0, POSITIVE},
+    {{"\\tan x", "1 + \\tan^{2} x", "2 \\tan x (1 + \\tan^{2} x)", NULL}, 0, ALL},
+    {{"\\cot x", "-1 - \\cot^{2} x", "2 \\cot x (1 + \\cot^{2} x)", NULL}, 0, ALL},
+    {{"\\arctan x", "\\frac{1}{1 + x^{2}}", "-\\frac{2x}{(1 + x^{2})^{2}}", NULL}, 0, ALL},
+    {{"\\sqrt{x}", "\\frac{1}{2\\sqrt{x}}", "-\\frac{1}{4 x \\sqrt{x}}", NULL}, 0, POSITIVE},
+    {{"\\sqrt[3]{x + 2}", "\\frac{1}{3 (x + 2)^{\\frac{2}{3}}}", "-\\frac{2}{9 (x + 2)^{\\frac{5}{3}}}", NULL}, 0, ABOVE_MINUS_2},
+    {{"\\log_{2} x", "\\frac{1}{x \\ln 2}", "-\\frac{1}{x^{2} \\ln 2}", NULL}, 0, POSITIVE},
+    {{"2^{x}", "2^{x} \\ln 2", "2^{x} (\\ln 2)^{2}", NULL}, 0, ALL},
+    {{"x^{x}", "x^{x} (\\ln x + 1)", NULL}, 0, POSITIVE},
+    {{"\\sum_{j=0}^{4} x^{j}", "\\sum_{j=1}^{4} j x^{j - 1}", "\\sum_{j=2}^{4} j (j - 1) x^{j - 2}", NULL}, 0, ALL},
+    {{"\\prod_{j=1}^{3} (x + j)", "(x + 2)(x + 3) + (x + 1)(x + 3) + (x + 1)(x + 2)", NULL}, 0, ALL},
+    {{"\\left|x - 6\\right| x", "6 - 2x", NULL}, 0, ALL},
+    {{"x e^{-2x}", "(1 - 2x) e^{-2x}", "(4x - 4) e^{-2x}", NULL}, 0, ALL},
+    {{"\\frac{1}{1 - x}", "\\frac{1}{(1 - x)^{2}}", "\\frac{2}{(1 - x)^{3}}", NULL}, 0, ALL},
+    {{"\\arcsin x", "\\frac{1}{\\sqrt{1 - x^{2}}}", "\\frac{x}{(1 - x^{2}) \\sqrt{1 - x^{2}}}", NULL}, 0, 1 | 4},
+    {{"\\arccos x", "-\\frac{1}{\\sqrt{1 - x^{2}}}", NULL}, 0, 1 | 4},
+    {{"\\arccot x", "-\\frac{1}{1 + x^{2}}", "\\frac{2x}{(1 + x^{2})^{2}}", NULL}, 0, ALL},
+    {{"\\arcsin \\frac{x}{6}", "\\frac{1}{\\sqrt{36 - x^{2}}}", NULL}, 0, ALL},
+    {{"\\arccos \\frac{x}{6}", "-\\frac{1}{\\sqrt{36 - x^{2}}}", NULL}, 0, ALL},
 
     /* Sbagliate: le regole rotte dell'esperimento del bugiardo, e due
      * errori che compaiono solo all'ordine 3. */
@@ -146,6 +158,14 @@ static const HandChain chains[] = {
     {{"-\\cos x", "-\\sin x", NULL}, 1, 0},
     {{"e^{2x}", "2 e^{2x}", "4 e^{2x}", "6 e^{2x}", NULL}, 1, 0},
     {{"\\sin x", "\\cos x", "-\\sin x", "\\cos x", NULL}, 1, 0},
+
+    /* Le regole nuove, rotte nei modi più facili: il segno, la radice
+     * dimenticata, il quadrato al posto della radice. */
+    {{"\\arcsin x", "-\\frac{1}{\\sqrt{1 - x^{2}}}", NULL}, 1, 0},
+    {{"\\arccos x", "\\frac{1}{\\sqrt{1 - x^{2}}}", NULL}, 1, 0},
+    {{"\\arcsin x", "\\frac{1}{1 - x^{2}}", NULL}, 1, 0},
+    {{"\\arccot x", "\\frac{1}{1 + x^{2}}", NULL}, 1, 0},
+    {{"\\left|x - 6\\right|", "1", NULL}, 1, 0},
 };
 
 /* Controllo 4: derivatives_check() su ogni catena. Una giusta non deve mai

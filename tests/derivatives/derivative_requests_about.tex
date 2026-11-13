@@ -1,0 +1,31 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{derivative\_requests.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{derivative\_requests.tex} is used for. It is a sample of requests to run by hand, \texttt{mathresearcher tests/derivatives/derivative\_requests.tex}, to see how the engine writes a derivative; the test \texttt{test\_book\_derivatives.c} checks the same kind of request in two ways.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 12 requests $\frac{d}{dx}\left( f \right)$ and $\frac{d^{k}}{dx^{k}}\left( f \right)$, with nothing after them: the engine answers \texttt{RISOLTO} with the derivative.
+
+\item \textbf{What it exercises.} The request (27k): the derivative by the rules, confirmed with the Taylor series of the function; a light simplification (no factors $1$, no terms $0$, no double signs, numbers in front, a common integer factor cancelled), which never changes where the expression is defined; and the answer read back from the text and compared, by exact algebra and with numbers, with the derivative given by the rules.
+
+\item \textbf{Expected result.} Every request is answered; in \texttt{test\_book\_derivatives.c} the line \texttt{PASS: 8 of 8 derivatives written as expected} fixes the text of some answers, and \texttt{PASS: 45 of 45 derivatives asked without their result\ldots} checks the requests made from the statements of the collections against the printed results.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o mathresearcher main.c && \
+    ./mathresearcher tests/derivatives/derivative_requests.tex
+\end{verbatim}
+\end{enumerate}
+\end{document}

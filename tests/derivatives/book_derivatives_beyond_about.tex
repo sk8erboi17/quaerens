@@ -1,0 +1,31 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{book\_derivatives\_beyond.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{book\_derivatives\_beyond.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_book\_derivatives.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds the 3 derivatives of the exercise collections, confirmed by an independent oracle, that the engine does not prove yet. They are true, and the engine must never call them false.
+
+\item \textbf{What it exercises.} The honest refusal. The derivative given by the rules is right in all three (the request without the result is answered for the first two, and checked against the printed result), but the printed form needs identities that the exact algebra does not apply: $\sqrt{1 - (1 - 2x)} \sqrt{1 - 2x} = \sqrt{2x(1 - 2x)}$, which holds where the two roots are defined; $\sqrt{1 - \sin^{2} x} = |\cos x|$, the root of a square; and the root of a quotient whose two terms have no known sign. When one of them becomes provable, it moves to \texttt{book\_derivatives.tex}.
+
+\item \textbf{Expected result.} The line \texttt{PASS: none of the 3 true statements \ldots is called false}.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_book_derivatives \
+    tests/derivatives/test_book_derivatives.c && /tmp/test_book_derivatives
+\end{verbatim}
+\end{enumerate}
+\end{document}

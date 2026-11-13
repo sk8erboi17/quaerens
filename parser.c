@@ -81,8 +81,13 @@ typedef enum {
                  b = estremo superiore, c = corpo, op = 1 se è un prodotto */
     N_CALL,   /* funzione: op = quale (Function), a = argomento, b = secondo
                  argomento se c'è */
-    N_APPLY   /* applicazione dichiarata dall'enunciato, come f(x): name = la
+    N_APPLY,  /* applicazione dichiarata dall'enunciato, come f(x): name = la
                  lettera f, a = argomento */
+    N_DERIV   /* segno di derivata di Leibniz dentro un'espressione (9d):
+                 name = la variabile x, value = l'ordine (un numero da 1 in
+                 su), a = la funzione da derivare. Lo crea solo il lettore, e
+                 il motore lo sostituisce con la derivata prima di ogni conto
+                 (27j): eval() e le altre letture dell'albero non lo trattano */
 } NodeKind;
 
 /* Le funzioni che il parser riconosce. Il secondo argomento, quando esiste, è
@@ -98,7 +103,10 @@ typedef enum {
     FN_LN,
     FN_LOG,     /* logaritmo di a in base b */
     FN_ROOT,    /* radice di a di indice b */
-    FN_ABS      /* valore assoluto */
+    FN_ABS,     /* valore assoluto */
+    FN_ARCSIN, FN_ARCCOS,  /* le inverse di seno e coseno, a valori in
+                              [-pi/2, pi/2] e in [0, pi] */
+    FN_ARCCOT   /* l'inversa della cotangente, a valori in (0, pi) */
 } Function;
 
 /* Un nodo dell'albero: una sotto-espressione dell'enunciato. I figli non usati
@@ -216,13 +224,14 @@ typedef struct {
 /* Un enunciato sulla derivata di una funzione: "la derivata di ordine n di
  * function, rispetto a variable, è formula". L'ordine è una lettera, quella
  * su cui si fa induzione, e allora function non la contiene e formula di
- * solito sì; oppure è un numero. Gli alberi stanno nell'arena. */
+ * solito sì; oppure è un numero. Senza formula è una richiesta: "calcola la
+ * derivata di function" (27k). Gli alberi stanno nell'arena. */
 typedef struct {
     int variable;     /* la lettera x rispetto a cui si deriva */
     int order;        /* la lettera n dell'ordine di derivazione, o 0 se è un numero */
     long long times;  /* l'ordine, quando è un numero: almeno 1 */
     Node *function;   /* la funzione da derivare */
-    Node *formula;    /* ciò che l'enunciato dice della derivata */
+    Node *formula;    /* ciò che l'enunciato dice della derivata; NULL in una richiesta */
 } DerivativeStatement;
 
 /* Che cosa un enunciato su un limite dice del limite (vedi LimitStatement):
@@ -263,11 +272,13 @@ typedef struct {
  *     factor    := primary { '!' | '^' group }
  *     primary   := numero | lettera ['_' group] | \pi
  *                | applicazione '(' expr ')'
- *                | '(' expr ')' | \left| expr \right|
+ *                | '(' expr ')' | \left| expr \right| | '|' expr '|'
+ *                | leibniz term
  *                | \frac group group | \binom group group
  *                | \sqrt ['[' expr ']'] group
  *                | (\sum | \prod) '_' '{' lettera '=' expr '}' '^' group term
  *                | funzione ['^' group] argomento
+ *     leibniz   := \frac '{' 'd' ['^' group] '}' '{' 'd' lettera ['^' group] '}'
  *     group     := '{' expr '}' | un solo token
  *     argomento := '(' expr ')' | factor
  *
@@ -280,7 +291,9 @@ typedef struct {
  *
  * Una terza, per le derivate (vedi parse_derivative_statement()):
  *
- *     derivative := \frac '{' 'd' ['^' group] '}' '{' 'd' lettera ['^' group] '}' term '=' expr
+ *     derivative := leibniz term [ '=' expr ]
+ *
+ * Senza '=' è una richiesta: calcolare la derivata.
  *
  * Una quarta, per i limiti (vedi parse_limit_statement(), 9i):
  *
@@ -298,7 +311,14 @@ typedef struct {
  *     lettere, che i libri scrivono sempre per intendere il prodotto:
  *     `\sin 2x` vale sin(2x), `\cos^{2} 3x` vale cos(3x)^2.
  *   - Il segno di derivata `\frac{d}{dx}` non è mai una frazione di lettere:
- *     si legge solo in testa a un enunciato su una derivata.
+ *     è la derivata del term che lo segue, come il corpo di una somma, in
+ *     testa a un enunciato su una derivata o dentro un'espressione (9d).
+ *     Dentro un'espressione l'ordine è un numero: `\frac{d^{2}}{dx^{2}}`.
+ *   - Un valore assoluto si scrive anche con le sole sbarre, `|x|`. Dentro
+ *     una sbarra aperta, la sbarra successiva la chiude: non può aprire un
+ *     fattore accostato. Così `x|x|` è x per |x|, e `||x| - 1|` si legge
+ *     come si deve; `|a|b|c|`, che si potrebbe leggere in due modi, è un
+ *     errore di sintassi.
  *   - `\sin^{2}(x)` è il quadrato di sin(x).
  *   - Senza graffe un esponente o un pedice è un solo token: `x^12` vale
  *     x^1 seguito da 2, come in TeX.
@@ -492,6 +512,7 @@ static Node *node_call(Function fn, Node *a, Node *b) {
 static const struct { const char *name; Function fn; } function_names[] = {
     {"sin", FN_SIN}, {"cos", FN_COS}, {"tan", FN_TAN}, {"cot", FN_COT},
     {"arctan", FN_ARCTAN}, {"ln", FN_LN}, {"log", FN_LOG},
+    {"arcsin", FN_ARCSIN}, {"arccos", FN_ARCCOS}, {"arccot", FN_ARCCOT},
 };
 
 /* Se il token corrente è il comando di una funzione mette la funzione in *fn
@@ -600,25 +621,21 @@ static Node *parse_function(Function fn) {
 
 /* 9h. FUNZIONI DEFINITE CON LE ALTRE
  *
- * Esponenziale, seno e coseno iperbolici, arcoseno e arcocoseno non sono
- * nodi propri dell'albero: si leggono con la loro definizione, scritta con
- * le funzioni che il motore già tratta. Così ogni metodo del motore li
- * conosce senza una regola in più. Le definizioni valgono su tutto il campo
- * di esistenza, estremi compresi:
+ * Esponenziale, seno e coseno iperbolici non sono nodi propri dell'albero:
+ * si leggono con la loro definizione, scritta con le funzioni che il motore
+ * già tratta. Così ogni metodo del motore li conosce senza una regola in
+ * più. Le definizioni valgono su tutto R:
  *
- *     \exp u = e^{u},     \sinh u = (e^{u} - e^{-u}) / 2,     \cosh u = (e^{u} + e^{-u}) / 2,
- *     \arcsin u = 2 \arctan(u / (1 + \sqrt{1 - u^2})),        \arccos u = \pi/2 - \arcsin u.
+ *     \exp u = e^{u},     \sinh u = (e^{u} - e^{-u}) / 2,     \cosh u = (e^{u} + e^{-u}) / 2.
  *
- * La formula dell'arcoseno è la bisezione dell'angolo: se a = \arcsin u,
- * con a tra -\pi/2 e \pi/2, allora tan(a/2) = sin a / (1 + cos a) =
- * u / (1 + \sqrt{1 - u^2}), e a/2 sta tra -\pi/4 e \pi/4, dove l'arcotangente
- * inverte la tangente. Vale anche in u = 1 e u = -1, e non altrove, perché
- * fuori da [-1, 1] la radice non c'è: il campo di esistenza è lo stesso.
- * La lettera e è il numero di Nepero.
+ * La lettera e è il numero di Nepero. Arcoseno e arcocoseno invece sono
+ * funzioni del lettore (FN_ARCSIN, FN_ARCCOS), perché la loro derivata
+ * (capitolo 27) si scrive meglio così; i limiti (capitolo 29) li sviluppano
+ * con la loro scrittura per mezzo dell'arcotangente.
  *
  * Warning: se aggiungi un nome qui, aggiungi la sua definizione in
  * parse_defined_function(). */
-static const char *const defined_functions[] = {"exp", "sinh", "cosh", "arcsin", "arccos"};
+static const char *const defined_functions[] = {"exp", "sinh", "cosh"};
 
 /* Ritorna la posizione in defined_functions[] del comando corrente, o -1. */
 static int defined_function(void) {
@@ -638,22 +655,9 @@ static Node *parse_defined_function(void) {
     e->name = 'e';
     Node *up = node_new(N_POW, e, u), *down = node_new(N_POW, e, node_new(N_NEG, u, NULL));
 
-    /* Le posizioni in defined_functions[]: 0 \exp, 1 \sinh, 2 \cosh,
-     * 3 \arcsin, 4 \arccos. */
-    if (which == 0) {
-        value = up;
-    } else if (which <= 2) {
-        value = node_new(N_DIV, node_new(which == 1 ? N_SUB : N_ADD, up, down), node_num(2));
-    } else {
-        Node *root = node_call(FN_ROOT, node_new(N_SUB, node_num(1), node_new(N_POW, u, node_num(2))), node_num(2));
-        Node *half = node_call(FN_ARCTAN, node_new(N_DIV, u, node_new(N_ADD, node_num(1), root)), NULL);
-        value = node_new(N_MUL, node_num(2), half);
-        if (which == 4) {
-            Node *pi = node_new(N_VAR, NULL, NULL);
-            pi->name = VAR_PI;
-            value = node_new(N_SUB, node_new(N_DIV, pi, node_num(2)), value);
-        }
-    }
+    /* Le posizioni in defined_functions[]: 0 \exp, 1 \sinh, 2 \cosh. */
+    if (which == 0) value = up;
+    else value = node_new(N_DIV, node_new(which == 1 ? N_SUB : N_ADD, up, down), node_num(2));
     return read->kind == N_POW ? node_new(N_POW, value, read->b) : value;
 }
 
@@ -664,12 +668,12 @@ static Node *parse_defined_function(void) {
  *
  * Serve in due posti. In testa a un enunciato dice che vale la pena di
  * leggerlo come enunciato su una derivata (capitolo 27). Dentro
- * un'espressione dice che lì c'è un segno di derivata, e il lettore lo
- * rifiuta (paragrafo 9d): letto come frazione delle lettere d e x,
- * \frac{d}{dx} x^{2} = x sarebbe un'uguaglianza vera, (1/x) x^2 = x, e il
- * programma "dimostrerebbe" che la derivata di x^2 è x. È successo, con un
- * \displaystyle davanti che questa funzione non saltava: vedi
- * tests/derivatives/false_nth_derivatives.tex. */
+ * un'espressione dice che lì c'è un segno di derivata, e il lettore ne fa
+ * un nodo N_DERIV (paragrafo 9d), mai una frazione: letto come frazione
+ * delle lettere d e x, \frac{d}{dx} x^{2} = x sarebbe un'uguaglianza vera,
+ * (1/x) x^2 = x, e il programma "dimostrerebbe" che la derivata di x^2 è x.
+ * È successo, con un \displaystyle davanti che questa funzione non saltava:
+ * vedi tests/derivatives/false_nth_derivatives.tex. */
 static int starts_with_derivative(const char *text) {
     static const char *const fraction[] = {"\\frac", "\\dfrac", "\\tfrac"};
     static const char *const style[] = {"\\displaystyle", "\\textstyle"};
@@ -707,6 +711,72 @@ static int starts_with_derivative(const char *text) {
     }
     return 0;
 }
+
+/* leibniz := \frac '{' 'd' ['^' group] '}' '{' 'd' lettera ['^' group] '}'
+ *
+ * Il token corrente è \frac, \dfrac o \tfrac, e starts_with_derivative() ha
+ * detto che lì comincia un segno di derivata. Mette in *variable la lettera
+ * x. L'ordine è l'esponente, lo stesso sopra e sotto: una lettera, che va in
+ * *order; un numero da 1 in su, che va in *times con *order a 0; oppure
+ * niente, che vuol dire 1. Un segno scritto in un altro modo è un errore di
+ * sintassi. Lo usano tutti e due i posti in cui il segno si legge: la testa
+ * di un enunciato (parse_derivative_statement()) e l'interno di
+ * un'espressione (9d). */
+static void parse_leibniz(int *variable, int *order, long long *times) {
+    const char *shape = "il segno di derivata si scrive \\frac{d^{n}}{dx^{n}}, con lo stesso ordine sopra e sotto";
+    Node *above = NULL, *below = NULL;
+    *variable = *order = 0;
+    *times = 1;
+    next_token();
+
+    /* Sopra: d, o d^n. */
+    expect_char('{', shape);
+    if (token.kind != T_LETTER || token.ch != 'd') syntax(shape);
+    next_token();
+    if (is_char('^')) { next_token(); above = parse_group(); }
+    expect_char('}', shape);
+
+    /* Sotto: dx, o dx^n con lo stesso n. */
+    expect_char('{', shape);
+    if (token.kind != T_LETTER || token.ch != 'd') syntax(shape);
+    next_token();
+    if (token.kind != T_LETTER) syntax(shape);
+    *variable = token.ch;
+    next_token();
+    if (is_char('^')) { next_token(); below = parse_group(); }
+    expect_char('}', shape);
+
+    /* L'ordine: niente, una lettera o un numero, uguale nei due posti. */
+    if (!above != !below) syntax(shape);
+    else if (above && above->kind == N_VAR && below->kind == N_VAR && above->name == below->name) *order = above->name;
+    else if (above && above->kind == N_NUM && below->kind == N_NUM && above->value == below->value && above->value >= 1) *times = above->value;
+    else if (above) syntax(shape);
+}
+
+/* 9d. leibniz term dentro un'espressione: il nodo N_DERIV, con la funzione
+ * da derivare che è il term che segue il segno, come il corpo di una somma.
+ * Il token corrente è il \frac del segno. Dentro un'espressione l'ordine
+ * deve essere un numero: una derivata n-esima chiede l'induzione del
+ * capitolo 27, che parte solo da un enunciato che comincia con il segno.
+ * Senza una funzione dopo il segno, \frac{d}{dx} = \frac{1}{x}, parse_term()
+ * trova il simbolo inatteso e l'errore di sintassi resta. */
+static Node *parse_derivative_sign(void) {
+    int variable, order;
+    long long times;
+    parse_leibniz(&variable, &order, &times);
+    if (order) { syntax("dentro un'espressione l'ordine di una derivata deve essere un numero, come in \\frac{d^{2}}{dx^{2}}"); return node_num(0); }
+    Node *node = node_new(N_DERIV, parse_term(), NULL);
+    node->name = variable;
+    node->value = times;
+    return node;
+}
+
+/* Quante sbarre di valore assoluto scritte senza \left e \right sono aperte
+ * nel punto in cui si trova il lettore. Dentro una di esse una sbarra la
+ * chiude, e non comincia un fattore accostato (vedi le convenzioni in testa
+ * al capitolo e starts_factor()). Ogni chiamata che la aumenta la rimette
+ * com'era prima di ritornare, anche dopo un errore di sintassi. */
+static int open_bars;
 
 /* primary: vedi la grammatica in testa al capitolo. */
 static Node *parse_primary(void) {
@@ -753,13 +823,21 @@ static Node *parse_primary(void) {
         if (token.kind == T_ABS_CLOSE) next_token(); else syntax("manca \\right|");
         return node_call(FN_ABS, inner, NULL);
     }
+    if (is_char('|')) {
+        next_token();
+        open_bars++;
+        Node *inner = parse_expr();
+        open_bars--;
+        if (is_char('|')) next_token(); else syntax("manca la sbarra che chiude il valore assoluto");
+        return node_call(FN_ABS, inner, NULL);
+    }
 
     /* 9d. Comandi con argomenti tra graffe. Il segno di derivata non è una
      * frazione: in testa all'enunciato lo legge parse_derivative_statement(),
-     * dentro un'espressione non ha un significato che il programma tratti
-     * (vedi starts_with_derivative()). */
+     * dentro un'espressione parse_derivative_sign() (vedi
+     * starts_with_derivative()). */
     if (is_command("frac") || is_command("dfrac") || is_command("tfrac")) {
-        if (starts_with_derivative(token.start)) { syntax("il segno di derivata si legge solo in testa all'enunciato"); return node_num(0); }
+        if (starts_with_derivative(token.start)) return parse_derivative_sign();
         next_token();
         Node *above = parse_group();
         return node_new(N_DIV, above, parse_group());
@@ -815,11 +893,12 @@ static Node *parse_factor(void) {
 }
 
 /* Ritorna 1 se il token corrente può iniziare un fattore: serve a riconoscere
- * la moltiplicazione implicita. */
+ * la moltiplicazione implicita. Una sbarra lo può solo fuori da ogni altra
+ * sbarra aperta (open_bars). */
 static int starts_factor(void) {
     Function fn;
     return token.kind == T_NUM || token.kind == T_LETTER || token.kind == T_OPEN ||
-           token.kind == T_ABS_OPEN || is_function(&fn) || is_command("frac") ||
+           token.kind == T_ABS_OPEN || (is_char('|') && !open_bars) || is_function(&fn) || is_command("frac") ||
            is_command("dfrac") || is_command("tfrac") || is_command("binom") ||
            is_command("sqrt") || is_command("sum") || is_command("prod") || is_command("pi") || defined_function() >= 0;
 }
@@ -937,49 +1016,30 @@ static int parse_statement(const char *text, Statement *statement) {
  *     \frac{d^{n}}{dx^{n}} \sin x = \sin\left(x + \frac{n \pi}{2}\right)
  *     \frac{d^{2}}{dx^{2}} x^{3} = 6x,        \frac{d}{dx} \ln x = \frac{1}{x}
  *
- * Il segno di derivata è la frazione di Leibniz. L'ordine è l'esponente,
- * lo stesso sopra e sotto: una lettera, un numero da 1 in su, oppure
- * niente, che vuol dire 1. La funzione è il term che segue il segno, come
- * per il corpo di una somma. Ritorna 1 se text ha questa forma; altrimenti
- * ritorna 0 e syntax_error dice perché. */
+ * Il segno di derivata è la frazione di Leibniz (parse_leibniz()). La
+ * funzione è il term che segue il segno, come per il corpo di una somma. Se
+ * dopo la funzione il testo finisce, l'enunciato è una richiesta, e formula
+ * resta NULL:
+ *
+ *     \frac{d}{dx}\left( x^{2} \tan x \right)
+ *
+ * Ritorna 1 se text ha una di queste forme; altrimenti ritorna 0 e
+ * syntax_error dice perché. */
 static int parse_derivative_statement(const char *text, DerivativeStatement *out) {
-    const char *shape = "il segno di derivata si scrive \\frac{d^{n}}{dx^{n}}, con lo stesso ordine sopra e sotto";
-    Node *above = NULL, *below = NULL;
     memset(out, 0, sizeof *out);
     syntax_error = NULL;
     cursor = text;
     next_token();
-    if (!is_command("frac") && !is_command("dfrac") && !is_command("tfrac")) syntax(shape);
-    next_token();
+    if (!is_command("frac") && !is_command("dfrac") && !is_command("tfrac")) syntax("l'enunciato non comincia con il segno di derivata");
+    parse_leibniz(&out->variable, &out->order, &out->times);
 
-    /* Sopra: d, o d^n. */
-    expect_char('{', shape);
-    if (token.kind != T_LETTER || token.ch != 'd') syntax(shape);
-    next_token();
-    if (is_char('^')) { next_token(); above = parse_group(); }
-    expect_char('}', shape);
-
-    /* Sotto: dx, o dx^n con lo stesso n. */
-    expect_char('{', shape);
-    if (token.kind != T_LETTER || token.ch != 'd') syntax(shape);
-    next_token();
-    if (token.kind != T_LETTER) syntax(shape);
-    out->variable = token.ch;
-    next_token();
-    if (is_char('^')) { next_token(); below = parse_group(); }
-    expect_char('}', shape);
-
-    /* L'ordine: niente, una lettera o un numero, uguale nei due posti. */
-    out->times = 1;
-    if (!above != !below) syntax(shape);
-    else if (above && above->kind == N_VAR && below->kind == N_VAR && above->name == below->name) out->order = above->name;
-    else if (above && above->kind == N_NUM && below->kind == N_NUM && above->value == below->value && above->value >= 1) out->times = above->value;
-    else if (above) syntax(shape);
-
-    /* La funzione, il segno di uguale, la formula. */
+    /* La funzione; poi, se non è una richiesta, il segno di uguale e la
+     * formula. */
     out->function = parse_term();
-    expect_char('=', "dopo la funzione da derivare serve = e la formula della derivata");
-    out->formula = parse_expr();
+    if (token.kind != T_END) {
+        expect_char('=', "dopo la funzione da derivare serve = e la formula della derivata");
+        out->formula = parse_expr();
+    }
     if (token.kind != T_END) syntax("testo inatteso dopo l'enunciato");
     return syntax_error == NULL;
 }

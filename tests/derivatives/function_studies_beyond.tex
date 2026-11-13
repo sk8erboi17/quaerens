@@ -1,0 +1,30 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Studies of functions that the engine does not decide yet (10)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Every statement below is true. The engine does not decide them yet: the sign table does not treat an exponential whose exponent is not of first degree, nor the number $e$ as a coefficient of a polynomial, nor the points where a function is defined and the rules of differentiation give no derivative. It must never call them false.
+
+\begin{enumerate}
+\item $\displaystyle \forall x \in \mathbb{R}\ \left(\frac{d}{dx}\left( x \cdot e^{\frac{1}{x - 2}} \right) > 0 \iff x < 1 \lor x > 4\right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left(\frac{d}{dx}\left( e^{\frac{1 - x}{x^{2}}} \right) > 0 \iff x < 0 \lor x > 2\right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left(\frac{d}{dx}\left( xe^{4 - x^{2}} \right) > 0 \iff -\frac{1}{\sqrt{2}} < x < \frac{1}{\sqrt{2}}\right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left(\frac{d}{dx}\left( 5e^{-(x - 3)^{2}} \right) > 0 \iff x < 3\right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left(\frac{d}{dx}\left( ex^{2} - \ln x \right) > 0 \iff x > \frac{1}{\sqrt{2e}}\right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left(\frac{d}{dx}\left( \frac{e^{x^{2}}}{x} \right) > 0 \iff x < -\frac{1}{\sqrt{2}} \lor x > \frac{1}{\sqrt{2}}\right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left(\frac{d}{dx}\left( |x - 1| \right) > 0 \iff x > 1\right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left(\frac{d}{dx}\left( x|x| \right) = 2|x|\right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left(\frac{d}{dx}\left( \sqrt{x^{4}} \right) \ge 0 \iff x \ge 0\right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left(\frac{d}{dx}\left( x^{2}\left|x\right| \right) = 3x\left|x\right|\right)$
+\end{enumerate}
+\end{document}

@@ -21,12 +21,17 @@
  * enunciati su una successione che l'enunciato stesso definisce per
  * ricorrenza, "sia a_0 = 0 e a_{n+1} = \sqrt{6 + a_n}; allora a_n < 3":
  * una formula per il termine n-esimo, oppure delle stime (capitolo 26). E
- * gli enunciati sulla derivata n-esima di una funzione, scritti con il segno
- * di Leibniz (capitolo 27). E i limiti, \lim_{x \to 0} \frac{1 - \cos x}{x^2}
- * = \frac{1}{2}, anche da un lato, a \pm\infty, di successioni: con gli
- * sviluppi in serie troncati, a coefficienti esatti (capitolo 29). Senza il
- * valore, \lim_{x \to a} f è una richiesta, e la risposta è RISOLTO con il
- * limite, oppure con il fatto che non esiste.
+ * gli enunciati sulla derivata di una funzione, di ordine fisso o n-esima,
+ * scritti con il segno di Leibniz (capitolo 27); senza il segno di uguale il
+ * segno chiede la derivata, che il programma calcola e scrive. Dentro
+ * un'espressione il segno è la derivata della funzione che lo segue: così
+ * \{x \in \mathbb{R} \mid \frac{d}{dx}(f) > 0\} chiede dove f cresce, e lo
+ * studio di una funzione lo decide la tabella dei segni. E i limiti,
+ * \lim_{x \to 0} \frac{1 - \cos x}{x^2} = \frac{1}{2}, anche da un lato, a
+ * \pm\infty, di successioni: con gli sviluppi in serie troncati, a
+ * coefficienti esatti (capitolo 29). Senza il valore, \lim_{x \to a} f è una
+ * richiesta, e la risposta è RISOLTO con il limite, oppure con il fatto che
+ * non esiste.
  *
  * Tratta altre tre famiglie di enunciati, ognuna con il suo metodo e con la
  * dimostrazione scritta per esteso:
@@ -171,9 +176,18 @@
  *     due coefficienti binomiali nello stesso termine, e ogni altra
  *     dipendenza da n.
  *   - Enunciati in prosa e integrali: non sono una formula sola. Delle
- *     derivate si leggono quelle scritte con il segno di Leibniz in testa
- *     alla formula (capitolo 27); mancano il doppio fattoriale e le
- *     funzioni che cambiano con n.
+ *     derivate si leggono quelle scritte con il segno di Leibniz, in testa
+ *     alla formula o dentro un'espressione (capitolo 27), non f'(x); nelle
+ *     formule n-esime mancano il doppio fattoriale e le funzioni che
+ *     cambiano con n. Per confrontare una derivata con la forma stampata
+ *     sui libri mancano identità che valgono solo sotto condizioni sui
+ *     segni: la radice di un quadrato, sqrt(w^2) = |w|, e la radice di un
+ *     prodotto di fattori di segno noto solo dal dominio. Negli studi di
+ *     funzione mancano gli esponenziali con l'esponente non di primo grado
+ *     (e^{1/x}, e^{-x^2}: sono della tabella dei segni, 18p-8) e i punti in
+ *     cui la funzione è definita da tutte e due le parti ma le regole non
+ *     ne danno la derivata, come 0 per x|x| (27l): servirebbe il limite del
+ *     rapporto incrementale.
  *   - Nei limiti: la scala delle crescite di esponenziali e logaritmi
  *     all'infinito (e^x / x, \ln x / \ln\ln x), le stime per le divergenze
  *     con oscillazioni, due successioni per dire che un limite a \pm\infty
@@ -340,7 +354,7 @@
  *   19. Quantificatori: verifica indipendente e verdetto
  *   25. Induzione su una disuguaglianza
  *   26. Successioni definite per ricorrenza
- *   27. Derivate n-esime
+ *   27. Derivate: dimostrarle, calcolarle, usarle negli studi di funzione
  *   28. Insiemi qualsiasi: modelli finiti, istanze, uguali al posto di uguali
  *   29. Limiti
  *   20. Dimostrare un enunciato
@@ -1423,6 +1437,34 @@ static int rat_affine(Rat r, long long *a, long long *c) {
  * polinomi che i suoi alberi nominano e prima del motore che li usa. */
 #include "parser.c"
 
+/* Il segno di derivata dentro un'espressione (9d) arriva dal lettore come un
+ * nodo N_DERIV, che nessun conto sa trattare: lo sostituisce con la derivata
+ * il capitolo 27 (27j), con le regole di derive() e il loro controllo con i
+ * numeri. Chi legge un enunciato fatto di espressioni (capitoli 13, 18, 25)
+ * chiama queste funzioni subito dopo il parsing, prima di ogni conto, ma sta
+ * più in alto del capitolo 27, che a sua volta usa la valutazione, gli
+ * intervalli e la tabella dei segni: per questo i prototipi sono qui.
+ *
+ * derivatives_expanded() ritorna l'albero con le derivate al posto dei
+ * segni, oppure annota in `failure` perché un segno non si espande;
+ * formula_derivatives_expanded() fa lo stesso su ogni confronto di un
+ * enunciato con quantificatori. derivative_signs conta i segni espansi
+ * dall'ultima volta che qualcuno l'ha azzerato. derivative_doubt() dice se
+ * un enunciato deciso dalla tabella dei segni dipende da punti in cui una
+ * funzione è definita ma le regole non ne danno la derivata (27l): NULL se
+ * no, altrimenti il motivo. */
+static Node *derivatives_expanded(Node *tree);
+static void formula_derivatives_expanded(Formula *f);
+static const char *derivative_doubt(const Formula *thesis);
+static int derivative_signs;
+
+/* 1 se derivative_doubt() ha trovato un estremo del dominio di una funzione
+ * in cui la derivata (da tutte e due le parti) non esiste: il verdetto lo
+ * dice, perché chi conta la derivata da una parte sola leggerebbe in un
+ * altro modo la risposta. */
+static int derivative_edges;
+static const char *const DERIVATIVE_EDGES = "negli estremi del dominio la derivata, che chiede la funzione definita da tutte e due le parti, non c'è";
+
 /* =============================================================================
  * 10. VOCABOLARIO: LE SUCCESSIONI NOTE, COME DATI
  * ============================================================================
@@ -2294,8 +2336,21 @@ static Factorization factorize(Poly p) {
  * altri fattori: la base è non negativa per ipotesi (altrimenti la radice non
  * sarebbe definita) e tutti gli altri fattori lo sono, quindi lo è anche lei.
  * Se resta in entrambi non si può dire nulla dei due segni presi da soli, e si
- * rinuncia. */
-static Rat fractional_power(Rat base, Frac q) {
+ * rinuncia.
+ *
+ * 11o. Le radici di indice dispari. Con odd diverso da zero q ha il
+ * denominatore dispari m, e la radice è quella reale, definita anche per una
+ * base negativa: la radice cubica di -8 è -2. È la lettura di \sqrt[3]{u}
+ * nei libri; u^{1/3} scritto come potenza resta invece definito solo per
+ * u >= 0, come e^{(1/3) ln u}. La radice reale di indice dispari rispetta i
+ * prodotti senza condizioni sui segni, (u v)^{1/m} = u^{1/m} v^{1/m} per
+ * ogni u e v reali, perché t -> t^m è una funzione crescente da R in R che
+ * rispetta i prodotti, e quindi lo fa anche la sua inversa; e (-1)^{1/m} =
+ * -1. Così la parte di segno non noto si distribuisce come le altre: ogni
+ * atomo del suo monomio comune riceve il suo esponente (la radice cubica di
+ * x^5 è x^{5/3}), il segno esce come (-1)^p con q = p/m, e il polinomio che
+ * resta diventa un atomo. Nessuna condizione da annotare. */
+static Rat fractional_power(Rat base, Frac q, int odd) {
     Term out;
     Mono none;
     out.coef = num_int(1);
@@ -2313,7 +2368,7 @@ static Rat fractional_power(Rat base, Frac q) {
     Factorization side[2] = {factorize(base.num), factorize(base.den)};
     if (failure) return rat_int(0);
     int loose[2] = {!poly_is_one(side[0].rest), !poly_is_one(side[1].rest)};
-    if (loose[0] && loose[1]) { fail("radice di una frazione in cui non si conosce il segno dei due termini"); return rat_int(0); }
+    if (loose[0] && loose[1] && !odd) { fail("radice di una frazione in cui non si conosce il segno dei due termini"); return rat_int(0); }
     for (int s = 0; s < 2; s++) {
         Frac direction = frac_int(s ? -1 : 1);
 
@@ -2322,6 +2377,22 @@ static Rat fractional_power(Rat base, Frac q) {
             const Part *part = &side[s].part[i];
             Frac e = frac_mul(frac_mul(part->power, q), direction);
             term_times(&out, part->kind == BASE_ATOM ? (int)part->id : atom_pow(part->kind, part->id, &none), e);
+        }
+
+        /* 11o. La parte di segno non noto, con una radice di indice
+         * dispari: il monomio comune, il segno, il polinomio che resta. */
+        if (loose[s] && odd) {
+            Poly rest = side[s].rest;
+            Mono common = poly_common(rest);
+            for (int i = 0; i < common.count; i++) term_times(&out, common.factor[i].atom, frac_mul(frac_mul(common.factor[i].exp, q), direction));
+            rest = poly_mul(rest, poly_term((Term){num_int(1), mono_pow(&common, frac_int(-1))}));
+            if (rest.term[0].coef.im.num == 0 && rest.term[0].coef.re.num < 0) {
+                rest = poly_add(poly_const(num_int(0)), rest, 1);
+                if (q.num % 2) out.coef = num_neg(out.coef);
+            }
+            if (rest.count == 1 && rest.term[0].mono.count == 0 && !poly_is_one(rest)) { fail("radice di un numero complesso"); return rat_int(0); }
+            if (!poly_is_one(rest)) term_times(&out, atom_pow(BASE_POLY, base_poly_intern(rest), &none), frac_mul(q, direction));
+            continue;
         }
 
         /* Parte di segno non noto. Se è una costante è -1 (o un numero
@@ -2468,7 +2539,7 @@ static Rat power(Rat base, Rat exponent) {
         Frac q = t->coef.re;
         if (t->coef.im.num != 0) { fail("esponente complesso"); break; }
         if (t->mono.count == 0) {
-            result = rat_mul(result, q.den == 1 ? rat_pow_int(base, q.num) : fractional_power(base, q));
+            result = rat_mul(result, q.den == 1 ? rat_pow_int(base, q.num) : fractional_power(base, q, 0));
         } else {
             /* Un esponente simbolico negativo porta la base a denominatore;
              * uno che non è sempre intero vuole una base non negativa. */
@@ -2882,7 +2953,22 @@ static Rat eval_call(const Node *node) {
         if (exp_root(x, index, &letter)) return letter;
         for (int i = 0; i < surd_count && index == 2; i++)
             if (node_equal(surd_node[i]->a, node->a)) return surd_value[i];
-        return fractional_power(x, (Frac){1, index});
+
+        /* 11p. La radice m-esima di una potenza w^k scritta così: con m
+         * dispari è w^{k/m} per ogni w reale (11o); con m pari e k dispari
+         * è definita dove w^k >= 0, cioè dove w >= 0, e lì vale w^{k/m}. Con
+         * m e k pari no: la radice quadrata di w^2 è |w|, non w, e resta la
+         * regola di sempre. Serve perché la radice cubica di (x^3 + 1)^2 e
+         * il quadrato di quella di x^3 + 1 siano lo stesso numero anche per
+         * il conto: svolta la potenza, i due radicandi non si riconoscono. */
+        const Node *power_node = node->a;
+        if (power_node->kind == N_POW && power_node->b->kind == N_NUM && power_node->b->value >= 1 && power_node->b->value <= MAX_POWER &&
+            (index % 2 || power_node->b->value % 2)) {
+            Frac q = frac_make(power_node->b->value, index);
+            Rat w = eval(power_node->a);
+            return q.den == 1 ? rat_pow_int(w, q.num) : fractional_power(w, q, index % 2);
+        }
+        return fractional_power(x, (Frac){1, index}, index % 2);
     }
 
     case FN_LN:
@@ -2904,6 +2990,22 @@ static Rat eval_call(const Node *node) {
     case FN_ARCTAN:
         return arctangent(x);
 
+    case FN_ARCCOT:
+        /* Con l'arcocotangente a valori in (0, pi), come nei libri di
+         * scuola, arccot u = pi/2 - arctan u per ogni u reale: i due membri
+         * sono continui, hanno la stessa cotangente, e stanno tutti e due
+         * in (0, pi), dove la cotangente è iniettiva. */
+        return rat_add(rat_div(rat_atom(atom_var(VAR_PI)), rat_int(2)), arctangent(x), 1);
+
+    case FN_ARCSIN: case FN_ARCCOS:
+        /* Non c'è una forma esatta che valga in tutto [-1, 1]: arcsin u =
+         * arctan(u / sqrt(1 - u^2)) perde i due estremi, e un'espressione
+         * che risultasse non definita dove lo è sbaglierebbe la tabella dei
+         * segni. Di queste funzioni si calcolano le derivate (27f), che non
+         * le contengono, e i valori con gli intervalli (capitolo 24). */
+        fail("arcoseno e arcocoseno non hanno una forma per i conti esatti");
+        return rat_int(0);
+
     case FN_ABS: {
         /* Di un numero reale il valore assoluto si calcola. Di un'espressione
          * no, perché |x| non è una funzione razionale di x: vale x oppure -x
@@ -2913,7 +3015,7 @@ static Rat eval_call(const Node *node) {
         int side;
         if (rat_number(x, &value) && value.im.num == 0) return value.re.num < 0 ? rat_add(rat_int(0), x, 1) : x;
         for (int i = 0; i < abs_count; i++)
-            if (abs_node[i] == node) return (abs_pattern >> i & 1) ? rat_add(rat_int(0), x, 1) : x;
+            if (abs_node[i] == node || node_equal(abs_node[i], node)) return (abs_pattern >> i & 1) ? rat_add(rat_int(0), x, 1) : x;
 
         /* Un numero con radici quadrate: il segno si trova stringendolo tra
          * due razionali (number_sign(), 18p). */
@@ -2970,6 +3072,11 @@ static Rat eval(const Node *node) {
         env_pop();
         return value;
     }
+    case N_DERIV:
+        /* Un segno di derivata che nessuno ha espanso (27j): non ha un
+         * valore, e non va letto come nient'altro. */
+        fail("un segno di derivata dentro un'espressione che il programma non ha calcolato");
+        return rat_int(0);
     default:
         break;
     }
@@ -3322,8 +3429,10 @@ typedef struct {
                             SOLVED: le soluzioni, come condizione in LaTeX */
     const char *proof;   /* dimostrazione scritta in LaTeX, o NULL */
     const char *method;  /* PROVED senza induzione, SOLVED: come, in italiano */
-    const char *note;    /* REFUTED: avvertenza su come è stato letto l'enunciato, o NULL;
-                            SOLVED: che cosa indicano i nomi usati nelle soluzioni, o NULL */
+    const char *note;    /* PROVED, REFUTED: avvertenza su come è stato letto
+                            l'enunciato, o NULL;
+                            SOLVED: che cosa indicano i nomi usati nelle
+                            soluzioni, o dove vale una derivata, o NULL */
     const char *certificate;  /* PROVED: il certificato che il verificatore
                                  indipendente ha accettato (13h), o NULL;
                                  REFUTED su insiemi qualsiasi: il controesempio,
@@ -4989,7 +5098,8 @@ static int node_precedence(const Node *n) {
  * del capitolo 9, come l'espressione di partenza. */
 static void put_node(const Node *n, int need) {
     static const char *const call_name[] = {[FN_SIN] = "sin", [FN_COS] = "cos", [FN_TAN] = "tan", [FN_COT] = "cot",
-                                            [FN_ARCTAN] = "arctan", [FN_LN] = "ln"};
+                                            [FN_ARCTAN] = "arctan", [FN_LN] = "ln", [FN_ARCSIN] = "arcsin",
+                                            [FN_ARCCOS] = "arccos", [FN_ARCCOT] = "arccot"};
 
     /* La variabile sostituita. Dentro l'espressione che la sostituisce non
      * si sostituisce di nuovo. */
@@ -5053,7 +5163,11 @@ static void put_node(const Node *n, int need) {
             proof_add("\\right)");
             break;
         }
+        /* Una frazione come base va tra parentesi: \frac{1}{x}^{2} si
+         * rilegge bene, ma a occhio sembra il quadrato del solo x. */
+        if (n->a->kind == N_DIV) proof_add("\\left(");
         put_node(n->a, 5);
+        if (n->a->kind == N_DIV) proof_add("\\right)");
         proof_add("^{");
         put_node(n->b, 0);
         proof_add("}");
@@ -5113,6 +5227,13 @@ static void put_node(const Node *n, int need) {
         proof_add("%c\\left(", n->name);
         put_node(n->a, 0);
         proof_add("\\right)");
+        break;
+    case N_DERIV:
+        /* Il segno deriva tutto il term che lo segue (9d): tra parentesi,
+         * non si prende i fattori scritti dopo. */
+        proof_add("\\left(\\frac{d^{%lld}}{d%c^{%lld}}\\left(", n->value, n->name, n->value);
+        put_node(n->a, 0);
+        proof_add("\\right)\\right)");
         break;
     }
     if (wrap) proof_add("\\right)");
@@ -5798,7 +5919,7 @@ static void cert_node(const Node *n) {
             certificate_broken = 1;
         }
         return;
-    case N_APPLY:
+    case N_APPLY: case N_DERIV:
         certificate_broken = 1;
         return;
     default:
@@ -6200,6 +6321,11 @@ static Verdict prove_by_induction(const char *formula, int variable, int has_bas
     atan_count = 0;
     failure = NULL;
     if (!parse_statement(formula, &statement)) { verdict.reason = syntax_error; return verdict; }
+
+    /* 27j. I segni di derivata dentro le espressioni, prima di ogni conto. */
+    derivative_signs = 0;
+    statement.lhs = derivatives_expanded(statement.lhs);
+    statement.rhs = derivatives_expanded(statement.rhs);
     if (failure) { verdict.reason = failure; return verdict; }
     return induct(&statement, variable, has_base, base, 0);
 }
@@ -8206,6 +8332,32 @@ static Range range_pi(void) {
     return range_sub(range_mul(range_ratio(16, 1), range_odd_series(range_ratio(1, 5), -1)), range_mul(range_ratio(4, 1), range_odd_series(range_ratio(1, 239), -1)));
 }
 
+/* Ritorna arcsin a; "non so" se a non sta tutto in [-1, 1].
+ *
+ * L'arcoseno è crescente, quindi l'intervallo va dall'arcoseno di un
+ * estremo a quello dell'altro. In un estremo t con |t| < 1 l'angolo y =
+ * arcsin t, tra -pi/2 e pi/2, ha sin y = t e cos y = sqrt(1 - t^2) > 0,
+ * quindi tan y = t / sqrt(1 - t^2) e y è l'arcotangente di quel numero; in
+ * t = 1 e t = -1 vale pi/2 e -pi/2. Ogni passo è un'operazione con gli
+ * intervalli, che contiene il risultato vero: la scelta tra i due casi
+ * guarda se l'estremo è proprio il numero 1, non decide nulla
+ * dell'enunciato. */
+static Range range_asin(Range a) {
+    Range ends[2], one = {1, 1}, half_pi = range_div(range_pi(), range_ratio(2, 1));
+    if (!range_known(a) || a.low < -1 || a.high > 1) return range_none();
+    for (int side = 0; side < 2; side++) {
+        Range t = side ? (Range){a.high, a.high} : (Range){a.low, a.low};
+        if (t.low == 1 || t.low == -1) ends[side] = t.low > 0 ? half_pi : range_neg(half_pi);
+        else ends[side] = range_atan(range_div(t, range_sqrt(range_sub(one, range_mul(t, t)))));
+        if (!range_known(ends[side])) return range_none();
+    }
+    return (Range){ends[0].low, ends[1].high};
+}
+
+/* Ritorna pi/2 - b: arccos a = pi/2 - arcsin a, arccot a = pi/2 - arctan a
+ * (con l'arcocotangente in (0, pi)). */
+static Range range_from_half_pi(Range b) { return range_sub(range_div(range_pi(), range_ratio(2, 1)), b); }
+
 /* Mette in *sine e *cosine il seno e il coseno di a.
  *
  * Prima si toglie ad a il multiplo di 2 pi più vicino, che non cambia né
@@ -8290,10 +8442,12 @@ static Range node_range(const Node *node, int name, Range x, int *undefined) {
             return (Range){0, -a.low > a.high ? -a.low : a.high};
         case FN_ROOT:
             /* La radice quadrata; le altre, per un radicando positivo, come
-             * potenze con esponente 1/n. */
+             * potenze con esponente 1/n; quelle di indice dispari di un
+             * radicando negativo come -(-a)^{1/n} (11o). */
             if (node->b->kind != N_NUM || node->b->value < 2) return range_none();
             if (a.high < 0 && node->b->value % 2 == 0) *undefined = 1;
             if (node->b->value == 2) return range_sqrt(a);
+            if (a.high < 0 && node->b->value % 2) return range_neg(range_exp(range_div(range_ln(range_neg(a)), range_ratio(node->b->value, 1))));
             return range_exp(range_div(range_ln(a), range_ratio(node->b->value, 1)));
         case FN_LN:
         case FN_LOG:
@@ -8308,6 +8462,11 @@ static Range node_range(const Node *node, int name, Range x, int *undefined) {
             if (node->op == FN_SIN || node->op == FN_COS) return node->op == FN_SIN ? sine : cosine;
             return node->op == FN_TAN ? range_div(sine, cosine) : range_div(cosine, sine);
         case FN_ARCTAN: return range_atan(a);
+        case FN_ARCCOT: return range_from_half_pi(range_atan(a));
+        case FN_ARCSIN: case FN_ARCCOS:
+            /* Fuori da [-1, 1] l'argomento non ha arcoseno. */
+            if (a.low > 1 || a.high < -1) *undefined = 1;
+            return node->op == FN_ARCSIN ? range_asin(a) : range_from_half_pi(range_asin(a));
         default: return range_none();
         }
     default:
@@ -12765,13 +12924,19 @@ static SignAtom sign_atom[MAX_SIGN_ATOMS];
 static int sign_atoms;
 
 /* Mette in abs_node[] i valori assoluti dell'espressione node, quelli più
- * interni per primi. */
+ * interni per primi, una volta ciascuno: due valori assoluti scritti allo
+ * stesso modo, come il |u| di una funzione che ricompare nella sua derivata
+ * (27f), hanno sempre lo stesso segno dell'argomento, e sono un valore
+ * assoluto solo, con una sola scelta del segno (eval_call() li riconosce
+ * allo stesso modo). */
 static void abs_collect(const Node *node) {
     if (!node || failure) return;
     abs_collect(node->a);
     abs_collect(node->b);
     abs_collect(node->c);
     if (node->kind != N_CALL || node->op != FN_ABS) return;
+    for (int i = 0; i < abs_count; i++)
+        if (abs_node[i] == node || node_equal(abs_node[i], node)) return;
     if (abs_count == MAX_ABS) { fail("troppi valori assoluti in un confronto"); return; }
     abs_node[abs_count++] = node;
 }
@@ -18805,6 +18970,11 @@ static Verdict decide_quantified(const char *formula) {
     Formula *thesis = logic_statement();
     if (token.kind != T_END) syntax("testo inatteso dopo l'enunciato");
 
+    /* 27j. I segni di derivata dentro le espressioni diventano derivate,
+     * prima di ogni altro conto. */
+    derivative_signs = 0;
+    if (!syntax_error) formula_derivatives_expanded(thesis);
+
     /* Ipotesi e tesi, poi i controlli che la grammatica non fa. */
     if (!syntax_error && !failure) {
         if ((map_count > 0 || pair_set_count > 0) && thesis->kind == F_IMPLIES) {
@@ -18816,6 +18986,26 @@ static Verdict decide_quantified(const char *formula) {
         pair_sets_check();
         quantifier_depth = 0;
         if (!failure) formula_check(thesis);
+    }
+
+    /* 27l. Un enunciato con segni di derivata lo decide solo la tabella dei
+     * segni, in una variabile reale, e solo se le derivate espanse dicono
+     * la derivata in ogni punto che conta. Le altre regole lavorano sui
+     * razionali, dove una derivata non ha senso. */
+    if (derivative_signs && !syntax_error && !failure) {
+        const char *doubt = NULL;
+        derivative_edges = 0;
+        if (!formula_needs_signs(thesis) || map_count || pair_set_count || has_parameter(thesis) || formula_has_kind(thesis, F_IN) ||
+            formula_has_kind(thesis, F_DIVIDES) || (thesis->kind == F_SOLVE && thesis->numbers.integers))
+            verdict.reason = "il segno di derivata è trattato negli enunciati su una sola variabile reale, decisi dalla tabella dei segni";
+        else if ((doubt = derivative_doubt(thesis))) {
+            verdict.outcome = NOT_PROVED;
+            verdict.reason = doubt;
+        } else {
+            decide_by_signs(thesis, &verdict);
+            if (derivative_edges && !verdict.note) verdict.note = DERIVATIVE_EDGES;
+        }
+        return verdict;
     }
 
     /* 18r. Un insieme di soluzioni tra gli interi: la regola dei resti, se
@@ -19629,6 +19819,11 @@ static Verdict prove_inequality(const char *formula, int variable, int has_base,
         atan_count = 0;
         failure = NULL;
         if (!parse_statement(formula, &statement)) { verdict.reason = syntax_error; return verdict; }
+
+        /* 27j. I segni di derivata dentro le espressioni, prima di ogni conto. */
+        derivative_signs = 0;
+        statement.lhs = derivatives_expanded(statement.lhs);
+        statement.rhs = derivatives_expanded(statement.rhs);
         if (failure) { verdict.reason = failure; return verdict; }
         verdict = inequality_plan(&statement, variable, has_base, base, floor, &start, question, sizeof question);
         surd_powers = 0;
@@ -20260,13 +20455,22 @@ static Verdict prove_sequence(const char *formula, int variable, int has_base, l
 }
 
 /* =============================================================================
- * 27. DERIVATE N-ESIME
+ * 27. DERIVATE: DIMOSTRARLE, CALCOLARLE, USARLE NEGLI STUDI DI FUNZIONE
  * ============================================================================
  *
  * A che cosa serve. "La derivata n-esima di sin x è sin(x + n pi/2)"; "la
- * derivata n-esima di ln x è (-1)^{n-1} (n-1)! / x^n, per n >= 1". L'enunciato
- * arriva nella notazione di parse_derivative_statement(): il segno di
- * derivata, la funzione f, il segno di uguale, una formula g(n, x).
+ * derivata n-esima di ln x è (-1)^{n-1} (n-1)! / x^n, per n >= 1"; "la
+ * derivata di x^2 tan x è x (sin 2x + x) / cos^2 x". L'enunciato arriva
+ * nella notazione di parse_derivative_statement(): il segno di derivata, la
+ * funzione f, il segno di uguale, una formula g(n, x). Lo stesso segno serve
+ * in altri due modi, ognuno nel suo paragrafo:
+ *
+ *   27j. dentro un'espressione, per gli studi di funzione: il segno diventa
+ *        la derivata, e la tabella dei segni (18p) decide l'enunciato;
+ *   27k. senza il segno di uguale, come richiesta: la derivata si calcola,
+ *        si scrive e si rilegge;
+ *   27l. negli studi, i punti in cui la funzione è definita ma le regole
+ *        non ne danno la derivata.
  *
  * IL TEOREMA
  *
@@ -20288,17 +20492,39 @@ static Verdict prove_sequence(const char *formula, int variable, int has_base, l
  *
  *   27c. c' = 0, x' = 1, (u + v)' = u' + v', (-u)' = -u';
  *   27d. (u v)' = u' v + u v',   (u / v)' = (u' v - u v') / v^2;
- *   27e. (u^c)' = c u^{c-1} u',  (c^u)' = c^u ln(c) u', con ln(e) = 1;
+ *   27e. (u^c)' = c u^{c-1} u' con c intero, e c u^c u' / u con ogni
+ *        altro c; (c^u)' = c^u ln(c) u', con ln(e) = 1; con x nella base e
+ *        nell'esponente u^v = e^{v ln u}, e quindi
+ *        (u^v)' = u^v (v' ln u + v u' / u), dove u > 0;
  *   27f. la regola della catena, f(u)' = f'(u) u', con sin' = cos,
  *        cos' = -sin, tan' = 1/cos^2, cot' = -1/sin^2, ln' = 1/u,
- *        arctan' = 1/(1 + u^2), e per la radice m-esima r di u,
- *        r' = r u' / (m u);
+ *        arctan' = 1/(1 + u^2), arccot' = -1/(1 + u^2),
+ *        arcsin' = 1/sqrt(1 - u^2), arccos' = -1/sqrt(1 - u^2), per la
+ *        radice m-esima r di u r' = r u' / (m u), per il valore assoluto
+ *        |u|' = u' u / |u| e (ln|u|)' = u'/u, e log_b u = ln u / ln b
+ *        anche con x nella base b;
  *   27g. la derivata di una somma con \sum è la somma delle derivate.
  *
  * La lettera e è il numero di Nepero: senza questo e^x non avrebbe per
- * derivata se stessa. Ciò che non rientra (u^v con x in tutti e due, un
- * valore assoluto, un prodotto con \prod, un fattoriale di x) è NON
- * SUPPORTATO.
+ * derivata se stessa. Ciò che non rientra (x nell'indice di una radice, un
+ * prodotto con \prod, un fattoriale di x) è NON SUPPORTATO.
+ *
+ * Dove valgono le formule. Ogni regola dà una formula che ha un valore solo
+ * dove la funzione è derivabile, e lì vale la derivata: è ciò che permette
+ * di usare le derivate dentro un'espressione (27j). Per questo alcune sono
+ * scritte in un modo che sembra più lungo del necessario:
+ *
+ *   - c u^c u' / u, e non c u^{c-1} u', quando c non è intero: u^{3/2} è
+ *     definita in u = 0 e lì c u^{c-1} = 0, ma u^{3/2} non è definita per
+ *     u < 0, quindi in u = 0 la derivata (da tutte e due le parti) non
+ *     esiste; la divisione per u la toglie. È lo stesso motivo della
+ *     divisione per m u nella radice;
+ *   - u' u / |u| non ha valore dove u = 0, dove |u| di solito non è
+ *     derivabile (a volte lo è, come |x^3|: di questi punti si occupa
+ *     27l); 1/sqrt(1 - u^2) non ce l'ha dove u = 1 o u = -1, gli estremi
+ *     del dominio dell'arcoseno;
+ *   - (u^v)' contiene ln u, che chiede u > 0: è la convenzione dei libri,
+ *     u^v = e^{v ln u}, e il verdetto la dice.
  *
  * Fatte le derivate, 27a e 27b non contengono più il segno di derivata:
  * sono un'uguaglianza tra due espressioni in x, e un'identità in n e x che
@@ -20309,7 +20535,7 @@ static Verdict prove_sequence(const char *formula, int variable, int has_base, l
  * Le regole di derivazione sono scritte una volta sola, in derive(): una
  * regola sbagliata darebbe una dimostrazione con tutti i passi in ordine e
  * la conclusione falsa. Per questo ogni derivata che derive() calcola viene
- * ricontrollata con un metodo che non usa le sue regole, in tre punti x0 e
+ * ricontrollata con un metodo che non usa le sue regole, in sei punti x0 e
  * con dei numeri al posto delle altre lettere, attraverso gli intervalli
  * del capitolo 24:
  *
@@ -20339,11 +20565,11 @@ static Verdict prove_sequence(const char *formula, int variable, int has_base, l
  *        coincidano.
  *
  * Che cosa questi controlli non danno: una prova che le regole sono giuste
- * dappertutto. Due funzioni diverse possono coincidere in tre punti. Ma una
+ * dappertutto. Due funzioni diverse possono coincidere in sei punti. Ma una
  * regola sbagliata dà una derivata diversa da quella vera quasi ovunque (le
  * funzioni trattate sono analitiche dove sono definite e derivabili, e due
  * funzioni analitiche diverse su un intervallo coincidono lì solo in punti
- * isolati), e tre punti scelti senza guardare le regole bastano a vederla,
+ * isolati), e sei punti scelti senza guardare le regole bastano a vederla,
  * salvo coincidenze. Un FALSO dice invece una cosa precisa, che gli
  * intervalli garantiscono se le ricorrenze di 27h sono scritte giuste (ed è
  * per questo che vi devono concordare anche le regole): in quel punto, con
@@ -20358,6 +20584,49 @@ static Verdict prove_sequence(const char *formula, int variable, int has_base, l
  * sostituisce con il motivo più preciso del lettore, se c'è. */
 static const char *const NOT_A_DERIVATIVE = "l'enunciato non comincia con il segno di derivata";
 
+/* Ritorna tree con i figli a, b e c al posto dei suoi: tree stesso se sono
+ * gli stessi, altrimenti una copia con gli altri campi uguali. Non copiare
+ * ciò che non cambia conta: la tabella dei segni riconosce come uno solo un
+ * valore assoluto che un albero raggiunge per due strade, dal suo indirizzo
+ * (abs_collect()). */
+static Node *node_rebuilt(const Node *tree, Node *a, Node *b, Node *c) {
+    if (a == tree->a && b == tree->b && c == tree->c) return (Node *)tree;
+    Node *copy = node_new(tree->kind, a, b);
+    copy->c = c;
+    copy->value = tree->value;
+    copy->name = tree->name;
+    copy->op = tree->op;
+    return copy;
+}
+
+/* Ritorna tree con ogni sotto-albero senza lettere che vale un numero
+ * intero sostituito da quel numero: (3 - 1)! diventa 2, (-1)^{3 - 1}
+ * diventa 1. Serve prima di calcolare con gli intervalli, che non conoscono
+ * i fattoriali e leggono un esponente solo se è un numero scritto, e alla
+ * regola delle potenze (27e), che deve sapere se un esponente è un intero.
+ * I nodi che non cambiano restano gli stessi (node_rebuilt()). Mette 0 in
+ * *closed, che chi chiama ha messo a 1, se tree contiene lettere. Un conto
+ * che fallisce lascia l'albero com'è. */
+static Node *node_fold(const Node *tree, int *closed) {
+    if (!tree) return NULL;
+    if (tree->kind == N_NUM) return (Node *)tree;
+    if (tree->kind == N_VAR || tree->kind == N_SEQ || tree->kind == N_BIGOP || tree->kind == N_APPLY || tree->kind == N_DERIV) { *closed = 0; return (Node *)tree; }
+    int inside = 1;
+    Node *a = node_fold(tree->a, &inside), *b = node_fold(tree->b, &inside);
+    Node *copy = node_rebuilt(tree, a, b, tree->c);
+    if (!inside) { *closed = 0; return copy; }
+
+    /* Senza lettere: il valore, se è un intero. */
+    const char *saved = failure;
+    Scratch mark = scratch_mark();
+    long long value;
+    env_count = 0;
+    int whole = rat_integer(eval(copy), &value) && failure == saved;
+    failure = saved;
+    scratch_drop(mark);
+    return whole ? node_num(value) : copy;
+}
+
 /* Ritorna outer per la derivata di inner rispetto a x: la regola della
  * catena. Se inner è x stessa il fattore è 1 e non si scrive. */
 static Node *derive(const Node *f, int x);
@@ -20368,7 +20637,9 @@ static Node *chain(Node *outer, const Node *inner, int x) {
 
 /* Ritorna l'albero della derivata di f rispetto alla variabile x, con le
  * regole da 27c a 27g. Se f contiene qualcosa che non sa derivare fallisce,
- * e il valore ritornato non ha significato.
+ * e il valore ritornato non ha significato. La formula ha un valore solo
+ * dove f è derivabile (vedi "Dove valgono le formule", in testa al
+ * capitolo).
  *
  * Le semplificazioni sono solo quelle che evitano di scrivere zeri e
  * fattori 1: un fattore costante resta fuori dalla derivata, e la catena
@@ -20398,13 +20669,28 @@ static Node *derive(const Node *f, int x) {
         return node_new(N_DIV, node_new(N_SUB, node_new(N_MUL, derive(u, x), v), node_new(N_MUL, u, derive(v, x))),
                         node_new(N_POW, v, node_num(2)));
 
-    /* 27e. Potenze: la variabile solo nella base, o solo nell'esponente. */
-    case N_POW:
-        if (!node_has_variable(v, x))
-            return chain(node_new(N_MUL, v, node_new(N_POW, u, node_new(N_SUB, v, node_num(1)))), u, x);
-        if (node_has_variable(u, x)) break;
-        if (u->kind == N_VAR && u->name == 'e') return chain((Node *)f, v, x);
-        return chain(node_new(N_MUL, (Node *)f, node_call(FN_LN, u, NULL)), v, x);
+    /* 27e. Potenze. Con la variabile solo nella base: c u^{c-1} u' se
+     * l'esponente è un intero scritto come numero, altrimenti c u^c u' / u
+     * (vedi la testa del capitolo). Con la variabile solo nell'esponente:
+     * c^u ln(c) u'. Con la variabile in tutti e due: u^v = e^{v ln u}, la
+     * regola della catena e quella del prodotto danno
+     * u^v (v' ln u + v u' / u). */
+    case N_POW: {
+        /* L'esponente c - 1 si scrive già calcolato: gli intervalli (capitolo
+         * 24), con cui la tabella dei segni ricontrolla le sue righe, leggono
+         * come intero solo un esponente scritto come numero, e u^{3 - 1}
+         * per loro non avrebbe valore dove u < 0. */
+        int closed = 1;
+        Node *whole = node_has_variable(v, x) ? NULL : node_fold(v, &closed);
+        if (whole && whole->kind == N_NUM) return chain(node_new(N_MUL, whole, node_new(N_POW, u, node_num(whole->value - 1))), u, x);
+        if (whole) return node_new(N_DIV, node_new(N_MUL, node_new(N_MUL, v, (Node *)f), derive(u, x)), u);
+        if (!node_has_variable(u, x)) {
+            if (u->kind == N_VAR && u->name == 'e') return chain((Node *)f, v, x);
+            return chain(node_new(N_MUL, (Node *)f, node_call(FN_LN, u, NULL)), v, x);
+        }
+        return node_new(N_MUL, (Node *)f, node_new(N_ADD, node_new(N_MUL, derive(v, x), node_call(FN_LN, u, NULL)),
+                                                  node_new(N_DIV, node_new(N_MUL, v, derive(u, x)), u)));
+    }
 
     /* 27f. Funzioni: la regola della catena. */
     case N_CALL:
@@ -20413,14 +20699,36 @@ static Node *derive(const Node *f, int x) {
         case FN_COS: return chain(node_new(N_NEG, node_call(FN_SIN, u, NULL), NULL), u, x);
         case FN_TAN: return node_new(N_DIV, derive(u, x), node_new(N_POW, node_call(FN_COS, u, NULL), node_num(2)));
         case FN_COT: return node_new(N_NEG, node_new(N_DIV, derive(u, x), node_new(N_POW, node_call(FN_SIN, u, NULL), node_num(2))), NULL);
-        case FN_LN: return node_new(N_DIV, derive(u, x), u);
+        case FN_LN:
+            /* (ln|w|)' = w'/w dove w non è zero: dove w > 0 è (ln w)', dove
+             * w < 0 è (ln(-w))' = -w'/(-w). È la regola che serve a
+             * ricontrollare le primitive con ln|w|. */
+            if (u->kind == N_CALL && u->op == FN_ABS) u = u->a;
+            return node_new(N_DIV, derive(u, x), u);
         case FN_LOG:
-            if (!v || node_has_variable(v, x)) break;
-            return node_new(N_DIV, derive(u, x), node_new(N_MUL, u, node_call(FN_LN, v, NULL)));
+            /* log_b u = ln u / ln b, dove b > 0 e b diverso da 1: con b
+             * costante si divide per ln b (e con b = e non si divide), con x
+             * nella base si deriva il quoziente. */
+            if (!v) break;
+            if (node_has_variable(v, x)) return derive(node_new(N_DIV, node_call(FN_LN, u, NULL), node_call(FN_LN, v, NULL)), x);
+            if (v->kind == N_VAR && v->name == 'e') return derive(node_call(FN_LN, u, NULL), x);
+            return node_new(N_DIV, derive(node_call(FN_LN, u, NULL), x), node_call(FN_LN, v, NULL));
         case FN_ARCTAN: return node_new(N_DIV, derive(u, x), node_new(N_ADD, node_num(1), node_new(N_POW, u, node_num(2))));
+        case FN_ARCCOT: return node_new(N_NEG, node_new(N_DIV, derive(u, x), node_new(N_ADD, node_num(1), node_new(N_POW, u, node_num(2)))), NULL);
+        case FN_ARCSIN: case FN_ARCCOS: {
+            /* sin y = u con y in [-pi/2, pi/2] dà cos(y) y' = u', e lì
+             * cos y = sqrt(1 - u^2); per l'arcocoseno, cos y = u con y in
+             * [0, pi], -sin(y) y' = u' e sin y = sqrt(1 - u^2). */
+            Node *slope = node_new(N_DIV, derive(u, x), node_call(FN_ROOT, node_new(N_SUB, node_num(1), node_new(N_POW, u, node_num(2))), node_num(2)));
+            return f->op == FN_ARCSIN ? slope : node_new(N_NEG, slope, NULL);
+        }
         case FN_ROOT:
             if (node_has_variable(v, x)) break;
             return node_new(N_DIV, node_new(N_MUL, (Node *)f, derive(u, x)), node_new(N_MUL, v, u));
+        case FN_ABS:
+            /* |u| vale u dove u > 0 e -u dove u < 0: la derivata è u' o -u',
+             * cioè u' per il segno di u, che è u / |u|. */
+            return node_new(N_DIV, node_new(N_MUL, derive(u, x), u), (Node *)f);
         default: break;
         }
         break;
@@ -20440,37 +20748,12 @@ static Node *derive(const Node *f, int x) {
     return node_num(0);
 }
 
-/* Ritorna una copia di tree in cui ogni sotto-albero senza lettere che vale
- * un numero intero è sostituito da quel numero: (3 - 1)! diventa 2,
- * (-1)^{3 - 1} diventa 1. Serve prima di calcolare con gli intervalli, che
- * non conoscono i fattoriali e leggono un esponente solo se è un numero
- * scritto. Mette 1 in *closed, che chi chiama ha messo a 1, se tree non
- * contiene lettere. Un conto che fallisce lascia l'albero com'è. */
-static Node *node_fold(const Node *tree, int *closed) {
-    if (!tree) return NULL;
-    if (tree->kind == N_NUM) return (Node *)tree;
-    if (tree->kind == N_VAR || tree->kind == N_SEQ || tree->kind == N_BIGOP || tree->kind == N_APPLY) { *closed = 0; return (Node *)tree; }
-    int inside = 1;
-    Node *copy = node_new(tree->kind, node_fold(tree->a, &inside), node_fold(tree->b, &inside));
-    copy->op = tree->op;
-    copy->name = tree->name;
-    if (!inside) { *closed = 0; return copy; }
-
-    /* Senza lettere: il valore, se è un intero. */
-    const char *saved = failure;
-    Scratch mark = scratch_mark();
-    long long value;
-    env_count = 0;
-    int whole = rat_integer(eval(copy), &value) && failure == saved;
-    failure = saved;
-    scratch_drop(mark);
-    return whole ? node_num(value) : copy;
-}
-
 /* I punti in cui le derivate vengono controllate con i numeri. Sono scelti
- * perché le funzioni degli esercizi vi siano definite: due positivi, uno
- * minore di 1/2, e uno negativo. */
-static const Frac derivative_points[] = {{3, 10}, {7, 5}, {-9, 10}};
+ * perché le funzioni degli esercizi vi siano definite: positivi e negativi,
+ * uno minore di 1/2, e alcuni più lontani dall'origine, per le funzioni
+ * definite solo oltre un numero (ln(x - 2), una radice di x + 2), che un
+ * segno di derivata dentro un'espressione (27j) deve poter confermare. */
+static const Frac derivative_points[] = {{3, 10}, {7, 5}, {-9, 10}, {13, 5}, {-11, 5}, {23, 4}};
 enum { DERIVATIVE_POINTS = sizeof derivative_points / sizeof *derivative_points };
 
 /* Ritorna una copia di tree pronta per essere calcolata con i numeri nella
@@ -20541,7 +20824,13 @@ static Node *sample_tree(const Node *tree, int x, int order, long long at) {
  *          tan u = s / c e cot u = c / s, con 27h-1;
  *   27h-3. y con y_0 dato e w y' = u':
  *            y_k = (k u_k - sum_{j=1..k-1} (k - j) w_j y_{k-j}) / (k w_0);
- *          è ln u con w = u, ed è arctan u con w = 1 + u^2;
+ *          è ln u con w = u, ed è arctan u con w = 1 + u^2; arccot u è
+ *          pi/2 - arctan u. Per y = arcsin u, che ha sin y = u, è
+ *          cos(y) y' = u': w = cos y dipende da y, ma per y_k servono solo
+ *          w_0, ..., w_{k-1}, che le ricorrenze di 27h-2 danno da y_1, ...,
+ *          y_{k-1}, già calcolati; così anche arccos u, con cos y = u e
+ *          w = -sin y. La radice di 1 - u^2 della regola di derive() qui
+ *          non compare;
  *   27h-4. u^v = exp(v ln u), per u_0 > 0; con v intero scritto come
  *          numero, prodotti ripetuti, per ogni u_0. La radice m-esima è
  *          exp(ln(u) / m), log_b u è ln u / ln b;
@@ -20641,6 +20930,9 @@ static Jet jet_solve(Range start, Jet u, Jet w) {
 /* Ritorna ln u: 27h-3 con w = u. */
 static Jet jet_ln(Jet u) { return jet_solve(range_ln(u.c[0]), u, u); }
 
+/* Ritorna arctan u: 27h-3 con w = 1 + u^2. */
+static Jet jet_atan(Jet u) { return jet_solve(range_atan(u.c[0]), u, jet_add(jet_constant((Range){1, 1}, u.order), jet_mul(u, u), 1)); }
+
 /* Mette in *sine e *cosine sin u e cos u (27h-2). Le due ricorrenze si
  * intrecciano: s_k usa i c_j con j < k, e viceversa, già finiti. */
 static void jet_sin_cos(Jet u, Jet *sine, Jet *cosine) {
@@ -20657,6 +20949,35 @@ static void jet_sin_cos(Jet u, Jet *sine, Jet *cosine) {
     }
     *sine = s;
     *cosine = c;
+}
+
+/* Ritorna arcsin u (sine = 1) o arccos u (sine = 0), con 27h-3: y_k viene
+ * da w y' = u', con w = cos y per l'arcoseno e w = -sin y per l'arcocoseno,
+ * e insieme a y si costruiscono, un grado alla volta, le serie di sin y e
+ * cos y (27h-2). Il valore y_0 lo dà range_asin(). Dove |u_0| non è di
+ * sicuro minore di 1, w_0 può essere zero e la divisione dà "non so": lì la
+ * funzione non è derivabile, o non si sa. */
+static Jet jet_arc(Jet u, int sine) {
+    Range start = sine ? range_asin(u.c[0]) : range_from_half_pi(range_asin(u.c[0]));
+    Jet y = jet_constant(start, u.order), s = y, c = y;
+    range_sin_cos(start, &s.c[0], &c.c[0]);
+    for (int k = 1; k <= u.order; k++) {
+        /* y_k, con i w_j per j < k già noti. */
+        Range sum = range_mul(range_ratio(k, 1), u.c[k]);
+        for (int j = 1; j < k; j++) sum = range_sub(sum, range_mul(range_mul(range_ratio(k - j, 1), sine ? c.c[j] : range_neg(s.c[j])), y.c[k - j]));
+        y.c[k] = range_div(sum, range_mul(range_ratio(k, 1), sine ? c.c[0] : range_neg(s.c[0])));
+
+        /* s_k e c_k, che chiedono y_1, ..., y_k. */
+        s.c[k] = c.c[k] = (Range){0, 0};
+        for (int i = 1; i <= k; i++) {
+            Range step = range_mul(range_ratio(i, 1), y.c[i]);
+            s.c[k] = range_add(s.c[k], range_mul(step, c.c[k - i]));
+            c.c[k] = range_sub(c.c[k], range_mul(step, s.c[k - i]));
+        }
+        s.c[k] = range_div(s.c[k], range_ratio(k, 1));
+        c.c[k] = range_div(c.c[k], range_ratio(k, 1));
+    }
+    return y;
 }
 
 /* Ritorna la serie di Taylor di ordine order, nel punto at, dell'espressione
@@ -20708,12 +21029,18 @@ static Jet jet_eval(const Node *node, int x, Range at, int order) {
         case FN_LOG:
             if (node->b) result = jet_div(jet_ln(a), jet_ln(jet_eval(node->b, x, at, order)));
             break;
-        case FN_ARCTAN:
-            result = jet_solve(range_atan(a.c[0]), a, jet_add(jet_constant((Range){1, 1}, order), jet_mul(a, a), 1));
+        case FN_ARCTAN: result = jet_atan(a); break;
+        case FN_ARCCOT: result = jet_add(jet_constant(range_from_half_pi((Range){0, 0}), order), jet_atan(a), -1); break;
+        case FN_ARCSIN: case FN_ARCCOS: result = jet_arc(a, node->op == FN_ARCSIN); break;
+        case FN_ROOT: {
+            /* La radice m-esima è exp(ln(u) / m); con m dispari e u_0 < 0 è
+             * la radice reale, -exp(ln(-u) / m) (11o). */
+            int side, negative = node->b->kind == N_NUM && node->b->value % 2 && range_side(a.c[0], &side) && side < 0;
+            Jet zero = jet_constant((Range){0, 0}, order), inside = negative ? jet_add(zero, a, -1) : a;
+            if (node->b->kind == N_NUM && node->b->value >= 2) result = jet_exp(jet_div(jet_ln(inside), jet_constant(range_ratio(node->b->value, 1), order)));
+            if (negative) result = jet_add(zero, result, -1);
             break;
-        case FN_ROOT:
-            if (node->b->kind == N_NUM && node->b->value >= 2) result = jet_exp(jet_div(jet_ln(a), jet_constant(range_ratio(node->b->value, 1), order)));
-            break;
+        }
         case FN_ABS: {
             /* |u| è u oppure -u dove il segno di u è certo, e lì è derivabile. */
             int side;
@@ -20822,6 +21149,534 @@ static long long node_count(const Node *tree) {
     return tree ? 1 + node_count(tree->a) + node_count(tree->b) + node_count(tree->c) : 0;
 }
 
+/* Riempie direct[1], ..., direct[order] con le derivate di direct[0]
+ * rispetto a x, con le regole, e *check con il loro confronto con la serie
+ * di Taylor (27h). Ritorna 1 se nessuna è smentita in nessun punto e
+ * ognuna coincide con la serie in almeno un punto. Altrimenti il motivo è
+ * in `failure`, e ritorna 0 se le regole non si applicano (la funzione
+ * contiene qualcosa che non sanno derivare, o la derivata è troppo lunga),
+ * -1 se la derivata non è confermata. Una smentita, che è l'errore di una
+ * regola, conta tra i passi scartati. */
+static int derivatives_confirmed(Node **direct, int order, int x, DerivativeCheck *check) {
+    Node *sampled[MAX_JET + 1];
+    for (int k = 1; k <= order && !failure; k++) {
+        direct[k] = derive(direct[k - 1], x);
+        if (!failure && node_count(direct[k]) > MAX_DERIVATIVE_NODES) fail("la derivata calcolata con le regole è troppo lunga");
+    }
+    for (int k = 0; k <= order && !failure; k++) sampled[k] = sample_tree(direct[k], x, 0, 0);
+    if (failure) return 0;
+    derivatives_check(check, sampled, order, x);
+    if (failure) return -1;
+    if (check->wrong) {
+        unjustified_steps++;
+        fail("una derivata calcolata con le regole di derivazione è smentita dalla serie di Taylor della funzione");
+        return -1;
+    }
+    for (int k = 1; k <= order; k++)
+        if (!check->agree[k]) { fail("non riesco a confermare con i numeri una derivata calcolata con le regole di derivazione: nei punti di prova la funzione non è definita, o i numeri non bastano"); return -1; }
+    return 1;
+}
+
+/* Ritorna 1 se tree è un nodo che node_domain() sostituisce: un arcoseno,
+ * un arcocoseno, il logaritmo di un valore assoluto. */
+static int node_special(const Node *tree) {
+    if (tree->kind != N_CALL) return 0;
+    if (tree->op == FN_ARCSIN || tree->op == FN_ARCCOS) return 1;
+    return (tree->op == FN_LN || tree->op == FN_LOG) && tree->a->kind == N_CALL && tree->a->op == FN_ABS;
+}
+
+/* Ritorna 1 se in tree compare un nodo che node_domain() sostituisce. */
+static int node_has_special(const Node *tree) {
+    return tree && (node_special(tree) || node_has_special(tree->a) || node_has_special(tree->b) || node_has_special(tree->c));
+}
+
+/* Ritorna un'espressione che ha un valore esattamente dove lo ha f, fatta di
+ * ciò che la valutazione e la tabella dei segni sanno calcolare: f stessa,
+ * con ogni arcoseno e arcocoseno di u sostituito da u + 0 sqrt(1 - u^2), che
+ * come loro è definito dove u lo è e |u| <= 1, e ogni ln|u| (log_b |u|) da
+ * 1 / u (1 / (u ln b)), definito come lui dove u non è zero (e b > 0 e
+ * diverso da 1). Il valore è un altro: conta solo dove c'è. Un nodo così
+ * dentro l'argomento di un altro resta com'è, perché lì servirebbe proprio
+ * il suo valore, e la valutazione lo rifiuterà. */
+static Node *node_domain(const Node *f) {
+    if (!f || !node_has_special(f)) return (Node *)f;
+    if (node_special(f) && f->op == FN_LN && !node_has_special(f->a->a)) return node_new(N_DIV, node_num(1), f->a->a);
+    if (node_special(f) && f->op == FN_LOG && !node_has_special(f->a->a) && !node_has_special(f->b))
+        return node_new(N_DIV, node_num(1), node_new(N_MUL, f->a->a, node_call(FN_LN, f->b, NULL)));
+    if (node_special(f) && f->op != FN_LN && f->op != FN_LOG && !node_has_special(f->a)) {
+        Node *radicand = node_new(N_SUB, node_num(1), node_new(N_POW, f->a, node_num(2)));
+        return node_new(N_ADD, f->a, node_new(N_MUL, node_num(0), node_call(FN_ROOT, radicand, node_num(2))));
+    }
+    return node_rebuilt(f, node_domain(f->a), node_domain(f->b), node_domain(f->c));
+}
+
+/* 27j. IL SEGNO DI DERIVATA DENTRO UN'ESPRESSIONE
+ *
+ * A che cosa serve. Lo studio di una funzione si scrive con la sua
+ * derivata: f cresce dove f' > 0, è convessa dove f'' > 0. Così
+ *
+ *     \{x \in \mathbb{R} \mid \frac{d}{dx}\left( x e^{x} \right) > 0\}
+ *
+ * chiede dove x e^x cresce, e la risposta la dà la tabella dei segni (18p),
+ * con il suo metodo e i suoi controlli, se al posto del segno di derivata
+ * c'è la derivata. Il lettore fa del segno un nodo N_DERIV (9d); qui, subito
+ * dopo il parsing e prima di ogni conto, ogni nodo così diventa la sua
+ * derivata. Chi non ci riesce lascia l'errore, e l'enunciato è NON
+ * SUPPORTATO: un segno di derivata non si legge mai come altro.
+ *
+ * Che cosa prende il posto del segno. Siano d_1, ..., d_k le derivate di g
+ * date dalle regole (27c-27g), e G un'espressione definita dove g lo è
+ * (node_domain(): g stessa, salvo arcoseni, arcocoseni e ln|u|, che la
+ * valutazione o la tabella dei segni non sanno calcolare). Il segno
+ * \frac{d^k}{dx^k}(g) diventa
+ *
+ *     d_k + 0 (G + d_1 + ... + d_{k-1}).
+ *
+ * Vale d_k, ma ha un valore solo nell'insieme E dei punti in cui g, d_1,
+ * ..., d_k ce l'hanno tutte: la valutazione annota le condizioni di
+ * esistenza (denominatori, radicandi, argomenti dei logaritmi) di ogni
+ * pezzo, anche di quello moltiplicato per zero, e gli intervalli lì non
+ * danno un valore. È così che un punto in cui g non è definita non entra
+ * nella risposta anche se d_k vi ha un valore: in \{x \mid (\ln x)' < 0\} la
+ * derivata 1/x è negativa per x < 0, ma lì ln x non c'è, e la risposta è
+ * vuota.
+ *
+ * Perché in E la derivata k-esima esiste e vale d_k. Per k = 1: ogni regola
+ * dà una formula che ha un valore solo dove la funzione che deriva è
+ * derivabile (vedi "Dove valgono le formule", in testa al capitolo), e lì
+ * vale la sua derivata, per la regola della catena e quelle del prodotto e
+ * del quoziente. Inoltre E è aperto: le condizioni di g che non sono strette
+ * (un radicando non negativo, |u| <= 1 sotto un arcoseno) in d_1 diventano
+ * strette, perché la derivata divide per il radicando, o per sqrt(1 - u^2).
+ * Allora intorno a ogni punto di E la derivata prima esiste ed è d_1, e la
+ * derivata di d_1 in quel punto è la seconda: lo stesso ragionamento, ordine
+ * dopo ordine.
+ *
+ * Che cosa resta da controllare. Il contrario non vale: in un punto fuori
+ * da E, dove però g è definita, la derivata può esistere. x|x| ha derivata
+ * 2|x|, anche in 0, ma la regola del valore assoluto dà x^2/|x| + |x|, che in
+ * 0 non ha valore. Lì l'espansione non dice nulla, e la tabella dei segni,
+ * che conta come falso un confronto senza valore, direbbe il falso: se ne
+ * occupa 27l.
+ *
+ * Il controllo indipendente. Le derivate d_1, ..., d_k di ogni segno vengono
+ * confrontate con la serie di Taylor di g nei punti di prova, come in 27h
+ * (derivatives_confirmed()): una smentita è un errore del programma, e ogni
+ * ordine deve essere confermato in almeno un punto.
+ */
+
+/* Le espansioni dell'enunciato in corso, per il controllo di 27l: per ogni
+ * segno, l'espressione definita dove lo è la funzione (G) e ciò che ha
+ * preso il posto del segno. Valgono finché l'arena non viene svuotata. */
+#define MAX_EXPANDED 8
+static const Node *expanded_function[MAX_EXPANDED], *expanded_value[MAX_EXPANDED];
+
+/* Vedi la dichiarazione dopo l'inclusione di parser.c. I segni annidati,
+ * \frac{d}{dx}(\frac{d}{dx}(g)), si espandono dal più interno: la funzione
+ * del più esterno è già un'espansione, con le sue condizioni. */
+static Node *derivatives_expanded(Node *tree) {
+    if (!tree || failure) return tree;
+    Node *a = derivatives_expanded(tree->a), *b = derivatives_expanded(tree->b), *c = derivatives_expanded(tree->c);
+    if (failure || tree->kind != N_DERIV) return failure ? tree : node_rebuilt(tree, a, b, c);
+    int x = tree->name, order = (int)tree->value;
+    if (order > MAX_DERIVATIVE_BASE) { fail("l'ordine di una derivata dentro un'espressione deve essere al più 4"); return tree; }
+    if (derivative_signs == MAX_EXPANDED) { fail("troppi segni di derivata in un enunciato"); return tree; }
+
+    /* Le derivate, confermate con i numeri (27h). */
+    Node *direct[MAX_JET + 1] = {a};
+    DerivativeCheck check;
+    if (derivatives_confirmed(direct, order, x, &check) < 1) return tree;
+
+    /* La derivata, con le condizioni di esistenza della funzione e delle
+     * derivate prima di lei. */
+    Node *domain = node_domain(a), *guard = domain;
+    int closed = 1;
+    for (int k = 1; k < order; k++) guard = node_new(N_ADD, guard, direct[k]);
+    Node *value = node_fold(node_new(N_ADD, direct[order], node_new(N_MUL, node_num(0), guard)), &closed);
+    expanded_function[derivative_signs] = domain;
+    expanded_value[derivative_signs++] = value;
+    return value;
+}
+
+/* Vedi la dichiarazione dopo l'inclusione di parser.c. */
+static void formula_derivatives_expanded(Formula *f) {
+    if (!f || failure) return;
+    f->left = derivatives_expanded(f->left);
+    f->right = derivatives_expanded(f->right);
+    formula_derivatives_expanded(f->a);
+    formula_derivatives_expanded(f->b);
+}
+
+/* Ritorna tree con le scritture del numero e che la valutazione non
+ * riconosce sostituite dal loro valore: ln e = 1, log_b e = 1 / ln b,
+ * log_e u = ln u. Sono identità dove i due membri sono definiti (b > 0 e
+ * diverso da 1, u > 0), e in questo capitolo la lettera e è il numero di
+ * Nepero; la valutazione, che serve anche agli enunciati in cui e è una
+ * lettera qualsiasi, non le applica da sé. I libri scrivono così le
+ * derivate dei logaritmi: (\log_{\frac{2}{3}} x)' = \frac{\log_{\frac{2}{3}} e}{x}. */
+static Node *node_euler(const Node *tree) {
+    if (!tree) return NULL;
+    Node *a = node_euler(tree->a), *b = node_euler(tree->b);
+    int euler_a = a && a->kind == N_VAR && a->name == 'e', euler_b = b && b->kind == N_VAR && b->name == 'e';
+    if (tree->kind == N_CALL && tree->op == FN_LN && euler_a) return node_num(1);
+    if (tree->kind == N_CALL && tree->op == FN_LOG && euler_b) return node_call(FN_LN, a, NULL);
+    if (tree->kind == N_CALL && tree->op == FN_LOG && euler_a) return node_new(N_DIV, node_num(1), node_call(FN_LN, b, NULL));
+    return node_rebuilt(tree, a, b, node_euler(tree->c));
+}
+
+/* 27a, il conto. Ritorna 1 se left - right si riduce a zero con l'algebra
+ * esatta, con la lettera order (0 se non c'è) uguale a base, dove i due
+ * membri sono definiti; x è la variabile, che se è la lettera e non è il
+ * numero di Nepero.
+ *
+ * I valori assoluti. La valutazione non sa calcolare |u| di
+ * un'espressione: |u| vale u dove u >= 0 e -u dove u <= 0. Si fa allora il
+ * conto per ogni scelta dei segni (u oppure -u per ogni valore assoluto),
+ * con lo stesso meccanismo della tabella dei segni (abs_pattern), e si
+ * chiede che la differenza si riduca a zero in ognuna. Basta: in ogni punto
+ * x ogni |u| vale u(x) oppure -u(x), quindi la differenza in x è quella di
+ * una delle scelte, che è zero. Due valori assoluti scritti allo stesso modo
+ * sono uno solo (abs_collect()); con argomenti diversi si provano tutte le
+ * combinazioni, anche quelle che in nessun punto si verificano: si dimostra
+ * qualcosa in meno, mai di più.
+ *
+ * Le potenze che la valutazione non sa calcolare. e^{\sin x} non ha una
+ * forma esatta: il seno è scritto con gli esponenziali complessi, e
+ * l'esponente risulta complesso. Ma se la stessa potenza T, con x
+ * all'esponente, compare in tutti e due i membri, al suo posto si può
+ * mettere una lettera nuova t: se la differenza si riduce a zero per ogni
+ * valore di t, si riduce a zero anche per t = T(x). Si dimostra di più di
+ * quanto serve, quindi niente di falso. Lo si fa solo con le potenze che
+ * il conto non sa fare: delle altre si perderebbero le relazioni con il
+ * resto, come e^{2x} = (e^{x})^2. */
+static Node *node_swapped(const Node *tree, const Node *pattern, int letter) {
+    if (!tree) return NULL;
+    if (node_equal(tree, pattern)) {
+        Node *variable = node_new(N_VAR, NULL, NULL);
+        variable->name = letter;
+        return variable;
+    }
+    return node_rebuilt(tree, node_swapped(tree->a, pattern, letter), node_swapped(tree->b, pattern, letter), node_swapped(tree->c, pattern, letter));
+}
+
+/* Ritorna 1 se in tree compare un sotto-albero scritto come pattern. */
+static int node_occurs(const Node *tree, const Node *pattern) {
+    return tree && (node_equal(tree, pattern) || node_occurs(tree->a, pattern) || node_occurs(tree->b, pattern) || node_occurs(tree->c, pattern));
+}
+
+/* Ritorna una potenza con x all'esponente che compare in tree e in other, e
+ * che la valutazione non sa calcolare; NULL se non ce n'è. */
+static const Node *shared_power(const Node *tree, const Node *other, int x) {
+    if (!tree) return NULL;
+    if (tree->kind == N_POW && node_has_variable(tree->b, x) && node_occurs(other, tree)) {
+        const char *was = failure;
+        Scratch mark = scratch_mark();
+        failure = NULL;
+        eval(tree);
+        int unknown = failure != NULL;
+        failure = was;
+        scratch_drop(mark);
+        if (unknown) return tree;
+    }
+    const Node *found = shared_power(tree->a, other, x);
+    if (!found) found = shared_power(tree->b, other, x);
+    return found ? found : shared_power(tree->c, other, x);
+}
+
+static int derivative_identity(const Node *left, const Node *right, int order, long long base, int x) {
+    Statement s = {(Node *)left, (Node *)right, REL_EQ};
+    int holds = 1, kept = induction_var;
+    if (x != 'e') { s.lhs = node_euler(left); s.rhs = node_euler(right); }
+
+    /* Le potenze in comune che il conto non sa fare, una lettera nuova
+     * per ognuna: le lettere maiuscole, che qui non nominano nulla. */
+    for (int letter = 'A', tries = 0; letter <= 'Z' && tries < 4; letter++) {
+        if (node_uses_letter(s.lhs, letter) || node_uses_letter(s.rhs, letter)) continue;
+        const Node *power = shared_power(s.lhs, s.rhs, x);
+        if (!power) break;
+        s.lhs = node_swapped(s.lhs, power, letter);
+        s.rhs = node_swapped(s.rhs, power, letter);
+        tries++;
+    }
+    abs_count = 0;
+    abs_collect(s.lhs);
+    abs_collect(s.rhs);
+    int count = abs_count, points = point_count;
+    induction_var = order;
+
+    /* Nessun parametro con un valore (13e): l'identità deve valere per ogni
+     * valore delle altre lettere, non per quelli di un conto precedente. */
+    point_count = 0;
+    for (abs_pattern = 0; holds && !failure && abs_pattern < 1u << count; abs_pattern++) {
+        abs_count = count;
+        Rat gap = difference(&s, rat_int(base));
+        holds = !failure && poly_vanishes(gap.num);
+    }
+    abs_count = 0;
+    abs_pattern = 0;
+    induction_var = kept;
+    point_count = points;
+    return holds && !failure;
+}
+
+/* 27a, la rilettura con i numeri. Ritorna 1 se le formule scritte nei pezzi
+ * a e b della dimostrazione, rilette dal testo con il lettore del programma,
+ * hanno lo stesso valore, con gli intervalli (27h), in almeno uno dei punti
+ * di prova, e non sono di sicuro diverse in nessuno. È la rilettura di
+ * riserva per ciò che 13g non sa calcolare con i numeri esatti: e^{\sin x}
+ * in un punto razionale non è un numero che il conto esatto sappia
+ * scrivere. Come in 13g, chi scrive e chi rilegge non hanno nulla in
+ * comune: la scrittura parte dagli alberi, il controllo dai caratteri. */
+static int reread_numbers(Span a, Span b, int x) {
+    char text[2][MAX_FORMULA];
+    Node *tree[2];
+    size_t kept = arena_used;
+    int agreed = 0, sound = 1;
+    for (int i = 0; i < 2 && sound; i++) {
+        Span piece = i ? b : a;
+        size_t length = piece.to - piece.from;
+        sound = length < MAX_FORMULA;
+        if (!sound) break;
+        memcpy(text[i], proof_text + piece.from, length);
+        text[i][length] = '\0';
+        tree[i] = parse_expression(text[i]);
+        sound = !syntax_error && !failure;
+        if (sound) tree[i] = sample_tree(tree[i], x, 0, 0);
+    }
+    for (int p = 0; p < DERIVATIVE_POINTS && sound && !failure; p++) {
+        Range at = range_ratio(derivative_points[p].num, derivative_points[p].den);
+        int agreement = numbers_agree(sample_value(tree[0], x, at), sample_value(tree[1], x, at));
+        if (agreement < 0) sound = 0;
+        agreed += agreement > 0;
+    }
+    sound = sound && !failure && agreed > 0;
+    syntax_error = failure = NULL;
+    arena_used = kept;
+    return sound;
+}
+
+/* Ritorna 1 se in tree compare una potenza con x sia nella base sia
+ * nell'esponente: il verdetto deve dire che la si intende e^{v ln u}. */
+static int node_has_tower(const Node *tree, int x) {
+    if (!tree) return 0;
+    if (tree->kind == N_POW && node_has_variable(tree->a, x) && node_has_variable(tree->b, x)) return 1;
+    return node_has_tower(tree->a, x) || node_has_tower(tree->b, x) || node_has_tower(tree->c, x);
+}
+
+/* 27k. CALCOLARE UNA DERIVATA
+ *
+ * \frac{d}{dx}\left( x^{2} \tan x \right), senza il segno di uguale, chiede
+ * la derivata. La risposta è RISOLTO, con la derivata scritta:
+ *
+ *   27k-1. la derivata di ordine k, con le regole, confermata con la serie
+ *          di Taylor in almeno un punto per ogni ordine (27h);
+ *   27k-2. l'albero delle regole scritto come lo scriverebbe chi le ha
+ *          appena applicate: senza fattori 1, addendi 0, esponenti 1 e segni
+ *          doppi, con i conti tra interi fatti e il numero davanti al
+ *          prodotto (node_tidy()): 2x \tan x + \frac{x^{2}}{\cos^{2} x};
+ *   27k-3. il testo scritto si rilegge con il lettore del programma, come
+ *          se l'avesse scritto l'utente, e il riletto deve avere lo stesso
+ *          valore della derivata delle regole per due strade: con l'algebra
+ *          esatta, dove sono definite (27a), e con i numeri, contro la
+ *          derivata letta dalla serie di Taylor della funzione in tutti i
+ *          punti di prova in cui le due si calcolano, almeno uno. Se non è
+ *          così la risposta non si consegna.
+ *
+ * Perché basta una semplificazione leggera. La risposta deve essere giusta
+ * e leggibile, non nella forma del libro: forme equivalenti sono infinite,
+ * e confrontarle è compito di chi controlla (27a), non di chi scrive. Un
+ * semplificatore completo (fattori comuni, identità goniometriche, forme
+ * canoniche) sarebbe molto codice, che sbaglia in modi suoi e andrebbe
+ * comunque ricontrollato; quello leggero fa solo passi che si vedono a
+ * occhio, e ognuno lascia l'espressione definita esattamente dove lo era.
+ *
+ * Dove vale la risposta. Dove la funzione, la formula scritta e, per un
+ * ordine più alto, le derivate prima di lei sono definite (27j): la nota
+ * del verdetto lo dice, e per u^v aggiunge che la base deve essere
+ * positiva. Dove la formula non ha valore la risposta non dice nulla, nemmeno
+ * che la derivata non esiste (27l).
+ */
+
+/* Ritorna 1 e mette in *value il numero, se tree è un numero intero scritto. */
+static int node_is_number(const Node *tree, long long *value) {
+    if (tree->kind != N_NUM) return 0;
+    *value = tree->value;
+    return 1;
+}
+
+/* Se tree è un intero, o un prodotto il cui primo fattore da sinistra è un
+ * intero, mette l'intero in *number e il resto del prodotto in *rest (NULL
+ * se tree è solo il numero) e ritorna 1. I prodotti scritti da node_tidy()
+ * hanno le parentesi a sinistra: (2 u) v. */
+static int node_coefficient(Node *tree, long long *number, Node **rest) {
+    Node *inner;
+    if (node_is_number(tree, number)) { *rest = NULL; return 1; }
+    if (tree->kind != N_MUL || !node_coefficient(tree->a, number, &inner)) return 0;
+    *rest = inner ? node_new(N_MUL, inner, tree->b) : tree->b;
+    return 1;
+}
+
+/* Ritorna 1 se tree ha un valore per ogni valore reale delle sue lettere:
+ * numeri, lettere, somme, prodotti, potenze con esponente naturale scritto
+ * come numero, seno, coseno, arcotangente, arcocotangente e valore assoluto
+ * di espressioni così. È ciò che permette a node_tidy() di scrivere 0 al
+ * posto di 0 u senza cambiare dove l'espressione è definita. Le potenze di
+ * e non ci sono: se e fosse la variabile, e^{1/2} non sarebbe definita
+ * ovunque. */
+static int node_total(const Node *tree) {
+    switch (tree->kind) {
+    case N_NUM: case N_VAR: return 1;
+    case N_NEG: return node_total(tree->a);
+    case N_ADD: case N_SUB: case N_MUL: return node_total(tree->a) && node_total(tree->b);
+    case N_POW:
+        return tree->b->kind == N_NUM && tree->b->value >= 0 && node_total(tree->a);
+    case N_CALL:
+        return (tree->op == FN_SIN || tree->op == FN_COS || tree->op == FN_ARCTAN || tree->op == FN_ARCCOT || tree->op == FN_ABS) && node_total(tree->a);
+    default: return 0;
+    }
+}
+
+/* Ritorna il prodotto di number per rest (rest NULL: il solo numero). */
+static Node *node_scaled(long long number, Node *rest) {
+    if (!rest) return node_num(number);
+    return number == 1 ? rest : node_new(N_MUL, node_num(number), rest);
+}
+
+/* 27k-2. Ritorna una copia di tree senza ciò che un libro non scriverebbe
+ * (vedi sopra). Ogni passo conserva le condizioni di esistenza: per questo
+ * 0 u diventa 0 solo se u ha un valore ovunque (node_total()), e a / (b / c)
+ * resta com'è, perché a c / b perderebbe la condizione c diverso da zero. Le
+ * altre riscritture spostano divisioni, segni e parentesi senza togliere
+ * nessun denominatore: (a / b) c = a c / b, (a / b) / c = a / (b c),
+ * a (b c) = (a b) c, -(-a) = a, a - (b + c) = a - b - c, e un numero in
+ * comune tra numeratore e denominatore si semplifica, (6 u) / (4 v) =
+ * (3 u) / (2 v). */
+static Node *node_tidy(const Node *tree) {
+    long long p, q, product, top, bottom;
+    Node *above, *below;
+    int closed = 1;
+    if (!tree || tree->kind == N_NUM || tree->kind == N_VAR) return (Node *)tree;
+    Node *folded = node_fold(tree, &closed);
+    if (folded->kind == N_NUM) return folded;
+    Node *a = node_tidy(folded->a), *b = node_tidy(folded->b);
+    int a_number = a && node_is_number(a, &p), b_number = b && node_is_number(b, &q);
+    switch (folded->kind) {
+    case N_NEG:
+        if (a->kind == N_NEG) return a->a;
+        if (a_number) return node_num(-p);
+        break;
+    case N_ADD: case N_SUB: {
+        NodeKind other = folded->kind == N_ADD ? N_SUB : N_ADD;
+        if (b_number && q == 0) return a;
+        if (a_number && p == 0) return folded->kind == N_ADD ? b : node_tidy(node_new(N_NEG, b, NULL));
+        if (b->kind == N_NEG) return node_new(other, a, b->a);
+        if (b_number && q < 0) return node_new(other, a, node_num(-q));
+        if (folded->kind == N_SUB && (b->kind == N_ADD || b->kind == N_SUB))
+            return node_tidy(node_new(b->kind == N_ADD ? N_SUB : N_ADD, node_new(N_SUB, a, b->a), b->b));
+        break;
+    }
+    case N_MUL:
+        if (a_number && p == 1) return b;
+        if (b_number && q == 1) return a;
+        if ((a_number && p == 0 && node_total(b)) || (b_number && q == 0 && node_total(a))) return node_num(0);
+        if (b_number && !a_number) return node_tidy(node_new(N_MUL, b, a));
+        if (a_number && p < 0) return node_new(N_NEG, node_tidy(node_new(N_MUL, node_num(-p), b)), NULL);
+        if (a->kind == N_NEG) return node_new(N_NEG, node_tidy(node_new(N_MUL, a->a, b)), NULL);
+        if (b->kind == N_NEG) return node_new(N_NEG, node_tidy(node_new(N_MUL, a, b->a)), NULL);
+        if (a_number && b->kind == N_MUL && node_is_number(b->a, &q) && !__builtin_mul_overflow(p, q, &product))
+            return node_tidy(node_new(N_MUL, node_num(product), b->b));
+        if (b->kind == N_DIV) return node_tidy(node_new(N_DIV, node_new(N_MUL, a, b->a), b->b));
+        if (a->kind == N_DIV) return node_tidy(node_new(N_DIV, node_new(N_MUL, a->a, b), a->b));
+        if (b->kind == N_MUL) return node_tidy(node_new(N_MUL, node_new(N_MUL, a, b->a), b->b));
+        break;
+    case N_DIV:
+        if (b_number && q == 1) return a;
+        if (a->kind == N_NEG) return node_new(N_NEG, node_tidy(node_new(N_DIV, a->a, b)), NULL);
+        if (b->kind == N_NEG) return node_new(N_NEG, node_tidy(node_new(N_DIV, a, b->a)), NULL);
+        if (a->kind == N_DIV) return node_tidy(node_new(N_DIV, a->a, node_new(N_MUL, a->b, b)));
+        if (node_coefficient(a, &top, &above) && node_coefficient(b, &bottom, &below) && top && bottom) {
+            long long common = (long long)gcd128(top, bottom);
+            if (bottom < 0) common = -common;
+            if (common != 1) return node_tidy(node_new(N_DIV, node_scaled(top / common, above), node_scaled(bottom / common, below)));
+        }
+        break;
+    case N_POW:
+        if (b_number && q == 1) return a;
+        break;
+    default:
+        break;
+    }
+    return node_rebuilt(folded, a, b, folded->c);
+}
+
+/* 27k. Risolve la richiesta di calcolare la derivata di ordine order di f
+ * rispetto a x, come descritto sopra, e ne ritorna il verdetto: verdict è
+ * quello che prove_derivative() ha già preparato. */
+static Verdict solve_derivative(Node *f, int x, int order, Verdict verdict) {
+    static char answer[MAX_FORMULA], note[200];
+    Node *direct[MAX_JET + 1] = {f};
+    DerivativeCheck check;
+    verdict.variable = 0;
+
+    /* 27k-1. */
+    int confirmed = derivatives_confirmed(direct, order, x, &check);
+    if (confirmed < 1) {
+        verdict.outcome = confirmed ? NOT_PROVED : UNSUPPORTED;
+        verdict.reason = failure;
+        return verdict;
+    }
+
+    /* 27k-2: la derivata scritta, nella dimostrazione e nella risposta. */
+    proof_add("\\textbf{Solution.} By the rules of differentiation, the derivative of order $%d$ with respect to $%c$ is $", order, x);
+    size_t from = proof_length;
+    put_node(node_tidy(direct[order]), 0);
+    size_t length = proof_length - from;
+    proof_add("$.\n\n");
+    if (failure || length >= sizeof answer || proof_length >= PROOF_BYTES - 1) {
+        verdict.outcome = NOT_PROVED;
+        verdict.reason = failure ? failure : "la derivata è troppo lunga per essere scritta e riletta";
+        return verdict;
+    }
+    memcpy(answer, proof_text + from, length);
+    answer[length] = '\0';
+
+    /* 27k-3: la rilettura, e i due controlli. Una smentita dei numeri è un
+     * errore del programma, nello scrivere o nel rileggere; un conto che non
+     * riesce lascia solo la risposta senza conferma. */
+    Node *reread = parse_expression(answer);
+    int agreed = 0, contradicted = 0, readable = !syntax_error && !failure;
+    Node *sampled = readable ? sample_tree(reread, x, 0, 0) : NULL;
+    for (int p = 0; p < DERIVATIVE_POINTS && readable; p++) {
+        Range claimed = sample_value(sampled, x, range_ratio(derivative_points[p].num, derivative_points[p].den));
+        int agreement = numbers_agree(claimed, check.taylor[order][p]);
+        contradicted |= agreement < 0;
+        agreed += agreement > 0;
+    }
+    int sound = readable && !contradicted && agreed && !failure && derivative_identity(direct[order], reread, 0, 0, x);
+    if (!sound) {
+        if (contradicted || !readable) unjustified_steps++;
+        failure = syntax_error = NULL;
+        verdict.outcome = NOT_PROVED;
+        verdict.reason = !readable      ? "la derivata scritta non si rilegge con il lettore del programma"
+                         : contradicted ? "la derivata scritta, riletta dal testo, è smentita dalla serie di Taylor della funzione"
+                                        : "non riesco a confermare la derivata scritta, riletta dal testo, con l'algebra esatta e con la serie di Taylor";
+        return verdict;
+    }
+    proof_add("\\textbf{Check.} This formula, read back as text, has the value of the derivative given by the rules, by exact algebra "
+              "where both are defined, and of the derivative read from the Taylor series of the function, computed with interval "
+              "arithmetic at %d of the sample points. $\\Box$", agreed);
+
+    /* Il verdetto, con la nota su dove vale. */
+    snprintf(note, sizeof note, "%s%s", order == 1 ? "dove la funzione e la derivata sono definite" : "dove la funzione e le derivate fino a questa sono definite",
+             node_has_tower(f, x) ? "; u^v con la variabile nella base e nell'esponente è e^{v \\ln u}, con u > 0" : "");
+    verdict.outcome = SOLVED;
+    verdict.method = "con le regole di derivazione";
+    verdict.detail = answer;
+    verdict.note = note;
+    verdict.proof = proof_text;
+    return verdict;
+}
+
 /* Prova a dimostrare l'enunciato su una derivata scritto in formula, con il
  * teorema in testa al capitolo. variable, has_base e base come per
  * prove_by_induction(); senza caso base una derivata n-esima parte da
@@ -20847,6 +21702,20 @@ static Verdict prove_derivative(const char *formula, int variable, int has_base,
     int x = statement.variable, fixed = !statement.order;
     Node *f = statement.function, *g = statement.formula;
     if (failure) { verdict.reason = failure; return verdict; }
+
+    /* 27j. I segni di derivata dentro la funzione o la formula. */
+    derivative_signs = 0;
+    f = derivatives_expanded(f);
+    g = derivatives_expanded(g);
+    if (failure) { verdict.reason = failure; return verdict; }
+
+    /* 27k. Senza la formula è una richiesta: calcolare la derivata. */
+    if (!g) {
+        if (!fixed) verdict.reason = "si calcola una derivata il cui ordine è scritto come numero; una formula per la derivata n-esima va scritta dopo il segno di uguale";
+        else if (statement.times > MAX_DERIVATIVE_BASE) verdict.reason = "l'ordine di una derivata da calcolare deve essere al più 4";
+        else return solve_derivative(f, x, (int)statement.times, verdict);
+        return verdict;
+    }
 
     /* L'ordine: la variabile di induzione, da base in su, oppure un numero. */
     if (fixed) {
@@ -20932,9 +21801,7 @@ static Verdict prove_derivative(const char *formula, int variable, int has_base,
     if (!compared) { verdict.reason = "non riesco a confermare con i numeri la formula, in nessuno dei punti di prova"; return verdict; }
 
     /* 27a. Il caso base: un'uguaglianza tra espressioni, senza n. */
-    Statement first = {direct[base], fixed ? g : node_replace(g, variable, node_num(base)), REL_EQ};
-    Rat gap = difference(&first, rat_int(base));
-    if (failure || !poly_vanishes(gap.num)) {
+    if (!derivative_identity(direct[base], fixed ? g : node_replace(g, variable, node_num(base)), variable, base, x)) {
         snprintf(text, sizeof text, "la derivata di ordine %lld, calcolata con le regole, non si riduce alla formula%s%s", base,
                  failure ? ": " : "", failure ? failure : "");
         failure = NULL;
@@ -20962,7 +21829,8 @@ static Verdict prove_derivative(const char *formula, int variable, int has_base,
      * formula che non si può rileggere non si scrive: resta la frase, come
      * in 13g quando un valore è troppo lungo. */
     int sound = 1;
-    if (left.to - left.from + right.to - right.from + 4 < MAX_FORMULA && proof_length < PROOF_BYTES - 1) sound = reread_equal(left, right, base);
+    if (left.to - left.from + right.to - right.from + 4 < MAX_FORMULA && proof_length < PROOF_BYTES - 1)
+        sound = reread_equal(left, right, base) || reread_numbers(left, right, x);
     else {
         proof_cut(opening);
         proof_add("The derivative of order $%lld$ given by the rules of differentiation is too long to write here; its difference "
@@ -21011,9 +21879,93 @@ static Verdict prove_derivative(const char *formula, int variable, int has_base,
     }
     if (proof_length >= PROOF_BYTES - 1) { verdict.reason = "la dimostrazione è troppo lunga per essere scritta per intero"; return verdict; }
     verdict.outcome = PROVED;
-    verdict.reason = "le derivate non hanno una notazione nei certificati";
+    verdict.reason = node_has_tower(f, x) ? "le derivate non hanno una notazione nei certificati; u^v con la variabile nella base e nell'esponente "
+                                            "è inteso come e^{v ln u}, dove u > 0"
+                                          : "le derivate non hanno una notazione nei certificati";
     verdict.proof = proof_text;
     return verdict;
+}
+
+/* 27l. I PUNTI IN CUI LE REGOLE NON DANNO LA DERIVATA
+ *
+ * Un segno espanso (27j) ha un valore nell'insieme E in cui la funzione g e
+ * le sue derivate date dalle regole hanno tutte un valore, e lì vale la
+ * derivata. Fuori da E, nei punti in cui g è definita, la derivata può
+ * esistere o no: |x| non è derivabile in 0, x|x| sì, e le regole non danno
+ * la derivata né all'una né all'altra. La tabella dei segni conta come
+ * falso un confronto senza valore: nel secondo caso \forall x\ ((x|x|)' =
+ * 2|x|) risulterebbe falso in x = 0, ed è vero.
+ *
+ * Il controllo. Per ogni segno si cerca, con la tabella dei segni, l'insieme
+ * D dei punti in cui g ha un valore e l'espansione no. L'enunciato si decide
+ * solo se ogni punto di D è un punto isolato con, accanto, un intervallo in
+ * cui g non è definita: per esempio 0 per la radice di x. Lì la derivata
+ * non esiste, perché chiede g definita in tutto un intorno del punto (la
+ * derivata da una parte sola, che i libri chiamano destra o sinistra, è
+ * un'altra cosa), e l'espansione, che lì non ha valore, dice il vero. Ogni
+ * altro punto di D lascia l'enunciato non deciso, e il verdetto dice quali.
+ * In un enunciato periodico basta un punto di D per non decidere: la sua
+ * tabella è nella lettera t = tan(u/2), e il punto u = pi sta a parte.
+ *
+ * Perché la tabella qui è affidabile: è la stessa con i suoi controlli
+ * indipendenti, e la condizione che le si chiede di risolvere è scritta con
+ * le stesse espressioni dell'enunciato; se non sa risolverla, non sa
+ * nemmeno decidere l'enunciato. */
+
+/* Vedi la dichiarazione dopo l'inclusione di parser.c. thesis è
+ * l'enunciato, già controllato, di cui si sono espansi derivative_signs
+ * segni. Lascia il testo della dimostrazione com'era. */
+static const char *derivative_doubt(const Formula *thesis) {
+    static char reason[sizeof solution_text + 200];
+    const Formula *q = thesis;
+    while (q->kind == F_NOT) q = q->a;
+    if (q->kind != F_FORALL && q->kind != F_EXISTS && q->kind != F_SOLVE)
+        return "il segno di derivata è trattato negli enunciati con un quantificatore su una variabile reale, o in un insieme di soluzioni";
+    size_t length = proof_length;
+    int wanted = figures_wanted;
+    const char *doubt = NULL;
+    figures_wanted = 0;
+    for (int i = 0; i < derivative_signs && !doubt; i++) {
+        /* D: "g = g" vale dove g ha un valore, "non (e = e)" dove
+         * l'espansione e non ce l'ha. */
+        Formula *defined = formula_node(F_EQUAL, NULL, NULL, ""), *derived = formula_node(F_EQUAL, NULL, NULL, "");
+        defined->left = defined->right = (Node *)expanded_function[i];
+        derived->left = derived->right = (Node *)expanded_value[i];
+        /* Nell'insieme dell'enunciato, con i suoi estremi e i punti tolti,
+         * preso tra i reali anche se è di razionali: si guarda di più, non
+         * di meno. */
+        Formula *solve = formula_node(F_SOLVE, formula_node(F_AND, defined, formula_node(F_NOT, derived, NULL, ""), ""), NULL, "");
+        solve->variable = q->variable;
+        solve->numbers = q->numbers;
+        solve->numbers.reals = 1;
+        solve->numbers.integers = 0;
+        Verdict inner = {UNSUPPORTED, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL};
+        decide_by_signs(solve, &inner);
+        failure = NULL;
+        if (inner.outcome != SOLVED) {
+            snprintf(reason, sizeof reason, "non riesco a stabilire dove le regole di derivazione danno la derivata: %s", inner.reason ? inner.reason : "la tabella dei segni non decide");
+            doubt = reason;
+            break;
+        }
+        if (strncmp(inner.detail, "\\nexists", 8) == 0) continue;
+
+        /* Ogni pezzo di D deve essere un punto, e accanto, da una parte,
+         * g non deve avere un valore. */
+        int isolated = !trig_on;
+        Piece piece;
+        for (int from = 0; isolated && sign_piece(solve->a, from, &piece); from = piece.last + 1) {
+            int row = piece.first;
+            isolated = piece.first == piece.last && row % 2 &&
+                       (!sign_row[row - 1].inside || !sign_truth(defined, sign_row[row - 1].sign) ||
+                        !sign_row[row + 1].inside || !sign_truth(defined, sign_row[row + 1].sign));
+        }
+        if (isolated) { derivative_edges = 1; continue; }
+        snprintf(reason, sizeof reason, "la funzione è definita per %s, ma lì le regole di derivazione non ne danno la derivata: non so se vi è derivabile", inner.detail);
+        doubt = reason;
+    }
+    figures_wanted = wanted;
+    proof_cut(length);
+    return doubt;
 }
 
 /* =============================================================================
@@ -23012,8 +23964,9 @@ static Verdict prove_abstract(const char *formula) {
  *     arctan(u0 + w) = arctan u0 + arctan(w / (1 + u0 (u0 + w))),
  *     (c t^e (1 + w))^q = c^q t^{e q} (1 + q w + q (q - 1)/2 w^2 + ...);
  *
- * tangente e cotangente sono quozienti, e le altre funzioni (iperboliche,
- * arcoseno) arrivano già scritte con queste (9h). Quando l'argomento non
+ * tangente e cotangente sono quozienti; le funzioni iperboliche arrivano
+ * già scritte con queste (9h), e arcoseno e arcocoseno si riscrivono qui
+ * con l'arcotangente (arcsin_by_arctan()). Quando l'argomento non
  * tende a un numero valgono regole a parte: e^{u} con u che tende a
  * -\infty è più piccolo di ogni potenza di t (una funzione "piatta": la
  * serie è 0 + O(t^n) per ogni n); arctan u con u che tende a +\infty o
@@ -23588,7 +24541,7 @@ static int constant_exp(Rat c, Rat *out) {
         if (t.mono.count == 0) {
             term_times(&power, e, q);
         } else if (one && a->kind == ATOM_LN && a->base == BASE_PRIME) {
-            total = rat_mul(total, q.den == 1 ? rat_pow_int(rat_int(a->id), q.num) : fractional_power(rat_int(a->id), q));
+            total = rat_mul(total, q.den == 1 ? rat_pow_int(rat_int(a->id), q.num) : fractional_power(rat_int(a->id), q, 0));
             continue;
         } else if (one && a->kind == ATOM_LN) {
             return 0;
@@ -23626,12 +24579,12 @@ static int constant_power(Rat c, Frac q, Rat *out) {
                 if (!atom_positive(t.mono.factor[i].atom)) return 0;
                 term_times(&rest, t.mono.factor[i].atom, frac_mul(t.mono.factor[i].exp, q));
             }
-            result[s] = rat_mul(fractional_power(rat_frac(t.coef.re), q), (Rat){poly_term(rest), poly_const(num_int(1))});
+            result[s] = rat_mul(fractional_power(rat_frac(t.coef.re), q, 0), (Rat){poly_term(rest), poly_const(num_int(1))});
             continue;
         }
         Rat whole = {p, poly_const(num_int(1))};
         if (rat_has_ell(whole) || !poly_is_real(p)) return 0;
-        result[s] = fractional_power(whole, q);
+        result[s] = fractional_power(whole, q, 0);
     }
     *out = rat_make(poly_mul(result[0].num, result[1].den), poly_mul(result[0].den, result[1].num));
     return !failure;
@@ -24215,6 +25168,26 @@ static Value precision_or(Value r, Value a, Value b) {
  * espressioni, e il logaritmo e la radice hanno anche una base e un indice. */
 static Value limit_eval(const Node *node);
 
+/* Ritorna arcsin u, o arccos u se cosine è 1, scritto con l'arcotangente e
+ * la radice quadrata, le funzioni che lo sviluppo in serie conosce:
+ *
+ *     \arcsin u = 2 \arctan(u / (1 + \sqrt{1 - u^2})),     \arccos u = \pi/2 - \arcsin u.
+ *
+ * È la bisezione dell'angolo: se a = \arcsin u, con a tra -\pi/2 e \pi/2,
+ * allora tan(a/2) = sin a / (1 + cos a) = u / (1 + \sqrt{1 - u^2}), perché
+ * cos a = \sqrt{1 - u^2} non è negativo; e a/2 sta tra -\pi/4 e \pi/4, dove
+ * l'arcotangente inverte la tangente. Vale anche in u = 1 e u = -1, e non
+ * altrove, perché fuori da [-1, 1] la radice non c'è: il campo di esistenza
+ * è lo stesso. L'albero ritornato sta nell'arena e condivide u. */
+static Node *arcsin_by_arctan(Node *u, int cosine) {
+    Node *root = node_call(FN_ROOT, node_new(N_SUB, node_num(1), node_new(N_POW, u, node_num(2))), node_num(2));
+    Node *value = node_new(N_MUL, node_num(2), node_call(FN_ARCTAN, node_new(N_DIV, u, node_new(N_ADD, node_num(1), root)), NULL));
+    if (!cosine) return value;
+    Node *pi = node_new(N_VAR, NULL, NULL);
+    pi->name = VAR_PI;
+    return node_new(N_SUB, node_new(N_DIV, pi, node_num(2)), value);
+}
+
 /* Il valore della chiamata di funzione node, con l'argomento che vale a. */
 static Value limit_call(const Node *node, Value a) {
     Rat c;
@@ -24224,6 +25197,9 @@ static Value limit_call(const Node *node, Value a) {
         return value_trig(a, (Function)node->op);
     case FN_ARCTAN:
         return value_arctan(a);
+    case FN_ARCSIN: case FN_ARCCOS:
+        /* L'argomento si ricalcola dentro la riscrittura: a non serve. */
+        return limit_eval(arcsin_by_arctan(node->a, node->op == FN_ARCCOS));
     case FN_LN:
         return value_ln(a);
     case FN_LOG:
@@ -24880,6 +25856,14 @@ static int uses_elements(const char *formula) {
     return found;
 }
 
+/* Ritorna 1 se in text c'è un segno di derivata di Leibniz, in un punto
+ * qualsiasi (starts_with_derivative()). */
+static int has_derivative_sign(const char *text) {
+    for (const char *p = strchr(text, '\\'); p; p = strchr(p + 1, '\\'))
+        if (starts_with_derivative(p)) return 1;
+    return 0;
+}
+
 /* Prova a dimostrare l'enunciato scritto in formula.
  *
  * variable, has_base e base riguardano le dimostrazioni per induzione (vedi
@@ -24904,6 +25888,13 @@ static Verdict prove(const char *formula, int variable, int has_base, long long 
     /* \lim in testa, anche dopo \nexists: un enunciato sui limiti, del
      * capitolo 29. */
     if (starts_with_limit(formula)) return prove_limit(formula);
+
+    /* Un segno di derivata dentro un'espressione lo espandono (27j) solo
+     * gli enunciati con quantificatori, sui numeri reali, e quelli del
+     * capitolo 13 e del 25. Negli altri resta un segno che nessuno calcola,
+     * e non va letto come altro. */
+    if (has_derivative_sign(formula) && (uses_elements(formula) || uses_set_notation(formula) || strstr(formula, "\\implies")))
+        return (Verdict){UNSUPPORTED, variable, 0, 0, "il segno di derivata non ha senso in un enunciato su insiemi o su una successione definita per ricorrenza", NULL, NULL, NULL, NULL, NULL};
     if (uses_elements(formula)) return prove_abstract(formula);
     if (uses_set_notation(formula)) return prove_sets(formula);
     if (strstr(formula, "\\implies")) return prove_sequence(formula, variable, has_base, base);
@@ -24920,6 +25911,7 @@ static void verdict_print(FILE *out, const Verdict *verdict) {
     case PROVED:
         if (verdict->variable) fprintf(out, "DIMOSTRATO per induzione su %c >= %lld", verdict->variable, verdict->base);
         else fprintf(out, "DIMOSTRATO %s", verdict->method);
+        if (verdict->note) fprintf(out, " (%s)", verdict->note);
 
         /* Il certificato: c'è, oppure manca, e se si sa perché lo si dice. */
         if (!verdict->certificate) {

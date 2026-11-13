@@ -21,13 +21,33 @@ Uso:
       d'ambiente FUZZ_NOTES stampa anche le righe NOTE; con FUZZ_SIMPLE
       scrive tutto nella sola forma \\[ ... \\] con le parentesi, per
       separare gli errori del lettore da quelli del motore.
+      Le funzioni composte comprendono arcoseno, arcocoseno, arcocotangente,
+      valore assoluto (anche con le sole sbarre), u^v con x nella base e
+      nell'esponente, logaritmi con x nella base, radici cubiche di numeri
+      negativi. Una parte degli enunciati di ordine fisso diventa una
+      richiesta, senza il segno di uguale: il programma risponde con la
+      derivata scritta, che qui si rilegge e si confronta con la derivata
+      vera nei punti di prova.
+
+  python3 -I fuzz_derivatives.py studies <eseguibile> <seme> <quanti> <cartella di lavoro>
+      Studi di funzione: costruisce richieste \\{x \\in \\mathbb{R} \\mid
+      \\frac{d^{k}}{dx^{k}}\\left( f \\right) > 0\\} (o <, \\ge, \\le, = 0) per
+      funzioni di famiglie che la tabella dei segni tratta, e controlla le
+      soluzioni scritte dal programma: il segno della derivata vera, con le
+      serie di Taylor di questo file, su una griglia fitta di punti e negli
+      estremi scritti. Poi, dalle soluzioni confermate, costruisce enunciati
+      \\forall x\\ (... \\iff soluzioni), veri, e varianti con un estremo
+      spostato o compreso, o un pezzo tolto, e confronta i verdetti con
+      l'oracolo.
 
   python3 -I fuzz_derivatives.py check <eseguibile> <file .tex>...
       Rilegge con il lettore di questo file ogni enunciato sulle derivate dei
       file (gli \\item che non lo sono vengono saltati), dice se è vero
       secondo l'oracolo, e lo confronta con il verdetto del programma e con
       il nome del file: in un file false_*.tex gli enunciati devono essere
-      falsi, negli altri veri.
+      falsi, negli altri veri. Legge anche gli studi di funzione scritti con
+      i quantificatori, \\forall x \\in \\mathbb{R}\\ (\\frac{d}{dx}(f) > 0
+      \\iff ...), che l'oracolo decide sulla griglia e negli estremi.
 
 L'oracolo non usa il programma. Legge il LaTeX con un lettore suo, scritto
 sulla grammatica del capitolo 9 di parser.c e non sul suo codice, e calcola
@@ -38,17 +58,27 @@ main.c: le potenze con la ricorrenza di u p' = r u' p, la tangente con
 t' = (1 + t^2) u', il logaritmo e l'arcotangente come integrale di una serie.
 La formula si calcola negli stessi punti, con n = k. Due numeri che
 differiscono oltre 10^-25 della loro grandezza sono diversi; sotto 10^-40
-sono uguali; in mezzo l'oracolo non decide.
+sono uguali; in mezzo l'oracolo non decide. L'arcoseno è l'integrale della
+serie di u' / sqrt(1 - u^2) (main.c usa invece cos(y) y' = u'), arcocoseno e
+arcocotangente sono pi/2 meno arcoseno e arcotangente, |u|' = u' |u| / u.
+
+Negli studi di funzione la verità di una condizione si guarda su una
+griglia di 601 punti tra -12 e 12, negli estremi scritti, e nei punti
+speciali che l'oracolo trova da sé con 120 cifre: gli zeri delle derivate e
+delle differenze tra i membri, i poli, i bordi del dominio (zeros_of()).
+Dove una derivata non si sa se esiste (x|x| in 0), o un numero è troppo
+piccolo per dire se è zero, l'oracolo non decide.
 
 Righe stampate:
 
   BUG: il programma ha dimostrato un enunciato che l'oracolo trova falso,
        oppure ha detto "falso per n = w" (o "controesempio x = p/q") quando
        lì, nei punti e con i parametri che il programma usa, la formula è
-       giusta. Anche la riga ATTENZIONE del programma, che conta i passi
-       scartati dai suoi controlli: una regola di derive() smentita dalla
-       serie di Taylor è un errore del programma, anche se il verdetto resta
-       prudente.
+       giusta; oppure ha scritto una derivata, o delle soluzioni, che in un
+       punto sono di sicuro sbagliate. Anche la riga ATTENZIONE del
+       programma, che conta i passi scartati dai suoi controlli: una regola
+       di derive() smentita dalla serie di Taylor è un errore del programma,
+       anche se il verdetto resta prudente.
   SUSPECT: l'oracolo non riesce a decidere un confronto che serve.
   NOTE: un enunciato vero non dimostrato, o che l'oracolo non decide, e che
         il programma non dimostra (non è un errore).
@@ -65,7 +95,6 @@ from decimal import Decimal as D, getcontext
 from fractions import Fraction as Fr
 
 getcontext().prec = 80
-EPS = D(10) ** -85
 SAME = D(10) ** -40         # sotto: uguali
 DIFFERENT = D(10) ** -25    # sopra: diversi
 WINDOW = 6                  # ordini controllati oltre il caso base
@@ -83,10 +112,35 @@ class Unsupported(Exception):
     """Il lettore o l'oracolo non sanno trattare questa scrittura."""
 
 
+class NotAnalytic(Undefined):
+    """La serie di un pezzo non c'è perché lì il pezzo non è derivabile, come
+    |u| o una radice dove u = 0: la funzione intera, come x|x| in 0, può
+    esserlo lo stesso."""
+
+
+class Unsure(Exception):
+    """L'oracolo non sa se in quel punto la derivata esiste."""
+
+
 # =============================================================================
 # 1. I numeri reali con 80 cifre: pi greco, seno, coseno, arcotangente.
-#    exp, ln e la radice quadrata li dà il modulo decimal.
+#    exp, ln e la radice quadrata li dà il modulo decimal. Le cifre sono
+#    quelle del contesto in uso: 80 di solito, FINE nei punti speciali degli
+#    studi di funzione (capitolo 10 di questo file).
 # =============================================================================
+
+def series_eps():
+    """Sotto questa grandezza un termine di una serie non conta più."""
+    return D(10) ** -(getcontext().prec + 5)
+
+
+def tiny():
+    """Sotto questa grandezza un numero calcolato si prende per zero, quando
+    serve sapere se una divisione, un logaritmo o una radice hanno senso: un
+    numero che vicino a un polo vale 10^-120 con 120 cifre è lo zero del
+    polo, non un numero piccolo."""
+    return D(10) ** -(getcontext().prec - 10)
+
 
 def _atan_small(y):
     """La serie y - y^3/3 + y^5/5 - ..., per |y| piccolo."""
@@ -95,13 +149,18 @@ def _atan_small(y):
         power = -power * y2
         k += 2
         term = power / k
-        if abs(term) < EPS:
+        if abs(term) < series_eps():
             return total
         total += term
 
 
 def _pi():
-    return 16 * _atan_small(D(1) / 5) - 4 * _atan_small(D(1) / 239)
+    """Pi greco con 150 cifre, perché basti anche ai conti con FINE cifre."""
+    previous = getcontext().prec
+    getcontext().prec = 150
+    value = 16 * _atan_small(D(1) / 5) - 4 * _atan_small(D(1) / 239)
+    getcontext().prec = previous
+    return value
 
 
 PI = _pi()
@@ -132,7 +191,7 @@ def d_sin_cos(v):
             s -= term
         k += 1
         term = term * r / k
-        if abs(term) < EPS and k > 4:
+        if abs(term) < series_eps() and k > 4:
             return s, c
 
 
@@ -145,9 +204,10 @@ def d_of(q):
 #
 #   ("num", Fraction)  ("var", lettera)  ("e",)  ("pi",)
 #   ("add", a, b) ("sub", a, b) ("mul", a, b) ("div", a, b) ("neg", a) ("pow", a, b)
-#   ("fn", nome, a) con nome tra sin cos tan cot ln arctan
+#   ("fn", nome, a) con nome tra sin cos tan cot ln arctan arcsin arccos arccot
 #   ("log", base, a)  ("root", m, a)  ("fact", a)  ("abs", a)
 #   ("sum", indice, da, a, corpo)  ("prod", indice, da, a, corpo)
+#   ("deriv", lettera, k, f): il segno di derivata dentro un'espressione
 # =============================================================================
 
 def N(v):
@@ -172,6 +232,8 @@ def letters(t, found=None):
     found = set() if found is None else found
     if t[0] == "var":
         found.add(t[1])
+    elif t[0] == "deriv":
+        letters(t[3], found)
     elif t[0] in ("sum", "prod"):
         letters(t[2], found)
         letters(t[3], found)
@@ -199,7 +261,7 @@ def subst(t, name, value):
 # 3. Il lettore di LaTeX, indipendente da parser.c.
 # =============================================================================
 
-FUNCTIONS = {"sin", "cos", "tan", "cot", "ln", "arctan"}
+FUNCTIONS = {"sin", "cos", "tan", "cot", "ln", "arctan", "arcsin", "arccos", "arccot"}
 SKIPPED = {"left", "right", "displaystyle", "textstyle", "quad", "qquad", "bigl", "bigr", "Bigl", "Bigr"}
 
 
@@ -222,6 +284,10 @@ def tokenize(text):
             if name in ("left", "right") and text[j:j + 1] == "|":
                 # Il valore assoluto: \left| apre e \right| chiude.
                 out.append(("chr", "|<" if name == "left" else "|>"))
+                j += 1
+            elif name in ("left", "right") and text[j:j + 1] in "[]" and text[j:j + 1]:
+                # Le parentesi quadre sono parentesi tonde.
+                out.append(("chr", "(" if name == "left" else ")"))
                 j += 1
             elif name not in SKIPPED:
                 out.append(("cmd", name))
@@ -246,11 +312,15 @@ class Reader:
     """Discesa ricorsiva sulla grammatica del capitolo 9: due fattori accostati
     si moltiplicano, l'argomento di una funzione senza parentesi è un solo
     fattore, il corpo di una somma è il term che la segue, un esponente senza
-    graffe è un solo token."""
+    graffe è un solo token. Il segno di derivata deriva il term che lo segue,
+    anche dentro un'espressione; una sbarra |, dentro un valore assoluto
+    aperto con una sbarra, lo chiude e non comincia un fattore; \\log senza
+    base è in base 10."""
 
     def __init__(self, text):
         self.t = tokenize(text)
         self.i = 0
+        self.bars = 0
 
     def peek(self):
         return self.t[self.i]
@@ -268,8 +338,28 @@ class Reader:
             raise Unsupported("expected %r, found %r" % (c, self.peek()))
         self.take()
 
-    def derivative(self):
-        """\\frac{d^n}{dx^n} term = expr: ritorna (x, ordine, funzione, formula)."""
+    def leibniz_ahead(self):
+        """Vero se dal token corrente, un \\frac, comincia un segno di derivata."""
+        ahead = self.t[self.i + 1:self.i + 4]
+        if len(ahead) < 3 or ahead[0] != ("chr", "{") or ahead[1] != ("let", "d"):
+            return False
+        return ahead[2] in (("chr", "}"), ("chr", "^"))
+
+    def derivative(self, request=False):
+        """\\frac{d^n}{dx^n} term = expr: ritorna (x, ordine, funzione, formula).
+        Con request il segno di uguale può mancare, e la formula è None."""
+        x, order = self.leibniz()
+        function = self.term()
+        if request and self.peek()[0] == "end":
+            return x, order, function, None
+        self.expect("=")
+        formula = self.expr()
+        if self.peek()[0] != "end":
+            raise Unsupported("text after the formula")
+        return x, order, function, formula
+
+    def leibniz(self):
+        """Il segno \\frac{d^n}{dx^n}: ritorna (x, ordine)."""
         if self.take() not in (("cmd", "frac"), ("cmd", "dfrac"), ("cmd", "tfrac")):
             raise Unsupported("not a derivative")
         self.expect("{")
@@ -295,12 +385,7 @@ class Reader:
             order = int(above[1])
         else:
             raise Unsupported("order")
-        function = self.term()
-        self.expect("=")
-        formula = self.expr()
-        if self.peek()[0] != "end":
-            raise Unsupported("text after the formula")
-        return var, order, function, formula
+        return var, order
 
     def exponent(self):
         """Un esponente ^group, se c'è; altrimenti None."""
@@ -328,7 +413,7 @@ class Reader:
         if kind in ("num", "let"):
             return True
         if kind == "chr":
-            return value in ("(", "|<")
+            return value in ("(", "|<") or (value == "|" and self.bars == 0)
         return kind == "cmd" and (value in FUNCTIONS or value in ("frac", "dfrac", "tfrac", "sqrt", "pi", "sum", "prod", "log", "binom"))
 
     def term(self):
@@ -410,10 +495,23 @@ class Reader:
             inside = self.expr()
             self.expect("|>")
             return ("abs", inside)
+        if kind == "chr" and value == "|":
+            self.bars += 1
+            inside = self.expr()
+            self.bars -= 1
+            self.expect("|")
+            return ("abs", inside)
         if kind == "cmd":
             if value == "pi":
                 return PIT
             if value in ("frac", "dfrac", "tfrac"):
+                self.i -= 1
+                if self.leibniz_ahead():
+                    var, order = self.leibniz()
+                    if not isinstance(order, int):
+                        raise Unsupported("order of a derivative inside an expression")
+                    return ("deriv", var, order, self.term())
+                self.i += 1
                 top = self.group()
                 return div(top, self.group())
             if value == "binom":
@@ -432,8 +530,10 @@ class Reader:
             if value in FUNCTIONS or value == "log":
                 base = None
                 if value == "log":
-                    self.expect("_")
-                    base = self.group()
+                    base = N(10)
+                    if self.is_chr("_"):
+                        self.take()
+                        base = self.group()
                 power = None
                 if self.is_chr("^"):
                     self.take()
@@ -473,14 +573,14 @@ def read_statement(item):
     for math_text in (a or b for a, b in pieces):
         if not re.match(r"\s*(\\(display|text)style\s*)?\\[dt]?frac\s*\{\s*d", math_text):
             continue
-        var, order, f, g = Reader(math_text).derivative()
+        var, order, f, g = Reader(math_text).derivative(request=True)
         base = 0
         if isinstance(order, str):
             rest = item.split(math_text, 1)[1]
             found = re.search(r"%s\s*\\ge\s*\{?(-?\d+)" % order, rest)
             if found:
                 base = int(found.group(1))
-        return {"x": var, "order": order, "f": f, "g": g, "base": base}
+        return {"x": var, "order": order, "f": f, "g": g, "base": base, "request": g is None}
     return None
 
 
@@ -506,7 +606,7 @@ def t_mul(a, b):
 
 
 def t_div(a, b):
-    if abs(b[0]) < EPS * 1000:
+    if abs(b[0]) < tiny():
         raise Undefined("division by zero")
     q = []
     for k in range(len(a)):
@@ -532,7 +632,8 @@ def t_exp(a):
 
 
 def t_ln(a):
-    if a[0] <= 0:
+    # Un argomento più piccolo di tiny() è lo zero del bordo del dominio.
+    if a[0] <= tiny():
         raise Undefined("logarithm of a non-positive number")
     if len(a) == 1:
         return [a[0].ln()]
@@ -551,7 +652,7 @@ def t_sin_cos(a):
 def t_tan(a, sign):
     """tan u (sign = 1) da t' = (1 + t^2) u', cot u (sign = -1) da c' = -(1 + c^2) u'."""
     s0, c0 = d_sin_cos(a[0])
-    if abs(c0 if sign > 0 else s0) < EPS * 1000:
+    if abs(c0 if sign > 0 else s0) < tiny():
         raise Undefined("tangent at a pole")
     t = [s0 / c0 if sign > 0 else c0 / s0]
     for k in range(1, len(a)):
@@ -567,6 +668,26 @@ def t_atan(a):
     return t_integ(t_div(t_deriv(a), one_plus[:-1]), d_atan(a[0]))
 
 
+def t_asin(a):
+    """arcsin u come integrale di u' / sqrt(1 - u^2), con il valore
+    arctan(u_0 / sqrt(1 - u_0^2)) in x0; fuori da |u_0| < 1 non è
+    derivabile."""
+    if abs(a[0]) >= 1 - tiny():
+        raise Undefined("arcsine outside (-1, 1)")
+    y0 = d_atan(a[0] / (1 - a[0] * a[0]).sqrt())
+    if len(a) == 1:
+        return [y0]
+    root = t_pow_const(t_add(t_const(D(1), len(a) - 1), t_neg(t_mul(a, a))), Fr(1, 2))
+    return t_integ(t_div(t_deriv(a), root[:-1]), y0)
+
+
+def t_deriv_order(a, k):
+    """La serie della derivata k-esima, k gradi in meno."""
+    for _ in range(k):
+        a = t_deriv(a)
+    return a
+
+
 def t_pow_const(a, r):
     """a^r con r razionale costante: prodotti per r intero, altrimenti la
     ricorrenza di a p' = r a' p, che vuole a_0 diverso da zero."""
@@ -578,6 +699,11 @@ def t_pow_const(a, r):
         return p
     if r.denominator == 1 and r < 0:
         return t_div(t_const(D(1), K), t_pow_const(a, -r))
+    if abs(a[0]) < tiny() and r > 0:
+        # La base è zero: il valore c'è, la serie no.
+        if K == 0:
+            return [D(0)]
+        raise NotAnalytic("power of zero")
     if a[0] < 0 and r.denominator % 2 == 1:
         sign = -1 if r.numerator % 2 else 1
         return [sign * c for c in t_pow_const(t_neg(a), r)]
@@ -691,14 +817,37 @@ def taylor(t, x, x0, K, env):
             return t_ln(a)
         if name == "arctan":
             return t_atan(a)
+        if name == "arccot":
+            return t_add(t_const(PI / 2, K), t_neg(t_atan(a)))
+        if name == "arcsin":
+            return t_asin(a)
+        if name == "arccos":
+            return t_add(t_const(PI / 2, K), t_neg(t_asin(a)))
+    if op == "deriv":
+        if t[1] != x:
+            raise Unsupported("a derivative with respect to another letter")
+        try:
+            return t_deriv_order(taylor(t[3], x, x0, K + t[2], dict(env)), t[2])
+        except NotAnalytic:
+            # Un pezzo non è derivabile lì. Se la funzione non è definita da
+            # una delle due parti, la derivata non c'è; altrimenti non si sa.
+            delta = D(10) ** -30
+            for side in (x0 - delta, x0 + delta):
+                try:
+                    taylor(t[3], x, side, 0, dict(env))
+                except Undefined:
+                    raise Undefined("derivative at an edge of the domain")
+            raise Unsure("derivative at a point where a piece is not differentiable")
     if op == "log":
         return t_div(t_ln(rec(t[2])), t_ln(rec(t[1])))
     if op == "root":
         return t_pow_const(rec(t[2]), Fr(1, t[1]))
     if op == "abs":
         a = rec(t[1])
-        if abs(a[0]) < EPS * 1000:
-            raise Undefined("absolute value at zero")
+        if abs(a[0]) < tiny():
+            if K == 0:
+                return [D(0)]
+            raise NotAnalytic("absolute value at zero")
         return a if a[0] > 0 else t_neg(a)
     if op in ("sum", "prod"):
         low, high = exact(t[2], env), exact(t[3], env)
@@ -718,7 +867,7 @@ def taylor(t, x, x0, K, env):
 # 5. L'oracolo.
 # =============================================================================
 
-ENGINE_POINTS = [Fr(3, 10), Fr(7, 5), Fr(-9, 10)]
+ENGINE_POINTS = [Fr(3, 10), Fr(7, 5), Fr(-9, 10), Fr(13, 5), Fr(-11, 5), Fr(23, 4)]
 POINTS = ENGINE_POINTS + [Fr(1, 7), Fr(2, 3), Fr(5, 2), Fr(-1, 3), Fr(-7, 4), Fr(11, 5), Fr(-5, 2)]
 
 
@@ -774,7 +923,10 @@ def judge(st, orders, points=POINTS, sets=None):
                     if series is None or moving:
                         series = taylor(st["f"], x, d_of(point), top, env)
                     claimed = taylor(st["g"], x, d_of(point), 0, env)[0]
-                except Undefined:
+                except (Undefined, ArithmeticError):
+                    # Non definita, o un numero troppo grande per i decimali
+                    # (una potenza (x^2 + 1)^u con u grande): il punto si salta.
+                    series = None
                     continue
                 true_value = series[k] * math.factorial(k)
                 results[k].append((compare(true_value, claimed), point, values))
@@ -889,7 +1041,12 @@ def tex(t, bare=False):
         a, pa = rec(t[1])
         return (a if t[1][0] in ("var", "num") and pa == 3 else paren(a)) + "!", 3
     if op == "abs":
-        return r"\left|%s\right|" % rec(t[1])[0], 3
+        inside = rec(t[1])[0]
+        # Come nei libri, a volte con le sole sbarre: solo se dentro non ce
+        # ne sono altre, che renderebbero la scrittura ambigua.
+        if bare and "|" not in inside:
+            return "|%s|" % inside, 3
+        return r"\left|%s\right|" % inside, 3
     if op in ("sum", "prod"):
         body, pb = rec(t[4])
         return r"\%s_{%s=%s}^{%s} %s" % (op, t[1], rec(t[2])[0], rec(t[3])[0], paren(body) if pb < 3 else body), 1
@@ -906,7 +1063,9 @@ def statement_tex(st):
     sign = r"\frac{d}{dx}" if order == 1 else r"\frac{d^{%s}}{dx^{%s}}" % (order, order)
     if style == "inline":
         sign = sign.replace(r"\frac", r"\dfrac", 1)
-    formula = "%s %s = %s" % (sign, paren(tex(st["f"], bare)[0]), tex(st["g"], bare)[0])
+    formula = "%s %s" % (sign, paren(tex(st["f"], bare)[0]))
+    if not st.get("request"):
+        formula += " = " + tex(st["g"], bare)[0]
     math = r"\[ %s \]" % formula if style == "bracket" else r"$\displaystyle %s$" % formula if style == "display" else "$%s$" % formula
     if isinstance(order, int):
         return r"\item %s" % math
@@ -1090,14 +1249,23 @@ def sym_d(t):
             return simple_mul(t, sym_d(e))
         if not has_x(base):
             return simple_mul(simple_mul(t, fn("ln", base)), sym_d(e))
-        raise Unsupported("x in base and exponent")
+        # u^v = e^{v ln u}: la derivata di v ln u, per u^v.
+        return mul(t, sym_d(mul(e, fn("ln", base))))
     if op == "fn":
         name = t[1]
+        root = ("root", 2, sub(N(1), pw(u, N(2))))
         outer = {"sin": lambda: fn("cos", u), "cos": lambda: neg(fn("sin", u)),
                  "tan": lambda: add(N(1), pw(fn("tan", u), N(2))), "cot": lambda: neg(add(N(1), pw(fn("cot", u), N(2)))),
-                 "ln": lambda: div(N(1), u), "arctan": lambda: div(N(1), add(N(1), pw(u, N(2))))}[name]()
+                 "ln": lambda: div(N(1), u), "arctan": lambda: div(N(1), add(N(1), pw(u, N(2)))),
+                 "arccot": lambda: neg(div(N(1), add(N(1), pw(u, N(2))))),
+                 "arcsin": lambda: div(N(1), root), "arccos": lambda: neg(div(N(1), root))}[name]()
         return simple_mul(outer, du)
+    if op == "abs":
+        # |u|' = u' |u| / u: il segno di u scritto al contrario di main.c.
+        return simple_mul(sym_d(t[1]), div(t, t[1]))
     if op == "log":
+        if has_x(t[1]):
+            return sym_d(div(fn("ln", t[2]), fn("ln", t[1])))
         return simple_mul(div(N(1), mul(u, fn("ln", t[1]))), du)
     if op == "root":
         m = t[1]
@@ -1112,9 +1280,22 @@ def composite(rnd, depth):
         return rnd.choice([X, X, lin(rnd.choice([2, -1, 3]), rnd.choice([1, 2])), lin(rnd.choice([2, 3]), 0), pw(X, N(2))])
     u = composite(rnd, depth - 1)
     kind = rnd.choice(["sin", "cos", "tan", "cot", "ln", "arctan", "sqrt", "cbrt", "exp", "base", "log", "pow", "inv",
-                       "add", "mul", "div"])
-    if kind in ("sin", "cos", "tan", "cot", "arctan"):
+                       "add", "mul", "div", "arcsin", "arccos", "arccot", "abs", "tower", "logx", "cbrtneg"])
+    if kind in ("sin", "cos", "tan", "cot", "arctan", "arccot"):
         return fn(kind, u)
+    if kind in ("arcsin", "arccos"):
+        # u / (u^2 + 2) sta tra -1/(2 sqrt 2) e 1/(2 sqrt 2): sempre definito.
+        return fn(kind, div(u, add(pw(u, N(2)), N(2))))
+    if kind == "abs":
+        return ("abs", u)
+    if kind == "tower":
+        # Una base positiva, x nella base e nell'esponente.
+        return pw(add(pw(X, N(2)), N(1)), u)
+    if kind == "logx":
+        return ("log", add(pw(X, N(2)), N(2)), add(pw(u, N(2)), N(1)))
+    if kind == "cbrtneg":
+        # La radice cubica reale, anche di un numero negativo.
+        return ("root", 3, sub(u, N(2)))
     if kind == "ln":
         return fn("ln", add(pw(u, N(2)), N(1)))
     if kind == "sqrt":
@@ -1270,9 +1451,34 @@ def short(text):
     return text.split(". ", 1)[1] if ". " in text else text
 
 
+def classify_request(st, line, label):
+    """Come classify(), per una richiesta: la derivata scritta dal programma
+    (S) si rilegge e si confronta con la derivata vera nei punti di prova.
+    Una richiesta senza risposta (N, U) non è un errore."""
+    text = short(line)
+    if not text.startswith("RISOLTO"):
+        verdict = "N" if text.startswith("NON DIMOSTRATO") else "U"
+        return verdict, "request", "NOTE: request not answered\n   %s [%s]: %s" % (label, text[:90], st["text"][:600])
+    answer = text.split(": ", 1)[1].rsplit(" (dove", 1)[0]
+    reader = Reader(answer)
+    written = reader.expr()
+    if reader.peek()[0] != "end":
+        raise Unsupported("text after the answer")
+    results = judge(dict(st, g=written), [st["order"]])[st["order"]]
+    problem = None
+    if any(r[0] < 0 for r in results):
+        bad = [r for r in results if r[0] < 0][0]
+        problem = "BUG: the derivative written is wrong at x = %s" % bad[1]
+    elif not any(r[0] > 0 for r in results):
+        problem = "SUSPECT: the oracle cannot confirm the derivative written at any point"
+    return "S", "request", (None if problem is None else "%s\n   %s [%s]: %s" % (problem, label, text[:200], st["text"][:600]))
+
+
 def classify(st, line, label):
     """Il verdetto del programma (P, R, N o U), l'esito dell'oracolo, e una
     riga BUG, SUSPECT o NOTE, oppure None. st["text"] è l'\\item scritto."""
+    if st.get("request"):
+        return classify_request(st, line, label)
     text = short(line)
     verdict = "P" if text.startswith("DIMOSTRATO") else "R" if text.startswith("FALSO") else "N" if text.startswith("NON DIMOSTRATO") else "U"
     truth, where = verdict_of(st)
@@ -1304,7 +1510,10 @@ def fuzz(exe, seed, count, work):
     cases = []
     while len(cases) < count:
         st = true_statement(rnd) if rnd.random() < 0.6 else fixed_statement(rnd)
-        if rnd.random() < 0.55:
+        # Una richiesta, senza il risultato: si controlla la risposta.
+        if isinstance(st["order"], int) and rnd.random() < 0.35:
+            st["request"] = True
+        elif rnd.random() < 0.55:
             st = variant(st, rnd)
         # La forma scritta: le tre dei test, e gli argomenti senza parentesi.
         style, bare = rnd.choice(["bracket", "inline", "display"]), rnd.random() < 0.4
@@ -1346,6 +1555,7 @@ def fuzz(exe, seed, count, work):
     print("seed %d: %s; %d true statements not proved" % (seed, ", ".join("%s/%s=%d" % (k[0], k[1], v) for k, v in sorted(tally.items())), notes))
 
 
+
 def check(exe, paths):
     """La modalità check: gli enunciati sulle derivate dei file paths."""
     for path in paths:
@@ -1362,6 +1572,10 @@ def check(exe, paths):
         for (number, item), line in zip(items, lines):
             try:
                 st = read_statement(item)
+                if st is None and "\\mathbb" in item and "frac{d" in item:
+                    key = check_study(item, line, "%s:%d" % (os.path.basename(path), number), false_file)
+                    tally[key] = tally.get(key, 0) + 1
+                    continue
             except Unsupported as why:
                 tally["unread"] = tally.get("unread", 0) + 1
                 print("  %d: the oracle cannot read it (%s) [%s]" % (number, why, short(line)[:60]))
@@ -1382,9 +1596,673 @@ def check(exe, paths):
         print("  " + ", ".join("%s=%d" % ("/".join(k) if isinstance(k, tuple) else k, v) for k, v in sorted(tally.items(), key=str)))
 
 
+# =============================================================================
+# 10. Le condizioni: studi di funzione e insiemi di soluzioni.
+#
+#   ("cmp", [e0, e1, ...], [r1, ...])  una catena e0 r1 e1 r2 e2 ..., con le
+#                                      relazioni tra "<", "le", "=", "ne"
+#                                      (> e \ge si leggono scambiando i membri)
+#   ("and", a, b) ("or", a, b) ("not", a) ("iff", a, b) ("implies", a, b)
+#   ("forall" | "exists", lettera, insieme, corpo), con insieme
+#        ("R", punti tolti) oppure ("Z",)
+#   ("const", vero o falso)
+#
+# Un confronto vale in un punto solo se i suoi membri vi hanno un valore, come
+# nella tabella dei segni; la derivata ha un valore solo dove la funzione è
+# derivabile, cioè dove la sua serie di Taylor si calcola.
+# =============================================================================
+
+RELATIONS = {"<": ("<", False), ">": ("<", True), "le": ("le", False), "leq": ("le", False), "ge": ("le", True),
+             "geq": ("le", True), "=": ("=", False), "neq": ("ne", False), "ne": ("ne", False)}
+
+
+class LogicReader(Reader):
+    """Il lettore delle condizioni, sopra quello delle espressioni."""
+
+    def relation(self):
+        kind, value = self.peek()
+        if (kind == "chr" and value in "<>=") or (kind == "cmd" and value in RELATIONS):
+            self.take()
+            return RELATIONS[value]
+        return None
+
+    def numbers(self):
+        """\\mathbb{R} [\\setminus \\{a, b\\}] oppure \\mathbb{Z}."""
+        if self.take() != ("cmd", "mathbb"):
+            raise Unsupported("set")
+        self.expect("{")
+        kind, name = self.take()
+        self.expect("}")
+        holes = []
+        if self.peek() == ("cmd", "setminus"):
+            self.take()
+            self.expect("{")
+            holes.append(self.expr())
+            while self.is_chr(","):
+                self.take()
+                holes.append(self.expr())
+            self.expect("}")
+        return ("Z",) if name == "Z" else ("R", holes)
+
+    def formula(self):
+        left = self.implication()
+        while self.peek() == ("cmd", "iff"):
+            self.take()
+            left = ("iff", left, self.implication())
+        return left
+
+    def implication(self):
+        left = self.disjunction()
+        if self.peek() == ("cmd", "implies"):
+            self.take()
+            return ("implies", left, self.implication())
+        return left
+
+    def disjunction(self):
+        left = self.conjunction()
+        while self.peek() == ("cmd", "lor"):
+            self.take()
+            left = ("or", left, self.conjunction())
+        return left
+
+    def conjunction(self):
+        left = self.unary()
+        while self.peek() == ("cmd", "land"):
+            self.take()
+            left = ("and", left, self.unary())
+        return left
+
+    def unary(self):
+        kind, value = self.peek()
+        if (kind, value) == ("cmd", "lnot"):
+            self.take()
+            return ("not", self.unary())
+        if kind == "cmd" and value in ("forall", "exists", "nexists"):
+            self.take()
+            _, letter = self.take()
+            if self.take() != ("cmd", "in"):
+                raise Unsupported("quantifier without \\in")
+            numbers = self.numbers()
+            if self.peek()[0] == "end" or self.is_chr(")"):
+                # \nexists x \in R, \forall x \in R: le risposte "nessun x" e
+                # "ogni x" del programma.
+                return ("const", value == "forall")
+            body = self.unary()
+            node = ("exists" if value != "forall" else "forall", letter, numbers, body)
+            return ("not", node) if value == "nexists" else node
+        if self.is_chr("("):
+            # Una parentesi apre un confronto, come (x - 1)^{2} > 0, oppure una
+            # condizione: si prova la prima lettura, e se non riesce la seconda.
+            start = self.i
+            try:
+                return self.chain()
+            except Unsupported:
+                self.i, self.bars = start, 0
+            self.take()
+            inside = self.formula()
+            self.expect(")")
+            return inside
+        return self.chain()
+
+    def chain(self):
+        sides, relations = [self.expr()], []
+        while True:
+            relation = self.relation()
+            if relation is None:
+                break
+            relations.append(relation)
+            sides.append(self.expr())
+        if not relations:
+            raise Unsupported("a condition without a relation")
+        return ("cmp", sides, relations)
+
+
+def read_condition(text):
+    reader = LogicReader(text)
+    try:
+        formula = reader.formula()
+    except IndexError:
+        raise Unsupported("the condition ends too early")
+    if reader.peek()[0] != "end":
+        raise Unsupported("text after the condition: %r" % (reader.peek(),))
+    return formula
+
+
+def check_study(item, line, label, false_file):
+    """La modalità check per un enunciato con quantificatori sulle derivate:
+    la sua verità per l'oracolo, contro il verdetto e il nome del file. Ritorna
+    (esito dell'oracolo, verdetto), dopo aver stampato i problemi."""
+    pieces = re.findall(r"\\\[(.*?)\\\]|\$(.*?)\$", item, re.S)
+    math_text = next((a or b for a, b in pieces), "")
+    truth, where = statement_truth(read_condition(math_text))
+    text = short(line)
+    verdict = "P" if text.startswith("DIMOSTRATO") else "R" if text.startswith("FALSO") else "N" if text.startswith("NON DIMOSTRATO") else "U"
+    if verdict == "P" and truth != "true":
+        print("BUG: proved, but the oracle finds it %s at x = %s\n   %s: %s" % (truth, str(where)[:24], label, math_text[:300]))
+    elif verdict == "R" and truth == "true":
+        print("BUG: refuted, but the oracle finds it true\n   %s: %s" % (label, math_text[:300]))
+    if truth == "true" and false_file or truth == "false" and not false_file:
+        print("DATA: %s is %s for the oracle" % (label, truth))
+    if truth == "unsure":
+        print("SUSPECT: the oracle cannot decide %s at x = %s" % (label, str(where)[:24]))
+    return truth, verdict
+
+
+def value_at(t, x0, env):
+    """Il valore di t con x = x0 (un Decimal) e le altre lettere in env; None
+    se lì non ne ha uno."""
+    try:
+        return taylor(t, "x", x0, 0, env)[0]
+    except Undefined:
+        return None
+
+
+def side_of(left, right, x0, env):
+    """Il segno di left - right in x0, due alberi: 1, 0, -1; None se non si
+    sa; "undefined" se un membro lì non ha un valore.
+
+    Con 80 cifre una differenza sotto 10^-40 può essere uno zero vero, che
+    gli arrotondamenti lasciano a 10^-79, oppure un numero piccolo ma non
+    nullo, come e^{-225}. Le due cose si separano rifacendo il conto con
+    FINE cifre: lo zero scende a 10^-119, il numero resta com'è. Con FINE
+    cifre una differenza sotto 10^-100 è zero."""
+    a, b = value_at(left, x0, env), value_at(right, x0, env)
+    if a is None or b is None:
+        return "undefined"
+    gap, scale = a - b, 1 + abs(a) + abs(b)
+    if abs(gap) > DIFFERENT * scale:
+        return 1 if gap > 0 else -1
+    if getcontext().prec >= FINE:
+        return 0 if abs(gap) <= D(10) ** -100 * scale else 1 if gap > 0 else -1
+    if abs(gap) > SAME * scale:
+        return None
+    previous = getcontext().prec
+    getcontext().prec = FINE
+    try:
+        return side_of(left, right, x0, env)
+    finally:
+        getcontext().prec = previous
+
+
+def cmp_holds(side, relation):
+    """True o False per una relation tra due membri con il segno side."""
+    return {"<": side < 0, "le": side <= 0, "=": side == 0, "ne": side != 0}[relation]
+
+
+def holds(f, x0, env):
+    """La verità di f con x = x0: True, False, oppure None se l'oracolo non
+    sa decidere un confronto che conta."""
+    op = f[0]
+    if op == "const":
+        return f[1]
+    if op == "cmp":
+        result = True
+        for i, (relation, swapped) in enumerate(f[2]):
+            left, right = (f[1][i + 1], f[1][i]) if swapped else (f[1][i], f[1][i + 1])
+            try:
+                side = side_of(left, right, x0, env)
+            except (ArithmeticError, Unsure):
+                # Un numero troppo grande per i decimali, o una derivata che
+                # non si sa se esiste: non si sa.
+                side = None
+            if side == "undefined":
+                return False
+            if side is None:
+                result = None
+            elif not cmp_holds(side, relation):
+                return False
+        return result
+    if op == "not":
+        r = holds(f[1], x0, env)
+        return None if r is None else not r
+    if op in ("and", "or", "iff", "implies"):
+        a, b = holds(f[1], x0, env), holds(f[2], x0, env)
+        if op == "implies":
+            a = None if a is None else not a
+            op = "or"
+        if op == "and":
+            return False if a is False or b is False else None if a is None or b is None else True
+        if op == "or":
+            return True if a is True or b is True else None if a is None or b is None else False
+        return None if a is None or b is None else a == b
+    if op in ("exists", "forall") and f[2] == ("Z",):
+        # Gli interi k che contano per x0 tra -12 e 12: la griglia non va oltre.
+        seen = []
+        for k in range(-80, 81):
+            seen.append(holds(f[3], x0, dict(env, **{f[1]: Fr(k)})))
+        if op == "exists":
+            return True if True in seen else None if None in seen else False
+        return False if False in seen else None if None in seen else True
+    raise Unsupported("condition %s" % op)
+
+
+GRID = [Fr(i, 25) + Fr(1, 997) for i in range(-300, 301)]
+FINE = 120  # cifre con cui si cercano e si provano i punti speciali
+
+
+def watched(t, found):
+    """Mette in found le sotto-espressioni di t i cui zeri sono i punti in
+    cui la verità di un confronto può cambiare senza che la griglia lo veda:
+    le derivate stesse, i denominatori, gli argomenti dei logaritmi, i
+    radicandi, gli argomenti dei valori assoluti, il coseno sotto una
+    tangente, 1 - u^2 sotto un arcoseno, la base di una potenza con x
+    all'esponente."""
+    if not isinstance(t, tuple) or "x" not in letters(t):
+        return
+    op = t[0]
+    if op == "sub" and t[2] != N(0) and any(part[0] == "deriv" for part in t[1:] if isinstance(part, tuple)):
+        # La differenza tra i membri di un confronto con una derivata.
+        found.append(t)
+    if op == "deriv":
+        found.append(t)
+        watched(t[3], found)
+        return
+    if op == "div":
+        found.append(t[2])
+    elif op == "fn" and t[1] in ("ln",):
+        found.append(t[2])
+    elif op == "fn" and t[1] in ("tan", "cot"):
+        found.append(fn("cos" if t[1] == "tan" else "sin", t[2]))
+    elif op == "fn" and t[1] in ("arcsin", "arccos"):
+        found.append(sub(N(1), pw(t[2], N(2))))
+    elif op in ("log", "root"):
+        found.append(t[2])
+    elif op == "abs":
+        found.append(t[1])
+    elif op == "pow" and "x" in letters(t[2]):
+        found.append(t[1])
+    for part in t[1:]:
+        watched(part, found)
+
+
+def nearby_rational(x0, s):
+    """Un razionale semplice vicino a x0 (denominatore fino a 64) in cui s è
+    zero o non ha un valore, se c'è: i punti esatti delle tabelle sono di
+    solito così."""
+    for q in range(1, 65):
+        p = (x0 * q).to_integral_value()
+        if abs(p / q - x0) > D(10) ** -20:
+            continue
+        candidate = D(int(p)) / q
+        v = probe(s, candidate)
+        if v is None or v == 0:
+            return candidate
+    return None
+
+
+def probe(s, p):
+    """Il valore di s in p per la ricerca dei punti speciali: None anche dove
+    non si sa se c'è, che per la ricerca è un bordo come un altro."""
+    try:
+        return value_at(s, p, {})
+    except (ArithmeticError, Unsure):
+        return None
+
+
+def zeros_of(s):
+    """I punti tra -12 e 12 in cui s si annulla, cambia segno, sfiora lo zero
+    o smette di avere un valore: trovati sulla griglia e stretti per
+    bisezione, o per ricerca del minimo di |s|, con FINE cifre."""
+    points = []
+    grid = [d_of(p) for p in GRID]
+    values = [probe(s, p) for p in grid]
+    previous = getcontext().prec
+    getcontext().prec = FINE
+    try:
+        for i in range(len(grid) - 1):
+            a, b, va, vb = grid[i], grid[i + 1], values[i], values[i + 1]
+            if (va is None) != (vb is None) or (va is not None and va * vb < 0):
+                # Un cambio di segno, o il bordo del dominio: bisezione.
+                inside_a = va is not None
+                sign_a = va > 0 if inside_a else None
+                for _ in range(420):
+                    m = (a + b) / 2
+                    vm = probe(s, m)
+                    if (vm is not None) == inside_a and (vm is None or (vm > 0) == sign_a):
+                        a = m
+                    else:
+                        b = m
+                # Sul bordo del dominio si prende l'estremo dalla parte in cui
+                # non c'è un valore: con le cifre finite il punto trovato è
+                # già "uguale" al bordo scritto, e deve dire come il bordo.
+                if (va is None) != (vb is None):
+                    points.append(b if inside_a else a)
+                else:
+                    points.append((a + b) / 2)
+            elif 0 < i and va is not None and values[i - 1] is not None and vb is not None and abs(va) <= abs(values[i - 1]) and abs(va) <= abs(vb) \
+                    and values[i - 1] * va > 0 and va * vb > 0:
+                # Un minimo di |s| tra due punti dello stesso segno: forse uno
+                # zero che non cambia segno. Uno che cambia segno lo trova la
+                # bisezione, con più cifre: un punto stretto solo fino a
+                # 10^-44, accanto a un polo, avrebbe ancora un valore, ma
+                # sarebbe già "uguale" all'estremo scritto.
+                low, high = grid[i - 1], b
+                for _ in range(300):
+                    m1, m2 = low + (high - low) / 3, high - (high - low) / 3
+                    v1, v2 = probe(s, m1), probe(s, m2)
+                    if v1 is None or v2 is None:
+                        break
+                    if abs(v1) < abs(v2):
+                        high = m2
+                    else:
+                        low = m1
+                # Solo se è davvero uno zero: un minimo che non lo è, come
+                # quello di 1 / sqrt(1 - x^2) in 0, non ha niente di speciale.
+                bottom = probe(s, (low + high) / 2)
+                if bottom is not None and abs(bottom) < D(10) ** -50:
+                    points.append((low + high) / 2)
+        # Un punto che è un razionale semplice si prende esatto, con tutte
+        # le cifre: 2/3 con 80 cifre non è 2/3 per un conto con 120.
+        points = [r if r is not None else p for p, r in ((p, nearby_rational(p, s)) for p in points)]
+    except ArithmeticError:
+        pass
+    finally:
+        getcontext().prec = previous
+    return points
+
+
+def constants_in(f):
+    """I membri senza lettere dei confronti di f: gli estremi scritti, come
+    alberi, perché si calcolino con le cifre che servono."""
+    found = []
+    if f[0] == "cmp":
+        for side in f[1]:
+            if not letters(side):
+                found.append(side)
+    elif f[0] in ("and", "or", "iff", "implies"):
+        found = constants_in(f[1]) + constants_in(f[2])
+    elif f[0] == "not":
+        found = constants_in(f[1])
+    elif f[0] in ("forall", "exists"):
+        found = constants_in(f[3])
+    return found
+
+
+def sides_in(f, found):
+    """Mette in found i membri dei confronti di f, e le differenze tra due
+    membri vicini di una catena: dove si annulla una differenza come
+    f'(x) - 1, la verità del confronto cambia."""
+    if f[0] == "cmp":
+        found += f[1]
+        found += [sub(a, b) for a, b in zip(f[1], f[1][1:]) if "x" in letters(a) or "x" in letters(b)]
+    elif f[0] in ("and", "or", "iff", "implies"):
+        sides_in(f[1], found)
+        sides_in(f[2], found)
+    elif f[0] == "not":
+        sides_in(f[1], found)
+    elif f[0] in ("forall", "exists"):
+        sides_in(f[3], found)
+
+
+def truth_on_grid(body, extra=()):
+    """La verità di "per ogni x reale, body": ("true", None), ("false", x0)
+    con un punto in cui body non vale, oppure ("unsure", x0). Si guarda la
+    griglia; gli estremi scritti e due punti vicinissimi a ognuno di loro; e
+    i punti speciali delle espressioni (zeros_of()): dove una derivata si
+    annulla senza cambiare segno, o una funzione non ha un valore, la griglia
+    non passa, ma la verità di un confronto può cambiare proprio lì."""
+    points, special = [d_of(p) for p in GRID], []
+    previous = getcontext().prec
+    for tree in constants_in(body):
+        c = value_at(tree, D(0), {})
+        if c is None:
+            continue
+        points += [c - D(10) ** -6, c + D(10) ** -6, c - D(10) ** -3, c + D(10) ** -3]
+        # L'estremo stesso con tutte le cifre: può essere anche un polo, o
+        # uno zero della derivata, e lì le due cose vanno viste insieme.
+        getcontext().prec = FINE
+        fine = value_at(tree, D(0), {})
+        getcontext().prec = previous
+        if fine is not None:
+            special.append(fine)
+    for c in extra:
+        points += [c, c - D(10) ** -6, c + D(10) ** -6]
+    sides, subtrees = [], []
+    sides_in(body, sides)
+    for side in sides:
+        watched(side, subtrees)
+    seen = set()
+    for s in subtrees:
+        if repr(s) not in seen:
+            seen.add(repr(s))
+            special += zeros_of(s)
+    unsure = None
+    for fine, group in ((False, points), (True, special)):
+        previous = getcontext().prec
+        if fine:
+            getcontext().prec = FINE
+        try:
+            for x0 in group:
+                r = holds(body, x0, {})
+                if r is False:
+                    return "false", x0
+                if r is None and unsure is None:
+                    unsure = x0
+        finally:
+            getcontext().prec = previous
+    return ("unsure", unsure) if unsure is not None else ("true", None)
+
+
+def statement_truth(f):
+    """La verità di un enunciato \\forall x \\in R (...) (anche con punti
+    tolti), o di \\lnot di uno così."""
+    if f[0] == "not":
+        truth, where = statement_truth(f[1])
+        return {"true": "false", "false": "true"}.get(truth, truth), where
+    if f[0] != "forall" or f[1] != "x" or f[2][0] != "R":
+        raise Unsupported("not a statement for every real x")
+    body = f[3]
+    for hole in f[2][1]:
+        body = ("implies", ("cmp", [X, hole], [("ne", False)]), body)
+    return truth_on_grid(body)
+
+
+# =============================================================================
+# 11. Gli studi di funzione.
+# =============================================================================
+
+def study_function(rnd):
+    """Una funzione di una famiglia che la tabella dei segni tratta."""
+    c = lambda: rnd.choice([1, 2, 3, -1, -2, Fr(1, 2)])
+    r = lambda: rnd.choice([-3, -2, -1, 0, 1, 2, 3, Fr(1, 2), Fr(-3, 2)])
+    kind = rnd.choice(["roots", "poly", "rational", "rational2", "exp", "exp2", "log", "xlog", "sqrt", "atan", "trig", "trig2", "cbrt"])
+    if kind == "roots":
+        f = N(c())
+        for _ in range(rnd.choice([2, 3, 3, 4])):
+            f = mul(f, pw(lin(1, -r()), N(rnd.choice([1, 1, 2]))))
+        return f
+    if kind == "poly":
+        return add(add(pw(X, N(rnd.choice([3, 4]))), mul(N(rnd.randint(-4, 4)), pw(X, N(2)))), lin(rnd.randint(-6, 6), rnd.randint(-3, 3)))
+    if kind == "rational":
+        return div(add(pw(X, N(2)), lin(rnd.randint(-3, 3), rnd.randint(-4, 4))), lin(1, rnd.randint(-3, 3)))
+    if kind == "rational2":
+        return div(lin(1, rnd.randint(-3, 3)), add(pw(X, N(2)), N(rnd.randint(1, 4))))
+    if kind == "exp":
+        return mul(pw(X, N(rnd.choice([1, 2, 3]))), exp_(lin(rnd.choice([1, -1, 2, -2]), 0)))
+    if kind == "exp2":
+        return mul(add(pw(X, N(2)), lin(rnd.randint(-3, 3), rnd.randint(-3, 3))), exp_(lin(rnd.choice([1, -1]), 0)))
+    if kind == "log":
+        return fn("ln", add(pw(X, N(2)), lin(rnd.randint(-3, 3), rnd.randint(-4, 3))))
+    if kind == "xlog":
+        return mul(pw(X, N(rnd.choice([1, 2]))), fn("ln", X)) if rnd.random() < 0.6 else pw(fn("ln", X), N(2))
+    if kind == "sqrt":
+        return rnd.choice([mul(lin(1, rnd.randint(-2, 2)), ("root", 2, lin(1, rnd.randint(-2, 3)))),
+                           div(X, ("root", 2, add(pw(X, N(2)), N(1)))), mul(X, ("root", 2, lin(-1, rnd.randint(1, 4))))])
+    if kind == "atan":
+        return fn("arctan", add(pw(X, N(2)), lin(rnd.randint(-3, 3), 0)))
+    if kind == "trig":
+        return rnd.choice([fn("sin", lin(rnd.choice([1, 2, 3]), 0)), add(fn("sin", X), fn("cos", X)), mul(fn("sin", X), fn("cos", X)),
+                           pw(fn("sin", X), N(2))])
+    if kind == "trig2":
+        return add(fn("cos", lin(2, 0)), mul(N(rnd.choice([1, 2, -2])), fn("sin", X)))
+    return ("root", 3, lin(1, rnd.randint(-2, 2)))
+
+
+RELATION_TEX = {">": ">", "<": "<", "ge": r"\ge", "le": r"\le", "=": "="}
+
+
+def study_request(rnd):
+    """Una richiesta \\{x \\in R \\mid f^{(k)} rel 0\\}: (testo, condizione)."""
+    f = study_function(rnd)
+    k = 1 if rnd.random() < 0.7 else 2
+    relation = rnd.choice([">", ">", "<", "ge", "le", "="])
+    sign = r"\frac{d}{dx}" if k == 1 else r"\frac{d^{2}}{dx^{2}}"
+    condition = r"%s\left( %s \right) %s 0" % (sign, tex(f)[0], RELATION_TEX[relation])
+    return condition
+
+
+def answer_of(line):
+    """Le soluzioni scritte in una riga RISOLTO: (testo, periodiche), oppure
+    None se la riga non è una risposta o usa nomi di radici."""
+    text = short(line)
+    if not text.startswith("RISOLTO"):
+        return None
+    answer = text.split(": ", 1)[1]
+    periodic = answer.endswith(" (k intero)")
+    answer = re.sub(r" \((k intero|negli estremi[^)]*|radici[^)]*)\)$", "", answer)
+    if "r_{" in answer:
+        return None
+    return answer, periodic
+
+
+def wrapped(answer, periodic):
+    """Le soluzioni come condizione da rileggere: con k, sotto \\exists k."""
+    return r"\exists k \in \mathbb{Z}\ \left( %s \right)" % answer if periodic else answer
+
+
+def mutated(answer, rnd):
+    """Le soluzioni con un dettaglio cambiato: un estremo compreso o escluso,
+    un numero spostato, un pezzo tolto."""
+    choice = rnd.choice(["closed", "number", "piece"])
+    if choice == "closed":
+        swaps = [(m.start(), m.group()) for m in re.finditer(r" (<|>|\\le|\\ge) ", answer)]
+        if swaps:
+            at, old = rnd.choice(swaps)
+            new = {" < ": r" \le ", " > ": r" \ge ", r" \le ": " < ", r" \ge ": " > "}[old]
+            return answer[:at] + new + answer[at + len(old):]
+    if choice == "number":
+        numbers = list(re.finditer(r"(?<![{\w^])-?\d+(?![}\w])", answer))
+        if numbers:
+            m = rnd.choice(numbers)
+            return answer[:m.start()] + str(int(m.group()) + rnd.choice([1, -1])) + answer[m.end():]
+    pieces = answer.split(r" \lor ")
+    if len(pieces) > 1:
+        pieces.pop(rnd.randrange(len(pieces)))
+        return r" \lor ".join(pieces)
+    return None
+
+
+def study_problem(kind, line, condition, answer_text, label):
+    """Controlla un verdetto dello studio: una riga BUG o SUSPECT, o None."""
+    return "%s\n   %s [%s]: %s ; %s" % (kind, label, short(line)[:160], condition[:300], answer_text[:300])
+
+
+def studies(exe, seed, count, work):
+    """La modalità studies: count richieste dal seme seed, poi gli enunciati."""
+    rnd = random.Random(seed)
+    conditions = []
+    while len(conditions) < count:
+        condition = study_request(rnd)
+        try:
+            read_condition(condition)
+        except Unsupported:
+            continue
+        conditions.append(condition)
+    path = os.path.join(work, "fuzz_studies_%d.tex" % seed)
+    with open(path, "w", encoding="utf-8") as out:
+        out.write("\\begin{enumerate}\n")
+        for condition in conditions:
+            out.write("\\item $\\displaystyle \\{x \\in \\mathbb{R} \\mid %s\\}$\n" % condition)
+        out.write("\\end{enumerate}\n")
+    run, lines, warning = run_engine(exe, path)
+    if len(lines) != len(conditions):
+        print("BUG: the program answered %d of %d requests (exit %d)" % (len(lines), len(conditions), run.returncode))
+        return
+    for w in warning:
+        print("BUG: " + w)
+
+    # Fase 1: le soluzioni scritte, contro il segno vero della derivata.
+    tally, confirmed = {}, []
+    for index, (condition, line) in enumerate(zip(conditions, lines), 1):
+        found = answer_of(line)
+        if found is None:
+            tally["unanswered"] = tally.get("unanswered", 0) + 1
+            continue
+        answer, periodic = found
+        try:
+            formula = read_condition("(%s) \\iff (%s)" % (condition, wrapped(answer, periodic)))
+            truth, where = truth_on_grid(formula)
+        except Unsupported as why:
+            print("SUSPECT: the oracle cannot read the answer of request %d (%s): %s" % (index, why, answer[:200]))
+            continue
+        tally["answer " + truth] = tally.get("answer " + truth, 0) + 1
+        if truth == "false":
+            print(study_problem("BUG: the solutions written are wrong at x = %s" % str(where)[:24], line, condition, answer, "request %d" % index))
+        elif truth == "unsure":
+            print(study_problem("SUSPECT: the oracle cannot decide the solutions at x = %s" % str(where)[:24], line, condition, answer, "request %d" % index))
+        else:
+            confirmed.append((condition, answer, periodic))
+
+    # Fase 2: le soluzioni confermate come enunciati, e le loro varianti.
+    cases = []
+    for condition, answer, periodic in confirmed:
+        cases.append((condition, answer, periodic))
+        other = mutated(answer, rnd)
+        if other and other != answer:
+            cases.append((condition, other, periodic))
+    statements = [r"\forall x \in \mathbb{R}\ \left( \left( %s \right) \iff \left( %s \right) \right)" % (c, wrapped(a, p)) for c, a, p in cases]
+    path = os.path.join(work, "fuzz_studies_%d_statements.tex" % seed)
+    with open(path, "w", encoding="utf-8") as out:
+        out.write("\\begin{enumerate}\n")
+        for s in statements:
+            out.write("\\item $\\displaystyle %s$\n" % s)
+        out.write("\\end{enumerate}\n")
+    run, lines, warning = run_engine(exe, path)
+    if len(lines) != len(statements):
+        print("BUG: the program answered %d of %d statements (exit %d)" % (len(lines), len(statements), run.returncode))
+        return
+    for w in warning:
+        print("BUG: " + w)
+    for index, (statement, line) in enumerate(zip(statements, lines), 1):
+        text = short(line)
+        verdict = "P" if text.startswith("DIMOSTRATO") else "R" if text.startswith("FALSO") else "N"
+        try:
+            truth, where = statement_truth(read_condition(statement))
+        except Unsupported as why:
+            print("SUSPECT: the oracle cannot read statement %d (%s)" % (index, why))
+            continue
+        tally["%s/%s" % (truth, verdict)] = tally.get("%s/%s" % (truth, verdict), 0) + 1
+        if verdict == "P" and truth != "true":
+            print(study_problem("BUG: proved, but the oracle finds it %s at x = %s" % (truth, str(where)[:24]), line, statement, "", "statement %d" % index))
+        elif verdict == "R" and truth == "true":
+            print(study_problem("BUG: refuted, but the oracle finds it true", line, statement, "", "statement %d" % index))
+        elif verdict == "R":
+            # Il controesempio del programma: lì i due membri devono differire.
+            # Si calcola con FINE cifre: è spesso una radice, come 2 + sqrt 3,
+            # dove la derivata con 80 cifre non è ancora zero.
+            point = re.search(r"controesempio x = (.*?)( \(.*\))?$", text)
+            body = read_condition(statement)[3]
+            previous = getcontext().prec
+            getcontext().prec = FINE
+            try:
+                at = value_at(Reader(point.group(1)).expr(), D(0), {}) if point else None
+                seen = holds(body, at, {}) if at is not None else None
+            except Unsupported:
+                seen = None
+            finally:
+                getcontext().prec = previous
+            if seen is True:
+                print(study_problem("BUG: refuted at x = %s, but the oracle finds the statement true there" % point.group(1), line, statement, "", "statement %d" % index))
+            elif seen is None and truth != "false":
+                print(study_problem("SUSPECT: refuted, and the oracle cannot confirm the counterexample", line, statement, "", "statement %d" % index))
+    print("seed %d: %s" % (seed, ", ".join("%s=%d" % (k, v) for k, v in sorted(tally.items()))))
+
+
 def main():
     if len(sys.argv) >= 6 and sys.argv[1] == "fuzz":
         fuzz(sys.argv[2], int(sys.argv[3]), int(sys.argv[4]), sys.argv[5])
+    elif len(sys.argv) >= 6 and sys.argv[1] == "studies":
+        studies(sys.argv[2], int(sys.argv[3]), int(sys.argv[4]), sys.argv[5])
     elif len(sys.argv) >= 4 and sys.argv[1] == "check":
         check(sys.argv[2], sys.argv[3:])
     else:

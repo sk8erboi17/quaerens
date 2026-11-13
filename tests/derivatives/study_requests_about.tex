@@ -1,0 +1,31 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{study\_requests.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{study\_requests.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_book\_derivatives.c} in this folder, which holds the expected answers.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 16 requests $\{x \in \mathbb{R} \mid \frac{d}{dx}\left( f \right) > 0\}$ and the like: the engine must find, and write as in the books, where a function is increasing, decreasing, convex, concave or stationary.
+
+\item \textbf{What it exercises.} The derivative sign inside an expression (27j), solved by the sign table (18p) and its rereading of the written solutions. Three requests show the domain: for $\ln(x^{2} - 1)$ the answer is $x > 1$, not $-1 < x < 0 \lor x > 1$, because the function is not defined between $-1$ and $1$; for $\ln x$ the derivative is never negative; for $\sqrt{x}$ the answer is $x > 0$, with a note that at an endpoint of the domain there is no derivative. One request, $x|x|$, is not answered: the function is differentiable at $0$, but the rules give no derivative there, and the engine does not guess (27l).
+
+\item \textbf{Expected result.} The line \texttt{PASS: 16 of 16 requests on studies of functions answered as expected}.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_book_derivatives \
+    tests/derivatives/test_book_derivatives.c && /tmp/test_book_derivatives
+\end{verbatim}
+\end{enumerate}
+\end{document}

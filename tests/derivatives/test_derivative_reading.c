@@ -9,7 +9,9 @@
  *   2. nessun enunciato di false_derivative_sign_reading.tex viene
  *      dimostrato: sono derivate false che, lette come frazione delle
  *      lettere d e x, sarebbero uguaglianze vere. È l'antiregressione contro
- *      l'errore che le dimostrava;
+ *      l'errore che le dimostrava. Quelle con il segno in mezzo
+ *      all'espressione oggi si leggono come derivate (27j) e risultano non
+ *      dimostrate; prima erano rifiutate dal lettore;
  *   3. alcuni enunciati ricevono proprio il verdetto atteso.
  *
  * Compilazione ed esecuzione, dalla cartella principale del repository:
@@ -33,9 +35,24 @@ static const Expected expected[] = {
     {"\\displaystyle \\frac{d}{dx} 5 = \\frac{5}{x}", REFUTED},
     {"\\displaystyle \\frac{d}{dx} x^{2} = 2x", PROVED},
 
-    /* In mezzo a un'espressione il segno di derivata non si legge. */
-    {"x^{2} + \\frac{d}{dx} x^{2} = x^{2} + x", UNSUPPORTED},
+    /* In mezzo a un'espressione il segno di derivata è la derivata del
+     * term che lo segue (9d, 27j): qui x^2 + 2x = x^2 + x, che è falso
+     * tranne in x = 0. Prima il lettore rifiutava il segno, e il verdetto
+     * era NON SUPPORTATO; ora l'enunciato si legge come scritto e non si
+     * dimostra. Che non si dimostri è ciò che conta: letto come frazione
+     * delle lettere d e x sarebbe vero. L'induzione del capitolo 13, che lo
+     * riceve perché non ha quantificatori, non dice FALSO per un enunciato
+     * senza n: la x è un parametro. */
+    {"x^{2} + \\frac{d}{dx} x^{2} = x^{2} + x", NOT_PROVED},
     {"\\frac{d}{dx} = \\frac{1}{x}", UNSUPPORTED},
+
+    /* Con i quantificatori la tabella dei segni lo decide: l'insieme dei
+     * numeri in cui la falsa uguaglianza vale è il solo 0. */
+    {"\\forall x \\in \\mathbb{R}\\ \\left(x^{2} + \\frac{d}{dx}\\left( x^{2} \\right) = x^{2} + x\\right)", REFUTED},
+    {"\\forall x \\in \\mathbb{R}\\ \\left(x^{2} + \\frac{d}{dx}\\left( x^{2} \\right) = x^{2} + 2x\\right)", PROVED},
+
+    /* Dentro un'espressione l'ordine di una derivata è un numero. */
+    {"\\forall x \\in \\mathbb{R}\\ \\left(\\frac{d^{n}}{dx^{n}}\\left( x \\right) = 1\\right)", UNSUPPORTED},
 
     /* \sin 2x è sin(2x); una frazione con d sopra e un numero sotto resta
      * una frazione. */

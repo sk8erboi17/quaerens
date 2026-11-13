@@ -1,0 +1,31 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_function\_studies.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_function\_studies.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_book\_derivatives.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 31 false studies of functions: a statement of \texttt{function\_studies.tex} with one endpoint moved, an endpoint included where the derivative is zero or does not exist, two intervals joined across a pole, a point where the function has no value taken as a solution ($\ln(x^{2} - 1)$ for $-1 < x < 0$, $\ln x$ for $x < 0$, $\sqrt{x}$ at $0$), and the two results that the books print wrong.
+
+\item \textbf{What it exercises.} The anti-regression check against false proofs, on the derivative sign inside an expression (27j) and the sign table (18p): none of them may be proved, and the engine finds a counterexample for each, which its independent check recomputes.
+
+\item \textbf{Expected result.} The line \texttt{PASS: 31 of 31 statements \ldots are REFUTED (at least 31 wanted), 0 are PROVED (none allowed)}.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_book_derivatives \
+    tests/derivatives/test_book_derivatives.c && /tmp/test_book_derivatives
+\end{verbatim}
+\end{enumerate}
+\end{document}

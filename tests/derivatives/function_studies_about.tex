@@ -1,0 +1,33 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{function\_studies.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{function\_studies.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_book\_derivatives.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 37 true statements of the form $\forall x \in \mathbb{R}\ \left(\frac{d}{dx}\left( f \right) > 0 \iff \ldots\right)$: where a function is increasing, decreasing, convex or concave, and where it is stationary. 27 come from the studies of \texttt{derivate.jsonl} (Ferrara, Mereu--Nanni, Pavia, Trieste, De Agostini, Gilardi), with the intervals printed there, or, where only the extrema are printed, the intervals they give together with the domain. The others show how the domain enters: $\ln(x^{2} - 1)$, $\ln x$, $\sqrt{x}$, $\arcsin x$, $\ln|x|$, $x|x|$ away from $0$, a derivative of a derivative.
+
+\item \textbf{What it exercises.} The derivative sign inside an expression (27j): it becomes the derivative given by the rules, restricted to the domain of the function, and the sign table (18p) decides the statement; and the check of the points where the function is defined but the rules give no derivative (27l). A comparison counts as false where one of its sides has no value: where $f$ is not defined, $f'$ has no value either, even if its formula has one. A derivative exists only where $f$ is defined on both sides of the point: for $\sqrt{x}$ there is none at $0$.
+
+\item \textbf{Variety.} Polynomials, rational functions with poles, a square root, logarithms, $\arctan$ of a polynomial, products with $e^{x}$ and $e^{-x}$, a periodic function on $[0, 2\pi]$, the stationary points of $\sin 3x$ as a family $x = \frac{\pi}{6} + \frac{k\pi}{3}$, second derivatives for concavity, irrational endpoints such as $5 - 2\sqrt{7}$ and $-3 \pm \sqrt{3}$. Two printed results are wrong (the concavity of $x^{5} e^{-x}$, the period of the stationary points of $\sin 3x$): the statements here are corrected, the printed ones are in \texttt{false\_function\_studies.tex}. \texttt{tools/fuzz/fuzz\_derivatives.py} in mode \texttt{check} confirms each statement with its own oracle.
+
+\item \textbf{Expected result.} The line \texttt{PASS: 37 of 37 statements proved, each with a written proof}.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_book_derivatives \
+    tests/derivatives/test_book_derivatives.c && /tmp/test_book_derivatives
+\end{verbatim}
+\end{enumerate}
+\end{document}
