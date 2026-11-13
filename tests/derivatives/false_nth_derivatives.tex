@@ -1,0 +1,47 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{False statements on derivatives (27)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Each statement gives a wrong formula for a derivative of order $n$ or of a fixed order: a wrong phase, sign, factorial or power, a formula that is right only for the first values of $n$, a function that itself depends on $n$, a rule of differentiation applied wrongly. None of them is true.
+
+\begin{enumerate}
+\item $\dfrac{d^n}{dx^n}\sin x=\sin\left(x+\dfrac{n\pi}{3}\right)$ for every integer $n\ge0$.
+\item $\dfrac{d^n}{dx^n}\sin x=\cos\left(x+\dfrac{n\pi}{2}\right)$ for every integer $n\ge0$.
+\item $\dfrac{d^n}{dx^n}\cos x=\cos\left(x-\dfrac{n\pi}{2}\right)$ for every integer $n\ge0$.
+\item $\dfrac{d^n}{dx^n}\sin^2x=2^{n}\sin\left(2x+\dfrac{(n-1)\pi}{2}\right)$ for every integer $n\ge1$.
+\item $\dfrac{d^n}{dx^n}\left(xe^{x}\right)=(x+n+1)e^{x}$ for every integer $n\ge0$.
+\item $\dfrac{d^n}{dx^n}\left(xe^{x}\right)=(x+n)e^{x}+n(n-1)(n-2)(n-3)$ for every integer $n\ge0$.
+\item $\dfrac{d^n}{dx^n}\left(xe^{x}\right)=(x+n)e^{x}+n(n-1)(n-2)(n-3)(n-4)(n-5)$ for every integer $n\ge0$.
+\item $\dfrac{d^n}{dx^n}\left(x^2e^{x}\right)=\left(x^2+2nx+n^2\right)e^{x}$ for every integer $n\ge0$.
+\item $\dfrac{d^n}{dx^n}\ln x=\dfrac{(-1)^{n}(n-1)!}{x^n}$ for every integer $n\ge1$.
+\item $\dfrac{d^n}{dx^n}\ln x=\dfrac{(-1)^{n-1}\,n!}{x^n}$ for every integer $n\ge1$.
+\item $\dfrac{d^n}{dx^n}\ln x=\dfrac{(-1)^{n-1}(n-1)!}{x^{n+1}}$ for every integer $n\ge1$.
+\item $\dfrac{d^n}{dx^n}\dfrac{1}{1+x}=\dfrac{n!}{(1+x)^{n+1}}$ for every integer $n\ge0$.
+\item $\dfrac{d^n}{dx^n}\dfrac{1}{1-x}=\dfrac{(-1)^{n}\,n!}{(1-x)^{n+1}}$ for every integer $n\ge0$.
+\item $\dfrac{d^n}{dx^n}e^{2x}=2^{n+1}e^{2x}$ for every integer $n\ge0$.
+\item $\dfrac{d^n}{dx^n}e^{2x}=2n\,e^{2x}$ for every integer $n\ge1$.
+\item $\dfrac{d^n}{dx^n}\sin(3x)=3\sin\left(3x+\dfrac{n\pi}{2}\right)$ for every integer $n\ge1$.
+\item $\dfrac{d^n}{dx^n}\left(x^{n}\right)=n!\,x$ for every integer $n\ge1$.
+\item \[ \frac{d}{dx} 5 = \frac{5}{x} \]
+\item \[ \frac{d^{1}}{dx^{1}} 5 = \frac{5}{x} \]
+\item \[ \frac{d}{dx} x^{2} = x \]
+\item \[ \frac{d}{dx} \sin^{2} x = \cos\left(2x\right) \]
+\item \[ \frac{d^{2}}{dx^{2}} x^{3} = 3x^{2} \]
+\item \[ \frac{d}{dx} \ln x = \frac{1}{x^{2}} \]
+\item \[ \frac{d}{dx} \sqrt{x} = \frac{1}{\sqrt{x}} \]
+\item \[ \frac{d}{dx} \left(\sin x \cos x\right) = \cos^{2} x + \sin^{2} x \]
+\item \[ \frac{d}{dx} e^{x^{2}} = e^{x^{2}} \]
+\item \[ \frac{d}{dx} 2^{x} = x \cdot 2^{x - 1} \]
+\end{enumerate}
+\end{document}

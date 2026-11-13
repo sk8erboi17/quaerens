@@ -176,7 +176,30 @@ static const Case cases[] = {
     {"products need the sets to be non-empty", "S \\times T \\subseteq V \\times W \\iff (S \\subseteq V \\land T \\subseteq W)", REFUTED},
     {"an existence claim that is always true", "S = T \\iff \\exists V \\left( S \\cap V = T \\cap V \\right)", REFUTED},
     {"a false equivalence with an existence claim", "\\exists V \\left( V \\neq \\emptyset \\land V \\subseteq S \\land V \\neq S \\right) \\iff S \\neq S", REFUTED},
-    {"an existence claim the method cannot settle", "\\exists V \\left( V \\neq \\emptyset \\land V \\subseteq S \\land V \\neq S \\right)", NOT_PROVED},
+    /* Qui nessuna unione di regioni fa da V: la risposta dipende da quanti
+     * elementi ha S, e la dà il conto di 15f. Prima era NON DIMOSTRATO. */
+    {"an existence claim that fails when S has fewer than two elements",
+     "\\exists V \\left( V \\neq \\emptyset \\land V \\subseteq S \\land V \\neq S \\right)", REFUTED},
+    {"the same claim when S has a proper part that is not empty",
+     "(\\exists A (A \\subseteq S \\land A \\neq \\emptyset \\land A \\neq S)) \\implies \\exists V \\left( V \\neq \\emptyset \\land V \\subseteq S \\land V \\neq S \\right)", PROVED},
+    {"two disjoint parts that are not empty need two elements",
+     "S \\neq \\emptyset \\implies \\exists X \\subseteq S\\ \\exists Y \\subseteq S\\ (X \\neq \\emptyset \\land Y \\neq \\emptyset \\land X \\cap Y = \\emptyset)", REFUTED},
+    {"every part has a complement", "\\forall X \\subseteq S\\ \\exists Y \\subseteq S\\ (X \\cup Y = S \\land X \\cap Y = \\emptyset)", PROVED},
+    {"a quantifier under a negation", "S \\neq \\emptyset \\implies \\lnot \\exists V (V \\subseteq S \\land \\lnot \\exists X (X \\subseteq S \\land V \\setminus X \\neq X))", PROVED},
+    {"there are always objects outside the given sets", "\\exists V (V \\neq \\emptyset \\land V \\cap S = \\emptyset)", PROVED},
+    /* Antiregressione. Gli oggetti fuori da tutti gli insiemi non si
+     * esauriscono: nessun insieme li contiene tutti. Il conto di 15f li
+     * trattava come una regione qualsiasi, che un insieme può prendere
+     * intera, e la sua verifica usava un universo fisso di cinque elementi,
+     * dove un insieme di tutto esiste: così la prima era DIMOSTRATO (un
+     * insieme che contiene ogni insieme) e la seconda FALSO. */
+    {"no set contains every set", "\\exists V \\forall W (W \\subseteq V)", REFUTED},
+    {"every set is a proper part of another one", "\\forall W \\exists V (W \\subseteq V \\land V \\neq W)", PROVED},
+    {"two disjoint non-empty sets outside a given one", "\\exists V \\exists W (V \\neq \\emptyset \\land W \\neq \\emptyset \\land V \\cap W = \\emptyset \\land (V \\cup W) \\cap S = \\emptyset)", PROVED},
+    {"no set is disjoint from every non-empty set", "\\exists V \\forall W (W \\neq \\emptyset \\implies V \\cap W \\neq \\emptyset)", REFUTED},
+    {"with one set quantifier the objects outside are enough", "\\exists V (S \\subseteq V \\land V \\neq S)", PROVED},
+    {"the sign of membership is read only as the limit of a quantifier", "\\forall X, Y \\in \\mathcal{P}(S)\\ (X \\cup Y \\in \\mathcal{P}(S))", UNSUPPORTED},
+    {"more than four letters are too many", "\\exists A \\exists B \\exists C \\exists D (A \\subseteq S \\land B \\subseteq A \\land C \\subseteq B \\land D \\subseteq C)", UNSUPPORTED},
 
     /* Antiregressione: questo enunciato è stato dimostrato per errore. Senza
      * simboli come l'unione veniva letto come prodotto di numeri, dove è vero;
@@ -391,9 +414,29 @@ static const Case cases[] = {
     {"needs Cassini's identity for Fibonacci numbers",
      "\\sum_{k=1}^{n} \\arctan\\left(\\frac{1}{F_{2k + 1}}\\right) = \\frac{\\pi}{4} - \\arctan\\left(\\frac{1}{F_{2n + 2}}\\right)", NOT_PROVED},
 
+    /* Le disuguaglianze passano dall'induzione del capitolo 25, che affida
+     * il passo alla tabella dei segni; con un parametro non si applica. */
+    {"an inequality is proved by induction, the step by the sign table", "2^{n} \\ge n", PROVED},
+    {"an inequality with a parameter is reported as unsupported", "a^{n} \\ge n", UNSUPPORTED},
+
+    /* Una somma con n nel coefficiente binomiale ha una forma chiusa, che dà
+     * il teorema del binomio (regola 11n): con tutti i k, con i soli pari o
+     * i soli dispari. Le prime tre righe erano NON SUPPORTATO finché la
+     * regola non c'era. I risultati sbagliati, anche di poco, restano
+     * respinti; e dove la regola non arriva il motore lo dice. */
+    {"the binomial theorem gives a sum over all k", "\\sum_{k=0}^{n} \\binom{n}{k} = 2^{n}", PROVED},
+    {"the same with a power in the term", "\\sum_{k=0}^{n} \\binom{n}{k} a^{k} b^{n - k} = (a + b)^{n}", PROVED},
+    {"the even terms alone", "\\sum_{k=0}^{n} \\binom{n}{2k} 2^{k} = \\frac{(1 + \\sqrt{2})^{n} + (1 - \\sqrt{2})^{n}}{2}", PROVED},
+    {"the odd terms alone", "\\sum_{k=0}^{n} \\binom{n}{2k + 1} = 2^{n - 1}", PROVED},
+    {"the alternating sum is zero from n = 1 on", "\\sum_{k=0}^{n} \\binom{n}{k} (-1)^{k} = 0", PROVED},
+    {"a binomial sum with a wrong constant is refuted", "\\sum_{k=0}^{n} \\binom{n}{k} = 2^{n} + 1", REFUTED},
+    {"half the sum taken for the whole", "\\sum_{k=0}^{n} \\binom{n}{2k} = 2^{n}", REFUTED},
+    {"a binomial sum that is right only for the first values of n is not proved",
+     "\\sum_{k=0}^{n} \\binom{n}{k} = 2^{n} + n(n-1)(n-2)(n-3)(n-4)(n-5)(n-6)(n-7)(n-8)(n-9)(n-10)(n-11)(n-12)", NOT_PROVED},
+    {"the index outside the exponents is beyond the binomial rule", "\\sum_{k=0}^{n} k\\binom{n}{k} = n 2^{n - 1}", UNSUPPORTED},
+    {"two binomial coefficients in the term are beyond it too", "\\sum_{k=0}^{n} \\binom{n}{k}^{2} = \\binom{2n}{n}", UNSUPPORTED},
+
     /* Ciò che il motore non tratta deve essere dichiarato, non indovinato. */
-    {"inequalities are reported as unsupported", "2^{n} \\ge n", UNSUPPORTED},
-    {"summand depending on n", "\\sum_{k=0}^{n} \\binom{n}{k} = 2^{n}", UNSUPPORTED},
     {"unknown LaTeX command", "\\int_0^1 x = \\frac{1}{2}", UNSUPPORTED},
     {"incomplete statement", "\\sum_{k=1}^{n} k =", UNSUPPORTED},
     {"missing relation", "\\sum_{k=1}^{n} k", UNSUPPORTED},
@@ -402,6 +445,241 @@ static const Case cases[] = {
     {"division by zero", "\\frac{1}{n - n} = 1", UNSUPPORTED},
     {"absolute value outside a logarithm has no rule yet", "\\left|n\\right| = n", UNSUPPORTED},
     {"arctangent of a complex expression", "\\arctan\\left(\\sin x\\right) = \\arctan\\left(\\sin x\\right)", UNSUPPORTED},
+
+    /* Operazioni dichiarate (9g). Una scrittura che si può leggere in due
+     * modi viene rifiutata, non interpretata. */
+    {"a declared operation is replaced by its rule",
+     "(\\ast \\colon \\mathbb{Z} \\times \\mathbb{Z} \\to \\mathbb{Z} \\land \\forall a, b \\in \\mathbb{Z}\\ (a \\ast b = a + b + ab)) \\implies \\forall a, b, c \\in \\mathbb{Z}\\ ((a \\ast b) \\ast c = a \\ast (b \\ast c))", PROVED},
+    {"a declared operation repeated without brackets is refused",
+     "(\\ast \\colon \\mathbb{Z} \\times \\mathbb{Z} \\to \\mathbb{Z} \\land \\forall a, b \\in \\mathbb{Z}\\ (a \\ast b = a + b + ab)) \\implies \\forall a, b, c \\in \\mathbb{Z}\\ (a \\ast b \\ast c = a \\ast (b \\ast c))", UNSUPPORTED},
+    {"a sum beside a declared operation needs brackets",
+     "(\\ast \\colon \\mathbb{Z} \\times \\mathbb{Z} \\to \\mathbb{Z} \\land \\forall a, b \\in \\mathbb{Z}\\ (a \\ast b = a + b + ab)) \\implies \\forall a, b, c \\in \\mathbb{Z}\\ (a + b \\ast c = a + (b \\ast c))", UNSUPPORTED},
+    {"a product beside a declared operation needs brackets",
+     "(\\ast \\colon \\mathbb{Z} \\times \\mathbb{Z} \\to \\mathbb{Z} \\land \\forall a, b \\in \\mathbb{Z}\\ (a \\ast b = a + b + ab)) \\implies \\forall a, b \\in \\mathbb{Z}\\ (2a \\ast b = 2(a \\ast b))", UNSUPPORTED},
+    {"a sign beside a declared operation needs brackets",
+     "(\\ast \\colon \\mathbb{Z} \\times \\mathbb{Z} \\to \\mathbb{Z} \\land \\forall a, b \\in \\mathbb{Z}\\ (a \\ast b = a + b + ab)) \\implies \\forall a, b \\in \\mathbb{Z}\\ (-a \\ast b = (-a) \\ast b)", UNSUPPORTED},
+    {"an operand that is a sum is not known to be in the domain", "(\\ast \\colon \\mathbb{Z} \\times \\mathbb{Z} \\to \\mathbb{Z} \\land \\forall a, b \\in \\mathbb{Z}\\ (a \\ast b = a + b + ab)) \\implies \\forall a, b \\in \\mathbb{Z}\\ ((a + 1) \\ast b = (a \\ast b) + 2b + 1)", UNSUPPORTED},
+    {"an operation symbol that was not declared is not read", "\\forall a, b \\in \\mathbb{Z}\\ (a \\ast b = b \\ast a)", UNSUPPORTED},
+    {"an argument must vary in the domain of the operation",
+     "(\\ast \\colon \\mathbb{Z} \\times \\mathbb{Z} \\to \\mathbb{Z} \\land \\forall a, b \\in \\mathbb{Z}\\ (a \\ast b = a + b + ab)) \\implies \\forall a, b \\in \\mathbb{Q}\\ (a \\ast b = b \\ast a)", UNSUPPORTED},
+    {"an argument may vary in a part of the domain",
+     "(\\ast \\colon \\mathbb{Z} \\times \\mathbb{Z} \\to \\mathbb{Z} \\land \\forall a, b \\in \\mathbb{Z}\\ (a \\ast b = a + b + ab)) \\implies \\forall a, b \\in \\mathbb{N}\\ (a \\ast b = b \\ast a)", PROVED},
+    {"a number in the domain is an argument", "(\\ast \\colon \\mathbb{Z} \\times \\mathbb{Z} \\to \\mathbb{Z} \\land \\forall a, b \\in \\mathbb{Z}\\ (a \\ast b = a + b + ab)) \\implies \\forall a \\in \\mathbb{Z}\\ (a \\ast 0 = a \\land (-1) \\ast a = -1)", PROVED},
+    {"a number outside the domain is not an argument", "(\\ast \\colon \\mathbb{Z} \\times \\mathbb{Z} \\to \\mathbb{Z} \\land \\forall a, b \\in \\mathbb{Z}\\ (a \\ast b = a + b + ab)) \\implies \\forall a \\in \\mathbb{Z}\\ (a \\ast \\frac{1}{2} = a)", UNSUPPORTED},
+    {"a value outside the domain cannot be an argument again",
+     "(\\ast \\colon \\mathbb{N} \\times \\mathbb{N} \\to \\mathbb{Z} \\land \\forall a, b \\in \\mathbb{N}\\ (a \\ast b = a - b)) \\implies "
+     "\\forall a, b, c \\in \\mathbb{N}\\ ((a \\ast b) \\ast c = a \\ast (b \\ast c))", UNSUPPORTED},
+    {"a rule that leaves the codomain does not define an operation",
+     "(\\ast \\colon \\mathbb{N} \\times \\mathbb{N} \\to \\mathbb{N} \\land \\forall a, b \\in \\mathbb{N}\\ (a \\ast b = a - b)) \\implies "
+     "\\forall a, b \\in \\mathbb{N}\\ (a \\ast b = a \\ast b)", NOT_PROVED},
+    {"the two letters of a rule may be quantified in the other order",
+     "(\\ast \\colon \\mathbb{Z} \\times \\mathbb{Z} \\to \\mathbb{Z} \\land \\forall b, a \\in \\mathbb{Z}\\ (a \\ast b = a - b)) \\implies "
+     "\\forall a, b \\in \\mathbb{Z}\\ (a \\ast b = a - b \\land b \\ast a = b - a)", PROVED},
+    {"a rule with the same letter twice is refused",
+     "(\\ast \\colon \\mathbb{Z} \\times \\mathbb{Z} \\to \\mathbb{Z} \\land \\forall a, b \\in \\mathbb{Z}\\ (a \\ast a = a)) \\implies "
+     "\\forall a, b \\in \\mathbb{Z}\\ (a \\ast b = a)", UNSUPPORTED},
+    {"a map may be applied to the value of a map",
+     "(f \\colon \\mathbb{Z} \\to \\mathbb{Z} \\land \\forall n \\in \\mathbb{Z}\\ (f(n) = n + 1)) \\implies \\forall x \\in \\mathbb{Z}\\ (f(f(x)) = x + 2)", PROVED},
+
+    /* Relazioni date da una regola, \\exists! e appartenenza (17i-17m). */
+    {"a bound letter of the rule does not capture a letter of the argument: true",
+     "R = \\{(x, y) \\in \\mathbb{Z}^{2} \\mid \\exists k \\in \\mathbb{Z}\\ (y = kx)\\} \\implies \\forall k \\in \\mathbb{Z}\\ ((k, 0) \\in R)", PROVED},
+    {"a bound letter of the rule does not capture a letter of the argument: false",
+     "R = \\{(x, y) \\in \\mathbb{Z}^{2} \\mid \\exists k \\in \\mathbb{Z}\\ (y = kx)\\} \\implies \\forall k \\in \\mathbb{Z}\\ ((k, 1) \\in R)", REFUTED},
+    {"an argument is substituted with its brackets: true", "R = \\{(x, y) \\in \\mathbb{Z}^{2} \\mid y = 2x\\} \\implies \\forall a \\in \\mathbb{Z}\\ ((a + 1, 2a + 2) \\in R)", PROVED},
+    {"an argument is substituted with its brackets: false", "R = \\{(x, y) \\in \\mathbb{Z}^{2} \\mid y = 2x\\} \\implies \\forall a \\in \\mathbb{Z}\\ ((a + 1, 2a + 1) \\in R)", REFUTED},
+    /* Antiregressione: la lettera di \\mathbb{Z} veniva sostituita come se
+     * fosse la variabile Z della regola, e il primo enunciato, falso,
+     * risultava dimostrato; il secondo, vero, risultava falso. */
+    {"the letter of a number set is not a letter of the rule: false statement",
+     "R = \\{(Z, y) \\in \\mathbb{Z}^{2} \\mid \\exists k \\in \\mathbb{Z}\\ (Z + k = y)\\} \\implies \\forall N \\in \\mathbb{N}\\ ((N, 0) \\notin R)", REFUTED},
+    {"the letter of a number set is not a letter of the rule: true statement",
+     "R = \\{(Z, y) \\in \\mathbb{Z}^{2} \\mid \\exists k \\in \\mathbb{Z}\\ (y = kZ)\\} \\implies \\forall N \\in \\mathbb{Z}\\ ((N, 0) \\in R)", PROVED},
+    {"the letter of a number set is not the letter of an only-one quantifier",
+     "\\forall x \\in \\mathbb{Z}\\ \\exists! Z \\in \\mathbb{Z}\\ (Z^{2} = x^{2} \\land Z \\in \\mathbb{Z})", REFUTED},
+    {"a pair outside the two sets is not in the relation",
+     "R = \\{(x, y) \\in \\mathbb{N}^{2} \\mid x = y\\} \\implies (0, 0) \\in R", REFUTED},
+    {"a quantifier without a set under a hypothesis that forces the letters",
+     "R = \\{(x, y) \\in \\mathbb{Z}^{2} \\mid y = 2x\\} \\implies \\lnot (\\forall x, y\\ ((x, y) \\in R \\implies (y, x) \\in R))", PROVED},
+    {"a universal quantifier without a set that nothing forces is refused",
+     "R = \\{(x, y) \\in \\mathbb{Z}^{2} \\mid y = 2x\\} \\implies \\forall x, y\\ ((x, y) \\in R \\lor (y, x) \\in R)", UNSUPPORTED},
+    {"an existential quantifier without a set that nothing forces is refused",
+     "R = \\{(x, y) \\in \\mathbb{Z}^{2} \\mid y = 2x\\} \\implies \\exists x, y\\ ((x, y) \\in R \\lor x = y)", UNSUPPORTED},
+    {"a negated membership does not force its letter", "R = \\{(x, y) \\in \\mathbb{Z}^{2} \\mid y = 2x\\} \\implies \\exists x\\ ((x, x) \\notin R)", UNSUPPORTED},
+    {"a letter that is only part of the two expressions is not forced", "R = \\{(x, y) \\in \\mathbb{Z}^{2} \\mid y = 2x\\} \\implies \\forall x\\ ((x + 1, 2x) \\in R \\implies x = x)", UNSUPPORTED},
+    {"a quantifier without a set needs a declared relation", "\\forall x, y\\ (x + y = y + x)", UNSUPPORTED},
+    {"a free letter in the rule of a relation is refused",
+     "R = \\{(x, y) \\in \\mathbb{Z}^{2} \\mid x = y + k\\} \\implies \\forall k \\in \\mathbb{Z}\\ ((k, 0) \\in R)", UNSUPPORTED},
+    {"a rule that binds one of its two letters again is refused",
+     "R = \\{(x, y) \\in \\mathbb{Z}^{2} \\mid \\forall x \\in \\mathbb{Z}\\ (x = y)\\} \\implies (0, 0) \\in R", UNSUPPORTED},
+    {"a relation declared under a quantifier is refused",
+     "\\forall x \\in \\mathbb{Z}\\ (R = \\{(x, y) \\in \\mathbb{Z}^{2} \\mid y = 2x\\} \\implies (x, x) \\notin R)", UNSUPPORTED},
+    {"a relation declared outside the hypotheses is refused",
+     "R = \\{(x, y) \\in \\mathbb{Z}^{2} \\mid y = 2x\\} \\land (1, 2) \\in R", UNSUPPORTED},
+    {"a relation declared twice is refused",
+     "(R = \\{(x, y) \\in \\mathbb{Z}^{2} \\mid y = 2x\\} \\land R = \\{(x, y) \\in \\mathbb{Z}^{2} \\mid y = x\\}) \\implies (1, 2) \\in R", UNSUPPORTED},
+    {"a relation used inside its own rule is refused",
+     "R = \\{(x, y) \\in \\mathbb{Z}^{2} \\mid (y, x) \\in R\\} \\implies (1, 2) \\in R", UNSUPPORTED},
+    {"exactly one: true", "\\forall x \\in \\mathbb{Z}\\ \\exists! y \\in \\mathbb{Z}\\ (x + y = 0)", PROVED},
+    {"exactly one: there are two", "\\exists! y \\in \\mathbb{Z}\\ (y^{2} = 4)", REFUTED},
+    {"exactly one: there is none", "\\exists! y \\in \\mathbb{N}\\ (y + 1 = 1)", REFUTED},
+    {"exactly one, nested", "\\exists! x \\in \\mathbb{Z}\\ \\exists! y \\in \\mathbb{Z}\\ (x^{2} + y^{2} = 0)", NOT_PROVED},
+    {"membership in a set of numbers: true", "\\forall x \\in \\mathbb{Z}\\ (x^{2} + x \\in \\mathbb{Z} \\land 3 \\notin \\mathbb{N} \\setminus \\{3\\})", PROVED},
+    {"membership in a set of numbers: false", "\\forall x \\in \\mathbb{Z}\\ (2x + 1 \\in \\mathbb{N})", REFUTED},
+    {"membership in a set of numbers beside an order relation is not treated",
+     "\\forall x \\in \\mathbb{R}\\ (x^{2} \\ge 0 \\land x \\in \\mathbb{R})", UNSUPPORTED},
+
+    /* Divisibilità e congruenze (17n), e la regola dei resti (18r) con ciò
+     * che non la riguarda. */
+    {"a congruence decided on the remainders: true", "\\forall x \\in \\mathbb{Z}\\ (3x \\equiv 1 \\pmod{5} \\iff x \\equiv 2 \\pmod{5})", PROVED},
+    {"a congruence decided on the remainders: false", "\\forall x \\in \\mathbb{Z}\\ (3x \\equiv 1 \\pmod{5} \\iff x \\equiv 3 \\pmod{5})", REFUTED},
+    {"a set of integers with a first element has every remainder", "\\forall n \\in \\mathbb{N} \\setminus \\{1\\}\\ (6 \\mid n^{3} - n)", PROVED},
+    {"a fractional coefficient enlarges the modulus: true", "\\forall x \\in \\mathbb{Z}\\ (\\frac{x}{2} \\equiv 1 \\pmod{3} \\iff x \\equiv 2 \\pmod{6})", PROVED},
+    {"a fractional coefficient enlarges the modulus: false", "\\forall x \\in \\mathbb{Z}\\ (\\frac{x}{2} \\equiv 1 \\pmod{3} \\iff x \\equiv 2 \\pmod{3})", REFUTED},
+    {"a multiple written with a quantifier is a congruence",
+     "\\forall x \\in \\mathbb{Z}\\ ((\\exists k \\in \\mathbb{Z}\\ (3x - 1 = 5k)) \\iff (\\exists j \\in \\mathbb{Z}\\ (x = 2 + 5j)))", PROVED},
+    {"a combination of two numbers exists when the gcd divides", "\\exists h, k \\in \\mathbb{Z}\\ (5 = 70h + 125k)", PROVED},
+    {"a combination of two numbers does not exist otherwise", "\\exists h, k \\in \\mathbb{Z}\\ (3 = 70h + 125k)", REFUTED},
+    {"a congruence beside an equality is not periodic: false", "\\forall x, y \\in \\mathbb{Z}\\ (x \\equiv y \\pmod{3} \\implies x = y)", REFUTED},
+    {"a congruence beside an equality is not periodic: true but out of reach",
+     "\\forall x, y \\in \\mathbb{Z}\\ ((x \\equiv y \\pmod{3} \\land x = y + 1) \\implies x = y)", NOT_PROVED},
+    {"a rational letter is not decided on the remainders", "\\forall x \\in \\mathbb{Q}\\ (2 \\mid 2x)", REFUTED},
+    {"a modulus that is a letter is not decided on the remainders",
+     "\\forall m \\in \\mathbb{N}\\ \\forall x \\in \\mathbb{Z}\\ (x^{2} \\equiv x \\pmod{m} \\lor x^{2} \\not\\equiv x \\pmod{m})", UNSUPPORTED},
+    {"a divisor that is a letter: the quotient is an integer polynomial", "\\forall x \\in \\mathbb{Z}\\ (x \\mid x^{2} + 3x)", PROVED},
+    {"a congruence without its modulus is refused", "\\forall x \\in \\mathbb{Z}\\ (x \\equiv x)", UNSUPPORTED},
+    {"a solution set of a congruence", "\\{x \\in \\mathbb{Z} \\mid 2x \\equiv 4 \\pmod{6}\\}", SOLVED},
+    {"a solution set on the integers is found only for congruences", "\\{x \\in \\mathbb{Z} \\mid x^{2} = 4\\}", UNSUPPORTED},
+    /* Più ipotesi insieme (18s): la tesi è una combinazione delle ipotesi. */
+    {"a thesis equal to its hypothesis", "\\forall x, y \\in \\mathbb{Z}\\ (x^{2} = y^{2} \\implies y^{2} = x^{2})", PROVED},
+    {"two hypotheses added together",
+     "\\forall a, b, c, d, e, f \\in \\mathbb{Z}\\ ((a - d = c - b \\land c - f = e - d) \\implies a - f = e - b)", PROVED},
+    {"two hypotheses with polynomials as multipliers",
+     "\\forall x, y, z, w \\in \\mathbb{Z}\\ ((x^{2} = y^{2} \\land z^{2} = w^{2}) \\implies (xz)^{2} = (yw)^{2})", PROVED},
+    {"a thesis that is a conjunction keeps the hypotheses beside each part",
+     "\\forall x, y \\in \\mathbb{Q}\\ ((x + y = 3 \\land x - y = 1) \\implies (x = 2 \\land y = 1))", PROVED},
+    {"a thesis that is not a combination: off by one",
+     "\\forall x, y, z \\in \\mathbb{Z}\\ ((x^{2} = y^{2} \\land y^{2} = z^{2}) \\implies x^{2} = z^{2} + 1)", REFUTED},
+    {"a thesis that is not a combination: wrong coefficient",
+     "\\forall x, y, z \\in \\mathbb{Q}\\ ((x = 2y \\land y = 3z) \\implies x = 5z)", REFUTED},
+    {"equal squares do not give equal numbers", "\\forall x, y \\in \\mathbb{Z}\\ (x^{2} = y^{2} \\implies x = y)", REFUTED},
+    {"a hypothesis dropped", "\\forall x, y \\in \\mathbb{Q}\\ (x + y = 3 \\implies x = 2)", REFUTED},
+    {"true but not a combination of the hypotheses",
+     "\\forall a, b, c \\in \\mathbb{Z}\\ (((ab - 2)(a - b) = 0 \\land (bc - 2)(b - c) = 0) \\implies (ac - 2)(a - c) = 0)", NOT_PROVED},
+    {"too many remainders to try are not tried",
+     "\\forall x, y, z \\in \\mathbb{Z}\\ ((x \\equiv y \\pmod{97} \\land y \\equiv z \\pmod{89}) \\implies x \\equiv z \\pmod{83})", NOT_PROVED},
+
+    /* Regola 18u: un'ipotesi "esiste k" usata con il suo testimone, e il
+     * valore della tesi cercato tra i polinomi nei testimoni. */
+    {"the witness of a hypothesis gives the witness of the thesis",
+     "\\forall x, y \\in \\mathbb{Q}\\ ((\\exists k \\in \\mathbb{Z}\\ (x - y = k)) \\implies \\exists m \\in \\mathbb{Z}\\ (y - x = m))", PROVED},
+    {"two named witnesses are added",
+     "\\forall x, y, z \\in \\mathbb{Q}\\ (((\\exists k \\in \\mathbb{Z}\\ (x - y = k)) \\land (\\exists j \\in \\mathbb{Z}\\ (y - z = j))) \\implies \\exists m \\in \\mathbb{Z}\\ (x - z = m))", PROVED},
+    {"congruence modulo a letter is transitive",
+     "\\forall n \\in \\mathbb{N}\\ \\forall a, b, c \\in \\mathbb{Z}\\ ((a \\equiv b \\pmod{n} \\land b \\equiv c \\pmod{n}) \\implies a \\equiv c \\pmod{n})", PROVED},
+    {"congruence modulo a letter is compatible with the product",
+     "\\forall n \\in \\mathbb{N}\\ \\forall a, b, c, d \\in \\mathbb{Z}\\ ((a \\equiv b \\pmod{n} \\land c \\equiv d \\pmod{n}) \\implies ac \\equiv bd \\pmod{n})", PROVED},
+    {"membership in the integers is unfolded on both sides", "\\forall x, y \\in \\mathbb{Q}\\ (x - y \\in \\mathbb{Z} \\implies y - x \\in \\mathbb{Z})", PROVED},
+    {"a negated divisibility among the hypotheses",
+     "\\forall n \\in \\mathbb{N}\\ \\forall a, b \\in \\mathbb{Z}\\ ((n \\mid a \\land n \\nmid b) \\implies n \\nmid a + b)", PROVED},
+    {"the witness is a product of named witnesses and letters",
+     "\\forall m \\in \\mathbb{N}\\ \\forall a, b, c \\in \\mathbb{Z} \\setminus \\{0\\}\\ (((\\exists k \\in \\mathbb{Z}\\ (ac - bc = mk)) \\land "
+     "(\\exists u, v \\in \\mathbb{Z}\\ (uc + vm = 1))) \\implies \\exists j \\in \\mathbb{Z}\\ (a - b = mj))", PROVED},
+    {"a value found although its coefficient can be zero", "\\forall a \\in \\mathbb{Z}\\ \\forall m, n \\in \\mathbb{N}\\ \\exists p \\in \\mathbb{N}\\ (ma + na = pa)", PROVED},
+    {"two values found from one equation", "\\forall m \\in \\mathbb{N}\\ \\forall c \\in \\mathbb{Z}\\ \\exists a, j \\in \\mathbb{Z}\\ (a - c = mj)", PROVED},
+    {"an equation written after a second quantifier",
+     "\\forall a, b, c, d \\in \\mathbb{Z}\\ \\exists p, q \\in \\mathbb{Z}\\ (p = a + c \\land q = b + d)", PROVED},
+    {"a multiple of the thesis is a combination, and the factor is never zero",
+     "\\forall a, b, c \\in \\mathbb{Z}\\ \\forall d \\in \\mathbb{Z} \\setminus \\{0\\}\\ ((da = c \\land db = c) \\implies a = b)", PROVED},
+    {"the same with a factor that can be zero", "\\forall a, b, c, d \\in \\mathbb{Z}\\ ((da = c \\land db = c) \\implies a = b)", REFUTED},
+    {"the sum of two rationals with an integer difference",
+     "\\forall x, y \\in \\mathbb{Q}\\ ((\\exists k \\in \\mathbb{Z}\\ (x - y = k)) \\implies \\exists m \\in \\mathbb{Z}\\ (x + y = m))", REFUTED},
+    {"a congruence with the wrong modulus",
+     "\\forall n \\in \\mathbb{N}\\ \\forall a, b, c \\in \\mathbb{Z}\\ ((a \\equiv b \\pmod{n} \\land b \\equiv c \\pmod{n}) \\implies a \\equiv c \\pmod{n + 1})", REFUTED},
+    {"a congruence with a hypothesis dropped",
+     "\\forall n \\in \\mathbb{N}\\ \\forall a, b, c \\in \\mathbb{Z}\\ (a \\equiv b \\pmod{n} \\implies a \\equiv c \\pmod{n})", REFUTED},
+    {"a congruence between squares does not come down to the numbers",
+     "\\forall n \\in \\mathbb{N}\\ \\forall a, b \\in \\mathbb{Z}\\ (a^{2} \\equiv b^{2} \\pmod{n} \\implies a \\equiv b \\pmod{n})", REFUTED},
+    {"an integer witness that the hypotheses do not give",
+     "\\forall x, y, z \\in \\mathbb{Q}\\ (((\\exists k \\in \\mathbb{Z}\\ (x - y = k)) \\land (\\exists j \\in \\mathbb{Z}\\ (y - z = 2j))) \\implies \\exists m \\in \\mathbb{Z}\\ (x - z = 2m))", REFUTED},
+    {"a hypothesis satisfied only by a number outside the first elements tried",
+     "\\forall a \\in \\mathbb{Z}\\ ((\\exists k \\in \\mathbb{Z}\\ (a = 50 + 7k)) \\implies \\exists j \\in \\mathbb{Z}\\ (a = 7j))", REFUTED},
+    {"a refutation that the tries of rule 18u must not use up",
+     "G = \\{(N, Q) \\in \\mathbb{N}_{0} \\times \\mathbb{N}_{0} \\mid Q = 3Q\\} \\implies (\\lnot (\\forall m, k\\ ((m, k) \\in G \\implies (k, m) \\in G)) \\land (\\forall N, Z, Q\\ (((N, Z) \\in G \\land (Z, Q) \\in G) \\implies (N, Q) \\in G)) \\land \\lnot (\\forall m \\in \\mathbb{N}_{0}\\ \\exists! k \\in \\mathbb{N}_{0}\\ ((m, k) \\in G)))", REFUTED},
+    {"a refutation found by trying numbers, which rule 18u must not slow down",
+     "R = \\{(x, y) \\in \\mathbb{Z}^{2} \\mid x^{2} = y^{2}\\} \\implies (\\forall x, y, z, w\\ (((x, y) \\in R \\land (z, w) \\in R) \\implies (x + z, y + w) \\in R))", REFUTED},
+    {"more named witnesses than the list of generic variables holds",
+     "\\forall a, b, c, m, d, k \\in \\mathbb{Z} \\setminus \\{0\\}\\ ((m = kd \\land (\\exists e \\in \\mathbb{Z}\\ (c = de)) \\land (\\exists u, v \\in \\mathbb{Z}\\ (uc + vm = d))) "
+     "\\implies ((\\exists q \\in \\mathbb{Z}\\ (ac - bc = mq)) \\iff (\\exists j \\in \\mathbb{Z}\\ (a - b = kj))))", NOT_PROVED},
+    {"two hypotheses and the thesis with the same letter: one is renamed before it gets its name",
+     "\\forall x, y \\in \\mathbb{Q}\\ ((\\exists k \\in \\mathbb{Z}\\ (x = 2k) \\land \\exists k \\in \\mathbb{Z}\\ (y = 2k)) \\implies \\exists k \\in \\mathbb{Z}\\ (x + y = 2k))", PROVED},
+    {"the same letter in two hypotheses that do not give the thesis",
+     "\\forall x, y \\in \\mathbb{Q}\\ ((\\exists k \\in \\mathbb{Z}\\ (x = 2k) \\land \\exists k \\in \\mathbb{Z}\\ (y = 3k)) \\implies \\exists k \\in \\mathbb{Z}\\ (x + y = 2k))", REFUTED},
+
+    /* Una potenza il cui esponente è una lettera diventa un polinomio quando
+     * la dimostrazione dà un valore alla lettera. */
+    {"an exponent that the proof chooses", "\\exists e \\in \\mathbb{N}\\ \\forall a \\in \\mathbb{N}\\ (a^{e} = a)", PROVED},
+    {"two exponents that the proof chooses", "\\forall a \\in \\mathbb{Z}\\ \\exists m, n \\in \\mathbb{N}_{0}\\ (2^{m} a = 2^{n} a)", PROVED},
+    {"no exponent gives a power equal to twice the base", "\\exists e \\in \\mathbb{N}\\ \\forall a \\in \\mathbb{Q}\\ (a^{e} = 2a)", NOT_PROVED},
+    {"no exponent gives a power one more than the base", "\\exists e \\in \\mathbb{N}\\ \\forall a \\in \\mathbb{N}\\ (a^{e} = a + 1)", NOT_PROVED},
+
+    /* Capitolo 28: insiemi qualsiasi. Un controesempio è un modello finito;
+     * non trovarne non è una dimostrazione. */
+    {"a left and a right neutral element coincide",
+     "(\\perp \\colon S \\times S \\to S \\land u \\in S \\land v \\in S \\land \\forall x \\in S\\ (u \\perp x = x) \\land \\forall x \\in S\\ (x \\perp v = x)) \\implies u = v", PROVED},
+    {"two left neutral elements need not coincide",
+     "(\\perp \\colon S \\times S \\to S \\land u \\in S \\land v \\in S \\land \\forall x \\in S\\ (u \\perp x = x) \\land \\forall x \\in S\\ (v \\perp x = x)) \\implies u = v", REFUTED},
+    {"the composition of two injective maps",
+     "\\forall f, g \\in S^{S}\\ ((\\forall a, b \\in S\\ (f(a) = f(b) \\implies a = b) \\land \\forall a, b \\in S\\ (g(a) = g(b) \\implies a = b)) "
+     "\\implies \\forall a, b \\in S\\ (f(g(a)) = f(g(b)) \\implies a = b))", PROVED},
+    {"the composition when only one map is injective",
+     "\\forall f, g \\in S^{S}\\ ((\\forall a, b \\in S\\ (f(a) = f(b) \\implies a = b)) \\implies \\forall a, b \\in S\\ (f(g(a)) = f(g(b)) \\implies a = b))", REFUTED},
+    {"the composition of two surjective maps names two witnesses",
+     "\\forall f, g \\in S^{S}\\ ((\\forall y \\in S\\ \\exists x \\in S\\ (f(x) = y) \\land \\forall y \\in S\\ \\exists x \\in S\\ (g(x) = y)) "
+     "\\implies \\forall y \\in S\\ \\exists x \\in S\\ (f(g(x)) = y))", PROVED},
+    {"injective implies surjective only on finite sets",
+     "\\forall f \\in S^{S}\\ ((\\forall a, b \\in S\\ (f(a) = f(b) \\implies a = b)) \\implies \\forall y \\in S\\ \\exists x \\in S\\ (f(x) = y))", NOT_PROVED},
+    {"a one-sided inverse is two-sided only on finite sets",
+     "\\forall f, g \\in S^{S}\\ ((\\forall x \\in S\\ (f(g(x)) = x)) \\implies \\forall x \\in S\\ (g(f(x)) = x))", NOT_PROVED},
+    {"an element exists only if the set is not empty", "\\forall f \\in S^{S}\\ \\exists x \\in S\\ (f(x) = f(x))", NOT_PROVED},
+    {"a non-empty set gives the element",
+     "(T \\neq \\emptyset \\land \\pi \\colon S \\times T \\to S \\land \\forall x \\in S\\ \\forall y \\in T\\ (\\pi(x, y) = x)) "
+     "\\implies \\forall z \\in S\\ \\exists x \\in S\\ \\exists y \\in T\\ (\\pi(x, y) = z)", PROVED},
+    {"without it the projection is not proved surjective",
+     "(\\pi \\colon S \\times T \\to S \\land \\forall x \\in S\\ \\forall y \\in T\\ (\\pi(x, y) = x)) "
+     "\\implies \\forall z \\in S\\ \\exists x \\in S\\ \\exists y \\in T\\ (\\pi(x, y) = z)", NOT_PROVED},
+    {"symmetric and transitive: related elements are related to themselves",
+     "R \\subseteq S \\times S \\implies ((\\forall x, y \\in S\\ ((x, y) \\in R \\implies (y, x) \\in R) \\land \\forall x, y, z \\in S\\ "
+     "(((x, y) \\in R \\land (y, z) \\in R) \\implies (x, z) \\in R)) \\implies \\forall x, y \\in S\\ ((x, y) \\in R \\implies (x, x) \\in R))", PROVED},
+    {"symmetric and transitive is not reflexive",
+     "R \\subseteq S \\times S \\implies ((\\forall x, y \\in S\\ ((x, y) \\in R \\implies (y, x) \\in R) \\land \\forall x, y, z \\in S\\ "
+     "(((x, y) \\in R \\land (y, z) \\in R) \\implies (x, z) \\in R)) \\implies \\forall x \\in S\\ ((x, x) \\in R))", REFUTED},
+    {"an equivalence proved by cases, with quantifiers written without a set",
+     "R \\subseteq S \\times S \\implies (((\\forall x, y\\ ((x, y) \\in R \\implies (y, x) \\in R)) \\land (\\forall x, y\\ (((x, y) \\in R \\land (y, x) \\in R) "
+     "\\implies x = y))) \\iff \\forall x, y\\ ((x, y) \\in R \\implies x = y))", PROVED},
+    {"cancellation in a group needs a chain through the inverse",
+     "(\\perp \\colon S \\times S \\to S \\land \\forall x, y, z \\in S\\ ((x \\perp y) \\perp z = x \\perp (y \\perp z)) \\land e \\in S \\land \\forall x \\in S\\ "
+     "(e \\perp x = x \\land x \\perp e = x) \\land \\forall x \\in S\\ \\exists y \\in S\\ (x \\perp y = e \\land y \\perp x = e)) "
+     "\\implies \\forall a, x, y \\in S\\ (a \\perp x = a \\perp y \\implies x = y)", PROVED},
+    {"cancellation without inverses",
+     "(\\perp \\colon S \\times S \\to S \\land \\forall x, y, z \\in S\\ ((x \\perp y) \\perp z = x \\perp (y \\perp z)) \\land e \\in S \\land \\forall x \\in S\\ "
+     "(e \\perp x = x \\land x \\perp e = x)) \\implies \\forall a, x, y \\in S\\ (a \\perp x = a \\perp y \\implies x = y)", REFUTED},
+    {"an example found among the small sets",
+     "\\exists S \\neq \\emptyset\\ \\exists R \\subseteq S \\times S\\ ((\\forall x, y\\ ((x, y) \\in R \\implies (y, x) \\in R)) \\land "
+     "(\\lnot (\\forall x \\in S\\ ((x, x) \\in R))))", PROVED},
+    {"an example that does not exist",
+     "\\exists S\\ \\exists R \\subseteq S \\times S\\ ((\\forall x \\in S\\ ((x, x) \\in R)) \\land \\exists x \\in S\\ ((x, x) \\notin R))", NOT_PROVED},
+    {"twenty-four quantifiers: the models with three elements are too many to try, and the search stops",
+     "\\forall a, b, c, d, e, g, h, i \\in S\\ \\forall j, k, l, m, n, o, p, q \\in S\\ \\forall r, s, t, u, v, w, x, y \\in S\\ (a = a)", PROVED},
+    {"one quantifier more than the reader keeps", "\\forall a, b, c, d, e, g, h, i \\in S\\ \\forall j, k, l, m, n, o, p, q \\in S\\ "
+     "\\forall r, s, t, u, v, w, x, y \\in S\\ \\forall z \\in S\\ (a = a)", UNSUPPORTED},
+    {"a map quantified among the hypotheses is not a declaration",
+     "(\\forall f \\in S^{S}\\ \\forall x \\in S\\ (f(x) = x)) \\implies \\forall a, b \\in S\\ (a = b)", UNSUPPORTED},
+    {"a declaration outside the hypotheses", "\\forall x \\in S\\ (x = x) \\implies f \\colon S \\to S", UNSUPPORTED},
+    {"an element used in another set",
+     "(f \\colon S \\to T \\land g \\colon S \\to T) \\implies \\forall x \\in S\\ (f(g(x)) = g(x))", UNSUPPORTED},
+    {"a quantifier without a set that nothing forces into one",
+     "R \\subseteq S \\times S \\implies \\forall x, y\\ ((x, y) \\in R \\lor x = y)", UNSUPPORTED},
 };
 
 /* Nome di un esito, per i messaggi. */
@@ -963,6 +1241,28 @@ int main(void) {
 
     /* Nessun passo delle dimostrazioni scritte fin qui deve aver fallito il
      * suo controllo indipendente. */
+    /* Regola 18u: la dimostrazione nomina il testimone dell'ipotesi e mostra
+     * il valore trovato per la tesi. */
+    Verdict named = prove("\\forall x, y, z \\in \\mathbb{Q}\\ (((\\exists k \\in \\mathbb{Z}\\ (x - y = k)) \\land (\\exists j \\in \\mathbb{Z}\\ (y - z = j))) "
+                          "\\implies \\exists m \\in \\mathbb{Z}\\ (x - z = m))", 'n', 0, 0);
+    check(named.outcome == PROVED && named.proof && strstr(named.proof, "call $k$ such an element") && strstr(named.proof, "Take $m = k + j$"),
+          "the written proof should name the witness k and take m = k + j");
+    Verdict modulus = prove("\\forall n \\in \\mathbb{N}\\ \\forall a, b \\in \\mathbb{Z}\\ (a \\equiv b \\pmod{n} \\implies b \\equiv a \\pmod{n})", 'n', 0, 0);
+    check(modulus.outcome == PROVED && modulus.proof && strstr(modulus.proof, "By definition, $a \\equiv b \\pmod{n}$ says that $\\exists q \\in \\mathbb{Z}\\ (a - b = q \\cdot n)$"),
+          "a congruence modulo a letter should be unfolded into its definition");
+
+    /* Capitolo 28: la dimostrazione è una catena di uguaglianze, il
+     * controesempio un modello con le sue tabelle. */
+    Verdict neutral = prove("(\\perp \\colon S \\times S \\to S \\land u \\in S \\land v \\in S \\land \\forall x \\in S\\ (u \\perp x = x) \\land "
+                            "\\forall x \\in S\\ (x \\perp v = x)) \\implies u = v", 'n', 0, 0);
+    check(neutral.outcome == PROVED && neutral.proof && strstr(neutral.proof, "$u = u \\perp v = v$") && strstr(neutral.proof, "Independent check"),
+          "the proof that the two neutral elements coincide should show the chain u = u \\perp v = v");
+    Verdict model = prove("(u \\in S \\land X \\subseteq S) \\implies u \\in X", 'n', 0, 0);
+    check(model.outcome == REFUTED && model.detail && strcmp(model.detail, "$S = \\{s_{0}\\}$; $u = s_{0}$; $X = \\{\\} = \\emptyset$") == 0,
+          "the counterexample to u \\in X should be the one-element set with X empty");
+    Verdict example = prove("\\exists S\\ \\exists f \\colon S \\to S\\ (\\exists x \\in S\\ (f(x) \\neq x))", 'n', 0, 0);
+    check(example.outcome == PROVED && example.proof && strstr(example.proof, "An example: $S = \\{s_{0}, s_{1}\\}$"), "an example should be shown with its tables");
+
     check(unjustified_steps == 0, "every step of every written proof should pass its independent check");
 
     /* La riga del verdetto dice sempre se c'è un certificato verificato dal

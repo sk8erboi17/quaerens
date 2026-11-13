@@ -1,0 +1,40 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{False statements with quantifiers over sets (20)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Capital letters are sets. The letters that no quantifier binds are arbitrary: each statement is claimed for every choice of them. Every statement below is false: it fails for some choice of the sets.
+
+\begin{enumerate}
+\item $\displaystyle S \neq \emptyset \implies \exists X \subseteq S\ \exists Y \subseteq S\ (X \neq \emptyset \land Y \neq \emptyset \land X \cap Y = \emptyset)$
+\item $\displaystyle \exists X \exists Y (X \cup Y = S \land X \cap Y = \emptyset \land X \neq \emptyset \land Y \neq \emptyset)$
+\item $\displaystyle \exists V \left( V \neq \emptyset \land V \subseteq S \land V \neq S \right)$
+\item $\displaystyle S \neq \emptyset \implies \exists V \left( V \neq \emptyset \land V \subseteq S \land V \neq S \right)$
+\item $\displaystyle \exists X \exists Y \exists Z (X \neq Y \land Y \neq Z \land X \neq Z \land X \subseteq S \land Y \subseteq S \land Z \subseteq S)$
+\item $\displaystyle S \neq \emptyset \implies \exists X \exists Y \exists Z (X \neq Y \land Y \neq Z \land X \neq Z \land X \subseteq S \land Y \subseteq S \land Z \subseteq S)$
+\item $\displaystyle (\exists X \exists Y (X \subseteq S \land Y \subseteq S \land X \neq \emptyset \land Y \neq \emptyset \land X \cap Y = \emptyset)) \implies \exists X \exists Y \exists Z (X \subseteq S \land Y \subseteq S \land Z \subseteq S \land X \neq \emptyset \land Y \neq \emptyset \land Z \neq \emptyset \land X \cap Y = \emptyset \land Y \cap Z = \emptyset \land X \cap Z = \emptyset)$
+\item $\displaystyle \forall X \subseteq S\ \exists Y \subseteq S\ (X \cup Y = S \land X \cap Y = \emptyset \land Y \neq \emptyset)$
+\item $\displaystyle \exists E \subseteq S\ \forall X \subseteq S\ (X \setminus E = X \land E \setminus X = X)$
+\item $\displaystyle \forall X, Y \subseteq S\ \exists Z \subseteq S\ (X \cup Z = Y)$
+\item $\displaystyle \forall X, Y \subseteq S\ \exists Z \subseteq S\ (X \setminus Z = Y)$
+\item $\displaystyle \forall X, Y, Z \subseteq S\ ((X \setminus Y) \setminus Z = X \setminus (Y \setminus Z))$
+\item $\displaystyle \forall X, Y, Z \in \mathcal{P}(S)\ ((X \cap Y = \emptyset \land Y \cap Z = \emptyset) \implies X \cap Z = \emptyset)$
+\item $\displaystyle \lnot (\forall X \in \mathcal{P}(S)\ (X \cap X = \emptyset))$
+\item $\displaystyle \forall X, Y, Z\ ((X \subseteq Y \land Z \subseteq Y) \implies X \subseteq Z)$
+\item $\displaystyle V \subseteq S \implies ((\lnot \exists X \exists Y (X \subseteq S \land Y \subseteq S \land V \cap X = V \cap Y \land X \neq Y)) \iff V \neq \emptyset)$
+\item $\displaystyle \exists V (V \neq \emptyset \land V \subseteq S)$
+\item $\displaystyle \exists X \subseteq S\ \forall Y \subseteq S\ (X \subseteq Y \land X \neq \emptyset)$
+\item $\displaystyle \forall X \subseteq S\ ((\forall Y \subseteq S\ (X \cap Y = Y)) \iff X \neq \emptyset)$
+\item $\displaystyle \forall X \subseteq S\ \exists Y \subseteq S\ \exists Z \subseteq S\ (X = Y \cap Z \land Y \neq Z)$
+\end{enumerate}
+\end{document}

@@ -1,0 +1,50 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Derivatives of order $n$, and of a fixed order (30)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Each statement gives the derivative of order $n$ of a function of $x$, for every $n$ from the stated value on, or its derivative of a fixed order. All of them are true where the expressions are defined. The letter $e$ is Euler's number; $a$ is a real number.
+
+\begin{enumerate}
+\item $\dfrac{d^n}{dx^n}\sin x=\sin\left(x+\dfrac{n\pi}{2}\right)$ per ogni $n\ge0$.
+\item $\dfrac{d^n}{dx^n}\cos x=\cos\left(x+\dfrac{n\pi}{2}\right)$ per ogni $n\ge0$.
+\item $\dfrac{d^n}{dx^n}\sin^2x=2^{n-1}\sin\left(2x+\dfrac{(n-1)\pi}{2}\right)$ per ogni $n\ge1$.
+\item $\dfrac{d^n}{dx^n}\cos^2x=2^{n-1}\cos\left(2x+\dfrac{n\pi}{2}\right)$ per ogni $n\ge1$.
+\item $\dfrac{d^n}{dx^n}\left(x\sin x\right)=x\sin\left(x+\dfrac{n\pi}{2}\right)+n\sin\left(x+\dfrac{(n-1)\pi}{2}\right)$ per ogni $n\ge1$.
+\item $\dfrac{d^n}{dx^n}\left(xe^{x}\right)=(x+n)e^{x}$ per ogni $n\ge0$.
+\item $\dfrac{d^n}{dx^n}\left(x^2e^{x}\right)=\left(x^2+2nx+n(n-1)\right)e^{x}$ per ogni $n\ge0$.
+\item $\dfrac{d^n}{dx^n}\ln x=\dfrac{(-1)^{n-1}(n-1)!}{x^n}$ per ogni $n\ge1$ e $x>0$.
+\item $\dfrac{d^n}{dx^n}\left(x\ln x\right)=\dfrac{(-1)^n(n-2)!}{x^{n-1}}$ per ogni $n\ge2$ e $x>0$.
+\item $\dfrac{d^n}{dx^n}\dfrac{1}{1+x}=\dfrac{(-1)^n\,n!}{(1+x)^{n+1}}$ per ogni $n\ge0$.
+\item $\dfrac{d^n}{dx^n}\ln(1+x)=\dfrac{(-1)^{n-1}(n-1)!}{(1+x)^n}$ per ogni $n\ge1$.
+\item $\dfrac{d^n}{dx^n}\dfrac{1}{1-x}=\dfrac{n!}{(1-x)^{n+1}}$ per ogni $n\ge0$.
+\item $\dfrac{d^n}{dx^n}e^{2x}=2^{n}e^{2x}$ for every integer $n\ge0$.
+\item $\dfrac{d^n}{dx^n}e^{-x}=(-1)^{n}e^{-x}$ for every integer $n\ge0$.
+\item $\dfrac{d^n}{dx^n}\sin(3x)=3^{n}\sin\left(3x+\dfrac{n\pi}{2}\right)$ for every integer $n\ge0$.
+\item $\dfrac{d^n}{dx^n}\left(x\cos x\right)=x\cos\left(x+\dfrac{n\pi}{2}\right)+n\cos\left(x+\dfrac{(n-1)\pi}{2}\right)$ for every integer $n\ge1$.
+\item $\dfrac{d^n}{dx^n}\ln(1-x)=-\dfrac{(n-1)!}{(1-x)^{n}}$ for every integer $n\ge1$.
+\item $\dfrac{d^n}{dx^n}\dfrac{1}{1+2x}=\dfrac{(-2)^{n}\,n!}{(1+2x)^{n+1}}$ for every integer $n\ge0$.
+\item $\dfrac{d^n}{dx^n}\dfrac{x}{1+x}=\dfrac{(-1)^{n+1}\,n!}{(1+x)^{n+1}}$ for every integer $n\ge1$.
+\item $\dfrac{d^n}{dx^n}\dfrac{1}{(1-x)^{2}}=\dfrac{(n+1)!}{(1-x)^{n+2}}$ for every integer $n\ge0$.
+\item $\dfrac{d^n}{dx^n}3^{x}=\left(\ln 3\right)^{n}3^{x}$ for every integer $n\ge0$.
+\item $\dfrac{d^n}{dx^n}\left(\sin x\cos x\right)=2^{n-1}\sin\left(2x+\dfrac{n\pi}{2}\right)$ for every integer $n\ge0$.
+\item \[ \frac{d^{n}}{dx^{n}} \left(e^{a x}\right) = a^{n} e^{a x} \]
+\item \[ \frac{d^{2}}{dx^{2}} x^{3} = 6x \]
+\item \[ \frac{d}{dx} \ln x = \frac{1}{x} \]
+\item \[ \frac{d}{dx} \sqrt{x} = \frac{1}{2\sqrt{x}} \]
+\item \[ \frac{d}{dx} \arctan x = \frac{1}{1 + x^{2}} \]
+\item \[ \frac{d}{dx} \tan x = 1 + \tan^{2} x \]
+\item \[ \frac{d^{3}}{dx^{3}} \left(x e^{x}\right) = \left(x + 3\right) e^{x} \]
+\item \[ \frac{d^{2}}{dx^{2}} \sin^{2} x = 2\cos\left(2x\right) \]
+\end{enumerate}
+\end{document}

@@ -1,0 +1,33 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{book\_trigonometry.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{book\_trigonometry.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_trigonometry.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 85 true statements. Each says that a goniometric equation, inequality or system in the real variable $x$ holds exactly for the values printed as its result in a school textbook, for example $2\sin x > 1 \iff \exists k \in \mathbb{Z}\ \left(\frac{\pi}{6} + 2k\pi < x < \frac{5}{6}\pi + 2k\pi\right)$.
+
+\item \textbf{What it exercises.} The sign table in the letter $t = \tan\frac{u}{2}$ (rule 18p-11), where every sine and cosine becomes a fraction in $t$; the point where $t$ has no value, computed apart; the families $x = a + kT$ of a printed result, compared with the condition through the sine and the cosine of the angle $2\pi(x - a)/T$ (rule 18p-13); and conditions restricted to an interval such as $0 \le x \le 2\pi$, read one turn at a time (rule 18p-14).
+
+\item \textbf{Variety.} Homogeneous equations of degree two, three and four, addition and duplication formulas, products of multiple angles, half angles, absolute values, fractions whose denominators vanish, systems of two or three inequalities, results with $\arctan$, results with no solution or with every admissible $x$. In five exercises the printed result is wrong (an independent check found the point where it fails): the statement here has the corrected result, and the printed one is in \texttt{false\_trigonometry.tex}.
+
+\item \textbf{Expected result.} The line \texttt{PASS: 85 of 85 statements proved, each with a written proof}.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_trigonometry \
+    tests/trigonometry/test_trigonometry.c && /tmp/test_trigonometry
+\end{verbatim}
+\end{enumerate}
+\end{document}

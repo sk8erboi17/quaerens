@@ -1,0 +1,33 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_nth\_derivatives.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_nth\_derivatives.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_derivatives.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 27 false statements on derivatives. It is an anti-regression test: the engine must never report any of them as proved.
+
+\item \textbf{The kinds of error.} A wrong phase, sign, factorial, exponent or power of the constant (items 1 to 5, 8 to 16); a formula that is right only for $n \le 3$ or $n \le 5$ (items 6 and 7); a function that depends on $n$ (item 17); a wrong derivative of fixed order (items 18 to 27).
+
+\item \textbf{Items 18, 19 and 20.} Before chapter 27 the program read the Leibniz sign $\frac{d}{dx}$ as a fraction of the letters $d$ and $x$, and reported $\frac{d}{dx} 5 = \frac{5}{x}$ as proved, with a verified certificate: as algebra it is $\frac{d}{dx} \cdot 5 = \frac{5}{x}$. Read as a derivative it is false. These items keep that reading from coming back.
+
+\item \textbf{Expected result.} The line \texttt{PASS: 27 of 27 false statements rejected}. Most are answered \texttt{FALSO}, with the order $n$ or the point $x$ where a derivative computed directly differs from the formula.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_derivatives \
+    tests/derivatives/test_derivatives.c && /tmp/test_derivatives
+\end{verbatim}
+\end{enumerate}
+\end{document}

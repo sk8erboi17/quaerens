@@ -1,0 +1,33 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{book\_trigonometry\_beyond.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{book\_trigonometry\_beyond.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_trigonometry.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 15 true statements of the same kind as \texttt{book\_trigonometry.tex} that the engine does not decide yet.
+
+\item \textbf{What it exercises.} Honesty about the limits: the engine may answer that it cannot decide, but must never call a true statement false. When one of these becomes provable it should move to \texttt{book\_trigonometry.tex}.
+
+\item \textbf{Variety.} Ten exercises with a real parameter beside the variable (for which values of $k$ an equation has solutions in an interval), two results written with $\arccos$, which the grammar does not have, and three equations with multiple angles whose polynomials in $t$ have a degree too high for the exact arithmetic of the sign table.
+
+\item \textbf{Expected result.} The line \texttt{PASS: 0 of 15 statements \ldots are PROVED (at least 0 wanted), 0 are REFUTED (none allowed)}.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_trigonometry \
+    tests/trigonometry/test_trigonometry.c && /tmp/test_trigonometry
+\end{verbatim}
+\end{enumerate}
+\end{document}

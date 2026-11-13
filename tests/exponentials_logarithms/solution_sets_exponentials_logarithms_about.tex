@@ -1,0 +1,34 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{solution\_sets\_exponentials\_logarithms.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{solution\_sets\_exponentials\_logarithms.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_exponentials\_logarithms.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 70 requests of the form $\{x \in \mathbb{R} \mid \ldots\}$ with exponentials and logarithms: nothing is claimed, the engine must find the solutions and write them as a textbook does.
+
+\item \textbf{What it exercises.} Reading the solutions off the sign table when its points come from the letters of exponentials and logarithms: rational points, points such as $\ln 6$ or $\log_{5}(2\sqrt{15})$, and the domain conditions of the logarithms.
+
+\item \textbf{Variety.} The same exercises as \texttt{book\_exponentials\_logarithms.tex}. The expected solutions, written in the test, are the textbook results: the engine's text must be the same, or a different writing of the same condition that the engine proves equivalent (the textbook writes $\frac{1}{2\sqrt{2}}$ where the engine writes $\frac{\sqrt{2}}{4}$). Six requests are beyond the engine today and may stay unanswered.
+
+\item \textbf{Expected result.} The line \texttt{PASS: 64 of 70 solution sets found and equal to the expected ones (6 not answered, as allowed)}.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_exponentials_logarithms \
+    tests/exponentials_logarithms/test_exponentials_logarithms.c \
+    && /tmp/test_exponentials_logarithms
+\end{verbatim}
+\end{enumerate}
+\end{document}

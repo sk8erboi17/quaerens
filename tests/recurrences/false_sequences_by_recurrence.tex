@@ -1,0 +1,47 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{False or ill-posed statements on sequences defined by a recurrence (27)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Each statement defines a sequence by a recurrence and claims a formula for its terms or bounds on them. None of them is a true statement about a well-defined sequence: the formula is wrong (sometimes only after the first terms), a first value or the rule does not match, a bound is passed after some terms, the sequence is not defined, or the hypotheses do not define every term.
+
+\begin{enumerate}
+\item Let $a_0=1$ and $a_{n+1}=2a_n+1$. Then $a_n=2^{n+1}-1+n\left(n-1\right)\left(n-2\right)$ for every integer $n\ge0$.
+\item Let $a_0=1$ and $a_{n+1}=2a_n+1$. Then $a_n=2^{n+1}-1+\prod_{j=0}^{7}\left(n-j\right)$ for every integer $n\ge0$.
+\item Let $a_0=1$ and $a_{n+1}=2a_n+1$. Then $a_n=2^{n+1}-1+\prod_{j=0}^{13}\left(n-j\right)$ for every integer $n\ge0$.
+\item Let $a_0=2$ and $a_{n+1}=2a_n+1$. Then $a_n=2^{n+1}-1$ for every integer $n\ge0$.
+\item Let $a_0=1$ and $a_{n+1}=3a_n+1$. Then $a_n=2^{n+1}-1$ for every integer $n\ge0$.
+\item Let $a_0=1$ and $a_{n+1}=2a_n+1$. Then $a_n=3\cdot2^{n}-1$ for every integer $n\ge0$.
+\item Let $a_0=2$, $a_1=6$ and $a_{n+2}=5a_{n+1}-6a_n$. Then $a_n=2^n+3^n$ for every integer $n\ge0$.
+\item Let $a_0=2$, $a_1=5$ and $a_{n+2}=5a_{n+1}-6a_n$. Then $a_n=2^n+3^n+\left(n-1\right)n$ for every integer $n\ge0$.
+\item Sia $a_0=0$, $a_1=\sin x$ e $a_{n+1}=2\cos x\,a_n-a_{n-1}$ per $n\ge1$. Allora $a_n=\cos(nx)$ per ogni $n\ge0$.
+\item Sia $a_0=0$, $a_1=\sin x$ e $a_{n+1}=2\cos x\,a_n-a_{n-1}$ per $n\ge1$. Allora $a_n=n\sin x$ per ogni $n\ge0$.
+\item Sia $a_0=0$, $a_1=\sin x$ e $a_{n+1}=2\cos x\,a_n+a_{n-1}$ per $n\ge1$. Allora $a_n=\sin(nx)$ per ogni $n\ge0$.
+\item Let $a_1=1$ and $a_{n+1}=\frac{a_n}{1+a_n}$. Then $a_n=\frac{1}{n}$ for every integer $n\ge0$.
+\item Let $a_1=1$ and $a_{n+1}=\frac{a_n}{1+2a_n}$. Then $a_n=\frac{1}{n}$ for every integer $n\ge1$.
+\item Let $a_0=0$, $a_1=1$ and $a_{n+1}=a_n+a_{n-1}$ for $n\ge3$. Then $a_n=F_n$ for every integer $n\ge0$.
+\item Let $a_1=1$ and $a_{n+2}=a_{n+1}+a_n$. Then $a_n=F_n$ for every integer $n\ge1$.
+\item Sia $a_0=0$ e $a_{n+1}=\sqrt{6+a_n}$. Allora $a_n<2$ per ogni $n\ge0$.
+\item Sia $a_0=0$ e $a_{n+1}=\sqrt{6+a_n}$. Allora $a_n<\frac{299}{100}$ per ogni $n\ge0$.
+\item Sia $a_0=0$ e $a_{n+1}=\sqrt{6+a_n}$. Allora $a_n<\frac{29999}{10000}$ e $a_n<a_{n+1}$ per ogni $n\ge0$.
+\item Sia $a_0=0$ e $a_{n+1}=\sqrt{6+a_n}$. Allora $a_n<3$ e $a_n>a_{n+1}$ per ogni $n\ge0$.
+\item Sia $a_0=4$ e $a_{n+1}=\sqrt{6+a_n}$. Allora $a_n<a_{n+1}$ per ogni $n\ge0$.
+\item Sia $a_0=4$ e $a_{n+1}=\sqrt{6+a_n}$. Allora $a_n<3$ per ogni $n\ge1$.
+\item Let $a_0=1$ and $a_{n+1}=\frac{a_n}{2}+1$. Then $a_n<\frac{19}{10}$ for every integer $n\ge0$.
+\item Let $a_0=1$ and $a_{n+1}=2a_n$. Then $a_n<1000$ for every integer $n\ge0$.
+\item Let $a_0=1$ and $a_{n+1}=\frac{1}{a_n-1}$. Then $a_n>0$ for every integer $n\ge0$.
+\item Let $a_0=2$ and $a_{n+1}=\sqrt{a_n-3}$. Then $a_n\ge0$ for every integer $n\ge0$.
+\item Let $a_0=2$ and $a_{n+1}=\frac{a_n}{2}+\frac{1}{a_n}$. Then $a_n^2\ge2$ and $a_{n+1}\ge a_n$ for every integer $n\ge0$.
+\item Let $a_0=1$ and $a_{n+1}=a_n+\frac{1}{n+1}$. Then $a_n<3$ for every integer $n\ge0$.
+\end{enumerate}
+\end{document}

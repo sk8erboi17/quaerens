@@ -1,0 +1,34 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_exponentials\_logarithms.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_exponentials\_logarithms.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_exponentials\_logarithms.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 207 false statements: textbook results with one detail changed, and the one result that the textbook prints wrong.
+
+\item \textbf{What it exercises.} The anti-regression check against false proofs. An endpoint moved to a nearby number, included or excluded by mistake, a solution dropped, a candidate outside the domain kept, no solutions claimed for an equation that has some: the engine must never prove one of them, and today it finds a counterexample for 191. One of these statements was proved by an earlier version of the engine (exercise 402, where $\log x^{2}$ stands beside $\log x$).
+
+\item \textbf{Variety.} Every kind of change is applied to equations, inequalities and domains. Each false statement has a point where its two sides differ, found by an independent oracle (\texttt{tools/fuzz/fuzz\_exponentials\_logarithms.py}).
+
+\item \textbf{Expected result.} The lines \texttt{PASS: 207 of 207 false statements rejected} and \texttt{PASS: 191 of 207 statements \ldots are REFUTED (at least 191 wanted), 0 are PROVED (none allowed)}.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_exponentials_logarithms \
+    tests/exponentials_logarithms/test_exponentials_logarithms.c \
+    && /tmp/test_exponentials_logarithms
+\end{verbatim}
+\end{enumerate}
+\end{document}

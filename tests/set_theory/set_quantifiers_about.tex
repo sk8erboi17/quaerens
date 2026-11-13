@@ -1,0 +1,35 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{set\_quantifiers.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{set\_quantifiers.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_set\_theory.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 24 true statements about sets in which ``there is a set'' and ``for every set'' occur more than once, one inside another, or under a negation. Each must be proved, with a written proof. The statements are data: the engine knows none of them in advance.
+
+\item \textbf{What is being tested.} Rule 15f of \texttt{main.c}. For these statements it is not enough to know which regions of the Venn diagram are empty: what counts is how many elements each region has, up to $2^{q}$ when $q$ quantifiers are one inside another, and the rule tries every such number and, for each quantified set, every way of dividing the regions. The first five are the claims of textbook exercises on the operations of $\mathcal{P}(S)$ that need more than one quantifier: the difference is not associative and not commutative, it has no neutral element on the left, the neutral element of the intersection and of the union is the only regular one. The others are the properties of the relation ``$X \cap Y = \emptyset$'' on $\mathcal{P}(S)$, complements, neutral elements, and statements whose truth depends on the number of elements: if $S$ has three parts that are not empty and have nothing in common, it has two.
+
+\item \textbf{How the statements are written.} A quantifier can carry a limit, written $\subseteq S$ or $\in \mathcal{P}(S)$; several letters after one quantifier share it. A letter that no quantifier binds is arbitrary. At most four different letters can occur in one statement.
+
+\item \textbf{Adding statements.} Any new statement must be true. A statement with one quantifier in front, or on one side of an implication, may be proved by the older rules 15d and 15e and not test this one.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_set_theory \
+    tests/set_theory/test_set_theory.c && /tmp/test_set_theory
+\end{verbatim}
+
+\item \textbf{Expected result.} The line \texttt{PASS: 24 of 24 statements proved, each with a written proof}.
+\end{enumerate}
+\end{document}

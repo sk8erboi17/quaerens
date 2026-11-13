@@ -1,0 +1,58 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Congruences and divisibility with fixed moduli (38)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+$\mathbb{N} = \{1, 2, 3, \ldots\}$, $\mathbb{N}_{0} = \mathbb{N} \cup \{0\}$; $a \mid b$: $b$ is $a$ times an integer; $a \equiv b \pmod{m}$: $m \mid a - b$. Every statement below is true.
+
+\begin{enumerate}
+\item $\displaystyle \forall x \in \mathbb{Z}\ (5x \equiv 8 \pmod{36} \iff x \equiv 16 \pmod{36})$
+\item $\displaystyle \forall x \in \mathbb{Z}\ (24x \equiv 42 \pmod{15} \iff x \equiv 3 \pmod{5})$
+\item $\displaystyle \forall x \in \mathbb{Z}\ (17x \equiv 3 \pmod{29} \iff x \equiv 7 \pmod{29})$
+\item $\displaystyle \forall x \in \mathbb{Z}\ (3x \equiv 1 \pmod{5} \iff x \equiv 2 \pmod{5})$
+\item $\displaystyle \forall x \in \mathbb{Z}\ (15x \equiv 3 \pmod{7} \iff x \equiv 3 \pmod{7})$
+\item $\displaystyle \forall x \in \mathbb{Z}\ (53x \equiv 7 \pmod{8} \iff x \equiv 3 \pmod{8})$
+\item $\displaystyle \forall x \in \mathbb{Z}\ (10x \equiv 2 \pmod{6} \iff x \equiv 2 \pmod{3})$
+\item $\displaystyle \forall x \in \mathbb{Z}\ (8x \equiv 4 \pmod{9} \iff x \equiv 5 \pmod{9})$
+\item $\displaystyle \forall x \in \mathbb{Z}\ (200x \equiv 10 \pmod{15} \iff x \equiv 2 \pmod{3})$
+\item $\displaystyle \forall x \in \mathbb{Z}\ (24x \equiv 66 \pmod{30} \iff x \equiv 4 \pmod{5})$
+\item $\displaystyle \forall x \in \mathbb{Z}\ ((x \equiv 2 \pmod{3} \land x \equiv 5 \pmod{4} \land x \equiv 3 \pmod{5}) \iff x \equiv 53 \pmod{60})$
+\item $\displaystyle \forall a \in \mathbb{Z}\ ((\exists b \in \mathbb{Z}\ (ab \equiv 1 \pmod{7})) \iff 7 \nmid a)$
+\item $\displaystyle \forall a \in \mathbb{Z}\ ((\exists b \in \mathbb{Z}\ (ab \equiv 1 \pmod{12})) \iff (a \equiv 1 \pmod{12} \lor a \equiv 5 \pmod{12} \lor a \equiv 7 \pmod{12} \lor a \equiv 11 \pmod{12}))$
+\item $\displaystyle \forall x \in \mathbb{Z}\ (5x \equiv 1 \pmod{12} \iff x \equiv 5 \pmod{12})$
+\item $\displaystyle \forall x \in \mathbb{Z}\ (7x \equiv 1 \pmod{15} \iff x \equiv 13 \pmod{15})$
+\item $\displaystyle \forall a, b \in \mathbb{Z}\ ((2 \nmid a \land 2 \nmid b) \implies a^{2} \equiv b^{2} \pmod{4})$
+\item $\displaystyle \forall a, b \in \mathbb{Z}\ ((2 \nmid a \land 2 \nmid b) \implies a^{2} \equiv b^{2} \pmod{8})$
+\item $\displaystyle \forall x \in \mathbb{Z}\ ((\exists k \in \mathbb{Z}\ (5x - 8 = 36k)) \iff (\exists j \in \mathbb{Z}\ (x = 16 + 36j)))$
+\item $\displaystyle \forall x \in \mathbb{Z}\ (((\exists a \in \mathbb{Z}\ (x - 2 = 3a)) \land (\exists b \in \mathbb{Z}\ (x - 5 = 4b)) \land (\exists c \in \mathbb{Z}\ (x - 3 = 5c))) \iff (\exists j \in \mathbb{Z}\ (x = 53 + 60j)))$
+\item $\displaystyle \forall a, b \in \mathbb{Z}\ (((\exists m \in \mathbb{Z}\ (a = 2m + 1)) \land (\exists n \in \mathbb{Z}\ (b = 2n + 1))) \implies \exists k \in \mathbb{Z}\ (a^{2} - b^{2} = 4k))$
+\item $\displaystyle \exists h, k \in \mathbb{Z}\ (5 = 70h + 125k)$
+\item $\displaystyle \exists h, k \in \mathbb{Z}\ (10 = 300h + 490k)$
+\item $\displaystyle \forall x \in \mathbb{Z}\ (7 \nmid x^{2} + 1)$
+\item $\displaystyle \forall x \in \mathbb{Z}\ (x^{2} \equiv 0 \pmod{4} \lor x^{2} \equiv 1 \pmod{4})$
+\item $\displaystyle \forall x \in \mathbb{Z}\ (30 \mid x^{5} - x)$
+\item $\displaystyle \forall n \in \mathbb{N}\ (6 \mid n(n + 1)(2n + 1))$
+\item $\displaystyle \forall n \in \mathbb{N}_{0}\ (3 \mid n^{3} + 2n \land 9 \nmid 3n^{2} + 3)$
+\item $\displaystyle \forall x \in \mathbb{Z} \setminus \{0\}\ (x \equiv 1 \pmod{2} \iff x^{2} \equiv 1 \pmod{8})$
+\item $\displaystyle \forall x \in \mathbb{Z}\ (\frac{x}{2} \equiv 1 \pmod{3} \iff x \equiv 2 \pmod{6})$
+\item $\displaystyle \forall n \in \mathbb{N}\ \exists m \in \mathbb{N}\ (7 \mid n + m \land 3 \nmid m)$
+\item $\displaystyle \forall x, y \in \mathbb{Z}\ (x \equiv y \pmod{6} \implies (x \equiv y \pmod{2} \land x \equiv y \pmod{3}))$
+\item $\displaystyle \forall x, y \in \mathbb{Z}\ ((x \equiv y \pmod{2} \land x \equiv y \pmod{3}) \implies x \equiv y \pmod{6})$
+\item $\displaystyle \forall x, y, z \in \mathbb{Z}\ ((x \equiv y \pmod{5} \land y \equiv z \pmod{5}) \implies x \equiv z \pmod{5})$
+\item $\displaystyle \forall x, y, u, v \in \mathbb{Z}\ ((x \equiv y \pmod{4} \land u \equiv v \pmod{4}) \implies (x + u \equiv y + v \pmod{4} \land xu \equiv yv \pmod{4}))$
+\item $\displaystyle \lnot (\forall x, y \in \mathbb{Z}\ (2x \equiv 2y \pmod{6} \implies x \equiv y \pmod{6}))$
+\item $\displaystyle \lnot (\exists x \in \mathbb{Z}\ (x^{2} \equiv 2 \pmod{3}))$
+\item $\displaystyle R = \{(a, b) \in \mathbb{Z}^{2} \mid 4 \mid a^{2} - b^{2}\} \implies ((\forall x \in \mathbb{Z}\ ((x, x) \in R) \land \forall x, y\ ((x, y) \in R \implies (y, x) \in R) \land \forall x, y, z\ (((x, y) \in R \land (y, z) \in R) \implies (x, z) \in R)))$
+\item $\displaystyle R = \{(a, b) \in \mathbb{Z}^{2} \mid a \equiv b \pmod{3}\} \implies (\forall x, y, z, w\ (((x, y) \in R \land (z, w) \in R) \implies (x + z, y + w) \in R))$
+\end{enumerate}
+\end{document}

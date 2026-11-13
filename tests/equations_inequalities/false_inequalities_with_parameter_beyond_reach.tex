@@ -1,0 +1,33 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{False statements with a parameter that the engine does not treat (13)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Every statement below is false, and none may be proved. They are beyond the reach of the cases on the parameter, and the engine is expected to say that it does not treat them: the first five are altered results of the textbook exercises 224 and 226, which have an absolute value or a square root of an expression in the parameter beside $x$; the others have an absolute value, a square root, a power or a sine of $x$, three letters, a parameter that is not real, or a critical value of the parameter that is the root of a cubic.
+
+\begin{enumerate}
+\item $\displaystyle \forall a \in \mathbb{R}\ \forall x \in \mathbb{R}\ \left( (x + 2a)(x - 2a) \ge 1 - 4a \iff \left( (a \neq \frac{1}{2} \land (x < -\left|2a - 1\right| \lor x \ge \left|2a - 1\right|)) \lor a = \frac{1}{2} \right) \right)$
+\item $\displaystyle \forall a \in \mathbb{R}\ \forall x \in \mathbb{R}\ \left( (x + 2a)(x - 2a) \ge 1 - 4a \iff \left( a \neq \frac{1}{2} \land (x \le -\left|2a - 1\right| \lor x \ge \left|2a - 1\right|) \right) \right)$
+\item $\displaystyle \forall k \in \mathbb{R}\ \forall x \in \mathbb{R}\ \left( (x + k)^{2} - 2k(x - 2) - 4(x + k) < 0 \iff \left( -2 \le k \le 2 \land 2 - \sqrt{4 - k^{2}} \le x \le 2 + \sqrt{4 - k^{2}} \right) \right)$
+\item $\displaystyle \forall k \in \mathbb{R}\ \forall x \in \mathbb{R}\ \left( (x + k)^{2} - 2k(x - 2) - 4(x + k) < 0 \iff \left( -2 < k < 2 \land 2 - \sqrt{4 + k^{2}} < x < 2 + \sqrt{4 + k^{2}} \right) \right)$
+\item $\displaystyle \forall k \in \mathbb{R}\ \forall x \in \mathbb{R}\ \left( (x + k)^{2} - 2k(x - 2) - 4(x + k) < 0 \iff \left( -2 < k < 2 \land 2 - \sqrt{4 - k^{2}} \le x < 2 + \sqrt{4 - k^{2}} \right) \right)$
+\item $\displaystyle \forall a \in \mathbb{R}\ \forall x \in \mathbb{R}\ \left(\left|x\right| < a \iff -a \le x \le a\right)$
+\item $\displaystyle \forall a \in \mathbb{R}\ \exists x \in \mathbb{R}\ (x^{3} + ax + 1 = 0 \land x > 0)$
+\item $\displaystyle \forall a \in \mathbb{R}\ \forall b \in \mathbb{R}\ \forall x \in \mathbb{R}\ (x^{2} + a^{2} + b^{2} > 0)$
+\item $\displaystyle \forall a \in \mathbb{R}\ \forall x \in \mathbb{R}\ (\sqrt{x^{2} + a^{2}} > 0)$
+\item $\displaystyle \forall a \in \mathbb{R}\ \forall x \in \mathbb{R}\ (2^{x} > a)$
+\item $\displaystyle \forall a \in \mathbb{R}\ \forall x \in \mathbb{R}\ (\sin x < a^{2} + 1)$
+\item $\displaystyle \forall a \in \mathbb{Q}\ \forall x \in \mathbb{R}\ (x^{2} + a^{2} > 2ax)$
+\item $\displaystyle \forall a \in \mathbb{R}\ \forall x \in \mathbb{R}\ \left(x^{2} \le a^{2} \iff -a \le x \le \left|a\right|\right)$
+\end{enumerate}
+\end{document}

@@ -1,0 +1,34 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{abstract\_structures.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{abstract\_structures.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_algebraic\_structures.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 24 true statements about an arbitrary set with an operation, maps, a subset or a relation of which only the hypotheses are known. Each must be proved, with a written proof.
+
+\item \textbf{What it exercises.} The language of paragraph 17o of \texttt{parser.c} and chapter 28 of \texttt{main.c}: proof by contradiction with instances of the hypotheses, substitution of equals (congruence closure), named witnesses, cases; every written step is re-checked, and no model with few elements may contradict the statement. The two statements that begin with $\exists S$ are proved by exhibiting a finite model.
+
+\item \textbf{Variety.} Uniqueness of the neutral element, left and right inverses, generalised associativity, cancellation in a group, an operation with $x \perp x = e$ is commutative; compositions of injective and of surjective maps, a left inverse, an involution; pairs; relations that are symmetric, transitive, euclidean, with quantifiers written without a set; subsets closed under maps; a statement that needs cases.
+
+\item \textbf{Expected result.} The line \texttt{PASS: 24 of 24 statements proved, each with a written proof}.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_algebraic_structures \
+    tests/algebraic_structures/test_algebraic_structures.c \
+    && /tmp/test_algebraic_structures
+\end{verbatim}
+\end{enumerate}
+\end{document}

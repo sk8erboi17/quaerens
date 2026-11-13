@@ -1,0 +1,35 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{relations\_by\_rule.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{relations\_by\_rule.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_set\_theory.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 30 true statements about relations and correspondences between sets of numbers that are given by a rule, about ``there is exactly one'', and about membership in a set of numbers. Each must be proved, with a written proof. The statements are data: the engine knows none of them in advance.
+
+\item \textbf{What is being tested.} The reading of three notations, which the engine replaces by what they stand for. A relation declared among the hypotheses as $R = \{(x, y) \in A \times B \mid c\}$ is a name for the condition $c$: every $(s, t) \in R$ is read as ``$s \in A$, $t \in B$, and $c$ with $s$ and $t$ in place of $x$ and $y$''. $\exists! y \in A\ P$ is read as ``there is $y$ with $P$, and every $z$ with $P$ equals $y$''. $s \in A$ with $A$ a set of numbers is a condition by itself. Several statements are there for the substitution: an argument that is a sum, as in $(a + 1, 2a + 2) \in R$, which must enter the rule with its brackets; a letter of the statement that is also bound inside the rule, as $k$ in $\forall k\ ((k, 0) \in R)$ with the rule $\exists k\ (y = kx)$; a pair of numbers outside the two sets, as $(0, 0)$ with $A = \mathbb{N}$; a relation declared by means of another.
+
+\item \textbf{How the statements are written.} Every property is written out as a formula, not named: ``$R$ is symmetric'' is $\forall x, y\ ((x, y) \in R \implies (y, x) \in R)$. A quantifier written without a set, as in the books, is accepted only when the condition forces its letters into the sets of the relation, so that the set does not change the meaning.
+
+\item \textbf{Adding statements.} Any new statement must be true, and of a kind that the present rules prove: the statements that the engine cannot prove yet belong in the files read by \texttt{test\_maps\_and\_relations.c}.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_set_theory \
+    tests/set_theory/test_set_theory.c && /tmp/test_set_theory
+\end{verbatim}
+
+\item \textbf{Expected result.} The line \texttt{PASS: 30 of 30 statements proved, each with a written proof}.
+\end{enumerate}
+\end{document}

@@ -1,0 +1,35 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_set\_quantifiers.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_set\_quantifiers.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_set\_theory.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 20 false statements about sets with more than one quantifier. It is an anti-regression test: the engine must never report any of them as proved.
+
+\item \textbf{What the statements are.} Most are true for sets with enough elements and false for small ones, which is where a method that only looks at empty and non-empty regions goes wrong: a non-empty set has two disjoint non-empty parts only if it has two elements; one with two disjoint non-empty parts has three of them only if it has three elements, so that statement is true when $S$ has at most one element, false when it has two. Others claim of an operation a property it does not have (the difference is not associative, the union has no ``quotient''), or are the true statements of \texttt{set\_quantifiers.tex} with a condition changed.
+
+\item \textbf{How the statements are written.} As in \texttt{set\_quantifiers.tex}.
+
+\item \textbf{Adding statements.} Any new statement must be false for some choice of the free sets; write next to it, in this note, why it is false.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_set_theory \
+    tests/set_theory/test_set_theory.c && /tmp/test_set_theory
+\end{verbatim}
+
+\item \textbf{Expected result.} The line \texttt{PASS: 20 of 20 false statements rejected}. Today the engine also finds a counterexample for each, the smallest sets for which the statement fails, such as $S = \{1, 2\}$.
+\end{enumerate}
+\end{document}

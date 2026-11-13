@@ -1,0 +1,44 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Statements with quantifiers over sets (24)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Capital letters are sets. The letters that no quantifier binds are arbitrary: each statement is claimed for every choice of them. $\forall X \subseteq S$ and $\forall X \in \mathcal{P}(S)$ both say ``for every part $X$ of $S$. Every statement below is true.
+
+\begin{enumerate}
+\item $\displaystyle S \neq \emptyset \implies \exists X \exists Y \exists Z (X \subseteq S \land Y \subseteq S \land Z \subseteq S \land (X \setminus Y) \setminus Z \neq X \setminus (Y \setminus Z))$
+\item $\displaystyle S \neq \emptyset \implies \exists X \exists Y (X \subseteq S \land Y \subseteq S \land X \setminus Y \neq Y \setminus X)$
+\item $\displaystyle S \neq \emptyset \implies \lnot \exists V (V \subseteq S \land \lnot \exists X (X \subseteq S \land V \setminus X \neq X))$
+\item $\displaystyle V \subseteq S \implies ((\lnot \exists X \exists Y (X \subseteq S \land Y \subseteq S \land V \cap X = V \cap Y \land X \neq Y)) \iff V = S)$
+\item $\displaystyle V \subseteq S \implies ((\lnot \exists X \exists Y (X \subseteq S \land Y \subseteq S \land V \cup X = V \cup Y \land X \neq Y)) \iff V = \emptyset)$
+\item $\displaystyle \forall X \subseteq S\ \exists Y \subseteq S\ (X \cup Y = S \land X \cap Y = \emptyset)$
+\item $\displaystyle \forall X \subseteq S\ \forall Y \subseteq S\ ((X \cup Y = S \land X \cap Y = \emptyset) \implies Y = S \setminus X)$
+\item $\displaystyle \exists E \subseteq S\ \forall X \subseteq S\ (X \cap E = X \land E \cap X = X)$
+\item $\displaystyle \exists E \subseteq S\ \forall X \subseteq S\ (X \cup E = X \land E \cup X = X)$
+\item $\displaystyle \forall X \subseteq S\ \exists Y \subseteq S\ (X \triangle Y = \emptyset)$
+\item $\displaystyle \forall X, Y \subseteq S\ \exists Z \subseteq S\ (X \triangle Z = Y)$
+\item $\displaystyle \forall X, Y, Z \subseteq S\ ((X \triangle Y) \triangle Z = X \triangle (Y \triangle Z))$
+\item $\displaystyle \forall X, Y \in \mathcal{P}(S)\ (X \cap Y = \emptyset \implies Y \cap X = \emptyset)$
+\item $\displaystyle S \neq \emptyset \implies \lnot (\forall X \in \mathcal{P}(S)\ (X \cap X = \emptyset))$
+\item $\displaystyle S \neq \emptyset \implies \lnot (\forall X, Y, Z \in \mathcal{P}(S)\ ((X \cap Y = \emptyset \land Y \cap Z = \emptyset) \implies X \cap Z = \emptyset))$
+\item $\displaystyle \forall X, Y, Z\ ((X \subseteq Y \land Y \subseteq Z) \implies X \subseteq Z)$
+\item $\displaystyle \forall X, Y \in \mathcal{P}(S)\ (X \cap E = Y \cap E \implies Y \cap E = X \cap E)$
+\item $\displaystyle (\exists A (A \subseteq S \land A \neq \emptyset \land A \neq S)) \implies \exists X \exists Y (X \cup Y = S \land X \cap Y = \emptyset \land X \neq \emptyset \land Y \neq \emptyset)$
+\item $\displaystyle (\exists A \exists B (A \subseteq S \land B \subseteq S \land A \neq B)) \implies S \neq \emptyset$
+\item $\displaystyle \exists V (V \neq \emptyset \land V \cap S = \emptyset)$
+\item $\displaystyle \lnot (\exists X \subseteq S\ \forall Y \subseteq S\ (X \subseteq Y \land X \neq \emptyset))$
+\item $\displaystyle \forall X \subseteq S\ ((\forall Y \subseteq S\ (X \cap Y = Y)) \iff X = S)$
+\item $\displaystyle \forall X \subseteq S\ \exists Y \subseteq S\ \exists Z \subseteq S\ (X = Y \cap Z \land Y \cup Z = S)$
+\item $\displaystyle (\exists X \exists Y \exists Z (X \subseteq S \land Y \subseteq S \land Z \subseteq S \land X \neq \emptyset \land Y \neq \emptyset \land Z \neq \emptyset \land X \cap Y = \emptyset \land Y \cap Z = \emptyset \land X \cap Z = \emptyset)) \implies \exists X \exists Y (X \subseteq S \land Y \subseteq S \land X \neq \emptyset \land Y \neq \emptyset \land X \cap Y = \emptyset)$
+\end{enumerate}
+\end{document}

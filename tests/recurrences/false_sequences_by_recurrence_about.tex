@@ -1,0 +1,43 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_sequences\_by\_recurrence.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_sequences\_by\_recurrence.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_recurrences.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 27 statements about a sequence defined by a recurrence that the engine must never report as proved. It is an anti-regression test.
+
+\item \textbf{The kinds of error.}
+\begin{itemize}
+\item A wrong formula that agrees with the right one on the first terms: up to $a_2$ (item 1), up to $a_7$ (item 2, beyond the terms the engine computes from the rule), up to $a_{13}$ (item 3, where only the proof that the formula satisfies the rule can stop it).
+\item A first value or a rule that does not match the formula (items 4 to 8, 13), also with a parameter (items 9, 10, 11).
+\item Hypotheses that do not define the sequence the claim speaks of: a claim that starts before the first value, a rule given from a later $n$, a missing first value (items 12, 14, 15).
+\item A bound that fails: at the first or second term (items 16, 19, 20, 26), at the fifth (items 17, 22), only at the seventh or the eleventh, beyond the terms the engine computes (items 18, 23), or from a later start (item 21).
+\item A sequence that is not defined: a division by zero or the root of a negative number at the second term (items 24, 25).
+\item A bound on a sequence whose rule contains $n$ (item 27): the harmonic numbers pass $3$ at $n = 11$.
+\end{itemize}
+
+\item \textbf{How falsity was checked.} By computing the terms from the rule with exact fractions, or with many decimal digits, in a script that does not use the engine.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_recurrences \
+    tests/recurrences/test_recurrences.c && /tmp/test_recurrences
+\end{verbatim}
+
+\item \textbf{Expected result.} The line \texttt{PASS: 27 of 27 false statements rejected}.
+
+\item \textbf{Adding statements.} Any new statement must be false, or must not define its sequence. Every such statement that the engine proves, or that a fuzz run finds, goes here.
+\end{enumerate}
+\end{document}

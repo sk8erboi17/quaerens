@@ -6,7 +6,7 @@
  * di dominio dicono solo quali file leggere. Questo non è un test: non ha un
  * main() e non contiene enunciati.
  *
- * I controlli sono tre.
+ * I controlli sono quattro.
  *
  *   1. check_all_proved(): ogni enunciato del file è dimostrato, e il motore
  *      ne ha scritto la dimostrazione.
@@ -25,6 +25,10 @@
  *
  *   3. check_none_proved(): antiregressione. Nessun enunciato di un file di
  *      formule sbagliate è dimostrato.
+ *
+ *   4. check_none_refuted(): l'altro verso. Nessun enunciato di un file di
+ *      enunciati veri che il motore non sa ancora decidere è dichiarato
+ *      falso: può rispondere che non lo sa, non che è falso.
  *
  * Ogni funzione stampa i casi che non vanno e una riga finale PASS o FAIL, e
  * ritorna 1 se il controllo è riuscito. Sono `static inline` perché un test può
@@ -86,10 +90,17 @@ static inline int check_all_proved(const char *path) {
  * cercare il carattere '=' non basterebbe, perché compare anche nel pedice di
  * \sum. Dopo aver letto un'espressione, il token corrente è la relazione. */
 static inline int make_variant(const char *formula, const char *addend, char *out, size_t size) {
+    /* Un enunciato su una successione definita per ricorrenza ha le ipotesi
+     * davanti a \implies: la variante riguarda la tesi, e solo se è una
+     * sola, perché di più tesi non si sa quale uguaglianza alterare. */
+    const char *thesis = strstr(formula, "\\implies");
+    thesis = thesis ? thesis + strlen("\\implies") : formula;
+    if (thesis != formula && strstr(thesis, "\\land")) return 0;
+
     arena_used = arena_keep;
     failure = NULL;
     syntax_error = NULL;
-    cursor = formula;
+    cursor = thesis;
     next_token();
     parse_expr();
     if (syntax_error || failure || !is_char('=')) return 0;
@@ -163,4 +174,32 @@ static inline int check_none_proved(const char *path) {
 
     snprintf(summary, sizeof summary, "%d of %d false statements rejected in %s", total - proved, total, path);
     return check_result(total > 0 && proved == 0, summary);
+}
+
+/* Controllo 4: nessun enunciato di path, un file di enunciati veri che il
+ * motore può non saper decidere, deve essere dichiarato falso. Quanti ne
+ * dimostra viene solo riferito: quando uno diventa dimostrabile va spostato
+ * nel file di quelli che devono esserlo. */
+static inline int check_none_refuted(const char *path) {
+    char summary[512];
+    char *text = read_file(path);
+    if (!text) {
+        snprintf(summary, sizeof summary, "cannot read %s", path);
+        return check_result(0, summary);
+    }
+
+    const char *position = text, *item, *end;
+    int total = 0, refuted = 0, proved = 0;
+    while (next_item(&position, &item, &end)) {
+        Verdict verdict = prove_item(item, end);
+        total++;
+        if (verdict.outcome == PROVED) proved++;
+        if (verdict.outcome != REFUTED) continue;
+        refuted++;
+        printf("  statement %d is true but was called false\n", total);
+    }
+    free(text);
+
+    snprintf(summary, sizeof summary, "none of the %d true statements of %s is called false (%d are proved)", total, path, proved);
+    return check_result(total > 0 && refuted == 0, summary);
 }

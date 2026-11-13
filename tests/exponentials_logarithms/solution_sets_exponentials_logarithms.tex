@@ -1,0 +1,90 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Exponential and logarithmic equations, inequalities and domains to solve (70)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Each item asks for the set of the real numbers that satisfy a condition with exponentials or logarithms. Nothing is claimed: the engine must find the solutions. The expected solutions are in \texttt{test\_exponentials\_logarithms.c}.
+
+\begin{enumerate}
+\item $\displaystyle \{x \in \mathbb{R} \mid -2 \cdot 5^{x+2} + 25^{x+1} = 375\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid 9^{x} + 9 = 10 \cdot 3^{x}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid 2^{4x+3} + 2 = 17 \cdot 4^{x}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid 5^{x+2} - 4 \cdot 5^{1-x} - 30 = -5^{2-x}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid 3^{x} - 3^{-1} = 3(2 \cdot 3^{-x} + 8 \cdot 3^{-1})\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \frac{4}{2^{x} - 1} + \frac{3}{2^{x} + 1} = 5\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \frac{2 \cdot (3^{x} + 1)}{3^{x}} = \frac{3 \cdot (3^{x} + 1)}{2 \cdot 3^{x} + 1}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \left(\frac{1}{4}\right)^{x} - 4 = 3 \cdot 2^{-x}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \sqrt[3]{11^{9x}} - 11^{2x} + 121(1 - 11^{x}) = 0\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \frac{\sqrt{3^{x}}}{\sqrt{3^{x+1}} \cdot 9^{x+2}} = \frac{1}{9}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \frac{\sqrt{3 \cdot \sqrt{9^{x}}}}{81^{x-1}} = 9^{2x+3}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \frac{(2^{x})^{x-3}}{\sqrt{8^{x}}} = \frac{(\sqrt{2})^{3x}}{32}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \sqrt[x+2]{25^{x}} \cdot \sqrt[x]{5^{4}} = 125\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \frac{24}{3^{x} - 1} - \frac{9}{3^{x}} = 2\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid 3^{-x} + \frac{3^{x} + 2}{3^{x} + 6} = \frac{24}{3^{2x} + 6 \cdot 3^{x}}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid 1 + 26 \cdot 3^{\frac{1}{2}x - 2} = 3^{x-1}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \left| 8^{x} - 2 \right| = \sqrt{2^{3x}}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid 4^{\sqrt{x+2}} + 6 = 4^{2 - \sqrt{x+2}}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid 10^{x} - 2^{x} - 5^{x} + 1 = 0\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid 25 \cdot \left(\frac{2}{5}\right)^{-x} - 10\left[\left(\frac{5}{2}\right)^{2x} - 1\right] = 4\left(\frac{5}{2}\right)^{x}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid 2^{2x-1} \cdot 3^{x} = \frac{1}{2 \cdot 3^{x}}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid 2 - \frac{6}{4^{x+1}} + \frac{1}{4^{2x+1}} = 0\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid 5^{x+1} \cdot 25^{x} = \sqrt{5^{1-x}} \cdot \sqrt{125}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \frac{5^{x+2} \cdot 25^{1-x}}{125^{x}} = \frac{1}{5}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid 27^{\frac{2}{3}x} - 3^{2x+3} + 9^{x+2} = 165\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \left(\frac{2}{5}\right)^{x-1} - \left(\frac{5}{2}\right)^{\frac{x-1}{x}} = 0\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \frac{5^{x}}{5^{x} + 1} - \frac{1}{25^{x} - 1} = 1\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid 2^{x+5} \cdot 3^{x+2} \le 8 \cdot 6^{\frac{3x-1}{x}}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \frac{3 \cdot 3^{2x} - 4 \cdot 4^{2x}}{\left| -1 + 5^{x+1} \right| - 4} < 0\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \frac{9 \cdot 3^{-x}}{9^{x} + 3^{2x}} > \frac{27}{2}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid (2^{x+2})^{2} \cdot 3^{x} < \frac{2}{3^{x+3}}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \frac{7^{2\sqrt{2x^{2-x}}}}{\sqrt{9^{x} - 10 \cdot 3^{x} + 9}} \ge 0\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \frac{\sqrt{\frac{3^{6x}}{3^{2}}}}{3^{7}} < \left| -3^{-x} \right|\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid 2^{x} - 1 > \sqrt{3 \cdot 2^{x} - 3}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid 2^{x} < \frac{7^{x+1}}{2}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid 16 \cdot 4^{2x} < 3^{x+1}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid 2^{x} + 2^{x+1} + 2^{x+2} > 14\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \log_{3}(2 + x)\log_{2}(x - 4) = 0\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \frac{3\log_{\frac{1}{2}} x}{\log_{2} x - 1} = -4\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \left(\log_{10} x\right)^{2} - 2\log_{10} x = -1\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \left(\log_{10} x^{2}\right)^{2} + 4\log_{10} x = 0\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid -\log_{\frac{1}{3}} 6 + \log_{3}(x + 1) = \log_{3}(5x)\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid 1 + \frac{\log_{2}(x + 1)}{\log_{2} x} = \frac{1}{\log_{2} x}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \frac{3}{\log_{2} x - 1} + \frac{2}{\log_{2} x + 1} = 2\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \log_{3}(2x - 1) = 2\log_{9}(3x + 6) - 2\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \frac{3}{\log_{2} x(1 + \log_{2} x)} = 2 - \frac{3}{\log_{2} x}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \frac{\log_{\frac{1}{3}}(2x + 4) + \log_{3} x + \log_{3}(x - 1)}{\log_{3}\frac{x}{2}} = 0\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \sqrt{2\left(\log_{\frac{1}{2}} x\right)^{2} + \log_{\frac{1}{2}} x - 1} = \sqrt{2\left(\log_{\frac{1}{2}} x\right)^{2} + \log_{\frac{1}{2}} x - 1}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \frac{\sqrt{e^{x} - 6}}{2\left(\ln x\right)^{2} - 3\ln x + 1} = \frac{\sqrt{e^{x} - 6}}{2\left(\ln x\right)^{2} - 3\ln x + 1}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \sqrt{1 - 3^{x-2}} - \sqrt{6^{2x+1} - 12} = \sqrt{1 - 3^{x-2}} - \sqrt{6^{2x+1} - 12}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \frac{\sqrt{4 - x^{2}}}{\log_{3}\log_{\frac{1}{2}}(1 - 2^{x})} = \frac{\sqrt{4 - x^{2}}}{\log_{3}\log_{\frac{1}{2}}(1 - 2^{x})}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \frac{\sqrt{\log_{\frac{1}{3}} x}}{\log_{2}(3 - 2x)} = \frac{\sqrt{\log_{\frac{1}{3}} x}}{\log_{2}(3 - 2x)}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \frac{\sqrt{9^{x} - 3}}{\log_{3}\sqrt{\left| x \right|}} = \frac{\sqrt{9^{x} - 3}}{\log_{3}\sqrt{\left| x \right|}}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \sqrt{\frac{\ln(3 - x) - \ln(2x)}{\ln(3 - x)}} = \sqrt{\frac{\ln(3 - x) - \ln(2x)}{\ln(3 - x)}}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \sqrt{\frac{\log_{10} x - 2}{2^{2x-2} - 64}} = \sqrt{\frac{\log_{10} x - 2}{2^{2x-2} - 64}}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \frac{\log_{10}(12x - 7)}{\left| 7^{x} - 1 \right| - 6} = \frac{\log_{10}(12x - 7)}{\left| 7^{x} - 1 \right| - 6}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid e^{\frac{6}{\log_{2}(3 + x) - 2}} = e^{\frac{6}{\log_{2}(3 + x) - 2}}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \frac{1}{\log_{2} x^{2} - 4} - \frac{1}{2 - \log_{2}\left| x \right|} = \frac{1}{\log_{2} x^{2} - 4} - \frac{1}{2 - \log_{2}\left| x \right|}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \sqrt{\left| e^{x} - 2 \right| - 1} = \sqrt{\left| e^{x} - 2 \right| - 1}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \log_{\frac{1}{2}}\left[\log_{\frac{1}{2}}(x + 5)\right] = \log_{\frac{1}{2}}\left[\log_{\frac{1}{2}}(x + 5)\right]\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \frac{1}{5^{x} - 25^{x} + 6} = \frac{1}{5^{x} - 25^{x} + 6}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \frac{5}{\left| \log_{2}(5 - x) \right| - 1} = \frac{5}{\left| \log_{2}(5 - x) \right| - 1}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \log_{10}(2^{-x} - 3) = \log_{10}(2^{-x} - 3)\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \ln(1 - 2\sqrt{-x}) = \ln(1 - 2\sqrt{-x})\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \sqrt{\log_{2}(x + 1)} + \sqrt{\log_{\frac{1}{2}} x - 4} = \sqrt{\log_{2}(x + 1)} + \sqrt{\log_{\frac{1}{2}} x - 4}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \sqrt{\frac{\ln(x^{2} + 4)}{\ln(x + 1) - 2}} = \sqrt{\frac{\ln(x^{2} + 4)}{\ln(x + 1) - 2}}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \sqrt{\log_{\frac{1}{3}}\left| x \right|} = \sqrt{\log_{\frac{1}{3}}\left| x \right|}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \log_{\frac{1}{2}}\log_{2}\log_{3} x = \log_{\frac{1}{2}}\log_{2}\log_{3} x\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \frac{2}{\log_{3}\sqrt{x}} = \frac{2}{\log_{3}\sqrt{x}}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \sqrt{\frac{3^{x} - 2}{\log_{3} x}} = \sqrt{\frac{3^{x} - 2}{\log_{3} x}}\}$
+\end{enumerate}
+\end{document}

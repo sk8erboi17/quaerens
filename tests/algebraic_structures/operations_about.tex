@@ -1,0 +1,35 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{operations.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{operations.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_algebraic\_structures.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 15 true statements about binary operations on sets of numbers, each to be proved with a written proof. The first six are exercises of a textbook on algebraic structures, each written as one statement: the operation with its rule among the hypotheses, and in the thesis everything the exercise claims. The statements are data: the engine knows none of them in advance.
+
+\item \textbf{What is being tested.} That an operation declared as $\ast \colon A \times B \to C$ with the rule $\forall a \in A\ \forall b \in B\ (a \ast b = \ldots)$ is replaced by its rule wherever it is used, also inside itself, as in $(a \ast b) \ast c$; that the rule is first shown to have its values in $C$; that an argument can be a variable of the domain or of a part of it, a number of the domain, or a value of a map or of an operation that arrives in the domain, so that $f(f(x))$ and $g(f(a))$ have a meaning.
+
+\item \textbf{How the statements are written.} Every property is written out as a formula, not named: ``$\ast$ is associative'' is $\forall a, b, c\ ((a \ast b) \ast c = a \ast (b \ast c))$, ``$e$ is a neutral element'' is $\forall a\ (e \ast a = a \land a \ast e = a)$, ``every element is regular'' is $\forall a, x, y\ (a \ast x = a \ast y \implies x = y)$. A declared operation is always written between two single factors, and with brackets when it is repeated or stands beside a sum or a product.
+
+\item \textbf{Adding statements.} Any new statement must be true, and of a kind that the present rules prove.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_algebraic_structures \
+    tests/algebraic_structures/test_algebraic_structures.c && /tmp/test_algebraic_structures
+\end{verbatim}
+
+\item \textbf{Expected result.} The line \texttt{PASS: 15 of 15 statements proved, each with a written proof}.
+\end{enumerate}
+\end{document}

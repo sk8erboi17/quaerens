@@ -1,0 +1,44 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{An arbitrary set with an operation, maps, a relation (24)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+$S$, $T$, $V$ are arbitrary sets, possibly empty. What is declared among the hypotheses (an operation, a map, a subset, a relation, a named element) is arbitrary too: each statement is meant for every choice. The last two statements ask for an example.
+
+\begin{enumerate}
+\item $\displaystyle (\perp \colon S \times S \to S \land u \in S \land v \in S \land \forall x \in S\ (u \perp x = x) \land \forall x \in S\ (x \perp v = x)) \implies u = v$
+\item $\displaystyle (\perp \colon S \times S \to S \land u \in S \land v \in S \land \forall x \in S\ (u \perp x = x \land x \perp u = x) \land \forall x \in S\ (v \perp x = x \land x \perp v = x)) \implies u = v$
+\item $\displaystyle (\perp \colon S \times S \to S \land \forall x, y, z \in S\ ((x \perp y) \perp z = x \perp (y \perp z)) \land e \in S \land \forall x \in S\ (e \perp x = x \land x \perp e = x) \land a \in S \land b \in S \land c \in S \land a \perp b = e \land c \perp a = e) \implies b = c$
+\item $\displaystyle (\perp \colon S \times S \to S \land \forall x, y, z \in S\ ((x \perp y) \perp z = x \perp (y \perp z)) \land \forall x, y \in S\ (x \perp y = y \perp x)) \implies \forall a, b, c \in S\ ((a \perp b) \perp c = c \perp (b \perp a))$
+\item $\displaystyle (\perp \colon S \times S \to S \land \forall x, y, z \in S\ ((x \perp y) \perp z = x \perp (y \perp z))) \implies \forall a, b, c, d \in S\ (((a \perp b) \perp c) \perp d = a \perp (b \perp (c \perp d)))$
+\item $\displaystyle (\perp \colon S \times S \to S \land \forall x, y, z \in S\ ((x \perp y) \perp z = x \perp (y \perp z)) \land e \in S \land \forall x \in S\ (e \perp x = x \land x \perp e = x) \land \forall x \in S\ \exists y \in S\ (x \perp y = e \land y \perp x = e)) \implies \forall a, x, y \in S\ (a \perp x = a \perp y \implies x = y)$
+\item $\displaystyle (\perp \colon S \times S \to S \land \forall x, y, z \in S\ ((x \perp y) \perp z = x \perp (y \perp z)) \land e \in S \land \forall x \in S\ (e \perp x = x \land x \perp e = x) \land \forall x \in S\ (x \perp x = e)) \implies \forall a, b \in S\ (a \perp b = b \perp a)$
+\item $\displaystyle (\perp \colon S \times S \to S \land \forall a, b \in S\ (a \perp b = a)) \implies \forall a, b, c \in S\ ((a \perp b) \perp c = a \perp (b \perp c))$
+\item $\displaystyle \forall f, g \in S^{S}\ ((\forall a, b \in S\ (f(a) = f(b) \implies a = b) \land \forall a, b \in S\ (g(a) = g(b) \implies a = b)) \implies \forall a, b \in S\ (f(g(a)) = f(g(b)) \implies a = b))$
+\item $\displaystyle \forall f, g \in S^{S}\ ((\forall y \in S\ \exists x \in S\ (f(x) = y) \land \forall y \in S\ \exists x \in S\ (g(x) = y)) \implies \forall y \in S\ \exists x \in S\ (f(g(x)) = y))$
+\item $\displaystyle (f \colon S \to T \land g \colon T \to V \land \forall a, b \in S\ (f(a) = f(b) \implies a = b) \land \forall a, b \in T\ (g(a) = g(b) \implies a = b)) \implies \forall a, b \in S\ (g(f(a)) = g(f(b)) \implies a = b)$
+\item $\displaystyle (f \colon S \to T \land g \colon T \to S \land \forall x \in S\ (g(f(x)) = x)) \implies (\forall a, b \in S\ (f(a) = f(b) \implies a = b) \land \forall y \in S\ \exists x \in T\ (g(x) = y))$
+\item $\displaystyle \forall f \in S^{S}\ ((\forall x \in S\ (f(f(x)) = x)) \implies (\forall a, b \in S\ (f(a) = f(b) \implies a = b) \land \forall y \in S\ \exists x \in S\ (f(x) = y)))$
+\item $\displaystyle (T \neq \emptyset \land \pi \colon S \times T \to S \land \forall x \in S\ \forall y \in T\ (\pi(x, y) = x)) \implies \forall z \in S\ \exists x \in S\ \exists y \in T\ (\pi(x, y) = z)$
+\item $\displaystyle (\perp \colon S \times S \to S \land \ast \colon T \times T \to T \land \forall x, y \in S\ (x \perp y = y \perp x) \land \forall x, y \in T\ (x \ast y = y \ast x)) \implies \forall a, b \in S\ \forall u, v \in T\ ((a \perp b, u \ast v) = (b \perp a, v \ast u))$
+\item $\displaystyle R \subseteq S \times S \implies ((\forall x, y \in S\ ((x, y) \in R \implies (y, x) \in R) \land \forall x, y, z \in S\ (((x, y) \in R \land (y, z) \in R) \implies (x, z) \in R)) \implies \forall x, y \in S\ ((x, y) \in R \implies (x, x) \in R))$
+\item $\displaystyle (R \subseteq S \times S \land \forall x \in S\ ((x, x) \in R) \land \forall x, y, z \in S\ (((x, y) \in R \land (x, z) \in R) \implies (y, z) \in R)) \implies (\forall x, y \in S\ ((x, y) \in R \implies (y, x) \in R) \land \forall x, y, z \in S\ (((x, y) \in R \land (y, z) \in R) \implies (x, z) \in R))$
+\item $\displaystyle R \subseteq S \times S \implies (((\forall x, y\ ((x, y) \in R \implies (y, x) \in R)) \land (\forall x, y\ (((x, y) \in R \land (y, x) \in R) \implies x = y))) \iff \forall x, y\ ((x, y) \in R \implies x = y))$
+\item $\displaystyle (R \subseteq S \times S \land \forall x, y, z\ (((x, y) \in R \land (y, z) \in R) \implies (x, z) \in R)) \implies ((\forall x, y\ ((x, y) \in R \implies (y, x) \notin R)) \iff \forall x\ ((x, x) \notin R))$
+\item $\displaystyle X \subseteq S \implies \forall f, g \in S^{S}\ ((\forall x \in X\ (f(x) \in X) \land \forall x \in X\ (g(x) \in X)) \implies \forall x \in X\ (f(g(x)) \in X))$
+\item $\displaystyle (f \colon S \to S \land X \subseteq S \land X \neq \emptyset \land \forall x \in X\ (f(x) \in X)) \implies \exists y \in X\ (f(f(y)) \in X)$
+\item $\displaystyle X \subseteq S \implies \forall x, y, z \in S\ (((x = y \lor (x \in X \land y \in X)) \land (y = z \lor (y \in X \land z \in X))) \implies (x = z \lor (x \in X \land z \in X)))$
+\item $\displaystyle \exists S \neq \emptyset\ \exists R \subseteq S \times S\ ((\forall x, y\ ((x, y) \in R \implies (y, x) \in R)) \land (\forall x, y, z\ (((x, y) \in R \land (y, z) \in R) \implies (x, z) \in R)) \land (\lnot (\forall x \in S\ ((x, x) \in R))))$
+\item $\displaystyle \exists S\ \exists f \colon S \to S\ ((\forall a, b \in S\ (f(a) = f(b) \implies a = b)) \land \exists x \in S\ (f(x) \neq x))$
+\end{enumerate}
+\end{document}

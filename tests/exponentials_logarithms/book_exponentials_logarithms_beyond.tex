@@ -1,0 +1,26 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Exponential and logarithmic results the engine does not decide yet (6)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Every statement below is true, like those of \texttt{book\_exponentials\_logarithms.tex}, but the engine does not decide it yet. It may answer that it cannot decide; it must never call one of them false.
+
+\begin{enumerate}
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \sqrt[x+2]{25^{x}} \cdot \sqrt[x]{5^{4}} = 125 \iff \left( x = 2 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 4^{\sqrt{x+2}} + 6 = 4^{2 - \sqrt{x+2}} \iff \left( x = -\frac{7}{4} \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{7^{2\sqrt{2x^{2-x}}}}{\sqrt{9^{x} - 10 \cdot 3^{x} + 9}} \ge 0 \iff \left( x > 2 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{\sqrt{4 - x^{2}}}{\log_{3}\log_{\frac{1}{2}}(1 - 2^{x})} = \frac{\sqrt{4 - x^{2}}}{\log_{3}\log_{\frac{1}{2}}(1 - 2^{x})} \iff \left( -2 \le x < -1 \lor -1 < x < 0 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \sqrt{\frac{\log_{10} x - 2}{2^{2x-2} - 64}} = \sqrt{\frac{\log_{10} x - 2}{2^{2x-2} - 64}} \iff \left( 0 < x < 4 \lor x \ge 100 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( e^{\frac{6}{\log_{2}(3 + x) - 2}} = e^{\frac{6}{\log_{2}(3 + x) - 2}} \iff \left( -3 < x < 1 \lor x > 1 \right) \right)$
+\end{enumerate}
+\end{document}

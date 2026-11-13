@@ -1,0 +1,35 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{congruences.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{congruences.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_integers.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 38 true statements made of congruences and divisibility conditions whose moduli are numbers. Each must be proved, with a written proof. The statements are data: the engine knows none of them in advance.
+
+\item \textbf{What is being tested.} Rule 18r of \texttt{main.c}: the truth of a statement of this kind depends only on the remainders of its letters modulo a common multiple $M$ of the moduli, so it is decided by trying all the remainders. The first fifteen are the answers to the exercises of a textbook (linear congruences, a system of three, the invertible classes modulo 7 and 12, two inverses), each written as an equivalence between the condition and its solutions; the answers were worked out by hand. The others exercise the notation and the limits of the rule: the same condition written as $m \mid P$, as $P \equiv Q \pmod{m}$ and as $\exists k \in \mathbb{Z}\ (P = mk)$; sets that are not all of $\mathbb{Z}$; two, three and four letters; a coefficient that is a fraction, where the right modulus is 6 and not 3; a relation given by a congruence, with its three properties.
+
+\item \textbf{How the statements are written.} $a \mid b$ says that $b$ is $a$ times an integer, and $a \equiv b \pmod{m}$ that $m \mid a - b$. Every property is written out as a formula, not named.
+
+\item \textbf{Adding statements.} Any new statement must be true and made only of congruences with numbers as moduli. A statement that also has an equality between letters, or a modulus that is a letter, is not of this kind: the rule does not apply to it.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_integers \
+    tests/integers/test_integers.c && /tmp/test_integers
+\end{verbatim}
+
+\item \textbf{Expected result.} The line \texttt{PASS: 38 of 38 statements proved, each with a written proof}.
+\end{enumerate}
+\end{document}

@@ -1,0 +1,42 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{False statements about binary operations (22)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+$\mathbb{N} = \{1, 2, 3, \ldots\}$, $\mathbb{N}_{0} = \mathbb{N} \cup \{0\}$. No statement below is true.
+
+\begin{enumerate}
+\item $\displaystyle (\perp \colon \mathbb{Z} \times \mathbb{Z} \to \mathbb{Z} \land \forall a, b \in \mathbb{Z}\ (a \perp b = a - b)) \implies (\forall a, b, c \in \mathbb{Z}\ ((a \perp b) \perp c = a \perp (b \perp c)))$
+\item $\displaystyle (\perp \colon \mathbb{Z} \times \mathbb{Z} \to \mathbb{Z} \land \forall a, b \in \mathbb{Z}\ (a \perp b = a - b)) \implies (\forall a, b \in \mathbb{Z}\ (a \perp b = b \perp a))$
+\item $\displaystyle (\perp \colon \mathbb{Z} \times \mathbb{Z} \to \mathbb{Z} \land \forall a, b \in \mathbb{Z}\ (a \perp b = a - b)) \implies (\exists e \in \mathbb{Z}\ \forall a \in \mathbb{Z}\ (e \perp a = a))$
+\item $\displaystyle (\perp \colon \mathbb{Z} \times \mathbb{Z} \to \mathbb{Z} \land \forall a, b \in \mathbb{Z}\ (a \perp b = a - b)) \implies (\lnot (\exists e \in \mathbb{Z}\ \forall a \in \mathbb{Z}\ (a \perp e = a)))$
+\item $\displaystyle (\perp \colon \mathbb{Z} \times \mathbb{Z} \to \mathbb{Z} \land \forall a, b \in \mathbb{Z}\ (a \perp b = a^{2} + b)) \implies (\forall a, x, y \in \mathbb{Z}\ (x \perp a = y \perp a \implies x = y))$
+\item $\displaystyle (\perp \colon \mathbb{Z} \times \mathbb{Z} \to \mathbb{Z} \land \forall a, b \in \mathbb{Z}\ (a \perp b = a^{2} + b^{2})) \implies (\forall a, b, c \in \mathbb{Z}\ ((a \perp b) \perp c = a \perp (b \perp c)))$
+\item $\displaystyle (\perp \colon \mathbb{Z} \times \mathbb{Z} \to \mathbb{Z} \land \forall a, b \in \mathbb{Z}\ (a \perp b = 3(a + b))) \implies (\exists e \in \mathbb{Z}\ \forall a \in \mathbb{Z}\ (e \perp a = a))$
+\item $\displaystyle (\perp \colon \mathbb{N} \times \mathbb{N} \to \mathbb{N} \land \forall a, b \in \mathbb{N}\ (a \perp b = a + b + ab)) \implies (\exists e \in \mathbb{N}\ \forall a \in \mathbb{N}\ (e \perp a = a))$
+\item $\displaystyle (\perp \colon \mathbb{N} \times \mathbb{N} \to \mathbb{N} \land \forall a, b \in \mathbb{N}\ (a \perp b = a + b + ab)) \implies (\lnot (\forall a, b, c \in \mathbb{N}\ ((a \perp b) \perp c = a \perp (b \perp c))))$
+\item $\displaystyle (\perp \colon \mathbb{N} \times \mathbb{N} \to \mathbb{N} \land \forall a, b \in \mathbb{N}\ (a \perp b = a - b)) \implies (\forall a \in \mathbb{N}\ (a \perp a = a \perp a))$
+\item $\displaystyle (\perp \colon \mathbb{N} \times \mathbb{N} \to \mathbb{N} \land \forall a, b \in \mathbb{N}\ (a \perp b = \frac{a + b}{2})) \implies (\forall a, b \in \mathbb{N}\ (a \perp b = b \perp a))$
+\item $\displaystyle (\ast \colon \mathbb{Q} \times \mathbb{Q} \to \mathbb{Q} \land \forall a, b \in \mathbb{Q}\ (a \ast b = a + b - ab)) \implies (\forall a \in \mathbb{Q}\ \exists b \in \mathbb{Q}\ (a \ast b = 0))$
+\item $\displaystyle (\ast \colon \mathbb{Q} \times \mathbb{Q} \to \mathbb{Q} \land \forall a, b \in \mathbb{Q}\ (a \ast b = a + b - ab)) \implies (\forall a \in \mathbb{Q}\ (a \ast 1 = a))$
+\item $\displaystyle (\ast \colon \mathbb{Q} \times \mathbb{Q} \to \mathbb{Q} \land \forall a, b \in \mathbb{Q}\ (a \ast b = a + b - 2ab)) \implies (\forall a, b, c \in \mathbb{Q}\ ((a \ast b) \ast c = (a \ast c) \ast (b \ast c)))$
+\item $\displaystyle (\star \colon \mathbb{Z} \times \mathbb{Z} \to \mathbb{Z} \land \forall x, y \in \mathbb{Z}\ (x \star y = x + y + 1)) \implies (\forall a \in \mathbb{Z}\ (a \star 0 = a))$
+\item $\displaystyle (\circ \colon \mathbb{Q} \times \mathbb{Q} \to \mathbb{Q} \land \forall x, y \in \mathbb{Q}\ (x \circ y = \frac{x + y}{2})) \implies (\forall a, b, c \in \mathbb{Q}\ ((a \circ b) \circ c = a \circ (b \circ c)))$
+\item $\displaystyle (\diamond \colon \mathbb{Z} \times \mathbb{N} \to \mathbb{Z} \land \forall x \in \mathbb{Z}\ \forall n \in \mathbb{N}\ (x \diamond n = nx)) \implies (\forall x \in \mathbb{Z}\ \forall m, n \in \mathbb{N}\ (x \diamond m = x \diamond n \implies m = n))$
+\item $\displaystyle (\oplus \colon \mathbb{N}_{0} \times \mathbb{N}_{0} \to \mathbb{N}_{0} \land \forall b, a \in \mathbb{N}_{0}\ (a \oplus b = a + 2b)) \implies (\forall a \in \mathbb{N}_{0}\ (0 \oplus a = a))$
+\item $\displaystyle (\oplus \colon \mathbb{N}_{0} \times \mathbb{N}_{0} \to \mathbb{N}_{0} \land \forall b, a \in \mathbb{N}_{0}\ (a \oplus b = a + 2b)) \implies (\forall a, b \in \mathbb{N}_{0}\ (a \oplus b = 2a + b))$
+\item $\displaystyle (f \colon \mathbb{Z} \to \mathbb{Z} \land \forall n \in \mathbb{Z}\ (f(n) = 2 - 3n)) \implies (\forall x \in \mathbb{Z}\ (f(f(x)) = x))$
+\item $\displaystyle (f \colon \mathbb{N} \to \mathbb{Z} \land \forall n \in \mathbb{N}\ (f(n) = n - 5) \land g \colon \mathbb{Z} \to \mathbb{N}_{0} \land \forall n \in \mathbb{Z}\ (g(n) = n^{2})) \implies (\forall a, b \in \mathbb{N}\ (g(f(a)) = g(f(b)) \implies a = b))$
+\item $\displaystyle (\ast \colon \mathbb{Z} \times \mathbb{Z} \to \mathbb{Z} \land \forall a, b \in \mathbb{Z}\ (a \ast b = ab + 1) \land f \colon \mathbb{Z} \to \mathbb{Z} \land \forall n \in \mathbb{Z}\ (f(n) = -n)) \implies (\forall a, b \in \mathbb{Z}\ (f(a \ast b) = f(a) \ast f(b)))$
+\end{enumerate}
+\end{document}

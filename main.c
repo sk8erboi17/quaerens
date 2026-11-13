@@ -15,7 +15,16 @@
  *   - NON DIMOSTRATO: il metodo si applica ma non chiude la dimostrazione;
  *   - NON SUPPORTATO: l'enunciato usa notazioni o conti fuori dalla portata.
  *
- * Tratta altre due famiglie di enunciati, ognuna con il suo metodo e con la
+ * Allo stesso modo dimostra le disuguaglianze in n, come 2^n >= n^3 da
+ * n = 10 in poi: lì il passo induttivo è a sua volta una disuguaglianza,
+ * nella sola n, e la decide la tabella dei segni (capitolo 25). E gli
+ * enunciati su una successione che l'enunciato stesso definisce per
+ * ricorrenza, "sia a_0 = 0 e a_{n+1} = \sqrt{6 + a_n}; allora a_n < 3":
+ * una formula per il termine n-esimo, oppure delle stime (capitolo 26). E
+ * gli enunciati sulla derivata n-esima di una funzione, scritti con il segno
+ * di Leibniz (capitolo 27).
+ *
+ * Tratta altre tre famiglie di enunciati, ognuna con il suo metodo e con la
  * dimostrazione scritta per esteso:
  *
  *   - quelli sugli insiemi, come (S \setminus T) \setminus V = S \setminus
@@ -24,20 +33,39 @@
  *   - quelli con quantificatori su insiemi di numeri, come "per ogni y in Z
  *     esiste x in Z con x + 5 = y", anche a proposito di un'applicazione
  *     definita da una formula: è così che si scrive che è iniettiva o
- *     suriettiva (capitoli da 17 a 19).
+ *     suriettiva (capitoli da 17 a 19). Allo stesso modo l'enunciato può
+ *     dichiarare un'operazione binaria con la sua regola, e dirla
+ *     associativa o commutativa, o una relazione data da una regola, e
+ *     dirla riflessiva o simmetrica: sempre per esteso, con la definizione.
+ *     Un'ipotesi "esiste k" viene usata con il suo testimone, e così una
+ *     congruenza il cui modulo è una lettera (18u);
+ *   - quelli su un insieme qualsiasi, con un'operazione, delle applicazioni
+ *     o una relazione di cui si sa solo ciò che dicono le ipotesi: "un
+ *     elemento neutro a sinistra e uno a destra coincidono". Si smentiscono
+ *     con un modello finito e si dimostrano per assurdo, con istanze delle
+ *     ipotesi e uguali al posto di uguali (17o in parser.c, capitolo 28).
  *
  * I metodi si combinano dove serve. Dentro un enunciato con quantificatori
  * un "per ogni n naturale" seguito da un'uguaglianza con somme viene
  * dimostrato per induzione: il metodo del capitolo 13 è una delle regole del
  * capitolo 18, e le espressioni sono le stesse in tutti e due. Gli enunciati
- * sugli insiemi restano invece un linguaggio a parte.
+ * sugli insiemi restano invece un linguaggio a parte, e così quelli sugli
+ * insiemi qualsiasi con i loro elementi.
  *
  * Il programma non si limita a dire vero o falso: risolve. Un enunciato della
  * forma \{x \in \mathbb{R} \mid condizione\} chiede per quali numeri reali
  * vale una condizione fatta di equazioni e disequazioni, e la risposta è
  * RISOLTO, con le soluzioni scritte come sui libri (x < -3 \lor x \ge 2). Le
  * trova la tabella dei segni (18p), che decide anche gli enunciati "per ogni
- * x reale"; di ciò che decide si può avere il grafico (18q).
+ * x reale"; di ciò che decide si può avere il grafico (18q). La condizione
+ * può contenere radici quadrate e valori assoluti, esponenziali e logaritmi,
+ * funzioni goniometriche: in quest'ultimo caso le soluzioni si ripetono, e
+ * si scrivono con un intero k (x = \frac{\pi}{6} + 2k\pi). Con un parametro
+ * reale accanto alla variabile, \forall a \in \mathbb{R}\ \{x \in \mathbb{R}
+ * \mid condizione\}, le soluzioni sono un elenco di casi sul parametro, e la
+ * tabella si fa in ognuno (18t). Allo stesso modo \{x \in \mathbb{Z} \mid
+ * condizione\}, con una condizione fatta di congruenze, ha per risposta le
+ * classi di resto delle soluzioni (18r).
  *
  * Gli enunciati arrivano da un file .tex (un \item per enunciato, capitolo 21)
  * oppure, senza argomenti, da una riga di stdin. Dopo la formula un \item può
@@ -121,29 +149,48 @@
  *
  * COSA NON C'È ANCORA, E DOVE ANDREBBE
  *
- *   - Disuguaglianze: il parsing le riconosce, ma servirebbe un metodo per
- *     decidere il segno di un'espressione. Andrebbe nel capitolo 13.
+ *   - Disuguaglianze con un parametro (Bernoulli con una lettera), o il cui
+ *     passo induttivo non è un'espressione in n con sole radici quadrate:
+ *     con un logaritmo, con la somma al quadrato, con un secondo membro che
+ *     non cresce con n. Il metodo è nel capitolo 25, che dice che cosa
+ *     servirebbe.
  *   - Valori assoluti fuori da un logaritmo: il parsing li riconosce; manca
  *     la regola di valutazione nel capitolo 11.
  *   - Identità tra i termini di una successione, come quella di Cassini per
  *     Fibonacci, F(n) F(n+2) - F(n+1)^2 = (-1)^{n+1}: gli atomi F(n) e F(n+1)
  *     sono trattati come lettere indipendenti. Servirebbe dimostrarle per
  *     induzione come lemmi e usarle nel test di annullamento (capitolo 12).
- *   - Somme il cui termine dipende anche da n (per esempio con \binom{n}{k}):
- *     passando da n a n+1 cambiano tutti i termini, non solo l'ultimo.
- *   - Enunciati in prosa, derivate e integrali: non sono una formula sola.
+ *   - Somme il cui termine dipende anche da n: passando da n a n+1 cambiano
+ *     tutti i termini, non solo l'ultimo. Fanno eccezione quelle con
+ *     \binom{n}{k} per potenze con k all'esponente, che il teorema del
+ *     binomio scrive in forma chiusa (11n); restano fuori k \binom{n}{k},
+ *     due coefficienti binomiali nello stesso termine, e ogni altra
+ *     dipendenza da n.
+ *   - Enunciati in prosa e integrali: non sono una formula sola. Delle
+ *     derivate si leggono quelle scritte con il segno di Leibniz in testa
+ *     alla formula (capitolo 27); mancano il doppio fattoriale e le
+ *     funzioni che cambiano con n.
+ *     Fa eccezione la prosa di "sia ... allora ...", che definisce una
+ *     successione per ricorrenza: il capitolo 21 la legge. Di una tale
+ *     successione non si dimostrano ancora le tesi che non sono né una
+ *     formula per a_n né una stima (vedi il capitolo 26).
  *   - Negli enunciati con quantificatori: i numeri reali e complessi, le
  *     disuguaglianze, il valore assoluto, le applicazioni definite per casi o
- *     a valori in coppie, e gli insiemi qualsiasi al posto di quelli numerici.
- *     Il linguaggio è nel capitolo 17; ogni nuovo modo di ragionare è una
- *     regola in più nel capitolo 18. L'induzione vi entra solo per un "per
- *     ogni n" senza altre variabili intorno.
+ *     a valori in coppie. Il linguaggio è nel capitolo 17; ogni nuovo modo
+ *     di ragionare è una regola in più nel capitolo 18. L'induzione vi
+ *     entra solo per un "per ogni n" senza altre variabili intorno.
+ *   - Negli enunciati su insiemi qualsiasi: le applicazioni e le parti da
+ *     costruire, le immagini e le controimmagini di una parte, l'insieme
+ *     delle parti, la composizione come operazione, le potenze di un
+ *     elemento. E un insieme qualsiasi insieme a un insieme numerico nello
+ *     stesso enunciato: i due linguaggi non si parlano. Vedi il capitolo 28.
  *   - Un certificato per tutto. Lo hanno le induzioni scritte con somme,
  *     prodotti, potenze, fattoriali, binomiali, successioni per ricorrenza
  *     e logaritmi, e gli enunciati sugli insiemi senza "esiste" (vedi "I
  *     certificati"). Non lo hanno le induzioni con radici, seni e
- *     arcotangenti, né gli enunciati con quantificatori: lì resta il solo
- *     controllo sui numeri e sui campioni. Servirebbe che ogni regola del
+ *     arcotangenti, né gli enunciati con quantificatori, né quelli su
+ *     insiemi qualsiasi: lì resta il solo controllo del motore su se
+ *     stesso (numeri, campioni, modelli finiti, passi riletti). Servirebbe che ogni regola del
  *     capitolo 18 emettesse un passo in una notazione che checker.c sappia
  *     ricontrollare. Anche "è
  *     definito per ogni n" è certificato solo in parte: non quando un
@@ -198,7 +245,9 @@
  * Ogni verdetto DIMOSTRATO ha la sua dimostrazione scritta, e ciò che vi è
  * scritto viene ricontrollato per una strada diversa da quella che lo ha
  * prodotto. Per gli insiemi e per i quantificatori si ricontrolla ogni fatto
- * prima di scriverlo (16h, 16i e i controlli del capitolo 18). Per
+ * prima di scriverlo (16h, 16i e i controlli del capitolo 18); per gli
+ * insiemi qualsiasi ogni passo viene riletto con un metodo diverso da quello
+ * che l'ha trovato (28e). Per
  * l'induzione si fa di più: ogni formula scritta viene riletta dal testo,
  * con il parser degli enunciati, e ricalcolata con i numeri (13g). Una
  * dimostrazione che non supera il controllo non viene stampata.
@@ -273,6 +322,10 @@
  *   24. Intervalli: numeri reali con l'errore garantito
  *   18. Quantificatori: regole di dimostrazione
  *   19. Quantificatori: verifica indipendente e verdetto
+ *   25. Induzione su una disuguaglianza
+ *   26. Successioni definite per ricorrenza
+ *   27. Derivate n-esime
+ *   28. Insiemi qualsiasi: modelli finiti, istanze, uguali al posto di uguali
  *   20. Dimostrare un enunciato
  *   22. Il documento finale                                 (output.c)
  *   23. main
@@ -317,6 +370,8 @@
 #define MAX_FACTORS 8        /* atomi distinti in un monomio */
 #define MAX_ENV 16           /* variabili legate contemporaneamente */
 #define MAX_ORDER 4          /* ordine massimo di una ricorrenza del vocabolario */
+#define MAX_GIVEN (MAX_ORDER + 1)  /* ipotesi su una successione dichiarata: i valori iniziali e la ricorrenza */
+#define MAX_CLAIMS 3         /* tesi su una successione dichiarata */
 #define MAX_UNROLL 4096      /* termini svolti a mano di una somma o prodotto */
 #define MAX_POWER 512        /* massimo esponente intero costante */
 #define MAX_DEGREE 4         /* grado massimo dell'ipotesi nel passo induttivo */
@@ -350,6 +405,10 @@
 #define MAX_SPACES 6         /* esponenziali e logaritmi diversi in un enunciato (18p-8) */
 #define MAX_STEPS 24         /* radici di un polinomio in un esponenziale o in un logaritmo */
 #define MAX_KAPPAS 32        /* punti della tabella che non sono radici di polinomi, come log_2 3 */
+#define MAX_ARCS 48          /* archi dell'insieme delle soluzioni di una condizione periodica */
+#define MAX_TURNS 12         /* giri letti uno per uno quando una condizione periodica è ristretta a un intervallo */
+#define MAX_LATTICE 32       /* famiglie x = a + k T e a + k T <= x <= b + k T in un enunciato */
+#define MAX_LATTICE_HOLES 2  /* punti tolti, x \neq c + k T, accanto a un intervallo */
 #define MAX_SIGN_NODES 8192  /* nodi degli alberi dei segni di un enunciato (18p-7) */
 #define MAX_SIGN_NEEDS 2048  /* condizioni di esistenza dei confronti di un enunciato */
 #define SURD_NAMES 1000      /* "nomi" delle lettere che stanno per le radici: non sono caratteri */
@@ -357,6 +416,37 @@
 #define KRONECKER_DIVISORS 160  /* divisori di un valore tra cui cercarli */
 #define MAX_PANELS 4         /* confronti che un grafico mostra, uno per pannello */
 #define FIGURE_SAMPLES 600   /* punti con cui il grafico traccia una curva */
+#define MAX_PAIR_SETS 4      /* insiemi di coppie dati da una regola in un enunciato (17i) */
+#define MAX_RENAMED 16       /* lettere legate nella regola di un insieme di coppie */
+#define MAX_GUARDS 64        /* appartenenze che fissano l'insieme di una lettera (17m) */
+#define MAX_UNFOLDED 262144  /* caratteri riscritti svolgendo le definizioni di un enunciato */
+#define OPERATION_NAMES 2000 /* "nomi" delle operazioni dichiarate (9g): non sono caratteri */
+#define MAX_COUNT_CASES 20000000  /* valutazioni di un enunciato sugli insiemi deciso contando (15f) */
+#define MAX_GENERATORS 256   /* multipli delle ipotesi provati per ottenere la tesi (18s, 18u) */
+#define MAX_LEAVES 8         /* parti di una disgiunzione esaminate insieme (18u) */
+#define MAX_NAMED 3          /* valori cercati insieme per degli "esiste" consecutivi (18u) */
+#define MAX_SORTS 4          /* insiemi qualsiasi distinti in un enunciato (17o) */
+#define MAX_SYMBOLS 64       /* simboli di un enunciato su insiemi qualsiasi, compresi gli elementi a cui la dimostrazione dà un nome */
+#define MAX_SLOTS 24         /* variabili quantificate in un enunciato su insiemi qualsiasi */
+#define GREEK_NAMES 3000     /* "nomi" delle lettere greche usate come applicazioni (17o): non sono caratteri */
+#define MAX_MODEL_SIZE 4     /* elementi di un insieme in un modello finito (28a) */
+#define MAX_MODELS 400000    /* tabelle provate per una scelta delle grandezze degli insiemi */
+#define MAX_MODEL_WORK 3000000  /* tabelle provate in tutto per un enunciato */
+#define MAX_MODEL_STEPS 40000000  /* elementi provati dai quantificatori, in tutto, nel calcolare un enunciato sui modelli */
+#define MAX_GROUND 2048      /* elementi nominati in una dimostrazione su insiemi qualsiasi (28b) */
+#define MAX_KNOWN 2048       /* condizioni note in un ramo di quella dimostrazione */
+#define MAX_DIFFERENT 256    /* fatti "diversi" noti in un ramo */
+#define MAX_SPLITS 4         /* distinzioni di casi una dentro l'altra (28-5) */
+#define MAX_ROUNDS 4         /* giri di istanze prima di arrendersi (28-3) */
+#define MAX_TUPLES 20000     /* scelte di elementi esaminate per un "per ogni" in un giro */
+#define MAX_FREE_TUPLES 128  /* istanze di un "per ogni" sugli elementi con un nome, in un giro */
+#define MAX_PROP_ATOMS 12    /* condizioni elementari di un passo ricontrollato con la tabella di verità */
+#define MAX_CHAIN 64         /* anelli di una catena di uguaglianze */
+#define MAX_PATTERN 64       /* elementi in attesa mentre si confronta uno schema con ciò che è presente (28-3) */
+#define MAX_CONGRUENCES 32   /* condizioni "m divide P" in un enunciato deciso sui resti (18r) */
+#define MAX_PERIOD 100000    /* il multiplo comune dei moduli, al più */
+#define MAX_RESIDUE_CASES 200000  /* assegnazioni di resti provate per un enunciato */
+#define MAX_CLASSES 16       /* classi di resto elencate in un insieme di soluzioni */
 
 /* Valore di Token.ch per le graffe scritte \{ e \} e per l'a capo \\: 256 più
  * il carattere, per distinguerle dalle graffe di raggruppamento di LaTeX. */
@@ -369,6 +459,11 @@
  * lettera ausiliaria che vale zero o più (vedi body_is_positive()). */
 #define VAR_PI 256
 #define VAR_SLACK 257
+
+/* Nomi interni dei termini precedenti di una successione dichiarata
+ * dall'enunciato, mentre la sua regola viene calcolata con i numeri
+ * (capitolo 26): VAR_TERM, VAR_TERM + 1, ..., fino a MAX_ORDER. */
+#define VAR_TERM 300
 
 /* I razionali tengono numeratore e denominatore sotto 2^62, così il prodotto
  * di due di essi e la somma di due prodotti stanno sempre in un __int128. */
@@ -516,8 +611,13 @@ static Num num_mul(Num a, Num b) {
 }
 
 /* 1 / (a + b i) = (a - b i) / (a^2 + b^2): si moltiplica sopra e sotto per il
- * coniugato. Fallisce se a + b i è zero. */
+ * coniugato. Fallisce se a + b i è zero.
+ *
+ * Un numero reale si inverte da solo, senza passare per a^2: quel quadrato
+ * usciva dai limiti del calcolo esatto già per 1 / 11^9, e una radice cubica
+ * di 11^9 non veniva calcolata. */
 static Num num_inv(Num a) {
+    if (a.im.num == 0) return (Num){frac_div(frac_int(1), a.re), frac_int(0)};
     Frac norm = frac_add(frac_mul(a.re, a.re), frac_mul(a.im, a.im));
     return (Num){frac_div(a.re, norm), frac_neg(frac_div(a.im, norm))};
 }
@@ -1363,7 +1463,9 @@ static void engine_init(void) {
  * Il punto delicato è riportare ogni risultato agli stessi atomi "in n",
  * qualunque sia il valore legato a n:
  *
- *   - somme e prodotti: eval_bigop();
+ *   - somme e prodotti: eval_bigop(); quelle con n nel coefficiente
+ *     binomiale hanno una forma chiusa, che dà il teorema del binomio:
+ *     binomial_sum() (11n);
  *   - successioni per ricorrenza: eval_recurrence();
  *   - potenze con esponente simbolico: power() e symbolic_power();
  *   - radici e logaritmi: fractional_power() e logarithm(), che si appoggiano
@@ -1540,10 +1642,25 @@ static int body_is_positive(const Node *node, long long lower) {
     return positive;
 }
 
+/* Lo stato della regola 11n, il teorema del binomio (binomial_sum(), più
+ * sotto). binomial_ok dice che la regola si può usare: lo decide chi poi la
+ * dichiara nella dimostrazione scritta (induct(), capitolo 13), e
+ * binomial_used gli dice se è stata usata. binomial_skip è il coefficiente
+ * binomiale che la regola sta trattando come 1 mentre calcola il resto del
+ * termine, o NULL; binomial_live dice che in quel conto la lettera
+ * ausiliaria sta al posto dell'indice della somma, che è un intero. */
+static int binomial_ok, binomial_used, binomial_live;
+static const Node *binomial_skip;
+
+/* Prototipo in avanti necessario: la regola valuta il termine della somma
+ * (eval()) e ne eleva dei pezzi a potenza (power()), e la valutazione di una
+ * somma la chiama. */
+static int binomial_sum(const Node *node, long long lower, Rat upper, Rat *out);
+
 /* Valuta una somma o un prodotto.
  *
  * Sia lower l'estremo inferiore (un intero) e a n + c il valore dell'estremo
- * superiore con le variabili legate attuali. Due casi.
+ * superiore con le variabili legate attuali. Tre casi.
  *
  * 11a. a = 0: gli estremi sono numeri. Si svolge: il corpo viene valutato per
  *      ogni indice da lower a c e i risultati sommati (o moltiplicati). Se
@@ -1568,7 +1685,11 @@ static int body_is_positive(const Node *node, long long lower) {
  *      Il caso richiede che il corpo dipenda solo dal proprio indice e da
  *      parametri: se dipendesse da n, passando a n+1 cambierebbero tutti i
  *      termini e non basterebbe aggiungere l'ultimo; se dipendesse dall'indice
- *      di una somma esterna, lo stesso atomo indicherebbe somme diverse. */
+ *      di una somma esterna, lo stesso atomo indicherebbe somme diverse.
+ *
+ * 11n. Il termine dipende da n attraverso un coefficiente binomiale: la
+ *      somma ha una forma chiusa, che dà il teorema del binomio
+ *      (binomial_sum()). */
 static Rat eval_bigop(const Node *node) {
     int product = node->op;
     long long lower, a, c;
@@ -1591,6 +1712,17 @@ static Rat eval_bigop(const Node *node) {
     /* 11b. Estremo che dipende da n: atomo più termini di differenza. */
     if (a < 0) { fail("estremo superiore decrescente in n"); return rat_int(0); }
     if (uses_bound_variable(node->a, NULL, 0) || uses_bound_variable(node->c, &node->name, 1)) {
+        /* 11n. */
+        Rat closed;
+        if (!product && binomial_ok && binomial_sum(node, lower, upper, &closed)) {
+            /* Come in 11b: la somma deve avere almeno un termine, e N = a n + c
+             * deve essere un naturale. */
+            long long need = lower - c;
+            need = (need > 0) ? (need + a - 1) / a : -((-need) / a);
+            if (library_depth == 0 && need > default_base) default_base = need;
+            binomial_used = 1;
+            return closed;
+        }
         fail("somma o prodotto il cui termine dipende da n: aggiungere l'ultimo termine non basta");
         return rat_int(0);
     }
@@ -1759,13 +1891,15 @@ static int atom_raised(int atom, const Mono *m) {
 }
 
 /* Ritorna 1 se il monomio vale un numero intero per ogni n ammesso: è un
- * prodotto di potenze, a esponente intero positivo, di n e di atomi come 2^n. */
+ * prodotto di potenze, a esponente intero positivo, di n e di atomi come 2^n.
+ * Mentre la regola 11n calcola il termine di una somma conta come intero
+ * anche la lettera ausiliaria, che lì sta al posto dell'indice. */
 static int mono_is_integer(const Mono *m) {
     for (int i = 0; i < m->count; i++) {
         const Atom *a = &atoms[m->factor[i].atom];
         Frac e = m->factor[i].exp;
         if (e.den != 1 || e.num < 0) return 0;
-        if (a->kind == ATOM_VAR && a->id == induction_var) continue;
+        if (a->kind == ATOM_VAR && (a->id == induction_var || (a->id == VAR_SLACK && binomial_live))) continue;
         if (a->kind == ATOM_POW && a->base == BASE_PRIME && domain_floor >= 0 && mono_is_integer(&a->exponent)) continue;
         return 0;
     }
@@ -2327,6 +2461,226 @@ static Rat power(Rat base, Rat exponent) {
     return result;
 }
 
+/* 11n. IL TEOREMA DEL BINOMIO
+ *
+ * Una somma come \sum_{k=0}^{n} \binom{n}{k} \cos(kx) non si tratta
+ * aggiungendo l'ultimo termine (11b): passando da n a n + 1 cambiano tutti i
+ * termini, perché n sta nel coefficiente binomiale. Ha però una forma
+ * chiusa. Per ogni naturale N e ogni numero y, anche complesso,
+ *
+ *     \sum_{k=0}^{N} \binom{N}{k} y^k = (1 + y)^N:
+ *
+ * è lo sviluppo del prodotto di N fattori (1 + y), in cui y^k si ottiene
+ * scegliendo y da k fattori, e i modi di sceglierli sono \binom{N}{k}.
+ * Sommando o sottraendo lo stesso sviluppo scritto per -y restano i termini
+ * con k pari, o quelli con k dispari:
+ *
+ *     \sum_k \binom{N}{2k}   y^{2k}   = ((1 + y)^N + (1 - y)^N) / 2,
+ *     \sum_k \binom{N}{2k+1} y^{2k+1} = ((1 + y)^N - (1 - y)^N) / 2,
+ *
+ * e qui k può arrivare fino a N, perché \binom{N}{m} è zero quando m > N.
+ *
+ * Come si applica. Il termine della somma deve essere il coefficiente
+ * binomiale, che ha sopra l'estremo superiore N e sotto k, 2k oppure 2k + 1,
+ * moltiplicato per un'espressione g(k). Si calcola g mettendo al posto
+ * dell'indice la lettera ausiliaria t: se ogni termine del risultato
+ * contiene t solo all'esponente di potenze b^{t M}, allora quel termine è
+ * c y^t, con y il prodotto delle potenze b^M, e c e y senza t. Con
+ * \cos(kx) = (e^{ikx} + e^{-ikx}) / 2 i termini sono due, con y = e^{ix} e
+ * y = e^{-ix}. A ognuno si applica una delle tre formule; per 2k e 2k + 1,
+ * dove g(k) = c r^k, serve un y con y^2 = r, che si ottiene dimezzando gli
+ * esponenti (i due valori possibili, y e -y, danno lo stesso risultato).
+ *
+ * Che cosa resta fuori: g(k) con l'indice fuori dagli esponenti (k \binom{n}{k}),
+ * due coefficienti binomiali nello stesso termine, un coefficiente con sotto
+ * 3k o k + 1, una radice quadrata che non si sa scrivere, una base 1 + y
+ * nulla quando N può essere zero. In tutti questi casi la regola non si
+ * applica, e la somma resta non trattata.
+ *
+ * Che la forma chiusa sia quella giusta lo ricontrolla la verifica del
+ * capitolo 13: con un numero al posto di n la somma viene svolta termine per
+ * termine (11a), senza passare di qui.
+ */
+
+/* Ritorna il coefficiente binomiale per cui è moltiplicata l'espressione
+ * node: lo si raggiunge scendendo solo per prodotti, segni meno e numeratori
+ * di frazioni. NULL se non c'è. */
+static const Node *binomial_factor(const Node *node) {
+    if (node->kind == N_CALL && node->op == FN_BINOM) return node;
+    if (node->kind == N_MUL) {
+        const Node *found = binomial_factor(node->a);
+        return found ? found : binomial_factor(node->b);
+    }
+    return node->kind == N_NEG || node->kind == N_DIV ? binomial_factor(node->a) : NULL;
+}
+
+/* Prototipo in avanti necessario: la base di un atomo è un polinomio, fatto
+ * di atomi. */
+static int poly_has_slack(Poly p);
+
+/* Ritorna 1 se nell'atomo compare, a qualunque livello, la lettera
+ * ausiliaria. */
+static int atom_has_slack(int atom) {
+    const Atom *a = &atoms[atom];
+    if (a->kind == ATOM_VAR) return a->id == VAR_SLACK;
+    if (a->kind == ATOM_ATAN) return poly_has_slack(atan_args[a->id].num) || poly_has_slack(atan_args[a->id].den);
+    if (a->kind != ATOM_POW && a->kind != ATOM_LN) return 0;
+    for (int i = 0; a->kind == ATOM_POW && i < a->exponent.count; i++)
+        if (atom_has_slack(a->exponent.factor[i].atom)) return 1;
+    if (a->base == BASE_ATOM) return atom_has_slack((int)a->id);
+    return a->base == BASE_POLY && poly_has_slack(base_polys[a->id]);
+}
+
+/* Ritorna 1 se in p compare la lettera ausiliaria. */
+static int poly_has_slack(Poly p) {
+    for (int i = 0; i < p.count; i++)
+        for (int f = 0; f < p.term[i].mono.count; f++)
+            if (atom_has_slack(p.term[i].mono.factor[f].atom)) return 1;
+    return 0;
+}
+
+/* Se il fattore `atom` elevato a e di un termine di g(t) è una potenza
+ * b^{t M} (vedi 11n), moltiplica *y per ciò che diventa con 1 al posto di t,
+ * elevato a e / halves: (b^M)^{e / halves}; halves è 1, oppure 2 quando serve
+ * la radice quadrata. Ritorna 1 se ci riesce; 0 se t compare in un altro
+ * modo, o se la potenza chiesta non si sa scrivere.
+ *
+ * Un esponente non intero si accetta solo dove non c'è da scegliere un ramo
+ * della radice: sugli atomi e^{i M}, per cui (e^{i M})^q vuol dire e^{i q M},
+ * e sui numeri: un primo ha il suo atomo "radice", e di un razionale che è
+ * un quadrato, o il suo opposto, la radice è un razionale, per i se serve. */
+static int binomial_ratio(int atom, Frac e, int halves, Rat *y) {
+    const Atom *a = &atoms[atom];
+    int slack = atom_var(VAR_SLACK);
+    Frac inside = mono_exponent(&a->exponent, slack), q = frac_div(e, frac_int(halves));
+    Mono rest = mono_with_exponent(&a->exponent, slack, frac_int(0)), none = {0};
+    Num number;
+    if (frac_cmp(inside, frac_int(1)) != 0) return 0;
+    for (int i = 0; i < rest.count; i++)
+        if (atom_has_slack(rest.factor[i].atom)) return 0;
+    if ((a->base == BASE_ATOM && atom_has_slack((int)a->id)) || (a->base == BASE_POLY && poly_has_slack(base_polys[a->id]))) return 0;
+
+    /* b^M: un atomo, oppure, con M = 1, la base stessa. Di un atomo e^{i M}
+     * o p^M, e di un primo, si prende qualunque potenza razionale. */
+    int letter = -1;
+    Rat value;
+    if (a->base == BASE_EI || rest.count > 0) letter = atom_pow(a->base, a->id, &rest);
+    else if (a->base == BASE_PRIME) letter = atom_pow(BASE_PRIME, a->id, &none);
+    if (a->base == BASE_PRIME && rest.count == 0) value = rat_int(a->id);
+    else if (letter >= 0) value = rat_atom(letter);
+    else if (a->base == BASE_ATOM) value = rat_atom((int)a->id);
+    else value = (Rat){base_polys[a->id], poly_const(num_int(1))};
+    if (q.den == 1) { *y = rat_mul(*y, rat_pow_int(value, q.num)); return !failure; }
+    if (letter >= 0 && (a->base == BASE_EI || a->base == BASE_PRIME)) {
+        Term power = {num_int(1), mono_atom(letter, q)};
+        *y = rat_mul(*y, (Rat){poly_term(power), poly_const(num_int(1))});
+        return !failure;
+    }
+
+    /* La radice quadrata di un numero: +-(u/v)^2. */
+    if (q.den != 2 || !rat_number(value, &number) || number.im.num != 0 || number.re.num == 0) return 0;
+    long long top = number.re.num < 0 ? -number.re.num : number.re.num, bottom = number.re.den, u = 0, v = 0;
+    if (top > 1000000000000LL || bottom > 1000000000000LL) return 0;
+    while (u * u < top) u++;
+    while (v * v < bottom) v++;
+    if (u * u != top || v * v != bottom) return 0;
+    Rat root = {poly_const(number.re.num < 0 ? (Num){frac_int(0), (Frac){u, v}} : num_frac((Frac){u, v})), poly_const(num_int(1))};
+    *y = rat_mul(*y, rat_pow_int(root, q.num));
+    return !failure;
+}
+
+/* Ritorna base^upper per la regola 11n, dove upper = a n + c è l'estremo
+ * superiore di una somma. È power(), tranne che per la base zero, che lì è
+ * un errore: 0^N vale 0 quando N è almeno 1, cioè quando lo è per il più
+ * piccolo n ammesso; se N può essere zero, dove 0^0 = 1, non c'è un valore
+ * solo e resta un errore. Capita con y = -1: la somma a segni alterni dei
+ * coefficienti binomiali è (1 - 1)^N. */
+static Rat binomial_power(Rat base, Rat upper) {
+    long long a, c;
+    if (base.num.count == 0 && rat_affine(upper, &a, &c) && a > 0 && a * domain_floor + c >= 1) return rat_int(0);
+    return power(base, upper);
+}
+
+/* 11n. Se la somma node, da lower a upper, ha per termine un coefficiente
+ * binomiale per una somma di termini c y^k, come descritto sopra, mette in
+ * *out la sua forma chiusa e ritorna 1. Ritorna 0, senza lasciare errori, se
+ * la regola non si applica. upper è il valore dell'estremo superiore, a n + c
+ * con a > 0. */
+static int binomial_sum(const Node *node, long long lower, Rat upper, Rat *out) {
+    const Node *binomial = binomial_factor(node->c);
+    const char *saved = failure;
+    int slack = atom_var(VAR_SLACK), listed = conditions_on, step = 0, shift = 0, fits = binomial && !failure && lower >= 0 && lower <= MAX_UNROLL;
+    Rat total = rat_int(0), one = rat_int(1), g = one;
+
+    /* Il termine con t al posto dell'indice: sopra il coefficiente deve
+     * esserci l'estremo superiore, sotto step t + shift; g è il resto. */
+    if (fits) {
+        env_push(node->name, rat_atom(slack));
+        binomial_live = 1;
+        Rat top = eval(binomial->a), bottom = eval(binomial->b);
+        fits = !failure && rat_add(top, upper, 1).num.count == 0 && poly_is_one(bottom.den);
+        for (int i = 0; fits && i < bottom.num.count; i++) {
+            const Term *t = &bottom.num.term[i];
+            int constant = t->mono.count == 0, linear = t->mono.count == 1 && t->mono.factor[0].atom == slack && frac_cmp(t->mono.factor[0].exp, frac_int(1)) == 0;
+            if (t->coef.im.num != 0 || t->coef.re.den != 1 || (!constant && !linear)) fits = 0;
+            else if (constant) shift = (int)t->coef.re.num;
+            else step = (int)t->coef.re.num;
+        }
+        fits = fits && ((step == 1 && shift == 0) || (step == 2 && (shift == 0 || shift == 1)));
+        if (fits) {
+            binomial_skip = binomial;
+            g = eval(node->c);
+            binomial_skip = NULL;
+        }
+        binomial_live = 0;
+        env_pop();
+    }
+
+    /* Un denominatore di un solo termine si porta nei termini del
+     * numeratore; altrimenti non deve contenere t, e divide tutta la somma.
+     * Da qui in poi i conti non sono dell'enunciato ma della regola, e le
+     * loro divisioni non pongono condizioni. */
+    conditions_on = 0;
+    Poly pieces = g.num, below = poly_const(num_int(1));
+    if (fits && !failure && g.den.count == 1) {
+        Term inverse = {num_inv(g.den.term[0].coef), mono_pow(&g.den.term[0].mono, frac_int(-1))};
+        pieces = poly_mul(g.num, poly_term(inverse));
+    } else if (fits && !failure) {
+        below = g.den;
+        fits = !poly_has_slack(below);
+    }
+
+    /* Un termine alla volta: c, y e la sua forma chiusa. */
+    for (int j = 0; fits && !failure && j < pieces.count; j++) {
+        Term constant = {pieces.term[j].coef, {0}};
+        Rat y = one;
+        for (int f = 0; fits && f < pieces.term[j].mono.count; f++) {
+            Factor factor = pieces.term[j].mono.factor[f];
+            const Atom *a = &atoms[factor.atom];
+            if (a->kind == ATOM_POW && mono_exponent(&a->exponent, slack).num != 0) fits = binomial_ratio(factor.atom, factor.exp, step, &y);
+            else if (atom_has_slack(factor.atom)) fits = 0;
+            else constant.mono = mono_mul(&constant.mono, &(Mono){1, {factor}});
+        }
+        if (!fits || failure) break;
+        Rat c = {poly_term(constant), poly_const(num_int(1))}, plus = binomial_power(rat_add(one, y, 0), upper), closed = plus;
+        if (step == 2) {
+            /* y qui è la radice: y^2 è il rapporto tra due termini. */
+            Rat minus = binomial_power(rat_add(one, y, 1), upper);
+            if (y.num.count == 0) { fits = 0; break; }
+            closed = rat_div(rat_add(plus, minus, shift), rat_mul(rat_int(2), rat_pow_int(y, shift)));
+        }
+        total = rat_add(total, rat_mul(c, closed), 0);
+    }
+    if (fits && !failure) total = rat_div(total, (Rat){below, poly_const(num_int(1))});
+    conditions_on = listed;
+
+    /* I termini prima di lower, che la formula conta e la somma no. */
+    for (long long k = 0; fits && !failure && k < lower; k++) total = rat_add(total, eval_body(node, rat_int(k)), 1);
+    if (!fits || failure) { failure = saved; return 0; }
+    *out = total;
+    return 1;
+}
+
 /* Ritorna e^{i sign theta}, con sign uguale a +1 o -1.
  *
  * L'angolo theta deve essere un polinomio: una somma di termini q M con q
@@ -2429,6 +2783,19 @@ static int number_sign(Rat r, int *side);
 static int exp_letters(const Node *node, Rat *out);
 static int log_letter(const Node *node, Rat *out);
 
+/* La radice di un prodotto di esponenziali (18p-8): se il radicando r di una
+ * radice di indice index è un tale prodotto e la radice si estrae, la mette
+ * in *out e ritorna 1. */
+static int exp_root(Rat r, long long index, Rat *out);
+
+/* Le funzioni goniometriche nella tabella dei segni (18p-11): mentre la
+ * tabella prepara un confronto di un enunciato periodico, seno, coseno,
+ * tangente e cotangente di a x + b pi diventano frazioni nella lettera
+ * t = tan(g x / 2). trig_value() ritorna 1 e mette in *out ciò che prende
+ * il posto del nodo, il cui argomento vale argument; 0 se il nodo va
+ * calcolato come sempre. È definita nel capitolo 18. */
+static int trig_value(const Node *node, Rat argument, Rat *out);
+
 /* Valuta una chiamata di funzione. */
 static Rat eval_call(const Node *node) {
     /* Il logaritmo di un valore assoluto è esattamente ciò che logarithm()
@@ -2452,6 +2819,7 @@ static Rat eval_call(const Node *node) {
          *      r, cioè x (x-1) ... (x-r+1) / r!. È un polinomio in x e vale
          *      anche quando x < r, dove dà correttamente zero.
          * 11j. r simbolico: x! / (r! (x-r)!), valida per 0 <= r <= x. */
+        if (node == binomial_skip) return rat_int(1);  /* 11n: il resto del termine */
         Rat r = eval(node->b);
         long long count;
         if (rat_integer(r, &count)) {
@@ -2466,6 +2834,8 @@ static Rat eval_call(const Node *node) {
     }
 
     case FN_SIN: case FN_COS: case FN_TAN: case FN_COT: {
+        if (trig_value(node, x, &letter)) return letter;
+
         /* Formule di Eulero: con E = e^{i x},
          *     cos x = (E + 1/E) / 2,    sin x = (E - 1/E) / (2 i).
          * Dividere per 2 i equivale a moltiplicare per -i/2. */
@@ -2488,6 +2858,7 @@ static Rat eval_call(const Node *node) {
          * variabile è un numero reale qualsiasi, e le semplificazioni di
          * fractional_power(), pensate per quantità positive, non valgono: la
          * radice di x^2 non è x. */
+        if (exp_root(x, index, &letter)) return letter;
         for (int i = 0; i < surd_count && index == 2; i++)
             if (node_equal(surd_node[i]->a, node->a)) return surd_value[i];
         return fractional_power(x, (Frac){1, index});
@@ -2561,8 +2932,20 @@ static Rat eval(const Node *node) {
          * quindi le variabili legate in questo momento non la toccano. */
         const Map *map = map_find(node->name);
         if (!map || !map->body) { fail("applicazione senza la regola che la definisce"); return rat_int(0); }
-        env_push(map->parameter, eval(node->a));
+
+        /* Gli argomenti si calcolano prima di legare le variabili della
+         * regola: in (a \ast b) \ast c, con la regola scritta in a e b,
+         * la a dell'argomento è quella dell'enunciato. */
+        Rat first = eval(node->a);
+        if (map->binary) {
+            Rat second = eval(node->b);
+            env_push(map->parameter, first);
+            env_push(map->parameter2, second);
+        } else {
+            env_push(map->parameter, first);
+        }
         Rat value = eval(map->body);
+        if (map->binary) env_pop();
         env_pop();
         return value;
     }
@@ -4693,6 +5076,16 @@ static void put_node(const Node *n, int need) {
         }
         break;
     case N_APPLY:
+        /* Un'operazione dichiarata (9g) si scrive tra i suoi due argomenti,
+         * e sempre tra parentesi, come la grammatica la vuole. */
+        if (n->name >= OPERATION_NAMES) {
+            proof_add("\\left(");
+            put_node(n->a, 5);
+            proof_add(" \\%s ", operation_symbols[n->name - OPERATION_NAMES]);
+            put_node(n->b, 5);
+            proof_add("\\right)");
+            break;
+        }
         proof_add("%c\\left(", n->name);
         put_node(n->a, 0);
         proof_add("\\right)");
@@ -4848,11 +5241,37 @@ static void put_atom(int atom, Frac exp) {
     if (!one) { proof_add("^{"); put_frac(exp); proof_add("}"); }
 }
 
+/* Diverso da zero mentre le potenze con esponente k/2 vanno scritte come
+ * potenze intere di una radice quadrata, \sqrt{u}^{k}, invece che u^{k/2}. Le
+ * due scritture valgono lo stesso numero, perché u, base di una radice, non
+ * è negativo. Serve al capitolo 25: la tabella dei segni (18p) legge le
+ * radici quadrate ma non gli esponenti frazionari. */
+static int surd_powers;
+
 /* Scrive il monomio m: i suoi fattori, separati da uno spazio sottile. */
 static void put_mono(const Mono *m) {
     for (int i = 0; i < m->count; i++) {
+        const Atom *a = &atoms[m->factor[i].atom];
+        Frac e = m->factor[i].exp;
         if (i) proof_add("\\,");
-        put_atom(m->factor[i].atom, m->factor[i].exp);
+
+        /* Le potenze di e^i non sono radici di numeri reali: restano a
+         * put_atom(), che le dichiara non scrivibili. */
+        if (!surd_powers || e.den != 2 || (a->kind == ATOM_POW && a->base == BASE_EI)) {
+            put_atom(m->factor[i].atom, e);
+            continue;
+        }
+
+        /* Di una base presa come lettera put_atom() sa già scrivere la
+         * radice; degli altri atomi la si scrive qui. */
+        if (a->kind == ATOM_POW && a->exponent.count == 0) {
+            put_atom(m->factor[i].atom, (Frac){1, 2});
+        } else {
+            proof_add("\\sqrt{");
+            put_atom(m->factor[i].atom, frac_int(1));
+            proof_add("}");
+        }
+        if (e.num != 1) proof_add("^{%lld}", e.num);
     }
 }
 
@@ -4982,6 +5401,43 @@ static Rat side_value(const Node *side, Rat n) {
     return value;
 }
 
+/* Scrive, un \item per ciascuno, i termini che ogni somma o prodotto
+ * dell'enunciato guadagna passando da n a n + 1: gli indici da
+ * dilation * n + offset + 1 a dilation * (n + 1) + offset. Ogni uguaglianza
+ * scritta viene riletta (13g) a partire da n = base: ritorna 1 se reggono
+ * tutte. */
+static int put_new_terms(long long base) {
+    int sound = 1;
+    for (int x = 0; x < atom_count; x++) {
+        const Atom *a = &atoms[x];
+        if (a->kind != ATOM_BIGOP) continue;
+        Span longer = {proof_length + strlen("\\item $"), 0}, split;
+        proof_add("\\item $");
+        put_bigop(x, a->dilation);
+        longer.to = proof_length;
+        proof_add(" = ");
+        split.from = proof_length;
+
+        /* Un \prod prende come corpo tutti i fattori che lo seguono
+         * (capitolo 9): senza parentesi inghiottirebbe quelli nuovi. */
+        int wrap = a->node->op && bigop_library(x) < 0;
+        if (wrap) proof_add("\\left(");
+        put_bigop(x, 0);
+        if (wrap) proof_add("\\right)");
+        for (long long j = 1; j <= a->dilation; j++) {
+            proof_add(a->node->op ? " \\cdot " : " + ");
+            shown_name = a->node->name;
+            shown_value = node_affine(a->dilation, induction_var, a->offset + j);
+            put_node(a->node->c, a->node->op ? 4 : 2);
+            shown_value = NULL;
+        }
+        split.to = proof_length;
+        proof_add("$.\n");
+        sound &= reread_equal(longer, split, base);
+    }
+    return sound;
+}
+
 /* Scrive la dimostrazione per induzione dell'enunciato, già verificata: caso
  * base `base`, d = D(n), e `used` l'atomo ricavato dall'ipotesi nel passo
  * (-1 se non è servita), come li ha lasciati step_holds().
@@ -5022,6 +5478,17 @@ static void put_induction_proof(const Statement *statement, long long base, Rat 
     sound &= reread_equal(text[0], text[1], base);
     proof_add(valued && span_same(value[0], value[1]) ? ": the two values are equal.\n"
                   : ": the two sides are equal, because their difference reduces to $0$ by exact algebra.\n");
+
+    /* 11n. La regola con cui sono state calcolate le somme che hanno n nel
+     * coefficiente binomiale: va detta, perché da lì in poi quelle somme
+     * compaiono solo con la loro forma chiusa. */
+    if (binomial_used)
+        proof_add("\\item \\emph{Binomial theorem}. For a general $%c$ a sum whose term is $\\binom{N}{k}$ times powers with $k$ in the exponent "
+                  "is computed in closed form: its term is written as a sum of terms $c\\,y^{k}$, with $c$ and $y$ free of $k$, and "
+                  "$\\sum_{k=0}^{N}\\binom{N}{k}y^{k} = (1 + y)^{N}$; when only the even or the odd $k$ appear, "
+                  "$\\sum_{k}\\binom{N}{2k}y^{2k} = \\frac{(1 + y)^{N} + (1 - y)^{N}}{2}$ and "
+                  "$\\sum_{k}\\binom{N}{2k+1}y^{2k+1} = \\frac{(1 + y)^{N} - (1 - y)^{N}}{2}$. "
+                  "In the base case the sum is written out term by term instead.\n", variable);
 
     /* I due membri per n + 1, come li ha calcolati il passo induttivo. */
     Rat up[2] = {side_value(side[0], next), side_value(side[1], next)};
@@ -5064,35 +5531,8 @@ static void put_induction_proof(const Statement *statement, long long base, Rat 
                 told = 1;
             }
 
-        /* I termini che ogni somma o prodotto guadagna passando a n + 1: gli
-         * indici da dilation * n + offset + 1 a dilation * (n + 1) + offset. */
-        for (int x = 0; x < atom_count; x++) {
-            const Atom *a = &atoms[x];
-            if (a->kind != ATOM_BIGOP) continue;
-            Span longer = {proof_length + strlen("\\item $"), 0}, split;
-            proof_add("\\item $");
-            put_bigop(x, a->dilation);
-            longer.to = proof_length;
-            proof_add(" = ");
-            split.from = proof_length;
-
-            /* Un \prod prende come corpo tutti i fattori che lo seguono
-             * (capitolo 9): senza parentesi inghiottirebbe quelli nuovi. */
-            int wrap = a->node->op && bigop_library(x) < 0;
-            if (wrap) proof_add("\\left(");
-            put_bigop(x, 0);
-            if (wrap) proof_add("\\right)");
-            for (long long j = 1; j <= a->dilation; j++) {
-                proof_add(a->node->op ? " \\cdot " : " + ");
-                shown_name = a->node->name;
-                shown_value = node_affine(a->dilation, variable, a->offset + j);
-                put_node(a->node->c, a->node->op ? 4 : 2);
-                shown_value = NULL;
-            }
-            split.to = proof_length;
-            proof_add("$.\n");
-            sound &= reread_equal(longer, split, base);
-        }
+        /* I termini che ogni somma o prodotto guadagna passando a n + 1. */
+        sound &= put_new_terms(base);
 
         /* Il valore che l'ipotesi dà all'atomo ricavato: da A x + B = 0. */
         Poly hypothesis[2];
@@ -5561,6 +6001,13 @@ static CkAnswer certify(const Statement *statement, long long base, Rat d, Rat d
      * rifiuto si riprova solo se A è un'espressione dei parametri che si può
      * dichiarare diversa da zero. */
     for (; generic < 2 && !failure; generic++) {
+        /* 11n. Il verificatore non conosce il teorema del binomio, e una
+         * somma con n nel termine non la sa nemmeno leggere come tale: non
+         * gli si chiede nulla, e il verdetto dice perché. */
+        if (binomial_used) {
+            why = "il teorema del binomio non è nella notazione dei certificati";
+            break;
+        }
         write_certificate(statement, base, top, bottom, generic ? &a : NULL, 0);
         if (certificate_broken) {
             answer = CK_UNSUPPORTED;
@@ -5601,6 +6048,11 @@ static CkAnswer certify(const Statement *statement, long long base, Rat d, Rat d
     return answer;
 }
 
+/* Il motivo con cui induct() rifiuta un enunciato che non è un'uguaglianza.
+ * Ha un nome perché prove() (capitolo 20) lo riconosce, e allora passa
+ * l'enunciato all'induzione sulle disuguaglianze (capitolo 25). */
+static const char *const NOT_AN_EQUALITY = "il passo induttivo del capitolo 13 tratta solo le uguaglianze";
+
 /* Il metodo dell'induzione su un enunciato già analizzato: caso base, passo,
  * verifiche e dimostrazione scritta, come descritto in testa al capitolo.
  *
@@ -5610,13 +6062,13 @@ static CkAnswer certify(const Statement *statement, long long base, Rat d, Rat d
  * nested dice come scrivere la dimostrazione (vedi put_induction_proof()).
  *
  * Usa la tabella degli atomi così com'è: chi chiama decide se svuotarla. */
-static Verdict induct(const Statement *input, int variable, int has_base, long long base, int nested) {
+static Verdict induct_equality(const Statement *input, int variable, int has_base, long long base, int nested) {
     Verdict verdict = {UNSUPPORTED, variable, base, 0, NULL, NULL, NULL, NULL, NULL, NULL};
     Statement statement = *input;
     induction_var = variable;
     default_base = 1;
     domain_floor = has_base ? base : 1;
-    if (statement.relation != REL_EQ) { verdict.reason = "le disuguaglianze non sono ancora supportate"; return verdict; }
+    if (statement.relation != REL_EQ) { verdict.reason = NOT_AN_EQUALITY; return verdict; }
 
     /* D(n). È la prima valutazione, quindi quella che fa nascere gli atomi con
      * gli estremi scritti nell'enunciato, e che calcola default_base. */
@@ -5694,6 +6146,19 @@ static Verdict induct(const Statement *input, int variable, int has_base, long l
     return verdict;
 }
 
+/* Dimostra per induzione l'enunciato input: è induct_equality(), con il
+ * teorema del binomio (11n) tra le regole di calcolo. La regola è permessa
+ * solo qui perché è qui che la dimostrazione scritta la dichiara
+ * (put_induction_proof()) e che il certificato dice di non saperla
+ * esprimere (certify()): altrove verrebbe usata in silenzio. */
+static Verdict induct(const Statement *input, int variable, int has_base, long long base, int nested) {
+    binomial_ok = 1;
+    binomial_used = 0;
+    Verdict verdict = induct_equality(input, variable, has_base, base, nested);
+    binomial_ok = 0;
+    return verdict;
+}
+
 /* Prova a dimostrare per induzione l'enunciato scritto in formula, con la
  * variabile di induzione e il caso base indicati (vedi induct()).
  *
@@ -5766,7 +6231,11 @@ static Verdict prove_by_induction(const char *formula, int variable, int has_bas
  *   15e. "Esiste V" è una tesi. Si cerca un V esplicito costruito dagli altri
  *        insiemi, cioè un'unione di loro regioni: si provano tutte. Trovarlo
  *        dimostra l'esistenza. Non trovarlo non prova nulla, perché V potrebbe
- *        dover dividere una regione, e la risposta è NON DIMOSTRATO.
+ *        dover dividere una regione: allora si passa a 15f.
+ *   15f. Più quantificatori, o in un'altra posizione, o un V che 15e non
+ *        trova. Non basta più sapere quali regioni sono vuote: si contano i
+ *        loro elementi, fino a un numero che dipende da quanti quantificatori
+ *        stanno uno dentro l'altro. È descritto più sotto, con il suo teorema.
  */
 
 /* Ritorna 1 se l'oggetto descritto da u e v appartiene all'espressione n.
@@ -5901,6 +6370,172 @@ static unsigned witness_regions(int var, unsigned mask) {
     return allowed;
 }
 
+/* 15f. Quantificatori in ogni posizione: contare gli elementi delle regioni.
+ *
+ * "Se S non è vuoto esistono due parti di S, non vuote, senza elementi in
+ * comune" è falso: se S ha un elemento solo non si può. Per deciderlo non
+ * basta sapere quali regioni sono vuote: conta quanti elementi hanno. Ma non
+ * serve contarli tutti.
+ *
+ * Teorema. Sia P una condizione sugli insiemi con al più q quantificatori
+ * "esiste un insieme" uno dentro l'altro. Se due scelte degli insiemi liberi
+ * danno a ogni regione lo stesso numero di elementi, oppure tutte e due
+ * almeno 2^q, allora P vale per l'una se e solo se vale per l'altra.
+ *
+ * Dimostrazione, per induzione su q. Con q = 0 la verità di P dipende solo
+ * da quali regioni sono vuote (capitolo 15, "Configurazioni"), e 2^0 = 1 è
+ * proprio "almeno un elemento". Sia ora P = "esiste X tale che R", con R di
+ * profondità q - 1, e X un insieme che funziona per la prima scelta. X
+ * divide ogni regione, di c elementi, in due: a dentro X e c - a fuori. La
+ * regione corrispondente della seconda scelta ha c' elementi, con c' = c
+ * oppure c e c' tutti e due almeno 2^q. La si divide così: se c' = c allo
+ * stesso modo; altrimenti, se a < 2^(q-1) si mettono a elementi dentro (ne
+ * restano fuori almeno 2^(q-1), come nella prima); se c - a < 2^(q-1) se ne
+ * lasciano fuori c - a; se nessuno dei due, almeno 2^(q-1) da ogni parte,
+ * che si può perché c' è almeno 2^q. Le regioni nuove hanno allora gli stessi
+ * numeri di elementi, o tutte e due almeno 2^(q-1): per ipotesi induttiva R
+ * vale anche per la seconda scelta. I connettivi non cambiano nulla.
+ *
+ * Quindi basta dare a ogni regione degli insiemi liberi un numero di
+ * elementi tra 0 e 2^q, dove 2^q vuol dire "almeno", e per ogni "esiste X"
+ * provare ogni modo di dividere le regioni: è un conto finito e completo,
+ * che decide in tutti e due i sensi.
+ *
+ * Gli oggetti fuori da tutti gli insiemi. Di oggetti ce n'è quanti se ne
+ * vuole, e un insieme quantificato può prenderne; ma nessun insieme li
+ * prende tutti: l'insieme di tutti gli oggetti non esiste. Per questo la
+ * regione 0, quella degli oggetti che non stanno in nessun insieme, è
+ * sempre "almeno" quanto serve, e quando un "esiste X" la divide ne resta
+ * fuori sempre altrettanto. Una versione che la trattava come le altre
+ * regioni lasciava a X la possibilità di prenderla tutta, e così
+ * dimostrava "esiste V tale che ogni W è contenuto in V".
+ *
+ * Il conto cresce in fretta, e ha un tetto (MAX_COUNT_CASES): oltre, la
+ * risposta è NON DIMOSTRATO.
+ */
+
+/* Ritorna quanti "esiste un insieme" stanno uno dentro l'altro in n, al più. */
+static int set_depth(const SetNode *n) {
+    if (!n) return 0;
+    int a = set_depth(n->a), b = set_depth(n->b), deepest = a > b ? a : b;
+    return n->kind == SET_EXISTS ? deepest + 1 : deepest;
+}
+
+/* Ritorna le lettere che in n compaiono libere, un bit per indice; bound sono
+ * quelle legate da un quantificatore più esterno. */
+static unsigned set_free_letters(const SetNode *n, unsigned bound) {
+    if (!n) return 0;
+    if (n->kind == SET_VAR) return (1u << n->var) & ~bound;
+    if (n->kind == SET_EXISTS) bound |= 1u << n->var;
+    return set_free_letters(n->a, bound) | set_free_letters(n->b, bound);
+}
+
+/* Quante valutazioni può ancora fare il conto in corso; sotto zero è stato
+ * interrotto, e le sue risposte non valgono. */
+static long long count_budget;
+
+static int counts_hold(const SetNode *n, const unsigned char *count);
+
+/* 15f, un "esiste X". exists è il nodo, bit la lettera X, cap = 2^d con d
+ * la profondità della condizione sotto il quantificatore. count[] sono i
+ * numeri di elementi delle regioni scelti finora: quelle prima di `region`
+ * sono già divise tra dentro e fuori X, le altre no. Ritorna 1 se c'è un
+ * modo di dividere le regioni da `region` in poi che rende vera la
+ * condizione.
+ *
+ * Una regione di m elementi si divide in a dentro e m - a fuori, e dei due
+ * numeri conta solo ciò che sta sotto cap: cap vuol dire "almeno cap". Se m
+ * è 2 cap, cioè "almeno 2 cap", le divisioni possibili sono tutte le coppie
+ * in cui una delle due parti è "almeno cap". */
+static int split_holds(const SetNode *exists, unsigned bit, int cap, unsigned char *count, unsigned region) {
+    unsigned regions = 1u << set_var_count;
+    while (region < regions && (region & bit)) region++;
+    if (region == regions) return counts_hold(exists->a, count);
+
+    int whole = count[region], found = 0;
+    if (whole < 2 * cap) {
+        /* Un numero preciso di elementi: a dentro, gli altri fuori. */
+        for (int a = 0; a <= whole && !found && count_budget >= 0; a++) {
+            count[region | bit] = (unsigned char)(a < cap ? a : cap);
+            count[region] = (unsigned char)(whole - a < cap ? whole - a : cap);
+            found = split_holds(exists, bit, cap, count, region + 1);
+        }
+    } else {
+        /* "Almeno 2 cap" elementi. Della regione 0 ne restano fuori sempre
+         * "almeno cap": non si esaurisce (vedi sopra). */
+        for (int inside = 0; inside <= cap && !found; inside++) {
+            for (int outside = inside == cap && region != 0 ? 0 : cap; outside <= cap && !found && count_budget >= 0; outside++) {
+                count[region | bit] = (unsigned char)inside;
+                count[region] = (unsigned char)outside;
+                found = split_holds(exists, bit, cap, count, region + 1);
+            }
+        }
+    }
+    count[region] = (unsigned char)whole;
+    count[region | bit] = 0;
+    return found;
+}
+
+/* 15f. Ritorna 1 se la condizione n è vera quando la regione r ha count[r]
+ * elementi, dove un numero pari a 2^d o più, con d la profondità di n, vuol
+ * dire "almeno 2^d". */
+static int counts_hold(const SetNode *n, const unsigned char *count) {
+    switch (n->kind) {
+    case SET_AND:     return counts_hold(n->a, count) && counts_hold(n->b, count);
+    case SET_OR:      return counts_hold(n->a, count) || counts_hold(n->b, count);
+    case SET_IMPLIES: return !counts_hold(n->a, count) || counts_hold(n->b, count);
+    case SET_IFF:     return counts_hold(n->a, count) == counts_hold(n->b, count);
+    case SET_NOT:     return !counts_hold(n->a, count);
+    case SET_EXISTS:  break;
+    default: {
+        /* Una relazione: conta solo quali regioni non sono vuote. */
+        unsigned nonempty = 0;
+        for (unsigned r = 0; r < (1u << set_var_count); r++)
+            if (count[r]) nonempty |= 1u << r;
+        if (--count_budget < 0) return 0;
+        return set_holds(n, nonempty);
+    }
+    }
+
+    /* "Esiste X": chi era X fuori da qui non conta più, quindi le regioni
+     * tornano intere; poi ognuna viene divisa in tutti i modi. */
+    unsigned char inner[1u << MAX_SET_VARS];
+    unsigned bit = 1u << n->var;
+    int cap = 1 << set_depth(n->a);
+    for (unsigned r = 0; r < (1u << set_var_count); r++) {
+        int whole = r & bit ? 0 : count[r] + count[r | bit];
+        inner[r] = (unsigned char)(whole > 2 * cap || r == 0 ? 2 * cap : whole);
+    }
+    return split_holds(n, bit, cap, inner, 0);
+}
+
+/* 15f. Decide se root vale per ogni scelta degli insiemi liberi, provando
+ * per le loro regioni ogni numero di elementi da 0 a 2^q. Ritorna 1 se
+ * vale; 0 se no, e allora count[] contiene i numeri di elementi di una
+ * scelta in cui non vale; -1 se il conto è stato interrotto. */
+static int counts_valid(const SetNode *root, unsigned char *count) {
+    unsigned regions = 1u << set_var_count, free_letters = set_free_letters(root, 0);
+    int top = 1 << set_depth(root);
+    count_budget = MAX_COUNT_CASES;
+    memset(count, 0, regions);
+    count[0] = (unsigned char)top;
+    for (;;) {
+        int holds = counts_hold(root, count);
+        if (count_budget < 0) return -1;
+        if (!holds) return 0;
+
+        /* La scelta successiva, come un contachilometri sulle regioni fatte
+         * di soli insiemi liberi. */
+        unsigned r = 1;
+        for (; r < regions; r++) {
+            if (r & ~free_letters) continue;
+            if (count[r] < top) { count[r]++; break; }
+            count[r] = 0;
+        }
+        if (r == regions) return 1;
+    }
+}
+
 /* =============================================================================
  * 16. INSIEMI: VERIFICA INDIPENDENTE E DIMOSTRAZIONE SCRITTA
  * ============================================================================
@@ -5974,9 +6609,16 @@ static unsigned concrete(const SetNode *n, const unsigned *value, int size) {
     }
 }
 
-/* Ritorna 1 se la formula n è vera quando gli insiemi valgono value[]. Il
- * quantificatore prova davvero tutti i sottoinsiemi dell'universo, scrivendo
- * in value[] l'insieme in esame. */
+/* Ritorna 1 se la formula n è vera quando gli insiemi valgono value[],
+ * sottoinsiemi di un universo di size elementi. Il quantificatore prova
+ * davvero tutti i sottoinsiemi, scrivendo in value[] l'insieme in esame.
+ *
+ * Per un "esiste X" l'universo ha un elemento in più di quello in cui stanno
+ * gli insiemi scelti prima, e così per ogni quantificatore più interno: è
+ * il modo di dire, con un universo finito, che fuori da qualunque insieme
+ * resta sempre qualche oggetto (vedi 15f). Con un universo fisso l'insieme
+ * di tutti gli elementi esisteva, e questo controllo confermava "esiste V
+ * tale che ogni W è contenuto in V". */
 static int concrete_holds(const SetNode *n, unsigned *value, int size) {
     switch (n->kind) {
     case SET_EQ:      return concrete(n->a, value, size) == concrete(n->b, value, size);
@@ -5988,9 +6630,9 @@ static int concrete_holds(const SetNode *n, unsigned *value, int size) {
     case SET_IFF:     return concrete_holds(n->a, value, size) == concrete_holds(n->b, value, size);
     case SET_NOT:     return !concrete_holds(n->a, value, size);
     default:          /* SET_EXISTS */
-        for (unsigned candidate = 0; candidate < (1u << size); candidate++) {
+        for (unsigned candidate = 0; candidate < (1u << (size + 1)); candidate++) {
             value[n->var] = candidate;
-            if (concrete_holds(n->a, value, size)) return 1;
+            if (concrete_holds(n->a, value, size + 1)) return 1;
         }
         return 0;
     }
@@ -6990,26 +7632,47 @@ static int put_narrative_proof(const SetNode *root) {
  * successivo. */
 static char counterexample_text[256];
 
-/* Costruisce con configuration_sets() gli insiemi che realizzano la
- * configurazione nonempty e ne scrive la descrizione, per esempio
- * "S = {1, 2}, T = {}", in counterexample_text. bound, se non è -1, è
- * l'indice di un insieme da non riportare. */
-static void counterexample(unsigned nonempty, int bound, unsigned *value, int *size) {
-    configuration_sets(nonempty, value, size);
-
+/* Scrive in counterexample_text gli insiemi value[], sottoinsiemi di un
+ * universo di size elementi, per esempio "S = {1, 2}, T = {}". Riporta solo
+ * le lettere il cui indice ha il bit in listed. */
+static void sets_describe(const unsigned *value, int size, unsigned listed) {
     size_t length = 0;
     counterexample_text[0] = 0;
     for (int i = 0; i < set_var_count; i++) {
-        if (i == bound) continue;
+        if (!((listed >> i) & 1)) continue;
         length += (size_t)snprintf(counterexample_text + length, sizeof counterexample_text - length,
                                    "%s%c = {", length ? ", " : "", set_var_name[i]);
-        for (int e = 0, printed = 0; e < *size && length < sizeof counterexample_text; e++)
+        for (int e = 0, printed = 0; e < size && length < sizeof counterexample_text; e++)
             if ((value[i] >> e) & 1)
                 length += (size_t)snprintf(counterexample_text + length, sizeof counterexample_text - length,
                                            "%s%d", printed++ ? ", " : "", e + 1);
         if (length < sizeof counterexample_text)
             length += (size_t)snprintf(counterexample_text + length, sizeof counterexample_text - length, "}");
     }
+}
+
+/* Scrive nella dimostrazione che l'enunciato è falso, con gli stessi insiemi
+ * di sets_describe() come controesempio. */
+static void put_counterexample(const unsigned *value, int size, unsigned listed) {
+    proof_add("The statement is false. Counterexample: $");
+    for (int i = 0, printed = 0; i < set_var_count; i++) {
+        if (!((listed >> i) & 1)) continue;
+        proof_add("%s%c = ", printed++ ? ",\\ " : "", set_var_name[i]);
+        if (!value[i]) { proof_add("\\emptyset"); continue; }
+        proof_add("\\{");
+        for (int e = 0, listed_elements = 0; e < size; e++)
+            if ((value[i] >> e) & 1) proof_add("%s%d", listed_elements++ ? ", " : "", e + 1);
+        proof_add("\\}");
+    }
+    proof_add("$.");
+}
+
+/* Costruisce con configuration_sets() gli insiemi che realizzano la
+ * configurazione nonempty e ne scrive la descrizione in counterexample_text.
+ * bound, se non è -1, è l'indice di un insieme da non riportare. */
+static void counterexample(unsigned nonempty, int bound, unsigned *value, int *size) {
+    configuration_sets(nonempty, value, size);
+    sets_describe(value, *size, bound < 0 ? ~0u : ~(1u << bound));
 }
 
 /* 16i. Controllo dell'insieme scelto per un "esiste" (15e): l'unione delle
@@ -7070,6 +7733,100 @@ static void cert_set(const SetNode *n) {
     cert_add(")");
 }
 
+/* Verifica indipendente di 15f. Ritorna 1 se root è vera per ogni scelta
+ * degli insiemi liberi, quelli con il bit in free_letters, tra i
+ * sottoinsiemi dei primi `inner` elementi di un universo di `size` elementi:
+ * ogni espressione viene calcolata davvero, come insieme, e ogni "esiste un
+ * insieme" prova tutti i sottoinsiemi di un universo che cresce di un
+ * elemento a ogni quantificatore (concrete_holds()). Gli elementi oltre i
+ * primi `inner` stanno fuori da ogni insieme libero: sono gli oggetti di cui
+ * 15f dice che ce n'è quanti se ne vuole. */
+static int concrete_valid_freely(const SetNode *root, unsigned free_letters, int inner, int size) {
+    unsigned value[MAX_SET_VARS] = {0};
+    for (;;) {
+        if (!concrete_holds(root, value, size)) return 0;
+
+        /* Assegnazione successiva dei soli insiemi liberi, come in
+         * concrete_valid(). Gli altri li riscrive chi li quantifica. */
+        int i = 0;
+        for (; i < set_var_count; i++) {
+            if (!((free_letters >> i) & 1)) continue;
+            if (++value[i] < (1u << inner)) break;
+            value[i] = 0;
+        }
+        if (i == set_var_count) return 1;
+    }
+}
+
+/* 15f, con la sua verifica e il suo testo: decide l'enunciato root contando
+ * gli elementi delle regioni, e completa verdict.
+ *
+ * Il conto non viene creduto sulla parola. Se dice "vero", l'enunciato deve
+ * valere in tutti gli universi piccoli di concrete_valid_freely(); se dice
+ * "falso", gli insiemi del controesempio vengono costruiti e l'enunciato
+ * calcolato su di loro. Sono controlli parziali, perché l'universo è
+ * piccolo: un enunciato vero che ha bisogno di molti oggetti fuori dagli
+ * insiemi, o un controesempio con più di qualche elemento, non vengono
+ * confermati, e allora il verdetto è NON DIMOSTRATO. */
+static Verdict prove_sets_by_counting(const SetNode *root, Verdict verdict) {
+    unsigned char count[1u << MAX_SET_VARS];
+    unsigned free_letters = set_free_letters(root, 0), value[MAX_SET_VARS] = {0};
+    int depth = set_depth(root);
+    verdict.outcome = NOT_PROVED;
+
+    /* Con le lettere che si possono riusare i quantificatori uno dentro
+     * l'altro non hanno un limite, ma i numeri di elementi (fino a 2^q) e la
+     * verifica (32^q casi) sì. */
+    int valid = depth <= MAX_SET_VARS ? counts_valid(root, count) : -1;
+    if (valid < 0) {
+        verdict.reason = "troppi casi da esaminare, contando gli elementi delle regioni";
+        return verdict;
+    }
+
+    /* Falso: gli insiemi liberi con, in ogni regione, gli elementi contati
+     * ("almeno" diventa proprio quel numero), più quanti oggetti esterni
+     * stanno in un universo di 5. */
+    if (!valid) {
+        int size = 0;
+        for (unsigned region = 1; region < (1u << set_var_count); region++)
+            for (int e = 0; e < count[region] && size <= 5; e++, size++)
+                for (int i = 0; i < set_var_count; i++)
+                    if ((region >> i) & 1) value[i] |= 1u << size;
+        if (size > 5 || concrete_holds(root, value, 5)) {
+            verdict.reason = "la verifica indipendente non conferma il controesempio trovato contando gli elementi delle regioni";
+            return verdict;
+        }
+        /* Senza insiemi liberi non c'è una scelta da riportare. */
+        sets_describe(value, size, free_letters);
+        if (free_letters) put_counterexample(value, size, free_letters);
+        else proof_add("The statement is false: no letter is left free, and counting the elements of the regions shows that it fails.");
+        verdict.outcome = REFUTED;
+        verdict.detail = free_letters ? counterexample_text : NULL;
+        verdict.proof = proof_text;
+        return verdict;
+    }
+
+    /* Vero: verifica indipendente su un universo piccolo, che per il
+     * quantificatore più esterno ha cinque elementi (quattro quando i
+     * quantificatori annidati sono tre o più, perché i casi crescono in
+     * fretta: 32 * 64 * 128 * ...). */
+    if (!concrete_valid_freely(root, free_letters, 3, depth <= 2 ? 4 : 3)) {
+        verdict.reason = "la verifica indipendente ha trovato un caso in cui l'enunciato non vale";
+        return verdict;
+    }
+    proof_add("\\textbf{Proof.} The statement has quantifiers over sets, at most $%d$ inside one another. Whether it holds for given "
+              "sets depends only on the number of elements of each region of their Venn diagram, and only up to $%d$: two "
+              "choices of the sets whose regions have the same numbers of elements, or both at least $%d$, cannot be told apart, "
+              "because a set that works for one choice divides each region into two parts, and the corresponding region of the "
+              "other choice can be divided into parts with the same numbers of elements, or both at least half of $%d$. So each "
+              "region is given $0, 1, \\ldots$ or at least $%d$ elements, the part outside all the sets always at least $%d$, and for "
+              "each quantified set every way of dividing the regions is tried. The statement holds in all these cases. $\\Box$",
+              depth, 1 << depth, 1 << depth, 1 << depth, 1 << depth, 1 << depth);
+    verdict.outcome = PROVED;
+    verdict.proof = proof_text;
+    return verdict;
+}
+
 /* Decide l'enunciato sugli insiemi scritto in formula e ne ritorna il
  * verdetto, con la dimostrazione scritta o il controesempio.
  *
@@ -7114,10 +7871,9 @@ static Verdict prove_sets(const char *formula) {
         if (n->b && top < stack + 64) *top++ = n->b;
         n = n->a;
     }
-    if (quantifiers > (exists ? 1 : 0)) {
-        verdict.reason = "quantificatore in una posizione non trattata";
-        return verdict;
-    }
+    /* 15f. Più quantificatori, o uno in un'altra posizione: contando gli
+     * elementi delle regioni. */
+    if (quantifiers > (exists ? 1 : 0)) return prove_sets_by_counting(root, verdict);
 
     /* Decisione per regioni (capitolo 15). */
     unsigned all = (1u << (1u << set_var_count)) - 1, failing = 0, mask = 0;
@@ -7140,11 +7896,9 @@ static Verdict prove_sets(const char *formula) {
             mask--;
         }
     }
-    if (valid && !found) {
-        verdict.outcome = NOT_PROVED;
-        verdict.reason = "non trovo, tra le unioni di regioni, un insieme che soddisfi la condizione di esistenza";
-        return verdict;
-    }
+    /* 15f. Nessuna unione di regioni va bene: l'insieme cercato, se c'è,
+     * divide una regione, e lo si trova contando. */
+    if (valid && !found) return prove_sets_by_counting(root, verdict);
 
     /* Enunciato falso: il controesempio, ricontrollato calcolando davvero. */
     if (!valid) {
@@ -7156,17 +7910,7 @@ static Verdict prove_sets(const char *formula) {
             verdict.reason = "la verifica indipendente non conferma il controesempio";
             return verdict;
         }
-        proof_add("The statement is false. Counterexample: $");
-        for (int i = 0, printed = 0; i < set_var_count; i++) {
-            if (exists && i == exists->var) continue;
-            proof_add("%s%c = ", printed++ ? ",\\ " : "", set_var_name[i]);
-            if (!value[i]) { proof_add("\\emptyset"); continue; }
-            proof_add("\\{");
-            for (int e = 0, listed = 0; e < size; e++)
-                if ((value[i] >> e) & 1) proof_add("%s%d", listed++ ? ", " : "", e + 1);
-            proof_add("\\}");
-        }
-        proof_add("$.");
+        put_counterexample(value, size, exists ? ~(1u << exists->var) : ~0u);
         verdict.outcome = REFUTED;
         verdict.detail = counterexample_text;
         verdict.proof = proof_text;
@@ -7547,6 +8291,35 @@ static Range node_range(const Node *node, int name, Range x, int *undefined) {
     }
 }
 
+/* Ritorna un intervallo che contiene il numero p, un polinomio negli atomi
+ * che sono numeri: un primo elevato a un razionale, il logaritmo di un
+ * primo, i numeri e e pi. "Non so" se p contiene altro. */
+static Range poly_range(Poly p) {
+    Range sum = {0, 0};
+    for (int t = 0; t < p.count; t++) {
+        const Term *term = &p.term[t];
+        if (term->coef.im.num != 0) return range_none();
+        Range product = range_ratio(term->coef.re.num, term->coef.re.den);
+        for (int f = 0; f < term->mono.count; f++) {
+            const Atom *atom = &atoms[term->mono.factor[f].atom];
+            Frac e = term->mono.factor[f].exp;
+            Range base;
+            if (atom->kind == ATOM_VAR && atom->id == 'e') base = range_exp_at(1);
+            else if (atom->kind == ATOM_VAR && atom->id == VAR_PI) base = range_pi();
+            else if (atom->base != BASE_PRIME || atom->exponent.count != 0) return range_none();
+            else if (atom->kind == ATOM_POW) base = range_ratio(atom->id, 1);
+            else if (atom->kind == ATOM_LN) base = range_ln(range_ratio(atom->id, 1));
+            else return range_none();
+
+            /* base^e: con e intero sono moltiplicazioni, altrimenti
+             * e^(e ln base), per una base positiva. */
+            product = range_mul(product, e.den == 1 ? range_power(base, e.num) : range_exp(range_mul(range_ratio(e.num, e.den), range_ln(base))));
+        }
+        sum = range_add(sum, product);
+    }
+    return sum;
+}
+
 /* =============================================================================
  * 18. QUANTIFICATORI: REGOLE DI DIMOSTRAZIONE
  * ============================================================================
@@ -7579,7 +8352,9 @@ static Range node_range(const Node *node, int name, Range x, int *undefined) {
  *   18d. Un polinomio di grado d che è intero in d + 1 interi consecutivi è
  *        intero in tutti gli interi.
  *   18e. Appartenenza a un insieme numerico: intero, non sotto l'estremo
- *        inferiore, diverso dai punti tolti.
+ *        inferiore, diverso dai punti tolti. Serve alle altre regole, per
+ *        il valore scelto per un "esiste", ed è una regola a sé quando
+ *        l'enunciato scrive x \in A come condizione (17k).
  *   18f. Ogni divisione scritta ha il divisore diverso da zero.
  *   18g. Un confronto tra numeri, o tra espressioni identiche, si decide
  *        calcolando.
@@ -7602,6 +8377,23 @@ static Range node_range(const Node *node, int name, Range x, int *undefined) {
  *        falso, gli enunciati della sua forma, e trova gli insiemi di
  *        soluzioni; le altre regole non li vedono.
  *   18q. Il grafico di ciò che la tabella dei segni ha deciso.
+ *   18s. Più ipotesi insieme: la tesi è una combinazione delle ipotesi, con
+ *        dei polinomi per moltiplicatori. Nel file sta accanto a 18h, che
+ *        tratta il caso di un'ipotesi sola di cui la tesi è un fattore.
+ *   18r. Un enunciato fatto solo di congruenze tra interi, con moduli che
+ *        sono numeri: si provano tutti i resti. Come la tabella dei segni
+ *        decide da sola, vero o falso, e trova gli insiemi di soluzioni; nel
+ *        file sta prima di 18p.
+ *   18t. Due variabili reali, un parametro e una variabile: la retta del
+ *        parametro si divide in casi, e in ognuno decide la tabella dei
+ *        segni. Anche questa è una regola a parte, e risolve: i valori del
+ *        parametro, o le soluzioni per ogni valore del parametro.
+ *   18u. Le ipotesi "esiste k", con il loro testimone: una disgiunzione
+ *        guardata tutta insieme. Ciò che un'ipotesi dice esistere riceve un
+ *        nome, appartenenze e divisibilità si svolgono nella loro
+ *        definizione, e il valore di un "esiste" della tesi si cerca tra i
+ *        polinomi nelle variabili generiche, con il sistema lineare di 18s.
+ *        Nel file sta dopo 18i, di cui è il seguito.
  *
  * Le espressioni possono contenere anche somme, potenze e funzioni, come
  * nel capitolo 9. Le regole da 18a a 18h lavorano sui polinomi, e davanti a
@@ -8285,6 +9077,15 @@ static int closed_gap(const Formula *source) {
     return answer;
 }
 
+/* Ritorna 1 se il numero u divide il numero v, cioè se v è u per un numero
+ * intero (17n): zero divide solo zero, e un altro numero divide v quando il
+ * quoziente è intero. Vale per i razionali come è scritta: 1/2 divide 3. */
+static int number_divides(Num u, Num v) {
+    if (u.im.num != 0 || v.im.num != 0) return 0;
+    if (u.re.num == 0) return v.re.num == 0;
+    return frac_div(v.re, u.re).den == 1;
+}
+
 /* Come si legge un connettivo tenuto conto della negazione: una congiunzione
  * o una disgiunzione di due parti, ognuna con il suo segno. */
 typedef struct {
@@ -8373,6 +9174,276 @@ static int divide_out(Poly *h, Poly e) {
     return 0;
 }
 
+/* Ritorna 1 se l'espressione node è razionale in questo momento: lo è per
+ * come è scritta (term_is_rational()), oppure lo diventa perché ogni
+ * esponente che è una lettera ha adesso per valore un intero non negativo,
+ * come quando si prova e = 1 in a^{e} = a. Allora la potenza è un prodotto
+ * ripetuto, e le regole sui polinomi si applicano come a ogni altro. */
+static int term_is_rational_now(const Node *node) {
+    Num exponent;
+    if (!node || term_is_rational(node)) return 1;
+    switch (node->kind) {
+    case N_NEG: case N_ADD: case N_SUB: case N_MUL: case N_DIV: case N_APPLY:
+        return term_is_rational_now(node->a) && term_is_rational_now(node->b);
+    case N_POW: {
+        const Rat *bound = node->b->kind == N_VAR ? env_lookup(node->b->name) : NULL;
+        return bound && rat_number(*bound, &exponent) && exponent.im.num == 0 && exponent.re.den == 1 && exponent.re.num >= 0 &&
+               exponent.re.num <= MAX_POWER && term_is_rational_now(node->a);
+    }
+    default:
+        return 0;
+    }
+}
+
+/* Calcola il polinomio di ognuno dei `count` confronti di literal[], il
+ * numeratore della differenza dei due membri, dopo aver controllato le
+ * divisioni (18f): riempie value, cleared e computed. Ritorna 0 se un
+ * confronto non si può trattare; può aver scritto, nella dimostrazione, le
+ * frasi sui divisori. */
+static int clause_polynomials(Literal *literal, int count) {
+    for (int i = 0; i < count; i++) {
+        const Formula *source = literal[i].source;
+        Poly den;
+
+        /* Espressioni non razionali: solo tra numeri, con closed_gap(). */
+        literal[i].computed = !term_is_rational_now(source->left) || !term_is_rational_now(source->right);
+        if (literal[i].computed) {
+            int equal = closed_gap(source);
+            if (equal < 0) return 0;
+            literal[i].value = poly_const(num_int(equal ? 0 : 1));
+            continue;
+        }
+        if (!term_defined(source->left) || !term_defined(source->right)) return 0;
+        Rat gap = rat_add(eval(source->left), eval(source->right), 1);
+        if (failure || !rat_polynomials(gap, &literal[i].value, &den)) return 0;
+        literal[i].cleared = !poly_is_one(den);
+    }
+    return 1;
+}
+
+/* 18s. La tesi come combinazione delle ipotesi.
+ *
+ * "Se x - y = k e y - z = j allora x - z = k + j" usa due ipotesi insieme: la
+ * regola 18h ne sa usare una sola, e solo quando la tesi ne è un fattore. Qui
+ * le ipotesi sono uguaglianze H_1 = 0, ..., H_m = 0 tra polinomi, la tesi è
+ * T = 0, e si cercano dei polinomi c_1, ..., c_m con
+ *
+ *     T = c_1 H_1 + ... + c_m H_m.
+ *
+ * Trovarli è una dimostrazione: è un'identità tra polinomi, quindi vale per
+ * ogni valore delle variabili, e dove tutte le H_i sono zero lo è anche T.
+ * Non trovarli non dice nulla: T può annullarsi dove si annullano le H_i
+ * senza esserne una combinazione (H = x^2, T = x), oppure solo tra gli
+ * interi. Allora la regola non si applica.
+ *
+ * Un fattore che non si annulla. A volte la tesi non è una combinazione
+ * delle ipotesi ma lo è un suo multiplo: da d a = d b, con d diverso da
+ * zero, segue a = b, eppure a - b non è un multiplo di d a - d b. Per questo
+ * si cerca anche g T = c_1 H_1 + ... + c_m H_m con g una variabile generica
+ * il cui insieme non contiene lo zero: dove le H_i sono zero lo è g T, e
+ * poiché g non è zero lo è T. Che g non si annulli lo dimostra, e lo
+ * scrive, la regola 18b.
+ *
+ * La ricerca. Si fissa l'elenco dei "generatori" m H_i, con m un monomio
+ * nelle variabili generiche di grado al più top - grado(H_i), dove top è il
+ * grado di ciò che si vuole ottenere: i moltiplicatori cercati sono le
+ * combinazioni a coefficienti razionali di questi monomi. Trovare i
+ * coefficienti è un sistema lineare, risolto per eliminazione: ogni
+ * generatore serve a togliere un monomio dai successivi e da T, e alla fine
+ * T deve essere diventato il polinomio nullo.
+ *
+ * Il controllo. I moltiplicatori trovati sono dati: chi chiama ricalcola
+ * c_1 H_1 + ... + c_m H_m con prodotti e somme e lo confronta con T. Un
+ * errore nell'eliminazione produce moltiplicatori sbagliati, che quel
+ * confronto respinge.
+ *
+ * La stessa ricerca serve alla regola 18u, che tra i moltiplicatori cerca
+ * anche il valore di un "esiste": per lei alcuni dei polinomi dati possono
+ * avere per moltiplicatore solo un polinomio nelle variabili intere (vedi
+ * `whole` in combination()).
+ */
+
+/* Ritorna il coefficiente con cui il monomio m compare in p, zero se manca. */
+static Frac poly_coefficient(Poly p, const Mono *m) {
+    for (int i = 0; i < p.count; i++)
+        if (mono_cmp(&p.term[i].mono, m) == 0) return p.term[i].coef.re;
+    return frac_int(0);
+}
+
+/* Ritorna il grado di p: il più alto tra i gradi dei suoi monomi. */
+static long long poly_degree(Poly p) {
+    long long degree = 0;
+    for (int i = 0; i < p.count; i++)
+        if (mono_degree(&p.term[i].mono) > degree) degree = mono_degree(&p.term[i].mono);
+    return degree;
+}
+
+/* Un generatore di 18s: il monomio `by` per l'ipotesi di posto owner. */
+typedef struct {
+    int owner;  /* quale ipotesi */
+    Mono by;    /* il monomio che la moltiplica */
+    Poly left;  /* ciò che ne resta durante l'eliminazione */
+} Generator;
+
+/* Aggiunge a list[], che ha già *count elementi, i generatori dell'ipotesi
+ * hypothesis, di posto owner: uno per ogni monomio di grado esattamente
+ * degree nelle variabili generiche da `from` in poi, moltiplicato per
+ * `prefix`. Con whole si usano solo le variabili che variano tra gli
+ * interi. Si ferma quando l'elenco è pieno. */
+static void generators_add(Generator *list, int *count, Poly hypothesis, int owner, Mono prefix, int from, long long degree, int whole) {
+    if (degree == 0) {
+        Term by = {num_int(1), prefix};
+        if (*count < MAX_GENERATORS) list[(*count)++] = (Generator){owner, prefix, poly_mul(hypothesis, poly_term(by))};
+        return;
+    }
+    for (int v = from; v < universal_count && *count < MAX_GENERATORS; v++) {
+        if (whole && !universal[v].numbers->integers) continue;
+        Mono letter = mono_atom(atom_var(universal[v].name), frac_int(1));
+        generators_add(list, count, hypothesis, owner, mono_mul(&prefix, &letter), v, degree - 1, whole);
+    }
+}
+
+/* 18s. Cerca di scrivere thesis come combinazione dei `count` polinomi di
+ * hypothesis[]: se ci riesce mette in multiplier[i] il polinomio c_i e
+ * ritorna 1. I polinomi devono essere "veri" (vedi rat_polynomials()). Ogni
+ * prodotto c_i H_i ha grado al più top. Se whole non è NULL, il
+ * moltiplicatore dell'ipotesi i contiene solo variabili intere quando
+ * whole[i] non è zero.
+ *
+ * Ogni chiamata toglie alla ricerca in corso un numero di tentativi
+ * proporzionale ai generatori: un sistema grande costa quanto molti passi di
+ * establish(), e senza questo conto una ricerca che ne risolve migliaia non
+ * si fermerebbe più.
+ *
+ * L'eliminazione. I generatori si esaminano in fila: il primo monomio di
+ * ciò che resta di un generatore fa da perno, e un suo multiplo viene tolto
+ * da ogni generatore successivo e dalla tesi, in modo che quel monomio non
+ * vi compaia più. remove[j][g] ricorda quante volte il generatore g è stato
+ * tolto dal generatore j, share[g] quante volte dalla tesi. Se alla fine
+ * della tesi non resta nulla, tesi = somma di share[g] per ciò che restava
+ * di g; tornando indietro dall'ultimo generatore al primo, ciò che restava
+ * di g è g meno i multipli dei precedenti, e i coefficienti dei generatori
+ * veri si ottengono correggendo share[] con remove[][]. */
+static int combination(Poly thesis, const Poly *hypothesis, int count, Poly *multiplier, long long top, const int *whole) {
+    static Generator list[MAX_GENERATORS];
+    static Frac remove[MAX_GENERATORS][MAX_GENERATORS], share[MAX_GENERATORS];
+    Mono one;
+    one.count = 0;
+
+    /* I generatori, per grado crescente del monomio: se l'elenco si riempie
+     * restano fuori i più grandi. */
+    int generators = 0;
+    for (long long degree = 0; degree <= top; degree++)
+        for (int i = 0; i < count; i++)
+            if (poly_degree(hypothesis[i]) + degree <= top)
+                generators_add(list, &generators, hypothesis[i], i, one, 0, degree, whole && whole[i]);
+    search_left -= generators / 16;
+
+    /* L'eliminazione. */
+    for (int g = 0; g < generators && !failure; g++) {
+        share[g] = frac_int(0);
+        for (int j = g + 1; j < generators; j++) remove[j][g] = frac_int(0);
+        if (list[g].left.count == 0) continue;
+        const Mono *pivot = &list[g].left.term[0].mono;
+        Frac lead = list[g].left.term[0].coef.re;
+        for (int j = g + 1; j < generators; j++) {
+            Frac times = frac_div(poly_coefficient(list[j].left, pivot), lead);
+            if (times.num == 0) continue;
+            remove[j][g] = times;
+            list[j].left = poly_add(list[j].left, poly_mul(list[g].left, poly_const(num_frac(times))), 1);
+        }
+        share[g] = frac_div(poly_coefficient(thesis, pivot), lead);
+        if (share[g].num != 0) thesis = poly_add(thesis, poly_mul(list[g].left, poly_const(num_frac(share[g]))), 1);
+    }
+    if (failure || thesis.count != 0) return 0;
+
+    /* All'indietro: i coefficienti dei generatori veri, e i moltiplicatori. */
+    for (int i = 0; i < count; i++) multiplier[i] = poly_const(num_int(0));
+    for (int g = generators - 1; g >= 0; g--) {
+        for (int k = 0; k < g; k++) share[k] = frac_add(share[k], frac_neg(frac_mul(share[g], remove[g][k])));
+        Term part = {num_frac(share[g]), list[g].by};
+        if (share[g].num != 0) multiplier[list[g].owner] = poly_add(multiplier[list[g].owner], poly_term(part), 0);
+    }
+    return !failure;
+}
+
+/* 18s. Dimostra che, per ogni valore delle variabili generiche, vale almeno
+ * uno dei `count` confronti di literal[], quando hanno la forma "H_1 diverso
+ * da 0, oppure ..., oppure T = 0" e T, o T per una variabile che non può
+ * valere zero, è una combinazione delle H_i. Scrive il ragionamento, come
+ * seguito di un \item già aperto, e ritorna 1 se ci riesce. I confronti che
+ * non valgono mai (costanti) non contano. */
+static int prove_combination(Literal *literal, int count) {
+    Poly hypothesis[MAX_LITERALS], multiplier[MAX_LITERALS];
+    const Literal *assumed[MAX_LITERALS], *thesis = NULL;
+    int hypotheses = 0, theses = 0;
+    if (!clause_polynomials(literal, count)) return 0;
+    for (int i = 0; i < count; i++) {
+        if (poly_is_constant(literal[i].value)) continue;
+        if (literal[i].equation) { thesis = &literal[i]; theses++; continue; }
+        hypothesis[hypotheses] = literal[i].value;
+        assumed[hypotheses++] = &literal[i];
+    }
+    if (theses != 1 || !hypotheses) return 0;
+
+    /* Prima la tesi com'è; poi, una per volta, moltiplicata per una
+     * variabile generica che non può valere zero. `factor` è il posto di
+     * quella variabile, -1 se non è servita. */
+    Poly target = thesis->value;
+    int factor = -1, found = combination(target, hypothesis, hypotheses, multiplier, poly_degree(target), NULL);
+    for (int v = 0; v < universal_count && !found && !failure && search_left > 0; v++) {
+        if (numbers_contain(universal[v].numbers, frac_int(0))) continue;
+        target = poly_mul(thesis->value, rat_atom(atom_var(universal[v].name)).num);
+        found = combination(target, hypothesis, hypotheses, multiplier, poly_degree(target), NULL);
+        if (found) factor = v;
+    }
+    if (!found) return 0;
+
+    /* Controllo del passo: rifatto il conto con prodotti e somme, la
+     * combinazione deve dare il polinomio cercato. */
+    Poly rebuilt = poly_const(num_int(0));
+    for (int i = 0; i < hypotheses; i++) rebuilt = poly_add(rebuilt, poly_mul(multiplier[i], hypothesis[i]), 0);
+    if (failure) return 0;
+    if (!poly_equal(rebuilt, target)) { unjustified_steps++; return 0; }
+
+    /* Il testo: le ipotesi, l'identità, la conclusione. */
+    proof_add(" Suppose that");
+    for (int i = 0; i < hypotheses; i++) {
+        proof_add("%s $", i ? " and that" : "");
+        put_source(assumed[i]->source);
+        proof_add("$ %s%s that is $", assumed[i]->source->kind == F_EQUAL ? "holds" : "fails", assumed[i]->cleared ? ", after clearing denominators," : ",");
+        put_poly(hypothesis[i]);
+        proof_add(" = 0$");
+    }
+    proof_add(". As polynomials, $");
+    if (factor >= 0) proof_add("%c\\left(", universal[factor].name);
+    put_poly(thesis->value);
+    proof_add(factor >= 0 ? "\\right) = " : " = ");
+    for (int i = 0, written = 0; i < hypotheses; i++) {
+        if (multiplier[i].count == 0) continue;
+        proof_add("%s\\left(", written++ ? " + " : "");
+        put_poly(multiplier[i]);
+        proof_add("\\right)\\left(");
+        put_poly(hypothesis[i]);
+        proof_add("\\right)");
+    }
+    proof_add("$: multiplying out gives the same terms. So $");
+
+    /* Il fattore: il prodotto è zero, e il fattore non lo è mai (18b). */
+    if (factor >= 0) {
+        proof_add("%c\\left(", universal[factor].name);
+        put_poly(thesis->value);
+        proof_add("\\right) = 0$.");
+        if (!zero_only_where(rat_atom(atom_var(universal[factor].name)).num, NULL)) return 0;
+        proof_add(" Hence $");
+    }
+    put_poly(thesis->value);
+    proof_add(" = 0$, %s $", thesis->source->kind == F_EQUAL ? "that is" : "so");
+    put_source(thesis->source);
+    proof_add(thesis->source->kind == F_EQUAL ? "$." : "$ fails.");
+    return 1;
+}
+
 /* 18g, 18h. Dimostra che, per ogni valore delle variabili generiche, vale
  * almeno uno dei `count` confronti di literal[]. Scrive il ragionamento, come
  * seguito di un \item già aperto, e ritorna 1 se ci riesce.
@@ -8395,24 +9466,7 @@ static int divide_out(Poly *h, Poly e) {
  * Una disgiunzione di soli "uguali" non identici non può valere per ogni
  * valore: il prodotto dei polinomi non è nullo, e gli insiemi sono infiniti. */
 static int prove_clause(Literal *literal, int count) {
-    /* Il polinomio di ogni confronto, dopo aver controllato le divisioni. */
-    for (int i = 0; i < count; i++) {
-        const Formula *source = literal[i].source;
-        Poly den;
-
-        /* Espressioni non razionali: solo tra numeri, con closed_gap(). */
-        literal[i].computed = !term_is_rational(source->left) || !term_is_rational(source->right);
-        if (literal[i].computed) {
-            int equal = closed_gap(source);
-            if (equal < 0) return 0;
-            literal[i].value = poly_const(num_int(equal ? 0 : 1));
-            continue;
-        }
-        if (!term_defined(source->left) || !term_defined(source->right)) return 0;
-        Rat gap = rat_add(eval(source->left), eval(source->right), 1);
-        if (failure || !rat_polynomials(gap, &literal[i].value, &den)) return 0;
-        literal[i].cleared = !poly_is_one(den);
-    }
+    if (!clause_polynomials(literal, count)) return 0;
 
     /* 18g. Un confronto che vale sempre. Se i due membri sono numeri si
      * riportano, così il lettore può rifare il conto. */
@@ -8606,7 +9660,7 @@ static int by_remainders(Formula *f, int negated) {
     static char written[48];
     const NumberSet *set = &f->numbers;
     int quotient = 0;
-    if (!set->integers || set->holes || split_modulus || failure) return 0;
+    if (!set->integers || set->holes || split_modulus || failure || universal_count == MAX_BOUND) return 0;
 
     /* Una lettera per il quoziente che l'enunciato non usa. */
     for (const char *letter = "tsuvwpqhgedcba"; *letter && !quotient; letter++) {
@@ -8678,14 +9732,24 @@ static int by_remainders(Formula *f, int negated) {
  * vale se esiste y con A). In tutti e due i casi il valore trovato è solo
  * una proposta: chi chiama ricontrolla l'intera condizione.
  *
- * Non entra nei quantificatori: un'uguaglianza che sta sotto un "per ogni y"
- * più interno dipende da y, e risolverla darebbe un valore che cambia con y. */
+ * Non entra in un "per ogni y" più interno: lì ogni uguaglianza va letta
+ * per tutti gli y, e risolverne una darebbe un valore che cambia con y. In
+ * un "esiste y" più interno entra, e ne prende le sole uguaglianze in cui y
+ * non compare: "esiste y con A e B(y)" chiede A quanto "A, ed esiste y con
+ * B(y)". È ciò che serve per \exists p, q\ (p = a + c \land q = b + d),
+ * dove il valore di p sta in un'uguaglianza scritta dopo \exists q. */
 static int find_equations(Formula *f, int negated, const Formula **list, int count) {
     Junction j;
     if (f->kind == F_NOT) return find_equations(f->a, !negated, list, count);
     if (f->kind == F_EQUAL || f->kind == F_DISTINCT) {
         if ((f->kind == F_EQUAL) != negated && count < MAX_EQUATIONS) list[count++] = f;
         return count;
+    }
+    if ((f->kind == F_FORALL || f->kind == F_EXISTS) && (f->kind == F_EXISTS) != negated) {
+        int found = find_equations(f->a, negated, list, count), kept = count;
+        for (int i = count; i < found; i++)
+            if (!node_uses_letter(list[i]->left, f->variable) && !node_uses_letter(list[i]->right, f->variable)) list[kept++] = list[i];
+        return kept;
     }
     if (!junction(f, negated, &j)) return count;
     return find_equations(j.y, j.ny, list, find_equations(j.x, j.nx, list, count));
@@ -8821,6 +9885,485 @@ static int solve_for(Formula *f, int negated) {
     return 0;
 }
 
+/* 18u. LE IPOTESI "ESISTE", CON IL LORO TESTIMONE
+ *
+ * A che cosa serve. "Se x - y è un intero e y - z è un intero, allora x - z
+ * è un intero" si scrive
+ *
+ *     ((\exists k \in Z (x - y = k)) \land (\exists j \in Z (y - z = j)))
+ *         \implies \exists m \in Z (x - z = m).
+ *
+ * Le regole viste finora dimostrano una disgiunzione una parte per volta, e
+ * qui nessuna parte vale da sola: non è vero che l'ipotesi è sempre falsa,
+ * né che x - z è sempre intero. Un matematico direbbe: "sia k l'intero che
+ * l'ipotesi fornisce, e j l'altro; allora x - z = k + j". Questa regola fa
+ * lo stesso, in tre passi, su una disgiunzione di cui si guardano tutte le
+ * parti insieme (un'implicazione "A implica B" è la disgiunzione "non A,
+ * oppure B": vedi junction()).
+ *
+ *   18u-1. Dare un nome. Una parte "per ogni v in A vale P(v)" (ed è così
+ *          che si legge un'ipotesi "esiste v in A con H(v)", che nella
+ *          disgiunzione compare negata: "per ogni v, non H(v)") diventa
+ *          P(v) con v variabile generica. È lecito: se per ogni v vale
+ *          "P(v) oppure R", e R non contiene v, allora o R è vera, oppure è
+ *          falsa e P(v) vale per ogni v. Serve che v non compaia in R: per
+ *          questo la lettera non deve essere usata nelle altre parti.
+ *   18u-2. Svolgere. Una parte "s appartiene ad A" è "esiste q in A con
+ *          s = q", e "u divide v" è "esiste q intero con v = q u" (17n):
+ *          sono le definizioni, e sostituirle non cambia nulla. Così
+ *          un'ipotesi a \equiv b \pmod{n}, con n una lettera, riceve anche
+ *          lei il nome del suo quoziente. La regola 18r non è toccata:
+ *          quando i moduli sono numeri decide lei, provando i resti.
+ *   18u-3. Trovare il valore. Resta una parte "esiste m in A con E(m)",
+ *          accanto a delle ipotesi H_1 = 0, ..., H_r = 0. Se E è di primo
+ *          grado in m, cioè alpha m + beta = 0, si cerca m tra i polinomi
+ *          nelle variabili generiche: un polinomio w e dei moltiplicatori
+ *          c_i con
+ *
+ *              alpha w + beta = c_1 H_1 + ... + c_r H_r
+ *
+ *          come polinomi. È lo stesso sistema lineare della regola 18s, con
+ *          in più i coefficienti di w tra le incognite: alpha fa da
+ *          "ipotesi" il cui moltiplicatore è -w. Trovato w, lo si lega a m
+ *          e si dimostra il resto con le regole di sempre: sarà la 18s a
+ *          riscrivere l'identità e a ricontrollarla. Più "esiste" di
+ *          seguito si cercano insieme: alpha_1 w_1 + alpha_2 w_2 + beta.
+ *
+ * Perché w va cercato tra i polinomi nelle sole variabili intere, quando A
+ * è un insieme di interi: m = x - z soddisfa l'equazione, ma non si può
+ * dimostrare che sia intero; m = k + j sì, perché k e j lo sono (18d). Che
+ * il valore stia in A va infatti dimostrato per ogni valore delle variabili
+ * generiche, senza usare le ipotesi: è più di quanto servirebbe, ed è ciò
+ * che always_in() sa fare.
+ *
+ * Due parti con la stessa lettera. Una variabile è identificata dalla sua
+ * lettera, quindi due ipotesi scritte tutte e due con \exists k non possono
+ * ricevere tutte e due il nome k: prima di dare il nome, una viene riscritta
+ * con una lettera che lì non è usata (quantifier_renamed()).
+ *
+ * Che cosa non fa. Non si applica dentro una dimostrazione per casi sul
+ * resto (18o), e nemmeno quando le variabili generiche diventerebbero più
+ * di MAX_BOUND. E il valore cercato è solo un polinomio: un'ipotesi "per
+ * ogni" non viene mai usata su un valore particolare.
+ *
+ * La verifica indipendente. I valori trovati qui sono espressioni nelle
+ * lettere a cui è stato dato un nome, e quelle lettere non esistono fuori da
+ * questa dimostrazione: la verifica del capitolo 19 non potrebbe calcolarli.
+ * Perciò, riuscita la dimostrazione, ciò che è stato annotato nei nodi viene
+ * dimenticato (forget_choices()), e la verifica ricalcola la parte di
+ * enunciato com'è scritta: per ogni "esiste" prova i primi elementi
+ * dell'insieme e, soprattutto, le soluzioni delle sue equazioni (vedi
+ * sample_holds()), che per un'ipotesi come \exists k (x - y = k) decidono
+ * esattamente se è vera.
+ */
+
+/* Una parte di una disgiunzione da dimostrare, con il segno con cui va
+ * letta: la disgiunzione vale quando vale una delle sue parti. */
+typedef struct {
+    Formula *source;  /* la condizione */
+    int negated;      /* 1 se va presa negata */
+} Leaf;
+
+/* Prototipo in avanti inevitabile: forget_choices() sta nel capitolo 19, con
+ * la verifica a cui serve, e 18u deve chiamarla quando riesce. */
+static void forget_choices(Formula *f);
+
+/* Elenca in leaf[], a partire dal posto count, le parti della disgiunzione
+ * f (negata se negated): scende nelle negazioni e nei connettivi che, con
+ * quel segno, sono disgiunzioni, e si ferma su tutto il resto. Ritorna il
+ * nuovo numero di parti, o -1 se sono più di MAX_LEAVES. */
+static int leaves_collect(Formula *f, int negated, Leaf *leaf, int count) {
+    Junction j;
+    if (count < 0) return -1;
+    if (f->kind == F_NOT) return leaves_collect(f->a, !negated, leaf, count);
+    if (junction(f, negated, &j) && !j.conjunction) return leaves_collect(j.y, j.ny, leaf, leaves_collect(j.x, j.nx, leaf, count));
+    if (count == MAX_LEAVES) return -1;
+    leaf[count] = (Leaf){f, negated};
+    return count + 1;
+}
+
+/* Ritorna la condizione f con la sua parte `old` sostituita da `by`. I nodi
+ * che stanno tra f e old vengono copiati, così f resta com'era; il segno
+ * con cui `by` va letta è quello che aveva old, perché i connettivi intorno
+ * sono gli stessi. Se l'arena è piena ritorna f, e l'errore è annotato. */
+static Formula *leaf_replaced(Formula *f, const Formula *old, Formula *by) {
+    if (f == old) return by;
+    if (f->kind != F_NOT && f->kind != F_AND && f->kind != F_OR && f->kind != F_IMPLIES) return f;
+    Formula *a = leaf_replaced(f->a, old, by), *b = f->b ? leaf_replaced(f->b, old, by) : NULL;
+    if (a == f->a && b == f->b) return f;
+    Formula *copy = arena_alloc(sizeof *copy);
+    if (!copy) return f;
+    *copy = *f;
+    copy->a = a;
+    copy->b = b;
+    return copy;
+}
+
+/* Ritorna 1 se la lettera può diventare il nome di una variabile che vale
+ * per tutta la disgiunzione leaf[0..count), pur essendo scritta solo nella
+ * parte own: non deve essere già una variabile generica o legata, né
+ * comparire in un'altra parte. Con own = -1 nessuna parte è esclusa. */
+static int letter_is_free(const Leaf *leaf, int count, int own, int letter) {
+    if (env_lookup(letter) || map_find(letter)) return 0;
+    for (int i = 0; i < universal_count; i++)
+        if (universal[i].name == letter) return 0;
+    for (int i = 0; i < count; i++)
+        if (i != own && formula_uses_letter(leaf[i].source, letter)) return 0;
+    return 1;
+}
+
+/* 18u-2. Ritorna la definizione svolta della condizione f, che è
+ * un'appartenenza a un insieme numerico o una divisibilità:
+ *
+ *     s \in A     diventa   \exists q \in A\ (s = q)
+ *     u \mid v    diventa   \exists q \in \mathbb{Z}\ (v = q \cdot u)
+ *
+ * preceduta da \lnot se f è scritta con \notin o \nmid. q è `letter`, una
+ * lettera che l'enunciato non usa in quel punto. Il testo dei nuovi nodi
+ * viene scritto qui, perché l'enunciato non lo contiene; ritorna NULL se
+ * l'arena è piena. */
+static Formula *membership_unfolded(const Formula *f, int letter) {
+    int divides = f->kind == F_DIVIDES;
+
+    /* Il testo, composto nel buffer della dimostrazione e poi tolto da lì:
+     * si annota dove cadono l'insieme e l'uguaglianza. */
+    size_t from = proof_length;
+    if (f->swapped) proof_add("\\lnot ");
+    size_t quantifier_at = proof_length - from;
+    proof_add("\\exists %c \\in ", letter);
+    size_t set_at = proof_length - from;
+    if (divides) proof_add("\\mathbb{Z}"); else put_numbers(&f->numbers);
+    size_t set_end = proof_length - from;
+    proof_add("\\ (");
+    size_t equation_at = proof_length - from;
+    put_node(divides ? f->right : f->left, 0);
+    proof_add(" = %c", letter);
+    if (divides) { proof_add(" \\cdot "); put_node(f->left, 4); }
+    size_t equation_end = proof_length - from;
+    proof_add(")");
+    size_t length = proof_length - from;
+    char *text = arena_alloc(length + 1);
+    if (text) memcpy(text, proof_text + from, length + 1);
+    proof_cut(from);
+    if (!text) return NULL;
+
+    /* I nodi: l'uguaglianza, il quantificatore, la negazione. */
+    Node *name = node_new(N_VAR, NULL, NULL);
+    name->name = letter;
+    Formula *equation = formula_node(F_EQUAL, NULL, NULL, text + equation_at);
+    equation->end = text + equation_end;
+    equation->left = divides ? f->right : f->left;
+    equation->right = divides ? node_new(N_MUL, name, f->left) : name;
+    Formula *exists = formula_node(F_EXISTS, equation, NULL, text + quantifier_at);
+    exists->end = text + length;
+    exists->variable = letter;
+    if (divides) exists->numbers.integers = 1; else exists->numbers = f->numbers;
+    exists->numbers.start = text + set_at;
+    exists->numbers.end = text + set_end;
+    if (!f->swapped) return exists;
+    Formula *negation = formula_node(F_NOT, exists, NULL, text);
+    negation->end = text + length;
+    return negation;
+}
+
+/* 18u-1, quando la lettera è già usata altrove. Ritorna una copia del
+ * quantificatore q, parte di posto own della disgiunzione leaf[0..count),
+ * in cui ogni sua lettera che compare anche in un'altra parte è cambiata
+ * con una che lì non è usata; ritorna NULL se non c'è nulla da cambiare o
+ * se non ci riesce.
+ *
+ * I libri scrivono spesso due ipotesi con la stessa lettera, \exists k\ (a
+ * - b = kn) e \exists k\ (b - c = kn): sono due numeri diversi, e per
+ * dare un nome a tutti e due uno va chiamato in un altro modo. Cambiare il
+ * nome di una variabile legata non cambia ciò che la condizione dice.
+ *
+ * La copia si ottiene come le definizioni svolte di 17j: si riscrive il
+ * testo del quantificatore con la lettera nuova e lo si rilegge, così ogni
+ * nodo ha il testo che gli corrisponde. Più lettere dopo lo stesso
+ * quantificatore hanno un testo solo, quindi si cambiano insieme, e q deve
+ * essere il nodo della prima. */
+static Formula *quantifier_renamed(const Formula *q, const Leaf *leaf, int count, int own) {
+    static char fresh[MAX_BOUND][2];
+    const char *to[MAX_BOUND], *before = syntax_error;
+    int from[MAX_BOUND], changes = 0;
+
+    /* Le lettere scritte dopo il quantificatore: i nodi con lo stesso
+     * testo. Si cambiano quelle usate altrove, purché non siano già
+     * variabili in vista: allora il nome nuovo non basterebbe. */
+    for (const Formula *g = q; g->kind == q->kind && g->start == q->start && g->end == q->end && changes < MAX_BOUND; g = g->a) {
+        int taken = 0, letter = 0;
+        for (int i = 0; i < count; i++) taken = taken || (i != own && formula_uses_letter(leaf[i].source, g->variable));
+        if (!taken) continue;
+        for (const char *c = "hjkqrstuvwpgdcbamn"; *c && !letter; c++) {
+            int used = !letter_is_free(leaf, count, -1, *c);
+            for (int i = 0; i < changes; i++) used = used || fresh[i][0] == *c;
+            if (!used) letter = *c;
+        }
+        if (!letter || !letter_is_free(leaf, 0, -1, g->variable)) return NULL;
+        from[changes] = g->variable;
+        fresh[changes][0] = (char)letter;
+        to[changes] = fresh[changes];
+        changes++;
+    }
+    if (!changes) return NULL;
+
+    /* Il testo riscritto, e la sua lettura. Un errore qui vuol dire solo
+     * che la copia non si può fare. */
+    draft_length = 0;
+    draft_rewrite(q->start, q->end, from, to, changes);
+    Formula *copy = unfold();
+    int read = !syntax_error && copy->kind == q->kind && formula_uses_letter(copy, fresh[0][0]);
+    syntax_error = before;
+    return read ? copy : NULL;
+}
+
+/* 18u-3, per una sola uguaglianza. Cerca i valori dei `names` "esiste" di
+ * quantifier[] che rendono `equation` una conseguenza delle `hypotheses`
+ * ipotesi di given[], e con quelli dimostra la disgiunzione f (negata se
+ * negated) in cui body prende il posto di quantifier[0]. given[] deve avere
+ * altri `names` posti liberi dopo le ipotesi. Scrive il ragionamento e
+ * ritorna 1 se ci riesce; se ritorna 0 il testo scritto va cancellato da chi
+ * chiama. */
+static int witnesses_solve(Formula *f, int negated, Formula **quantifier, int names, Formula *body,
+                           const Formula *equation, Poly *given, int hypotheses) {
+    Poly num, den, part[2], alpha[MAX_NAMED], multiplier[MAX_LITERALS + MAX_NAMED];
+    int whole[MAX_LITERALS + MAX_NAMED] = {0};
+    Mark mark = mark_here();
+
+    /* L'equazione con le lettere cercate come atomi. È un conto fatto per
+     * tentativo: se non riesce vuol dire solo che da qui non si ricava
+     * nulla, come in solve_with(). */
+    Rat gap = rat_add(eval(equation->left), eval(equation->right), 1);
+    if (failure) { failure = NULL; return 0; }
+    if (!rat_polynomials(gap, &num, &den)) return 0;
+
+    /* num = beta + alpha_1 m_1 + ... + alpha_r m_r: di primo grado in ogni
+     * lettera cercata, e senza prodotti tra due di loro. */
+    Poly beta = num;
+    for (int j = 0; j < names; j++) {
+        if (poly_split(beta, atom_var(quantifier[j]->variable), part, 1) != 1) return 0;
+        alpha[j] = part[1];
+        beta = part[0];
+    }
+    for (int j = 0; j < names; j++)
+        for (int k = 0; k < names; k++)
+            if (poly_uses(alpha[j], atom_var(quantifier[k]->variable))) return 0;
+
+    /* Prima l'equazione com'è, v = -1; poi, se ci sono ipotesi, moltiplicata
+     * per una variabile generica v che non può valere zero (vedi "Un fattore
+     * che non si annulla" in testa a 18s). */
+    for (int v = -1; v < (hypotheses ? universal_count : 0) && !failure && search_left > 0; v++) {
+        Poly scale = poly_const(num_int(1));
+        if (v >= 0 && numbers_contain(universal[v].numbers, frac_int(0))) continue;
+        if (v >= 0) scale = rat_atom(atom_var(universal[v].name)).num;
+        Poly target = poly_mul(scale, beta);
+        long long least = poly_degree(target);
+        for (int j = 0; j < names; j++) {
+            given[hypotheses + j] = poly_mul(scale, alpha[j]);
+            whole[hypotheses + j] = quantifier[j]->numbers.integers;
+            if (poly_degree(given[hypotheses + j]) > least) least = poly_degree(given[hypotheses + j]);
+        }
+
+        /* Il grado di ciò che si cerca non è noto: si parte dal più basso
+         * possibile e si sale di poco, finché il sistema ha una soluzione. */
+        int found = 0;
+        for (long long top = least; top <= least + 2 && !found && !failure && search_left > 0; top++)
+            found = combination(target, given, hypotheses + names, multiplier, top, whole);
+        if (!found) continue;
+
+        /* Controllo del passo: rifatto il conto con prodotti e somme,
+         * scale (beta + alpha_1 w_1 + ...) deve essere la combinazione delle
+         * ipotesi che il sistema ha trovato. I w_j sono i moltiplicatori
+         * degli alpha_j, cambiati di segno. */
+        Poly rebuilt = poly_const(num_int(0));
+        for (int i = 0; i < hypotheses + names; i++) rebuilt = poly_add(rebuilt, poly_mul(multiplier[i], given[i]), 0);
+        if (failure) return 0;
+        if (!poly_equal(rebuilt, target)) { unjustified_steps++; continue; }
+
+        /* I valori, e la loro appartenenza agli insiemi. */
+        Rat value[MAX_NAMED];
+        int inside = 1;
+        proof_add("\\item We look for $%c", quantifier[0]->variable);
+        for (int j = 1; j < names; j++) proof_add(", %c", quantifier[j]->variable);
+        proof_add("$ with $");
+        put_source(equation);
+        proof_add("$%s.", hypotheses ? ", using what is assumed" : "");
+        for (int j = 0; j < names && inside; j++) {
+            value[j] = rat_make(poly_negate(multiplier[hypotheses + j]), poly_const(num_int(1)));
+            proof_add(" Take $%c = ", quantifier[j]->variable);
+            put_poly(value[j].num);
+            proof_add("$. It has to be an element of $");
+            put_numbers(&quantifier[j]->numbers);
+            proof_add("$.");
+            inside = always_in(value[j], &quantifier[j]->numbers);
+        }
+        proof_add("\n");
+        if (!inside) { rollback(mark); continue; }
+
+        /* Il resto, con le lettere legate ai valori trovati. */
+        for (int j = 0; j < names; j++) {
+            Num number;
+            if (rat_number(value[j], &number)) choose(quantifier[j]->variable, number.re);
+            env_push(quantifier[j]->variable, value[j]);
+        }
+        int holds = establish(leaf_replaced(f, quantifier[0], body), negated);
+        for (int j = 0; j < names; j++) env_pop();
+        if (!holds) { rollback(mark); continue; }
+        for (int j = 0; j < names; j++) {
+            quantifier[j]->has_witness |= 1u << split_case;
+            quantifier[j]->witness[split_case] = value[j];
+        }
+        return 1;
+    }
+    return 0;
+}
+
+/* 18u-3. Dimostra la disgiunzione f (negata se negated), le cui parti sono
+ * leaf[0..count), cercando il valore degli "esiste" con cui comincia la
+ * parte own tra i polinomi nelle variabili generiche, come descritto in
+ * testa a 18u. Scrive il ragionamento e ritorna 1 se ci riesce; se ritorna
+ * 0 non lascia testo né scelte.
+ *
+ * Il valore trovato è solo una proposta, come in 18i: l'intera disgiunzione
+ * viene poi dimostrata da capo con il valore al posto della lettera. */
+static int witnesses_from(Formula *f, int negated, const Leaf *leaf, int count, int own) {
+    Formula *quantifier[MAX_NAMED], *body = leaf[own].source;
+    const Formula *equation[MAX_EQUATIONS];
+    Literal assumed[MAX_LITERALS];
+    Poly given[MAX_LITERALS + MAX_NAMED];
+    Mark mark = mark_here();
+    if (failure) return 0;
+
+    /* Gli "esiste" consecutivi con cui comincia la parte own: sign è il
+     * segno con cui va letta la condizione che li segue. */
+    int sign = leaf[own].negated, longest = 0;
+    while (longest < MAX_NAMED && (body->kind == F_FORALL || body->kind == F_EXISTS) && (body->kind == F_EXISTS) != sign &&
+           letter_is_free(leaf, count, own, body->variable)) {
+        quantifier[longest++] = body;
+        body = body->a;
+    }
+    if (!longest) return 0;
+
+    /* Le ipotesi: le altre parti che sono un confronto da leggere come
+     * "diversi", cioè un'uguaglianza che si può supporre. Il loro polinomio
+     * lo calcola clause_polynomials(), che controlla anche le divisioni: le
+     * frasi che scrive qui non servono, le riscriverà la regola 18s. Un
+     * conto che non riesce vuol dire solo che così non si ricava nulla. */
+    int hypotheses = 0, kept = 0;
+    for (int i = 0; i < count && hypotheses < MAX_LITERALS; i++) {
+        Literal literal[MAX_LITERALS];
+        int found = 0;
+        if (i != own && gather(leaf[i].source, leaf[i].negated, literal, &found) && found == 1 && !literal[0].equation)
+            assumed[hypotheses++] = literal[0];
+    }
+    int usable = clause_polynomials(assumed, hypotheses);
+    rollback(mark);
+    if (failure || !usable) { failure = NULL; return 0; }
+    for (int i = 0; i < hypotheses; i++)
+        if (!poly_is_constant(assumed[i].value)) given[kept++] = assumed[i].value;
+
+    /* Si cercano insieme i valori dei primi `names` "esiste": prima di
+     * tutti, poi di meno, perché un'uguaglianza li deve contenere tutti.
+     * Ogni uguaglianza richiesta da ciò che li segue può darli. */
+    for (int names = longest; names > 0; names--) {
+        body = quantifier[names - 1]->a;
+        int equations = find_equations(body, sign, equation, 0);
+        for (int e = 0; e < equations && !failure && search_left > 0; e++) {
+            if (witnesses_solve(f, negated, quantifier, names, body, equation[e], given, kept)) return 1;
+            rollback(mark);
+        }
+    }
+    return 0;
+}
+
+/* 18u. Dimostra la disgiunzione f (negata se negated) guardandone tutte le
+ * parti insieme, con i tre passi descritti in testa a 18u: uno per
+ * chiamata, e il resto lo fa establish(), che torna qui finché serve.
+ * Scrive il ragionamento e ritorna 1 se ci riesce; se ritorna 0 non lascia
+ * testo né scelte. */
+static int name_witnesses(Formula *f, int negated) {
+    Leaf leaf[MAX_LEAVES];
+    Mark mark = mark_here();
+    int count = leaves_collect(f, negated, leaf, 0);
+    if (count < 0 || failure || split_modulus) return 0;
+
+    /* Senza variabili generiche ogni parte è una condizione su numeri, che
+     * non dipende dalle altre: la disgiunzione vale solo se ne vale una da
+     * sola, e questo è già stato provato da chi chiama. */
+    if (!universal_count) return 0;
+
+    /* 18u-1. Una parte che dice "per ogni v": v diventa generica. I due
+     * modi di arrivarci si scrivono in modo diverso: un "per ogni" della
+     * tesi introduce v, un "esiste" tra le ipotesi le dà un nome. */
+    for (int i = 0; i < count; i++) {
+        Formula *q = leaf[i].source;
+        if ((q->kind != F_FORALL && q->kind != F_EXISTS) || (q->kind == F_FORALL) == leaf[i].negated) continue;
+        if (universal_count == MAX_BOUND) continue;
+
+        /* La lettera è usata anche da un'altra parte: prima la si cambia,
+         * e il passo successivo darà il nome alla copia. */
+        if (!letter_is_free(leaf, count, i, q->variable)) {
+            Formula *renamed = quantifier_renamed(q, leaf, count, i);
+            if (!renamed) continue;
+            proof_add("\\item The letters bound in $");
+            put_source(q);
+            proof_add("$ are used elsewhere too: we write it $");
+            put_source(renamed);
+            proof_add("$, which says the same.\n");
+            if (establish(leaf_replaced(f, q, renamed), negated)) return 1;
+            rollback(mark);
+            return 0;
+        }
+        if (q->kind == F_FORALL) {
+            proof_add("\\item Let $%c \\in ", q->variable);
+            put_numbers(&q->numbers);
+            proof_add("$.\n");
+        } else {
+            proof_add("\\item Suppose that $");
+            put_source(q);
+            proof_add("$ holds, and call $%c$ such an element of $", q->variable);
+            put_numbers(&q->numbers);
+            proof_add("$: from here on $%c$ is fixed, and what follows is proved for every $%c \\in ", q->variable, q->variable);
+            put_numbers(&q->numbers);
+            proof_add("$.\n");
+        }
+        universal[universal_count++] = (Bound){q->variable, &q->numbers};
+        int holds = establish(leaf_replaced(f, q, q->a), negated);
+        universal_count--;
+
+        /* I valori annotati dentro f possono contenere v, che fuori da qui
+         * non esiste: la verifica ricalcolerà f com'è scritta. */
+        if (holds) { forget_choices(f); return 1; }
+        rollback(mark);
+        return 0;
+    }
+
+    /* 18u-2. Un'appartenenza o una divisibilità: la sua definizione, con
+     * una lettera che qui non è usata. */
+    for (int i = 0; i < count; i++) {
+        Formula *q = leaf[i].source;
+        int letter = 0;
+        if (q->kind != F_IN && q->kind != F_DIVIDES) continue;
+        for (const char *c = "qhkjtsuvwpgdcba"; *c && !letter; c++)
+            if (letter_is_free(leaf, count, -1, *c)) letter = *c;
+        Formula *unfolded = letter ? membership_unfolded(q, letter) : NULL;
+        if (!unfolded) continue;
+        proof_add("\\item By definition, $");
+        put_source(q);
+        proof_add("$ says that $");
+        put_source(unfolded);
+        proof_add("$.\n");
+        if (establish(leaf_replaced(f, q, unfolded), negated)) return 1;
+        rollback(mark);
+        return 0;
+    }
+
+    /* 18u-3. Un "esiste": il suo valore, cercato usando le altre parti. */
+    for (int i = 0; i < count && !failure; i++)
+        if (witnesses_from(f, negated, leaf, count, i)) return 1;
+    return 0;
+}
+
 /* Dimostra la condizione f, o la sua negazione se negated, per ogni valore
  * delle variabili generiche e con i valori dati alle altre. Scrive il
  * ragionamento come una serie di \item e ritorna 1 se ci riesce; se ritorna 0
@@ -8834,6 +10377,59 @@ static int establish(Formula *f, int negated) {
     search_left--;
     if (f->kind == F_NOT) return establish(f->a, !negated);
 
+    /* 18e. Appartenenza a un insieme numerico (17k): l'espressione deve
+     * avere un valore, e il valore stare nell'insieme. Che non ci stia si sa
+     * dire solo di un numero, guardandolo. */
+    if (f->kind == F_IN) {
+        Num number;
+        int inside = f->swapped == negated;
+        proof_add("\\item $");
+        put_source(f);
+        proof_add("$ %s.", negated ? "fails" : "holds");
+        int proved = term_defined(f->left);
+        Rat value = eval(f->left);
+        if (proved && inside) proved = always_in(value, &f->numbers);
+        else if (proved) proved = !failure && rat_number(value, &number) && number.im.num == 0 && !numbers_contain(&f->numbers, number.re);
+        if (proved && !inside) {
+            proof_add(" Indeed $");
+            put_frac(number.re);
+            proof_add("$ is not in $");
+            put_numbers(&f->numbers);
+            proof_add("$.");
+        }
+        if (proved && !failure) { proof_add("\n"); return 1; }
+        rollback(mark);
+        return 0;
+    }
+
+    /* Divisibilità (17n): "u divide v" si dimostra, per ogni valore delle
+     * variabili, quando il quoziente v/u è un polinomio che vale sempre un
+     * intero (18d): allora v è u per quell'intero, anche dove u è zero. Che
+     * u non divida v si sa dire solo di due numeri. */
+    if (f->kind == F_DIVIDES) {
+        Poly num, den;
+        Num divisor, dividend;
+        int divides = f->swapped == negated;
+        proof_add("\\item $");
+        put_source(f);
+        proof_add("$ %s.", negated ? "fails" : "holds");
+        int proved = term_defined(f->left) && term_defined(f->right);
+        Rat u = eval(f->left), v = eval(f->right);
+        if (proved && !failure && rat_number(u, &divisor) && rat_number(v, &dividend)) {
+            proved = number_divides(divisor, dividend) == divides;
+            if (proved) proof_add(" Computed with the two numbers.");
+        } else if (proved && !failure && divides && u.num.count != 0) {
+            proof_add(" The quotient is $");
+            proved = rat_polynomials(rat_div(v, u), &num, &den) && poly_is_one(den);
+            if (proved) { put_poly(num); proof_add("$."); proved = always_integer(num); }
+        } else {
+            proved = 0;
+        }
+        if (proved && !failure) { proof_add("\n"); return 1; }
+        rollback(mark);
+        return 0;
+    }
+
     /* 18g, 18h. Un confronto, o una disgiunzione di confronti. */
     if (gather(f, negated, literal, &count)) {
         /* I polinomi che prove_clause() calcola servono solo a lei: resta il
@@ -8846,10 +10442,27 @@ static int establish(Formula *f, int negated) {
         int polys = base_poly_count, atans = atan_count;
         proof_add("\\item");
         int proved = prove_clause(literal, count);
+
+        /* 18s. Dove 18h non arriva: la tesi come combinazione delle
+         * ipotesi. Il testo del primo tentativo si cancella. */
+        if (!proved && !failure) {
+            rollback(mark);
+            proof_add("\\item");
+            proved = prove_combination(literal, count);
+        }
         if (polys == base_poly_count && atans == atan_count && failure != OUT_OF_MEMORY) arena_used = before;
         if (proved) { proof_add("\n"); return 1; }
         rollback(mark);
-        return 0;
+
+        /* Una disgiunzione di più confronti che prove_clause() non sa
+         * trattare insieme può ancora valere per una sola delle sue parti:
+         * si prosegue con la regola dei connettivi. Serve solo se tra le
+         * parti c'è un "diversi": un "uguali" che vale da solo è già stato
+         * riconosciuto (18g), e provarli di nuovo uno per uno consumerebbe i
+         * tentativi di chi sta intorno, come la regola 18o. */
+        int different = 0;
+        for (int i = 0; i < count; i++) different += !literal[i].equation;
+        if (count < 2 || !different || failure) return 0;
     }
 
     /* 18l. Congiunzione: tutte e due le parti. Disgiunzione che non è fatta
@@ -8867,6 +10480,33 @@ static int establish(Formula *f, int negated) {
             put_source(part);
             proof_add("$ %s.\n", sign ? "fails" : "holds");
             if (establish(part, sign)) return 1;
+            rollback(mark);
+        }
+
+        /* 18u. Nessuna delle due parti vale da sola: si guardano tutte
+         * insieme, dando un nome a ciò che le ipotesi dicono esistere. I
+         * tentativi di questa regola sono contati a parte, come quelli di
+         * 18o, e sono pochi: quando non porta a nulla non deve consumare la
+         * ricerca di chi sta intorno, che può arrivare qui migliaia di
+         * volte, una per ogni numero provato da 18j. Prima di questo conto
+         * due enunciati falsi, che venivano smentiti, restavano senza
+         * risposta; sono nei test. */
+        int outside = search_left > MAX_SEARCH / 20 ? search_left - MAX_SEARCH / 20 : 0;
+        search_left -= outside;
+        int named = name_witnesses(f, negated);
+        search_left += outside;
+        if (named) return 1;
+
+        /* 18l. Altrimenti, se è "A implica B e C"
+         * si dimostrano "A implica B" e "A implica C", che insieme dicono lo
+         * stesso: così l'ipotesi A resta accanto a ogni pezzo della tesi,
+         * dove le regole 18h e 18s la sanno usare. I due nodi provvisori
+         * servono solo a passare le due implicazioni a questa funzione. */
+        if (f->kind == F_IMPLIES && !negated && f->b->kind == F_AND) {
+            Formula first = *f, second = *f;
+            first.b = f->b->a;
+            second.b = f->b->b;
+            if (establish(&first, 0) && establish(&second, 0)) return 1;
             rollback(mark);
         }
         return 0;
@@ -8900,9 +10540,16 @@ static int establish(Formula *f, int negated) {
         Formula *last = f;
         int outer = universal_count;
         f->modulus = 0;
+
+        /* Il posto per le variabili generiche basta sempre a quelle dei
+         * quantificatori annidati, che sono al più MAX_BOUND; ma la regola
+         * 18u ne aggiunge altre, i testimoni a cui dà un nome, e con loro
+         * l'elenco può riempirsi. Allora questa regola non si applica:
+         * prima di questo controllo si scriveva oltre la fine dell'elenco. */
+        if (universal_count == MAX_BOUND) return 0;
         proof_add("\\item Let $%c", f->variable);
         universal[universal_count++] = (Bound){f->variable, &f->numbers};
-        while (last->a->kind == f->kind && numbers_equal(&last->a->numbers, &f->numbers)) {
+        while (universal_count < MAX_BOUND && last->a->kind == f->kind && numbers_equal(&last->a->numbers, &f->numbers)) {
             last = last->a;
             proof_add(", %c", last->variable);
             universal[universal_count++] = (Bound){last->variable, &last->numbers};
@@ -8946,6 +10593,18 @@ static int establish(Formula *f, int negated) {
     if (solve_for(f, negated)) return 1;
     rollback(mark);
 
+    /* 18u-3. Poi cercando il valore tra i polinomi nelle variabili
+     * generiche: qui non ci sono ipotesi, e l'equazione deve diventare
+     * un'identità. Trova p = m + n per m a + n a = p a, dove 18i si ferma
+     * perché dividerebbe per a, che può essere zero. Anche questi tentativi
+     * sono contati a parte, come quelli di 18o. */
+    Leaf alone = {f, negated};
+    int outside = search_left > MAX_SEARCH / 20 ? search_left - MAX_SEARCH / 20 : 0;
+    search_left -= outside;
+    int polynomial = witnesses_from(f, negated, &alone, 1, 0);
+    search_left += outside;
+    if (polynomial) return 1;
+
     /* 18j. Poi provando i numeri più semplici dell'insieme. Il valore è un
      * numero fisso anche se ci sono variabili generiche: va bene quando lo
      * stesso numero serve per tutti i loro valori. */
@@ -8977,17 +10636,20 @@ static int establish(Formula *f, int negated) {
  * un verdetto FALSO sarebbe sbagliato, e uno DIMOSTRATO non direbbe nulla. */
 static int map_defined(const Map *map) {
     Poly num, den;
-    proof_add("\\item \\emph{The rule defines a map from $");
+    proof_add("\\item \\emph{The rule defines %s from $", map->binary ? "an operation" : "a map");
     put_numbers(&map->domain);
+    if (map->binary) { proof_add(" \\times "); put_numbers(&map->second); }
     proof_add("$ to $");
     put_numbers(&map->codomain);
     proof_add("$.} Let $%c \\in ", map->parameter);
     put_numbers(&map->domain);
+    if (map->binary) { proof_add("$ and $%c \\in ", map->parameter2); put_numbers(&map->second); }
     proof_add("$.");
 
-    /* La variabile della regola è generica nel dominio. */
+    /* Le variabili della regola sono generiche nel dominio. */
     universal[0] = (Bound){map->parameter, &map->domain};
     universal_count = 1;
+    if (map->binary) universal[universal_count++] = (Bound){map->parameter2, &map->second};
     int defined = term_defined(map->body);
     Rat value = eval(map->body);
     if (defined && rat_polynomials(value, &num, &den)) {
@@ -9013,6 +10675,216 @@ static int prove_claims(Formula *f) {
     proof_add("$.\n\\begin{itemize}\n");
     int holds = establish(f, 0);
     proof_add("\\end{itemize}\n");
+    return holds;
+}
+
+/* 18r. SOLE CONGRUENZE: TUTTI I RESTI
+ *
+ * "5x è congruo a 8 modulo 36 se e solo se x è congruo a 16 modulo 36" parla
+ * di tutti gli interi, ma che un intero x soddisfi una congruenza dipende
+ * solo dal resto di x nella divisione per il modulo: i resti sono 36, e si
+ * provano tutti. Questa regola decide così, vero o falso, ogni enunciato
+ * fatto soltanto di condizioni di questo tipo.
+ *
+ * Il linguaggio. Un enunciato chiuso costruito con connettivi e
+ * quantificatori a partire da condizioni "m divide P", dove m è un numero e P
+ * un polinomio a coefficienti razionali nelle variabili dell'enunciato. Le
+ * variabili variano in insiemi di interi. La condizione si può scrivere in
+ * quattro modi: m \mid P, P \equiv Q \pmod{m}, P \in \mathbb{Z}, oppure
+ * \exists k \in \mathbb{Z} (L = R) con un'uguaglianza di primo grado in k,
+ * a coefficiente numerico: c k + P = 0 dice che -P/c è un intero
+ * (names_a_multiple()). In tutti i casi la condizione è "il polinomio Q è
+ * un intero", con Q = P/m, P oppure -P/c; scritto Q = N/D con N a
+ * coefficienti interi e D il minimo comune
+ * multiplo dei denominatori, è "D divide N". Così anche x/2 \equiv 1
+ * \pmod{3}, che ha un coefficiente frazionario, riceve il modulo giusto: 6.
+ *
+ * Perché basta provare i resti. Sia M un multiplo comune dei moduli D.
+ *
+ *   1. Se x e x' sono interi con lo stesso resto modulo M, cioè x' = x + M t,
+ *      allora N(x') - N(x) è multiplo di M per ogni polinomio N a
+ *      coefficienti interi: lo è (x + M t)^j - x^j, per la formula del
+ *      binomio, e somme e prodotti per interi lo conservano. Vale lo stesso
+ *      con più variabili, cambiandone una alla volta. Quindi "D divide N"
+ *      vale per x se e solo se vale per x', perché D divide M.
+ *   2. Per induzione sulla struttura, la verità di ogni parte dell'enunciato
+ *      dipende solo dai resti modulo M delle variabili libere in quella
+ *      parte: i connettivi non aggiungono nulla, e per un quantificatore
+ *      basta il punto 3.
+ *   3. Un insieme di interi della grammatica (tutti gli interi da un certo
+ *      punto in su, o tutti, meno un numero finito di punti) contiene interi
+ *      di ogni resto modulo M, perché ogni classe di resto è infinita e non
+ *      limitata dall'alto. Quindi "per ogni x in A vale P(x)" equivale a "per
+ *      ogni resto r tra 0 e M - 1 vale P(r)", e così "esiste".
+ *
+ * Il conto è finito e completo: M alla d casi, con d quantificatori uno
+ * dentro l'altro. Per questo la regola risponde anche FALSO, e quando la
+ * domanda è \{x \in \mathbb{Z} \mid c\} elenca i resti buoni.
+ *
+ * Ciò che non è di questa forma (un'uguaglianza tra variabili, una variabile
+ * razionale, un modulo che è una lettera) non la riguarda: lì la verità non
+ * è periodica, e l'enunciato resta alle altre regole.
+ *
+ * La verifica indipendente è nel capitolo 19: lo stesso enunciato viene
+ * ricalcolato sugli interi veri di un periodo, con i conti esatti del
+ * capitolo 11 al posto dell'aritmetica dei resti.
+ */
+
+/* Una condizione "modulus divide dividend" di un enunciato deciso sui resti. */
+typedef struct {
+    const Formula *source;  /* il nodo F_DIVIDES o F_IN, oppure l'uguaglianza
+                               sotto un "esiste k" che dice la stessa cosa */
+    long long modulus;      /* D, positivo */
+    Poly dividend;          /* N, a coefficienti interi */
+} Congruence;
+
+/* Le condizioni dell'enunciato in corso, e un multiplo comune dei loro
+ * moduli: il periodo M. */
+static Congruence congruences[MAX_CONGRUENCES];
+static int congruence_count;
+static long long residue_period;
+
+/* Le variabili intere visibili nel punto dell'enunciato che si sta
+ * esaminando, dalla più esterna, e il resto dato a ciascuna. */
+static int residue_name[MAX_BOUND];
+static long long residue_value[MAX_BOUND];
+static int residue_count;
+
+/* Ritorna 1 se f è un'uguaglianza o una disgiunzione di uguaglianze. */
+static int equations_only(const Formula *f) {
+    if (f->kind == F_OR) return equations_only(f->a) && equations_only(f->b);
+    return f->kind == F_EQUAL;
+}
+
+/* Ritorna 1 se f ha la forma "esiste k in Z tale che L = R (oppure L' = R',
+ * ...)": è il modo di scrivere "è un multiplo di" senza il simbolo. Che le
+ * uguaglianze siano davvero di primo grado in k lo controlla chi le legge. */
+static int names_a_multiple(const Formula *f) {
+    return f->kind == F_EXISTS && f->numbers.integers && !f->numbers.bounded && !f->numbers.holes && equations_only(f->a);
+}
+
+/* Registra in congruences[] la condizione "quotient è un numero intero",
+ * scritta dal nodo source. Ritorna 1 se ci riesce: quotient deve essere un
+ * polinomio a coefficienti razionali nelle variabili intere in vista.
+ *
+ * Il modulo è il minimo comune multiplo D dei denominatori dei coefficienti,
+ * e il dividendo è D per quotient: vedi "Il linguaggio" in testa a 18r. */
+static int congruence_add(const Formula *source, Rat quotient) {
+    Poly num, den;
+    if (failure || congruence_count == MAX_CONGRUENCES || !rat_polynomials(quotient, &num, &den)) return 0;
+    if (!poly_is_constant(den) || den.count == 0) return 0;
+    Poly q = poly_mul(num, poly_const(num_inv(den.term[0].coef)));
+
+    /* Il modulo; e ogni lettera deve essere una variabile intera in vista. */
+    long long modulus = 1;
+    for (int i = 0; i < q.count; i++) {
+        const Term *t = &q.term[i];
+        __int128 multiple = (__int128)modulus / gcd128(modulus, t->coef.re.den) * t->coef.re.den;
+        if (t->coef.im.num != 0 || multiple > MAX_PERIOD) return 0;
+        modulus = (long long)multiple;
+        for (int k = 0; k < t->mono.count; k++) {
+            int known = 0;
+            for (int v = 0; v < residue_count; v++) known = known || atom_var(residue_name[v]) == t->mono.factor[k].atom;
+            if (!known) return 0;
+        }
+    }
+    congruences[congruence_count++] = (Congruence){source, modulus, poly_mul(q, poly_const(num_int(modulus)))};
+    return !failure;
+}
+
+/* Registra le uguaglianze di e, che stanno sotto "esiste k in Z" con k di
+ * nome name: ognuna deve essere c k + P = 0 con c un numero non nullo, e
+ * dice che -P/c è un intero. Ritorna 1 se sono tutte di questa forma. */
+static int multiples_read(const Formula *e, int name) {
+    Poly num, den, part[2];
+    if (e->kind == F_OR) return multiples_read(e->a, name) && multiples_read(e->b, name);
+    Rat gap = rat_add(eval(e->left), eval(e->right), 1);
+    if (failure || !rat_polynomials(gap, &num, &den) || !poly_is_constant(den)) return 0;
+    if (poly_split(num, atom_var(name), part, 1) != 1 || !poly_is_constant(part[1])) return 0;
+    return congruence_add(e, rat_make(poly_negate(part[0]), part[1]));
+}
+
+/* Ritorna 1 se la condizione f appartiene al linguaggio di 18r, e allora ne
+ * registra le condizioni in congruences[]. *deepest, che chi chiama mette a
+ * zero, riceve il massimo numero di variabili in vista insieme, cioè quanti
+ * quantificatori sui resti stanno uno dentro l'altro. Nessuna variabile deve
+ * essere legata: i conti si fanno sulle lettere. */
+static int congruences_read(const Formula *f, int *deepest) {
+    Num divisor;
+    if (failure) return 0;
+    switch (f->kind) {
+    case F_NOT:
+        return congruences_read(f->a, deepest);
+    case F_AND: case F_OR: case F_IMPLIES: case F_IFF:
+        return congruences_read(f->a, deepest) && congruences_read(f->b, deepest);
+    case F_DIVIDES:
+        return rat_number(eval(f->left), &divisor) && !num_is_zero(divisor) && congruence_add(f, rat_div(eval(f->right), eval(f->left)));
+    case F_IN:
+        /* Solo "è un intero": stare in un insieme con un estremo o con dei
+         * punti tolti non dipende dal resto. */
+        return f->numbers.integers && !f->numbers.bounded && !f->numbers.holes && congruence_add(f, eval(f->left));
+    case F_FORALL: case F_EXISTS: case F_SOLVE: {
+        if (names_a_multiple(f)) return multiples_read(f->a, f->variable);
+        if (!f->numbers.integers || residue_count == MAX_BOUND) return 0;
+        residue_name[residue_count++] = f->variable;
+        if (residue_count > *deepest) *deepest = residue_count;
+        int known = congruences_read(f->a, deepest);
+        residue_count--;
+        return known;
+    }
+    default:
+        return 0;
+    }
+}
+
+/* Ritorna 1 se, con i resti dati alle variabili in vista, vale la condizione
+ * registrata per il nodo source: il dividendo è multiplo del modulo. I conti
+ * si fanno modulo il modulo, quindi con numeri piccoli. */
+static int congruence_holds(const Formula *source) {
+    const Congruence *c = congruences;
+    while (c->source != source) c++;
+    __int128 total = 0;
+    for (int i = 0; i < c->dividend.count; i++) {
+        const Term *t = &c->dividend.term[i];
+        __int128 product = t->coef.re.num % c->modulus;
+        for (int k = 0; k < t->mono.count; k++) {
+            long long value = 0;
+            for (int v = 0; v < residue_count; v++)
+                if (atom_var(residue_name[v]) == t->mono.factor[k].atom) value = residue_value[v] % c->modulus;
+            for (long long e = 0; e < t->mono.factor[k].exp.num; e++) product = product * value % c->modulus;
+        }
+        total = (total + product) % c->modulus;
+    }
+    return total == 0;
+}
+
+/* 18r. Ritorna 1 se la condizione f, che congruences_read() ha accettato, è
+ * vera con i resti dati alle variabili in vista. Un quantificatore prova
+ * tutti i resti della sua variabile, da 0 a residue_period - 1. */
+static int residue_holds(const Formula *f) {
+    switch (f->kind) {
+    case F_NOT:     return !residue_holds(f->a);
+    case F_AND:     return residue_holds(f->a) && residue_holds(f->b);
+    case F_OR:      return residue_holds(f->a) || residue_holds(f->b);
+    case F_IMPLIES: return !residue_holds(f->a) || residue_holds(f->b);
+    case F_IFF:     return residue_holds(f->a) == residue_holds(f->b);
+    case F_DIVIDES: case F_IN:
+        return congruence_holds(f) != f->swapped;
+    case F_EQUAL:   return congruence_holds(f);
+    default:        break;
+    }
+
+    /* "Esiste k con L = R": una delle uguaglianze, cioè delle condizioni. */
+    if (names_a_multiple(f)) return residue_holds(f->a);
+
+    /* Un quantificatore su una variabile intera. */
+    int every = f->kind == F_FORALL, holds = every;
+    residue_name[residue_count++] = f->variable;
+    for (long long r = 0; r < residue_period && holds == every; r++) {
+        residue_value[residue_count - 1] = r;
+        holds = residue_holds(f->a);
+    }
+    residue_count--;
     return holds;
 }
 
@@ -9079,6 +10951,20 @@ static int prove_claims(Formula *f) {
  *          Alla decisione non serve: serve a scrivere le radici con i
  *          radicali, come sui libri, invece che con un nome.
  *
+ * Le regole che seguono portano alla stessa tabella confronti che non sono
+ * tra frazioni di polinomi; ognuna è spiegata dove è scritta.
+ *
+ *   18p-7.  Radici quadrate e valori assoluti: ogni radice è una lettera, e
+ *           il segno di P + Q s viene da quelli di P, Q e P^2 - Q^2 R.
+ *   18p-8.  Esponenziali e logaritmi: una lettera per p^(x/L) o per
+ *           log_b f(x), con i suoi gradini.
+ *   18p-9.  Monomi di potenze di basi diverse.
+ *   18p-10. Numeri con logaritmi, e e pi tra i coefficienti e gli estremi.
+ *   18p-11. Funzioni goniometriche: la lettera t = tan(u / 2).
+ *   18p-12. Le soluzioni di una condizione periodica, scritte con k.
+ *   18p-13. Le famiglie x = a + k T di un risultato, dentro un enunciato.
+ *   18p-14. Le finestre: una condizione periodica ristretta a un intervallo.
+ *
  * Le radici razionali si trovano a parte, con il teorema delle radici
  * razionali, e si tolgono: così ogni punto medio, che è razionale, non è mai
  * una radice, e nei numeri razionali si sa quali punti della tabella contano.
@@ -9090,16 +10976,22 @@ static int prove_claims(Formula *f) {
  * equazione: è lo stesso metodo generale, letto in un altro modo.
  *
  * I controlli indipendenti sono due, e nessuno dei due usa polinomi in una
- * variabile o radici. Ogni riga razionale della tabella si rifà sostituendo
- * il numero nell'enunciato (sign_holds_at()): una riga smentita è un errore
- * del programma, una riga che non si riesce a rifare lascia l'enunciato non
- * deciso. E le soluzioni scritte si rileggono con il lettore del programma e
- * si confrontano con la tabella (solution_reread()). Ciò che resta scoperto:
- * le righe delle radici irrazionali, che poggiano solo su 18p-5, e la
- * rilettura quando le soluzioni hanno estremi irrazionali, che il lettore non
- * sa leggere dentro un confronto; il verdetto lo dichiara. Lì l'unico
- * controllo è quello di tools/fuzz/fuzz_reals.py, il cui oracolo fa i conti
- * esatti anche in quei punti.
+ * variabile o radici. Il primo rifà ogni riga della tabella. Una riga con un
+ * valore razionale si rifà sostituendo il numero nell'enunciato, con il
+ * calcolo esatto (sign_holds_at()); una riga in una radice irrazionale, in
+ * un punto come ln 3, o di un enunciato periodico si rifà con gli intervalli
+ * del capitolo 24 (range_truth()), dove un segno è certo oppure non si sa, e
+ * un'uguaglianza si può solo trovare compatibile. Ogni intervallo si prova
+ * anche in altri punti oltre a quello scelto (row_points()). Una riga
+ * smentita è un errore del programma; una riga razionale che non si riesce a
+ * rifare lascia l'enunciato non deciso. Il secondo rilegge le soluzioni
+ * scritte, con il lettore del programma, e le confronta con la tabella
+ * (solution_reread()); per una condizione periodica le confronta con la
+ * condizione, calcolata con gli intervalli in molti valori e negli estremi
+ * scritti. Ciò che resta scoperto: la rilettura quando una radice non ha
+ * una scrittura con i radicali e riceve un nome; il verdetto lo dichiara.
+ * Lì il controllo è quello degli script di tools/fuzz/, i cui oracoli fanno
+ * i conti per conto loro.
  */
 
 /* Un razionale con numeratore e denominatore a 128 bit: i punti in cui si
@@ -9228,18 +11120,6 @@ static Uni uni_derivative(const Uni *p) {
     return d;
 }
 
-/* Ritorna il segno di p nel razionale x. Schema di Horner senza frazioni:
- * con x = n/d si calcola il segno di p(x) d^degree, che è lo stesso perché
- * d è positivo. */
-static int uni_sign_at(const Uni *p, Wide x) {
-    __int128 value = 0, power = 1, term;
-    for (int i = p->degree; i >= 0; i--) {
-        if (__builtin_mul_overflow(value, x.num, &value) || __builtin_mul_overflow(p->c[i], power, &term) ||
-            __builtin_add_overflow(value, term, &value) || (i > 0 && __builtin_mul_overflow(power, x.den, &power))) { fail(SIGN_LIMIT); return 0; }
-    }
-    return (value > 0) - (value < 0);
-}
-
 /* Ritorna un multiplo positivo del resto della divisione di a per b, che non
  * è il polinomio nullo.
  *
@@ -9299,6 +11179,34 @@ static int uni_divide(const Uni *a, const Uni *b, Uni *q) {
     for (int i = 0; i < b->degree; i++)
         if (r.c[i] != 0) return 0;
     return 1;
+}
+
+/* Ritorna il segno di p nel razionale x. Schema di Horner senza frazioni:
+ * con x = n/d si calcola il segno di p(x) d^degree, che è lo stesso perché
+ * d è positivo.
+ *
+ * Per un polinomio di grado alto quel numero può non stare in 128 bit: capita
+ * con gli angoli multipli della goniometria, dove sin(7u) è una frazione di
+ * grado 14 in t. Allora il segno si prende con gli intervalli del capitolo
+ * 24: lo stesso schema di Horner, in cui ogni operazione allarga l'intervallo
+ * quanto basta a contenere il risultato vero. Se l'intervallo finale non
+ * contiene lo zero il segno è certo. Se lo contiene, p(x) è zero oppure è
+ * solo troppo vicino a zero per questi numeri: è zero esattamente quando
+ * d t - n divide p, e la divisione è un conto tra interi; altrimenti non si
+ * risponde. */
+static int uni_sign_at(const Uni *p, Wide x) {
+    __int128 value = 0, power = 1, term;
+    int exact = 1, side = 0;
+    for (int i = p->degree; i >= 0 && exact; i--)
+        exact = !(__builtin_mul_overflow(value, x.num, &value) || __builtin_mul_overflow(p->c[i], power, &term) ||
+                  __builtin_add_overflow(value, term, &value) || (i > 0 && __builtin_mul_overflow(power, x.den, &power)));
+    if (exact) return (value > 0) - (value < 0);
+    Range at = range_ratio(x.num, x.den), sum = {0, 0};
+    Uni linear = {1, {-x.num, x.den}}, quotient;
+    for (int i = p->degree; i >= 0; i--) sum = range_add(range_mul(sum, at), range_ratio(p->c[i], 1));
+    if (range_side(sum, &side)) return side;
+    if (!failure && !uni_divide(p, &linear, &quotient)) fail(SIGN_LIMIT);
+    return 0;
 }
 
 /* Legge il polinomio negli atomi p come polinomio nel solo atomo x a
@@ -9440,6 +11348,10 @@ typedef struct {
 typedef struct {
     Range value;
     char text[96];  /* in LaTeX, come va scritto nelle soluzioni */
+    int exact;      /* 1 se number è valido */
+    Rat number;     /* lo stesso numero come frazione negli atomi che sono
+                       numeri (logaritmi di primi, il numero e): serve a
+                       riconoscere due scritture dello stesso numero */
 } Kappa;
 
 static Kappa kappa[MAX_KAPPAS];
@@ -9525,16 +11437,25 @@ static int sign_column_in(Uni p, int where) {
 static int sign_column(Uni p) { return sign_column_in(p, -1); }
 
 /* Ritorna il posto della colonna "x - k", dove k è il numero che sta
- * nell'intervallo value e si scrive text; la aggiunge se manca. Due numeri
- * scritti allo stesso modo sono lo stesso numero. */
-static int sign_column_kappa(Range value, const char *text) {
-    for (int i = 0; i < sign_polys; i++)
-        if (sign_kappa[i] >= 0 && strcmp(kappa[sign_kappa[i]].text, text) == 0) return i;
+ * nell'intervallo value e si scrive text; la aggiunge se manca. number, se
+ * non è NULL, è lo stesso numero come frazione esatta. Due numeri sono lo
+ * stesso se sono scritti allo stesso modo, o se la differenza delle loro
+ * frazioni esatte è la frazione nulla: così log_3 2 e ln 2 / ln 3, che
+ * nascono da due parti diverse di un enunciato, sono un punto solo. Senza
+ * questo sarebbero due punti impossibili da separare. */
+static int sign_column_kappa(Range value, const char *text, const Rat *number) {
+    for (int i = 0; i < sign_polys; i++) {
+        if (sign_kappa[i] < 0) continue;
+        const Kappa *other = &kappa[sign_kappa[i]];
+        if (strcmp(other->text, text) == 0 || (number && other->exact && rat_add(*number, other->number, 1).num.count == 0)) return i;
+    }
     if (sign_polys == MAX_CRITICAL || kappas == MAX_KAPPAS || strlen(text) >= sizeof kappa[0].text || !range_known(value)) {
         fail("troppi punti con logaritmi nella tabella dei segni, o un punto che non so calcolare");
         return 0;
     }
     kappa[kappas].value = value;
+    kappa[kappas].exact = number != NULL;
+    if (number) kappa[kappas].number = *number;
     strcpy(kappa[kappas].text, text);
     sign_poly[sign_polys] = (Uni){-1, {0}};
     sign_space[sign_polys] = -1;
@@ -9859,10 +11780,19 @@ static void sign_points(int where) {
  * di polinomi in lettere diverse, come (2^x - 1)(5^x - 1), ha il segno del
  * prodotto dei segni (sign_ground()).
  *
+ * Altre tre regole portano a queste forme ciò che è scritto in un altro
+ * modo. La radice di un prodotto di esponenziali si estrae (exp_root()):
+ * \sqrt[3]{11^{9x}} è 11^{3x}. Il logaritmo di una potenza, accanto al
+ * logaritmo della base nello stesso confronto, è un suo multiplo
+ * (alias_collect()). E un polinomio i cui termini sono potenze di uno
+ * stesso rapporto di esponenziali, come 2 \cdot 4^x - 5 \cdot 6^x + 3 \cdot 9^x,
+ * è un polinomio in quel rapporto (sign_one_ratio()).
+ *
  * Che cosa resta fuori: la variabile sia all'esponente sia fuori senza che
  * il polinomio si spezzi (x + 2^x), esponenti non di primo grado, un
- * logaritmo uguale a un numero irrazionale, somme di logaritmi in basi
- * diverse. Il programma lo dice.
+ * logaritmo o un rapporto di esponenziali uguale a un numero irrazionale
+ * che non so scrivere, somme di logaritmi in basi diverse. Il programma lo
+ * dice.
  */
 
 /* Ritorna lo spazio dell'esponenziale di base il primo prime (0: il numero
@@ -9930,17 +11860,45 @@ static int constant_base(const Node *node, Frac *value, int *euler) {
     return 1;
 }
 
-/* Legge la base del logaritmo node (FN_LN o FN_LOG): come constant_base(),
- * ma una base minore di 1 viene rovesciata, e allora *flip = 1: il logaritmo
- * in base 1/b è l'opposto di quello in base b. */
-static int log_base(const Node *node, Frac *value, int *euler, int *flip) {
-    *flip = 0;
+/* Ritorna la radice m-esima intera di v > 0, o 0 se v non è una potenza
+ * m-esima esatta. */
+static long long exact_root(long long v, int m) {
+    long long low = 1, high = v;
+    while (low < high) {
+        long long middle = low + (high - low) / 2, power = 1;
+        for (int i = 0; i < m && power <= v; i++) power = power > v / middle ? v + 1 : power * middle;
+        if (power < v) low = middle + 1; else high = middle;
+    }
+    long long power = 1;
+    for (int i = 0; i < m; i++) power = power > v / low ? v + 1 : power * low;
+    return power == v ? low : 0;
+}
+
+/* Legge la base del logaritmo node (FN_LN o FN_LOG) e la porta a una forma
+ * sola: maggiore di 1, e non potenza di un altro razionale. Mette in *value
+ * la base così ridotta e in *factor il numero per cui va moltiplicato il
+ * logaritmo nella base ridotta per avere quello scritto:
+ *
+ *     log_(1/b) f = -log_b f,        log_(b^m) f = (log_b f) / m.
+ *
+ * Così log_9, log_3 e log_(1/3) dello stesso argomento sono multipli della
+ * stessa lettera. Per il logaritmo naturale *euler = 1 e il fattore è 1. */
+static int log_base(const Node *node, Frac *value, int *euler, Frac *factor) {
+    *factor = frac_int(1);
     *euler = node->op == FN_LN;
     if (*euler) return 1;
     if (!node->b || !constant_base(node->b, value, euler)) return 0;
-    if (!*euler && value->num < value->den) {
+    if (*euler) return 1;
+    if (value->num < value->den) {
         *value = (Frac){value->den, value->num};
-        *flip = 1;
+        *factor = frac_int(-1);
+    }
+    for (int m = 40; m >= 2; m--) {
+        long long top = exact_root(value->num, m), bottom = exact_root(value->den, m);
+        if (!top || !bottom) continue;
+        *value = (Frac){top, bottom};
+        *factor = frac_div(*factor, frac_int(m));
+        break;
     }
     return 1;
 }
@@ -9955,8 +11913,8 @@ static long long lcm_small(long long a, long long b) { return a / (long long)gcd
  * di p^(x/L). Ciò che non ha la forma attesa viene lasciato stare: sarà il
  * conto vero a dire che non è trattato. */
 static void space_collect(const Node *node) {
-    Frac base, alpha, beta;
-    int euler, flip;
+    Frac base, alpha, beta, factor;
+    int euler;
     long long prime, times;
     if (!node || failure) return;
     space_collect(node->a);
@@ -9974,20 +11932,63 @@ static void space_collect(const Node *node) {
             }
         }
     }
-    if (node->kind == N_CALL && (node->op == FN_LN || node->op == FN_LOG) && node_uses_letter(node->a, sign_name) && log_base(node, &base, &euler, &flip))
+    if (node->kind == N_CALL && (node->op == FN_LN || node->op == FN_LOG) && node_uses_letter(node->a, sign_name) && log_base(node, &base, &euler, &factor))
         space_log(base, euler, node->a, 1);
 }
 
-/* Registra gli spazi di tutti i confronti della condizione f. */
-static void formula_spaces(const Formula *f) {
+/* Dopo space_collect(): per ogni radice di node il cui radicando è un
+ * prodotto di potenze di lettere di esponenziali, allarga L quanto basta
+ * perché ogni esponente sia un multiplo dell'indice, così che la radice si
+ * possa estrarre (exp_root()): con \sqrt{2^{x}} la lettera diventa
+ * 2^(x/2). Lo si fa solo per queste radici, e dalle più interne: allargare
+ * L per una radice come \sqrt{e^{x} - 6} renderebbe irrazionale, senza
+ * motivo, il gradino e^x = 6. */
+static void root_scales(const Node *node) {
+    if (!node) return;
+    root_scales(node->a);
+    root_scales(node->b);
+    root_scales(node->c);
+    if (node->kind != N_CALL || node->op != FN_ROOT || !node->b || node->b->kind != N_NUM || node->b->value < 2 || node->b->value > 40) return;
+    Rat r = eval(node->a);
+    int plain = !failure && r.num.count == 1 && r.den.count == 1;
+    failure = NULL;
+    for (int side = 0; side < 2 && plain; side++) {
+        const Term *term = side ? &r.den.term[0] : &r.num.term[0];
+        for (int f = 0; f < term->mono.count; f++) {
+            Frac e = term->mono.factor[f].exp;
+            int s = 0;
+            while (s < spaces && space[s].letter != term->mono.factor[f].atom) s++;
+            if (s == spaces || space[s].kind != SPACE_EXP || e.den != 1) return;
+        }
+    }
+    for (int side = 0; side < 2 && plain; side++) {
+        const Term *term = side ? &r.den.term[0] : &r.num.term[0];
+        for (int f = 0; f < term->mono.count; f++) {
+            long long e = term->mono.factor[f].exp.num, index = node->b->value;
+            int s = 0;
+            while (space[s].letter != term->mono.factor[f].atom) s++;
+            space[s].scale *= index / (long long)gcd128(e < 0 ? -e : e, index);
+        }
+    }
+}
+
+/* Chiama visit sui due membri di ogni confronto della condizione f. */
+static void formula_sides(const Formula *f, void (*visit)(const Node *)) {
     if (!f) return;
     if (f->kind == F_EQUAL || f->kind == F_DISTINCT || f->kind == F_LESS || f->kind == F_LESS_EQ) {
-        space_collect(f->left);
-        space_collect(f->right);
+        visit(f->left);
+        visit(f->right);
         return;
     }
-    formula_spaces(f->a);
-    formula_spaces(f->b);
+    formula_sides(f->a, visit);
+    formula_sides(f->b, visit);
+}
+
+/* Registra gli spazi di tutti i confronti della condizione f; poi allarga
+ * quelli che servono alle radici di prodotti di esponenziali. */
+static void formula_spaces(const Formula *f) {
+    formula_sides(f, space_collect);
+    formula_sides(f, root_scales);
 }
 
 /* 18p-8. Se node, una potenza, ha la variabile all'esponente, una base
@@ -10028,19 +12029,441 @@ static int exp_letters(const Node *node, Rat *out) {
     return done && !failure;
 }
 
+/* 18p-8. Vedi la dichiarazione prima di eval_call(). r deve essere un
+ * razionale positivo per un prodotto di potenze, anche negative, di lettere
+ * di esponenziali; la radice si estrae se il razionale è una potenza
+ * index-esima esatta e ogni esponente è un multiplo di index. Le lettere
+ * sono positive: la radice n-esima di c g^(n a) è la radice di c per g^a,
+ * senza valori assoluti e senza condizioni. È così che \sqrt[3]{11^{9x}}
+ * diventa 11^{3x}. Un numero senza lettere resta alla regola di sempre. */
+static int exp_root(Rat r, long long index, Rat *out) {
+    int letters = 0;
+    if (!space_live || spaces == 0 || failure || index > 40 || r.num.count != 1 || r.den.count != 1) return 0;
+    const Term *top = &r.num.term[0], *bottom = &r.den.term[0];
+    if (top->coef.im.num != 0 || bottom->coef.im.num != 0) return 0;
+    Frac coefficient = frac_div(top->coef.re, bottom->coef.re);
+    long long up = coefficient.num > 0 ? exact_root(coefficient.num, (int)index) : 0, down = exact_root(coefficient.den, (int)index);
+    if (failure || !up || !down) return 0;
+    *out = rat_frac((Frac){up, down});
+    for (int side = 0; side < 2; side++) {
+        const Term *term = side ? bottom : top;
+        for (int f = 0; f < term->mono.count; f++) {
+            Frac e = term->mono.factor[f].exp;
+            int s = 0;
+            while (s < spaces && space[s].letter != term->mono.factor[f].atom) s++;
+            if (s == spaces || space[s].kind != SPACE_EXP || e.den != 1 || e.num % index != 0) return 0;
+            *out = rat_mul(*out, rat_pow_int(rat_atom(space[s].letter), (side ? -e.num : e.num) / index));
+            letters++;
+        }
+    }
+    return letters > 0 && !failure;
+}
+
+/* 18p-8. Il logaritmo di una potenza accanto al logaritmo della base.
+ *
+ * log_b(B^n) = n log_b(B) vale dove B è positivo. Dove B è negativo e n è
+ * pari il primo membro ha un valore e il secondo no: per questo \log x^{2}
+ * e \log x sono due lettere diverse. Ma un confronto in cui compare anche
+ * log_b(B) ha un valore solo dove B è positivo, e lì i due logaritmi sono
+ * legati: dentro quel confronto log_b(B^n) si scrive n volte la lettera di
+ * log_b(B). È ciò che serve a (\log x^{2})^{2} + 4\log x = 0, che così è un
+ * polinomio in una lettera sola. Senza log_b(B) nello stesso confronto la
+ * regola non si applica.
+ *
+ * alias_node[i] è un logaritmo di una potenza del confronto che si sta
+ * preparando, alias_space[i] lo spazio del logaritmo della base e
+ * alias_power[i] l'esponente n. Li riempie alias_collect(), li usa
+ * log_letter(), e sign_prepare() li azzera alla fine del confronto. */
+#define MAX_LOG_ALIAS 8
+static const Node *alias_node[MAX_LOG_ALIAS];
+static int alias_space[MAX_LOG_ALIAS], aliases;
+static long long alias_power[MAX_LOG_ALIAS];
+
+/* Ritorna 1 se in node compare un logaritmo con la base ridotta base (o in
+ * base e, se natural) e l'argomento scritto come argument. */
+static int log_present(const Node *node, Frac base, int natural, const Node *argument) {
+    Frac found, factor;
+    int euler;
+    if (!node) return 0;
+    if (node->kind == N_CALL && (node->op == FN_LN || node->op == FN_LOG) && node_equal(node->a, argument) && log_base(node, &found, &euler, &factor) &&
+        euler == natural && (natural || frac_cmp(found, base) == 0)) return 1;
+    return log_present(node->a, base, natural, argument) || log_present(node->b, base, natural, argument) || log_present(node->c, base, natural, argument);
+}
+
+/* Registra in alias_node[] i logaritmi di potenze di node, un pezzo del
+ * confronto f, che in f stanno accanto al logaritmo della loro base. */
+static void alias_collect(const Node *node, const Formula *f) {
+    Frac base, factor;
+    int euler;
+    if (!node) return;
+    alias_collect(node->a, f);
+    alias_collect(node->b, f);
+    alias_collect(node->c, f);
+    if (node->kind != N_CALL || (node->op != FN_LN && node->op != FN_LOG) || node->a->kind != N_POW || node->a->b->kind != N_NUM || node->a->b->value < 2) return;
+    if (aliases == MAX_LOG_ALIAS || !node_uses_letter(node->a->a, sign_name) || !log_base(node, &base, &euler, &factor)) return;
+    int s = space_log(base, euler, node->a->a, 0);
+    if (s < 0 || (!log_present(f->left, base, euler, node->a->a) && !log_present(f->right, base, euler, node->a->a))) return;
+    alias_node[aliases] = node;
+    alias_space[aliases] = s;
+    alias_power[aliases++] = node->a->b->value;
+}
+
 /* 18p-8. Se node, un logaritmo, ha la variabile nell'argomento e uno spazio
- * registrato, mette in *out la lettera dello spazio (cambiata di segno per
- * una base minore di 1) e ritorna 1. Annota in space_seen che il confronto
- * in corso contiene quel logaritmo: l'argomento dovrà essere positivo. */
+ * registrato, mette in *out la lettera dello spazio, moltiplicata per il
+ * fattore che porta dalla base ridotta a quella scritta (log_base()), e
+ * ritorna 1. Annota in space_seen che il confronto in corso contiene quel
+ * logaritmo: l'argomento dovrà essere positivo. */
 static int log_letter(const Node *node, Rat *out) {
-    Frac base;
-    int euler, flip;
-    if (!space_live || !node_uses_letter(node->a, sign_name) || !log_base(node, &base, &euler, &flip)) return 0;
+    Frac base, factor;
+    int euler;
+    if (!space_live || !node_uses_letter(node->a, sign_name) || !log_base(node, &base, &euler, &factor)) return 0;
     int s = space_log(base, euler, node->a, 0);
+    for (int i = 0; i < aliases; i++) {
+        if (alias_node[i] != node) continue;
+        s = alias_space[i];
+        factor = frac_mul(factor, frac_int(alias_power[i]));
+    }
     if (s < 0) return 0;
     space_seen |= 1u << s;
-    *out = flip ? rat_add(rat_int(0), rat_atom(space[s].letter), 1) : rat_atom(space[s].letter);
+    *out = rat_mul(rat_frac(factor), rat_atom(space[s].letter));
     return 1;
+}
+
+/* 18p-11. FUNZIONI GONIOMETRICHE
+ *
+ * 2 \sin x \cos x > \frac{1}{2} non è un confronto tra frazioni in x. Lo
+ * diventa con la sostituzione della tangente dell'angolo metà:
+ *
+ *     t = tan(u / 2),     sin u = 2t / (1 + t^2),     cos u = (1 - t^2) / (1 + t^2).
+ *
+ * Le due formule sono identità (si verificano scrivendo seno e coseno di
+ * u = 2 (u/2) con le formule di duplicazione e dividendo per
+ * cos^2(u/2) + sin^2(u/2) = 1). Quando u percorre un giro, da -pi a pi
+ * esclusi, t percorre tutta la retta reale una volta sola, crescendo: la
+ * tabella dei segni nella lettera t descrive quindi tutto un periodo. Resta
+ * fuori un punto solo, u = pi, dove t non ha un valore: lì seno e coseno
+ * valgono 0 e -1, e l'enunciato si calcola a parte.
+ *
+ * Gli argomenti. Ogni funzione goniometrica dell'enunciato deve avere
+ * l'argomento a x + b pi, con a e b razionali. Si prende u = g x, dove g è
+ * il più grande razionale di cui tutti gli a sono multipli interi: allora
+ * a x + b pi = n u + b pi con n intero, e
+ *
+ *   - cos(n u) + i sin(n u) = (cos u + i sin u)^n (formula di De Moivre):
+ *     n moltiplicazioni tra numeri complessi danno cos(n u) e sin(n u) come
+ *     frazioni in t;
+ *   - cos(b pi) e sin(b pi) sono numeri noti quando b pi è un multiplo di
+ *     15 gradi: si scrivono con le radici di 2 e di 3 (trig_constant());
+ *   - le formule di addizione mettono insieme le due cose.
+ *
+ * Tangente e cotangente sono i due quozienti, e dove il denominatore è zero
+ * non hanno un valore: lo dice la divisione, come sempre.
+ *
+ * Che cosa resta fuori: la variabile anche fuori dalle funzioni
+ * goniometriche (x + sin x), salvo che in un confronto con un multiplo di pi
+ * che restringe la condizione a un intervallo (18p-14); argomenti non di
+ * primo grado; angoli costanti che non sono multipli di 15 gradi; angoli
+ * multipli così alti che i polinomi in t escono dall'aritmetica esatta
+ * della tabella (cos x + cos 3x = 2 sin 6x cos x).
+ */
+
+/* Lo stato dell'enunciato periodico in corso. trig_on dice che lo è;
+ * trig_live che si sta preparando un suo confronto (solo allora le funzioni
+ * diventano frazioni in t); trig_at_pi che le si vuole nel punto u = pi
+ * invece che in t; trig_x e trig_letter sono gli atomi della variabile e di
+ * t; trig_scale è g; trig_bad dice che una funzione ha un argomento non
+ * trattato. trig_root[] sono i nodi di radice di 2 e di radice di 3, che
+ * servono a scrivere seni e coseni dei multipli di 15 gradi. */
+static int trig_on, trig_live, trig_at_pi, trig_bad;
+static int trig_x, trig_letter;
+static Frac trig_scale;
+static Node *trig_root[2];
+
+/* Le finestre dell'enunciato periodico in corso (18p-14): quante sono, il
+ * più basso e il più alto dei giri in cui cade un loro estremo, il primo e
+ * l'ultimo giro da leggere, e il giro che si sta leggendo. Senza finestre
+ * si legge un giro solo, il numero 0. */
+static int windows;
+static long long window_low, window_high, window_first, window_last, window_turn;
+
+/* Se e = a x + b pi, con x la variabile dell'enunciato periodico, mette a
+ * in *slope e b in *turn e ritorna 1. */
+static int trig_affine(Rat e, Frac *slope, Frac *turn) {
+    int pi = atom_var(VAR_PI);
+    *slope = *turn = frac_int(0);
+    if (failure || e.den.count != 1 || e.den.term[0].mono.count != 0 || e.den.term[0].coef.im.num != 0) return 0;
+    for (int i = 0; i < e.num.count; i++) {
+        const Term *t = &e.num.term[i];
+        if (t->coef.im.num != 0 || t->mono.count != 1 || frac_cmp(t->mono.factor[0].exp, frac_int(1)) != 0) return 0;
+        if (t->mono.factor[0].atom == trig_x) *slope = t->coef.re;
+        else if (t->mono.factor[0].atom == pi) *turn = t->coef.re;
+        else return 0;
+    }
+    *slope = frac_div(*slope, e.den.term[0].coef.re);
+    *turn = frac_div(*turn, e.den.term[0].coef.re);
+    return !failure;
+}
+
+/* 18p-13. LE FAMIGLIE x = a + k T
+ *
+ * Le soluzioni di una condizione periodica si scrivono con un intero k:
+ * x = \frac{\pi}{6} + 2k\pi, oppure \frac{\pi}{6} + 2k\pi < x < \frac{5}{6}\pi + 2k\pi.
+ * In un enunciato compaiono dentro un "esiste k intero", e dire che un
+ * risultato così è giusto vuol dire confrontarlo con la condizione. Lo si
+ * fa riportando anche lui a funzioni goniometriche di x. Si guarda l'angolo
+ *
+ *     A = 2 pi (x - a) / T,
+ *
+ * che fa un giro intero ogni volta che x avanza di un periodo T: tutta la
+ * famiglia è descritta dal punto di angolo A sulla circonferenza.
+ *
+ *   - x = a + k T per qualche k esattamente quando A è un multiplo di 2 pi,
+ *     cioè quando il punto è (1, 0): sin A = 0 e cos A > 0.
+ *
+ *   - a + k T <= x <= b + k T per qualche k, con 0 < b - a < T, esattamente
+ *     quando il punto sta sull'arco che va dall'angolo 0 all'angolo
+ *     D = 2 pi (b - a) / T. Con B = D - A = 2 pi (b - x) / T, l'angolo che
+ *     manca alla fine dell'arco:
+ *       - se l'arco è al più mezzo giro (D <= pi) i suoi punti interni sono
+ *         quelli con sin A > 0 e sin B > 0: stanno nel semipiano a sinistra
+ *         del raggio di partenza e in quello a destra del raggio di arrivo;
+ *       - se è più di mezzo giro (D > pi) sono quelli con sin A > 0 oppure
+ *         sin B > 0: il primo mezzo giro dopo la partenza e l'ultimo prima
+ *         dell'arrivo, che insieme coprono l'arco perché si sovrappongono;
+ *       - gli estremi sono i punti con A, o B, multiplo di 2 pi, come sopra,
+ *         e contano se l'estremo è compreso.
+ *
+ * Una versione precedente usava l'angolo metà, sin(pi (x - a) / T): bastava
+ * un seno per estremo, ma per una famiglia come \frac{\pi}{4} + 2k\pi
+ * chiedeva il seno di pi/8, che non si scrive con le radici di 2 e di 3.
+ * Con l'angolo intero servono i seni e i coseni di 2 pi a / T, e nei
+ * risultati dei libri a è quasi sempre una frazione semplice del periodo.
+ *
+ * T deve essere un multiplo razionale di pi; a e b possono contenere, oltre
+ * a multipli di pi, arcotangenti di razionali con coefficiente intero: dei
+ * seni e dei coseni serve solo il segno, e cos(arctan m) e sin(arctan m)
+ * stanno come 1 sta a m.
+ */
+
+/* Una famiglia: un pezzo di una condizione "esiste k intero". È un punto
+ * per ogni k (single), x = low, oppure un intervallo per ogni k, da low a
+ * high, con gli estremi compresi o no, a cui possono essere tolti i punti
+ * x = hole[i]. low, high e hole[] sono espressioni in k. */
+typedef struct {
+    const Node *low, *high;
+    int low_closed, high_closed, single;
+    const Node *hole[MAX_LATTICE_HOLES];
+    int holes;
+    int k;  /* la lettera dell'intero */
+} Family;
+
+/* Legge il pezzo d di una condizione in name e nell'intero k, che deve
+ * essere un confronto tra name e un'espressione, o una congiunzione di
+ * confronti così: al più un estremo da ogni parte e alcuni punti tolti.
+ * Aggiorna *out, che chi chiama ha azzerato, e ritorna 0 se d ha un'altra
+ * forma. */
+static int family_part(const Formula *d, int name, Family *out) {
+    if (d->kind == F_AND) return family_part(d->a, name, out) && family_part(d->b, name, out);
+    if (d->kind != F_EQUAL && d->kind != F_DISTINCT && d->kind != F_LESS && d->kind != F_LESS_EQ) return 0;
+    int at_left = d->left->kind == N_VAR && d->left->name == name, at_right = d->right->kind == N_VAR && d->right->name == name;
+    if (at_left == at_right) return 0;
+    const Node *other = at_left ? d->right : d->left;
+    if (d->kind == F_DISTINCT) {
+        if (out->holes == MAX_LATTICE_HOLES) return 0;
+        out->hole[out->holes++] = other;
+    } else if (d->kind == F_EQUAL) {
+        if (out->low || out->high) return 0;
+        out->low = out->high = other;
+        out->low_closed = out->high_closed = out->single = 1;
+    } else if (at_right) {
+        /* other < name: un estremo inferiore. */
+        if (out->low) return 0;
+        out->low = other;
+        out->low_closed = d->kind == F_LESS_EQ;
+    } else {
+        if (out->high) return 0;
+        out->high = other;
+        out->high_closed = d->kind == F_LESS_EQ;
+    }
+    return 1;
+}
+
+/* Legge una famiglia dal pezzo d, come family_part(), e controlla che sia
+ * completa: un punto, un intervallo con i suoi due estremi, oppure, quando
+ * alone non è zero, un solo punto tolto (è il caso di "per ogni k,
+ * x \neq ..."), che viene messo in low come se fosse un punto. */
+static int family_read(const Formula *d, int name, int k, int alone, Family *out) {
+    memset(out, 0, sizeof *out);
+    out->k = k;
+    if (!family_part(d, name, out)) return 0;
+    if (alone) {
+        if (out->low || out->high || out->holes != 1) return 0;
+        out->low = out->high = out->hole[0];
+        out->low_closed = out->high_closed = out->single = 1;
+        out->holes = 0;
+        return 1;
+    }
+    return out->low && out->high && (!out->single || out->holes == 0);
+}
+
+/* Se e = alpha + k tau pi, con k la lettera dell'intero e tau un razionale
+ * diverso da zero, mette tau in *tau e alpha, che non contiene k, in *alpha,
+ * e ritorna 1. */
+static int family_period(const Node *e, int k, Frac *tau, Rat *alpha) {
+    int letter = atom_var(k), pi = atom_var(VAR_PI);
+    Rat value = eval(e);
+    Poly rest = poly_const(num_int(0));
+    *tau = frac_int(0);
+    if (failure || value.den.count != 1 || value.den.term[0].mono.count != 0 || value.den.term[0].coef.im.num != 0) return 0;
+    for (int i = 0; i < value.num.count; i++) {
+        const Term *t = &value.num.term[i];
+        Frac power = mono_exponent(&t->mono, letter);
+        if (power.num == 0) { rest = poly_add(rest, poly_term(*t), 0); continue; }
+        if (t->coef.im.num != 0 || t->mono.count != 2 || frac_cmp(power, frac_int(1)) != 0 || frac_cmp(mono_exponent(&t->mono, pi), frac_int(1)) != 0) return 0;
+        *tau = frac_add(*tau, t->coef.re);
+    }
+    *tau = frac_div(*tau, value.den.term[0].coef.re);
+    *alpha = (Rat){rest, value.den};
+    return tau->num != 0 && !failure;
+}
+
+/* Ritorna 1 se f è un quantificatore su un intero che la tabella tratta
+ * come una foglia: "esiste k in Z" o "per ogni k in Z", su tutti gli
+ * interi. */
+static int family_owner(const Formula *f) {
+    return (f->kind == F_EXISTS || f->kind == F_FORALL) && f->numbers.integers && !f->numbers.bounded && f->numbers.holes == 0;
+}
+
+/* Chiama visit(d, context) per ogni pezzo della condizione f di un
+ * quantificatore su un intero: i termini di una disgiunzione per "esiste",
+ * quelli di una congiunzione per "per ogni". */
+static void family_each(const Formula *owner, const Formula *f, void (*visit)(const Formula *, const Formula *, void *), void *context) {
+    if (f->kind == (owner->kind == F_EXISTS ? F_OR : F_AND)) {
+        family_each(owner, f->a, visit, context);
+        family_each(owner, f->b, visit, context);
+        return;
+    }
+    visit(owner, f, context);
+}
+
+/* Per trig_collect: aggiorna trig_scale con il periodo del pezzo d, o mette
+ * 1 in trig_bad se il pezzo non è una famiglia trattata. Ogni espressione
+ * della famiglia deve avere lo stesso tau, e la pendenza 2 pi / T = 2 / tau
+ * dell'angolo A entra nel conto come quella di un argomento. */
+static void family_scale(const Formula *owner, const Formula *d, void *context) {
+    Family family;
+    Frac tau, other;
+    Rat alpha;
+    (void)context;
+    if (!family_read(d, sign_name, owner->variable, owner->kind == F_FORALL, &family) || !family_period(family.low, family.k, &tau, &alpha)) { trig_bad = 1; return; }
+    if (tau.num < 0) tau.num = -tau.num;
+    const Node *more[1 + MAX_LATTICE_HOLES] = {family.high, family.hole[0], family.hole[1]};
+    for (int i = 0; i < 1 + family.holes; i++) {
+        if (!family_period(more[i], family.k, &other, &alpha)) { trig_bad = 1; return; }
+        if (other.num < 0) other.num = -other.num;
+        if (frac_cmp(other, tau) != 0) { trig_bad = 1; return; }
+    }
+    Frac slope = frac_div(frac_int(2), tau);
+    if (trig_scale.num == 0) trig_scale = slope;
+    else trig_scale = frac_make(gcd128((__int128)trig_scale.num * slope.den, (__int128)slope.num * trig_scale.den), (__int128)trig_scale.den * slope.den);
+}
+
+/* Registra le funzioni goniometriche dell'espressione node che contengono la
+ * variabile: aggiorna trig_scale, il più grande razionale di cui tutte le
+ * pendenze degli argomenti sono multipli interi (il massimo comun divisore
+ * di due frazioni p/q e r/s è mcd(p s, r q) / (q s)), e mette 1 in trig_bad
+ * se un argomento non è a x + b pi. */
+static void trig_collect(const Node *node) {
+    Frac slope, turn;
+    if (!node || failure) return;
+    trig_collect(node->a);
+    trig_collect(node->b);
+    trig_collect(node->c);
+    if (node->kind != N_CALL || node->op < FN_SIN || node->op > FN_COT || !node_uses_letter(node->a, sign_name)) return;
+    if (!trig_affine(eval(node->a), &slope, &turn) || slope.num == 0) { trig_bad = 1; return; }
+    if (slope.num < 0) slope.num = -slope.num;
+    if (trig_scale.num == 0) trig_scale = slope;
+    else trig_scale = frac_make(gcd128((__int128)trig_scale.num * slope.den, (__int128)slope.num * trig_scale.den), (__int128)trig_scale.den * slope.den);
+}
+
+/* Registra le funzioni goniometriche di tutti i confronti della condizione f. */
+static void formula_trig(const Formula *f) {
+    if (!f) return;
+    if (family_owner(f)) { family_each(f, f->a, family_scale, NULL); return; }
+    if (f->kind == F_EQUAL || f->kind == F_DISTINCT || f->kind == F_LESS || f->kind == F_LESS_EQ) {
+        trig_collect(f->left);
+        trig_collect(f->right);
+        return;
+    }
+    formula_trig(f->a);
+    formula_trig(f->b);
+}
+
+/* Mette in *cosine e *sine il coseno e il seno di turn * pi, e ritorna 1;
+ * 0 se l'angolo non è un multiplo di 15 gradi.
+ *
+ * L'angolo è k quarti di giro più r volte 15 gradi, con r da 0 a 5. Per il
+ * resto valgono
+ *
+ *     cos 15 = (sqrt6 + sqrt2) / 4     sin 15 = (sqrt6 - sqrt2) / 4
+ *     cos 30 = sqrt3 / 2               sin 30 = 1 / 2
+ *     cos 45 = sin 45 = sqrt2 / 2,
+ *
+ * e 60 e 75 gradi sono i complementari di 30 e 15 (seno e coseno si
+ * scambiano). Ogni quarto di giro in più manda (cos, sin) in (-sin, cos). */
+static int trig_constant(Frac turn, Rat *cosine, Rat *sine) {
+    Frac twelfths = frac_mul(turn, frac_int(12));
+    if (twelfths.den != 1) return 0;
+    long long steps = ((twelfths.num % 24) + 24) % 24, rest = steps % 6;
+    Rat two = eval(trig_root[0]), three = eval(trig_root[1]), half = rat_frac((Frac){1, 2}), quarter = rat_frac((Frac){1, 4});
+    Rat small = rat_mul(quarter, rat_add(rat_mul(two, three), two, 1)), large = rat_mul(quarter, rat_add(rat_mul(two, three), two, 0));
+    Rat c[6] = {rat_int(1), large, rat_mul(half, three), rat_mul(half, two), half, small};
+    Rat s[6] = {rat_int(0), small, half, rat_mul(half, two), rat_mul(half, three), large};
+    *cosine = c[rest];
+    *sine = s[rest];
+    for (long long quarter_turns = steps / 6; quarter_turns > 0; quarter_turns--) {
+        Rat was = *cosine;
+        *cosine = rat_add(rat_int(0), *sine, 1);
+        *sine = was;
+    }
+    return !failure;
+}
+
+/* Mette in *cosine e *sine il coseno e il seno di n u, con u l'angolo
+ * dell'enunciato: nel punto u = pi, se trig_at_pi, altrimenti come frazioni
+ * nella lettera t. Formula di De Moivre: n moltiplicazioni di
+ * cos u + i sin u per se stesso; n negativo cambia segno al seno. */
+static void trig_multiple(long long n, Rat *cosine, Rat *sine) {
+    Rat t = rat_atom(trig_letter), square = rat_mul(t, t), one = rat_int(1);
+    Rat c = trig_at_pi ? rat_int(-1) : rat_div(rat_add(one, square, 1), rat_add(one, square, 0));
+    Rat s = trig_at_pi ? rat_int(0) : rat_div(rat_add(t, t, 0), rat_add(one, square, 0));
+    *cosine = one;
+    *sine = rat_int(0);
+    for (long long i = 0; i < (n < 0 ? -n : n) && !failure; i++) {
+        Rat real = rat_add(rat_mul(*cosine, c), rat_mul(*sine, s), 1);
+        *sine = rat_add(rat_mul(*cosine, s), rat_mul(*sine, c), 0);
+        *cosine = real;
+    }
+    if (n < 0) *sine = rat_add(rat_int(0), *sine, 1);
+}
+
+/* 18p-11. Vedi la dichiarazione prima di eval_call(). L'argomento del nodo
+ * deve valere n u + b pi con n intero, dove u = g x è l'angolo
+ * dell'enunciato. */
+static int trig_value(const Node *node, Rat argument, Rat *out) {
+    Frac slope, turn;
+    if (!trig_live || !trig_affine(argument, &slope, &turn)) return 0;
+    Frac multiple = frac_div(slope, trig_scale);
+    if (multiple.den != 1) return 0;
+
+    Rat cn, sn, cb, sb;
+    trig_multiple(multiple.num, &cn, &sn);
+    if (!trig_constant(turn, &cb, &sb)) return 0;
+
+    /* Formule di addizione. */
+    Rat sine = rat_add(rat_mul(sn, cb), rat_mul(cn, sb), 0), cosine = rat_add(rat_mul(cn, cb), rat_mul(sn, sb), 1);
+    *out = node->op == FN_SIN ? sine : node->op == FN_COS ? cosine : node->op == FN_TAN ? rat_div(sine, cosine) : rat_div(cosine, sine);
+    return !failure;
 }
 
 /* 18p-7. LE RADICI QUADRATE
@@ -10139,6 +12562,14 @@ typedef struct {
 typedef struct {
     const Formula *source;
     int inner_count;
+    int identity;  /* 0 non ancora chiesto; 1 se i due membri sono la stessa
+                      funzione, -1 se non risulta (formula_identity()) */
+    int window;    /* 1 se il confronto è una finestra di un enunciato periodico
+                      (18p-14): allora by_pattern[0] è il segno di u - gamma nel
+                      giro numero home, e direction, 1 o -1, il segno per cui
+                      moltiplicarlo per avere quello di left - right */
+    int direction;
+    long long home;
     SignCase inner[MAX_ABS][1 << MAX_ABS];
     SignCase by_pattern[1 << MAX_ABS];
 } SignAtom;
@@ -10262,68 +12693,385 @@ static int poly_space(Poly p) {
     return found;
 }
 
-/* 18p-8. Se p è una somma di logaritmi con coefficienti razionali più un
- * numero, c_1 log_b f_1 + ... + c_k log_b f_k + c_0, tutti nella stessa
- * base b, mette in *out l'albero dei segni di
- *
- *     b^(n_0) f_1^(n_1) ... f_k^(n_k) - 1,        n_i = D c_i interi,
- *
- * che ha lo stesso segno, e ritorna 1. Infatti moltiplicare per D > 0 non
- * cambia il segno, la somma dei logaritmi è il logaritmo del prodotto, e un
- * logaritmo in base b > 1 è positivo esattamente quando l'argomento supera
- * 1. Vale dove gli f_i sono positivi, cioè dove il confronto ha un valore.
- * Ritorna 0, senza fare nulla, se p non ha questa forma, o se c_0 D non è
- * intero, o se la base è e e c_0 non è zero (e^c non è un razionale). */
-static int sign_log_linear(Poly p, int x, const SignNode **out) {
-    Frac weight[MAX_SPACES], constant = frac_int(0);
-    long long common = 1;
-    int first = -1;
-    for (int s = 0; s < spaces; s++) weight[s] = frac_int(0);
-    for (int t = 0; t < p.count; t++) {
-        const Term *term = &p.term[t];
-        int s = 0;
-        if (term->coef.im.num != 0 || term->mono.count > 1) return 0;
-        common = lcm_small(common, term->coef.re.den);
-        if (term->mono.count == 0) { constant = term->coef.re; continue; }
-        while (s < spaces && space[s].letter != term->mono.factor[0].atom) s++;
-        if (s == spaces || space[s].kind != SPACE_LOG || frac_cmp(term->mono.factor[0].exp, frac_int(1)) != 0) return 0;
-        if (first >= 0 && (space[s].natural != space[first].natural || (!space[s].natural && frac_cmp(space[s].base, space[first].base) != 0))) return 0;
-        if (first < 0) first = s;
-        weight[s] = term->coef.re;
-    }
-    constant = frac_mul(constant, frac_int(common));
-    if (first < 0 || constant.den != 1 || (space[first].natural && constant.num != 0)) return 0;
+/* Ritorna 1 se l'atomo è un numero: il logaritmo di un primo, una potenza
+ * di un primo con esponente razionale, il numero pi, o il numero e (la
+ * lettera e, quando non è la variabile dell'enunciato). */
+static int atom_is_number(int atom) {
+    const Atom *a = &atoms[atom];
+    if (a->kind == ATOM_VAR) return a->id == VAR_PI || (a->id == 'e' && sign_name != 'e');
+    return (a->kind == ATOM_LN || a->kind == ATOM_POW) && a->base == BASE_PRIME && a->exponent.count == 0;
+}
 
-    /* Il prodotto. Gli argomenti si ricalcolano qui: valgono per la scelta
-     * dei segni dei valori assoluti del confronto in corso. */
-    Rat product = space[first].natural ? rat_int(1) : rat_pow_int(rat_frac(space[first].base), constant.num);
-    for (int s = 0; s < spaces && !failure; s++)
-        if (weight[s].num != 0) product = rat_mul(product, rat_pow_int(eval(space[s].argument), frac_mul(weight[s], frac_int(common)).num));
-    *out = sign_build(rat_add(product, rat_int(1), 1), surd_count, x);
+/* Ritorna 1 se p è un numero: tutti i suoi atomi lo sono. */
+static int poly_is_number(Poly p) {
+    for (int t = 0; t < p.count; t++)
+        for (int f = 0; f < p.term[t].mono.count; f++)
+            if (!atom_is_number(p.term[t].mono.factor[f].atom)) return 0;
     return 1;
 }
 
+/* Mette in *side il segno del numero p (vedi poly_is_number()) e ritorna 1;
+ * annota un errore e ritorna 0 se non riesce a stabilirlo. Prima il conto
+ * esatto, che riconosce lo zero; poi gli intervalli. */
+static int number_side(Poly p, int *side) {
+    Rat number = {p, poly_const(num_int(1))};
+    if (number_sign(number, side) || range_side(poly_range(p), side)) { failure = NULL; return 1; }
+    failure = NULL;
+    fail("non riesco a stabilire il segno di una costante dell'enunciato");
+    return 0;
+}
+
+/* Aggiunge a text, di size byte, i fattori del termine term il cui
+ * esponente ha il segno di side (1: positivi, -1: negativi), scritti con
+ * l'esponente in valore assoluto; ritorna quanti ne ha scritti. */
+static int term_number_latex(const Term *term, int side, char *text, size_t size) {
+    int written = 0;
+    for (int f = 0; f < term->mono.count; f++) {
+        const Atom *atom = &atoms[term->mono.factor[f].atom];
+        Frac e = term->mono.factor[f].exp;
+        char power[48] = "";
+        if ((e.num > 0) != (side > 0)) continue;
+        if (e.num < 0) e.num = -e.num;
+        if (e.den != 1) snprintf(power, sizeof power, "^{\\frac{%lld}{%lld}}", e.num, e.den);
+        else if (e.num != 1) snprintf(power, sizeof power, "^{%lld}", e.num);
+        if (atom->kind == ATOM_VAR) text_add(text, size, "%s%s", atom->id == VAR_PI ? "\\pi" : "e", power);
+        else if (atom->kind == ATOM_LN) text_add(text, size, "%s\\ln%s %lld", written ? " " : "", power, atom->id);
+        else if (e.num == 1 && e.den == 2) text_add(text, size, "\\sqrt{%lld}", atom->id);
+        else text_add(text, size, " %lld%s", atom->id, power);
+        written++;
+    }
+    return written;
+}
+
+/* Aggiunge a text, di size byte, il numero p in LaTeX (vedi
+ * poly_is_number()): una somma di termini, ognuno un razionale per un
+ * prodotto di \ln p, di potenze di primi e di potenze di e, con i fattori
+ * di esponente negativo a denominatore. Ciò che scrive si rilegge, con il
+ * parser, come lo stesso numero. */
+static void poly_number_latex(Poly p, char *text, size_t size) {
+    if (p.count == 0) text_add(text, size, "0");
+    for (int t = 0; t < p.count; t++) {
+        const Term *term = &p.term[t];
+        Frac c = term->coef.re;
+        long long top = c.num < 0 ? -c.num : c.num;
+        int above = 0, below = c.den != 1;
+        for (int f = 0; f < term->mono.count; f++)
+            if (term->mono.factor[f].exp.num > 0) above = 1; else below = 1;
+        text_add(text, size, "%s", t == 0 ? (c.num < 0 ? "-" : "") : (c.num < 0 ? " - " : " + "));
+        if (below) text_add(text, size, "\\frac{");
+        if (top != 1 || !above) text_add(text, size, "%lld", top);
+        term_number_latex(term, 1, text, size);
+        if (!below) continue;
+        text_add(text, size, "}{");
+        if (c.den != 1) text_add(text, size, "%lld", c.den);
+        term_number_latex(term, -1, text, size);
+        text_add(text, size, "}");
+    }
+}
+
+/* Aggiunge a text, di size byte, il numero r in LaTeX: il numeratore, o una
+ * frazione se il denominatore non è 1. */
+static void number_latex(Rat r, char *text, size_t size) {
+    if (poly_is_one(r.den)) { poly_number_latex(r.num, text, size); return; }
+    text_add(text, size, "\\frac{");
+    poly_number_latex(r.num, text, size);
+    text_add(text, size, "}{");
+    poly_number_latex(r.den, text, size);
+    text_add(text, size, "}");
+}
+
+/* Ritorna l'albero dei segni della costante di segno side (-1, 0 o 1). */
+static const SignNode *sign_constant(int side, int x) { return sign_build(rat_int(side), 0, x); }
+
+/* Ritorna l'albero dei segni del prodotto di a e b. */
+static const SignNode *sign_times(const SignNode *a, const SignNode *b) {
+    SignNode *node = sign_node_new(SIGN_TIMES);
+    node->a = a;
+    node->b = b;
+    return node;
+}
+
+/* 18p-10. Se p = A x + B, con A e B numeri (vedi poly_is_number()) e non
+ * tutti e due razionali, mette in *out l'albero dei segni di p e ritorna 1.
+ *
+ * È il caso di un confronto della variabile con una costante che contiene
+ * logaritmi o il numero e: x < \ln 6, x \neq \frac{\ln 3}{\ln 5}. Se A è zero
+ * p è una costante, e ha il suo segno. Altrimenti p si annulla in
+ * k = -B / A e ha il segno di A per quello di x - k. Se k risulta razionale
+ * (ln 8 / ln 2 = 3, che il conto esatto semplifica) è un punto qualsiasi
+ * della tabella; se no è un numero che non è radice di un polinomio, e
+ * prende un posto suo (Kappa). */
+static int sign_number_linear(Poly p, int x, const SignNode **out) {
+    Poly part[2], one = poly_const(num_int(1));
+    Num plain;
+    int side = 0, degree = poly_split(p, x, part, 1);
+    if (degree < 0 || !poly_is_number(part[0]) || (degree == 1 && !poly_is_number(part[1]))) return 0;
+    if (degree == 0) {
+        if (number_side(part[0], &side)) *out = sign_constant(side, x);
+        return 1;
+    }
+    if (!number_side(part[1], &side)) return 1;
+    Rat root = rat_div(rat_add(rat_int(0), (Rat){part[0], one}, 1), (Rat){part[1], one});
+    if (failure) return 1;
+
+    /* Il conto esatto semplifica i monomi, non i polinomi: (2 ln 2 - ln 3) /
+     * (2 ln 3 - 4 ln 2) resta scritto così, ed è -1/2. Lo si riconosce
+     * perché numeratore e denominatore sono proporzionali. E si scrive la
+     * frazione con il primo coefficiente del denominatore positivo. */
+    if (root.num.count == 0)
+        root = rat_int(0);
+    else if (poly_proportional(root.num, root.den) && root.num.term[0].coef.im.num == 0 && root.den.term[0].coef.im.num == 0)
+        root = rat_frac(frac_div(root.num.term[0].coef.re, root.den.term[0].coef.re));
+    else if (root.den.count > 0 && root.den.term[0].coef.re.num < 0)
+        root = (Rat){poly_add(poly_const(num_int(0)), root.num, 1), poly_add(poly_const(num_int(0)), root.den, 1)};
+    if (rat_number(root, &plain) && plain.im.num == 0) {
+        *out = sign_times(sign_constant(side, x), sign_build(rat_add(rat_atom(x), rat_frac(plain.re), 1), 0, x));
+        return 1;
+    }
+    char text[96] = "";
+    number_latex(root, text, sizeof text);
+    SignNode *leaf = sign_node_new(SIGN_LEAF);
+    leaf->top = sign_column_kappa(range_div(range_neg(poly_range(part[0])), poly_range(part[1])), text, &root);
+    leaf->bottom = sign_column((Uni){0, {1}});
+    leaf->letter = -1;
+    *out = sign_times(sign_constant(side, x), leaf);
+    return 1;
+}
+
+/* 18p-8. Se p è una somma di logaritmi nella stessa base b, con
+ * coefficienti razionali, più una costante,
+ *
+ *     K (w_1 log_b f_1 + ... + w_k log_b f_k + c),
+ *
+ * mette in *out un albero dei segni con lo stesso segno e ritorna 1. La
+ * costante c può essere un razionale, oppure contenere logaritmi di numeri:
+ * serve solo che c ln b sia una somma u_2 ln 2 + u_3 ln 3 + ..., cioè il
+ * logaritmo naturale del razionale q = 2^(u_2) 3^(u_3) ... Allora, con D un
+ * intero positivo che rende interi tutti gli esponenti,
+ *
+ *     segno della somma = segno di  q^D f_1^(D w_1) ... f_k^(D w_k) - 1,
+ *
+ * perché moltiplicare per D non cambia il segno, la somma dei logaritmi è
+ * il logaritmo del prodotto, e un logaritmo in base b > 1 è positivo
+ * esattamente quando l'argomento supera 1. Vale dove gli f_i sono positivi,
+ * cioè dove il confronto ha un valore. Il fattore K davanti, un numero,
+ * porta il suo segno.
+ *
+ * Ritorna 0, senza fare nulla, se p non ha questa forma. */
+static int sign_log_linear(Poly p, int x, const SignNode **out) {
+    Poly part[MAX_SPACES], rest = poly_const(num_int(0)), one = poly_const(num_int(1));
+    Frac weight[MAX_SPACES];
+    int first = -1, side = 1;
+    for (int s = 0; s < spaces; s++) part[s] = rest;
+
+    /* I coefficienti dei logaritmi, e ciò che non ne contiene. */
+    for (int t = 0; t < p.count; t++) {
+        Term bare = p.term[t];
+        int where = -1;
+        for (int f = 0; f < p.term[t].mono.count; f++) {
+            int atom = p.term[t].mono.factor[f].atom, s = 0;
+            while (s < spaces && space[s].letter != atom) s++;
+            if (s == spaces && atom_is_number(atom)) continue;
+            if (s == spaces || space[s].kind != SPACE_LOG || where >= 0 || frac_cmp(p.term[t].mono.factor[f].exp, frac_int(1)) != 0) return 0;
+            where = s;
+            bare.mono = mono_with_exponent(&bare.mono, atom, frac_int(0));
+        }
+        if (where < 0) { rest = poly_add(rest, poly_term(bare), 0); continue; }
+        if (first >= 0 && (space[where].natural != space[first].natural || (!space[where].natural && frac_cmp(space[where].base, space[first].base) != 0))) return 0;
+        if (first < 0) first = where;
+        part[where] = poly_add(part[where], poly_term(bare), 0);
+    }
+    if (first < 0) return 0;
+
+    /* I pesi: ogni coefficiente è un multiplo razionale del primo. */
+    long long common = 1;
+    for (int s = 0; s < spaces; s++) {
+        weight[s] = frac_int(s == first);
+        if (s == first || part[s].count == 0) continue;
+        if (!poly_proportional(part[s], part[first]) || part[s].term[0].coef.im.num != 0 || part[first].term[0].coef.im.num != 0) return 0;
+        weight[s] = frac_div(part[s].term[0].coef.re, part[first].term[0].coef.re);
+        common = lcm_small(common, weight[s].den);
+    }
+
+    /* c ln b = (rest / K) ln b, come somma di logaritmi di primi. Se K è
+     * un razionale, rest deve esserlo; se K è un multiplo di ln b (capita
+     * quando il confronto contiene il logaritmo di un numero, che porta
+     * ln b a denominatore), rest / K per ln b è rest diviso quel multiplo. */
+    Poly base_log = space[first].natural ? one : logarithm_of_positive(rat_frac(space[first].base)).num, sum;
+    Frac ratio;
+    if (failure) return 0;
+    if (part[first].count == 1 && part[first].term[0].mono.count == 0) {
+        ratio = part[first].term[0].coef.re;
+        sum = poly_mul(rest, base_log);
+    } else if (!space[first].natural && poly_proportional(part[first], base_log)) {
+        ratio = frac_div(part[first].term[0].coef.re, base_log.term[0].coef.re);
+        sum = rest;
+    } else {
+        return 0;
+    }
+    if (failure || !number_side(part[first], &side)) return 0;
+
+    /* I primi e i loro esponenti u_p = coefficiente / K; poi il prodotto. */
+    for (int pass = 0; pass < 2; pass++) {
+        Rat product = rat_int(1);
+        for (int t = 0; t < sum.count; t++) {
+            const Term *term = &sum.term[t];
+            const Atom *atom = term->mono.count == 1 ? &atoms[term->mono.factor[0].atom] : NULL;
+            if (!atom || atom->kind != ATOM_LN || atom->base != BASE_PRIME || frac_cmp(term->mono.factor[0].exp, frac_int(1)) != 0 || term->coef.im.num != 0) return 0;
+            Frac power = frac_div(term->coef.re, ratio);
+            if (pass == 0) common = lcm_small(common, power.den);
+            else product = rat_mul(product, rat_pow_int(rat_int(atom->id), power.num * (common / power.den)));
+        }
+        if (pass == 0) continue;
+        for (int s = 0; s < spaces && !failure; s++)
+            if (weight[s].num != 0) product = rat_mul(product, rat_pow_int(eval(space[s].argument), weight[s].num * (common / weight[s].den)));
+        *out = sign_times(sign_constant(side, x), sign_build(rat_add(product, rat_int(1), 1), surd_count, x));
+    }
+    return 1;
+}
+
+static const SignNode *sign_ground(Poly p, int x);
+
+/* 18p-8, regola e di sign_ground(). Se i termini di p sono tutti un numero
+ * razionale per un prodotto di potenze di lettere di esponenziali, e quei
+ * prodotti sono tutti potenze di uno stesso monomio m per un monomio comune,
+ * mette in *out l'albero dei segni di p e ritorna 1; ritorna 0 se p non ha
+ * questa forma, o se non la si sa trattare.
+ *
+ * È l'equazione "omogenea" dei libri: in 2 \cdot 4^x - 5 \cdot 6^x + 3 \cdot 9^x,
+ * con le lettere a = 2^x e b = 3^x, i termini sono 2a^2, -5ab, 3b^2, cioè
+ * b^2 per un polinomio in m = a / b: 2m^2 - 5m + 3. In generale
+ * p = M Q(m), con M un monomio, che è positivo, e Q un polinomio in una
+ * variabile; m è un esponenziale, positivo anche lui. Q si scompone: per
+ * ogni radice razionale positiva r/s il fattore s m - r, il cui segno è
+ * quello di s M+ - r M- (m = M+ / M-), un polinomio di due termini che
+ * tratta la regola d; un fattore con la radice negativa o nulla è positivo;
+ * ciò che resta, se non ha radici positive (lo dice il teorema di Sturm), ha
+ * sugli m positivi il segno che ha in m = 1. Se resta una radice positiva
+ * irrazionale il confronto non è trattato: servirebbe il logaritmo di un
+ * numero che non è razionale. */
+static int sign_one_ratio(Poly p, int x, const SignNode **out) {
+    long long exponent[MAX_UNIVARIATE + 1][MAX_SPACES], step[MAX_SPACES], power[MAX_UNIVARIATE + 1], c[MAX_UNIVARIATE + 1] = {0};
+    long long common = 0, scale = 1, lowest = 0, highest = 0;
+    Frac root[MAX_UNIVARIATE + 2];
+    if (p.count < 2 || p.count > MAX_UNIVARIATE + 1) return 0;
+
+    /* Gli esponenti delle lettere in ogni termine. */
+    for (int t = 0; t < p.count; t++) {
+        const Term *term = &p.term[t];
+        if (term->coef.im.num != 0) return 0;
+        for (int i = 0; i < spaces; i++) exponent[t][i] = 0;
+        for (int f = 0; f < term->mono.count; f++) {
+            int i = 0;
+            while (i < spaces && space[i].letter != term->mono.factor[f].atom) i++;
+            if (i == spaces || space[i].kind != SPACE_EXP || term->mono.factor[f].exp.den != 1) return 0;
+            exponent[t][i] = term->mono.factor[f].exp.num;
+        }
+        scale = lcm_small(scale, term->coef.re.den);
+        if (scale > 1000000) return 0;
+    }
+
+    /* Il monomio m: la differenza tra due termini, ridotta ai minimi termini
+     * e con il primo esponente positivo. */
+    for (int i = 0; i < spaces; i++) common = (long long)gcd128(common, exponent[1][i] - exponent[0][i]);
+    if (common == 0) return 0;
+    for (int i = 0, seen = 0; i < spaces; i++) {
+        step[i] = (exponent[1][i] - exponent[0][i]) / common;
+        if (!seen && step[i] < 0) common = -common, step[i] = -step[i];
+        seen |= step[i] != 0;
+    }
+
+    /* Ogni termine è il primo per una potenza intera di m. */
+    for (int t = 0; t < p.count; t++) {
+        int lead = 0;
+        while (step[lead] == 0) lead++;
+        power[t] = (exponent[t][lead] - exponent[0][lead]) / step[lead];
+        for (int i = 0; i < spaces; i++)
+            if (exponent[t][i] - exponent[0][i] != power[t] * step[i]) return 0;
+        if (power[t] < lowest) lowest = power[t];
+        if (power[t] > highest) highest = power[t];
+    }
+    int degree = (int)(highest - lowest);
+    if (highest - lowest > MAX_UNIVARIATE) return 0;
+    for (int t = 0; t < p.count; t++) {
+        Frac value = frac_mul(p.term[t].coef.re, frac_int(scale));
+        if (failure || value.num > LLONG_MAX / 4 || value.num < -(LLONG_MAX / 4)) return 0;
+        c[power[t] - lowest] = value.num;
+    }
+
+    /* Q e le sue radici razionali; M+ e M-. */
+    Uni rest = {degree, {0}}, quotient;
+    Mono plus = {0}, minus = {0};
+    const SignNode *tree = NULL;
+    int roots = rational_roots(c, degree, root);
+    if (roots < 0) return 0;
+    for (int i = 0; i <= degree; i++) rest.c[i] = c[i];
+    for (int i = 0; i < spaces; i++) {
+        if (step[i] > 0) plus = mono_with_exponent(&plus, space[i].letter, frac_int(step[i]));
+        if (step[i] < 0) minus = mono_with_exponent(&minus, space[i].letter, frac_int(-step[i]));
+    }
+    for (int r = 0; r < roots && !failure; r++) {
+        Uni linear = {1, {-(__int128)root[r].num, root[r].den}};
+        const SignNode *factor = root[r].num > 0 ? sign_ground(poly_add(poly_term((Term){num_int(root[r].den), plus}), poly_term((Term){num_int(root[r].num), minus}), 1), x) : NULL;
+
+        /* Una radice multipla dà lo stesso fattore più volte. */
+        while (!failure && uni_divide(&rest, &linear, &quotient)) {
+            rest = quotient;
+            if (factor) tree = tree ? sign_times(tree, factor) : factor;
+        }
+    }
+    if (failure) return 0;
+
+    /* Ciò che resta non deve annullarsi per m positivo. */
+    if (rest.degree >= 1) {
+        Wide bound = uni_bound(&rest);
+        sturm_build(&rest);
+        if (failure || sturm_changes((Wide){0, 1}) - sturm_changes(bound) != 0) return 0;
+    }
+    const SignNode *sign = sign_constant(uni_sign_at(&rest, (Wide){1, 1}), x);
+    *out = tree ? sign_times(sign, tree) : sign;
+    return !failure;
+}
+
 /* 18p-8. Ritorna l'albero dei segni del polinomio p, che non contiene
- * radici ma può contenere la variabile (atomo x) e lettere di spazi.
+ * radici ma può contenere la variabile (atomo x), lettere di spazi e numeri
+ * come ln 2.
  *
  *   a. Una somma di logaritmi: sign_log_linear().
- *   b. Una lettera sola, la variabile o quella di uno spazio: una foglia.
- *   c. Più lettere: si sceglie una lettera di spazio g e si scrive p come
- *      polinomio in g, con i coefficienti nelle altre lettere. Se i
- *      coefficienti sono tutti multipli razionali di uno stesso polinomio U,
- *      allora p = U V(g), e il segno è il prodotto dei due segni. Altrimenti
- *      le lettere sono davvero mescolate, e il confronto non è trattato. */
+ *   b. Una lettera sola, la variabile o quella di uno spazio, con
+ *      coefficienti razionali: una foglia. Con la variabile e coefficienti
+ *      che sono numeri non razionali: sign_number_linear().
+ *   c. Più lettere. Una lettera di spazio che divide tutti i termini si
+ *      raccoglie. Poi si sceglie una lettera g e si scrive p come polinomio
+ *      in g, con i coefficienti nelle altre lettere: se sono tutti multipli
+ *      razionali di uno stesso polinomio U, allora p = U V(g), e il segno è
+ *      il prodotto dei due segni.
+ *   d. Due termini soli, ognuno un numero per un prodotto di potenze di
+ *      esponenziali: c_1 M_1 + c_2 M_2. Se c_1 e c_2 hanno lo stesso segno
+ *      è il loro. Altrimenti il segno è quello del logaritmo del rapporto
+ *      |c_1| M_1 / (|c_2| M_2), che è A x + B con A e B numeri fatti di
+ *      logaritmi: di nuovo sign_number_linear(). È così che si risolve
+ *      2^x = 3^(x+1).
+ *   e. Più di due termini, tutti potenze di uno stesso monomio di
+ *      esponenziali per un monomio comune: un polinomio in quel monomio
+ *      (sign_one_ratio()).
+ *
+ * In ogni altro caso le lettere sono davvero mescolate, e il confronto non
+ * è trattato. */
 static const SignNode *sign_ground(Poly p, int x) {
-    const SignNode *linear;
+    const SignNode *found = &sign_node[0];
     int s = poly_space(p);
-    if (failure) return &sign_node[0];
-    if (s != -1 && sign_log_linear(p, x, &linear)) return linear;
+    if (failure) return found;
+    if (s != -1 && sign_log_linear(p, x, &found)) return found;
 
     /* b. */
     if (s == -1 || (s >= 0 && !poly_uses(p, x))) {
         Uni top;
         int up;
-        if (!uni_from_poly(p, s < 0 ? x : space[s].letter, &top, &up)) { fail(SIGN_SHAPE); return &sign_node[0]; }
+        if (!uni_from_poly(p, s < 0 ? x : space[s].letter, &top, &up)) {
+            if (failure || s != -1 || !sign_number_linear(p, x, &found)) fail(SIGN_SHAPE);
+            return found;
+        }
         SignNode *leaf = sign_node_new(SIGN_LEAF);
         leaf->space = s;
         leaf->top = sign_column_in(top, s);
@@ -10333,36 +13081,83 @@ static const SignNode *sign_ground(Poly p, int x) {
         return leaf;
     }
 
-    /* c. La lettera g: quella dell'ultimo spazio che compare. Se compare
-     * con esponenti negativi si moltiplica tutto per una sua potenza pari,
-     * che non cambia il segno. */
+    /* c. La lettera g: quella dell'ultimo spazio che compare. lowest è il
+     * suo esponente più basso tra tutti i termini. */
     int g = spaces - 1;
     while (g > 0 && !poly_uses(p, space[g].letter)) g--;
-    long long lowest = 0;
-    for (int t = 0; t < p.count; t++) {
-        Frac e = mono_exponent(&p.term[t].mono, space[g].letter);
-        if (e.den != 1) { fail(SIGN_SHAPE); return &sign_node[0]; }
-        if (e.num < lowest) lowest = e.num;
+
+    /* Una lettera che divide tutti i termini si raccoglie, qualunque sia:
+     * L_1^2 - L_1 L_2 è L_1 (L_1 - L_2) anche se la lettera scelta è L_2. */
+    for (int h = g; h >= 0; h--) {
+        long long lowest = LLONG_MAX;
+        for (int t = 0; t < p.count; t++) {
+            Frac e = mono_exponent(&p.term[t].mono, space[h].letter);
+            if (e.den != 1) { fail(SIGN_SHAPE); return found; }
+            if (e.num < lowest) lowest = e.num;
+        }
+        if (lowest == 0) continue;
+
+        /* p = h^lowest per un polinomio senza h a fattor comune. Con lowest
+         * negativo h sta a denominatore, e il segno di h^lowest è quello di
+         * h^(-lowest): dove h è zero il confronto non ha un valore. */
+        Poly factor = poly_term((Term){num_int(1), mono_atom(space[h].letter, frac_int(lowest < 0 ? -lowest : lowest))});
+        return sign_times(sign_ground(factor, x), sign_ground(poly_mul(p, poly_term((Term){num_int(1), mono_atom(space[h].letter, frac_int(-lowest))})), x));
     }
-    if (lowest < 0) p = poly_mul(p, poly_term((Term){num_int(1), mono_atom(space[g].letter, frac_int(lowest % 2 ? 1 - lowest : -lowest))}));
     Poly part[MAX_UNI + 1];
-    int degree = poly_split(p, space[g].letter, part, MAX_UNI), lead = 0;
-    if (degree < 0) { fail(SIGN_SHAPE); return &sign_node[0]; }
-    while (part[lead].count == 0) lead++;
+    int degree = poly_split(p, space[g].letter, part, MAX_UNI), lead = 0, apart = degree >= 0;
+    while (apart && part[lead].count == 0) lead++;
 
     /* I coefficienti devono essere multipli di part[lead]: i rapporti sono
      * i coefficienti di V. */
     Poly other = poly_const(num_int(0));
-    for (int j = lead; j <= degree; j++) {
+    for (int j = lead; j <= degree && apart; j++) {
         if (part[j].count == 0) continue;
-        if (!poly_proportional(part[j], part[lead])) { fail(SIGN_SHAPE); return &sign_node[0]; }
+        if (!poly_proportional(part[j], part[lead])) { apart = 0; break; }
         Num ratio = num_mul(part[j].term[0].coef, num_inv(part[lead].term[0].coef));
         other = poly_add(other, poly_term((Term){ratio, j ? mono_atom(space[g].letter, frac_int(j)) : (Mono){0}}), 0);
     }
-    SignNode *node = sign_node_new(SIGN_TIMES);
-    node->a = sign_ground(part[lead], x);
-    node->b = sign_ground(other, x);
-    return node;
+    if (apart) return sign_times(sign_ground(part[lead], x), sign_ground(other, x));
+
+    /* e. Più di due termini: potenze di uno stesso monomio di
+     * esponenziali (sign_one_ratio()). */
+    if (p.count > 2) {
+        if (!sign_one_ratio(p, x, &found) && !failure) fail(SIGN_SHAPE);
+        return found;
+    }
+
+    /* d. Il logaritmo del rapporto dei due termini: per ogni lettera
+     * p^(x/L) con esponente k nel rapporto, (k / L) x ln p (ln e = 1). */
+    if (p.count != 2 || p.term[0].coef.im.num != 0 || p.term[1].coef.im.num != 0) { fail(SIGN_SHAPE); return found; }
+
+    /* I due termini devono essere fatti solo di lettere di esponenziali,
+     * che sono positive: lo si controlla prima di ogni altra cosa. Una
+     * versione che guardava i segni dei coefficienti senza questo controllo
+     * dava per positivo x + 2^x, cioè risolveva x + 2^x > 0 con "ogni x". */
+    for (int side = 0; side < 2; side++)
+        for (int f = 0; f < p.term[side].mono.count; f++) {
+            int space_number = 0;
+            while (space_number < spaces && space[space_number].letter != p.term[side].mono.factor[f].atom) space_number++;
+            if (space_number == spaces || space[space_number].kind != SPACE_EXP || p.term[side].mono.factor[f].exp.den != 1) { fail(SIGN_SHAPE); return found; }
+        }
+    Frac first = p.term[0].coef.re, second = p.term[1].coef.re;
+    if ((first.num > 0) == (second.num > 0)) return sign_constant(first.num > 0 ? 1 : -1, x);
+    Rat log_ratio = logarithm_of_positive(rat_frac(frac_div(first.num < 0 ? frac_neg(first) : first, second.num < 0 ? frac_neg(second) : second)));
+    for (int side = 0; side < 2 && !failure; side++)
+        for (int f = 0; f < p.term[side].mono.count && !failure; f++) {
+            int space_number = 0;
+            Frac e = p.term[side].mono.factor[f].exp;
+            while (space[space_number].letter != p.term[side].mono.factor[f].atom) space_number++;
+            const Space *sp = &space[space_number];
+            Rat slope = rat_mul(rat_frac(frac_make(side ? -e.num : e.num, sp->scale)), sp->prime ? logarithm_of_positive(rat_int(sp->prime)) : rat_int(1));
+            log_ratio = rat_add(log_ratio, rat_mul(slope, rat_atom(x)), 0);
+        }
+    if (failure) return found;
+
+    /* p ha il segno del suo primo coefficiente dove il rapporto supera 1. */
+    SignNode *ratio = sign_node_new(SIGN_RATIO);
+    ratio->a = sign_ground(log_ratio.num, x);
+    ratio->b = sign_ground(log_ratio.den, x);
+    return sign_times(sign_constant(first.num > 0 ? 1 : -1, x), ratio);
 }
 
 /* Ritorna l'albero dei segni di a + b s, dove s è la radice numero i e a e
@@ -10390,16 +13185,15 @@ static const SignNode *sign_build(Rat e, int level, int x) {
      * lettere degli spazi, numeratore e denominatore vanno ognuno per conto
      * suo (18p-8). */
     while (level > 0 && !poly_uses(e.num, surd_letter[level - 1]) && !poly_uses(e.den, surd_letter[level - 1])) level--;
-    if (level == 0 && (poly_space(e.num) != -1 || poly_space(e.den) != -1)) {
+    Uni top, bottom;
+    int up, down;
+    if (level == 0 && (poly_space(e.num) != -1 || poly_space(e.den) != -1 || !uni_from_poly(e.num, x, &top, &up) || !uni_from_poly(e.den, x, &bottom, &down))) {
         SignNode *node = sign_node_new(SIGN_RATIO);
         node->a = sign_ground(e.num, x);
         node->b = sign_ground(e.den, x);
         return node;
     }
     if (level == 0) {
-        Uni top, bottom;
-        int up, down;
-        if (!uni_from_poly(e.num, x, &top, &up) || !uni_from_poly(e.den, x, &bottom, &down)) { fail(SIGN_SHAPE); return &sign_node[0]; }
         SignNode *leaf = sign_node_new(SIGN_LEAF);
         leaf->top = sign_column(top);
         leaf->bottom = sign_column(bottom);
@@ -10569,6 +13363,12 @@ static int powers_difference(const Node *left, const Node *right, Rat *out) {
     int lead = -1;
     Frac weight[MAX_FACTORS];
     if (!node_uses_letter(left, sign_name) && !node_uses_letter(right, sign_name)) return 0;
+
+    /* "A - B confrontato con 0" è "A confrontato con B". */
+    if (left->kind == N_SUB && right->kind == N_NUM && right->value == 0) {
+        right = left->b;
+        left = left->a;
+    }
     if (!powers_read(left, rat_int(1), &m) || !powers_read(right, rat_int(-1), &m) || failure) return 0;
 
     /* Gli esponenti, tutti multipli di quello del primo che ne ha uno non
@@ -10672,12 +13472,18 @@ static void sign_fraction(const Node *left, const Node *right, unsigned pattern,
     if (conditions_lost) { fail("troppe condizioni di esistenza in un confronto"); return; }
     out->value = sign_build(d, surd_count, x);
 
-    /* Le condizioni di esistenza: i divisori diversi da zero, i radicandi
-     * non negativi. Le altre (argomenti di logaritmi) non riguardano queste
-     * espressioni. */
+    /* Le condizioni di esistenza annotate nel conto. Un divisore diverso da
+     * zero: ogni suo fattore. Le altre due, che nascono dai logaritmi e
+     * dalle potenze che il conto non ha trasformato in lettere (quelli di
+     * un numero, per esempio), riguardano il prodotto dei fattori: positivo,
+     * oppure non negativo. */
     for (int i = 0; i < condition_count && !failure; i++) {
-        if (conditions[i].kind != NEVER_ZERO) { fail(SIGN_SHAPE); return; }
-        for (int j = 0; j < conditions[i].count; j++) sign_require(out, (Rat){conditions[i].factor[j], one.num}, surd_count, 1, x);
+        Rat product = one;
+        for (int j = 0; j < conditions[i].count; j++) {
+            if (conditions[i].kind == NEVER_ZERO) sign_require(out, (Rat){conditions[i].factor[j], one.num}, surd_count, 1, x);
+            else product = rat_mul(product, (Rat){conditions[i].factor[j], one.num});
+        }
+        if (conditions[i].kind != NEVER_ZERO) sign_require(out, product, surd_count, conditions[i].kind == ALWAYS_POSITIVE ? 2 : 0, x);
     }
     /* I radicandi non negativi si chiedono al confronto intero (right non è
      * NULL), non all'argomento di un valore assoluto. L'argomento serve a
@@ -10694,11 +13500,108 @@ static void sign_fraction(const Node *left, const Node *right, unsigned pattern,
         if (seen >> s & 1) sign_require(out, eval(space[s].argument), surd_count, 2, x);
 }
 
-/* Prepara i confronti dell'enunciato f, senza quantificatori, nella
- * variabile di atomo x: riempie sign_atom[] e sign_poly[]. Annota un errore
- * se un confronto non è tra espressioni che la tabella tratta. */
+static void family_prepare(const Formula *owner, const Formula *d, void *context);
+
+/* Mette tra le radici in corso quelle di 2 e di 3, con le loro lettere: i
+ * seni e i coseni degli angoli costanti di un enunciato periodico si
+ * scrivono con quelle (18p-11). Serve a chi prepara un albero dei segni che
+ * non viene da un confronto scritto nell'enunciato. */
+static void trig_roots_open(void) {
+    abs_count = surd_count = 0;
+    for (int i = 0; i < 2; i++) surd_collect(trig_root[i]);
+    for (int i = 0; i < surd_count; i++) {
+        surd_value[i] = rat_atom(surd_letter[i]);
+        surd_inside[i] = eval(surd_node[i]->a);
+    }
+}
+
+/* Ritorna 1 se in node compare una funzione goniometrica della variabile. */
+static int node_has_trig(const Node *node) {
+    if (!node) return 0;
+    if (node->kind == N_CALL && node->op >= FN_SIN && node->op <= FN_COT && node_uses_letter(node->a, sign_name)) return 1;
+    return node_has_trig(node->a) || node_has_trig(node->b) || node_has_trig(node->c);
+}
+
+/* 18p-14. LE FINESTRE: UNA CONDIZIONE PERIODICA RISTRETTA A UN INTERVALLO
+ *
+ * In 0 \le x \le 2\pi \land \sin x > \frac{1}{2} la variabile compare anche
+ * fuori dalle funzioni goniometriche. Un confronto così, tra la variabile e
+ * un multiplo di pi, qui si chiama finestra. Non è periodico, e la lettera
+ * t = tan(u / 2) non lo vede: t è la stessa in u e in u + 2 pi. Ma la
+ * tabella in t descrive bene ogni giro; da un giro all'altro cambia solo la
+ * finestra. Quindi la tabella si legge un giro alla volta: nel giro numero
+ * j l'angolo è u = u_0 + 2 pi j, con u_0 tra -pi (escluso) e pi (compreso).
+ *
+ * Una finestra x <= rho pi è u <= gamma, con gamma = g rho pi. Si scrive
+ * gamma = gamma_0 + 2 pi h, con gamma_0 tra -pi (escluso) e pi (compreso):
+ * h è il giro in cui cade l'estremo. Allora:
+ *
+ *   - in un giro j < h tutti gli angoli stanno sotto gamma, in un giro
+ *     j > h tutti sopra;
+ *   - nel giro h, u - gamma = u_0 - gamma_0. Sull'intervallo da -pi a pi la
+ *     tangente dell'angolo metà cresce, quindi u_0 - gamma_0 ha il segno di
+ *     t - tan(gamma_0 / 2); e tan(gamma_0 / 2) = sin gamma_0 / (1 + cos gamma_0)
+ *     (formule di bisezione), con 1 + cos gamma_0 positivo: è il segno di
+ *     t (1 + cos gamma_0) - sin gamma_0, un polinomio di primo grado in t;
+ *   - se gamma_0 = pi, su ogni riga della tabella u_0 è più piccolo, e nel
+ *     punto u_0 = pi, quello calcolato a parte, i due sono uguali.
+ *
+ * I giri da leggere vanno da quello prima del più basso h a quello dopo il
+ * più alto: più in là le finestre non cambiano più, e il primo e l'ultimo
+ * giro letti valgono per tutti quelli prima e per tutti quelli dopo. Un
+ * insieme di soluzioni che non è vuoto in uno di questi due giri si ripete
+ * all'infinito da una parte sola: non è né limitato né periodico, e il
+ * programma dice che non lo sa scrivere.
+ *
+ * Che cosa resta fuori: un estremo che non è un multiplo razionale di pi
+ * (x < 1 chiederebbe la tangente di 1/2), o lo è ma non di 15 gradi.
+ */
+
+/* Prepara la finestra f, un confronto senza funzioni goniometriche in cui
+ * compare la variabile di un enunciato periodico, nel posto atom di
+ * sign_atom[]. x è l'atomo della lettera t. Annota un errore se la
+ * differenza dei due membri non è a x + b pi con a diverso da zero. */
+static void window_prepare(const Formula *f, SignAtom *atom, int x) {
+    Frac slope, turn;
+    Rat cosine, sine, difference = rat_add(eval(f->left), eval(f->right), 1);
+    if (failure || !trig_affine(difference, &slope, &turn) || slope.num == 0) { if (!failure) fail(SIGN_SHAPE); return; }
+
+    /* gamma in giri di pi: whole = rest + 2 home, con rest tra -1 (escluso)
+     * e 1 (compreso). home è la parte intera superiore di (whole - 1) / 2. */
+    Frac whole = frac_mul(frac_neg(frac_div(turn, slope)), trig_scale);
+    if (failure || whole.num > 1000000 || whole.num < -1000000 || whole.den > 1000000) { fail("una finestra con un estremo troppo grande"); return; }
+    long long top = whole.num - whole.den, bottom = 2 * whole.den;
+    atom->home = top >= 0 ? (top + bottom - 1) / bottom : -((-top) / bottom);
+    Frac rest = frac_add(whole, frac_int(-2 * atom->home));
+    int at_end = rest.num == rest.den;
+    atom->window = 1;
+    atom->direction = slope.num > 0 ? 1 : -1;
+    atom->inner_count = 0;
+    if (!windows || atom->home < window_low) window_low = atom->home;
+    if (!windows || atom->home > window_high) window_high = atom->home;
+    windows++;
+
+    /* Il segno di u_0 - gamma_0: nel punto u_0 = pi, oppure sulle righe. */
+    SignCase *edge = &atom->by_pattern[0];
+    trig_roots_open();
+    edge->first = sign_needs;
+    edge->needs = 0;
+    if (trig_at_pi) edge->value = sign_constant(at_end ? 0 : 1, x);
+    else if (at_end) edge->value = sign_constant(-1, x);
+    else if (!trig_constant(rest, &cosine, &sine)) { if (!failure) fail("una finestra con un estremo che non è un multiplo di 15 gradi"); }
+    else edge->value = sign_build(rat_add(rat_mul(rat_atom(trig_letter), rat_add(rat_int(1), cosine, 0)), sine, 1), surd_count, x);
+    surd_count = 0;
+}
+
+/* Prepara i confronti dell'enunciato f nella variabile di atomo x: riempie
+ * sign_atom[] e sign_poly[]. Un quantificatore su un intero è una foglia: le
+ * sue famiglie si preparano con family_prepare() (18p-13). In un enunciato
+ * periodico un confronto senza funzioni goniometriche della variabile è una
+ * finestra (18p-14). Annota un errore se un confronto non è tra espressioni
+ * che la tabella tratta. */
 static void sign_prepare(const Formula *f, int x) {
     if (failure) return;
+    if (family_owner(f)) { family_each(f, f->a, family_prepare, &x); return; }
     if (f->kind != F_EQUAL && f->kind != F_DISTINCT && f->kind != F_LESS && f->kind != F_LESS_EQ) {
         sign_prepare(f->a, x);
         if (f->b) sign_prepare(f->b, x);
@@ -10707,21 +13610,33 @@ static void sign_prepare(const Formula *f, int x) {
     if (sign_atoms == MAX_SIGN_ATOMS) { fail("troppi confronti in un enunciato per la tabella dei segni"); return; }
     SignAtom *atom = &sign_atom[sign_atoms++];
     atom->source = f;
+    atom->identity = atom->window = 0;
+    if (trig_on && !node_has_trig(f->left) && !node_has_trig(f->right) && (node_uses_letter(f->left, sign_name) || node_uses_letter(f->right, sign_name))) {
+        window_prepare(f, atom, x);
+        return;
+    }
 
     /* I valori assoluti e le radici; poi, per ogni scelta dei segni dei
      * valori assoluti, il confronto e i loro argomenti. */
     abs_count = surd_count = 0;
     abs_collect(f->left);
     abs_collect(f->right);
+
+    /* In un enunciato periodico servono le radici di 2 e di 3, per i seni e
+     * i coseni degli angoli costanti (18p-11). */
+    for (int i = 0; i < 2 && trig_on; i++) surd_collect(trig_root[i]);
     surd_collect(f->left);
     surd_collect(f->right);
     atom->inner_count = abs_count;
+    alias_collect(f->left, f);
+    alias_collect(f->right, f);
     space_live = 1;
+    trig_live = trig_on;
     for (unsigned pattern = 0; pattern < 1u << abs_count && !failure; pattern++) {
         sign_fraction(f->left, f->right, pattern, x, &atom->by_pattern[pattern]);
         for (int i = 0; i < abs_count && !failure; i++) sign_fraction(abs_node[i]->a, NULL, pattern, x, &atom->inner[i][pattern]);
     }
-    abs_count = surd_count = space_live = 0;
+    abs_count = surd_count = space_live = trig_live = aliases = 0;
 }
 
 /* Aggiunge all'enunciato il confronto tra left e right, lo prepara per la
@@ -10746,23 +13661,27 @@ static Node *node_power(Frac base, long long power) {
     return bottom == 1 ? node_num((long long)top) : node_new(N_DIV, node_num((long long)top), node_num((long long)bottom));
 }
 
-/* Ritorna un intervallo che contiene il gradino step: il razionale stesso,
- * o la radice, stretta per bisezione. A ogni passo il segno del polinomio
+/* Ritorna un intervallo che contiene la sola radice del polinomio element
+ * tra low e high, stretta per bisezione. A ogni passo il segno del polinomio
  * nel punto medio si calcola con gli intervalli (schema di Horner): finché è
  * certo si sa da che parte sta la radice, e quando non lo è più ci si
  * ferma, con un intervallo che la contiene ancora. */
-static Range step_range(const Step *step) {
-    if (step->exact) return range_ratio(step->low.num, step->low.den);
-    double low = range_ratio(step->low.num, step->low.den).low, high = range_ratio(step->high.num, step->high.den).high;
-    int at_low = uni_sign_at(&step->element, step->low), side = 0;
+static Range root_range(const Uni *element, Wide low_end, Wide high_end) {
+    double low = range_ratio(low_end.num, low_end.den).low, high = range_ratio(high_end.num, high_end.den).high;
+    int at_low = uni_sign_at(element, low_end), side = 0;
     for (int round = 0; round < 80; round++) {
         double middle = (low + high) / 2;
         Range value = {0, 0}, point = {middle, middle};
-        for (int i = step->element.degree; i >= 0; i--) value = range_add(range_mul(value, point), range_ratio(step->element.c[i], 1));
+        for (int i = element->degree; i >= 0; i--) value = range_add(range_mul(value, point), range_ratio(element->c[i], 1));
         if (!range_side(value, &side)) break;
         if (side == at_low) low = middle; else high = middle;
     }
     return range_wide(low, high);
+}
+
+/* Ritorna un intervallo che contiene il gradino step. */
+static Range step_range(const Step *step) {
+    return step->exact ? range_ratio(step->low.num, step->low.den) : root_range(&step->element, step->low, step->high);
 }
 
 /* Se r = p^k con k intero mette k in *power e ritorna 1. Per p = 0, che
@@ -10845,11 +13764,23 @@ static void space_process(int s, int name, int x) {
             Range number = range_mul(range_ratio(sp->scale, 1), range_ln(step_range(step)));
             if (sp->prime) number = range_div(number, range_ln(range_ratio(sp->prime, 1)));
             step_latex(step, smaller, value, sizeof value);
-            int wrap = strchr(value, ' ') != NULL;
+            /* L'argomento di una funzione senza parentesi è un solo fattore
+             * (capitolo 9): \log_{5} 2\sqrt{15} si rileggerebbe come
+             * (\log_{5} 2) \sqrt{15}. Senza parentesi resta solo un intero. */
+            int wrap = value[strspn(value, "0123456789")] != '\0';
             if (sp->prime) snprintf(text, sizeof text, "%.0lld\\log_{%lld} %s%s%s", sp->scale == 1 ? 0 : sp->scale, sp->prime, wrap ? "\\left(" : "", value, wrap ? "\\right)" : "");
             else snprintf(text, sizeof text, "%.0lld\\ln %s%s%s", sp->scale == 1 ? 0 : sp->scale, wrap ? "\\left(" : "", value, wrap ? "\\right)" : "");
-            if (!failure) step->kappa = sign_column_kappa(number, text);
-        } else if (!step->exact || step->low.den > 2 || (step->low.den == 2 && (sp->natural || sp->base.den != 1))) {
+
+            /* Lo stesso numero come frazione esatta, quando il gradino è un
+             * razionale: L ln r / ln p. */
+            Rat exact = rat_int(0);
+            int plain = step->exact && step->low.num < LLONG_MAX / 4 && step->low.den < LLONG_MAX / 4 && !failure;
+            if (plain) {
+                exact = rat_mul(rat_int(sp->scale), logarithm_of_positive(rat_frac((Frac){(long long)step->low.num, (long long)step->low.den})));
+                if (sp->prime) exact = rat_div(exact, logarithm_of_positive(rat_int(sp->prime)));
+            }
+            if (!failure) step->kappa = sign_column_kappa(number, text, plain ? &exact : NULL);
+        } else if (!step->exact || (!sp->natural && (step->low.den > 2 || (step->low.den == 2 && sp->base.den != 1)))) {
             fail("un logaritmo uguale a un numero irrazionale, o una potenza della base che non so scrivere");
         } else if (sp->natural && step->low.num != 0) {
             /* ln f = r con r diverso da zero: f = e^r, che non è radice di un
@@ -10857,19 +13788,23 @@ static void space_process(int s, int name, int x) {
              * allora x = (e^r - c) / a è un punto della tabella. */
             Frac slope, shift;
             space_live = 1;
-            int affine = rat_affine_in(eval(sp->argument), x, &slope, &shift) && slope.num > 0 && step->low.den == 1;
+            int affine = rat_affine_in(eval(sp->argument), x, &slope, &shift) && slope.num > 0;
             space_live = 0;
             if (!affine) { fail("un logaritmo naturale uguale a un numero diverso da zero è trattato solo per un argomento di primo grado, crescente"); return; }
-            char power_text[32] = "e", top[64];
-            if (step->low.num != 1) snprintf(power_text, sizeof power_text, "e^{%lld}", (long long)step->low.num);
+            char power_text[48] = "e", top[96];
+            if (step->low.den != 1) snprintf(power_text, sizeof power_text, "e^{%s\\frac{%lld}{%lld}}", step->low.num < 0 ? "-" : "", (long long)(step->low.num < 0 ? -step->low.num : step->low.num), (long long)step->low.den);
+            else if (step->low.num != 1) snprintf(power_text, sizeof power_text, "e^{%lld}", (long long)step->low.num);
             if (shift.num == 0) snprintf(top, sizeof top, "%s", power_text);
             else if (shift.den == 1) snprintf(top, sizeof top, "%s %c %lld", power_text, shift.num < 0 ? '+' : '-', (long long)(shift.num < 0 ? -shift.num : shift.num));
             else snprintf(top, sizeof top, "%s %c \\frac{%lld}{%lld}", power_text, shift.num < 0 ? '+' : '-', (long long)(shift.num < 0 ? -shift.num : shift.num), (long long)shift.den);
             if (slope.num == slope.den) snprintf(text, sizeof text, "%s", top);
             else if (slope.den == 1) snprintf(text, sizeof text, "\\frac{%s}{%lld}", top, (long long)slope.num);
             else snprintf(text, sizeof text, "\\frac{%lld\\left(%s\\right)}{%lld}", (long long)slope.den, top, (long long)slope.num);
-            Range number = range_div(range_sub(range_exp(range_ratio(step->low.num, 1)), range_ratio(shift.num, shift.den)), range_ratio(slope.num, slope.den));
-            step->kappa = sign_column_kappa(number, text);
+            Range number = range_div(range_sub(range_exp(range_ratio(step->low.num, step->low.den)), range_ratio(shift.num, shift.den)), range_ratio(slope.num, slope.den));
+
+            /* Come frazione esatta: (e^r - c) / a, con e un atomo. */
+            Rat exact = rat_div(rat_add((Rat){poly_term((Term){num_int(1), mono_atom(atom_var('e'), (Frac){(long long)step->low.num, (long long)step->low.den})}), poly_const(num_int(1))}, rat_frac(shift), 1), rat_frac(slope));
+            step->kappa = sign_column_kappa(number, text, &exact);
         } else {
             /* log_b f = k / m: f = b^(k/m), con m = 1 oppure 2. Con m = 2 è
              * b^((k - 1)/2) per la radice di b. */
@@ -10893,6 +13828,166 @@ static int sign_of_case(const SignCase *c, const int *sign, int *defined) {
     return sign_value(c->value, sign, defined);
 }
 
+/* I segni del seno e del coseno di un angolo, come alberi dei segni: dicono
+ * in quale quarto di giro sta l'angolo, e se è un multiplo di 2 pi. */
+typedef struct {
+    SignCase sine, cosine;
+} FamilyAngle;
+
+/* Una famiglia preparata per la tabella (18p-13): gli angoli che dicono se
+ * la variabile sta in uno dei suoi punti o intervalli. below è l'angolo
+ * A = 2 pi (x - low) / T, above è B = 2 pi (high - x) / T (non usato per un
+ * punto), hole[i] è 2 pi (x - hole[i]) / T. wide dice che l'intervallo è più
+ * lungo di mezzo periodo, full che è lungo proprio un periodo (allora copre
+ * tutto, tranne al più il punto in cui comincia e finisce); hole_counts[i]
+ * che quel punto tolto sta nell'intervallo dello stesso k, il solo caso in
+ * cui toglie qualcosa. */
+typedef struct {
+    const Formula *owner;  /* il quantificatore di cui la famiglia è un pezzo */
+    Family family;
+    FamilyAngle below, above, hole[MAX_LATTICE_HOLES];
+    int wide, full;
+    int hole_counts[MAX_LATTICE_HOLES];
+} FamilyLeaf;
+
+static FamilyLeaf family_leaf[MAX_LATTICE];
+static int family_leaves;
+
+/* Prepara in *out i segni del seno e del coseno di
+ * direction 2 pi (x - e) / T, dove e = alpha + k T è un'espressione della
+ * famiglia e direction è 1 o -1.
+ *
+ * L'angolo è n u + psi con u = g x l'angolo dell'enunciato, n intero e
+ * psi = -direction 2 pi alpha / T un angolo costante. Di psi serve la
+ * direzione (cos psi, sin psi) a meno di un fattore positivo: la parte che
+ * è un multiplo di pi la dà trig_constant(); ogni arcotangente di un
+ * razionale m, con coefficiente intero p, la ruota di (1 + i m)^p, perché
+ * cos(arctan m) + i sin(arctan m) è 1 + i m diviso per un numero positivo. */
+static void family_angle(const Node *e, int k, int direction, int x, FamilyAngle *out) {
+    Frac tau, turn = frac_int(0);
+    Rat alpha, real = rat_int(1), imaginary = rat_int(0), cb, sb, cn, sn;
+    int pi = atom_var(VAR_PI);
+    out->sine.first = out->cosine.first = sign_needs;
+    out->sine.needs = out->cosine.needs = 0;
+    if (!family_period(e, k, &tau, &alpha)) { if (!failure) fail(SIGN_SHAPE); return; }
+    if (tau.num < 0) tau.num = -tau.num;
+    Frac multiple = frac_div(frac_div(frac_int(2 * direction), tau), trig_scale), scale = frac_div(frac_int(-2 * direction), tau);
+    if (multiple.den != 1) { fail(SIGN_SHAPE); return; }
+
+    /* psi, un termine di alpha alla volta. */
+    Frac den = alpha.den.term[0].coef.re;
+    for (int i = 0; i < alpha.num.count && !failure; i++) {
+        const Term *t = &alpha.num.term[i];
+        const Atom *atom = t->mono.count == 1 ? &atoms[t->mono.factor[0].atom] : NULL;
+        Frac weight = frac_mul(frac_div(t->coef.re, den), scale);
+        Num slope;
+        if (!atom || t->coef.im.num != 0 || frac_cmp(t->mono.factor[0].exp, frac_int(1)) != 0) { fail(SIGN_SHAPE); return; }
+        if (t->mono.factor[0].atom == pi) { turn = frac_add(turn, weight); continue; }
+        if (atom->kind != ATOM_ATAN || weight.den != 1 || !rat_number(atan_args[atom->id], &slope) || slope.im.num != 0) { fail(SIGN_SHAPE); return; }
+        Rat m = rat_frac(weight.num < 0 ? frac_neg(slope.re) : slope.re);
+        for (long long step = 0; step < (weight.num < 0 ? -weight.num : weight.num); step++) {
+            Rat was = real;
+            real = rat_add(real, rat_mul(imaginary, m), 1);
+            imaginary = rat_add(imaginary, rat_mul(was, m), 0);
+        }
+    }
+    if (failure || !trig_constant(turn, &cb, &sb)) { if (!failure) fail("una famiglia di soluzioni con un angolo che non è un multiplo di 15 gradi"); return; }
+
+    /* sin(n u + psi) e cos(n u + psi), con le formule di addizione. */
+    Rat cosine = rat_add(rat_mul(cb, real), rat_mul(sb, imaginary), 1), sine = rat_add(rat_mul(sb, real), rat_mul(cb, imaginary), 0);
+    trig_multiple(multiple.num, &cn, &sn);
+    out->sine.value = sign_build(rat_add(rat_mul(sn, cosine), rat_mul(cn, sine), 0), surd_count, x);
+    out->cosine.value = sign_build(rat_add(rat_mul(cn, cosine), rat_mul(sn, sine), 1), surd_count, x);
+}
+
+/* Per sign_prepare: prepara il pezzo d del quantificatore owner. context
+ * punta all'atomo della lettera della tabella. La lunghezza dell'intervallo
+ * rispetto al periodo, e se un punto tolto sta nell'intervallo dello stesso
+ * k, si decidono con i numeri, per k = 0 e k = 1: dove non è certo, il pezzo
+ * non è trattato. */
+static void family_prepare(const Formula *owner, const Formula *d, void *context) {
+    int x = *(const int *)context, none = 0, side = 0;
+    Range zero = {0, 0}, one = {1, 1};
+    if (failure) return;
+    if (family_leaves == MAX_LATTICE) { fail("troppe famiglie di soluzioni in un enunciato"); return; }
+    FamilyLeaf *leaf = &family_leaf[family_leaves++];
+    const Family *family = &leaf->family;
+    leaf->owner = owner;
+    if (!family_read(d, sign_name, owner->variable, owner->kind == F_FORALL, &leaf->family)) { fail(SIGN_SHAPE); return; }
+
+    /* Le radici di 2 e di 3 servono ai seni e ai coseni degli angoli
+     * costanti, come in ogni confronto di un enunciato periodico. */
+    trig_roots_open();
+    trig_live = 1;
+    family_angle(family->low, family->k, 1, x, &leaf->below);
+    if (!family->single && !failure) {
+        /* L'intervallo deve stare in un periodo; wide se supera la metà. Un
+         * intervallo lungo proprio mezzo periodo va bene in tutti e due i
+         * modi (i due seni sono uguali), e uno lungo proprio un periodo è
+         * un caso a sé (full); ma con i numeri un'uguaglianza non la si
+         * vede mai: lì decide il conto esatto, quando gli estremi sono
+         * multipli di pi. */
+        Frac tau, slope, turns = frac_int(0);
+        Rat low_part, high_part;
+        Range low = node_range(family->low, family->k, zero, &none), width = range_sub(node_range(family->high, family->k, zero, &none), low);
+        Range period = range_sub(node_range(family->low, family->k, one, &none), low);
+        if (range_side(period, &side) && side < 0) period = range_neg(period);
+        int positive = range_side(width, &side) && side > 0, inside = range_side(range_sub(period, width), &side) && side > 0;
+        int exact = family_period(family->low, family->k, &tau, &low_part) && family_period(family->high, family->k, &tau, &high_part) &&
+                    trig_affine(rat_add(high_part, low_part, 1), &slope, &turns) && slope.num == 0;
+        if (tau.num < 0) tau.num = -tau.num;
+        int half = exact && frac_cmp(frac_add(turns, turns), tau) == 0;
+        leaf->full = exact && frac_cmp(turns, tau) == 0;
+        leaf->wide = 0;
+        if (!leaf->full && !half) {
+            if (!positive || !inside) fail("un intervallo di una famiglia di soluzioni non può essere più lungo del periodo");
+            else if (!range_side(range_sub(range_add(width, width), period), &side)) fail("non so dire se un intervallo di una famiglia di soluzioni supera mezzo periodo");
+            else leaf->wide = side > 0;
+        }
+        family_angle(family->high, family->k, -1, x, &leaf->above);
+    }
+    for (int i = 0; i < family->holes && !failure; i++) {
+        Range hole = node_range(family->hole[i], family->k, zero, &none);
+        int after = range_side(range_sub(hole, node_range(family->low, family->k, zero, &none)), &side) ? side : 0;
+        int before = range_side(range_sub(node_range(family->high, family->k, zero, &none), hole), &side) ? side : 0;
+        if (after == 0 || before == 0) { fail("un punto tolto proprio sull'estremo di un intervallo: non so dire se conta"); break; }
+        leaf->hole_counts[i] = after > 0 && before > 0;
+        family_angle(family->hole[i], family->k, 1, x, &leaf->hole[i]);
+    }
+    trig_live = 0;
+    surd_count = 0;
+}
+
+/* Ritorna 1 se l'angolo angle è un multiplo di 2 pi dove i polinomi hanno i
+ * segni di sign[]: il seno è zero e il coseno positivo. */
+static int family_at_zero(const FamilyAngle *angle, const int *sign) {
+    int defined = 1;
+    return sign_of_case(&angle->sine, sign, &defined) == 0 && sign_of_case(&angle->cosine, sign, &defined) > 0;
+}
+
+/* Ritorna 1 se il quantificatore su un intero f è vero dove i polinomi
+ * hanno i segni di sign[]: per "esiste" se la variabile sta in una delle
+ * sue famiglie, per "per ogni k, x diverso da ..." se non sta in nessuna.
+ * Le regole sono quelle scritte in testa a 18p-13. */
+static int family_truth(const Formula *f, const int *sign) {
+    int any = 0;
+    for (int i = 0; i < family_leaves; i++) {
+        const FamilyLeaf *leaf = &family_leaf[i];
+        int defined = 1, in = family_at_zero(&leaf->below, sign);
+        if (leaf->owner != f) continue;
+        if (!leaf->family.single) {
+            int low = sign_of_case(&leaf->below.sine, sign, &defined), high = sign_of_case(&leaf->above.sine, sign, &defined);
+            if (leaf->full) in = !in || leaf->family.low_closed || leaf->family.high_closed;
+            else in = (in && leaf->family.low_closed) || (family_at_zero(&leaf->above, sign) && leaf->family.high_closed) ||
+                      (leaf->wide ? low > 0 || high > 0 : low > 0 && high > 0);
+            for (int h = 0; h < leaf->family.holes; h++)
+                if (leaf->hole_counts[h] && family_at_zero(&leaf->hole[h], sign)) in = 0;
+        }
+        any |= in;
+    }
+    return f->kind == F_EXISTS ? any : !any;
+}
+
 /* Ritorna il segno di left - right per il confronto f dove i polinomi di
  * sign_poly[] hanno i segni di sign[]; mette 0 in *defined, che chi chiama ha
  * messo a 1, se lì uno dei due membri non è definito.
@@ -10906,6 +14001,13 @@ static int sign_compare(const Formula *f, const int *sign, int *defined) {
     for (int i = 0; i < sign_atoms; i++)
         if (sign_atom[i].source == f) atom = &sign_atom[i];
     if (!atom) { *defined = 0; return 0; }
+
+    /* 18p-14. Una finestra: sotto o sopra il suo estremo in tutti i giri
+     * tranne quello in cui l'estremo cade. */
+    if (atom->window) {
+        int side = window_turn < atom->home ? -1 : window_turn > atom->home ? 1 : sign_of_case(&atom->by_pattern[0], sign, defined);
+        return side * atom->direction;
+    }
     for (int i = 0; i < atom->inner_count; i++)
         if (sign_of_case(&atom->inner[i][pattern], sign, defined) < 0) pattern |= 1u << i;
     return sign_of_case(&atom->by_pattern[pattern], sign, defined);
@@ -10914,6 +14016,7 @@ static int sign_compare(const Formula *f, const int *sign, int *defined) {
 /* Ritorna 1 se l'enunciato f, senza quantificatori, è vero dove i polinomi
  * di sign_poly[] hanno i segni di sign[] (-1, 0 o 1), altrimenti 0. */
 static int sign_truth(const Formula *f, const int *sign) {
+    if (family_owner(f)) return family_truth(f, sign);
     switch (f->kind) {
     case F_AND:     return sign_truth(f->a, sign) && sign_truth(f->b, sign);
     case F_OR:      return sign_truth(f->a, sign) || sign_truth(f->b, sign);
@@ -11037,34 +14140,6 @@ static int number_sign(Rat r, int *side) {
     return 0;
 }
 
-/* Ritorna un intervallo che contiene il numero p, un polinomio negli atomi
- * che sono numeri: un primo elevato a un razionale, il logaritmo di un
- * primo, il numero e. "Non so" se p contiene altro. */
-static Range poly_range(Poly p) {
-    Range sum = {0, 0};
-    for (int t = 0; t < p.count; t++) {
-        const Term *term = &p.term[t];
-        if (term->coef.im.num != 0) return range_none();
-        Range product = range_ratio(term->coef.re.num, term->coef.re.den);
-        for (int f = 0; f < term->mono.count; f++) {
-            const Atom *atom = &atoms[term->mono.factor[f].atom];
-            Frac e = term->mono.factor[f].exp;
-            Range base;
-            if (atom->kind == ATOM_VAR && atom->id == 'e') base = range_exp_at(1);
-            else if (atom->base != BASE_PRIME || atom->exponent.count != 0) return range_none();
-            else if (atom->kind == ATOM_POW) base = range_ratio(atom->id, 1);
-            else if (atom->kind == ATOM_LN) base = range_ln(range_ratio(atom->id, 1));
-            else return range_none();
-
-            /* base^e: con e intero sono moltiplicazioni, altrimenti
-             * e^(e ln base), per una base positiva. */
-            product = range_mul(product, e.den == 1 ? range_power(base, e.num) : range_exp(range_mul(range_ratio(e.num, e.den), range_ln(base))));
-        }
-        sum = range_add(sum, product);
-    }
-    return sum;
-}
-
 /* Ritorna 1 se le condizioni di esistenza annotate in conditions[] valgono
  * tutte di sicuro; 0 se una di sicuro non vale, e allora mette 1 in
  * *broken; 0 anche se di una non si riesce a dire. Ogni condizione riguarda
@@ -11168,6 +14243,196 @@ static int formula_has_quantifier(const Formula *f) {
     return f->kind == F_FORALL || f->kind == F_EXISTS || formula_has_quantifier(f->a) || formula_has_quantifier(f->b);
 }
 
+/* Ritorna 1 se in f compare un quantificatore che la tabella dei segni non
+ * tratta: ogni quantificatore tranne quelli su un intero, senza altri
+ * quantificatori dentro, che descrivono famiglie di soluzioni (18p-13). */
+static int formula_bad_quantifier(const Formula *f) {
+    if (!f) return 0;
+    if (family_owner(f)) return formula_has_quantifier(f->a);
+    return f->kind == F_FORALL || f->kind == F_EXISTS || formula_bad_quantifier(f->a) || formula_bad_quantifier(f->b);
+}
+
+/* Ritorna 1 se i due membri del confronto f sono la stessa funzione: se la
+ * loro differenza, calcolata con la variabile come lettera e con il conto
+ * esatto del motore (per seni e coseni le formule di Eulero, capitolo 11), è
+ * zero per il test di annullamento del capitolo 12. Un "sì" è una
+ * dimostrazione dell'identità, fatta per una strada che non passa dalla
+ * tabella dei segni: per questo vale come suo controllo. Il risultato si
+ * ricorda nel confronto preparato, se c'è. */
+static int formula_identity(const Formula *f) {
+    SignAtom *atom = NULL;
+    for (int i = 0; i < sign_atoms; i++)
+        if (sign_atom[i].source == f) atom = &sign_atom[i];
+    if (atom && atom->identity) return atom->identity > 0;
+    Scratch mark = scratch_mark();
+    const char *was = failure;
+    int live = trig_live, listed = conditions_on, bound = env_count;
+    failure = NULL;
+    trig_live = conditions_on = env_count = 0;
+    Rat gap = rat_add(eval(f->left), eval(f->right), 1);
+    int same = !failure && (gap.num.count == 0 || poly_vanishes(gap.num));
+    failure = was;
+    trig_live = live;
+    conditions_on = listed;
+    env_count = bound;
+    scratch_drop(mark);
+    if (atom) atom->identity = same ? 1 : -1;
+    return same;
+}
+
+/* Ciò che serve a provare con i numeri le famiglie di un quantificatore su
+ * un intero: la variabile, il suo valore, se un'uguaglianza quasi certa si
+ * può prendere per buona, e il risultato che si accumula: 1 se la variabile
+ * sta di sicuro in una famiglia, -1 se di una non si sa, 0 altrimenti. */
+typedef struct {
+    int name;
+    Range x;
+    int tolerant;
+    int seen;
+} FamilyCheck;
+
+/* Ritorna la distanza di v dall'intero più vicino, come intervallo. */
+static Range range_from_integer(Range v) {
+    double middle = (v.low + v.high) / 2, nearest = (double)(long long)(middle + (middle < 0 ? -0.5 : 0.5));
+    return range_known(v) && middle < 1e15 && middle > -1e15 ? range_sub(v, (Range){nearest, nearest}) : range_none();
+}
+
+/* Per range_truth: prova con i numeri se la variabile sta nella famiglia
+ * del pezzo d, e aggiorna il risultato in context (un FamilyCheck). Il
+ * periodo T e gli estremi per k = 0 si calcolano dalle espressioni; poi si
+ * cerca il k giusto tra i tre più vicini a (x - low) / T. */
+static void family_range(const Formula *owner, const Formula *d, void *context) {
+    FamilyCheck *check = context;
+    Family family;
+    Range zero = {0, 0}, one = {1, 1};
+    int none = 0, side = 0, found = 0;
+    if (check->seen == 1) return;
+    if (!family_read(d, check->name, owner->variable, owner->kind == F_FORALL, &family)) { check->seen = -1; return; }
+    Range low = node_range(family.low, family.k, zero, &none), period = range_sub(node_range(family.low, family.k, one, &none), low);
+    if (!range_side(period, &side)) { check->seen = -1; return; }
+    if (side < 0) period = range_neg(period);
+    Range turns = range_div(range_sub(check->x, low), period);
+    if (!range_known(turns)) { check->seen = -1; return; }
+
+    /* Un punto per ogni k: (x - low) / T deve essere un intero. */
+    if (family.single) {
+        Range gap = range_from_integer(turns);
+        if (range_side(gap, &side)) return;
+        check->seen = check->tolerant && range_known(gap) && gap.high - gap.low < 1e-6 ? 1 : -1;
+        return;
+    }
+
+    /* Un intervallo per ogni k. */
+    Range high = node_range(family.high, family.k, zero, &none);
+    double middle = (turns.low + turns.high) / 2, base = (double)(long long)middle - (middle < 0);
+    for (int step = -1; step <= 1 && !found; step++) {
+        Range shift = range_mul((Range){base + step, base + step}, period);
+        Range left = range_sub(check->x, range_add(low, shift)), right = range_sub(range_add(high, shift), check->x);
+        int left_side = 0, right_side = 0, left_known = range_side(left, &left_side), right_known = range_side(right, &right_side);
+        if ((left_known && left_side < 0) || (right_known && right_side < 0)) continue;
+        if (!range_known(left) || !range_known(right)) { check->seen = -1; return; }
+
+        /* Dentro, oppure su un estremo: lì conta se l'estremo è compreso, e
+         * lo si può dire solo se è permesso prendere per zero una
+         * differenza stretta attorno allo zero. */
+        if ((!left_known || !right_known) && (!check->tolerant || left.high - left.low > 1e-6 || right.high - right.low > 1e-6)) { check->seen = -1; return; }
+
+        /* Su un estremo escluso il valore non sta in questo intervallo, ma
+         * può stare nel successivo: capita quando l'intervallo è lungo un
+         * periodo intero, e l'estremo di uno è anche quello dell'altro. Una
+         * versione che qui si fermava dava per escluso un punto compreso. */
+        found = (left_known || family.low_closed) && (right_known || family.high_closed);
+    }
+    if (!found) return;
+
+    /* I punti tolti: x - hole non deve essere un multiplo di T, per i punti
+     * tolti che stanno nell'intervallo dello stesso k. */
+    for (int h = 0; h < family.holes; h++) {
+        Range hole = node_range(family.hole[h], family.k, zero, &none);
+        int after = range_side(range_sub(hole, low), &side) ? side : 0, before = range_side(range_sub(high, hole), &side) ? side : 0;
+        if (after == 0 || before == 0) { check->seen = -1; return; }
+        if (after < 0 || before < 0) continue;
+        Range gap = range_from_integer(range_div(range_sub(check->x, hole), period));
+        if (range_side(gap, &side)) continue;
+        if (!check->tolerant || !range_known(gap) || gap.high - gap.low > 1e-6) { check->seen = -1; return; }
+        return;
+    }
+    check->seen = 1;
+}
+
+/* Ritorna 1 se la condizione f, senza quantificatori, vale di sicuro quando
+ * la variabile name sta nell'intervallo x, 0 se di sicuro non vale, -1 se
+ * gli intervalli non bastano a dirlo (capitolo 24). I connettivi seguono la
+ * logica a tre valori: "falso e non so" è falso, "vero e non so" è non so.
+ *
+ * Un confronto è falso di sicuro dove un suo membro di sicuro non ha un
+ * valore; è deciso quando la differenza dei membri ha un segno certo. Se la
+ * differenza contiene lo zero di solito non si sa. Con tolerant diverso da
+ * zero, e una differenza stretta attorno allo zero, la si prende per zero:
+ * serve nei punti in cui la tabella afferma un'uguaglianza, che con gli
+ * intervalli si può trovare compatibile ma non dimostrare. */
+static int range_truth(const Formula *f, int name, Range x, int tolerant) {
+    int a = -1, b = -1, nowhere = 0, side = 0;
+    if (family_owner(f)) {
+        FamilyCheck check = {name, x, tolerant, 0};
+        family_each(f, f->a, family_range, &check);
+        return check.seen < 0 ? -1 : f->kind == F_EXISTS ? check.seen : !check.seen;
+    }
+    if (f->kind == F_AND || f->kind == F_OR || f->kind == F_IMPLIES || f->kind == F_IFF || f->kind == F_NOT) {
+        a = range_truth(f->a, name, x, tolerant);
+        if (f->kind == F_NOT) return a < 0 ? -1 : !a;
+        b = range_truth(f->b, name, x, tolerant);
+        if (f->kind == F_IMPLIES) a = a < 0 ? -1 : !a;
+        if (f->kind == F_AND) return a == 0 || b == 0 ? 0 : a < 0 || b < 0 ? -1 : 1;
+        if (f->kind == F_IFF) return a < 0 || b < 0 ? -1 : a == b;
+        return a == 1 || b == 1 ? 1 : a < 0 || b < 0 ? -1 : 0;
+    }
+    Range left = node_range(f->left, name, x, &nowhere), right = node_range(f->right, name, x, &nowhere), gap = range_sub(left, right);
+    if (nowhere) return 0;
+    if (!range_known(gap)) return -1;
+
+    /* Una differenza che contiene lo zero: è zero di sicuro se i due membri
+     * sono la stessa funzione, cosa che per le identità goniometriche il
+     * conto esatto con le formule di Eulero sa riconoscere
+     * (formula_identity()); altrimenti la si prende per zero solo se è
+     * permesso, ed è stretta. */
+    if (!range_side(gap, &side) && !formula_identity(f) && (!tolerant || gap.high - gap.low > 1e-6)) return -1;
+    return f->kind == F_EQUAL ? side == 0 : f->kind == F_DISTINCT ? side != 0 : f->kind == F_LESS ? side < 0 : side <= 0;
+}
+
+/* Il controllo indipendente della tabella in un valore della sua lettera:
+ * ritorna 1 se il conto con i numeri dà per la condizione body la stessa
+ * verità truth della tabella, 0 se ne dà una diversa, -1 se non riesce a
+ * dirlo. Il valore è il razionale at; oppure, se point non è NULL, il punto
+ * point, che può non essere razionale.
+ *
+ * Tre casi. In un enunciato periodico la lettera è t, e la variabile vale
+ * (2 / g) arctan t: un numero non razionale, che si conosce con un
+ * intervallo. Un punto non razionale si conosce anche lui con un
+ * intervallo. Negli altri casi il valore si sostituisce esattamente
+ * (sign_holds_at()). */
+static int table_agrees(const Formula *body, int name, Wide at, const Critical *point, int truth) {
+    if (!trig_on && !point) {
+        if (at.num >= COEF_LIMIT || at.num <= -COEF_LIMIT || at.den >= COEF_LIMIT) return -1;
+        failure = NULL;
+        int direct = sign_holds_at(body, name, (Frac){(long long)at.num, (long long)at.den});
+        int known = failure == NULL;
+        failure = NULL;
+        return known ? direct == truth : -1;
+    }
+    Range value = range_ratio(at.num, at.den);
+    if (point && point->kappa >= 0) value = kappa[point->kappa].value;
+    else if (point && !point->exact) value = root_range(&sign_base[point->element], point->low, point->high);
+    /* In un enunciato periodico il valore della variabile nel giro in corso:
+     * (2 arctan t + 2 pi j) / g. */
+    if (trig_on) value = range_div(range_add(range_mul(range_ratio(2, 1), range_atan(value)), range_mul(range_ratio(2 * window_turn, 1), range_pi())), range_ratio(trig_scale.num, trig_scale.den));
+    /* In un enunciato periodico un'identità che il conto esatto non
+     * riconosce (formula_identity()) si può solo trovare compatibile: lì la
+     * conferma è una verifica con i numeri, non una seconda dimostrazione. */
+    int seen = range_truth(body, name, value, point != NULL || trig_on);
+    return seen < 0 ? -1 : seen == truth;
+}
+
 /* Una riga della tabella dei segni (18p-2): un punto, oppure l'intervallo tra
  * due punti consecutivi. La riga 2 i è l'intervallo prima del punto i, la
  * riga 2 i + 1 il punto i; l'ultima è l'intervallo dopo l'ultimo punto. */
@@ -11180,12 +14445,44 @@ typedef struct {
     int inside;              /* 1 se la riga sta nell'insieme su cui varia la variabile */
     int rational;            /* 1 se sample è proprio il valore della riga: è 0
                                 solo nelle radici irrazionali */
+    int must;                /* 1 se la riga va confermata perché l'enunciato si
+                                possa decidere: le righe con un valore razionale,
+                                e in un enunciato periodico gli intervalli */
     int confirmed;           /* 1 se il conto con i numeri in sample ha dato la
                                 stessa verità della tabella */
 } SignRow;
 
 static SignRow sign_row[2 * MAX_POINTS + 1];
 static int sign_rows;
+
+/* Mette in out[], che ha 8 posti, altri valori della riga row, che è un
+ * intervallo, oltre a quello scelto in sign_row[row].sample; ritorna quanti.
+ *
+ * Un punto solo conferma che la riga è giusta lì, non che l'intervallo sia
+ * tutto di un segno: se alla tabella mancasse un punto, perché una regola ha
+ * dato per costante un segno che non lo è, nel punto scelto potrebbe non
+ * vedersi. È successo con x + 2^x, dato per positivo ovunque e confermato in
+ * x = 0. Per questo chi ricontrolla una riga la prova anche in due punti tra
+ * il valore scelto e ogni estremo, e dalla parte in cui l'estremo non c'è
+ * in quattro punti via via più lontani. */
+static int row_points(int row, Wide *out) {
+    static const long long reach[4] = {1, 3, 10, 40};
+    const Critical *before = row >= 2 ? &sign_point[row / 2 - 1] : NULL, *after = row / 2 < sign_points_count ? &sign_point[row / 2] : NULL;
+    Wide sample = sign_row[row].sample;
+    int count = 0;
+    for (int side = 0; side < 2; side++) {
+        const Critical *end = side ? after : before;
+        if (end) {
+            Wide edge = side ? end->low : end->high, near = side ? wide_between(sample, edge) : wide_between(edge, sample);
+            out[count++] = near;
+            out[count++] = side ? wide_between(near, edge) : wide_between(edge, near);
+        } else {
+            for (int i = 0; i < 4; i++) out[count++] = wide_add(sample, (Wide){side ? reach[i] : -reach[i], 1});
+        }
+    }
+    if (failure) { failure = NULL; return 0; }
+    return count;
+}
 
 /* 18p-2. Riempie sign_row[]: per ogni riga il valore, i segni dei polinomi,
  * se sta in set, e l'esito del controllo indipendente della condizione body
@@ -11195,8 +14492,10 @@ static int sign_rows;
  *
  * Il controllo indipendente si fa dove il valore è un razionale: lo si
  * sostituisce nell'enunciato e si fa il conto con i numeri. Se il conto esce
- * dai limiti la riga resta non confermata. Nelle radici irrazionali non si
- * può fare: lì la tabella poggia solo su 18p-5.
+ * dai limiti la riga resta non confermata. Un intervallo viene poi provato
+ * in altri punti, per accorgersi di un punto che alla tabella mancasse.
+ * Nelle radici irrazionali il controllo non si può fare: lì la tabella
+ * poggia solo su 18p-5.
  *
  * Ritorna 0 se in una riga il conto con i numeri smentisce la tabella: è un
  * errore del programma, e nessuna riga va più creduta. */
@@ -11236,13 +14535,31 @@ static int sign_table(const Formula *body, int name, const NumberSet *set, int f
         for (int i = 0; i < set->holes; i++)
             if (r->sign[hole_column[i]] == 0) r->inside = 0;
 
-        /* Il controllo indipendente. */
+        /* Il controllo indipendente (table_agrees()). Una riga con un
+         * valore razionale si rifà con il conto esatto, e deve riuscire. Una
+         * radice irrazionale, e ogni riga di un enunciato periodico, si
+         * rifà con gli intervalli: lì un'uguaglianza si può solo trovare
+         * compatibile, non dimostrare, ma un segno sbagliato si vede. */
+        int exact = r->rational && !trig_on;
         r->confirmed = 0;
-        if (!r->inside || !r->rational || r->sample.num >= COEF_LIMIT || r->sample.num <= -COEF_LIMIT || r->sample.den >= COEF_LIMIT) continue;
-        int direct = sign_holds_at(body, name, (Frac){(long long)r->sample.num, (long long)r->sample.den});
-        if (!failure && direct == sign_truth(body, r->sign)) r->confirmed = 1;
-        else if (!failure) sound = 0;
-        failure = NULL;
+        r->must = trig_on ? !point : r->rational;
+        if (!r->inside) continue;
+
+        /* Con le finestre (18p-14) la riga dice una cosa diversa in ogni
+         * giro, e si ricontrolla in ognuno; altrimenti il giro è uno solo. */
+        Wide more[8];
+        int count = point ? 0 : row_points(row, more), every = 1;
+        for (window_turn = window_first; window_turn <= window_last && sound; window_turn++) {
+            int truth = sign_truth(body, r->sign), agreed = table_agrees(body, name, r->sample, exact ? NULL : point, truth);
+            if (agreed == 0) sound = 0;
+            if (agreed != 1) every = 0;
+
+            /* Un intervallo si ricontrolla anche in altri punti (row_points()). */
+            for (int extra = 0; extra < count && sound; extra++)
+                if (table_agrees(body, name, more[extra], NULL, truth) == 0) sound = 0;
+        }
+        window_turn = 0;
+        r->confirmed = every;
     }
     return sound;
 }
@@ -11386,6 +14703,454 @@ static int sign_solution(const Formula *f, int name) {
     return plain && !solution_note[0];
 }
 
+/* 18p-12. LE SOLUZIONI DI UNA CONDIZIONE PERIODICA
+ *
+ * La tabella di un enunciato periodico è nella lettera t = tan(u / 2), con
+ * u = g x. Per scrivere le soluzioni in x bisogna tornare indietro:
+ *
+ *   - un punto t_0 della tabella è l'angolo u_0 = 2 arctan t_0, tra -pi e
+ *     pi; un tratto di righe consecutive in cui la condizione vale è un
+ *     arco della circonferenza; il punto u = pi, calcolato a parte, chiude
+ *     il giro e può unire l'ultimo arco al primo;
+ *   - le soluzioni in u si ripetono ogni 2 pi, quindi in x ogni 2 pi / g; ma
+ *     l'insieme può avere un periodo più piccolo (le soluzioni di
+ *     tan x = 1 si ripetono ogni pi), e si cerca il più piccolo tra i
+ *     sottomultipli;
+ *   - gli estremi si scrivono, quando si può, come multipli razionali di
+ *     pi. Che u_0 sia proprio p pi / q, e non un numero vicino, si
+ *     stabilisce con un conto esatto: vedi angle_of_point().
+ */
+
+/* Un angolo, in giri di pi: vale turns * pi più una parte fissa che dipende
+ * da kind. Due angoli dello stesso tipo, con la stessa parte fissa, sono
+ * uguali quando hanno lo stesso turns: è così che gli angoli si confrontano
+ * senza errori. near è il suo valore approssimato diviso pi, che serve solo
+ * a metterli in ordine. */
+typedef struct {
+    int kind;      /* 0: nessuna parte fissa, l'angolo è un multiplo razionale di
+                      pi; 1: la parte fissa è arctan(slope); 2: è
+                      2 arctan(t), con t il punto numero point della tabella */
+    Frac turns;
+    Frac slope;    /* kind 1 */
+    int point;     /* kind 2 */
+    double near;
+} Angle;
+
+/* Un arco dell'insieme delle soluzioni, da from a to nel verso in cui gli
+ * angoli crescono; un punto solo se single. period è ogni quanto si ripete,
+ * in giri di pi di u: lo usa solo la scrittura delle famiglie (18p-12). */
+typedef struct {
+    Angle from, to;
+    int from_closed, to_closed, single;
+    Frac period;
+} Arc;
+
+/* Ritorna il polinomio S_q(t), la parte immaginaria di (1 + i t)^q: la somma
+ * sui j dispari di (-1)^((j-1)/2) C(q, j) t^j. */
+static Uni half_angle_poly(int q) {
+    Uni p = {0, {0}};
+    __int128 binomial = 1;
+    for (int j = 0; j <= q; j++) {
+        if (j % 2) p.c[j] = (j / 2) % 2 ? -binomial : binomial;
+        binomial = binomial * (q - j) / (j + 1);
+    }
+    p.degree = q;
+    uni_trim(&p);
+    return p;
+}
+
+/* Ritorna l'angolo u_0 = 2 arctan t_0 del punto numero k della tabella.
+ *
+ * Quando u_0 è un multiplo razionale di pi lo si riconosce così. Il numero
+ * 1 + i t_0 ha per argomento arctan t_0 = u_0 / 2; quindi (1 + i t_0)^q ha
+ * per argomento q u_0 / 2, ed è un numero reale esattamente quando q u_0 è
+ * un multiplo di 2 pi, cioè quando la sua parte immaginaria S_q(t_0) è
+ * zero. Che t_0 annulli S_q è un fatto esatto: per un razionale è un conto;
+ * per una radice irrazionale di un elemento e della base, vuol dire che il
+ * massimo comun divisore di e e di S_q ha una radice nell'intervallo che
+ * isola t_0, e le radici in un intervallo le conta il teorema di Sturm.
+ * Saputo che q u_0 è un multiplo di 2 pi, quale multiplo lo dice il valore
+ * approssimato, perché i multipli distano 2 pi / q l'uno dall'altro. Si
+ * provano i q dei libri, dai più piccoli: con q = 12 si riconosce pi/6, con
+ * 24 pi/12, con 16 pi/8, con 20 pi/10.
+ *
+ * Altrimenti, se tan u_0 = 2 t_0 / (1 - t_0^2) è un razionale m, l'angolo è
+ * arctan m, più o meno pi. Lo è per un t_0 razionale, e per una radice di
+ * a t^2 + b t - a, dove vale 2a / b perché a (1 - t^2) = b t. Negli altri
+ * casi l'angolo resta scritto come 2 arctan t_0. */
+static Angle angle_of_point(int k) {
+    static const int tries[] = {1, 2, 3, 4, 6, 12, 8, 5, 10, 24, 16, 20};
+    const Critical *point = &sign_point[k];
+    Range value = point->exact ? range_ratio(point->low.num, point->low.den) : root_range(&sign_base[point->element], point->low, point->high);
+    Range turn = range_div(range_mul(range_ratio(2, 1), range_atan(value)), range_pi());
+    Angle angle = {2, frac_int(0), frac_int(0), k, (turn.low + turn.high) / 2};
+
+    /* Un multiplo razionale di pi. */
+    for (size_t i = 0; i < sizeof tries / sizeof *tries && !failure; i++) {
+        int q = tries[i];
+        /* q u_0 deve essere un multiplo di 2 pi: near q / 2 un intero. */
+        double scaled = angle.near * q / 2, nearest = (double)(long long)(scaled + (scaled < 0 ? -0.5 : 0.5));
+        if (scaled - nearest > 1e-9 || nearest - scaled > 1e-9) continue;
+        Uni imaginary = half_angle_poly(q);
+        int zero;
+        if (point->exact) {
+            zero = uni_sign_at(&imaginary, point->low) == 0;
+        } else {
+            Uni common = uni_gcd(sign_base[point->element], imaginary);
+            zero = common.degree >= 1;
+            if (zero) {
+                sturm_build(&common);
+                zero = sturm_changes(point->low) - sturm_changes(point->high) == 1;
+            }
+        }
+        if (failure || !zero) continue;
+        angle.kind = 0;
+        angle.turns = frac_make(2 * (long long)nearest, q);
+        return angle;
+    }
+
+    /* arctan di un razionale, più o meno pi. */
+    Frac slope = frac_int(0);
+    int rational = 0;
+    if (point->exact && point->low.num < 1000000 && point->low.num > -1000000 && point->low.den < 1000000) {
+        Frac t = {(long long)point->low.num, (long long)point->low.den}, below = frac_add(frac_int(1), frac_neg(frac_mul(t, t)));
+        rational = below.num != 0;
+        if (rational) slope = frac_div(frac_add(t, t), below);
+    } else if (!point->exact) {
+        const Uni *e = &sign_base[point->element];
+        rational = e->degree == 2 && e->c[0] == -e->c[2] && e->c[1] != 0 && e->c[2] < 1000000 && e->c[2] > -1000000 && e->c[1] < 1000000 && e->c[1] > -1000000;
+        if (rational) slope = frac_make(2 * e->c[2], e->c[1]);
+    }
+    if (rational && !failure) {
+        Range base = range_div(range_atan(range_ratio(slope.num, slope.den)), range_pi());
+        double shift = angle.near - (base.low + base.high) / 2;
+        angle.kind = 1;
+        angle.slope = slope;
+        angle.turns = frac_int((long long)(shift + (shift < 0 ? -0.5 : 0.5)));
+    }
+    failure = NULL;
+    return angle;
+}
+
+/* Ritorna l'angolo a ruotato di turns giri di pi. */
+static Angle angle_turn(Angle a, Frac turns) {
+    a.turns = frac_add(a.turns, turns);
+    a.near += (double)turns.num / (double)turns.den;
+    return a;
+}
+
+/* Ritorna 1 se a e b sono lo stesso angolo a meno di multipli di modulus
+ * (in giri di pi: 2 per i giri interi). */
+static int angle_same(Angle a, Angle b, Frac modulus) {
+    Frac gap = frac_div(frac_add(a.turns, frac_neg(b.turns)), modulus);
+    if (a.kind != b.kind || gap.den != 1) return 0;
+    return a.kind == 0 || (a.kind == 1 ? frac_cmp(a.slope, b.slope) == 0 : a.point == b.point);
+}
+
+/* Ritorna 1 se gli archi a e b sono lo stesso arco a meno di multipli di
+ * modulus. */
+static int arc_same(const Arc *a, const Arc *b, Frac modulus) {
+    Frac gap = frac_add(a->from.turns, frac_neg(b->from.turns));
+    return a->single == b->single && a->from_closed == b->from_closed && a->to_closed == b->to_closed &&
+           angle_same(a->from, b->from, modulus) && angle_same(a->to, angle_turn(b->to, gap), modulus) && frac_cmp(a->to.turns, frac_add(b->to.turns, gap)) == 0;
+}
+
+/* Riporta l'arco *arc, che si ripete ogni period giri di pi, alla sua copia
+ * di riferimento, quella che scrivono i libri: comincia tra 0 e il periodo,
+ * come \frac{7}{6}\pi + 2k\pi < x < \frac{11}{6}\pi + 2k\pi; ma un intervallo
+ * che così scavalcherebbe la fine del periodo si scrive attorno allo zero,
+ * -\frac{\pi}{6} + 2k\pi \le x \le \frac{\pi}{3} + 2k\pi, e un punto scritto
+ * con un'arcotangente resta, quando il periodo lo permette, senza multipli
+ * di pi accanto: x = \arctan 2 + k\pi. */
+static void arc_home(Arc *arc, Frac period) {
+    double length = (double)period.num / (double)period.den, from = arc->from.near;
+    long long steps = (long long)(from / length);
+    Frac whole = frac_div(arc->from.turns, period);
+    if (from < 0) steps--;
+    if (from - steps * length > length - 1e-9) steps++;
+    if (from - steps * length < -1e-9) steps--;
+    if (!arc->single && arc->to.near - steps * length > length + 1e-9) steps++;
+    if (arc->single && arc->from.kind != 0 && whole.den == 1) steps = whole.num;
+    Frac back = frac_mul(frac_int(-steps), period);
+    arc->from = angle_turn(arc->from, back);
+    arc->to = angle_turn(arc->to, back);
+    arc->period = period;
+}
+
+/* Aggiunge a text, di size byte, l'angolo a diviso per g = trig_scale, cioè
+ * il valore della variabile, più il multiplo del periodo period (in giri di
+ * pi, già diviso per g) se with_period non è zero: \frac{\pi}{6} + 2k\pi. */
+static void angle_latex(Angle a, Frac period, int with_period, char *text, size_t size) {
+    Frac turns = frac_div(a.turns, trig_scale), factor = frac_div(frac_int(a.kind == 2 ? 2 : 1), trig_scale);
+    int written = 0;
+
+    /* La parte fissa: un'arcotangente, con il suo fattore. */
+    if (a.kind != 0) {
+        char inside[96] = "";
+        Frac size_of = a.slope;
+        int minus = a.kind == 1 && a.slope.num < 0;
+        if (minus) size_of.num = -size_of.num;
+        if (a.kind == 1) wide_latex((Wide){size_of.num, size_of.den}, inside, sizeof inside); else point_latex(a.point, 't', inside, sizeof inside);
+        if (minus) text_add(text, size, "-");
+        if (factor.den != 1) text_add(text, size, "\\frac{%lld}{%lld}", factor.num, factor.den);
+        else if (factor.num != 1) text_add(text, size, "%lld", factor.num);
+        if (a.kind == 1 && size_of.den == 1) text_add(text, size, "\\arctan %s", inside); else text_add(text, size, "\\arctan\\left(%s\\right)", inside);
+        written = 1;
+    }
+
+    /* Il multiplo di pi. */
+    if (turns.num != 0) {
+        long long top = turns.num < 0 ? -turns.num : turns.num;
+        text_add(text, size, "%s", written ? (turns.num < 0 ? " - " : " + ") : (turns.num < 0 ? "-" : ""));
+        if (turns.den == 1 && top == 1) text_add(text, size, "\\pi");
+        else if (turns.den == 1) text_add(text, size, "%lld\\pi", top);
+        else if (top == 1) text_add(text, size, "\\frac{\\pi}{%lld}", turns.den);
+        else text_add(text, size, "\\frac{%lld}{%lld}\\pi", top, turns.den);
+        written = 1;
+    }
+
+    /* Il periodo. */
+    if (with_period) {
+        text_add(text, size, "%s", written ? " + " : "");
+        if (period.den == 1 && period.num == 1) text_add(text, size, "k\\pi");
+        else if (period.den == 1) text_add(text, size, "%lldk\\pi", period.num);
+        else if (period.num == 1) text_add(text, size, "\\frac{k\\pi}{%lld}", period.den);
+        else text_add(text, size, "\\frac{%lldk\\pi}{%lld}", period.num, period.den);
+    } else if (!written) {
+        text_add(text, size, "0");
+    }
+}
+
+/* Gli archi delle soluzioni dell'enunciato periodico in corso, e il periodo
+ * dell'insieme in giri di pi di u. Li riempie trig_solution(), che li riduce
+ * a un periodo e dà a ognuno il periodo della sua famiglia; oppure
+ * window_solution() (18p-14), con gli intervalli così come sono, senza
+ * periodo. */
+static Arc trig_arc[MAX_ARCS];
+static int trig_arcs;
+static Frac trig_period;
+
+/* 18p-12. Scrive in solution_text le soluzioni, nella variabile name, della
+ * condizione periodica f, dalle righe della tabella in t e dal valore
+ * at_pi che la condizione ha nel punto u = pi; riempie trig_arc[].
+ * Ritorna 0, dopo aver annotato un errore, se gli archi sono troppi. */
+static int trig_solution(const Formula *f, int name, int at_pi) {
+    static const int parts[] = {24, 12, 8, 6, 5, 4, 3, 2, 1};
+    Piece piece;
+    Angle start = {0, frac_int(-1), frac_int(0), 0, -1}, end = {0, frac_int(1), frac_int(0), 0, 1};
+    int first = -1, last = -1, whole = 0;
+    trig_arcs = 0;
+    solution_text[0] = solution_note[0] = '\0';
+
+    /* Gli archi in un giro di u, da -pi a pi. Il primo può cominciare in
+     * -pi e l'ultimo finire in pi: sono lo stesso punto della
+     * circonferenza. */
+    for (int from = 0; !failure && sign_piece(f, from, &piece); from = piece.last + 1) {
+        if (trig_arcs == MAX_ARCS - 1) { fail("troppi archi nelle soluzioni di una condizione periodica"); return 0; }
+        Arc *arc = &trig_arc[trig_arcs];
+        arc->single = piece.first == piece.last && piece.first % 2;
+        arc->from = piece.low < 0 ? start : angle_of_point(piece.low);
+        arc->to = piece.high < 0 ? end : angle_of_point(piece.high);
+        arc->from_closed = piece.low >= 0 && piece.low_closed;
+        arc->to_closed = piece.high >= 0 && piece.high_closed;
+        if (piece.low < 0) first = trig_arcs;
+        if (piece.high < 0) last = trig_arcs;
+        if (piece.low < 0 && piece.high < 0) whole = 1;
+        trig_arcs++;
+    }
+    if (failure) return 0;
+
+    /* Il punto u = pi. Se la condizione lì vale: unisce l'ultimo arco al
+     * primo, o chiude quello dei due che c'è, o è una soluzione isolata. Se
+     * non vale, i due archi restano aperti da quella parte. */
+    if (whole && at_pi) {
+        text_add(solution_text, sizeof solution_text, "\\forall %c \\in \\mathbb{R}", name);
+        trig_arcs = 1;
+        trig_period = frac_int(2);
+        trig_arc[0] = (Arc){start, end, 1, 1, 0, frac_int(2)};
+        return 1;
+    }
+    if (at_pi && first >= 0 && last >= 0) {
+        trig_arc[last].to = angle_turn(trig_arc[first].to, frac_int(2));
+        trig_arc[last].to_closed = trig_arc[first].to_closed;
+        trig_arc[first] = trig_arc[--trig_arcs];
+    } else if (at_pi && last >= 0) {
+        trig_arc[last].to_closed = 1;
+    } else if (at_pi && first >= 0) {
+        trig_arc[first].from_closed = 1;
+    } else if (at_pi) {
+        trig_arc[trig_arcs++] = (Arc){end, end, 1, 1, 1, frac_int(2)};
+    }
+    if (trig_arcs == 0) {
+        text_add(solution_text, sizeof solution_text, "\\nexists %c \\in \\mathbb{R}", name);
+        trig_period = frac_int(2);
+        return 1;
+    }
+
+    /* Il periodo più piccolo: il più grande m per cui ruotando ogni arco di
+     * 2 pi / m si ritrova un arco dell'insieme. Gli archi sono massimali e
+     * staccati, quindi l'insieme ruotato coincide con l'insieme quando
+     * coincidono gli archi. */
+    int m = 1;
+    for (size_t i = 0; i < sizeof parts / sizeof *parts && m == 1; i++) {
+        int same = 1;
+        for (int a = 0; a < trig_arcs && same; a++) {
+            Arc turned = trig_arc[a];
+            int found = 0;
+            turned.from = angle_turn(turned.from, frac_make(2, parts[i]));
+            turned.to = angle_turn(turned.to, frac_make(2, parts[i]));
+            for (int b = 0; b < trig_arcs && !found; b++) found = arc_same(&turned, &trig_arc[b], frac_int(2));
+            same = found;
+        }
+        if (same) m = parts[i];
+    }
+    trig_period = frac_make(2, m);
+
+    /* Un arco per ogni classe: gli altri sono le sue copie ruotate di un
+     * periodo. */
+    int kept = 0;
+    for (int a = 0; a < trig_arcs; a++) {
+        Arc arc = trig_arc[a];
+        int copy = 0;
+        arc_home(&arc, trig_period);
+        for (int b = 0; b < kept && !copy; b++) copy = arc_same(&arc, &trig_arc[b], trig_period);
+        if (!copy) trig_arc[kept++] = arc;
+    }
+    trig_arcs = kept;
+
+    /* Le famiglie. Dentro il periodo dell'insieme alcuni archi possono
+     * ripetersi più spesso: le soluzioni di sin(4x) = sin(2x) sono
+     * x = k pi/2 e x = pi/6 + k pi/3, e solo insieme hanno periodo pi. Per
+     * ogni divisore r, dai più grandi, un arco che ruotato di 1/r, 2/r, ...
+     * del periodo ritrova altri archi dell'insieme li rappresenta tutti,
+     * con il periodo diviso per r. Ogni famiglia così scritta è fatta di
+     * archi dell'insieme, e ogni arco finisce in una famiglia: l'insieme
+     * non cambia, cambia solo come lo si scrive. */
+    int state[MAX_ARCS] = {0};  /* 1: rappresenta una famiglia; 2: è in quella di un altro */
+    for (size_t i = 0; i < sizeof parts / sizeof *parts && parts[i] > 1; i++) {
+        Frac step = frac_div(trig_period, frac_int(parts[i]));
+        for (int a = 0; a < trig_arcs; a++) {
+            int member[24], found = !state[a];
+            for (int j = 1; j < parts[i] && found; j++) {
+                Arc turned = trig_arc[a];
+                turned.from = angle_turn(turned.from, frac_mul(step, frac_int(j)));
+                turned.to = angle_turn(turned.to, frac_mul(step, frac_int(j)));
+                found = 0;
+                for (int b = 0; b < trig_arcs && !found; b++)
+                    if (b != a && !state[b] && arc_same(&turned, &trig_arc[b], trig_period)) { member[j] = b; found = 1; }
+            }
+            if (!found) continue;
+            state[a] = 1;
+            for (int j = 1; j < parts[i]; j++) state[member[j]] = 2;
+            arc_home(&trig_arc[a], step);
+        }
+    }
+    kept = 0;
+    for (int a = 0; a < trig_arcs; a++)
+        if (state[a] != 2) trig_arc[kept++] = trig_arc[a];
+    trig_arcs = kept;
+
+    /* In ordine, e scritti nella variabile: gli angoli divisi per g. */
+    for (int a = 0; a < trig_arcs; a++)
+        for (int b = a + 1; b < trig_arcs; b++)
+            if (trig_arc[b].from.near < trig_arc[a].from.near) { Arc swap = trig_arc[a]; trig_arc[a] = trig_arc[b]; trig_arc[b] = swap; }
+    for (int a = 0; a < trig_arcs && !failure; a++) {
+        const Arc *arc = &trig_arc[a];
+        Frac shown = frac_div(arc->period, trig_scale);
+        if (a) text_add(solution_text, sizeof solution_text, " \\lor ");
+        if (arc->single) {
+            text_add(solution_text, sizeof solution_text, "%c = ", name);
+            angle_latex(arc->from, shown, 1, solution_text, sizeof solution_text);
+            continue;
+        }
+        angle_latex(arc->from, shown, 1, solution_text, sizeof solution_text);
+        text_add(solution_text, sizeof solution_text, " %s %c %s ", arc->from_closed ? "\\le" : "<", name, arc->to_closed ? "\\le" : "<");
+        angle_latex(arc->to, shown, 1, solution_text, sizeof solution_text);
+    }
+    return !failure;
+}
+
+/* 18p-14. Scrive in solution_text le soluzioni, nella variabile name, della
+ * condizione periodica f ristretta da finestre, e riempie trig_arc[] con i
+ * loro intervalli, questa volta non ridotti a un periodo. La tabella si
+ * legge un giro alla volta, dal giro window_first al giro window_last;
+ * pi_truth[j][0] dice se la condizione vale nel punto u = pi del giro
+ * window_first + j, che è dove quel giro finisce e il successivo comincia:
+ * se vale, unisce l'ultimo intervallo di un giro al primo del successivo.
+ * Ritorna 0, dopo aver annotato un errore, se le soluzioni non stanno in un
+ * intervallo limitato o se gli intervalli sono troppi. */
+static int window_solution(const Formula *f, int name, int pi_truth[][3]) {
+    static const char unbounded[] = "le soluzioni di una condizione periodica ristretta dalla variabile non stanno in un intervallo limitato: non le so scrivere";
+    Piece piece;
+    int carry = -1;  /* l'intervallo che arriva alla fine del giro precedente, punto compreso */
+    trig_arcs = 0;
+    solution_text[0] = solution_note[0] = '\0';
+    for (window_turn = window_first; window_turn <= window_last && !failure; window_turn++) {
+        Frac shift = frac_int(2 * window_turn);
+        Angle start = {0, frac_int(2 * window_turn - 1), frac_int(0), 0, (double)(2 * window_turn - 1)};
+        Angle end = {0, frac_int(2 * window_turn + 1), frac_int(0), 0, (double)(2 * window_turn + 1)};
+        int reaches = -1, at_end = pi_truth[window_turn - window_first][0], outer = window_turn == window_first || window_turn == window_last;
+
+        /* Gli intervalli di questo giro. Il primo può continuare quello che
+         * il giro precedente ha lasciato aperto. */
+        for (int from = 0; !failure && sign_piece(f, from, &piece); from = piece.last + 1) {
+            Arc *arc = piece.low < 0 && carry >= 0 ? &trig_arc[carry] : NULL;
+            if (outer) { fail(unbounded); break; }
+            if (!arc && trig_arcs == MAX_ARCS) { fail("troppi archi nelle soluzioni di una condizione periodica"); break; }
+            if (!arc) {
+                arc = &trig_arc[trig_arcs++];
+                arc->from = piece.low < 0 ? start : angle_turn(angle_of_point(piece.low), shift);
+                arc->from_closed = piece.low >= 0 && piece.low_closed;
+            }
+            arc->single = arc->from_closed && piece.first == piece.last && piece.first % 2 && piece.low >= 0;
+            arc->to = piece.high < 0 ? end : angle_turn(angle_of_point(piece.high), shift);
+            arc->to_closed = piece.high >= 0 && piece.high_closed;
+            carry = -1;
+            reaches = piece.high < 0 ? (int)(arc - trig_arc) : -1;
+        }
+        if (failure) break;
+
+        /* Il punto in cui il giro finisce. */
+        if (!at_end) { carry = -1; continue; }
+        if (outer) { fail(unbounded); break; }
+        if (reaches < 0 && trig_arcs == MAX_ARCS) { fail("troppi archi nelle soluzioni di una condizione periodica"); break; }
+        if (reaches < 0) trig_arc[trig_arcs] = (Arc){end, end, 1, 1, 1, frac_int(0)};
+        carry = reaches >= 0 ? reaches : trig_arcs++;
+        trig_arc[carry].to_closed = 1;
+    }
+    window_turn = 0;
+    if (failure) return 0;
+
+    /* Il testo: gli intervalli sono già in ordine. */
+    if (trig_arcs == 0) text_add(solution_text, sizeof solution_text, "\\nexists %c \\in \\mathbb{R}", name);
+    for (int a = 0; a < trig_arcs && !failure; a++) {
+        const Arc *arc = &trig_arc[a];
+        if (a) text_add(solution_text, sizeof solution_text, " \\lor ");
+        if (arc->single) {
+            text_add(solution_text, sizeof solution_text, "%c = ", name);
+            angle_latex(arc->from, frac_int(0), 0, solution_text, sizeof solution_text);
+            continue;
+        }
+        angle_latex(arc->from, frac_int(0), 0, solution_text, sizeof solution_text);
+        text_add(solution_text, sizeof solution_text, " %s %c %s ", arc->from_closed ? "\\le" : "<", name, arc->to_closed ? "\\le" : "<");
+        angle_latex(arc->to, frac_int(0), 0, solution_text, sizeof solution_text);
+    }
+    return !failure;
+}
+
+/* Ritorna un intervallo che contiene il valore della variabile nell'angolo
+ * a, cioè l'angolo diviso per g = trig_scale. */
+static Range angle_range(Angle a) {
+    Range value = range_mul(range_ratio(a.turns.num, a.turns.den), range_pi());
+    if (a.kind == 1) value = range_add(value, range_atan(range_ratio(a.slope.num, a.slope.den)));
+    if (a.kind == 2) {
+        const Critical *point = &sign_point[a.point];
+        Range t = point->exact ? range_ratio(point->low.num, point->low.den) : root_range(&sign_base[point->element], point->low, point->high);
+        value = range_add(value, range_mul(range_ratio(2, 1), range_atan(t)));
+    }
+    return range_div(value, range_ratio(trig_scale.num, trig_scale.den));
+}
+
 /* Rilegge le soluzioni scritte in solution_text e controlla che dicano ciò
  * che dice la tabella: in ogni riga razionale la condizione riletta, con il
  * valore della riga al posto della variabile name, deve valere esattamente
@@ -11400,10 +15165,21 @@ static int solution_reread(const Formula *f, int name) {
     if (syntax_error || token.kind != T_END) { syntax_error = NULL; return 0; }
     for (int row = 0; row < sign_rows; row++) {
         const SignRow *r = &sign_row[row];
+        Wide at[9];
         if (!r->inside || !r->rational) continue;
-        failure = NULL;
-        int direct = sign_holds_at(written, name, (Frac){(long long)r->sample.num, (long long)r->sample.den});
-        if (failure || direct != sign_truth(f, r->sign)) { failure = NULL; return 0; }
+
+        /* Il valore della riga, che deve riuscire; e per un intervallo gli
+         * altri suoi punti, dove un estremo scritto male si vede anche se
+         * il valore scelto sta dalla parte giusta di tutti e due. */
+        int count = row % 2 ? 0 : row_points(row, at + 1);
+        at[0] = r->sample;
+        for (int i = 0; i <= count; i++) {
+            if (at[i].num >= COEF_LIMIT || at[i].num <= -COEF_LIMIT || at[i].den >= COEF_LIMIT) { if (i == 0) return 0; continue; }
+            failure = NULL;
+            int direct = sign_holds_at(written, name, (Frac){(long long)at[i].num, (long long)at[i].den});
+            if (failure && i > 0) { failure = NULL; continue; }
+            if (failure || direct != sign_truth(f, r->sign)) { failure = NULL; return 0; }
+        }
     }
     return 1;
 }
@@ -11451,14 +15227,24 @@ static double node_value(const Node *node, int name, double x, int *ok) {
     return (value.low + value.high) / 2;
 }
 
-/* Ritorna il valore approssimato del punto numero k della tabella, per
- * metterlo su un asse. Una radice irrazionale si avvicina per bisezione
- * sull'elemento della base che la annulla: agli estremi dell'intervallo che
- * la isola il polinomio ha segni opposti, perché la radice è semplice. */
+/* Ritorna il valore della variabile, in virgola mobile, là dove la lettera
+ * della tabella vale t: t stesso, oppure, in un enunciato periodico,
+ * (2 arctan t) / g, il punto del giro che va da -pi / g a pi / g. */
+static double figure_place(double t) {
+    if (!trig_on) return t;
+    Range angle = range_atan((Range){t, t});
+    return (angle.low + angle.high) * (double)trig_scale.den / (double)trig_scale.num;
+}
+
+/* Ritorna il valore approssimato della variabile nel punto numero k della
+ * tabella, per metterlo su un asse. Una radice irrazionale si avvicina per
+ * bisezione sull'elemento della base che la annulla: agli estremi
+ * dell'intervallo che la isola il polinomio ha segni opposti, perché la
+ * radice è semplice. */
 static double point_approx(int k) {
     const Critical *point = &sign_point[k];
     double low = (double)point->low.num / (double)point->low.den, high = (double)point->high.num / (double)point->high.den;
-    if (point->exact) return low;
+    if (point->exact) return figure_place(low);
     if (point->kappa >= 0) return (low + high) / 2;
     const Uni *q = &sign_base[point->element];
     int negative = 0;
@@ -11471,7 +15257,7 @@ static double point_approx(int k) {
         else if ((value < 0) == negative) low = x;
         else high = x;
     }
-    return (low + high) / 2;
+    return figure_place((low + high) / 2);
 }
 
 /* Mette in list[], che ha MAX_PANELS + 1 posti, i confronti della
@@ -11627,7 +15413,10 @@ static void figure_solutions(PlAxes *axes, const Formula *f, double low, double 
             if (k < 0) continue;
             pl_marker(axes, ends[side], 0, PL_GREEN, side ? piece.high_closed : piece.low_closed);
             if (ticks > 0 && at[ticks - 1] == ends[side]) continue;
-            if (sign_point[k].exact) wide_text(sign_point[k].low, text[ticks], sizeof text[ticks]);
+            /* In un enunciato periodico il punto esatto è il valore di t,
+             * non quello della variabile: lì la scritta è sempre il
+             * decimale. */
+            if (sign_point[k].exact && !trig_on) wide_text(sign_point[k].low, text[ticks], sizeof text[ticks]);
             else snprintf(text[ticks], sizeof text[ticks], "%.3f", ends[side]);
 
             /* Due estremi vicini avrebbero le scritte una sull'altra: il
@@ -11670,7 +15459,7 @@ static void sign_figure(const Formula *f, int name) {
      * vedere. */
     double low = -5, high = 5;
     int seen = 0;
-    for (int k = 0; k < sign_points_count; k++) {
+    for (int k = 0; k < sign_points_count && !trig_on; k++) {
         int matters = point_matters(f, k);
         for (int i = 0; i < panels && !matters; i++) matters = point_edge(panel[i], k) || point_matters(panel[i], k);
         if (!matters) continue;
@@ -11682,6 +15471,14 @@ static void sign_figure(const Formula *f, int name) {
         if (margin < 2) margin = 2;
         low -= margin;
         high += margin;
+    }
+
+    /* Di un enunciato periodico si disegna un periodo: il giro della
+     * tabella, da -pi / g a pi / g, dove t percorre tutta la retta. */
+    if (trig_on) {
+        Range pi = range_pi();
+        high = (pi.low + pi.high) / 2 * (double)trig_scale.den / (double)trig_scale.num;
+        low = -high;
     }
 
     /* I pannelli dei confronti, poi la retta delle soluzioni. */
@@ -11708,25 +15505,88 @@ static void decide_by_signs(const Formula *thesis, Verdict *verdict) {
     const Formula *q = thesis;
     int negated = 0;
     while (q->kind == F_NOT) { q = q->a; negated = !negated; }
-    if ((q->kind != F_FORALL && q->kind != F_EXISTS && q->kind != F_SOLVE) || formula_has_quantifier(q->a) || q->numbers.integers) {
+    if ((q->kind != F_FORALL && q->kind != F_EXISTS && q->kind != F_SOLVE) || formula_bad_quantifier(q->a) || q->numbers.integers) {
         verdict->reason = "le relazioni d'ordine e i numeri reali sono trattati solo con una variabile, sui reali o sui razionali";
         return;
     }
     if (q->kind == F_SOLVE && !q->numbers.reals) { verdict->reason = "un insieme di soluzioni si cerca solo nei numeri reali"; return; }
     const Formula *body = q->a;
     const NumberSet *set = &q->numbers;
-    int every = q->kind == F_FORALL, solving = q->kind == F_SOLVE, name = q->variable, x = atom_var(name);
+    int every = q->kind == F_FORALL, solving = q->kind == F_SOLVE, name = q->variable, x = atom_var(name), shown = name;
+    static int pi_truth[MAX_TURNS][3];
+    char pi_text[64] = "";
+
+    /* 18p-11. Un enunciato con funzioni goniometriche della variabile è
+     * periodico: la tabella si fa nella lettera t = tan(g x / 2), che da qui
+     * in poi prende il posto della variabile, e il punto g x = pi, dove t
+     * non ha un valore, si calcola subito, a parte: lì ogni funzione è un
+     * numero, e l'enunciato è vero o falso senza tabella. */
+    sign_atoms = sign_polys = sign_nodes = sign_needs = kappas = spaces = family_leaves = windows = 0;
+    window_first = window_last = window_turn = 0;
+    sign_name = name;
+    trig_on = trig_bad = 0;
+    trig_scale = frac_int(0);
+    trig_x = x;
+    formula_trig(body);
+    failure = NULL;
+    if (trig_scale.num != 0) {
+        if (trig_bad || !set->reals || set->bounded || set->holes) {
+            verdict->reason = "le funzioni goniometriche sono trattate su tutti i numeri reali, con argomenti a x + b \\pi";
+            return;
+        }
+        int constant[MAX_CRITICAL];
+        trig_on = 1;
+        trig_letter = atom_var(SURD_NAMES + MAX_SURDS + MAX_SPACES);
+        trig_root[0] = node_call(FN_ROOT, node_num(2), node_num(2));
+        trig_root[1] = node_call(FN_ROOT, node_num(3), node_num(2));
+        x = sign_x = trig_letter;
+        shown = 't';
+        trig_at_pi = 1;
+        sign_prepare(body, x);
+        trig_at_pi = 0;
+        for (int i = 0; i < sign_polys && !failure; i++) {
+            if (sign_poly[i].degree > 0) fail(SIGN_SHAPE);
+            constant[i] = uni_sign_at(&sign_poly[i], (Wide){0, 1});
+        }
+        /* 18p-14. Con le finestre i giri da leggere sono più d'uno, e il
+         * punto u = pi va calcolato in ognuno. */
+        if (windows) { window_first = window_low - 1; window_last = window_high + 1; }
+        if (!failure && window_last - window_first >= MAX_TURNS) fail("una condizione periodica ristretta a un intervallo che copre troppi periodi");
+        if (failure) { verdict->reason = failure; failure = NULL; trig_on = 0; return; }
+        for (window_turn = window_first; window_turn <= window_last; window_turn++) {
+            int *at_pi = pi_truth[window_turn - window_first];
+            at_pi[0] = sign_truth(body, constant);
+            at_pi[1] = body->kind == F_IFF && sign_truth(body->a, constant);
+            at_pi[2] = body->kind == F_IFF && sign_truth(body->b, constant);
+
+            /* Il controllo con i numeri, nel punto x = (2j + 1) pi / g. */
+            Range pi_point = range_div(range_mul(range_ratio(2 * window_turn + 1, 1), range_pi()), range_ratio(trig_scale.num, trig_scale.den));
+            int seen = range_truth(body, name, pi_point, 1);
+            if (seen < 0 || seen == at_pi[0]) continue;
+            unjustified_steps++;
+            trig_on = 0;
+            window_turn = 0;
+            verdict->outcome = NOT_PROVED;
+            verdict->reason = "la verifica indipendente, con i numeri, non conferma il conto nel punto in cui la tangente non è definita";
+            return;
+        }
+        window_turn = 0;
+        sign_atoms = sign_polys = sign_nodes = sign_needs = family_leaves = windows = 0;
+    } else if (formula_has_quantifier(body)) {
+        verdict->reason = "un intero k dentro l'enunciato è trattato solo per scrivere le soluzioni di una condizione periodica, come x = a + k T";
+        return;
+    }
 
     /* 18p-1. I confronti; poi i punti che delimitano l'insieme: il suo
      * estremo inferiore e i punti tolti. */
-    sign_atoms = sign_polys = sign_nodes = sign_needs = kappas = spaces = 0;
-    sign_name = name;
     sign_x = x;
 
     /* 18p-8. Gli spazi: prima si registrano, guardando tutti i confronti;
-     * un errore in questa lettura non conta, lo ridirà il conto vero. */
-    space_live = 1;
-    formula_spaces(body);
+     * un errore in questa lettura non conta, lo ridirà il conto vero. In un
+     * enunciato periodico non se ne registrano: esponenziali e logaritmi
+     * della variabile lì non sono trattati. */
+    space_live = !trig_on;
+    if (!trig_on) formula_spaces(body);
     space_live = 0;
     failure = NULL;
     sign_prepare(body, x);
@@ -11755,50 +15615,109 @@ static void decide_by_signs(const Formula *thesis, Verdict *verdict) {
      * "esiste"; per un insieme di soluzioni servono tutte. */
     size_t opening = proof_length;
     int decided = -1, rechecked = 1;
+    if (trig_on) {
+        /* La sostituzione, detta al lettore: da qui la tabella è in t. */
+        char angle[48] = "x";
+        if (trig_scale.den != 1) snprintf(angle, sizeof angle, "\\frac{%lld}{%lld} %c", trig_scale.num, trig_scale.den, name);
+        else if (trig_scale.num != 1) snprintf(angle, sizeof angle, "%lld %c", trig_scale.num, name);
+        else snprintf(angle, sizeof angle, "%c", name);
+        proof_add("\\textbf{Substitution.} Put $u = %s$ and $t = \\tan\\frac{u}{2}$: then $\\sin u = \\frac{2t}{1 + t^{2}}$ and "
+                  "$\\cos u = \\frac{1 - t^{2}}{1 + t^{2}}$, and every comparison becomes one between expressions in $t$. As $u$ runs "
+                  "over one turn, from $-\\pi$ to $\\pi$, $t$ runs once over the whole real line; the point $u = \\pi$, where $t$ has no "
+                  "value, is checked apart. The statement has period $2\\pi$ in $u$.\n\n", angle);
+    }
     proof_add("\\textbf{Sign table.} Each comparison counts as false where one of its sides has no value. "
-              "Its truth can change only where one of these expressions in $%c$ is zero: ", name);
+              "Its truth can change only where one of these expressions in $%c$ is zero: ", shown);
     for (int i = 0, written = 0; i < sign_polys; i++) {
         /* Solo le colonne di questa tabella: i polinomi nella variabile, e
          * le differenze x - k. */
         if (sign_space[i] >= 0 || (sign_kappa[i] < 0 && sign_poly[i].degree <= 0)) continue;
         proof_add("%s$", written++ ? ", " : "");
-        if (sign_kappa[i] >= 0) proof_add("%c - %s", name, kappa[sign_kappa[i]].text); else put_uni(&sign_poly[i], name);
+        if (sign_kappa[i] >= 0) proof_add("%c - %s", shown, kappa[sign_kappa[i]].text); else put_uni(&sign_poly[i], shown);
         proof_add("$");
     }
-    proof_add(". At each of these points and on every interval between two consecutive ones the signs are constant, so one value of $%c$ decides each.\n\\begin{itemize}\n", name);
-    for (int row = 0; row < sign_rows && decided < 0; row++) {
-        const SignRow *r = &sign_row[row];
-        if (!r->inside) continue;
-        int truth = sign_truth(body, r->sign);
-        proof_add("\\item ");
-        put_row(row, name);
-        if (body->kind == F_IFF)
-            proof_add(": the left side is %s, the right side is %s.\n", sign_truth(body->a, r->sign) ? "true" : "false", sign_truth(body->b, r->sign) ? "true" : "false");
-        else
-            proof_add(": the condition %s.\n", truth ? "holds" : "fails");
+    proof_add(". At each of these points and on every interval between two consecutive ones the signs are constant, so one value of $%c$ decides each.\n\\begin{itemize}\n", shown);
+    /* Un giro alla volta (18p-14): senza finestre il giro è uno solo. */
+    for (window_turn = window_first; window_turn <= window_last && decided < 0; window_turn++) {
+        const int *at_pi = pi_truth[window_turn - window_first];
+        char turn_text[64] = "";
+        if (window_turn) {
+            /* Il giro, come multiplo di pi da aggiungere al valore di x. */
+            snprintf(turn_text, sizeof turn_text, window_turn < 0 ? " - " : " + ");
+            angle_latex((Angle){0, frac_int(window_turn < 0 ? -2 * window_turn : 2 * window_turn), frac_int(0), 0, 0}, frac_int(0), 0, turn_text, sizeof turn_text);
+        }
+        if (windows)
+            proof_add("\\item[] With $u$ from $%lld\\pi$ to $%lld\\pi$%s:\n", 2 * window_turn - 1, 2 * window_turn + 1,
+                      window_turn == window_first ? ", and in the same way on every turn before" : window_turn == window_last ? ", and in the same way on every turn after" : "");
+        for (int row = 0; row < sign_rows && decided < 0; row++) {
+            const SignRow *r = &sign_row[row];
+            if (!r->inside) continue;
+            int truth = sign_truth(body, r->sign);
+            proof_add("\\item ");
+            put_row(row, shown);
+            if (body->kind == F_IFF)
+                proof_add(": the left side is %s, the right side is %s.\n", sign_truth(body->a, r->sign) ? "true" : "false", sign_truth(body->b, r->sign) ? "true" : "false");
+            else
+                proof_add(": the condition %s.\n", truth ? "holds" : "fails");
 
-        /* Una riga razionale che il conto con i numeri non ha potuto
-         * confermare lascia l'enunciato non deciso: un risultato non
-         * verificato non è un risultato. */
-        if (r->rational && !r->confirmed) rechecked = 0;
-        if (solving || truth == every) continue;
-        decided = row;
-        if (!r->rational) {
-            /* Una radice irrazionale: con i radicali, se ha una scrittura. */
-            char low[48], high[48], value[96] = "";
-            wide_text(sign_point[row / 2].low, low, sizeof low);
-            wide_text(sign_point[row / 2].high, high, sizeof high);
-            solution_note[0] = '\0';
-            point_latex(row / 2, name, value, sizeof value);
-            if (!failure && !solution_note[0]) snprintf(where, sizeof where, "%c = %s", name, value);
-            else snprintf(where, sizeof where, "%c = il numero irrazionale tra %s e %s che annulla un polinomio dell'enunciato", name, low, high);
-            failure = NULL;
-        } else {
-            char value[48];
-            wide_text(r->sample, value, sizeof value);
-            snprintf(where, sizeof where, "%c = %s", name, value);
+            /* Una riga razionale che il conto con i numeri non ha potuto
+             * confermare lascia l'enunciato non deciso: un risultato non
+             * verificato non è un risultato. */
+            if (r->must && !r->confirmed) rechecked = 0;
+            if (solving || truth == every) continue;
+            decided = row;
+            if (trig_on) {
+                /* Il valore della variabile: (2 / g) arctan t. */
+                char value[96] = "", factor[48] = "";
+                Frac twice = frac_div(frac_int(2), trig_scale);
+                if (twice.den != 1) snprintf(factor, sizeof factor, "\\frac{%lld}{%lld}", twice.num, twice.den);
+                else if (twice.num != 1) snprintf(factor, sizeof factor, "%lld", twice.num);
+                solution_note[0] = '\0';
+
+                /* Un punto della tabella che è un angolo riconosciuto (18p-12)
+                 * si scrive come tale: x = \frac{\pi}{3}, non 4\arctan(2 - \sqrt{3}). */
+                Angle angle = row % 2 ? angle_of_point(row / 2) : (Angle){2, frac_int(0), frac_int(0), 0, 0};
+                if (angle.kind != 2) {
+                    snprintf(where, sizeof where, "%c = ", name);
+                    angle_latex(angle_turn(angle, frac_int(2 * window_turn)), frac_int(0), 0, where, sizeof where);
+                    continue;
+                }
+                if (row % 2) point_latex(row / 2, shown, value, sizeof value); else wide_latex(r->sample, value, sizeof value);
+                if (failure || solution_note[0]) snprintf(where, sizeof where, "%c = %s\\arctan t%s, con t una radice irrazionale di un polinomio della tabella", name, factor, turn_text);
+                else if (strcmp(value, "0") == 0) snprintf(where, sizeof where, "%c = %s", name, turn_text[0] ? turn_text + (window_turn < 0 ? 1 : 3) : "0");
+                else snprintf(where, sizeof where, "%c = %s\\arctan\\left(%s\\right)%s", name, factor, value, turn_text);
+                failure = NULL;
+            } else if (!r->rational) {
+                /* Una radice irrazionale: con i radicali, se ha una scrittura. */
+                char low[48], high[48], value[96] = "";
+                wide_text(sign_point[row / 2].low, low, sizeof low);
+                wide_text(sign_point[row / 2].high, high, sizeof high);
+                solution_note[0] = '\0';
+                point_latex(row / 2, name, value, sizeof value);
+                if (!failure && !solution_note[0]) snprintf(where, sizeof where, "%c = %s", name, value);
+                else snprintf(where, sizeof where, "%c = il numero irrazionale tra %s e %s che annulla un polinomio dell'enunciato", name, low, high);
+                failure = NULL;
+            } else {
+                char value[48];
+                wide_text(r->sample, value, sizeof value);
+                snprintf(where, sizeof where, "%c = %s", name, value);
+            }
+        }
+
+        /* In un enunciato periodico, il punto lasciato fuori dalla tabella. */
+        if (trig_on && decided < 0) {
+            pi_text[0] = '\0';
+            angle_latex((Angle){0, frac_int(2 * window_turn + 1), frac_int(0), 0, 0}, frac_int(0), 0, pi_text, sizeof pi_text);
+            proof_add("\\item $%c = %s$, where $t$ has no value", name, pi_text);
+            if (body->kind == F_IFF) proof_add(": the left side is %s, the right side is %s.\n", at_pi[1] ? "true" : "false", at_pi[2] ? "true" : "false");
+            else proof_add(": the condition %s.\n", at_pi[0] ? "holds" : "fails");
+            if (!solving && at_pi[0] != every) {
+                decided = sign_rows;
+                snprintf(where, sizeof where, "%c = %s", name, pi_text);
+            }
         }
     }
+    window_turn = 0;
     proof_add("\\end{itemize}\n");
     if (!rechecked) {
         proof_cut(opening);
@@ -11809,16 +15728,74 @@ static void decide_by_signs(const Formula *thesis, Verdict *verdict) {
 
     /* Il grafico, se serve: della condizione, o del primo membro quando
      * l'enunciato la confronta con il suo risultato. Si fa solo se il conto
-     * con i numeri ha confermato ogni riga razionale, anche quelle dopo la
-     * riga che ha deciso. */
-    int drawable = figures_wanted;
+     * con i numeri ha confermato ogni riga che deve confermare (must), anche
+     * quelle dopo la riga che ha deciso. Di una condizione periodica si
+     * disegna un periodo; di una ristretta a un intervallo (18p-14), che si
+     * legge un giro alla volta, il grafico non c'è ancora. */
+    int drawable = figures_wanted && !windows;
     for (int row = 0; row < sign_rows; row++)
-        if (sign_row[row].inside && sign_row[row].rational && !sign_row[row].confirmed) drawable = 0;
+        if (sign_row[row].inside && sign_row[row].must && !sign_row[row].confirmed) drawable = 0;
     if (drawable) sign_figure(body->kind == F_IFF && !solving ? body->a : body, name);
 
     /* Un insieme di soluzioni: lo si legge dalla tabella, e ciò che si è
      * scritto lo si rilegge. Se una radice non ha una scrittura con i
      * radicali la rilettura non si può fare, e il verdetto lo dice. */
+    if (solving && trig_on) {
+        /* 18p-12. Le soluzioni di una condizione periodica, e il loro
+         * controllo. Ciò che si è scritto lo si rilegge, con il lettore del
+         * programma, come "esiste k intero tale che ..."; poi in molti
+         * valori della variabile, sparsi su più periodi, il testo riletto e
+         * la condizione, calcolati con i numeri, devono dire la stessa
+         * cosa. È il controllo di tutto il ritorno da t a x: angoli
+         * riconosciuti, periodo, estremi compresi o no, e la scrittura. */
+        if (!(windows ? window_solution(body, name, pi_truth) : trig_solution(body, name, pi_truth[0][0]))) { verdict->reason = failure; failure = NULL; proof_cut(opening); return; }
+        static char wrapped[sizeof solution_text + 64];
+        const Formula *written = NULL;
+        int checked = 0, family = strstr(solution_text, "k\\pi") != NULL, plain = (family || (windows && trig_arcs > 0)) && !solution_note[0];
+        if (plain) {
+            snprintf(wrapped, sizeof wrapped, family ? "\\exists k \\in \\mathbb{Z}\\ \\left(%s\\right)" : "%s", solution_text);
+            syntax_error = NULL;
+            cursor = wrapped;
+            next_token();
+            written = logic_formula();
+            if (syntax_error || token.kind != T_END) { syntax_error = NULL; written = NULL; }
+        }
+
+        /* I valori di prova, in giri di pi di u: sparsi su quasi quattro
+         * periodi, oppure, con le finestre, su tutti i giri letti. Poi gli
+         * estremi scritti, dove si vede un < al posto di un \le: lì i due
+         * conti possono solo dire "uguale, a quanto si vede", e devono
+         * dirlo tutti e due. */
+        long long first = 2 * window_first - 1, span = 2 * (window_last - window_first) + 2;
+        for (int i = 0; i < 97 + 2 * trig_arcs && plain; i++) {
+            Range value;
+            int edge = i >= 97;
+            if (edge) value = angle_range((i - 97) % 2 ? trig_arc[(i - 97) / 2].to : trig_arc[(i - 97) / 2].from);
+            else if (windows) value = range_div(range_mul(range_ratio(first * 97000 + span * (1000 * i + 371), 97000), range_pi()), range_ratio(trig_scale.num, trig_scale.den));
+            else value = range_div(range_mul(range_ratio(-3700000 + 82291 * i, 1000000), range_pi()), range_ratio(trig_scale.num, trig_scale.den));
+            int member = written ? range_truth(written, name, value, edge) : -1, seen = range_truth(body, name, value, edge);
+            if (member < 0 || seen < 0) continue;
+            checked += !edge;
+            if (member == seen) continue;
+            unjustified_steps++;
+            proof_cut(opening);
+            verdict->outcome = NOT_PROVED;
+            verdict->reason = "le soluzioni scritte non coincidono con la condizione, calcolata con i numeri";
+            return;
+        }
+        if (plain && checked < 40) { proof_cut(opening); verdict->reason = "non riesco a ricontrollare con i numeri le soluzioni di una condizione periodica"; return; }
+        proof_add("Going back to $%c$, the condition holds exactly for $%s$%s. $\\Box$", name, solution_text, family ? ", with $k$ any integer" : "");
+        verdict->outcome = SOLVED;
+        verdict->detail = solution_text;
+        verdict->note = family ? "k intero" : NULL;
+        if (solution_note[0]) {
+            static char note[sizeof solution_note + 128];
+            snprintf(note, sizeof note, "%sradici senza una scrittura con i radicali: le soluzioni scritte non sono state rilette%s", family ? "k intero; " : "", solution_note);
+            verdict->note = note;
+        }
+        verdict->proof = proof_text;
+        return;
+    }
     if (solving) {
         int plain = sign_solution(body, name);
         if (failure) { verdict->reason = failure; failure = NULL; proof_cut(opening); return; }
@@ -11845,12 +15822,1494 @@ static void decide_by_signs(const Formula *thesis, Verdict *verdict) {
      * se una lo conferma; una negazione davanti li rovescia. */
     int holds = every ? decided < 0 : decided >= 0;
     if (decided >= 0) proof_add("At this value the condition %s.", every ? "fails" : "holds");
-    else proof_add("The condition %s on every row, hence for every value of $%c$ in the set.", every ? "holds" : "fails", name);
+    else proof_add("The condition %s on every row, hence for every value of $%c$ in the set.", every ? "holds" : "fails", shown);
     if (negated) proof_add(" The statement is the negation of this claim.");
     proof_add(holds != negated ? " $\\Box$" : " So the statement is false.");
     verdict->outcome = holds != negated ? PROVED : REFUTED;
     verdict->detail = verdict->outcome == REFUTED && decided >= 0 ? where : NULL;
     verdict->proof = proof_text;
+}
+
+/* 18t. DUE VARIABILI REALI: UN PARAMETRO
+ *
+ * A che cosa serve. Sono gli esercizi "con il parametro" dei libri di scuola:
+ *
+ *     \forall a \in \mathbb{R}\ \{x \in \mathbb{R} \mid x^{2} - 4ax \le 0\}
+ *
+ * chiede di risolvere la disequazione in x per ogni valore di a, e la
+ * risposta è un elenco di casi: per a < 0 le soluzioni sono 4a \le x \le 0,
+ * per a = 0 la sola x = 0, per a > 0 sono 0 \le x \le 4a. Le forme trattate
+ * sono tre:
+ *
+ *   - una verifica: un quantificatore sul parametro e, dentro, una
+ *     combinazione di confronti nel solo parametro e di enunciati "per ogni
+ *     x" o "esiste x"; per esempio \forall a\ \forall x\ (...), oppure
+ *     \forall k\ ((\forall x\ (x^{2} - 2kx + 7 > 0)) \iff -\sqrt{7} < k < \sqrt{7});
+ *   - i valori del parametro: \{k \in \mathbb{R} \mid \forall x\ (...)\};
+ *   - le soluzioni con il parametro, come nell'esempio qui sopra.
+ *
+ * L'idea. Fissato il parametro a un numero resta un enunciato in una
+ * variabile, e quello lo decide la tabella dei segni (18p). I numeri sono
+ * infiniti, ma basta provarne pochi: la retta del parametro si divide in
+ * "celle", punti e intervalli aperti, e dentro una cella la risposta non
+ * cambia. È come guardare una parabola che si sposta al variare di a: finché
+ * non cambia verso, e le sue intersezioni con l'asse non nascono, non
+ * spariscono e non si scavalcano, la disequazione ha "le stesse" soluzioni,
+ * solo spostate. È la scomposizione cilindrica di Collins, con una sola
+ * lettera da eliminare.
+ *
+ *   18t-a. La proiezione: quali valori del parametro separano le celle. Ogni
+ *          confronto che contiene x è una frazione di polinomi nelle due
+ *          lettere; numeratori, denominatori e divisori si leggono come
+ *          polinomi in x i cui coefficienti sono polinomi nel parametro. I
+ *          valori critici sono le radici reali di:
+ *            a1. il coefficiente direttivo di ognuno;
+ *            a2. per ogni f, il primo psc_k(f, f') che non è il polinomio
+ *                nullo, con k = 0, 1, ... (f' è la derivata rispetto a x);
+ *            a3. per ogni coppia f, g, il primo psc_k(f, g) che non è il
+ *                polinomio nullo;
+ *            a4. i polinomi dei confronti nel solo parametro, preparati
+ *                come per una tabella dei segni nella lettera del parametro
+ *                (18p-1, 18p-7).
+ *          psc_k è il coefficiente principale del sottorisultante numero k
+ *          (subresultant_lead()); psc_0 è il risultante, e psc_0(f, f') è, a
+ *          meno del coefficiente direttivo, il discriminante.
+ *
+ *          Perché bastano. Su un intervallo aperto del parametro in cui
+ *          nessuno di quei polinomi si annulla:
+ *            - ogni f ha sempre lo stesso grado in x (a1);
+ *            - il massimo comun divisore di f e f' ha sempre lo stesso
+ *              grado, il primo k con psc_k diverso da zero (a2): quindi f ha
+ *              sempre lo stesso numero di radici complesse distinte. Le
+ *              radici di un polinomio di grado costante dipendono con
+ *              continuità dai coefficienti; se il loro numero non cambia non
+ *              possono fondersi né separarsi, e una radice reale non può
+ *              diventare complessa, perché prima dovrebbe coincidere con la
+ *              sua coniugata. Le radici reali di f sono dunque funzioni
+ *              continue del parametro, sempre le stesse e nello stesso
+ *              ordine;
+ *            - il massimo comun divisore di f e g ha sempre lo stesso grado
+ *              (a3): una radice di f e una di g che coincidono in un punto
+ *              coincidono in tutto l'intervallo, e due diverse restano
+ *              diverse.
+ *          Le radici reali di tutti i polinomi sono quindi curve continue
+ *          che non si toccano: tagliano la striscia sopra l'intervallo in
+ *          fasce, e in ogni fascia e su ogni curva ogni polinomio ha un
+ *          segno costante. I segni che x incontra sono gli stessi per ogni
+ *          valore del parametro nell'intervallo, e con loro la verità di
+ *          "per ogni x" e di "esiste x" (G. E. Collins, Quantifier
+ *          elimination for real closed fields by cylindrical algebraic
+ *          decomposition, 1975, teoremi 4 e 5). I valori critici non hanno
+ *          bisogno di teoria: ognuno è una cella di un punto solo.
+ *
+ *   18t-b. Le celle: i valori critici in ordine, trovati come i punti di una
+ *          tabella dei segni nella lettera del parametro (sign_points()), e
+ *          gli intervalli tra due consecutivi, ognuno con un razionale
+ *          scelto al suo interno.
+ *
+ *   18t-c. Una cella, una decisione. Al posto del parametro si scrive il
+ *          valore della cella: il razionale scelto, oppure il valore
+ *          critico. Uno irrazionale si scrive con la formula risolutiva, se
+ *          è radice di un polinomio di secondo grado; altrimenti la regola
+ *          rinuncia. Ciò che resta è un enunciato in una variabile, e lo
+ *          decide 18p.
+ *
+ *   18t-d. Il verdetto. "Per ogni a" è vero se lo è in ogni cella, "esiste
+ *          a" se lo è in una; i valori del parametro richiesti sono le celle
+ *          in cui la condizione vale, scritte come le soluzioni di 18p.
+ *
+ *   18t-e. Le soluzioni con il parametro. In ogni cella si risolve in x con
+ *          il valore della cella. In una cella che è un punto il parametro è
+ *          un numero, e gli estremi delle soluzioni anche. In un intervallo
+ *          gli estremi vanno scritti in funzione del parametro: sono radici
+ *          dei polinomi di 18t-a, e quelle di un polinomio di primo o di
+ *          secondo grado in x hanno una formula (i "candidati",
+ *          candidates_build()). Ogni estremo trovato con il valore scelto si
+ *          riconosce nel solo candidato che lì ha quel valore: il confronto
+ *          è esatto, e in un intervallo due candidati diversi non coincidono
+ *          mai, per a2 e a3. Le celle vicine con le stesse soluzioni si
+ *          scrivono insieme.
+ *
+ * I controlli indipendenti, oltre a quelli che ogni decisione di 18p porta
+ * con sé, sono due.
+ *
+ *   18t-f. Ciò che si consegna si rilegge. Il testo delle soluzioni viene
+ *          riletto dal lettore del programma come una condizione W. Nel
+ *          valore di ogni cella, e in altri due razionali di ogni
+ *          intervallo, la tabella dei segni deve dimostrare che la
+ *          condizione di partenza e W hanno le stesse soluzioni in x; per i
+ *          valori del parametro, W deve valere esattamente nelle celle
+ *          trovate. Un estremo riconosciuto male, o un < al posto di un
+ *          \le, qui si vedono.
+ *
+ *   18t-g. La griglia. Le celle poggiano sulla teoria di 18t-a: se alla
+ *          proiezione mancasse un valore critico, dentro una cella la verità
+ *          potrebbe cambiare senza che il valore scelto lo mostri. Per
+ *          questo l'enunciato si guarda anche in valori del parametro presi
+ *          senza guardare le celle: tutti i quarti da -PARAM_REACH / 4 a
+ *          PARAM_REACH / 4, e i PARAM_GRID razionali più semplici, che vi
+ *          aggiungono i terzi. E lo si guarda in due modi. Con la tabella
+ *          dei segni, che per quel valore del parametro decide per ogni x:
+ *          è lo stesso metodo delle celle, ma in valori che la proiezione
+ *          non ha scelto. E con il conto diretto sui numeri
+ *          (sign_holds_at()) in PARAM_GRID valori di x, che non usa né la
+ *          proiezione né la tabella. Un valore della griglia che smentisce
+ *          la cella in cui cade ferma il verdetto. Non è una seconda
+ *          dimostrazione, perché la griglia è finita: è un controllo contro
+ *          gli errori del programma. Quanto vale lo si è misurato togliendo
+ *          apposta alla proiezione un pezzo per volta (i discriminanti, le
+ *          coppie, i coefficienti direttivi): delle risposte sbagliate che
+ *          ne nascono la griglia e la rilettura fermano quasi tutte, non
+ *          tutte. Chi garantisce la proiezione resta la sua teoria, con i
+ *          suoi test.
+ *
+ * Che cosa resta fuori, e il verdetto lo dice: più di due lettere reali una
+ * dentro l'altra; insiemi diversi da \mathbb{R}; radici, valori assoluti,
+ * logaritmi, potenze e funzioni goniometriche in un confronto che contiene
+ * la variabile; gradi in x oltre MAX_PARAM_DEGREE; valori critici
+ * irrazionali che non sono radici di un polinomio di secondo grado;
+ * soluzioni i cui estremi non sono radici di polinomi di primo o di secondo
+ * grado in x. Un enunciato con il parametro non ha grafico: il disegno di
+ * 18q è quello di una variabile sola.
+ *
+ * Il primo di questi limiti vale anche per una radice o un valore assoluto
+ * del solo parametro, quando sta in un confronto con la variabile: la regola
+ * scrive soluzioni come 2 - \sqrt{4 - k^{2}} < x, e sa rileggerle un valore
+ * del parametro alla volta, ma lo stesso testo dentro un enunciato da
+ * verificare non lo tratta. Per trattarlo la proiezione dovrebbe ricevere,
+ * di ogni confronto P + Q \sqrt{R} con R nel solo parametro, i polinomi P, Q
+ * e P^2 - Q^2 R, come 18p-7 fa in una variabile, e R tra le colonne del
+ * parametro; e di un valore assoluto i due polinomi che nascono dai due
+ * segni del suo argomento. Andrebbe in param_collect().
+ */
+
+/* I limiti di questa regola. Stanno qui, e non nel capitolo 1 con gli altri,
+ * perché la regola resti tutta in un blocco.
+ *
+ * Warning: MAX_MINOR è il doppio di MAX_PARAM_DEGREE, le righe del risultante
+ * di due polinomi di quel grado: se alzi il grado alza anche MAX_MINOR, e
+ * guarda quanto costa lo sviluppo di minor_determinant(). */
+#define MAX_PARAM_POLYS 24   /* polinomi nelle due lettere di un enunciato con il parametro */
+#define MAX_PARAM_DEGREE 4   /* il loro grado massimo nella variabile */
+#define MAX_MINOR 8          /* righe del determinante più grande: quello di due polinomi di grado 4 */
+#define MAX_PARAM_POINTS 48  /* valori critici del parametro */
+#define MAX_CANDIDATES 16    /* estremi scritti in funzione del parametro (18t-e) */
+#define PARAM_REACH 32       /* la griglia del parametro (18t-g): i quarti da -PARAM_REACH / 4 a PARAM_REACH / 4 */
+#define PARAM_GRID 24        /* i razionali più semplici, aggiunti alla griglia del parametro e dati alla variabile nel conto diretto (18t-g) */
+#define CELL_TEXT 512        /* lunghezza delle soluzioni di una cella */
+#define PARAM_TEXT 4096      /* lunghezza delle soluzioni scritte */
+
+/* I messaggi per ciò che la regola non tratta. */
+static const char *const PARAM_FORM =
+    "con due lettere reali sono trattati un parametro e una variabile, ognuno su tutto \\mathbb{R}: non tre lettere una dentro l'altra, né altri insiemi";
+static const char *const PARAM_SHAPE =
+    "con un parametro i confronti che contengono la variabile devono essere tra espressioni razionali nelle due lettere: niente radici, valori assoluti, logaritmi, potenze o funzioni goniometriche";
+static const char *const PARAM_DEGREE = "con un parametro i polinomi nella variabile sono trattati fino al quarto grado, e con coefficienti non troppo grandi";
+static const char *const PARAM_ROOT = "un valore critico del parametro è un numero irrazionale che non so scrivere con una radice quadrata";
+static const char *const PARAM_WRITE = "non so scrivere le soluzioni in funzione del parametro";
+static const char *const PARAM_INNER = "la tabella dei segni non decide l'enunciato in un valore del parametro";
+
+/* Ritorna 1 se set è tutto \mathbb{R}, senza estremi né punti tolti. */
+static int numbers_all_reals(const NumberSet *set) { return set->reals && !set->bounded && set->holes == 0; }
+
+/* Ritorna il nodo dell'intero v, anche negativo. Il lettore non produce mai
+ * un N_NUM negativo, e chi legge gli alberi ci conta: -3 è N_NEG di 3. */
+static Node *node_integer(long long v) { return v < 0 ? node_new(N_NEG, node_num(-v), NULL) : node_num(v); }
+
+/* Ritorna il nodo del razionale v. Annota un errore se v non sta nei 64 bit
+ * dei numeri di un albero. */
+static Node *node_rational(Wide v) {
+    if (v.num >= COEF_LIMIT || v.num <= -COEF_LIMIT || v.den >= COEF_LIMIT) { fail(SIGN_LIMIT); return node_num(0); }
+    Node *top = node_integer((long long)v.num);
+    return v.den == 1 ? top : node_new(N_DIV, top, node_num((long long)v.den));
+}
+
+/* 18t-c. Ritorna una copia della condizione f in cui la variabile name è
+ * sostituita dall'espressione value, che viene condivisa e non copiata. È
+ * formula_substitute() del lettore (capitolo 17) con una lettera sola. name
+ * non è legata dentro f: lo garantisce formula_check(), che non ammette due
+ * significati per una lettera. */
+static Formula *formula_with(const Formula *f, int name, Node *value) {
+    const Node *const to[1] = {value};
+    return formula_substitute(f, &name, to, 1);
+}
+
+/* I polinomi nelle due lettere dell'enunciato in corso (18t-a): numeratori,
+ * denominatori e divisori dei confronti che contengono la variabile.
+ * param_var[i] è l'atomo della variabile del polinomio i: quella del
+ * quantificatore interno in cui sta il suo confronto. param_part[i] sono i
+ * suoi coefficienti come polinomio in quella variabile, dal termine noto a
+ * quello di grado param_degree[i]; li riempie param_project(). */
+static Poly param_poly[MAX_PARAM_POLYS], param_part[MAX_PARAM_POLYS][MAX_PARAM_DEGREE + 1];
+static int param_var[MAX_PARAM_POLYS], param_degree[MAX_PARAM_POLYS];
+static int param_polys;
+
+/* Aggiunge all'elenco il polinomio p, che viene dal conto di un confronto
+ * razionale nel parametro (atomo a) e nella variabile (atomo x). Annota un
+ * errore se p contiene altro: un'altra lettera, un esponente non intero, un
+ * coefficiente complesso.
+ *
+ * p può avere esponenti negativi, perché rat_make() porta al numeratore un
+ * denominatore di un solo termine: 3/a diventa 3 a^{-1}. Allora lo si
+ * moltiplica per la potenza che li toglie, e la lettera che stava a
+ * denominatore entra nell'elenco come polinomio a sé: dove si annulla il
+ * confronto non ha valore. Un numero non ha radici e non entra; un polinomio
+ * già presente, anche a meno di un fattore costante, non si ripete. */
+static void param_add(Poly p, int a, int x) {
+    const int letter[2] = {a, x};
+    long long lowest[2] = {0, 0};
+    for (int t = 0; t < p.count; t++) {
+        const Term *term = &p.term[t];
+        if (term->coef.im.num != 0) { fail(PARAM_SHAPE); return; }
+        for (int f = 0; f < term->mono.count; f++) {
+            const Factor *factor = &term->mono.factor[f];
+            int which = factor->atom == a ? 0 : 1;
+            if ((factor->atom != a && factor->atom != x) || factor->exp.den != 1) { fail(PARAM_SHAPE); return; }
+            if (factor->exp.num < lowest[which]) lowest[which] = factor->exp.num;
+        }
+    }
+    for (int i = 0; i < 2 && !failure; i++) {
+        if (lowest[i] == 0) continue;
+        Term power;
+        power.coef = num_int(1);
+        power.mono = mono_atom(letter[i], frac_int(-lowest[i]));
+        p = poly_mul(p, poly_term(power));
+        param_add(rat_atom(letter[i]).num, a, x);
+    }
+    if (failure || poly_is_constant(p)) return;
+    for (int i = 0; i < param_polys; i++)
+        if (param_var[i] == x && poly_proportional(p, param_poly[i])) return;
+    if (param_polys == MAX_PARAM_POLYS) { fail("troppi polinomi diversi in un enunciato con il parametro"); return; }
+    param_poly[param_polys] = p;
+    param_var[param_polys++] = x;
+}
+
+/* 18t-a. Legge i confronti della condizione f, che sta sotto il
+ * quantificatore sul parametro di nome a_name. x_name è la lettera del
+ * quantificatore interno in cui f si trova, 0 se f sta fuori da tutti.
+ *
+ * Un confronto senza la variabile va tra quelli della tabella nella lettera
+ * del parametro (a4): lo prepara sign_prepare(), con tutto ciò che 18p sa
+ * trattare in una lettera sola. Di un confronto con la variabile entrano
+ * nell'elenco numeratore, denominatore e divisori della differenza dei due
+ * membri. Annota un errore per un quantificatore dentro un altro, per un
+ * insieme che non è \mathbb{R}, e per un confronto con la variabile che non
+ * è razionale. */
+static void param_collect(const Formula *f, int a_name, int x_name) {
+    if (failure) return;
+    if (f->kind == F_FORALL || f->kind == F_EXISTS || f->kind == F_SOLVE) {
+        if (x_name || !numbers_all_reals(&f->numbers)) { fail(PARAM_FORM); return; }
+        param_collect(f->a, a_name, f->variable);
+        return;
+    }
+    if (f->kind != F_EQUAL && f->kind != F_DISTINCT && f->kind != F_LESS && f->kind != F_LESS_EQ) {
+        param_collect(f->a, a_name, x_name);
+        if (f->b) param_collect(f->b, a_name, x_name);
+        return;
+    }
+    int a = atom_var(a_name);
+    if (!x_name || (!node_uses_letter(f->left, x_name) && !node_uses_letter(f->right, x_name))) { sign_prepare(f, a); return; }
+    if (!term_is_rational(f->left) || !term_is_rational(f->right)) { fail(PARAM_SHAPE); return; }
+
+    /* Il conto, con le due lettere libere e l'elenco dei divisori acceso. */
+    int x = atom_var(x_name);
+    condition_count = conditions_lost = undefined = 0;
+    env_count = 0;
+    conditions_on = 1;
+    Rat d = rat_add(eval(f->left), eval(f->right), 1);
+    conditions_on = 0;
+
+    /* Una divisione per un'espressione che è zero ovunque: il confronto non
+     * ha valore per nessuna coppia di numeri, quindi è sempre falso e non
+     * ha polinomi da dare. */
+    if (failure && undefined) { failure = NULL; undefined = 0; return; }
+    if (conditions_lost) fail("troppe condizioni di esistenza in un confronto");
+    if (failure) return;
+    param_add(d.num, a, x);
+    param_add(d.den, a, x);
+    for (int i = 0; i < condition_count && !failure; i++)
+        for (int j = 0; j < conditions[i].count; j++) param_add(conditions[i].factor[j], a, x);
+}
+
+/* La matrice di cui subresultant_lead() calcola il determinante: minor_size
+ * righe e colonne di polinomi nel parametro. */
+static Poly minor_entry[MAX_MINOR][MAX_MINOR];
+static int minor_size;
+
+/* Ritorna il determinante della matrice fatta dalle righe di minor_entry[]
+ * da `row` in giù e dalle colonne non ancora usate, quelle con il bit a zero
+ * in `used`.
+ *
+ * Sviluppo di Laplace lungo la prima riga: la somma, sulle colonne libere c,
+ * dell'elemento della riga in c per il determinante di ciò che resta tolte
+ * la riga e la colonna, con il segno più se c è la prima, la terza, ...
+ * delle colonne libere e meno altrimenti. Gli elementi nulli si saltano: le
+ * matrici di subresultant_lead() sono quasi vuote, e così i prodotti da
+ * calcolare sono pochi anche con otto righe. */
+static Poly minor_determinant(int row, unsigned used) {
+    if (row == minor_size) return poly_const(num_int(1));
+    Poly sum = {0, NULL};
+    for (int c = 0, place = 0; c < minor_size && !failure; c++) {
+        if (used >> c & 1) continue;
+        if (minor_entry[row][c].count) sum = poly_add(sum, poly_mul(minor_entry[row][c], minor_determinant(row + 1, used | 1u << c)), place % 2);
+        place++;
+    }
+    return sum;
+}
+
+/* Ritorna psc_k(f, g), il coefficiente principale del sottorisultante numero
+ * k di f e g: polinomi nella variabile di grado m e n, con i coefficienti
+ * f[0..m] e g[0..n] che sono polinomi nel parametro, e 0 <= k <= min(m, n).
+ * Annota un errore se la matrice ha più di MAX_MINOR righe.
+ *
+ * Che cos'è. Si scrivono in righe i coefficienti, dalla potenza più alta
+ * x^(m+n-k-1) in giù, dei polinomi
+ *
+ *     x^(n-k-1) f, ..., x f, f, x^(m-k-1) g, ..., x g, g:
+ *
+ * sono m + n - 2k righe. psc_k è il determinante delle prime m + n - 2k
+ * colonne. Con k = 0 è la matrice di Sylvester, e psc_0 il risultante.
+ *
+ * A che cosa serve. Dove i coefficienti direttivi di f e di g non sono zero,
+ * il grado del massimo comun divisore di f e g è il più piccolo k per cui
+ * psc_k non è zero. Per k = 0 è il fatto noto che il risultante si annulla
+ * esattamente quando f e g hanno una radice in comune: una combinazione
+ * u f + v g = 0 con u di grado minore di n e v di grado minore di m è una
+ * relazione tra le righe. Per k qualsiasi la stessa matrice dice se esistono
+ * u e v, di gradi minori di n - k e m - k, con u f + v g di grado minore di
+ * k: succede esattamente quando il massimo comun divisore ha grado più di k
+ * (teorema fondamentale dei sottorisultanti; Collins 1975, teorema 2). */
+static Poly subresultant_lead(const Poly *f, int m, const Poly *g, int n, int k) {
+    minor_size = m + n - 2 * k;
+    if (minor_size > MAX_MINOR) { fail(PARAM_DEGREE); return (Poly){0, NULL}; }
+    for (int r = 0; r < minor_size; r++) {
+        /* Le prime n - k righe sono x^s f con s = n - k - 1, ..., 0; le
+         * altre x^s g con s = m - k - 1, ..., 0. */
+        int upper = r < n - k, shift = upper ? n - k - 1 - r : m - k - 1 - (r - (n - k));
+        for (int c = 0; c < minor_size; c++) {
+            /* La colonna c è la potenza x^(m+n-k-1-c), e il suo coefficiente
+             * in x^s f è quello di x^(m+n-k-1-c-s) in f. */
+            int power = m + n - k - 1 - c - shift;
+            minor_entry[r][c] = power < 0 || power > (upper ? m : n) ? (Poly){0, NULL} : upper ? f[power] : g[power];
+        }
+    }
+    return minor_determinant(0, 0);
+}
+
+/* Mette tra le colonne della tabella nella lettera del parametro il
+ * polinomio p, che è nel solo parametro (atomo a): le sue radici sono valori
+ * critici. Un numero non ne ha, e non entra. */
+static void param_column(Poly p, int a) {
+    Uni column;
+    int shift;
+    if (failure || poly_is_constant(p)) return;
+    if (!uni_from_poly(p, a, &column, &shift) || shift) { fail(PARAM_DEGREE); return; }
+    sign_column(column);
+}
+
+/* 18t-a2, 18t-a3. Mette tra le colonne il primo psc_k(f, g), k = 0, 1, ...,
+ * che non è il polinomio nullo. Se sono tutti nulli fino a min(m, n) - 1, il
+ * massimo comun divisore ha grado min(m, n) dovunque i coefficienti direttivi
+ * non si annullano, e non c'è nulla da aggiungere. La memoria di ogni
+ * determinante torna all'arena appena il polinomio è tra le colonne, che ne
+ * tengono una copia. */
+static void param_first(const Poly *f, int m, const Poly *g, int n, int a) {
+    for (int k = 0; k < (m < n ? m : n) && !failure; k++) {
+        size_t before = arena_used;
+        Poly lead = subresultant_lead(f, m, g, n, k);
+        int zero = lead.count == 0;
+        param_column(lead, a);
+        arena_used = before;
+        if (!zero) return;
+    }
+}
+
+/* 18t-a. La proiezione dei polinomi di param_poly[]: riempie param_part[] e
+ * param_degree[], e mette tra le colonne della tabella nella lettera del
+ * parametro (atomo a) i polinomi a1, a2 e a3. Le coppie si fanno solo tra
+ * polinomi nella stessa variabile: radici in variabili diverse non hanno un
+ * ordine da conservare. */
+static void param_project(int a) {
+    for (int i = 0; i < param_polys && !failure; i++) {
+        param_degree[i] = poly_split(param_poly[i], param_var[i], param_part[i], MAX_PARAM_DEGREE);
+        if (param_degree[i] < 0) fail(PARAM_DEGREE);
+    }
+    for (int i = 0; i < param_polys && !failure; i++) {
+        const Poly *f = param_part[i];
+        Poly derivative[MAX_PARAM_DEGREE + 1];
+        int m = param_degree[i];
+        param_column(f[m], a);
+        for (int j = 1; j <= m; j++) derivative[j - 1] = poly_mul(f[j], poly_const(num_int(j)));
+        param_first(f, m, derivative, m - 1, a);
+        for (int j = i + 1; j < param_polys; j++)
+            if (param_var[j] == param_var[i]) param_first(f, m, param_part[j], param_degree[j], a);
+    }
+}
+
+/* Un valore critico del parametro: la copia di un punto della tabella dei
+ * segni nella lettera del parametro, fatta prima che le decisioni sulle
+ * celle riusino quella tabella. */
+typedef struct {
+    Critical at;    /* il punto: il razionale at.low, oppure la sola radice di
+                       `element` tra at.low e at.high (at.element non vale più) */
+    Uni element;    /* punto irrazionale: il polinomio di secondo grado, senza
+                       radici razionali, di cui è radice */
+    int smaller;    /* punto irrazionale: 1 se è la più piccola delle due radici */
+    char text[96];  /* com'è scritto, in LaTeX */
+} ParamPoint;
+
+/* Una cella della retta del parametro (18t-b). La cella 2 i è l'intervallo
+ * prima del valore critico i, la cella 2 i + 1 quel valore; l'ultima è
+ * l'intervallo dopo l'ultimo valore critico: come le righe di una tabella
+ * dei segni. */
+typedef struct {
+    Wide sample;           /* il razionale in cui si decide la cella: il punto,
+                              o un valore dell'intervallo. Non vale per un
+                              punto irrazionale */
+    Node *value;           /* il valore della cella come espressione, da
+                              scrivere al posto del parametro; sta nell'arena */
+    int truth;             /* verifiche e valori del parametro: 1 se nella cella
+                              la condizione vale */
+    int kind;              /* soluzioni con il parametro: 0 se nella cella non
+                              ci sono soluzioni, 2 se lo è ogni x, 1 se sono
+                              quelle scritte in text */
+    char text[CELL_TEXT];  /* kind == 1: le soluzioni nella variabile, in LaTeX */
+} ParamCell;
+
+static ParamPoint param_point[MAX_PARAM_POINTS];
+static int param_points;
+static ParamCell param_cell[2 * MAX_PARAM_POINTS + 1];
+static int param_cells;
+
+/* Ritorna, come espressione, una radice del polinomio di secondo grado q,
+ * che ha due radici reali irrazionali e coefficienti sotto 2^30 (lo ha già
+ * controllato quadratic_latex()): la più piccola se smaller è 1. È la
+ * formula risolutiva, (-b -+ sqrt(b^2 - 4ac)) / 2a, con il denominatore reso
+ * positivo come in quadratic_latex(): così il segno meno dà la più piccola. */
+static Node *quadratic_node(const Uni *q, int smaller) {
+    long long a = (long long)q->c[2], b = (long long)q->c[1], c = (long long)q->c[0];
+    Node *root = node_call(FN_ROOT, node_num(b * b - 4 * a * c), node_num(2));
+    return node_new(N_DIV, node_new(smaller ? N_SUB : N_ADD, node_integer(a < 0 ? b : -b), root), node_num(a < 0 ? -2 * a : 2 * a));
+}
+
+/* 18t-b. Trova i valori critici del parametro di nome name, dalle colonne
+ * già preparate, e riempie param_point[] e param_cell[]. Annota un errore
+ * se sono troppi, o se uno è irrazionale e non ha una scrittura con una
+ * radice quadrata: lì la cella non si saprebbe decidere. */
+static void param_cells_build(int name) {
+    sign_points(-1);
+    if (!failure && sign_points_count > MAX_PARAM_POINTS) fail("troppi valori critici del parametro");
+    if (failure) return;
+    param_points = sign_points_count;
+    param_cells = 2 * param_points + 1;
+    for (int k = 0; k < param_points; k++) {
+        ParamPoint *p = &param_point[k];
+        p->at = sign_point[k];
+        p->text[0] = solution_note[0] = '\0';
+        point_latex(k, name, p->text, sizeof p->text);
+        if (failure || p->at.exact) continue;
+        if (p->at.element < 0 || solution_note[0]) { fail(PARAM_ROOT); return; }
+
+        /* La più piccola delle due radici è il primo dei due punti di
+         * questo elemento, come in point_latex(). */
+        p->element = sign_base[p->at.element];
+        p->smaller = 1;
+        for (int i = 0; i < k; i++)
+            if (!sign_point[i].exact && sign_point[i].element == p->at.element) p->smaller = 0;
+    }
+
+    /* Il valore di ogni cella. Per un intervallo è scelto come in
+     * sign_table(): tra i due punti che lo chiudono, oppure un intero oltre
+     * l'unico che c'è. */
+    for (int c = 0; c < param_cells && !failure; c++) {
+        ParamCell *cell = &param_cell[c];
+        const ParamPoint *point = c % 2 ? &param_point[c / 2] : NULL;
+        const ParamPoint *before = c >= 2 ? &param_point[c / 2 - 1] : NULL, *after = c / 2 < param_points ? &param_point[c / 2] : NULL;
+        cell->sample = (Wide){0, 1};
+        if (point && !point->at.exact) { cell->value = quadratic_node(&point->element, point->smaller); continue; }
+        if (point) cell->sample = point->at.low;
+        else if (before && after) cell->sample = wide_between(before->at.high, after->at.low);
+        else if (after) cell->sample = (Wide){after->at.low.num / after->at.low.den - 2, 1};
+        else if (before) cell->sample = (Wide){before->at.high.num / before->at.high.den + 2, 1};
+        cell->value = node_rational(cell->sample);
+    }
+}
+
+/* Ritorna il numero della cella in cui cade il razionale v. Rispetto a un
+ * valore critico irrazionale, v sta a sinistra se non supera l'estremo
+ * inferiore dell'intervallo che lo isola, a destra se non sta sotto quello
+ * superiore; dentro l'intervallo lo dice il segno del polinomio, che lì ha
+ * quella sola radice, semplice: a sinistra della radice ha il segno che ha
+ * nell'estremo inferiore. */
+static int param_cell_of(Wide v) {
+    for (int k = 0; k < param_points; k++) {
+        const ParamPoint *p = &param_point[k];
+        int side;
+        if (p->at.exact) side = wide_cmp(v, p->at.low);
+        else if (wide_cmp(v, p->at.low) <= 0) side = -1;
+        else if (wide_cmp(v, p->at.high) >= 0) side = 1;
+        else side = uni_sign_at(&p->element, v) == uni_sign_at(&p->element, p->at.low) ? -1 : 1;
+        if (side <= 0) return side < 0 ? 2 * k : 2 * k + 1;
+    }
+    return 2 * param_points;
+}
+
+/* Ritorna un altro razionale dell'intervallo che è la cella c, oltre a
+ * quello scelto: a destra del valore scelto se right è 1, a sinistra
+ * altrimenti (18t-f). */
+static Wide cell_beside(int c, int right) {
+    const ParamPoint *before = c >= 2 ? &param_point[c / 2 - 1] : NULL, *after = c / 2 < param_points ? &param_point[c / 2] : NULL;
+    Wide sample = param_cell[c].sample;
+    if (right) return after ? wide_between(sample, after->at.low) : wide_add(sample, (Wide){1, 1});
+    return before ? wide_between(before->at.high, sample) : wide_add(sample, (Wide){-1, 1});
+}
+
+/* Il controesempio dell'ultimo enunciato che table_truth() ha trovato falso,
+ * com'è scritto da decide_by_signs(); vuoto se non ne ha dato uno. */
+static char param_inner[160];
+
+/* Decide con la tabella dei segni (18p) l'enunciato q: un quantificatore su
+ * una variabile reale, con una condizione senza altri quantificatori.
+ * Ritorna 1 se è vero, 0 se è falso; -1 se la tabella non lo decide, e
+ * allora mette in *verdict il suo esito e il suo motivo, che non è mai
+ * NULL. Lascia in param_inner il controesempio, se ce n'è uno.
+ *
+ * Il testo che decide_by_signs() aggiunge alla dimostrazione viene tolto:
+ * la dimostrazione di questa regola dice che cosa succede in ogni cella,
+ * non come 18p lo ha trovato. */
+static int table_truth(const Formula *q, Verdict *verdict) {
+    Verdict inner = {UNSUPPORTED, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL};
+    size_t opening = proof_length;
+    param_inner[0] = '\0';
+
+    /* Un errore già annotato, come la memoria finita mentre si copiava
+     * l'enunciato, va guardato qui: decide_by_signs() riparte da capo, lo
+     * cancellerebbe e deciderebbe un enunciato copiato a metà. */
+    if (failure) {
+        verdict->outcome = UNSUPPORTED;
+        verdict->reason = failure;
+        failure = NULL;
+        return -1;
+    }
+    decide_by_signs(q, &inner);
+    proof_cut(opening);
+    if (inner.outcome == REFUTED && inner.detail) snprintf(param_inner, sizeof param_inner, "%s", inner.detail);
+    if (inner.outcome == PROVED || inner.outcome == REFUTED) return inner.outcome == PROVED;
+    verdict->outcome = inner.outcome;
+    verdict->reason = inner.reason ? inner.reason : PARAM_INNER;
+    return -1;
+}
+
+/* Decide il confronto tra numeri f, come table_truth(): lo mette sotto un
+ * "per ogni" di comodo, la cui lettera è quella del parametro, name, che
+ * dopo la sostituzione non compare più. Il "controesempio" di un confronto
+ * tra numeri non dice nulla, e non resta in param_inner. */
+static int number_truth(Formula *f, int name, Verdict *verdict) {
+    Formula all;
+    memset(&all, 0, sizeof all);
+    all.kind = F_FORALL;
+    all.a = f;
+    all.variable = name;
+    all.numbers.reals = 1;
+    int truth = table_truth(&all, verdict);
+    param_inner[0] = '\0';
+    return truth;
+}
+
+/* Le due condizioni costanti di closed_reduce(): la falsa e la vera. Si
+ * riconoscono dall'indirizzo e non hanno contenuto: non arrivano mai a una
+ * tabella dei segni. */
+static Formula closed_constant[2];
+
+/* Ritorna la negazione della condizione f, che può essere una delle due
+ * costanti. */
+static Formula *closed_not(Formula *f) {
+    if (f == &closed_constant[0] || f == &closed_constant[1]) return &closed_constant[f == &closed_constant[0]];
+    return formula_node(F_NOT, f, NULL, f->start);
+}
+
+/* Semplifica la condizione f, senza quantificatori, in cui il parametro di
+ * nome name è già sostituito da un numero e la sola lettera rimasta è la
+ * variabile x_name: ogni confronto senza la variabile è un confronto tra
+ * numeri, lo si decide subito (number_truth()) e lo si toglie, con le
+ * regole dei connettivi ("falso e A" è falso, "vero e A" è A, ...). Ritorna
+ * la condizione che resta, in cui ogni confronto contiene la variabile,
+ * oppure una delle due costanti; NULL se un confronto tra numeri non si
+ * riesce a decidere, con l'esito e il motivo in *verdict.
+ *
+ * A che cosa serve. Un elenco di casi sul parametro, come quello che questa
+ * regola scrive, è fatto per lo più di confronti nel solo parametro: con il
+ * parametro uguale a un numero resta in piedi un caso solo. Senza questo
+ * passo la tabella dei segni li riceverebbe tutti, e un elenco di sette
+ * casi supera da solo il numero di confronti che una tabella tiene
+ * (MAX_SIGN_ATOMS): è successo, e le soluzioni giuste di una richiesta con
+ * due condizioni non si lasciavano rileggere. */
+static Formula *closed_reduce(Formula *f, int x_name, int name, Verdict *verdict) {
+    Formula *no = &closed_constant[0], *yes = &closed_constant[1];
+    if (f->kind == F_EQUAL || f->kind == F_DISTINCT || f->kind == F_LESS || f->kind == F_LESS_EQ) {
+        if (node_uses_letter(f->left, x_name) || node_uses_letter(f->right, x_name)) return f;
+        int truth = number_truth(f, name, verdict);
+        return truth < 0 ? NULL : truth ? yes : no;
+    }
+    Formula *a = closed_reduce(f->a, x_name, name, verdict), *b = a && f->b ? closed_reduce(f->b, x_name, name, verdict) : NULL;
+    if (!a || (f->b && !b)) return NULL;
+    switch (f->kind) {
+    case F_NOT:
+        return a == f->a ? f : closed_not(a);
+    case F_AND:
+        if (a == no || b == no) return no;
+        if (a == yes || b == yes) return a == yes ? b : a;
+        break;
+    case F_OR:
+        if (a == yes || b == yes) return yes;
+        if (a == no || b == no) return a == no ? b : a;
+        break;
+    case F_IMPLIES:
+        if (a == no || b == yes) return yes;
+        if (a == yes) return b;
+        if (b == no) return closed_not(a);
+        break;
+    default:
+        /* "Se e solo se": con un lato vero è l'altro, con un lato falso la
+         * sua negazione. */
+        if (a == yes || b == yes) return a == yes ? b : a;
+        if (a == no || b == no) return closed_not(a == no ? b : a);
+        break;
+    }
+    return a == f->a && b == f->b ? f : formula_node(f->kind, a, b, f->start);
+}
+
+/* 18t-c. Decide l'enunciato f, in cui il parametro di nome name è già
+ * sostituito da un numero: una combinazione di confronti tra numeri e di
+ * enunciati "per ogni x" o "esiste x". Ritorna 1 se è vero, 0 se è falso;
+ * -1 se la tabella dei segni non lo decide, e allora mette in *verdict il
+ * suo esito e il suo motivo.
+ *
+ * I connettivi si calcolano dalle parti. Un confronto tra numeri e un
+ * quantificatore li decide 18p; della condizione di un quantificatore si
+ * tolgono prima i confronti tra numeri (closed_reduce()), e se non resta
+ * altro la sua verità è quella della costante rimasta, perché la variabile
+ * varia su un insieme che non è vuoto. */
+static int closed_truth(Formula *f, int name, Verdict *verdict) {
+    if (f->kind == F_NOT) {
+        int inner = closed_truth(f->a, name, verdict);
+        return inner < 0 ? -1 : !inner;
+    }
+    if (f->kind == F_AND || f->kind == F_OR || f->kind == F_IMPLIES || f->kind == F_IFF) {
+        int a = closed_truth(f->a, name, verdict), b = a < 0 ? -1 : closed_truth(f->b, name, verdict);
+        if (b < 0) return -1;
+        return f->kind == F_AND ? a && b : f->kind == F_OR ? a || b : f->kind == F_IMPLIES ? !a || b : a == b;
+    }
+    if (f->kind != F_FORALL && f->kind != F_EXISTS) return number_truth(f, name, verdict);
+    Formula reduced = *f;
+    reduced.a = closed_reduce(f->a, f->variable, name, verdict);
+    if (!reduced.a) return -1;
+    if (reduced.a == &closed_constant[0] || reduced.a == &closed_constant[1]) {
+        param_inner[0] = '\0';
+        return reduced.a == &closed_constant[1];
+    }
+    return table_truth(&reduced, verdict);
+}
+
+/* Aggiunge a text, di size byte, un pezzo di un insieme di numeri nella
+ * lettera name, con le convenzioni di sign_solution(): un intervallo tra gli
+ * estremi scritti in low e high, una semiretta se uno dei due è NULL, un
+ * punto solo se low e high sono lo stesso puntatore. low_closed e
+ * high_closed dicono se l'estremo è compreso. I due non sono mai NULL
+ * insieme: "ogni numero" non è un pezzo, e chi chiama lo scrive da sé. */
+static void piece_latex(char *text, size_t size, int name, const char *low, int low_closed, const char *high, int high_closed) {
+    if (low == high) text_add(text, size, "%c = %s", name, low);
+    else if (!low) text_add(text, size, "%c %s %s", name, high_closed ? "\\le" : "<", high);
+    else if (!high) text_add(text, size, "%c %s %s", name, low_closed ? "\\ge" : ">", low);
+    else text_add(text, size, "%s %s %c %s %s", low, low_closed ? "\\le" : "<", name, high_closed ? "\\le" : "<", high);
+}
+
+/* 18t-d. Aggiunge a text, di size byte, la condizione sul parametro di nome
+ * name che dice "in una delle celle da first a last", che sono consecutive
+ * e non sono tutte. Una cella dispari è un punto, quindi un tratto che
+ * comincia o finisce lì lo comprende; se comincia o finisce su un
+ * intervallo, il punto accanto resta fuori. */
+static void cells_latex(int first, int last, int name, char *text, size_t size) {
+    const char *low = first == 0 ? NULL : param_point[first % 2 ? first / 2 : first / 2 - 1].text;
+    const char *high = last == param_cells - 1 ? NULL : param_point[last / 2].text;
+    piece_latex(text, size, name, low, first % 2, high, last % 2);
+}
+
+/* Scrive nella dimostrazione di quale cella si parla: il valore critico,
+ * oppure l'intervallo con il razionale scelto al suo interno. */
+static void put_cell(int c, int name) {
+    if (c % 2) { proof_add("$%c = %s$", name, param_point[c / 2].text); return; }
+    proof_add("$");
+    if (c >= 2) proof_add("%s < ", param_point[c / 2 - 1].text);
+    proof_add("%c", name);
+    if (c / 2 < param_points) proof_add(" < %s", param_point[c / 2].text);
+    proof_add("$ (for instance $%c = ", name);
+    put_wide(param_cell[c].sample);
+    proof_add("$)");
+}
+
+/* Un estremo delle soluzioni scritto in funzione del parametro (18t-e): vale
+ *
+ *     (top + sigma * outside * sqrt(radicand)) / bottom,
+ *
+ * dove top, radicand e bottom sono polinomi nel parametro a coefficienti
+ * interi. Invariante: bottom non è il polinomio nullo e ha il coefficiente
+ * direttivo positivo; se sigma è 0 la radice non c'è, e outside e radicand
+ * non contano; altrimenti outside è positivo. */
+typedef struct {
+    Uni top, bottom, radicand;
+    int sigma;          /* 0, oppure il segno davanti alla radice: 1 o -1 */
+    long long outside;  /* il numero intero davanti alla radice */
+} Candidate;
+
+static Candidate param_candidate[MAX_CANDIDATES];
+static int param_candidates;
+
+/* Ritorna p moltiplicato per l'intero k. */
+static Uni uni_scaled(const Uni *p, __int128 k) {
+    Uni out = *p;
+    for (int i = 0; i <= out.degree; i++)
+        if (__builtin_mul_overflow(out.c[i], k, &out.c[i])) fail(SIGN_LIMIT);
+    uni_trim(&out);
+    return out;
+}
+
+/* Ritorna il valore di p nel razionale x: lo schema di Horner, con le
+ * frazioni a 128 bit. */
+static Wide uni_value(const Uni *p, Wide x) {
+    Wide value = {0, 1};
+    for (int i = p->degree; i >= 0 && !failure; i--) value = wide_add(wide_mul(value, x), (Wide){p->c[i], 1});
+    return value;
+}
+
+/* Scrive il polinomio p, che è nel solo atomo a con coefficienti razionali,
+ * come content per *out: *out a coefficienti interi senza divisori comuni e
+ * con il coefficiente direttivo positivo, content razionale. Il polinomio
+ * nullo dà *out nullo e content zero. Ritorna 0, annotando un errore, se p
+ * non ha questa forma o se i numeri sono troppo grandi.
+ *
+ * uni_from_poly() dà già un multiplo intero di p; il rapporto tra p e *out
+ * si legge poi su un coefficiente solo, quello di grado più alto. */
+static int uni_exact(Poly p, int a, Uni *out, Wide *content) {
+    int shift;
+    *content = (Wide){0, 1};
+    if (!uni_from_poly(p, a, out, &shift) || shift) { fail(PARAM_DEGREE); return 0; }
+    if (out->degree < 0) return 1;
+    uni_primitive(out);
+    if (out->c[out->degree] < 0) uni_negate(out);
+    for (int t = 0; t < p.count; t++) {
+        const Term *term = &p.term[t];
+        __int128 below;
+        if ((term->mono.count ? term->mono.factor[0].exp.num : 0) != out->degree) continue;
+        if (__builtin_mul_overflow(out->c[out->degree], (__int128)term->coef.re.den, &below)) { fail(SIGN_LIMIT); return 0; }
+        *content = wide_make(term->coef.re.num, below);
+    }
+    return 1;
+}
+
+/* Ritorna il polinomio scale per u nell'atomo a. */
+static Poly poly_from_uni(const Uni *u, int a, Frac scale) {
+    Poly p = {0, NULL};
+    for (int i = 0; i <= u->degree && !failure; i++) {
+        Term term;
+        if (u->c[i] == 0) continue;
+        term.coef = num_frac(frac_mul(scale, frac_make(u->c[i], 1)));
+        term.mono.count = 0;
+        if (i > 0) term.mono = mono_atom(a, frac_int(i));
+        p = poly_add(p, poly_term(term), 0);
+    }
+    return p;
+}
+
+/* Cerca il polinomio a coefficienti interi di cui p è il quadrato: se i
+ * conti tornano lo mette in *root, con il coefficiente direttivo positivo, e
+ * ritorna 1. Il polinomio nullo è il quadrato di se stesso.
+ *
+ * Se p = r^2 con r di grado e, il coefficiente di grado e + i di p è
+ *
+ *     2 r_e r_i + (la somma degli r_j r_{e+i-j} con i < j < e),
+ *
+ * in cui oltre a r_i compaiono solo coefficienti di r più alti. Quindi r_e è
+ * la radice del coefficiente direttivo, e scendendo ogni r_i si ricava con
+ * una divisione, che deve essere esatta. I coefficienti di p sotto il grado
+ * e qui non vengono guardati: un "sì" va confermato da chi chiama,
+ * moltiplicando. */
+static int uni_square_root(const Uni *p, Uni *root) {
+    int e = p->degree / 2;
+    root->degree = p->degree < 0 ? -1 : e;
+    memset(root->c, 0, sizeof root->c);
+    if (p->degree < 0) return 1;
+    if (p->degree % 2 || p->c[p->degree] < 0 || p->c[p->degree] >= (__int128)1 << 126) return 0;
+    root->c[e] = wide_isqrt(p->c[p->degree]);
+    if (root->c[e] * root->c[e] != p->c[p->degree]) return 0;
+    for (int i = e - 1; i >= 0; i--) {
+        __int128 rest = p->c[e + i], part;
+        for (int j = i + 1; j < e; j++)
+            if (__builtin_mul_overflow(root->c[j], root->c[e + i - j], &part) || __builtin_sub_overflow(rest, part, &rest)) return 0;
+        if (rest % (2 * root->c[e]) != 0) return 0;
+        root->c[i] = rest / (2 * root->c[e]);
+    }
+    return 1;
+}
+
+/* Aggiunge c ai candidati, se non c'è già: due polinomi diversi possono
+ * avere una radice in comune, e allora la stessa formula nasce due volte. */
+static void candidate_add(const Candidate *c) {
+    for (int i = 0; i < param_candidates; i++) {
+        const Candidate *other = &param_candidate[i];
+        if (other->sigma != c->sigma || !uni_equal(&other->top, &c->top) || !uni_equal(&other->bottom, &c->bottom)) continue;
+        if (!c->sigma || (other->outside == c->outside && uni_equal(&other->radicand, &c->radicand))) return;
+    }
+    if (param_candidates == MAX_CANDIDATES) { fail(PARAM_WRITE); return; }
+    param_candidate[param_candidates++] = *c;
+}
+
+/* Aggiunge ai candidati la frazione num / den di polinomi nel parametro
+ * (atomo a), ridotta ai minimi termini: così due scritture della stessa
+ * funzione sono lo stesso candidato, e (4a + 4a) / 2 si legge 4a. den non è
+ * il polinomio nullo. */
+static void candidate_ratio(Poly num, Poly den, int a) {
+    Candidate c;
+    Uni top, bottom, common, rest;
+    Wide above, below;
+    memset(&c, 0, sizeof c);
+    c.radicand.degree = -1;
+    if (!uni_exact(num, a, &top, &above) || !uni_exact(den, a, &bottom, &below)) return;
+    if (top.degree < 0) {
+        /* Zero, qualunque sia il denominatore. */
+        c.top = top;
+        c.bottom = (Uni){0, {1}};
+    } else {
+        common = uni_gcd(top, bottom);
+        if (failure || !uni_divide(&top, &common, &rest)) { fail(SIGN_LIMIT); return; }
+        top = rest;
+        if (!uni_divide(&bottom, &common, &rest)) { fail(SIGN_LIMIT); return; }
+
+        /* Il numero che resta davanti, above / below, va sopra con il suo
+         * numeratore e sotto con il suo denominatore, che è positivo. */
+        Wide ratio = wide_mul(above, wide_make(below.den, below.num));
+        c.top = uni_scaled(&top, ratio.num);
+        c.bottom = uni_scaled(&rest, ratio.den);
+    }
+    if (!failure) candidate_add(&c);
+}
+
+/* Aggiunge ai candidati (minus_b + sigma sqrt(D)) / two_a, una radice di un
+ * polinomio di secondo grado in x il cui discriminante D = content per
+ * *primitive non è il quadrato di un polinomio. minus_b e two_a sono
+ * polinomi nel parametro (atomo a), e two_a non è nullo.
+ *
+ * Perché la scrittura sia quella dei libri, 2 - \sqrt{4 - k^{2}} e non
+ * \frac{4 - \sqrt{16 - 4k^{2}}}{2}, da sotto la radice si porta fuori ciò
+ * che si può del numero content, e i tre numeri che restano davanti a
+ * minus_b, alla radice e a two_a si riducono a interi senza divisori
+ * comuni. */
+static void candidate_radical(Poly minus_b, Poly two_a, const Uni *primitive, Wide content, int sigma, int a) {
+    Candidate c;
+    Uni top, bottom;
+    Wide above, below;
+    if (!uni_exact(minus_b, a, &top, &above) || !uni_exact(two_a, a, &bottom, &below)) return;
+
+    /* sqrt(|content|) = outside sqrt(inside) / q, dove |content| = p / q:
+     * infatti p / q = p q / q^2, e da p q si portano fuori i quadrati. */
+    __int128 inside, outside = 1;
+    if (__builtin_mul_overflow(content.num < 0 ? -content.num : content.num, content.den, &inside)) { fail(SIGN_LIMIT); return; }
+    for (__int128 f = 2; f * f <= inside && f < 100000; f++)
+        while (inside % (f * f) == 0) { inside /= f * f; outside *= f; }
+
+    /* I tre numeri, moltiplicati per il prodotto dei loro denominatori. */
+    Wide scale = wide_mul(wide_mul((Wide){above.den, 1}, (Wide){below.den, 1}), (Wide){content.den, 1});
+    __int128 over = wide_mul(above, scale).num, beside = wide_mul(wide_make(outside, content.den), scale).num, under = wide_mul(below, scale).num;
+    if (failure) return;
+    __int128 common = gcd128(gcd128(over, beside), under);
+    if (under < 0) { over = -over; under = -under; sigma = -sigma; }
+    if (beside / common >= COEF_LIMIT) { fail(SIGN_LIMIT); return; }
+    c.top = uni_scaled(&top, over / common);
+    c.bottom = uni_scaled(&bottom, under / common);
+    c.radicand = uni_scaled(primitive, content.num < 0 ? -inside : inside);
+    c.sigma = sigma;
+    c.outside = (long long)(beside / common);
+    if (!failure) candidate_add(&c);
+}
+
+/* 18t-e. Riempie param_candidate[] con le radici, scritte in funzione del
+ * parametro (atomo a), dei polinomi di param_poly[] di primo e di secondo
+ * grado nella variabile di atomo x. Va chiamata dopo param_project().
+ *
+ *   - c_1 x + c_0 ha la radice -c_0 / c_1.
+ *   - A x^2 + B x + C ha le radici (-B +- sqrt(D)) / 2A, con D = B^2 - 4AC.
+ *     Se D è il quadrato di un polinomio E le radici sono (-B +- E) / 2A,
+ *     senza radicali: è il caso di quasi tutti gli esercizi, dove il
+ *     trinomio è un prodotto come (x - a)(a x + 3). Che D sia E^2 si
+ *     controlla moltiplicando.
+ *
+ * Le radici dei polinomi di grado più alto non hanno candidati: se un
+ * estremo delle soluzioni è una di loro, la regola rinuncia. */
+static void candidates_build(int x, int a) {
+    for (int i = 0; i < param_polys && !failure; i++) {
+        const Poly *part = param_part[i];
+        if (param_var[i] != x) continue;
+        if (param_degree[i] == 1) candidate_ratio(poly_negate(part[0]), part[1], a);
+        if (param_degree[i] != 2) continue;
+        Poly minus_b = poly_negate(part[1]), two_a = poly_mul(part[2], poly_const(num_int(2)));
+        Poly d = poly_add(poly_mul(part[1], part[1]), poly_mul(poly_mul(part[2], part[0]), poly_const(num_int(4))), 1);
+        Uni primitive, root;
+        Wide content;
+        if (!uni_exact(d, a, &primitive, &content)) return;
+
+        /* D = content per primitive è un quadrato se lo sono tutti e due:
+         * il numero, cioè numeratore e denominatore, e il polinomio. */
+        __int128 p = 0, q = 0;
+        if (content.num >= 0 && content.num < (__int128)1 << 126 && content.den < (__int128)1 << 62) {
+            p = wide_isqrt(content.num);
+            q = wide_isqrt(content.den);
+        }
+        if (p * p == content.num && q * q == content.den && uni_square_root(&primitive, &root)) {
+            Poly e = poly_from_uni(&root, a, frac_make(p, q));
+            if (!failure && poly_equal(poly_mul(e, e), d)) {
+                candidate_ratio(poly_add(minus_b, e, 1), two_a, a);
+                candidate_ratio(poly_add(minus_b, e, 0), two_a, a);
+                continue;
+            }
+        }
+        candidate_radical(minus_b, two_a, &primitive, content, -1, a);
+        candidate_radical(minus_b, two_a, &primitive, content, 1, a);
+    }
+}
+
+/* Ritorna 1 se il candidato c, quando il parametro vale il razionale at, è
+ * il punto `point` di una tabella dei segni nella variabile: il razionale
+ * point->low, oppure la sola radice di *element tra point->low e
+ * point->high (element è NULL per un punto razionale). Il confronto è
+ * esatto.
+ *
+ * Con il parametro uguale a un numero il candidato vale (t + s sqrt(r)) / b,
+ * con t, r, b razionali e s = sigma * outside. Se r è il quadrato di un
+ * razionale è un razionale, e si confronta con un punto razionale. Se non lo
+ * è, è irrazionale: è una delle due radici di
+ *
+ *     q(x) = (b x - t)^2 - s^2 r,
+ *
+ * che non ha radici razionali, la più grande se s e b hanno lo stesso segno.
+ * È una radice di *element solo se q lo divide, perché q è il polinomio di
+ * grado più basso che la annulla; e allora la radice di q nell'intervallo
+ * del punto, se c'è, è il punto. C'è se q cambia segno tra i due estremi, ed
+ * è la più piccola delle due se nell'estremo inferiore q è positivo: il suo
+ * coefficiente direttivo b^2 lo è, e q è positivo prima della radice più
+ * piccola. */
+static int candidate_is(const Candidate *c, Wide at, const Critical *point, const Uni *element) {
+    Wide top = uni_value(&c->top, at), bottom = uni_value(&c->bottom, at), inside = {0, 1};
+    if (c->sigma) inside = uni_value(&c->radicand, at);
+    if (failure || bottom.num == 0 || inside.num < 0) return 0;
+    if (inside.num >= (__int128)1 << 126 || inside.den >= (__int128)1 << 126) { fail(SIGN_LIMIT); return 0; }
+    __int128 p = wide_isqrt(inside.num), q = wide_isqrt(inside.den);
+    Wide beside = {c->sigma * c->outside, 1};
+    if (p * p == inside.num && q * q == inside.den) {
+        Wide value = wide_mul(wide_add(top, wide_mul(beside, (Wide){p, q})), wide_make(bottom.den, bottom.num));
+        return point->exact && !failure && wide_cmp(value, point->low) == 0;
+    }
+    if (point->exact) return 0;
+
+    /* I coefficienti di q, portati a interi con il prodotto dei loro
+     * denominatori. */
+    Wide two = wide_mul(bottom, bottom), one = wide_mul((Wide){-2, 1}, wide_mul(top, bottom));
+    Wide zero = wide_add(wide_mul(top, top), wide_mul((Wide){-1, 1}, wide_mul(wide_mul(beside, beside), inside)));
+    Wide scale = wide_mul(wide_mul((Wide){two.den, 1}, (Wide){one.den, 1}), (Wide){zero.den, 1});
+    Uni quadratic = {2, {wide_mul(zero, scale).num, wide_mul(one, scale).num, wide_mul(two, scale).num}}, rest;
+    if (failure) return 0;
+    uni_primitive(&quadratic);
+    if (!uni_divide(element, &quadratic, &rest)) return 0;
+    int low = uni_sign_at(&quadratic, point->low), high = uni_sign_at(&quadratic, point->high);
+    if (failure || low * high >= 0) return 0;
+    int larger = (c->sigma > 0) == (bottom.num > 0);
+    return (low > 0) != larger;
+}
+
+/* Aggiunge a text, di size byte, il polinomio p nella lettera name: come
+ * uni_latex(), ma dal termine noto in su quando così non comincia con un
+ * segno meno. È la scrittura dei libri: 4 - k^{2}, non -k^{2} + 4. */
+static void param_poly_latex(const Uni *p, int name, char *text, size_t size) {
+    if (p->degree < 1 || p->c[p->degree] > 0 || p->c[0] <= 0) { uni_latex(p, name, text, size); return; }
+    for (int i = 0; i <= p->degree; i++) {
+        __int128 c = p->c[i], magnitude = c < 0 ? -c : c;
+        if (c == 0) continue;
+        text_add(text, size, "%s", i == 0 ? "" : c < 0 ? " - " : " + ");
+        if (magnitude != 1 || i == 0) text_add(text, size, "%lld", (long long)magnitude);
+        if (i > 0) text_add(text, size, "%c", name);
+        if (i > 1) text_add(text, size, "^{%d}", i);
+    }
+}
+
+/* Aggiunge a text, di size byte, il candidato c, in LaTeX, con il parametro
+ * di nome name: 4a, -\frac{3}{a}, \frac{a - 1}{2}, 2 - \sqrt{4 - k^{2}}. */
+static void candidate_latex(const Candidate *c, int name, char *text, size_t size) {
+    char above[256] = "";
+    Uni top = c->top;
+    int fraction = c->bottom.degree > 0 || c->bottom.c[0] != 1, terms = 0;
+    for (int i = 0; i <= top.degree; i++) terms += top.c[i] != 0;
+
+    /* Il segno meno di un numeratore di un solo termine va davanti alla
+     * frazione. */
+    int minus = fraction && !c->sigma && terms == 1 && top.c[top.degree] < 0;
+    if (minus) uni_negate(&top);
+    if (terms > 0 || !c->sigma) param_poly_latex(&top, name, above, sizeof above);
+    if (c->sigma) {
+        text_add(above, sizeof above, "%s", terms > 0 ? (c->sigma > 0 ? " + " : " - ") : c->sigma > 0 ? "" : "-");
+        if (c->outside != 1) text_add(above, sizeof above, "%lld", c->outside);
+        text_add(above, sizeof above, "\\sqrt{");
+        param_poly_latex(&c->radicand, name, above, sizeof above);
+        text_add(above, sizeof above, "}");
+    }
+    if (!fraction) { text_add(text, size, "%s", above); return; }
+    text_add(text, size, "%s\\frac{%s}{", minus ? "-" : "", above);
+    param_poly_latex(&c->bottom, name, text, size);
+    text_add(text, size, "}");
+}
+
+/* Aggiunge a text, di size byte, il punto numero k della tabella dei segni
+ * nella variabile x_name appena riempita per la cella cell, scritto come
+ * estremo delle soluzioni. Ritorna 0 se non lo sa scrivere.
+ *
+ * In una cella che è un punto (point = 1) il parametro è un numero e
+ * l'estremo anche: lo scrive point_latex(). In un intervallo l'estremo è il
+ * solo candidato che nel valore scelto coincide con lui: nessuno, o più
+ * d'uno, e la regola rinuncia. */
+static int endpoint_latex(int k, const ParamCell *cell, int point, int a_name, int x_name, char *text, size_t size) {
+    const Critical *end = &sign_point[k];
+    int found = -1;
+    if (point) {
+        solution_note[0] = '\0';
+        point_latex(k, x_name, text, size);
+        return !solution_note[0];
+    }
+    if (!end->exact && end->element < 0) return 0;
+    for (int i = 0; i < param_candidates && !failure; i++) {
+        if (!candidate_is(&param_candidate[i], cell->sample, end, end->exact ? NULL : &sign_base[end->element])) continue;
+        if (found >= 0) return 0;
+        found = i;
+    }
+    if (found < 0 || failure) return 0;
+    candidate_latex(&param_candidate[found], a_name, text, size);
+    return 1;
+}
+
+/* 18t-e. Scrive in cell->text e cell->kind le soluzioni nella variabile
+ * x_name della condizione body, che ha già il valore della cella al posto
+ * del parametro a_name e di cui decide_by_signs() ha appena riempito la
+ * tabella. I pezzi sono quelli di sign_solution(); cambia come si scrivono
+ * gli estremi (endpoint_latex()). Ritorna 0 se un estremo non si sa
+ * scrivere. */
+static int cell_solutions(ParamCell *cell, int point, const Formula *body, int a_name, int x_name) {
+    Piece piece;
+    int pieces = 0;
+    cell->text[0] = '\0';
+    cell->kind = 1;
+    for (int from = 0; !failure && sign_piece(body, from, &piece); from = piece.last + 1) {
+        char low[200] = "", high[200] = "";
+        int single = piece.first == piece.last && piece.low_closed;
+        if (piece.low < 0 && piece.high < 0) { cell->kind = 2; return 1; }
+        if (piece.low >= 0 && !endpoint_latex(piece.low, cell, point, a_name, x_name, low, sizeof low)) return 0;
+        if (piece.high >= 0 && !single && !endpoint_latex(piece.high, cell, point, a_name, x_name, high, sizeof high)) return 0;
+        if (pieces++) text_add(cell->text, sizeof cell->text, " \\lor ");
+        piece_latex(cell->text, sizeof cell->text, x_name, piece.low < 0 ? NULL : low, piece.low_closed, single ? low : piece.high < 0 ? NULL : high, piece.high_closed);
+    }
+    if (!pieces) cell->kind = 0;
+    return !failure;
+}
+
+/* Ritorna 1 se le celle a e b hanno le stesse soluzioni, scritte allo stesso
+ * modo. */
+static int cell_same(const ParamCell *a, const ParamCell *b) {
+    return a->kind == b->kind && (a->kind != 1 || strcmp(a->text, b->text) == 0);
+}
+
+/* 18t-e. Scrive in text, di size byte, le soluzioni con il parametro: un
+ * caso per ogni tratto di celle consecutive con le stesse soluzioni, nella
+ * forma (condizione sul parametro \land soluzioni in x). Un tratto senza
+ * soluzioni non si scrive; di uno in cui ogni x è soluzione si scrive la
+ * sola condizione sul parametro; se il tratto sono tutte le celle la
+ * condizione sul parametro non serve. Ritorna 1 se il testo è una
+ * condizione che si può rileggere, 0 se è una delle due frasi "ogni x" e
+ * "nessun x". */
+static int param_cases(int a_name, int x_name, char *text, size_t size) {
+    int written = 0, total = 0, plain = 1;
+    text[0] = '\0';
+
+    /* Quanti casi si scriveranno: uno solo non vuole parentesi. */
+    for (int c = 0; c < param_cells; c++)
+        total += param_cell[c].kind != 0 && (c == 0 || !cell_same(&param_cell[c], &param_cell[c - 1]));
+    for (int first = 0, last; first < param_cells; first = last + 1) {
+        const ParamCell *cell = &param_cell[first];
+        int whole;
+        for (last = first; last + 1 < param_cells && cell_same(&param_cell[last + 1], cell); last++) continue;
+        if (cell->kind == 0) continue;
+        whole = first == 0 && last == param_cells - 1;
+        if (written++) text_add(text, size, " \\lor ");
+        if (whole && cell->kind == 2) {
+            text_add(text, size, "\\forall %c \\in \\mathbb{R}", x_name);
+            plain = 0;
+        } else if (whole) {
+            text_add(text, size, "%s", cell->text);
+        } else if (cell->kind == 2) {
+            cells_latex(first, last, a_name, text, size);
+        } else {
+            int nested = strstr(cell->text, "\\lor") != NULL;
+            text_add(text, size, "%s", total > 1 ? "(" : "");
+            cells_latex(first, last, a_name, text, size);
+            text_add(text, size, " \\land %s%s%s%s", nested ? "(" : "", cell->text, nested ? ")" : "", total > 1 ? ")" : "");
+        }
+    }
+    if (!written) {
+        text_add(text, size, "\\nexists %c \\in \\mathbb{R}", x_name);
+        plain = 0;
+    }
+    return plain;
+}
+
+/* 18t-d. Scrive in text, di size byte, i valori del parametro di nome name
+ * per cui la condizione vale: i tratti di celle consecutive con truth a 1,
+ * come sign_solution() scrive i pezzi di una tabella. Ritorna 1 se il testo
+ * è una condizione che si può rileggere, 0 se è una delle due frasi "ogni
+ * valore" e "nessun valore". */
+static int param_values(int name, char *text, size_t size) {
+    int pieces = 0;
+    text[0] = '\0';
+    for (int first = 0, last; first < param_cells; first = last + 1) {
+        for (last = first; param_cell[first].truth && last + 1 < param_cells && param_cell[last + 1].truth; last++) continue;
+        if (!param_cell[first].truth) continue;
+        if (first == 0 && last == param_cells - 1) { text_add(text, size, "\\forall %c \\in \\mathbb{R}", name); return 0; }
+        if (pieces++) text_add(text, size, " \\lor ");
+        cells_latex(first, last, name, text, size);
+    }
+    if (!pieces) text_add(text, size, "\\nexists %c \\in \\mathbb{R}", name);
+    return pieces > 0;
+}
+
+/* 18t-f. Controlla che la condizione written dica, del parametro di nome
+ * name, ciò che dicono le celle: nel valore di ogni cella, e in altri due
+ * razionali di ogni intervallo, written con il numero al posto del parametro
+ * deve risultare vera esattamente quando la cella ha truth a 1 (by_cell = 1),
+ * oppure vera e basta (by_cell = 0). La decide closed_truth(), cioè la
+ * tabella dei segni. Ritorna 1 se tutto concorda; altrimenti 0, con l'esito
+ * NOT_PROVED e il motivo in *verdict. */
+static int param_reread(const Formula *written, int name, int by_cell, Verdict *verdict) {
+    static char reason[400];
+    for (int c = 0; c < param_cells; c++)
+        for (int i = 0; i < (c % 2 ? 1 : 3); i++) {
+            Scratch mark = scratch_mark();
+            Formula *closed = formula_with(written, name, i == 0 ? param_cell[c].value : node_rational(cell_beside(c, i == 2)));
+            int truth = -1;
+            if (failure) { verdict->reason = failure; failure = NULL; }
+            else truth = closed_truth(closed, name, verdict);
+            scratch_drop(mark);
+            if (truth == (by_cell ? param_cell[c].truth : 1)) continue;
+            if (truth < 0) {
+                snprintf(reason, sizeof reason, "non riesco a rileggere le soluzioni scritte: %s", verdict->reason);
+                verdict->reason = reason;
+            } else {
+                unjustified_steps++;
+                verdict->reason = "le soluzioni scritte, rilette, non coincidono con la condizione in un valore del parametro";
+            }
+            verdict->outcome = NOT_PROVED;
+            return 0;
+        }
+    return 1;
+}
+
+/* 18t-g. Ritorna la verità della condizione f quando il parametro di nome
+ * name vale il razionale at, per quanto la si può stabilire con il solo
+ * conto diretto sui numeri: 1 vera, 0 falsa, -1 non si sa.
+ *
+ * Un confronto nel solo parametro si calcola (sign_holds_at()). Di un
+ * quantificatore interno si provano PARAM_GRID valori della sua variabile:
+ * un valore in cui la condizione non vale smentisce un "per ogni", uno in
+ * cui vale conferma un "esiste"; il contrario non si può dire, perché i
+ * valori provati sono pochi. I connettivi si calcolano dalle parti, e danno
+ * una risposta anche quando una parte non la dà: "falso e qualcosa" è
+ * falso. */
+static int grid_truth(const Formula *f, int name, Frac at) {
+    if (f->kind == F_NOT) {
+        int inner = grid_truth(f->a, name, at);
+        return inner < 0 ? -1 : !inner;
+    }
+    if (f->kind == F_AND || f->kind == F_OR || f->kind == F_IMPLIES || f->kind == F_IFF) {
+        int a = grid_truth(f->a, name, at), b = grid_truth(f->b, name, at);
+        if (f->kind == F_IFF) return a < 0 || b < 0 ? -1 : a == b;
+        if (f->kind == F_AND) return a == 0 || b == 0 ? 0 : a < 0 || b < 0 ? -1 : 1;
+
+        /* "a implica b" è "non a, oppure b". */
+        if (f->kind == F_IMPLIES && a >= 0) a = !a;
+        return a == 1 || b == 1 ? 1 : a < 0 || b < 0 ? -1 : 0;
+    }
+    if (f->kind == F_FORALL || f->kind == F_EXISTS) {
+        Frac value[PARAM_GRID];
+        Scratch mark = scratch_mark();
+        Formula *body = formula_with(f->a, name, node_rational((Wide){at.num, at.den}));
+        int every = f->kind == F_FORALL, found = -1;
+        numbers_sample(&f->numbers, value, PARAM_GRID);
+        for (int i = 0; i < PARAM_GRID && found < 0; i++) {
+            failure = NULL;
+            int holds = sign_holds_at(body, f->variable, value[i]);
+            if (!failure && holds != every) found = !every;
+        }
+        failure = NULL;
+        scratch_drop(mark);
+        return found;
+    }
+    failure = NULL;
+    int holds = sign_holds_at(f, name, at);
+    if (failure) holds = -1;
+    failure = NULL;
+    return holds;
+}
+
+/* 18t-g. Ritorna 0 se in uno dei valori della griglia del parametro di nome
+ * name, che varia in set, le celle sono smentite: se la condizione f, con
+ * quel valore al posto del parametro, risulta falsa dove dovrebbe essere
+ * vera, o il contrario. Dovrebbe essere vera nelle celle con truth a 1
+ * (by_cell = 1), oppure dappertutto (by_cell = 0). La si guarda nei due modi
+ * di 18t-g: con la tabella dei segni (closed_truth()) e con il conto diretto
+ * (grid_truth()). Dove un modo non sa rispondere, lì non dice nulla. */
+static int grid_agrees(const Formula *f, int name, const NumberSet *set, int by_cell) {
+    Frac simple[PARAM_GRID];
+    numbers_sample(set, simple, PARAM_GRID);
+    for (int i = 0; i < 2 * PARAM_REACH + 1 + PARAM_GRID; i++) {
+        /* Prima i quarti, poi i razionali più semplici: qualcuno si ripete,
+         * e non fa danno. */
+        Wide at = i <= 2 * PARAM_REACH ? wide_make(i - PARAM_REACH, 4) : (Wide){simple[i - 2 * PARAM_REACH - 1].num, simple[i - 2 * PARAM_REACH - 1].den};
+        Verdict unused = {UNSUPPORTED, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL};
+        Scratch mark = scratch_mark();
+        Formula *closed = formula_with(f, name, node_rational(at));
+        int decided = failure ? -1 : closed_truth(closed, name, &unused);
+        int seen = grid_truth(f, name, (Frac){(long long)at.num, (long long)at.den});
+        scratch_drop(mark);
+        failure = NULL;
+        int cell = param_cell_of(at), expected = by_cell ? param_cell[cell].truth : 1;
+        if (failure) { failure = NULL; continue; }
+        if ((decided >= 0 && decided != expected) || (seen >= 0 && seen != expected)) return 0;
+    }
+    return 1;
+}
+
+/* Ritorna 1 se in f compare un quantificatore sui numeri reali, o una
+ * richiesta di soluzioni. */
+static int formula_has_real_letter(const Formula *f) {
+    if (!f) return 0;
+    if (f->kind == F_SOLVE || ((f->kind == F_FORALL || f->kind == F_EXISTS) && f->numbers.reals)) return 1;
+    return formula_has_real_letter(f->a) || formula_has_real_letter(f->b);
+}
+
+/* Ritorna 1 se l'enunciato thesis è di quelli di questa regola: eventuali
+ * negazioni, poi un quantificatore su un numero reale, o una richiesta di
+ * soluzioni nei reali, con un'altra lettera reale all'interno. Gli altri
+ * enunciati con relazioni d'ordine restano a decide_by_signs().
+ *
+ * Una richiesta di soluzioni sotto un quantificatore arriva qui qualunque
+ * sia l'insieme del quantificatore: decide_by_signs() non conosce quella
+ * forma, e leggerebbe la richiesta come una condizione sempre falsa. Qui
+ * riceve la risposta giusta: se l'insieme non è \mathbb{R}, che non è
+ * trattata. */
+static int has_parameter(const Formula *thesis) {
+    while (thesis->kind == F_NOT) thesis = thesis->a;
+    if (thesis->kind == F_FORALL && thesis->a->kind == F_SOLVE) return 1;
+    return (thesis->kind == F_FORALL || thesis->kind == F_EXISTS || thesis->kind == F_SOLVE) && thesis->numbers.reals && formula_has_real_letter(thesis->a);
+}
+
+/* Il lavoro di decide_with_parameter(), che ne descrive il contratto. */
+static void param_decide(const Formula *thesis, Verdict *verdict) {
+    static char text[PARAM_TEXT], where[320];
+    const Formula *q = thesis;
+    int negated = 0;
+    while (q->kind == F_NOT) { q = q->a; negated = !negated; }
+
+    /* Le tre forme: una richiesta di soluzioni sotto il "per ogni" del
+     * parametro (request), i valori del parametro (solving), una verifica. */
+    const Formula *request = q->kind == F_FORALL && q->a->kind == F_SOLVE ? q->a : NULL;
+    int solving = q->kind == F_SOLVE, every = q->kind == F_FORALL, name = q->variable, a = atom_var(name);
+    if (!numbers_all_reals(&q->numbers)) { verdict->reason = PARAM_FORM; return; }
+
+    /* 18t-a, 18t-b. La tabella nella lettera del parametro: prima le sue
+     * colonne, poi i suoi punti, che sono i valori critici. Lo stato che
+     * sign_prepare() si aspetta è quello che gli dà decide_by_signs(),
+     * senza funzioni goniometriche né esponenziali.
+     *
+     * Warning: se decide_by_signs() comincia ad azzerare un'altra variabile
+     * prima di chiamare sign_prepare(), va azzerata anche qui. */
+    sign_atoms = sign_polys = sign_nodes = sign_needs = kappas = spaces = family_leaves = windows = 0;
+    window_first = window_last = window_turn = 0;
+    sign_name = name;
+    sign_x = a;
+    trig_on = 0;
+    param_polys = param_candidates = 0;
+    failure = NULL;
+    param_collect(q->a, name, 0);
+    param_project(a);
+    if (request && !failure) candidates_build(atom_var(request->variable), a);
+    if (!failure) param_cells_build(name);
+    if (failure) { verdict->reason = failure; failure = NULL; return; }
+
+    /* La dimostrazione scritta comincia dai valori critici: vanno detti
+     * adesso, perché le colonne non sopravvivono alla prima cella. */
+    size_t opening = proof_length;
+    proof_add("\\textbf{Cases on $%c$.} Each comparison counts as false where one of its sides has no value. "
+              "For a fixed value of $%c$ what is left is a statement in one variable, decided by a sign table. "
+              "Read as polynomials in that variable, the expressions of the statement keep the same real roots, in the same order, "
+              "as $%c$ moves without crossing a real root of one of these: ", name, name, name);
+    int listed = 0;
+    for (int i = 0; i < sign_polys; i++) {
+        if (sign_poly[i].degree <= 0) continue;
+        proof_add("%s$", listed++ ? ", " : "");
+        put_uni(&sign_poly[i], name);
+        proof_add("$");
+    }
+    proof_add("%s (the leading coefficients, the discriminants and the resultants of those polynomials, and the comparisons in $%c$ alone). "
+              "So one value of $%c$ decides for each of these roots and for each interval between two consecutive ones.\n\\begin{itemize}\n",
+              listed ? "" : "none", name, name);
+
+    /* 18t-c. Una cella alla volta. Una verifica si ferma alla prima cella
+     * che decide: quella che smentisce un "per ogni" o conferma un
+     * "esiste". Ciò che ogni decisione lascia nell'arena e tra gli atomi
+     * viene tolto subito. */
+    int decided = -1;
+    for (int c = 0; c < param_cells && decided < 0; c++) {
+        ParamCell *cell = &param_cell[c];
+        Scratch mark = scratch_mark();
+        Formula *closed = formula_with(request ? request->a : q->a, name, cell->value);
+        const char *problem = failure;
+        proof_add("\\item ");
+        put_cell(c, name);
+        if (problem) {
+            /* La copia non è riuscita: non c'è un enunciato da decidere. */
+        } else if (request) {
+            /* 18t-e. La richiesta, con il valore della cella: tolti i
+             * confronti tra numeri, o non resta nulla da risolvere, oppure
+             * la risolve 18p, e dalla sua tabella si leggono le soluzioni. */
+            Verdict inner = {UNSUPPORTED, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL};
+            Formula solve = *request;
+            size_t before = proof_length;
+            solve.a = closed_reduce(closed, request->variable, name, verdict);
+            if (!solve.a) {
+                problem = verdict->reason;
+            } else if (solve.a == &closed_constant[0] || solve.a == &closed_constant[1]) {
+                cell->kind = solve.a == &closed_constant[1] ? 2 : 0;
+            } else {
+                decide_by_signs(&solve, &inner);
+                proof_cut(before);
+                if (inner.outcome != SOLVED) {
+                    verdict->outcome = inner.outcome;
+                    problem = inner.reason ? inner.reason : PARAM_INNER;
+                } else if (!cell_solutions(cell, c % 2, solve.a, name, request->variable)) {
+                    problem = failure ? failure : PARAM_WRITE;
+                }
+            }
+            if (!problem && cell->kind == 1) proof_add(": the solutions are $%s$.\n", cell->text);
+            else if (!problem) proof_add(": %s $%c$ is a solution.\n", cell->kind ? "every" : "no", request->variable);
+        } else {
+            cell->truth = closed_truth(closed, name, verdict);
+            if (cell->truth < 0) problem = verdict->reason;
+            else proof_add(": the condition %s.\n", cell->truth ? "holds" : "fails");
+            if (!solving && cell->truth >= 0 && cell->truth != every) {
+                /* Il valore che decide, per il verdetto: con l'x che
+                 * smentisce, se la condizione è un "per ogni x". */
+                char value[96];
+                decided = c;
+                if (c % 2 && !param_point[c / 2].at.exact) snprintf(value, sizeof value, "%s", param_point[c / 2].text);
+                else wide_text(cell->sample, value, sizeof value);
+                int inner = (q->a->kind == F_FORALL || q->a->kind == F_EXISTS) && param_inner[0];
+                snprintf(where, sizeof where, "%c = %s%s%s", name, value, inner ? ", " : "", inner ? param_inner : "");
+            }
+        }
+        scratch_drop(mark);
+        failure = NULL;
+        if (!problem) continue;
+        proof_cut(opening);
+        verdict->reason = problem;
+        return;
+    }
+    proof_add("\\end{itemize}\n");
+    verdict->method = "con la tabella dei segni, per casi sul parametro";
+
+    /* 18t-d. Una verifica. "Per ogni" è vero se nessuna cella lo smentisce,
+     * "esiste" se una lo conferma; una negazione davanti li rovescia. Quando
+     * hanno deciso tutte le celle insieme, e non una sola, prima del
+     * verdetto si guarda la griglia (18t-g). */
+    if (!solving && !request) {
+        int holds = every ? decided < 0 : decided >= 0;
+        if (decided < 0 && !grid_agrees(q->a, name, &q->numbers, 1)) {
+            unjustified_steps++;
+            proof_cut(opening);
+            verdict->outcome = NOT_PROVED;
+            verdict->reason = "la verifica indipendente, su una griglia di numeri, non conferma i casi sul parametro";
+            return;
+        }
+        if (decided >= 0) proof_add("At this value the condition %s.", every ? "fails" : "holds");
+        else proof_add("The condition %s in every case, hence for every value of $%c$.", every ? "holds" : "fails", name);
+        if (negated) proof_add(" The statement is the negation of this claim.");
+        proof_add(holds != negated ? " $\\Box$" : " So the statement is false.");
+        verdict->outcome = holds != negated ? PROVED : REFUTED;
+        verdict->detail = verdict->outcome == REFUTED && decided >= 0 ? where : NULL;
+        verdict->proof = proof_text;
+        return;
+    }
+
+    /* 18t-d, 18t-e. Le soluzioni scritte; poi 18t-f e 18t-g, che le
+     * ricontrollano. Per i valori del parametro si rilegge il testo e lo si
+     * confronta con le celle. Per le soluzioni con il parametro si
+     * controlla l'enunciato "per ogni x, la condizione vale se e solo se
+     * valgono le soluzioni scritte"; se le soluzioni sono "ogni x" o
+     * "nessun x", che non sono condizioni da rileggere, l'enunciato è la
+     * condizione stessa, o la sua negazione. */
+    int plain = request ? param_cases(name, request->variable, text, sizeof text) : param_values(name, text, sizeof text);
+    if (failure) { verdict->reason = failure; failure = NULL; proof_cut(opening); return; }
+    Formula *written = NULL, *claim = NULL;
+    if (plain) {
+        syntax_error = NULL;
+        cursor = text;
+        next_token();
+        written = logic_formula();
+        if (syntax_error || token.kind != T_END) {
+            syntax_error = NULL;
+            unjustified_steps++;
+            proof_cut(opening);
+            verdict->outcome = NOT_PROVED;
+            verdict->reason = "le soluzioni scritte non si lasciano rileggere";
+            return;
+        }
+    }
+    if (request) {
+        Formula *body = request->a;
+        claim = formula_node(F_FORALL, plain ? formula_node(F_IFF, body, written, "") : param_cell[0].kind ? body : formula_node(F_NOT, body, NULL, ""), NULL, "");
+        claim->variable = request->variable;
+        claim->numbers = request->numbers;
+    }
+    if ((claim || written) && !param_reread(claim ? claim : written, name, !claim, verdict)) { proof_cut(opening); return; }
+    if (!grid_agrees(claim ? claim : q->a, name, &q->numbers, !claim)) {
+        unjustified_steps++;
+        proof_cut(opening);
+        verdict->outcome = NOT_PROVED;
+        verdict->reason = "la verifica indipendente, su una griglia di numeri, non conferma le soluzioni scritte";
+        return;
+    }
+    proof_add("Hence the condition holds exactly for $%s$. $\\Box$", text);
+    verdict->outcome = SOLVED;
+    verdict->detail = text;
+    verdict->proof = proof_text;
+}
+
+/* 18t. Decide con i casi sul parametro l'enunciato thesis, che è di quelli
+ * riconosciuti da has_parameter(): una verifica, i valori del parametro, o
+ * le soluzioni con il parametro. Riempie *verdict, con la dimostrazione
+ * scritta e il controesempio o le soluzioni; ciò che la regola non tratta
+ * resta NON SUPPORTATO, con il motivo.
+ *
+ * Mentre lavora, i grafici sono spenti: ogni cella passa da
+ * decide_by_signs(), che altrimenti ne costruirebbe uno per volta, e il
+ * disegno di una cella non è il disegno dell'enunciato. */
+static void decide_with_parameter(const Formula *thesis, Verdict *verdict) {
+    int wanted = figures_wanted;
+    figures_wanted = 0;
+    param_decide(thesis, verdict);
+    figures_wanted = wanted;
 }
 
 /* =============================================================================
@@ -11912,6 +17371,18 @@ static int sample_holds(const Formula *f, int negated) {
         return sample_holds(f->a, !negated);
     case F_MAP:
         return !negated;
+    case F_IN: {
+        /* Il valore è un numero: basta guardare se sta nell'insieme. */
+        int numbers = rat_number(eval(f->left), &left) && left.im.num == 0;
+        arena_used = mark;
+        return numbers && (numbers_contain(&f->numbers, left.re) != f->swapped) != negated;
+    }
+    case F_DIVIDES: {
+        /* Due numeri: basta dividere. */
+        int numbers = rat_number(eval(f->left), &left) && rat_number(eval(f->right), &right);
+        arena_used = mark;
+        return numbers && (number_divides(left, right) != f->swapped) != negated;
+    }
     case F_LESS: case F_LESS_EQ: case F_SOLVE:
         /* Gli enunciati con una relazione d'ordine e gli insiemi di
          * soluzioni li decide e li ricontrolla la tabella dei segni (18p):
@@ -11991,6 +17462,35 @@ static int sample_holds(const Formula *f, int negated) {
         arena_used = mark;
         if (holds != every) return holds;
     }
+
+    /* Oltre ai primi elementi dell'insieme, i valori che le uguaglianze
+     * della condizione impongono: per smentire un "per ogni", o confermare
+     * un "esiste", serve un valore che renda vera una condizione, e se
+     * quella contiene alpha x + beta = 0, con alpha e beta numeri, il
+     * valore non può che essere -beta/alpha. Senza questo passo l'ipotesi
+     * \exists k \in \mathbb{Z}\ (a - b = 7k) risultava falsa per a = 50 e
+     * b = 1, perché k = 7 non è tra i primi interi: e un'implicazione con
+     * l'ipotesi falsa conferma qualsiasi dimostrazione. Le altre variabili
+     * hanno un numero per valore, quindi il conto è tra numeri; un conto che
+     * non riesce vuol dire solo che da lì non viene un candidato. */
+    const Formula *equation[MAX_EQUATIONS];
+    int equations = find_equations((Formula *)f->a, every ? !negated : negated, equation, 0);
+    for (int e = 0; e < equations; e++) {
+        Poly num, den, part[2];
+        Rat gap = rat_add(eval(equation[e]->left), eval(equation[e]->right), 1);
+        int solved = !failure && rat_polynomials(gap, &num, &den) && poly_split(num, atom_var(f->variable), part, 1) == 1 &&
+                     poly_is_constant(part[0]) && poly_is_constant(part[1]) && part[1].term[0].coef.im.num == 0 &&
+                     (part[0].count == 0 || part[0].term[0].coef.im.num == 0);
+        if (solved) value = frac_neg(frac_div(part[0].count ? part[0].term[0].coef.re : frac_int(0), part[1].term[0].coef.re));
+        failure = NULL;
+        arena_used = mark;
+        if (!solved || !numbers_contain(&f->numbers, value)) continue;
+        env_push(f->variable, rat_frac(value));
+        int holds = sample_holds(f->a, negated);
+        env_pop();
+        arena_used = mark;
+        if (holds != every) return holds;
+    }
     return every;
 }
 
@@ -12008,14 +17508,22 @@ static void forget_choices(Formula *f) {
 /* Ritorna 1 se, sul campione del dominio, la regola di map dà sempre un
  * numero che sta nel codominio. */
 static int map_holds_on_sample(const Map *map) {
-    Frac sample[SAMPLE_SIZE];
+    Frac sample[SAMPLE_SIZE], other[SAMPLE_SIZE];
     numbers_sample(&map->domain, sample, SAMPLE_SIZE);
+
+    /* Per un'operazione, ogni coppia del campione dei due insiemi. */
+    int seconds = map->binary ? SAMPLE_SIZE : 1;
+    if (map->binary) numbers_sample(&map->second, other, SAMPLE_SIZE);
     for (int i = 0; i < SAMPLE_SIZE; i++) {
-        Num value;
-        env_push(map->parameter, rat_frac(sample[i]));
-        Rat image = eval(map->body);
-        env_pop();
-        if (failure || !rat_number(image, &value) || value.im.num != 0 || !numbers_contain(&map->codomain, value.re)) return 0;
+        for (int j = 0; j < seconds; j++) {
+            Num value;
+            env_push(map->parameter, rat_frac(sample[i]));
+            if (map->binary) env_push(map->parameter2, rat_frac(other[j]));
+            Rat image = eval(map->body);
+            if (map->binary) env_pop();
+            env_pop();
+            if (failure || !rat_number(image, &value) || value.im.num != 0 || !numbers_contain(&map->codomain, value.re)) return 0;
+        }
     }
     return 1;
 }
@@ -12038,6 +17546,280 @@ static const char *describe_choices(void) {
     return choice_text;
 }
 
+/* Verifica indipendente della regola 18r, e il suo verdetto.
+ *
+ * La regola calcola con i resti: polinomi ridotti modulo un numero, sulle
+ * condizioni che ha messo in tabella. Qui lo stesso enunciato viene
+ * ricalcolato com'è scritto, senza tabella e senza resti: ogni variabile
+ * prende per valore gli interi veri di un periodo, residue_period elementi
+ * consecutivi del suo insieme (non i numeri da 0 a M - 1 usati dalla regola,
+ * ma quelli da cui l'insieme comincia, o a cavallo dello zero), e ogni
+ * condizione è una divisione tra due numeri esatti del capitolo 11. Per il
+ * teorema in testa a 18r anche questo è un conto completo: se i due non
+ * danno la stessa risposta uno dei due è sbagliato, e il verdetto non viene
+ * emesso. */
+
+/* Ritorna il k-esimo, per k da 0 a residue_period - 1, di una fila di
+ * elementi di set con resti tutti diversi modulo residue_period: interi
+ * consecutivi, e al posto di uno che manca da set il primo dopo di lui con lo
+ * stesso resto. */
+static long long period_member(const NumberSet *set, long long k) {
+    long long x = (set->bounded ? set->low + set->strict : -(residue_period / 2)) + k;
+    while (!numbers_contain(set, frac_int(x))) x += residue_period;
+    return x;
+}
+
+/* Ritorna 1 se esiste un intero k, la variabile di nome name, che soddisfa
+ * una delle uguaglianze di e; ogni altra variabile ha un numero per valore.
+ * Un'uguaglianza di primo grado in k ha una sola soluzione, e si guarda se è
+ * intera; una in cui k non compare vale o non vale per ogni k. */
+static int multiple_exists(const Formula *e, int name) {
+    Poly num, den, part[2];
+    Num slope = num_int(0), constant;
+    size_t mark = arena_used;
+    if (e->kind == F_OR) return multiple_exists(e->a, name) || multiple_exists(e->b, name);
+    Rat gap = rat_add(eval(e->left), eval(e->right), 1);
+    int degree = !failure && rat_polynomials(gap, &num, &den) ? poly_split(num, atom_var(name), part, 1) : -1;
+    Poly one = poly_const(num_int(1));
+    int numbers = degree >= 0 && rat_number((Rat){part[0], one}, &constant) && (degree == 0 || rat_number((Rat){part[1], one}, &slope));
+    arena_used = mark;
+    if (!numbers) { fail("la verifica sugli interi non sa leggere un'uguaglianza"); return 0; }
+    return degree == 0 ? num_is_zero(constant) : number_divides(slope, constant);
+}
+
+/* Ritorna 1 se la condizione f, del linguaggio di 18r, è vera calcolando con
+ * gli interi: ogni variabile visibile in f deve essere legata a un numero.
+ * Un quantificatore prova gli interi di un periodo del suo insieme. Se un
+ * conto non riesce annota l'errore: chi chiama non deve fidarsi della
+ * risposta. */
+static int period_holds(const Formula *f) {
+    Num left, right;
+    size_t mark = arena_used;
+    if (failure) return 0;
+    switch (f->kind) {
+    case F_NOT:     return !period_holds(f->a);
+    case F_AND:     return period_holds(f->a) && period_holds(f->b);
+    case F_OR:      return period_holds(f->a) || period_holds(f->b);
+    case F_IMPLIES: return !period_holds(f->a) || period_holds(f->b);
+    case F_IFF:     return period_holds(f->a) == period_holds(f->b);
+    case F_DIVIDES: {
+        int numbers = rat_number(eval(f->left), &left) && rat_number(eval(f->right), &right);
+        arena_used = mark;
+        if (!numbers) fail("la verifica sugli interi non sa calcolare una condizione");
+        return numbers && number_divides(left, right) != f->swapped;
+    }
+    case F_IN: {
+        int numbers = rat_number(eval(f->left), &left) && left.im.num == 0;
+        arena_used = mark;
+        if (!numbers) fail("la verifica sugli interi non sa calcolare una condizione");
+        return numbers && numbers_contain(&f->numbers, left.re) != f->swapped;
+    }
+    case F_FORALL: case F_EXISTS:
+        break;
+    default:
+        fail("la verifica sugli interi ha trovato una condizione che non conosce");
+        return 0;
+    }
+    if (names_a_multiple(f)) return multiple_exists(f->a, f->variable);
+
+    int every = f->kind == F_FORALL, holds = every;
+    for (long long k = 0; k < residue_period && holds == every && !failure; k++) {
+        env_push(f->variable, rat_int(period_member(&f->numbers, k)));
+        holds = period_holds(f->a);
+        env_pop();
+    }
+    return holds;
+}
+
+/* Cerca dei resti per le variabili dei "per ogni" in testa a f con cui ciò
+ * che segue è falso. Se li trova ritorna 1 e li lascia in residue_name[] e
+ * residue_value[], con residue_count variabili. */
+static int residue_failure(const Formula *f) {
+    if (f->kind != F_FORALL) return !residue_holds(f);
+    residue_name[residue_count++] = f->variable;
+    for (long long r = 0; r < residue_period; r++) {
+        residue_value[residue_count - 1] = r;
+        if (residue_failure(f->a)) return 1;
+    }
+    residue_count--;
+    return 0;
+}
+
+/* Il testo di ciò che decide_by_residues() ha da riportare: un controesempio
+ * come "x = 5, y = 0", oppure le soluzioni come condizione in LaTeX. */
+static char residue_text[64 * MAX_CLASSES];
+
+/* 18r, per \{x \in A \mid c\}: l'insieme delle soluzioni di una condizione c
+ * del linguaggio di 18r, con A un insieme di interi. solve è il nodo F_SOLVE,
+ * già accettato da congruences_read(); riempie *verdict.
+ *
+ * Le soluzioni sono gli x il cui resto modulo M è uno di quelli "buoni", che
+ * si trovano provandoli tutti. Per scriverle come sui libri si cerca il
+ * periodo più piccolo d che divide M: se i resti buoni si ripetono ogni d,
+ * basta elencare quelli tra 0 e d - 1.
+ *
+ * Tre controlli, come per le soluzioni della tabella dei segni: i resti
+ * buoni devono essere gli stessi calcolando con gli interi veri
+ * (period_holds()); e le soluzioni scritte vengono rilette dal lettore del
+ * programma e calcolate, sugli stessi interi, come una condizione qualsiasi. */
+static void solve_by_residues(const Formula *solve, Verdict *verdict) {
+    static char good[MAX_PERIOD];
+    const NumberSet *set = &solve->numbers;
+    long long period = residue_period, shortest = period, classes = 0;
+    int name = solve->variable, length = 0, confirmed = 1;
+
+    /* I resti buoni, con la regola; e la conferma sugli interi. */
+    residue_name[0] = name;
+    residue_count = 1;
+    for (long long r = 0; r < period; r++) {
+        residue_value[0] = r;
+        good[r] = (char)residue_holds(solve->a);
+    }
+    residue_count = 0;
+    for (long long k = 0; k < period && confirmed; k++) {
+        long long x = period_member(set, k);
+        env_push(name, rat_int(x));
+        confirmed = period_holds(solve->a) == good[((x % period) + period) % period] && !failure;
+        env_pop();
+    }
+
+    /* Il periodo più piccolo, e quanti resti buoni contiene. */
+    for (long long d = 1; d < period && shortest == period; d++) {
+        int repeats = period % d == 0;
+        for (long long r = d; r < period && repeats; r++) repeats = good[r] == good[r - d];
+        if (repeats) shortest = d;
+    }
+    for (long long r = 0; r < shortest; r++) classes += good[r];
+    if (confirmed && classes > MAX_CLASSES && classes < shortest) {
+        verdict->outcome = NOT_PROVED;
+        verdict->reason = "le soluzioni sono troppe classi di resto per elencarle";
+        return;
+    }
+
+    /* Le soluzioni scritte: nessuna, tutte, oppure le classi di resto. */
+    int listed = classes > 0 && classes < shortest;
+    if (!listed) length = snprintf(residue_text, sizeof residue_text, "%s %c \\in %.*s", classes ? "\\forall" : "\\nexists", name, (int)(set->end - set->start), set->start);
+    for (long long r = 0; r < shortest && listed; r++)
+        if (good[r]) length += snprintf(residue_text + length, sizeof residue_text - (size_t)length, "%s%c \\equiv %lld \\pmod{%lld}", length ? " \\lor " : "", name, r, shortest);
+
+    /* Rilettura: ciò che è scritto, letto come una condizione, deve valere
+     * esattamente dove vale la condizione di partenza. */
+    if (listed && confirmed) {
+        syntax_error = NULL;
+        cursor = residue_text;
+        next_token();
+        const Formula *written = logic_formula();
+        confirmed = !syntax_error && token.kind == T_END;
+        for (long long k = 0; k < period && confirmed; k++) {
+            long long x = period_member(set, k);
+            env_push(name, rat_int(x));
+            confirmed = period_holds(written) == good[((x % period) + period) % period] && !failure;
+            env_pop();
+        }
+    }
+    if (!confirmed) {
+        failure = syntax_error = NULL;
+        unjustified_steps++;
+        verdict->outcome = NOT_PROVED;
+        verdict->reason = "la verifica indipendente, sugli interi di un periodo, non conferma i resti trovati o le soluzioni scritte";
+        return;
+    }
+
+    proof_add("Whether $%c$ satisfies the condition depends only on its remainder modulo $%lld$: each part of the condition says that "
+              "a polynomial with integer coefficients is a multiple of a number that divides $%lld$. Trying the remainders "
+              "$0, \\ldots, %lld$ one by one, the condition holds exactly for $%s$. $\\Box$", name, period, period, period - 1, residue_text);
+    verdict->outcome = SOLVED;
+    verdict->method = "provando tutti i resti";
+    verdict->detail = residue_text;
+    verdict->proof = proof_text;
+}
+
+/* 18r. Se l'enunciato thesis è fatto solo di congruenze tra interi lo decide
+ * provando tutti i resti, riempie *verdict e ritorna 1; altrimenti ritorna 0
+ * e non tocca nulla. Nessuna variabile deve essere legata, e la tabella degli
+ * atomi deve essere quella dell'enunciato.
+ *
+ * Il verdetto è DIMOSTRATO o FALSO solo se il conto sui resti e quello sugli
+ * interi di un periodo danno la stessa risposta; per un insieme di soluzioni
+ * è RISOLTO (solve_by_residues()). */
+static int decide_by_residues(const Formula *thesis, Verdict *verdict) {
+    /* È del linguaggio? Un conto che non riesce vuol dire solo di no. */
+    int deepest = 0;
+    congruence_count = residue_count = 0;
+    if (!congruences_read(thesis, &deepest) || failure) { failure = NULL; return 0; }
+
+    /* Il periodo, e il numero di casi: devono restare trattabili. */
+    long long cases = 1;
+    residue_period = 1;
+    for (int i = 0; i < congruence_count; i++) {
+        __int128 multiple = (__int128)residue_period / gcd128(residue_period, congruences[i].modulus) * congruences[i].modulus;
+        if (multiple > MAX_PERIOD) return 0;
+        residue_period = (long long)multiple;
+    }
+    for (int i = 0; i < deepest; i++) {
+        if (cases > MAX_RESIDUE_CASES / residue_period) return 0;
+        cases *= residue_period;
+    }
+    proof_reset();
+    if (thesis->kind == F_SOLVE) { solve_by_residues(thesis, verdict); return 1; }
+
+    /* La regola, e la verifica indipendente. */
+    int holds = residue_holds(thesis);
+    int confirmed = period_holds(thesis) == holds && !failure;
+
+    /* Un enunciato falso che comincia con dei "per ogni" ha un controesempio
+     * da riportare: i resti trovati, portati dentro gli insiemi. Anche
+     * questi numeri vengono ricontrollati, calcolando su di loro ciò che
+     * segue i quantificatori. */
+    const char *counterexample = NULL;
+    if (confirmed && !holds && thesis->kind == F_FORALL && residue_failure(thesis)) {
+        const Formula *body = thesis;
+        int length = 0;
+        for (int i = 0; i < residue_count; i++, body = body->a) {
+            long long x = residue_value[i];
+            while (!numbers_contain(&body->numbers, frac_int(x))) x += residue_period;
+            env_push(body->variable, rat_int(x));
+            length += snprintf(residue_text + length, sizeof residue_text - (size_t)length, "%s%c = %lld", i ? ", " : "", body->variable, x);
+        }
+        confirmed = !period_holds(body) && !failure;
+        env_count = residue_count = 0;
+        counterexample = residue_text;
+    }
+    if (!confirmed) {
+        failure = NULL;
+        unjustified_steps++;
+        verdict->outcome = NOT_PROVED;
+        verdict->reason = "la verifica indipendente, sugli interi di un periodo, non conferma il conto sui resti";
+        return 1;
+    }
+
+    /* La dimostrazione scritta: le condizioni, il periodo, l'esito. */
+    proof_add(holds ? "\\textbf{Proof.} " : "\\textbf{The statement is false.} ");
+    proof_add("Written out, each condition of the statement says that a polynomial with integer coefficients is a multiple of a number: ");
+    for (int i = 0; i < congruence_count; i++) {
+        proof_add("%s$%lld$ divides $", i ? ", " : "", congruences[i].modulus);
+        put_poly(congruences[i].dividend);
+        proof_add("$");
+    }
+    proof_add(". Let $M = %lld$, a common multiple of these numbers. If a letter changes by a multiple of $M$, each polynomial "
+              "changes by a multiple of $M$, so no condition changes; and each set of the statement contains integers with every "
+              "remainder modulo $M$. It is therefore enough to give each letter the remainders $0, \\ldots, %lld$: %lld case%s. ",
+              residue_period, residue_period - 1, cases, cases == 1 ? "" : "s");
+    if (holds) proof_add("The statement holds in each of them. $\\Box$");
+    else if (counterexample) proof_add("The statement fails for $%s$.", counterexample);
+    else proof_add("Computing them shows that the statement is false.");
+    verdict->outcome = holds ? PROVED : REFUTED;
+    verdict->method = "provando tutti i resti";
+    verdict->detail = counterexample;
+    verdict->proof = proof_text;
+    return 1;
+}
+
+/* Ritorna 1 se nella condizione f compare un nodo di tipo kind. */
+static int formula_has_kind(const Formula *f, FormulaKind kind) {
+    return f && (f->kind == kind || formula_has_kind(f->a, kind) || formula_has_kind(f->b, kind));
+}
+
 /* Il lavoro di prove_quantified(), che ne descrive il contratto. Al ritorno
  * la tabella `maps` contiene ancora le applicazioni dell'enunciato. */
 static Verdict decide_quantified(const char *formula) {
@@ -12046,7 +17828,15 @@ static Verdict decide_quantified(const char *formula) {
     /* Ripartenza da zero e parsing. */
     proof_reset();
     arena_used = arena_keep;
-    atom_count = 0;
+
+    /* Con la memoria ripartono anche le tabelle che vi puntano: gli atomi,
+     * le basi che sono polinomi e gli argomenti delle arcotangenti. Le
+     * ultime due una volta si azzeravano solo più avanti, dove comincia la
+     * ricerca con le regole sui quantificatori: un enunciato deciso prima,
+     * dalla tabella dei segni, lasciava ad atan_args[] un puntatore a
+     * memoria già riusata, e l'enunciato successivo con un'arcotangente
+     * leggeva dati a caso. */
+    atom_count = base_poly_count = atan_count = 0;
     failure = NULL;
     env_count = 0;
     map_count = 0;
@@ -12058,21 +17848,31 @@ static Verdict decide_quantified(const char *formula) {
 
     /* Ipotesi e tesi, poi i controlli che la grammatica non fa. */
     if (!syntax_error && !failure) {
-        if (map_count > 0 && thesis->kind == F_IMPLIES) {
+        if ((map_count > 0 || pair_set_count > 0) && thesis->kind == F_IMPLIES) {
             read_definitions(thesis->a);
             thesis = thesis->b;
         }
         for (int i = 0; i < map_count; i++)
             if (!maps[i].body) fail("un'applicazione è dichiarata senza la regola che la definisce");
+        pair_sets_check();
         quantifier_depth = 0;
         if (!failure) formula_check(thesis);
     }
 
+    /* 18r. Un insieme di soluzioni tra gli interi: la regola dei resti, se
+     * la condizione è fatta di congruenze. */
+    if (!syntax_error && !failure && thesis->kind == F_SOLVE && thesis->numbers.integers && !map_count && decide_by_residues(thesis, &verdict))
+        return verdict;
+
     /* 18p. Relazioni d'ordine e numeri reali: li tratta solo la tabella dei
      * segni, che decide da sola. Le altre regole lavorano sui razionali e
-     * con = e \neq. */
+     * con = e \neq. Con due lettere reali, un parametro e una variabile, la
+     * tabella si fa per casi sul parametro (18t). */
     if (!syntax_error && !failure && formula_needs_signs(thesis)) {
         if (map_count > 0) verdict.reason = "le relazioni d'ordine e i numeri reali non sono ancora trattati insieme alle applicazioni";
+        else if (formula_has_kind(thesis, F_IN) || formula_has_kind(thesis, F_DIVIDES))
+            verdict.reason = "le relazioni d'ordine e i numeri reali non sono ancora trattati insieme all'appartenenza a un insieme numerico e alla divisibilità";
+        else if (has_parameter(thesis)) decide_with_parameter(thesis, &verdict);
         else decide_by_signs(thesis, &verdict);
         return verdict;
     }
@@ -12154,6 +17954,21 @@ static Verdict decide_quantified(const char *formula) {
         return verdict;
     }
 
+    /* 18r. Le regole che seguono la struttura non hanno deciso: se
+     * l'enunciato è fatto solo di congruenze tra interi lo decide il conto
+     * su tutti i resti. Viene dopo le altre perché, dove bastano, quelle
+     * scrivono la dimostrazione passo per passo; e riparte da zero, perché
+     * un loro conto uscito dai limiti non riguarda questo. */
+    if (!syntax_error && !map_count) {
+        const char *before = failure;
+        failure = NULL;
+        arena_used = parsed;
+        atom_count = base_poly_count = atan_count = 0;
+        env_count = universal_count = 0;
+        if (decide_by_residues(thesis, &verdict)) return verdict;
+        failure = before;
+    }
+
     /* Notazione o conto fuori portata, oppure nessuna delle due prove
      * riuscita. */
     if (syntax_error || failure) {
@@ -12187,6 +18002,3354 @@ static Verdict prove_quantified(const char *formula) {
 }
 
 /* =============================================================================
+ * 25. INDUZIONE SU UNA DISUGUAGLIANZA
+ * ============================================================================
+ *
+ * A che cosa serve. "La somma degli 1/sqrt(k), per k da 1 a n, è almeno
+ * sqrt(n)"; "2^n >= n^3 da n = 10 in poi". Per un'uguaglianza l'ipotesi
+ * induttiva dà il valore della somma, e basta sostituirlo (capitolo 13). Per
+ * una disuguaglianza dà solo una stima: si può usare in un verso solo, e ciò
+ * che resta da controllare non è più "questo polinomio è zero" ma "questa
+ * espressione in n non è mai negativa". La prima domanda è algebra; la
+ * seconda la sa decidere la tabella dei segni (18p), per ogni n reale.
+ *
+ * IL TEOREMA
+ *
+ * Sia D(n) il membro che l'enunciato dice maggiore meno l'altro, così che
+ * l'enunciato sia "D(n) >= 0 per ogni intero n >= n0" (oppure "> 0").
+ * Supponiamo che per un intero n1 >= n0:
+ *
+ *   25a. D(n) >= 0 per n = n0, ..., n1;
+ *   25b. per ogni intero n >= n1 valga
+ *
+ *            U(n) D(n+1) = V(n) D(n) + P(n) T(n),
+ *
+ *        con U(n) diverso da zero, V(n)/U(n) >= 0, P(n)/U(n) >= 0 e
+ *        T(n) > 0.
+ *
+ * Allora D(n) >= 0 per ogni intero n >= n0. Infatti fino a n1 lo dice 25a; e
+ * se D(n) >= 0 per un n >= n1, dividendo l'identità per U(n) si ha
+ * D(n+1) = (V/U) D(n) + (P/U) T, somma di due numeri non negativi.
+ *
+ * Con il segno stretto: se in 25a vale D(n) > 0 e in 25b vale V(n)/U(n) > 0,
+ * allora D(n+1) > 0, perché il primo addendo è positivo. Quando V è il
+ * polinomio nullo l'ipotesi non serve: D(n+1) = (P/U) T, e allora si chiede
+ * P(n)/U(n) > 0.
+ *
+ * Le ipotesi contano tutte. Senza V/U >= 0 la stima D(n) >= 0 verrebbe
+ * moltiplicata per un numero negativo e si rovescerebbe. Senza T > 0 il
+ * segno di P/U non direbbe nulla del prodotto. Senza U diverso da zero
+ * l'identità, in quell'n, non dice nulla di D(n+1): è 0 = 0.
+ *
+ * DA DOVE VIENE L'IDENTITÀ
+ *
+ * D(n) e D(n+1) si scrivono con gli stessi atomi (capitolo 13). Alcuni
+ * atomi sono funzioni di n che hanno senso anche per n reale: n stesso, la
+ * radice di n + 1. Altri no, e sono quelli che l'induzione deve far sparire:
+ * una somma fino a n, n!, 2^n. Li chiamiamo discreti. Raccogliendo i monomi
+ * discreti, i due numeratori sono
+ *
+ *     N  = c M + r        (D(n)   = N / Q)
+ *     N' = c' M + r'      (D(n+1) = N' / Q')
+ *
+ * dove M è un monomio discreto, c e c' non contengono atomi discreti, e r,
+ * r' sono ciò che resta. Allora, senza nessuna divisione,
+ *
+ *     c N' - c' N = c r' - c' r,    cioè    (c Q') D(n+1) = (c' Q) D(n) + (c r' - c' r).
+ *
+ * È l'identità del teorema, con U = c Q', V = c' Q, e P T = c r' - c' r,
+ * purché quest'ultimo sia un polinomio senza atomi discreti (P) per un solo
+ * monomio discreto (T), fatto di atomi positivi. Tre esempi:
+ *
+ *   - somma >= R(n): M è la somma, c = c' = 1, e P = (termine nuovo) -
+ *     (R(n+1) - R(n)): "il termine che si aggiunge è almeno quanto cresce
+ *     il secondo membro";
+ *   - 2^n >= n^3: M = 2^n, c = 1, c' = 2, P = 2 n^3 - (n+1)^3: "raddoppiare
+ *     n^3 dà più di (n+1)^3", vero da n = 4 in poi;
+ *   - n! >= 2^n: M = n!, c = 1, c' = n + 1, T = 2^n, P = n - 1: è il
+ *     confronto tra i due rapporti (n+1)!/n! e 2^{n+1}/2^n.
+ *
+ * Se D non contiene atomi discreti l'ipotesi non serve: U = Q', V = 0,
+ * P = N', e l'enunciato in n + 1 è già una disuguaglianza nella sola n.
+ *
+ * Perché non si divide. Ricavare M dall'ipotesi, come fa il capitolo 13 per
+ * le uguaglianze, vorrebbe dire dividere per c, e una frazione di polinomi
+ * negli atomi semplifica n/n senza chiedersi se n è zero. Qui c resta al
+ * suo posto, dentro U, e che U non si annulli lo dimostra la tabella dei
+ * segni insieme al resto: per lei un confronto non vale dove un'espressione
+ * non ha un valore.
+ *
+ * CHI DECIDE I SEGNI
+ *
+ *   - Di D(n) per n = n0, ..., n1: un conto esatto sui numeri (constant_side()).
+ *   - Di V/U e di P/U per ogni n >= n1: la tabella dei segni, a cui si dà
+ *     l'enunciato "per ogni n reale, n >= n1 implica V/U >= 0 e P/U >= 0".
+ *     Vale per ogni reale, quindi per ogni intero. Il contrario no: se la
+ *     tabella lo smentisce in un n non intero, qui non si conclude nulla.
+ *   - Di T: atom_is_positive() (13c) per ognuno dei suoi atomi.
+ *   - n1: il primo n da cui le due condizioni risultano vere nei valori
+ *     calcolati. È solo una proposta, che la tabella poi dimostra o no.
+ *
+ * CHE COSA SI CONTROLLA, E CHE COSA NO
+ *
+ *   - L'enunciato deve essere definito per ogni n >= n0 (13c). Qui non ci
+ *     sono parametri: una lettera diversa da n farebbe del passo una
+ *     disuguaglianza in due variabili, che la tabella non tratta. La
+ *     lettera e è il numero di Nepero, come nella tabella.
+ *   - Verifica indipendente: D(n) viene calcolato davvero, con i numeri,
+ *     per n = n0, ..., n0 + SEARCH_SPAN, senza passare né dall'identità né
+ *     dalla tabella. Un valore del segno sbagliato è un controesempio, e il
+ *     verdetto è FALSO.
+ *   - L'identità scritta nella dimostrazione viene riletta dal testo e
+ *     ricalcolata (come in 13g), a partire dai due membri dell'enunciato: i
+ *     testi di U, V e P dati alla tabella sono quegli stessi caratteri.
+ *   - Non c'è un certificato: la notazione di checker.c non ha né le
+ *     disuguaglianze né le radici, e la tabella dei segni non ne emette. Il
+ *     verdetto lo dice.
+ *
+ * Che cosa resta fuori: le disuguaglianze con parametri (Bernoulli con una
+ * lettera), quelle in cui la somma compare al quadrato o sotto radice,
+ * quelle il cui passo contiene un logaritmo di n insieme a una frazione,
+ * quelle con tre o più monomi discreti (2^n + 3^n >= n). La risposta è NON
+ * DIMOSTRATO o NON SUPPORTATO.
+ */
+
+/* Prototipo in avanti necessario: la base di un atomo è un polinomio, fatto
+ * di atomi. */
+static int poly_is_discrete(Poly p);
+
+/* Ritorna 1 se l'atomo è discreto: una quantità che dipende da n e che ha
+ * senso solo per n intero, o che comunque non è una funzione algebrica di n.
+ * Sono le somme e i prodotti fino a n, i termini delle successioni per
+ * ricorrenza, le potenze con n all'esponente, e le potenze e i logaritmi che
+ * hanno per base una di queste. Non lo sono n, le radici di polinomi in n e
+ * i numeri. */
+static int atom_is_discrete(int atom) {
+    const Atom *a = &atoms[atom];
+    if (a->kind == ATOM_BIGOP || a->kind == ATOM_REC) return 1;
+    if (a->kind != ATOM_POW && a->kind != ATOM_LN) return 0;
+    if (a->kind == ATOM_POW && mono_depends_on_n(&a->exponent)) return 1;
+    if (a->base == BASE_ATOM) return atom_is_discrete((int)a->id);
+    return a->base == BASE_POLY && poly_is_discrete(base_polys[a->id]);
+}
+
+/* Ritorna la parte discreta del monomio m: il prodotto dei suoi fattori che
+ * sono atomi discreti, ognuno con il suo esponente. */
+static Mono mono_discrete(const Mono *m) {
+    Mono part;
+    part.count = 0;
+    for (int i = 0; i < m->count; i++)
+        if (atom_is_discrete(m->factor[i].atom)) part.factor[part.count++] = m->factor[i];
+    return part;
+}
+
+/* Ritorna 1 se in p compare un atomo discreto. */
+static int poly_is_discrete(Poly p) {
+    for (int i = 0; i < p.count; i++)
+        if (mono_discrete(&p.term[i].mono).count > 0) return 1;
+    return 0;
+}
+
+/* Ritorna il coefficiente del monomio discreto `which` in p: la somma dei
+ * termini di p la cui parte discreta è proprio which, divisi per which. Non
+ * contiene atomi discreti. Con which = 1 è la parte di p senza atomi
+ * discreti. */
+static Poly discrete_coefficient(Poly p, const Mono *which) {
+    Mono inverse = mono_pow(which, frac_int(-1));
+    Term *buffer = terms_alloc(p.count);
+    int used = 0;
+    if (!buffer) return (Poly){0, NULL};
+    for (int i = 0; i < p.count; i++) {
+        Mono own = mono_discrete(&p.term[i].mono);
+        if (mono_cmp(&own, which) != 0) continue;
+        buffer[used] = p.term[i];
+        buffer[used++].mono = mono_mul(&p.term[i].mono, &inverse);
+    }
+    return poly_finish(buffer, p.count, used);
+}
+
+/* Toglie gli atomi discreti dal denominatore di *r, se sono un monomio M
+ * comune a tutti i suoi termini: numeratore e denominatore vengono divisi
+ * per M, che finisce nel numeratore con gli esponenti cambiati di segno.
+ * Così (2n+2)! / ((n+1)^2 n!^2) ha per denominatore il solo (n+1)^2. Il
+ * valore non cambia dove M non è zero, cioè dove r è definita. Ritorna 0,
+ * senza toccare *r, se il denominatore contiene atomi discreti in un altro
+ * modo. */
+static int rat_clear_discrete(Rat *r) {
+    Mono common = mono_discrete(&r->den.term[0].mono);
+    for (int i = 1; i < r->den.count; i++) {
+        Mono own = mono_discrete(&r->den.term[i].mono);
+        if (mono_cmp(&own, &common) != 0) return 0;
+    }
+    Term inverse;
+    inverse.coef = num_int(1);
+    inverse.mono = mono_pow(&common, frac_int(-1));
+    r->num = poly_mul(r->num, poly_term(inverse));
+    r->den = poly_mul(r->den, poly_term(inverse));
+    return 1;
+}
+
+/* Mette in *side il segno del numero r e ritorna 1; ritorna 0 se non riesce
+ * a stabilirlo. r è il valore di un'espressione senza lettere.
+ *
+ * Tre strade, dalla più precisa: il conto esatto di number_sign() (18p), che
+ * tratta i razionali e le radici quadrate di interi e riconosce lo zero; il
+ * test di annullamento del capitolo 12, per uno zero scritto con altri
+ * atomi; gli intervalli del capitolo 24, che danno un segno certo quando il
+ * numero non è zero. Un errore di questi conti (numeri troppo grandi) vuol
+ * dire solo "non so". */
+static int constant_side(Rat r, int *side) {
+    const char *saved = failure;
+    int above = 0, below = 0, known = number_sign(r, side);
+    if (!known) {
+        failure = saved;
+        *side = 0;
+        known = poly_vanishes(r.num);
+        if (!known && range_side(poly_range(r.num), &above) && range_side(poly_range(r.den), &below)) {
+            *side = above * below;
+            known = 1;
+        }
+    }
+    known = known && failure == saved;
+    failure = saved;
+    return known;
+}
+
+/* Ritorna D(n) per la disuguaglianza statement: il membro che l'enunciato
+ * dice maggiore meno l'altro, con la variabile di induzione legata a n. */
+static Rat inequality_gap(const Statement *statement, Rat n) {
+    Rat gap = difference(statement, n);
+    int upward = statement->relation == REL_GE || statement->relation == REL_GT;
+    return upward ? gap : rat_add(rat_int(0), gap, 1);
+}
+
+/* L'identità del passo induttivo di una disuguaglianza (25b):
+ * u D(n+1) = v D(n) + p t. I polinomi stanno nell'arena.
+ * Invariante: u, v e p non contengono atomi discreti; ogni atomo di t è
+ * discreto e positivo per ogni n dal caso base in su. */
+typedef struct {
+    Poly u, v, p;
+    Mono t;        /* il monomio T; count == 0 vuol dire T = 1 */
+} InequalityStep;
+
+/* Cerca l'identità di 25b che elimina il monomio discreto `which` da
+ * d = D(n) e d1 = D(n+1); con which NULL, quella che non usa l'ipotesi.
+ * Ritorna 1 e riempie *step se l'identità ha la forma richiesta; 0 se which
+ * non compare in D(n), o se ciò che resta non è un polinomio senza atomi
+ * discreti per un monomio di atomi positivi da n = base in su. */
+static int inequality_step(Rat d, Rat d1, const Mono *which, long long base, InequalityStep *step) {
+    Poly rest = d1.num;
+    step->u = d1.den;
+    step->v = poly_const(num_int(0));
+    if (which) {
+        /* c N' - c' N: i termini con M si cancellano da soli. */
+        Poly c = discrete_coefficient(d.num, which), c1 = discrete_coefficient(d1.num, which);
+        if (c.count == 0) return 0;
+        rest = poly_add(poly_mul(c, d1.num), poly_mul(c1, d.num), 1);
+        step->u = poly_mul(c, d1.den);
+        step->v = poly_mul(c1, d.den);
+    }
+
+    /* Un prodotto di polinomi non nulli può essere nullo, per le identità
+     * tra atomi di term_reduce(): con U = 0 l'identità non dice nulla. */
+    if (failure || step->u.count == 0) return 0;
+
+    /* Ciò che resta: P per un solo monomio discreto T, positivo. */
+    step->t.count = 0;
+    if (rest.count > 0) step->t = mono_discrete(&rest.term[0].mono);
+    for (int i = 1; i < rest.count; i++) {
+        Mono own = mono_discrete(&rest.term[i].mono);
+        if (mono_cmp(&own, &step->t) != 0) return 0;
+    }
+    for (int f = 0; f < step->t.count; f++)
+        if (!atom_is_positive(step->t.factor[f].atom, base)) return 0;
+    step->p = discrete_coefficient(rest, &step->t);
+
+    /* La stessa identità con i segni cambiati, se serve perché U cominci con
+     * un coefficiente positivo: si legge meglio, e non cambia né V/U né P/U. */
+    if (step->u.term[0].coef.re.num < 0) {
+        Poly zero = poly_const(num_int(0));
+        step->u = poly_add(zero, step->u, 1);
+        step->v = poly_add(zero, step->v, 1);
+        step->p = poly_add(zero, step->p, 1);
+    }
+    return !failure;
+}
+
+/* Scrive il polinomio p nella dimostrazione e ritorna il pezzo scritto. */
+static Span put_terms_span(Poly p) {
+    Span span = {proof_length, 0};
+    put_terms(p);
+    span.to = proof_length;
+    return span;
+}
+
+/* Mette in *side il segno che l'espressione tree prende quando la variabile
+ * di induzione vale l'intero c, e ritorna 1; 0 se lì non è definita o se il
+ * segno non si stabilisce. Gli atomi e la memoria del conto vengono tolti. */
+static int tree_side(const Node *tree, long long c, int *side) {
+    Scratch mark = scratch_mark();
+    const char *saved = failure;
+    env_count = 0;
+    env_push(induction_var, rat_int(c));
+    Rat value = eval(tree);
+    env_count = 0;
+    int known = failure == saved && constant_side(value, side);
+    failure = saved;
+    scratch_drop(mark);
+    return known;
+}
+
+/* Prepara la domanda per la tabella dei segni: le condizioni di 25b
+ * sull'identità step, da n = *start in su, con *start almeno `from`.
+ *
+ * Scrive i testi di U, V, P e T, li rilegge e controlla due cose. La prima:
+ * che l'identità U D(n+1) = V D(n) + P T, con D scritto a partire dai due
+ * membri dell'enunciato, riletta dal testo sia vera (il suo numeratore si
+ * annulla). La seconda: da quale n, a partire da `from`, le condizioni
+ * valgono nei valori già calcolati, cioè fino a `reached`; quell'n va in
+ * *start. Poi mette in claim
+ * le condizioni, in LaTeX: "V/U >= 0 e P/U >= 0", oppure le loro varianti
+ * con il segno stretto (vedi il teorema). I testi sono scritti in fondo
+ * alla dimostrazione in corso solo per poterli rileggere, e poi tolti.
+ *
+ * Ritorna NULL se riesce, altrimenti il motivo, in italiano. */
+static const char *inequality_claim(const Statement *statement, const InequalityStep *step, int strict, long long from,
+                                    long long reached, long long *start, char *claim, size_t size) {
+    int upward = statement->relation == REL_GE || statement->relation == REL_GT, variable = induction_var;
+    const Node *greater = upward ? statement->lhs : statement->rhs, *smaller = upward ? statement->rhs : statement->lhs;
+    const Node *successor = node_affine(1, variable, 1);
+    size_t opening = proof_length;
+    char text[3][MAX_FORMULA], check[MAX_FORMULA];
+    const char *problem = NULL;
+
+    /* I testi: U, V, P, T, e i due membri in n + 1 e in n. */
+    unwritable = 0;
+    Span u = put_terms_span(step->u), v = put_terms_span(step->v), p = put_terms_span(step->p), t = {proof_length, 0};
+    put_mono(&step->t);
+    t.to = proof_length;
+    Span side[4] = {put_side(greater, successor), put_side(smaller, successor), put_side(greater, NULL), put_side(smaller, NULL)};
+    if (unwritable || failure || proof_length >= PROOF_BYTES - 1) problem = "il passo induttivo non si lascia scrivere come disuguaglianza nella sola variabile di induzione";
+
+    /* L'identità, riletta. */
+    int length = problem ? 0 : snprintf(check, sizeof check,
+        "\\left(%.*s\\right) \\cdot \\left(\\left(%.*s\\right) - \\left(%.*s\\right)\\right) = "
+        "\\left(%.*s\\right) \\cdot \\left(\\left(%.*s\\right) - \\left(%.*s\\right)\\right) + \\left(%.*s\\right)%s%.*s",
+        (int)(u.to - u.from), proof_text + u.from, (int)(side[0].to - side[0].from), proof_text + side[0].from,
+        (int)(side[1].to - side[1].from), proof_text + side[1].from, (int)(v.to - v.from), proof_text + v.from,
+        (int)(side[2].to - side[2].from), proof_text + side[2].from, (int)(side[3].to - side[3].from), proof_text + side[3].from,
+        (int)(p.to - p.from), proof_text + p.from, step->t.count ? " \\cdot " : "", (int)(t.to - t.from), proof_text + t.from);
+    Statement identity;
+    if (!problem && (length <= 0 || (size_t)length >= sizeof check)) problem = "il passo induttivo è troppo lungo da scrivere";
+    if (!problem && !(parse_statement(check, &identity) && !failure &&
+                      poly_vanishes(difference(&identity, rat_atom(atom_var(variable))).num) && !failure)) {
+        unjustified_steps++;
+        problem = "l'identità del passo induttivo, riletta dal testo, non è confermata";
+    }
+
+    /* I tre polinomi come espressioni, per calcolarli nei primi n. */
+    Node *tree[3] = {NULL, NULL, NULL};
+    const Span part[3] = {u, v, p};
+    for (int i = 0; i < 3 && !problem; i++) {
+        snprintf(text[i], sizeof text[i], "%.*s", (int)(part[i].to - part[i].from), proof_text + part[i].from);
+        tree[i] = parse_expression(text[i]);
+        if (syntax_error || failure) problem = "il passo induttivo, riletto dal testo, non è un'espressione";
+    }
+    proof_cut(opening);
+    failure = NULL;
+    if (problem) return problem;
+
+    /* Da dove valgono le condizioni, nei valori calcolati. */
+    int plain = step->v.count == 0;
+    *start = from;
+    for (long long c = from; c <= reached; c++) {
+        int su = 0, sv = 0, sp = 0;
+        int holds = tree_side(tree[0], c, &su) && tree_side(tree[1], c, &sv) && tree_side(tree[2], c, &sp) && su != 0 &&
+                    (plain ? sp * su >= strict : sv * su >= strict && sp * su >= 0);
+        if (!holds) *start = c + 1;
+    }
+    if (*start > reached) return "il passo induttivo non regge nei primi valori calcolati";
+
+    /* Le condizioni. Con U = 1 le frazioni non servono, e con U = V = 1,
+     * il caso di una somma, la prima condizione è 1 > 0 e si tace. */
+    char ratio[2][MAX_FORMULA];
+    for (int i = 0; i < 2; i++) {
+        if (poly_is_one(step->u)) snprintf(ratio[i], sizeof ratio[i], "%s", text[i + 1]);
+        else snprintf(ratio[i], sizeof ratio[i], "\\frac{%s}{%s}", text[i + 1], text[0]);
+    }
+    if (plain) length = snprintf(claim, size, "%s %s 0", ratio[1], strict ? ">" : "\\ge");
+    else if (poly_is_one(step->u) && poly_is_one(step->v)) length = snprintf(claim, size, "%s \\ge 0", ratio[1]);
+    else length = snprintf(claim, size, "%s %s 0 \\land %s \\ge 0", ratio[0], strict ? ">" : "\\ge", ratio[1]);
+    return length > 0 && (size_t)length < size ? NULL : "il passo induttivo è troppo lungo da scrivere";
+}
+
+/* Scrive nella dimostrazione il caso n = c di una disuguaglianza: i due
+ * membri con il numero al posto di n, i loro valori e quello di D(c). Con
+ * first diverso da zero è il caso base, altrimenti uno dei casi successivi
+ * controllati uno per uno. Ritorna 1 se ogni formula scritta, riletta (13g),
+ * è confermata. */
+static int put_inequality_case(const Statement *statement, long long c, int first) {
+    const Node *side[2] = {statement->lhs, statement->rhs};
+    int variable = induction_var, sound = 1, sign = 0;
+    char prefix[64];
+    Span text, value;
+    proof_add(first ? "\\item \\emph{Base case}, $%c = %lld$. " : "\\item \\emph{Case} $%c = %lld$, checked directly. ", variable, c);
+    for (int s = 0; s < 2; s++) {
+        Rat low = side_value(side[s], rat_int(c));
+        proof_add(s ? " and the right-hand side is $" : "The left-hand side is $");
+        text = put_side(side[s], node_num(c));
+        int bare = side[s]->kind == N_NUM || (side[s]->kind == N_VAR && side[s]->name == variable);
+        if (!bare && put_value(" = ", low, &value)) sound &= reread_equal(text, value, c);
+        proof_add("$");
+    }
+
+    /* D(c): il valore se si lascia scrivere, e un numero decimale vicino
+     * quando il valore contiene radici o logaritmi. */
+    Rat gap = inequality_gap(statement, rat_int(c));
+    Num number;
+    snprintf(prefix, sizeof prefix, ", so $D_{%lld} = ", c);
+    constant_side(gap, &sign);
+    if (put_value(prefix, gap, &value)) {
+        Range near = range_div(poly_range(gap.num), poly_range(gap.den));
+        double middle = (near.low + near.high) / 2;
+        if (!rat_number(gap, &number) && range_known(near) && middle < 1e6 && middle > -1e6) proof_add(" \\approx %.4f", middle);
+        proof_add(sign ? "$, a positive number.\n" : "$.\n");
+    } else {
+        proof_add(", and their difference $D_{%lld}$ is %s.\n", c, sign ? "positive" : "zero");
+    }
+    return sound;
+}
+
+/* Il lavoro di prove_inequality() che non riguarda la tabella dei segni,
+ * sull'enunciato già analizzato: i primi valori (25a e la verifica
+ * indipendente), "definito per ogni n", l'identità del passo (25b) e la
+ * dimostrazione scritta, a cui manca solo la tabella.
+ *
+ * variable, has_base e base come per induct(). Se tutto riesce il verdetto è
+ * PROVED, con la condizione che la tabella deve ancora dimostrare: la mette
+ * in question, lunga al più size, come enunciato "per ogni n reale", e in
+ * *start mette l'n da cui parte il passo (n1 nel teorema), che non è mai
+ * minore di floor. Ogni altro verdetto è già quello definitivo. */
+static Verdict inequality_plan(const Statement *statement, int variable, int has_base, long long base, long long floor,
+                               long long *start, char *question, size_t size) {
+    static char text[256];
+    Verdict verdict = {UNSUPPORTED, variable, base, 0, NULL, NULL, NULL, NULL, NULL, NULL};
+    int strict = statement->relation == REL_GT || statement->relation == REL_LT;
+    const char *relation = statement->relation == REL_GE ? "\\ge" : statement->relation == REL_LE ? "\\le" :
+                           statement->relation == REL_GT ? ">" : "<";
+    const char *sign = strict ? ">" : "\\ge";
+    induction_var = variable;
+    default_base = 1;
+    domain_floor = has_base ? base : 1;
+
+    /* D(n) e D(n+1), con gli stessi atomi. La prima valutazione fa nascere
+     * gli atomi e calcola default_base, come in induct(). */
+    Rat n = rat_atom(atom_var(variable));
+    Rat d = inequality_gap(statement, n);
+    if (failure) { verdict.reason = failure; return verdict; }
+    if (!has_base) base = default_base;
+    verdict.base = base;
+    Rat d1 = inequality_gap(statement, rat_add(n, rat_int(1), 0));
+    if (failure) { verdict.reason = failure; return verdict; }
+
+    /* Nessun parametro: solo n, pi greco e il numero e. La lettera
+     * ausiliaria non è dell'enunciato (vedi body_is_positive()). */
+    for (int i = 0; i < atom_count; i++)
+        if (atoms[i].kind == ATOM_VAR && atoms[i].id != variable && atoms[i].id != VAR_PI && atoms[i].id != VAR_SLACK && atoms[i].id != 'e') {
+            verdict.reason = "le disuguaglianze con altre lettere oltre alla variabile di induzione non sono ancora supportate";
+            return verdict;
+        }
+
+    /* 25a, e la verifica indipendente: il segno di D(c) nei primi valori. Un
+     * conto che si ferma a un limite del programma chiude l'elenco dei
+     * valori noti; un segno sbagliato è un controesempio. */
+    Scratch mark = scratch_mark();
+    long long reached = base - 1;
+    verdict.outcome = NOT_PROVED;
+    for (long long c = base; c <= base + SEARCH_SPAN; c++) {
+        int side = 0;
+        failure = NULL;
+        undefined = 0;
+        Rat gap = inequality_gap(statement, rat_int(c));
+        if (failure && undefined) {
+            snprintf(text, sizeof text, "per %c = %lld l'enunciato non è definito: %s", variable, c, failure);
+            failure = NULL;
+            verdict.reason = text;
+            return verdict;
+        }
+        int known = !failure && constant_side(gap, &side);
+        scratch_drop(mark);
+        if (!known) break;
+        if (side < 0 || (strict && side == 0)) {
+            verdict.outcome = REFUTED;
+            verdict.witness = c;
+            return verdict;
+        }
+        reached = c;
+    }
+    failure = NULL;
+    if (reached < base) { verdict.reason = "non riesco a stabilire il segno della differenza dei due membri nel caso base"; return verdict; }
+
+    /* 13c. Definito per ogni n. */
+    long long where = base;
+    const char *why = NULL;
+    int defined = defined_for_every(statement, base, &where, &why);
+    scratch_drop(mark);
+    if (defined != 1) {
+        if (defined < 0) snprintf(text, sizeof text, "non riesco a stabilire che le espressioni dell'enunciato siano definite per ogni %c", variable);
+        else snprintf(text, sizeof text, why == REWRITTEN ? "per %c = %lld %s" : "per %c = %lld l'enunciato non è definito: %s", variable, where, why);
+        verdict.reason = text;
+        return verdict;
+    }
+
+    /* 25b. I monomi discreti dei due numeratori. I denominatori non ne
+     * devono avere. Tolto un monomio deve restarne al più uno: di solito
+     * quindi sono due, ma possono essere di più se gli altri si cancellano,
+     * come nella somma degli 1/2^k confrontata con 2 - 1/2^n. */
+    enum { MAX_DISCRETE = 4 };
+    Mono list[MAX_DISCRETE];
+    int count = 0, many = !rat_clear_discrete(&d) || !rat_clear_discrete(&d1);
+    const Poly numerator[2] = {d.num, d1.num};
+    for (int s = 0; s < 2 && !many; s++)
+        for (int i = 0; i < numerator[s].count && !many; i++) {
+            Mono own = mono_discrete(&numerator[s].term[i].mono);
+            int k = 0;
+            while (k < count && mono_cmp(&list[k], &own) != 0) k++;
+            if (own.count == 0 || k < count) continue;
+            if (count == MAX_DISCRETE) many = 1; else list[count++] = own;
+        }
+
+    /* Si prova a eliminare ciascun monomio; senza monomi, l'identità che non
+     * usa l'ipotesi. La prima che ha la forma giusta e regge nei primi
+     * valori è quella che si scrive. */
+    InequalityStep step;
+    char claim[MAX_FORMULA];
+    const char *problem = "il passo induttivo non si riduce a una disuguaglianza nella sola variabile di induzione";
+    int found = 0;
+    surd_powers = 1;
+    for (int k = 0; k < (count ? count : 1) && !many && !found; k++) {
+        failure = NULL;
+        if (!inequality_step(d, d1, count ? &list[k] : NULL, base, &step)) continue;
+        problem = inequality_claim(statement, &step, strict, base > floor ? base : floor, reached, start, claim, sizeof claim);
+        found = !problem;
+    }
+    failure = NULL;
+    int length = found ? snprintf(question, size, "\\forall %c \\in \\mathbb{R}\\ (%c \\ge %lld \\implies (%s))", variable, variable, *start, claim) : 0;
+    if (!found || length <= 0 || (size_t)length >= size) {
+        verdict.reason = found ? "il passo induttivo è troppo lungo da scrivere" : problem;
+        return verdict;
+    }
+
+    /* La dimostrazione scritta: i casi da base a start, uno per uno. */
+    int sound = 1, plain = step.v.count == 0, upward = statement->relation == REL_GE || statement->relation == REL_GT;
+    const Node *successor = node_affine(1, variable, 1);
+    proof_add("\\textbf{Proof.} By induction on $%c$. Let $D_{%c}$ be the %s-hand side minus the %s-hand side: the statement says "
+              "that $D_{%c} %s 0$ for every integer $%c \\ge %lld$.\n\\begin{itemize}\n",
+              variable, variable, upward ? "left" : "right", upward ? "right" : "left", variable, sign, variable, base);
+    for (long long c = base; c <= *start; c++) sound &= put_inequality_case(statement, c, c == base);
+
+    /* L'ipotesi, se serve, e ciò che va dimostrato. */
+    if (plain) {
+        proof_add("\\item \\emph{Inductive step}. Here the inductive hypothesis is not needed. For every $%c \\ge %lld$ we prove the statement for $%c + 1$: $",
+                  variable, *start, variable);
+    } else {
+        proof_add("\\item \\emph{Inductive hypothesis}. Assume the statement for some $%c \\ge %lld$: $", variable, *start);
+        put_side(statement->lhs, NULL);
+        proof_add(" %s ", relation);
+        put_side(statement->rhs, NULL);
+        proof_add("$, that is $D_{%c} %s 0$.\n\\item \\emph{Inductive step}. We prove the statement for $%c + 1$: $", variable, sign, variable);
+    }
+    put_side(statement->lhs, successor);
+    proof_add(" %s ", relation);
+    put_side(statement->rhs, successor);
+    proof_add("$, that is $D_{%c + 1} %s 0$.\n\\begin{itemize}\n", variable, sign);
+    sound &= put_new_terms(base);
+
+    /* L'identità: i fattori uguali a 1 e gli addendi nulli si tacciono. */
+    proof_add("\\item Written with the same quantities, $D_{%c}$ and $D_{%c + 1}$ satisfy, by exact algebra, $", variable, variable);
+    if (!poly_is_one(step.u)) { proof_add("\\left("); put_terms(step.u); proof_add("\\right) \\cdot "); }
+    proof_add("D_{%c + 1} = ", variable);
+    if (!plain && !poly_is_one(step.v)) { proof_add("\\left("); put_terms(step.v); proof_add("\\right) \\cdot "); }
+    if (!plain) proof_add("D_{%c}", variable);
+    if (step.p.count > 0 || plain) {
+        proof_add(plain ? "\\left(" : " + \\left(");
+        put_terms(step.p);
+        proof_add(step.t.count ? "\\right) \\cdot " : "\\right)");
+        put_mono(&step.t);
+    }
+    proof_add("$.\n");
+    if (step.t.count > 0 && step.p.count > 0) {
+        proof_add("\\item The factor $");
+        put_mono(&step.t);
+        proof_add("$ is positive: it is made of powers of positive numbers and of products of positive factors.\n");
+    }
+
+    /* La conclusione, che poggia sulla tabella dei segni scritta dopo. */
+    proof_add("\\item The sign table below shows that $%s$ for every real number $%c \\ge %lld$. ", claim, variable, *start);
+    if (!poly_is_one(step.u)) proof_add("There a comparison holds only where its sides have a value, so the factor of $D_{%c + 1}$ is not zero. ", variable);
+    if (plain) proof_add("Hence $D_{%c + 1} %s 0$.\n", variable, sign);
+    else proof_add("Since $D_{%c} %s 0$ by the inductive hypothesis, the identity gives $D_{%c + 1} %s 0$.\n", variable, sign, variable, sign);
+    proof_add("\\end{itemize}\n\\item \\emph{The inequality of the inductive step}, for every real number $%c \\ge %lld$. ", variable, *start);
+    if (!sound || proof_length >= PROOF_BYTES - 1) {
+        if (!sound) unjustified_steps++;
+        verdict.reason = "una formula della dimostrazione, riletta dal testo, non è confermata";
+        return verdict;
+    }
+    verdict.outcome = PROVED;
+    return verdict;
+}
+
+/* Chiede alla tabella dei segni (18p) l'enunciato question, "per ogni x
+ * reale ...", e ne ritorna il verdetto. È il solo punto in cui i capitoli 25
+ * e 26 usano la tabella: le danno un enunciato scritto in LaTeX, come
+ * farebbe un utente, e ne ricevono il verdetto e la dimostrazione.
+ *
+ * La tabella riparte da zero: svuota l'arena, la tabella degli atomi e il
+ * testo della dimostrazione. Chi chiama deve quindi aver finito con alberi e
+ * polinomi; il testo già scritto invece viene messo da parte qui e, se la
+ * tabella dimostra l'enunciato, ricomposto: prima quel testo, poi la
+ * dimostrazione della tabella senza il quadratino con cui la chiude. Se
+ * insieme non stanno nel testo, della tabella resta solo una frase. Il
+ * grafico non viene costruito: sarebbe quello di un passo, non
+ * dell'enunciato. */
+static Verdict ask_sign_table(const char *question) {
+    static char written[PROOF_BYTES];
+    static const char box[] = " $\\Box$";
+    size_t length = proof_length, closing = sizeof box - 1;
+    int wanted = figures_wanted;
+    memcpy(written, proof_text, length + 1);
+    figures_wanted = 0;
+    Verdict table = prove_quantified(question);
+    figures_wanted = wanted;
+    if (table.outcome != PROVED) return table;
+
+    size_t tail = proof_length;
+    if (tail >= closing && strcmp(proof_text + tail - closing, box) == 0) proof_cut(tail -= closing);
+    if (length + tail + 64 >= PROOF_BYTES) {
+        proof_reset();
+        proof_add("%sThe sign table, too long to be written here, shows that the condition holds on every row.", written);
+    } else {
+        memmove(proof_text + length, proof_text, tail + 1);
+        memcpy(proof_text, written, length);
+        proof_length = length + tail;
+    }
+    return table;
+}
+
+/* Prova a dimostrare per induzione la disuguaglianza scritta in formula, con
+ * il metodo descritto in testa al capitolo. variable, has_base e base come
+ * per prove_by_induction().
+ *
+ * Il verdetto DIMOSTRATO è senza certificato, e lo dice in reason. Svuota
+ * l'arena e la tabella degli atomi: i risultati di chiamate precedenti non
+ * sono più validi. */
+static Verdict prove_inequality(const char *formula, int variable, int has_base, long long base) {
+    static char reason[400];
+    Verdict verdict = {UNSUPPORTED, variable, base, 0, NULL, NULL, NULL, NULL, NULL, NULL}, refusal = verdict;
+    long long start = 0;
+    int asked = 0;
+
+    /* Un tentativo per ogni n da cui far partire il passo: il primo lo
+     * propone inequality_plan(); se la tabella smentisce il passo, che per
+     * lei riguarda ogni numero reale, si riprova da un n più avanti, finché
+     * ci sono casi già calcolati da mettere prima. Così 3^n >= 2 n^2 + 1 da
+     * n = 0, il cui passo non vale tra 0 e 1, si dimostra con il passo da
+     * n = 1. */
+    for (long long floor = LLONG_MIN;; floor = start + 1) {
+        Statement statement;
+        char question[MAX_FORMULA];
+
+        /* Ripartenza da zero per il nuovo enunciato, e parsing. */
+        proof_reset();
+        arena_used = arena_keep;
+        atom_count = 0;
+        base_poly_count = 0;
+        atan_count = 0;
+        failure = NULL;
+        if (!parse_statement(formula, &statement)) { verdict.reason = syntax_error; return verdict; }
+        if (failure) { verdict.reason = failure; return verdict; }
+        verdict = inequality_plan(&statement, variable, has_base, base, floor, &start, question, sizeof question);
+        surd_powers = 0;
+        if (verdict.outcome != PROVED) return asked ? refusal : verdict;
+
+        /* La tabella dei segni decide il passo. */
+        Verdict table = ask_sign_table(question);
+        asked = 1;
+        if (table.outcome == PROVED) {
+            proof_add("\n\\end{itemize}\n$\\Box$");
+            verdict.reason = "il passo induttivo è deciso dalla tabella dei segni, e le disuguaglianze non hanno ancora una notazione nei certificati";
+            verdict.proof = proof_text;
+            return verdict;
+        }
+
+        /* Smentito in un numero reale: per gli interi non si conclude nulla,
+         * e si riprova più avanti. Non deciso: ci si ferma. */
+        if (table.outcome == REFUTED)
+            snprintf(reason, sizeof reason, "il passo induttivo non vale per ogni %c reale da %lld in su: la tabella dei segni lo smentisce%s%s",
+                     variable, start, table.detail ? " in " : "", table.detail ? table.detail : "");
+        else
+            snprintf(reason, sizeof reason, "la tabella dei segni non decide il passo induttivo, da %c = %lld in su: %s", variable, start, table.reason);
+        refusal.outcome = table.outcome == UNSUPPORTED ? UNSUPPORTED : NOT_PROVED;
+        refusal.base = verdict.base;
+        refusal.reason = reason;
+        if (table.outcome != REFUTED) return refusal;
+    }
+}
+
+/* =============================================================================
+ * 26. SUCCESSIONI DEFINITE PER RICORRENZA
+ * ============================================================================
+ *
+ * A che cosa serve. "Sia a_0 = 0, a_1 = sin x e a_{n+1} = 2 cos x a_n -
+ * a_{n-1}. Allora a_n = sin(n x)." La successione non è nel vocabolario
+ * (capitolo 10): la definisce l'enunciato, con i primi valori e una regola
+ * che dà ogni termine dai precedenti. L'enunciato arriva nella notazione di
+ * parse_sequence_statement(): ipotesi, \implies, tesi. Le tesi trattate sono
+ * di due tipi, ognuno con il suo teorema.
+ *
+ * LA SUCCESSIONE DICHIARATA
+ *
+ * Le ipotesi devono essere: d valori iniziali s_{i0}, ..., s_{i0+d-1}, e una
+ * regola s_{n+r} = Phi, dove in Phi compaiono solo termini s_{n+j} con
+ * r - d <= j < r (e n, e i parametri). d è l'ordine. La regola vale per ogni
+ * n >= m0 = i0 - (r - d): il primo termine che definisce è s_{i0+d}, quello
+ * dopo i valori iniziali. Se l'enunciato dice da quale n vale, deve dire
+ * proprio m0. Ogni altra forma (valori iniziali mancanti o di troppo, un
+ * termine come s_{2n}) è NON SUPPORTATO: non si indovina che cosa
+ * l'enunciato intendesse.
+ *
+ * 26a. LA FORMULA CHIUSA: "allora s_n = C(n)"
+ *
+ * Teorema (una ricorrenza determina la successione). Se una successione c
+ * ha gli stessi d valori iniziali di s e soddisfa la stessa regola per ogni
+ * n >= m0, allora c_n = s_n per ogni n >= i0. Dimostrazione, per induzione
+ * su N: i termini fino a i0+d-1 sono uguali per ipotesi; se sono uguali
+ * tutti i termini prima di N = n + r, allora s_N = Phi(s_{N-1}, ...) =
+ * Phi(c_{N-1}, ...) = c_N, perché Phi è la stessa espressione calcolata
+ * negli stessi numeri.
+ *
+ * Con c_n = C(n) restano quindi da dimostrare due cose, nessuna delle quali
+ * contiene più la successione:
+ *
+ *   - C(i0 + j) è il valore iniziale numero j, per j < d: un'uguaglianza tra
+ *     espressioni senza n, che il test di annullamento decide;
+ *   - C(n + r) = Phi con C(n + j) al posto di s_{n+j}, per ogni n >= m0:
+ *     un'identità in n, dimostrata dall'induzione del capitolo 13 con tutti
+ *     i suoi controlli (13c: definita per ogni n; 13e: i numeri).
+ *
+ * Il verdetto ha la riserva di ogni induzione del capitolo 13: vale per i
+ * valori dei parametri in cui la formula chiusa è definita per ogni n.
+ *
+ * Verifica indipendente, e smentita. I termini s_{i0+d}, s_{i0+d+1}, ...
+ * vengono calcolati uno dopo l'altro dalla regola, a partire dai valori
+ * iniziali, e confrontati con C: un conto che non passa né dall'identità in
+ * n né dall'induzione. Due numeri diversi sono un controesempio, e il
+ * verdetto è FALSO con quell'n: così cade una formula sbagliata che
+ * coincide con quella giusta nei primi valori.
+ *
+ * 26b. UNA STIMA: "allora s_n < 3 e s_n < s_{n+1}"
+ *
+ * Qui la regola deve essere s_{n+1} = Phi(s_n), senza n e senza parametri,
+ * e le tesi confronti in cui compaiono solo s_n e s_{n+1}.
+ *
+ * Teorema (invariante). Sia I(a) una condizione sul numero reale a tale che
+ *
+ *   - I(s_{i0}) è vera;
+ *   - per ogni reale a, se I(a) allora Phi(a) è definita, I(Phi(a)) è vera,
+ *     e sono vere le tesi con a al posto di s_n e Phi(a) al posto di
+ *     s_{n+1}.
+ *
+ * Allora per ogni n >= i0 il termine s_n esiste, I(s_n) è vera e le tesi
+ * valgono. Dimostrazione: per induzione su n, I(s_n) è vera; quindi
+ * s_{n+1} = Phi(s_n) è definita e soddisfa I, e le tesi in n sono il
+ * secondo punto con a = s_n.
+ *
+ * L'invariante. Si prova prima con le tesi che parlano del solo s_n: se
+ * s_n < 3 è una tesi, deve comunque essere dimostrata. Di solito non basta:
+ * da a < 3 non segue che la radice di 6 + a esista. Allora si aggiunge ciò
+ * che è vero del primo termine e che molte successioni conservano:
+ * a >= s_{i0} (una successione crescente), poi a <= s_{i0}, poi "a ha il
+ * segno di s_{i0}". Sono tentativi, ma l'invariante trovato non va creduto:
+ * il secondo punto del teorema, che è un enunciato "per ogni a reale" in
+ * una variabile, lo decide la tabella dei segni (18p), e il primo un conto
+ * esatto.
+ *
+ * Verifica indipendente, e smentita. I primi termini vengono calcolati con
+ * gli intervalli del capitolo 24, sostituendo la regola in se stessa, e le
+ * tesi confrontate lì: un confronto certamente falso è un controesempio.
+ *
+ * Nessuno dei due teoremi ha una notazione nei certificati: il verdetto
+ * DIMOSTRATO lo dice.
+ *
+ * Che cosa resta fuori: le tesi che non sono né una formula chiusa né una
+ * stima (ln a_n = 2^n ln a_0, "è un intero pari"), le ricorrenze senza un
+ * valore iniziale, e le formule chiuse la cui identità il capitolo 13 non
+ * sa dimostrare, come quelle con una radice di cui serve il segno.
+ */
+
+/* Il motivo per cui un termine di una successione non si lascia sostituire:
+ * il suo indice non è tra quelli attesi. Ha un nome perché chi prova una
+ * sostituzione per vedere se riesce lo riconosce. */
+static const char *const FOREIGN_TERM = "un termine della successione ha un indice che la ricorrenza non tratta";
+
+/* Ritorna una copia di tree in cui la variabile name, dove è libera, è
+ * sostituita dall'albero value, che non viene copiato. L'indice di una somma
+ * nasconde, nel corpo, una variabile con lo stesso nome.
+ *
+ * Warning: value non deve contenere lettere che in tree sono indici di
+ * somme, o verrebbero catturate. Qui value è un numero, n + j, oppure
+ * un'espressione nella lettera di una successione. */
+static Node *node_replace(const Node *tree, int name, Node *value) {
+    if (!tree) return NULL;
+    if (tree->kind == N_VAR && tree->name == name) return value;
+    Node *copy = node_new(tree->kind, node_replace(tree->a, name, value), node_replace(tree->b, name, value));
+    copy->value = tree->value;
+    copy->name = tree->name;
+    copy->op = tree->op;
+    copy->c = tree->kind == N_BIGOP && tree->name == name ? tree->c : node_replace(tree->c, name, value);
+    return copy;
+}
+
+/* Ritorna una copia di tree in cui ogni termine s_{n + j} della successione
+ * di nome name è sostituito da term[j - low], per j da low a low + count - 1;
+ * n è la variabile di induzione. Se un termine ha un altro indice (s_0,
+ * s_{2n}, s_{n + j} con j fuori dall'intervallo) fallisce con FOREIGN_TERM.
+ * Gli alberi di term[] non vengono copiati. */
+static Node *unfold_terms(const Node *tree, int name, long long low, int count, Node *const *term) {
+    if (!tree || failure) return NULL;
+    if (tree->kind == N_SEQ && tree->name == name) {
+        long long a, c;
+        if (!rat_affine(eval(tree->a), &a, &c) || a != 1 || c < low || c >= low + count) { fail(FOREIGN_TERM); return NULL; }
+        return term[c - low];
+    }
+    Node *copy = node_new(tree->kind, unfold_terms(tree->a, name, low, count, term), unfold_terms(tree->b, name, low, count, term));
+    copy->value = tree->value;
+    copy->name = tree->name;
+    copy->op = tree->op;
+    copy->c = unfold_terms(tree->c, name, low, count, term);
+    return copy;
+}
+
+/* Una successione dichiarata da un enunciato (vedi "La successione
+ * dichiarata" in testa al capitolo): i valori iniziali e la regola, già
+ * controllati. Gli alberi sono quelli dell'enunciato, nell'arena.
+ * Invariante: 1 <= order <= MAX_ORDER, e in step compaiono solo termini
+ * s_{n + j} con shift - order <= j < shift. */
+typedef struct {
+    int name;                    /* la lettera s */
+    int order;                   /* d: quanti termini precedenti usa la regola */
+    long long first;             /* i0: l'indice del primo valore iniziale */
+    long long shift;             /* r: la regola dà s_{n + r} */
+    long long since;             /* m0 = i0 - (r - d): il primo n in cui la regola vale */
+    Node *initial[MAX_ORDER];    /* i valori di s_{i0}, ..., s_{i0 + d - 1} */
+    Node *step;                  /* Phi: il valore di s_{n + r} */
+} Declared;
+
+/* Aggiorna *low e *high con il più piccolo e il più grande j dei termini
+ * s_{n + j} della successione name che compaiono in tree; *found dice se ce
+ * ne sono. Ritorna 0 se un termine ha un indice di un'altra forma. */
+static int term_span(const Node *tree, int name, long long *low, long long *high, int *found) {
+    if (!tree) return 1;
+    if (tree->kind == N_SEQ && tree->name == name) {
+        long long a, c;
+        if (!rat_affine(eval(tree->a), &a, &c) || a != 1 || failure) return 0;
+        if (!*found || c < *low) *low = c;
+        if (!*found || c > *high) *high = c;
+        *found = 1;
+        return 1;
+    }
+    return term_span(tree->a, name, low, high, found) && term_span(tree->b, name, low, high, found) && term_span(tree->c, name, low, high, found);
+}
+
+/* Legge le ipotesi di statement come dichiarazione di una successione, con
+ * `variable` variabile di induzione, e riempie *seq. Ritorna NULL se hanno
+ * la forma richiesta (vedi la testa del capitolo), altrimenti il motivo, in
+ * italiano. */
+static const char *declared_read(const SequenceStatement *statement, int variable, Declared *seq) {
+    long long index[MAX_GIVEN], low = 0, high = 0;
+    Node *value[MAX_GIVEN];
+    int values = 0, found = 0;
+    memset(seq, 0, sizeof *seq);
+
+    /* Ogni ipotesi: un valore iniziale s_{numero} = ..., o la regola
+     * s_{n + r} = ..., una sola. */
+    for (int i = 0; i < statement->givens; i++) {
+        const Statement *given = &statement->given[i];
+        long long a, c;
+        if (given->lhs->kind != N_SEQ || (i > 0 && given->lhs->name != seq->name)) return "ogni ipotesi deve dare un termine della stessa successione, come a_{0} = 1 oppure a_{n + 1} = 2 a_{n}";
+        seq->name = given->lhs->name;
+        if (!rat_affine(eval(given->lhs->a), &a, &c) || failure || a < 0 || a > 1 || (a == 1 && seq->step)) return "le ipotesi devono essere i valori iniziali e una sola regola per il termine di indice n + r";
+        if (a == 1) { seq->shift = c; seq->step = given->rhs; continue; }
+        index[values] = c;
+        value[values++] = given->rhs;
+    }
+    if (!seq->step) return "tra le ipotesi manca la regola che dà un termine dai precedenti";
+
+    /* I termini che la regola usa: tutti prima di quello che definisce. */
+    if (!term_span(seq->step, seq->name, &low, &high, &found) || !found || high >= seq->shift || seq->shift - low > MAX_ORDER)
+        return "la regola deve dare il termine di indice n + r da quelli che lo precedono, al più quattro";
+    seq->order = (int)(seq->shift - low);
+
+    /* I valori iniziali: tanti quanti l'ordine, di indici consecutivi, e
+     * senza termini della successione dentro. */
+    if (values != seq->order) return "i valori iniziali devono essere tanti quanti i termini precedenti che la regola usa";
+    seq->first = index[0];
+    for (int i = 1; i < values; i++)
+        if (index[i] < seq->first) seq->first = index[i];
+    for (int i = 0; i < values; i++) {
+        long long place = index[i] - seq->first;
+        if (place >= values || seq->initial[place] || node_uses_letter(value[i], seq->name) || node_uses_letter(value[i], variable))
+            return "i valori iniziali devono avere indici consecutivi, e non contenere né la lettera della successione né la variabile di induzione";
+        seq->initial[place] = value[i];
+    }
+
+    /* Da dove vale la regola: se l'enunciato lo dice, deve dire questo. */
+    seq->since = seq->first - (seq->shift - seq->order);
+    if (statement->has_since && (statement->since_name != variable || statement->since != seq->since))
+        return "la regola è data da un n diverso da quello che serve perché definisca tutti i termini dopo i valori iniziali";
+    return NULL;
+}
+
+/* Ritorna 1 se in tree compare la variabile name, non come indice di una
+ * somma né come nome di una successione. */
+static int node_has_variable(const Node *tree, int name) {
+    if (!tree) return 0;
+    if (tree->kind == N_VAR && tree->name == name) return 1;
+    return node_has_variable(tree->a, name) || node_has_variable(tree->b, name) || node_has_variable(tree->c, name);
+}
+
+/* Ritorna 1 se un confronto con la relazione rel è vero quando la differenza
+ * tra il primo e il secondo membro ha il segno side (-1, 0 o 1). */
+static int relation_holds(Relation rel, int side) {
+    switch (rel) {
+    case REL_EQ: return side == 0;
+    case REL_GE: return side >= 0;
+    case REL_LE: return side <= 0;
+    case REL_GT: return side > 0;
+    default:     return side < 0;
+    }
+}
+
+/* Scrive nella dimostrazione il confronto lhs rel rhs, in LaTeX, e ritorna
+ * il pezzo scritto. */
+static Span put_comparison(const Node *lhs, Relation rel, const Node *rhs) {
+    static const char *const sign[] = {[REL_EQ] = "=", [REL_GE] = "\\ge", [REL_LE] = "\\le", [REL_GT] = ">", [REL_LT] = "<"};
+    Span span = {proof_length, 0};
+    put_node(lhs, 0);
+    proof_add(" %s ", sign[rel]);
+    put_node(rhs, 0);
+    span.to = proof_length;
+    return span;
+}
+
+/* 26a. Dimostra la tesi "s_n = closed" per la successione seq, con il
+ * teorema della formula chiusa (vedi la testa del capitolo): i valori
+ * iniziali, i primi termini calcolati dalla regola, e la regola stessa per
+ * induzione. Ritorna il verdetto, con la dimostrazione scritta; base è il
+ * caso base da riportare.
+ *
+ * Azzera la tabella degli atomi prima dell'induzione, che la vuole per sé:
+ * dopo questa chiamata i polinomi calcolati prima non valgono più. */
+static Verdict prove_closed_form(const Declared *seq, Node *closed, int variable, long long base) {
+    static char text[320];
+    Verdict verdict = {NOT_PROVED, variable, base, 0, NULL, NULL, NULL, NULL, NULL, NULL};
+    long long low = seq->shift - seq->order;
+    int sound = 1;
+    const char *plural = seq->order > 1 ? "s" : "";
+
+    proof_add("\\textbf{Proof.} A sequence is determined by its first value%s and by the rule that gives each term from the previous "
+              "ones: two sequences with the same first value%s and the same rule are equal, by induction on the index. So it is "
+              "enough to show that the formula $", plural, plural);
+    put_node(closed, 0);
+    proof_add("$ has the first value%s of $%c$ and satisfies its rule.\n\\begin{itemize}\n", plural, seq->name);
+
+    /* I valori iniziali: un'uguaglianza senza n per ciascuno. */
+    Rat window[MAX_ORDER];
+    for (int j = 0; j < seq->order; j++) {
+        long long at = seq->first + j;
+        Num number;
+        window[j] = side_value(seq->initial[j], rat_int(at));
+        Rat gap = rat_add(side_value(closed, rat_int(at)), window[j], 1);
+        if (failure) { verdict.outcome = UNSUPPORTED; verdict.reason = failure; return verdict; }
+        if (!poly_vanishes(gap.num)) {
+            /* Due numeri diversi smentiscono la tesi solo se è affermata
+             * anche per questo indice. */
+            if (rat_number(gap, &number) && at >= base) { verdict.outcome = REFUTED; verdict.witness = at; return verdict; }
+            snprintf(text, sizeof text, "per %c = %lld la formula non si riduce al valore iniziale", variable, at);
+            verdict.reason = text;
+            return verdict;
+        }
+        proof_add("\\item \\emph{First value}, $%c = %lld$. The formula gives $", variable, at);
+        Span formula = put_side(closed, node_num(at));
+        proof_add("$, and $%c_{%lld} = ", seq->name, at);
+        Span value = {proof_length, 0};
+        put_node(seq->initial[j], 0);
+        value.to = proof_length;
+        proof_add("$: the two are equal.\n");
+        sound &= reread_equal(formula, value, at);
+    }
+
+    /* Verifica indipendente, e smentita: i termini successivi, calcolati
+     * uno dopo l'altro dalla regola con i termini precedenti legati a
+     * variabili interne, e confrontati con la formula. Un conto che esce
+     * dai limiti del programma ferma il confronto senza obiezioni. */
+    Node *previous[MAX_ORDER];
+    for (int j = 0; j < seq->order; j++) {
+        previous[j] = node_new(N_VAR, NULL, NULL);
+        previous[j]->name = VAR_TERM + j;
+    }
+    Node *rule = unfold_terms(seq->step, seq->name, low, seq->order, previous);
+    long long last = seq->first + seq->order - 1;
+    for (long long at = last + 1; at <= seq->first + seq->order + SEARCH_SPAN / 2 && !failure; at++) {
+        Num number;
+        undefined = 0;
+        env_count = 0;
+        env_push(variable, rat_int(at - seq->shift));
+        for (int j = 0; j < seq->order; j++) env_push(VAR_TERM + j, window[j]);
+        Rat term = eval(rule);
+        env_count = 0;
+        Rat gap = rat_add(term, side_value(closed, rat_int(at)), 1);
+        if (failure && undefined) {
+            snprintf(text, sizeof text, "per %c = %lld la regola o la formula non sono definite: %s", variable, at, failure);
+            failure = NULL;
+            verdict.reason = text;
+            return verdict;
+        }
+        if (failure) break;
+        if (!poly_vanishes(gap.num)) {
+            if (rat_number(gap, &number) && at >= base) { verdict.outcome = REFUTED; verdict.witness = at; return verdict; }
+            snprintf(text, sizeof text, "il termine di indice %lld, calcolato dalla regola, non si riduce alla formula", at);
+            verdict.reason = text;
+            return verdict;
+        }
+        for (int j = 0; j + 1 < seq->order; j++) window[j] = window[j + 1];
+        window[seq->order - 1] = term;
+        last = at;
+    }
+    failure = NULL;
+    if (last < seq->first + seq->order) { verdict.reason = "non riesco a calcolare dalla regola nemmeno il primo termine dopo i valori iniziali"; return verdict; }
+    proof_add("\\item \\emph{Check on the next terms}. The terms from $%c_{%lld}$ to $%c_{%lld}$, computed one after the other from the "
+              "rule, coincide with the formula.\n", seq->name, seq->first + seq->order, seq->name, last);
+
+    /* La regola, con la formula al posto dei termini: un'identità in n. */
+    Node *term[MAX_ORDER];
+    for (int j = 0; j < seq->order; j++) term[j] = node_replace(closed, variable, node_affine(1, variable, low + j));
+    Statement identity = {node_replace(closed, variable, node_affine(1, variable, seq->shift)),
+                          unfold_terms(seq->step, seq->name, low, seq->order, term), REL_EQ};
+    if (failure) { verdict.outcome = UNSUPPORTED; verdict.reason = failure; return verdict; }
+    proof_add("\\item \\emph{The rule}. With the formula in place of the terms of $%c$, the rule becomes $", seq->name);
+    put_comparison(identity.lhs, REL_EQ, identity.rhs);
+    proof_add("$, to be proved for every $%c \\ge %lld$.\n", variable, seq->since);
+    atom_count = base_poly_count = atan_count = 0;
+    Verdict inner = induct(&identity, variable, 1, seq->since, 1);
+    if (inner.outcome != PROVED) {
+        if (inner.outcome == REFUTED) snprintf(text, sizeof text, "la formula non soddisfa la regola: per %c = %lld i due membri sono diversi", variable, inner.witness);
+        else snprintf(text, sizeof text, "non riesco a dimostrare che la formula soddisfa la regola: %s", inner.reason);
+        verdict.reason = text;
+        return verdict;
+    }
+    proof_add("\\end{itemize}\n$\\Box$");
+    if (!sound) {
+        unjustified_steps++;
+        verdict.reason = "una formula della dimostrazione, riletta dal testo, non è confermata";
+        return verdict;
+    }
+    verdict.outcome = PROVED;
+    verdict.reason = "il teorema che una ricorrenza determina la successione non è nella notazione dei certificati";
+    verdict.proof = proof_text;
+    return verdict;
+}
+
+/* Quanti termini di una successione la regola 26b calcola con gli intervalli
+ * per confrontarli con le tesi. Sono pochi perché l'albero di un termine
+ * contiene quello del precedente tante volte quante la regola lo nomina. */
+#define BOUND_TERMS 6
+
+/* Quanti invarianti prova la regola 26b, uno per tentativo (vedi
+ * bound_plan()). */
+#define INVARIANTS 4
+
+/* 26b. Prepara la dimostrazione delle tesi di statement, stime sui termini
+ * della successione seq, con il teorema dell'invariante (vedi la testa del
+ * capitolo). attempt, da 0 a INVARIANTS - 1, dice che cosa aggiungere alle
+ * tesi per avere l'invariante: 0 niente, 1 "a >= primo termine", 2 "a <=
+ * primo termine", 3 "a ha il segno del primo termine".
+ *
+ * Fa tutto tranne interrogare la tabella dei segni: il caso base, i primi
+ * termini calcolati con gli intervalli, la dimostrazione scritta. Se riesce
+ * il verdetto è PROVED e in question, lunga al più size, c'è l'enunciato
+ * "per ogni a reale" che la tabella deve ancora dimostrare; ogni altro
+ * verdetto è già quello definitivo. */
+static Verdict bound_plan(const SequenceStatement *statement, const Declared *seq, int variable, long long base, int attempt,
+                          char *question, size_t size) {
+    static char text[320];
+    Verdict verdict = {UNSUPPORTED, variable, base, 0, NULL, NULL, NULL, NULL, NULL, NULL};
+    const char *shape = "una stima sui termini si dimostra solo per una regola a_{n + 1} = f(a_n) in cui n non compare";
+    int letter = seq->name;
+    if (seq->order != 1 || seq->shift != 1) { verdict.reason = shape; return verdict; }
+
+    /* Le espressioni nella lettera a: a stessa per s_n, Phi(a) per s_{n+1},
+     * e il primo termine. In Phi(a) la variabile n non deve restare. */
+    Node *now = node_new(N_VAR, NULL, NULL), *start = seq->initial[0];
+    now->name = letter;
+    Node *pair[2] = {now, unfold_terms(seq->step, letter, 0, 1, &now)}, *later[2] = {pair[1], NULL};
+    if (failure || node_uses_letter(pair[1], variable)) { verdict.reason = failure ? failure : shape; return verdict; }
+
+    /* La lettera della successione fa da variabile reale: se nell'enunciato
+     * fosse anche un parametro, come in a_{n+1} = a a_n, dopo la
+     * sostituzione i due non si distinguerebbero più. */
+    int clash = node_has_variable(seq->step, letter);
+    for (int i = 0; i < statement->claims; i++) clash |= node_has_variable(statement->claim[i].lhs, letter) || node_has_variable(statement->claim[i].rhs, letter);
+    if (clash) { verdict.reason = "la lettera della successione compare anche come parametro"; return verdict; }
+
+    /* Ogni tesi, in tre scritture: con a (solo se parla del solo s_n, e
+     * allora entra nell'invariante), con Phi(a) al posto di a (l'invariante
+     * dopo un passo), con a e Phi(a) (la tesi che nomina anche s_{n+1}). */
+    Statement kept[MAX_CLAIMS + 1], next[MAX_CLAIMS + 1];
+    int keeps = 0, nexts = 0, bound = 0;
+    for (int i = 0; i < statement->claims && !failure; i++) {
+        const Statement *claim = &statement->claim[i];
+        Statement alone = {unfold_terms(claim->lhs, letter, 0, 1, pair), unfold_terms(claim->rhs, letter, 0, 1, pair), claim->relation};
+        if (failure == FOREIGN_TERM) {
+            failure = NULL;
+            next[nexts++] = (Statement){unfold_terms(claim->lhs, letter, 0, 2, pair), unfold_terms(claim->rhs, letter, 0, 2, pair), claim->relation};
+        } else {
+            kept[keeps++] = alone;
+            next[nexts++] = (Statement){unfold_terms(claim->lhs, letter, 0, 1, later), unfold_terms(claim->rhs, letter, 0, 1, later), claim->relation};
+        }
+
+        /* Tolti i termini, n non deve più comparire: una tesi come
+         * s_n < n non è una condizione sul solo numero s_n. */
+        bound |= !failure && (node_uses_letter(next[nexts - 1].lhs, variable) || node_uses_letter(next[nexts - 1].rhs, variable));
+    }
+    if (failure || bound) {
+        verdict.reason = failure ? failure : "una stima sui termini si dimostra solo se n compare soltanto negli indici dei termini";
+        return verdict;
+    }
+    if (attempt) {
+        /* Ciò che si aggiunge: un confronto con il primo termine, o con
+         * zero dalla parte in cui sta il primo termine. */
+        int sign = 0;
+        Node *bound = attempt < 3 ? start : node_num(0);
+        Relation side = attempt == 1 ? REL_GE : attempt == 2 ? REL_LE : REL_GT;
+        if (attempt == 3 && (!constant_side(side_value(start, rat_int(seq->first)), &sign) || sign == 0)) {
+            verdict.outcome = NOT_PROVED;
+            verdict.reason = "non trovo un invariante";
+            return verdict;
+        }
+        if (sign < 0) side = REL_LT;
+        kept[keeps++] = (Statement){now, bound, side};
+        next[nexts++] = (Statement){pair[1], bound, side};
+    }
+
+    /* Il caso base, esatto: il primo termine soddisfa l'invariante. */
+    verdict.outcome = NOT_PROVED;
+    for (int i = 0; i < keeps; i++) {
+        int side = 0;
+        Rat gap = rat_add(side_value(node_replace(kept[i].lhs, letter, start), rat_int(seq->first)),
+                          side_value(node_replace(kept[i].rhs, letter, start), rat_int(seq->first)), 1);
+        if (failure || !constant_side(gap, &side)) {
+            verdict.reason = failure ? failure : "non riesco a stabilire se il primo termine soddisfa le tesi";
+            failure = NULL;
+            return verdict;
+        }
+        if (!relation_holds(kept[i].relation, side)) {
+            /* Un controesempio, se la tesi è affermata anche per il primo
+             * termine; altrimenti l'invariante non parte, e basta. */
+            if (seq->first >= base) { verdict.outcome = REFUTED; verdict.witness = seq->first; }
+            else verdict.reason = "il primo termine non soddisfa le tesi, che sono affermate solo da un indice successivo";
+            return verdict;
+        }
+    }
+
+    /* Verifica indipendente, e smentita: i primi termini con gli intervalli
+     * (capitolo 24), ognuno come albero in cui la regola è sostituita in se
+     * stessa. Conta solo un confronto certamente falso. */
+    Node *term = start;
+    for (long long at = seq->first; at < seq->first + BOUND_TERMS; at++) {
+        Node *both[2] = {term, unfold_terms(seq->step, letter, 0, 1, &term)};
+        for (int i = 0; i < statement->claims; i++) {
+            const Statement *claim = &statement->claim[i];
+            int nowhere = 0, side = 0;
+            Range gap = range_sub(node_range(unfold_terms(claim->lhs, letter, 0, 2, both), 0, range_none(), &nowhere),
+                                  node_range(unfold_terms(claim->rhs, letter, 0, 2, both), 0, range_none(), &nowhere));
+            if (failure || nowhere) {
+                snprintf(text, sizeof text, "per %c = %lld un termine o una tesi non sono definiti", variable, at);
+                failure = NULL;
+                verdict.reason = text;
+                return verdict;
+            }
+            if (at >= base && range_side(gap, &side) && !relation_holds(claim->relation, side)) {
+                verdict.outcome = REFUTED;
+                verdict.witness = at;
+                return verdict;
+            }
+        }
+        term = both[1];
+    }
+
+    /* I testi per la tabella: l'invariante, e ciò che ne deve seguire. */
+    char hypothesis[MAX_FORMULA] = "", thesis[MAX_FORMULA] = "";
+    size_t opening = proof_length;
+    int fits = 1;
+    for (int i = 0; i < keeps + nexts; i++) {
+        const Statement *part = i < keeps ? &kept[i] : &next[i - keeps];
+        char *into = i < keeps ? hypothesis : thesis;
+        size_t used = strlen(into);
+        Span span = put_comparison(part->lhs, part->relation, part->rhs);
+        int written = snprintf(into + used, MAX_FORMULA - used, "%s%.*s", used ? " \\land " : "", (int)(span.to - span.from), proof_text + span.from);
+        fits &= written > 0 && (size_t)written < MAX_FORMULA - used;
+    }
+    proof_cut(opening);
+    int length = keeps ? snprintf(question, size, "\\forall %c \\in \\mathbb{R}\\ ((%s) \\implies (%s))", letter, hypothesis, thesis)
+                       : snprintf(question, size, "\\forall %c \\in \\mathbb{R}\\ (%s)", letter, thesis);
+    if (!fits || length <= 0 || (size_t)length >= size) { verdict.reason = "il passo induttivo è troppo lungo da scrivere"; return verdict; }
+
+    /* La dimostrazione scritta, a cui manca solo la tabella. */
+    proof_add("\\textbf{Proof.} By induction on $%c$, with an invariant: a condition $I(%c)$ on a real number $%c$ that the first term "
+              "satisfies and that the rule preserves. ", variable, letter, letter);
+    if (keeps) proof_add("Here $I(%c)$ is $%s$.\n\\begin{itemize}\n\\item \\emph{Base case}, $%c = %lld$. The first term is $%c_{%lld} = ",
+                         letter, hypothesis, variable, seq->first, letter, seq->first);
+    else proof_add("Here no condition is needed: $I(%c)$ is always true.\n\\begin{itemize}\n\\item \\emph{Base case}, $%c = %lld$. The first term is $%c_{%lld} = ",
+                   letter, variable, seq->first, letter, seq->first);
+    put_node(start, 0);
+    proof_add(keeps ? "$, and it satisfies $I$: the comparisons are between numbers.\n" : "$.\n");
+    proof_add("\\item \\emph{Inductive step}. Assume that $%c_{%c}$ exists and satisfies $I$ for some $%c \\ge %lld$, and write $%c$ for it: "
+              "the next term is $%c_{%c + 1} = ", letter, variable, variable, seq->first, letter, letter, variable);
+    put_node(pair[1], 0);
+    proof_add("$. The sign table below shows that for every real number $%c$ %s $%s$. A comparison holds only where its sides have a "
+              "value: so $%c_{%c + 1}$ exists, it satisfies $I$, and the claims hold for this $%c$.\n",
+              letter, keeps ? "that satisfies $I$:" : ":", thesis, letter, variable, variable);
+    proof_add("\\item \\emph{Check on the first terms}. The terms from $%c_{%lld}$ to $%c_{%lld}$, computed with guaranteed error bounds, "
+              "do not contradict the claims.\n\\item \\emph{The condition of the inductive step}, for every real number $%c$. ",
+              letter, seq->first, letter, seq->first + BOUND_TERMS - 1, letter);
+    verdict.outcome = PROVED;
+    return verdict;
+}
+
+/* Prova a dimostrare l'enunciato su una successione definita per ricorrenza
+ * scritto in formula, nella notazione di parse_sequence_statement(), con i
+ * teoremi 26a e 26b. variable, has_base e base come per
+ * prove_by_induction(): la tesi è affermata per ogni n dal caso base in su,
+ * che in sua assenza è l'indice del primo valore iniziale.
+ *
+ * Il verdetto DIMOSTRATO è senza certificato, e dice perché in reason.
+ * Svuota l'arena e la tabella degli atomi: i risultati di chiamate
+ * precedenti non sono più validi. */
+static Verdict prove_sequence(const char *formula, int variable, int has_base, long long base) {
+    static char reason[400];
+    Verdict verdict = {UNSUPPORTED, variable, base, 0, NULL, NULL, NULL, NULL, NULL, NULL}, refusal = verdict;
+
+    /* Per una stima, un tentativo per ogni invariante (26b): la tabella dei
+     * segni riparte da zero, quindi ogni volta si rilegge l'enunciato. Per
+     * una formula chiusa (26a) basta il primo giro. */
+    for (int attempt = 0;; attempt++) {
+        SequenceStatement statement;
+        Declared seq;
+        char question[MAX_FORMULA];
+
+        /* Ripartenza da zero per il nuovo enunciato, e parsing. */
+        proof_reset();
+        arena_used = arena_keep;
+        atom_count = base_poly_count = atan_count = 0;
+        failure = NULL;
+        induction_var = variable;
+        default_base = domain_floor = 1;
+        if (!parse_sequence_statement(formula, &statement)) { verdict.reason = syntax_error; return verdict; }
+        const char *problem = failure ? failure : declared_read(&statement, variable, &seq);
+        if (!problem && has_base && base < seq.first) problem = "la tesi parte da un indice che viene prima dei valori iniziali";
+        if (problem) { verdict.reason = problem; return verdict; }
+        if (!has_base) base = seq.first;
+
+        /* 26a. Una sola tesi, "s_n = formula" o "formula = s_n", con la
+         * formula senza termini della successione. */
+        const Statement *claim = &statement.claim[0];
+        for (int side = 0; side < 2 && statement.claims == 1 && claim->relation == REL_EQ; side++) {
+            Node *term = side ? claim->rhs : claim->lhs, *closed = side ? claim->lhs : claim->rhs;
+            long long a, c;
+            if (term->kind == N_SEQ && term->name == seq.name && rat_affine(eval(term->a), &a, &c) && a == 1 && c == 0 &&
+                !node_uses_letter(closed, seq.name))
+                return prove_closed_form(&seq, closed, variable, base);
+        }
+
+        /* 26b. Stime: l'invariante, poi la tabella dei segni. */
+        verdict = bound_plan(&statement, &seq, variable, base, attempt, question, sizeof question);
+        if (verdict.outcome != PROVED) return verdict.outcome == REFUTED || !attempt ? verdict : refusal;
+        Verdict table = ask_sign_table(question);
+        if (table.outcome == PROVED) {
+            proof_add("\n\\end{itemize}\n$\\Box$");
+            verdict.reason = "il passo induttivo è deciso dalla tabella dei segni, e le successioni dichiarate non hanno una notazione nei certificati";
+            verdict.proof = proof_text;
+            return verdict;
+        }
+
+        /* Smentito: l'invariante provato non si conserva, e se ne prova un
+         * altro. Non deciso: ci si ferma. */
+        if (table.outcome == REFUTED)
+            snprintf(reason, sizeof reason, "nessun invariante tra quelli provati si conserva: la tabella dei segni smentisce l'ultimo%s%s",
+                     table.detail ? " in " : "", table.detail ? table.detail : "");
+        else
+            snprintf(reason, sizeof reason, "la tabella dei segni non decide il passo induttivo: %s", table.reason);
+        refusal.outcome = table.outcome == UNSUPPORTED ? UNSUPPORTED : NOT_PROVED;
+        refusal.base = base;
+        refusal.reason = reason;
+        if (table.outcome != REFUTED || attempt == INVARIANTS - 1) return refusal;
+    }
+}
+
+/* =============================================================================
+ * 27. DERIVATE N-ESIME
+ * ============================================================================
+ *
+ * A che cosa serve. "La derivata n-esima di sin x è sin(x + n pi/2)"; "la
+ * derivata n-esima di ln x è (-1)^{n-1} (n-1)! / x^n, per n >= 1". L'enunciato
+ * arriva nella notazione di parse_derivative_statement(): il segno di
+ * derivata, la funzione f, il segno di uguale, una formula g(n, x).
+ *
+ * IL TEOREMA
+ *
+ * Sia n0 >= 0. Se
+ *
+ *   27a. la derivata di ordine n0 di f è g(n0, x);
+ *   27b. per ogni intero n >= n0 la derivata rispetto a x di g(n, x) è
+ *        g(n + 1, x);
+ *
+ * allora la derivata di ordine n di f è g(n, x) per ogni n >= n0. È
+ * un'induzione su n: la derivata di ordine n + 1 è la derivata di quella di
+ * ordine n, che per ipotesi è g(n, x), e 27b dice quanto vale. Come ogni
+ * verdetto del capitolo 13, vale dove le espressioni sono definite.
+ *
+ * COME SI DERIVA
+ *
+ * derive() applica le regole di derivazione all'albero di un'espressione, un
+ * nodo alla volta, senza cercare nulla. u e v dipendono da x, c no:
+ *
+ *   27c. c' = 0, x' = 1, (u + v)' = u' + v', (-u)' = -u';
+ *   27d. (u v)' = u' v + u v',   (u / v)' = (u' v - u v') / v^2;
+ *   27e. (u^c)' = c u^{c-1} u',  (c^u)' = c^u ln(c) u', con ln(e) = 1;
+ *   27f. la regola della catena, f(u)' = f'(u) u', con sin' = cos,
+ *        cos' = -sin, tan' = 1/cos^2, cot' = -1/sin^2, ln' = 1/u,
+ *        arctan' = 1/(1 + u^2), e per la radice m-esima r di u,
+ *        r' = r u' / (m u);
+ *   27g. la derivata di una somma con \sum è la somma delle derivate.
+ *
+ * La lettera e è il numero di Nepero: senza questo e^x non avrebbe per
+ * derivata se stessa. Ciò che non rientra (u^v con x in tutti e due, un
+ * valore assoluto, un prodotto con \prod, un fattoriale di x) è NON
+ * SUPPORTATO.
+ *
+ * Fatte le derivate, 27a e 27b non contengono più il segno di derivata:
+ * sono un'uguaglianza tra due espressioni in x, e un'identità in n e x che
+ * l'induzione del capitolo 13 dimostra con tutti i suoi controlli.
+ *
+ * I CONTROLLI INDIPENDENTI
+ *
+ * Tutti con i numeri, attraverso gli intervalli del capitolo 24, in qualche
+ * punto x e con dei numeri al posto delle altre lettere.
+ *
+ *   - Ogni derivata calcolata da derive() viene confrontata con il rapporto
+ *     incrementale (f(x + h) - f(x - h)) / (2h) della funzione di partenza,
+ *     che non sa nulla delle regole: una regola scritta male si vede qui.
+ *     Il rapporto sbaglia di circa h^2; lo si calcola con h e con h/2, e la
+ *     differenza tra i due dice quanto ci si può fidare.
+ *   - Le derivate di f di ordine n0, n0 + 1, ..., calcolate una dopo
+ *     l'altra, vengono confrontate con la formula: è la strada che non
+ *     passa dall'induzione. Due valori certamente diversi sono un
+ *     controesempio, e il verdetto è FALSO con quell'n.
+ *
+ * Non c'è un certificato: il verificatore non ha le derivate, e nemmeno
+ * seni, radici e logaritmi di una variabile reale.
+ */
+
+/* Il motivo con cui prove_derivative() rifiuta ciò che non è scritto come una
+ * derivata. Ha un nome perché prove() (capitolo 20) lo riconosce e passa
+ * l'enunciato agli altri metodi. */
+static const char *const NOT_A_DERIVATIVE = "l'enunciato non comincia con il segno di derivata";
+
+/* Ritorna outer per la derivata di inner rispetto a x: la regola della
+ * catena. Se inner è x stessa il fattore è 1 e non si scrive. */
+static Node *derive(const Node *f, int x);
+static Node *chain(Node *outer, const Node *inner, int x) {
+    if (inner->kind == N_VAR && inner->name == x) return outer;
+    return node_new(N_MUL, outer, derive(inner, x));
+}
+
+/* Ritorna l'albero della derivata di f rispetto alla variabile x, con le
+ * regole da 27c a 27g. Se f contiene qualcosa che non sa derivare fallisce,
+ * e il valore ritornato non ha significato.
+ *
+ * Le semplificazioni sono solo quelle che evitano di scrivere zeri e
+ * fattori 1: un fattore costante resta fuori dalla derivata, e la catena
+ * tace la derivata di x. Il resto lo fa la valutazione. */
+static Node *derive(const Node *f, int x) {
+    Node *u = f->a, *v = f->b;
+    if (failure) return node_num(0);
+
+    /* 27c. Costanti, la variabile, somme. */
+    if (!node_has_variable(f, x)) return node_num(0);
+    switch (f->kind) {
+    case N_VAR: return node_num(1);
+    case N_NEG: return node_new(N_NEG, derive(u, x), NULL);
+    case N_ADD: case N_SUB:
+        if (!node_has_variable(u, x)) return f->kind == N_ADD ? derive(v, x) : node_new(N_NEG, derive(v, x), NULL);
+        if (!node_has_variable(v, x)) return derive(u, x);
+        return node_new(f->kind, derive(u, x), derive(v, x));
+
+    /* 27d. Prodotti e quozienti. */
+    case N_MUL:
+        if (!node_has_variable(u, x)) return node_new(N_MUL, u, derive(v, x));
+        if (!node_has_variable(v, x)) return node_new(N_MUL, derive(u, x), v);
+        return node_new(N_ADD, node_new(N_MUL, derive(u, x), v), node_new(N_MUL, u, derive(v, x)));
+    case N_DIV:
+        if (!node_has_variable(v, x)) return node_new(N_DIV, derive(u, x), v);
+        if (!node_has_variable(u, x)) return node_new(N_NEG, node_new(N_DIV, node_new(N_MUL, u, derive(v, x)), node_new(N_POW, v, node_num(2))), NULL);
+        return node_new(N_DIV, node_new(N_SUB, node_new(N_MUL, derive(u, x), v), node_new(N_MUL, u, derive(v, x))),
+                        node_new(N_POW, v, node_num(2)));
+
+    /* 27e. Potenze: la variabile solo nella base, o solo nell'esponente. */
+    case N_POW:
+        if (!node_has_variable(v, x))
+            return chain(node_new(N_MUL, v, node_new(N_POW, u, node_new(N_SUB, v, node_num(1)))), u, x);
+        if (node_has_variable(u, x)) break;
+        if (u->kind == N_VAR && u->name == 'e') return chain((Node *)f, v, x);
+        return chain(node_new(N_MUL, (Node *)f, node_call(FN_LN, u, NULL)), v, x);
+
+    /* 27f. Funzioni: la regola della catena. */
+    case N_CALL:
+        switch ((Function)f->op) {
+        case FN_SIN: return chain(node_call(FN_COS, u, NULL), u, x);
+        case FN_COS: return chain(node_new(N_NEG, node_call(FN_SIN, u, NULL), NULL), u, x);
+        case FN_TAN: return node_new(N_DIV, derive(u, x), node_new(N_POW, node_call(FN_COS, u, NULL), node_num(2)));
+        case FN_COT: return node_new(N_NEG, node_new(N_DIV, derive(u, x), node_new(N_POW, node_call(FN_SIN, u, NULL), node_num(2))), NULL);
+        case FN_LN: return node_new(N_DIV, derive(u, x), u);
+        case FN_LOG:
+            if (!v || node_has_variable(v, x)) break;
+            return node_new(N_DIV, derive(u, x), node_new(N_MUL, u, node_call(FN_LN, v, NULL)));
+        case FN_ARCTAN: return node_new(N_DIV, derive(u, x), node_new(N_ADD, node_num(1), node_new(N_POW, u, node_num(2))));
+        case FN_ROOT:
+            if (node_has_variable(v, x)) break;
+            return node_new(N_DIV, node_new(N_MUL, (Node *)f, derive(u, x)), node_new(N_MUL, v, u));
+        default: break;
+        }
+        break;
+
+    /* 27g. Una somma finita, con gli estremi che non dipendono da x. */
+    case N_BIGOP: {
+        if (f->op || f->name == x || node_has_variable(u, x) || node_has_variable(v, x)) break;
+        Node *sum = node_new(N_BIGOP, u, v);
+        sum->name = f->name;
+        sum->c = derive(f->c, x);
+        return sum;
+    }
+    default:
+        break;
+    }
+    fail("derivata di un'espressione che le regole di derivazione del programma non trattano");
+    return node_num(0);
+}
+
+/* Ritorna una copia di tree in cui ogni sotto-albero senza lettere che vale
+ * un numero intero è sostituito da quel numero: (3 - 1)! diventa 2,
+ * (-1)^{3 - 1} diventa 1. Serve prima di calcolare con gli intervalli, che
+ * non conoscono i fattoriali e leggono un esponente solo se è un numero
+ * scritto. Mette 1 in *closed, che chi chiama ha messo a 1, se tree non
+ * contiene lettere. Un conto che fallisce lascia l'albero com'è. */
+static Node *node_fold(const Node *tree, int *closed) {
+    if (!tree) return NULL;
+    if (tree->kind == N_NUM) return (Node *)tree;
+    if (tree->kind == N_VAR || tree->kind == N_SEQ || tree->kind == N_BIGOP || tree->kind == N_APPLY) { *closed = 0; return (Node *)tree; }
+    int inside = 1;
+    Node *copy = node_new(tree->kind, node_fold(tree->a, &inside), node_fold(tree->b, &inside));
+    copy->op = tree->op;
+    copy->name = tree->name;
+    if (!inside) { *closed = 0; return copy; }
+
+    /* Senza lettere: il valore, se è un intero. */
+    const char *saved = failure;
+    Scratch mark = scratch_mark();
+    long long value;
+    env_count = 0;
+    int whole = rat_integer(eval(copy), &value) && failure == saved;
+    failure = saved;
+    scratch_drop(mark);
+    return whole ? node_num(value) : copy;
+}
+
+/* I punti in cui le derivate vengono controllate con i numeri, e il passo
+ * del rapporto incrementale. I punti sono scelti perché le funzioni degli
+ * esercizi vi siano definite: positivi, e uno minore di 1/2. */
+static const Frac derivative_points[] = {{3, 10}, {7, 5}, {-9, 10}};
+static const Frac derivative_step = {1, 512};
+enum { DERIVATIVE_POINTS = sizeof derivative_points / sizeof *derivative_points };
+
+/* Ritorna una copia di tree pronta per essere calcolata con i numeri nella
+ * sola variabile x: la lettera order vale l'intero at, ogni altra lettera
+ * (tranne e, che è un numero) un razionale fisso, diverso da lettera a
+ * lettera, e i sotto-alberi interi sono già calcolati (node_fold()). */
+static Node *sample_tree(const Node *tree, int x, int order, long long at) {
+    Node *copy = node_replace(tree, order, node_num(at));
+    for (int letter = 'A'; letter <= 'z'; letter++) {
+        if (!isalpha(letter) || letter == x || letter == 'e' || !node_has_variable(copy, letter)) continue;
+        copy = node_replace(copy, letter, node_new(N_DIV, node_num(3 + letter % 7), node_num(2 + letter % 5)));
+    }
+    return node_fold(copy, &(int){1});
+}
+
+/* Ritorna un intervallo che contiene il valore di tree, già passato da
+ * sample_tree(), per x = at; "non so" se non si calcola o non è definito. */
+static Range sample_range(const Node *tree, int x, Frac at) {
+    int nowhere = 0;
+    Range value = node_range(tree, x, range_ratio(at.num, at.den), &nowhere);
+    return nowhere ? range_none() : value;
+}
+
+/* Ritorna 1 se la derivata derived di function, tutti e due già passati da
+ * sample_tree(), è confermata dai numeri: in almeno uno dei punti di prova
+ * coincide con il rapporto incrementale, e in nessuno ne è lontana.
+ *
+ * Il rapporto incrementale centrato con passo h dista dalla derivata circa
+ * c h^2: quello con passo h/2 circa un quarto. La loro differenza, tre
+ * quarti di c h^2, è quindi una misura dell'errore che non richiede di
+ * conoscere c: una derivata giusta dista dal secondo rapporto meno di
+ * quella differenza, una sbagliata molto di più. */
+static int derivative_confirmed(const Node *function, const Node *derived, int x) {
+    int confirmed = 0;
+    for (int p = 0; p < DERIVATIVE_POINTS; p++) {
+        Frac at = derivative_points[p], h = derivative_step;
+        double quotient[2];
+        Range exact = sample_range(derived, x, at);
+        int known = range_known(exact);
+        for (int i = 0; i < 2 && known; i++, h.den *= 2) {
+            Range up = sample_range(function, x, frac_add(at, h)), down = sample_range(function, x, frac_add(at, frac_neg(h)));
+            known = range_known(up) && range_known(down);
+            if (known) quotient[i] = ((up.low + up.high) - (down.low + down.high)) / 4 * (double)h.den / (double)h.num;
+        }
+        if (!known) continue;
+        double value = (exact.low + exact.high) / 2, error = quotient[0] - quotient[1], gap = quotient[1] - value;
+        double size = value < 0 ? -value : value;
+        if (error < 0) error = -error;
+        if (gap < 0) gap = -gap;
+        if (gap > error + 1e-8 * (1 + size)) return 0;
+        confirmed = 1;
+    }
+    return confirmed;
+}
+
+/* Quante derivate di f, oltre quella del caso base, vengono calcolate una
+ * dopo l'altra per confrontarle con la formula; il più grande caso base
+ * ammesso, perché ogni derivata allunga l'albero; e la lunghezza oltre la
+ * quale si smette di derivare. */
+#define DIRECT_ORDERS 3
+#define MAX_DERIVATIVE_BASE 4
+#define MAX_DERIVATIVE_NODES 20000
+
+/* Ritorna il numero di nodi di tree, contando una volta per ogni strada i
+ * sotto-alberi condivisi: è il costo di un conto sull'albero. */
+static long long node_count(const Node *tree) {
+    return tree ? 1 + node_count(tree->a) + node_count(tree->b) + node_count(tree->c) : 0;
+}
+
+/* Prova a dimostrare l'enunciato su una derivata scritto in formula, con il
+ * teorema in testa al capitolo. variable, has_base e base come per
+ * prove_by_induction(); senza caso base una derivata n-esima parte da
+ * n = 0, la funzione stessa. Se l'ordine è scritto come numero non c'è
+ * induzione: basta 27a in quell'ordine, e il verdetto non ha una variabile
+ * di induzione. Se formula non è scritta come una derivata il verdetto è
+ * NON SUPPORTATO con il motivo NOT_A_DERIVATIVE.
+ *
+ * Il verdetto DIMOSTRATO è senza certificato, e dice perché in reason.
+ * Svuota l'arena e la tabella degli atomi: i risultati di chiamate
+ * precedenti non sono più validi. */
+static Verdict prove_derivative(const char *formula, int variable, int has_base, long long base) {
+    static char text[320];
+    Verdict verdict = {UNSUPPORTED, variable, has_base ? base : 0, 0, NULL, NULL, NULL, NULL, NULL, NULL};
+    DerivativeStatement statement;
+
+    /* Ripartenza da zero per il nuovo enunciato, e parsing. */
+    proof_reset();
+    arena_used = arena_keep;
+    atom_count = base_poly_count = atan_count = 0;
+    failure = NULL;
+    if (!parse_derivative_statement(formula, &statement)) { verdict.reason = NOT_A_DERIVATIVE; return verdict; }
+    int x = statement.variable, fixed = !statement.order;
+    Node *f = statement.function, *g = statement.formula;
+    if (failure) { verdict.reason = failure; return verdict; }
+
+    /* L'ordine: la variabile di induzione, da base in su, oppure un numero. */
+    if (fixed) {
+        base = statement.times;
+        verdict.variable = 0;
+        verdict.method = "con le regole di derivazione";
+    } else if (!has_base) {
+        base = 0;
+    }
+    if (x == variable || (!fixed && (statement.order != variable || node_uses_letter(f, variable)))) {
+        verdict.reason = "l'ordine di derivazione deve essere la variabile di induzione, e la funzione da derivare non deve contenerla";
+        return verdict;
+    }
+    if (base < 0 || base > MAX_DERIVATIVE_BASE) { verdict.reason = "l'ordine di una derivata, o il caso base di una derivata n-esima, deve essere al più 4"; return verdict; }
+    induction_var = variable;
+    default_base = 1;
+    domain_floor = base;
+
+    /* Le derivate di f, una dopo l'altra, ognuna confrontata con il rapporto
+     * incrementale della precedente. Servono fino all'ordine del caso base;
+     * quelle dopo sono per la verifica, e si smette se diventano lunghe. */
+    Node *direct[MAX_DERIVATIVE_BASE + DIRECT_ORDERS + 1] = {f}, *sampled = sample_tree(f, x, 0, 0);
+    int orders = 0, wanted = (int)base + (fixed ? 0 : DIRECT_ORDERS);
+    verdict.outcome = NOT_PROVED;
+    while (orders < wanted && (orders < base || node_count(direct[orders]) < MAX_DERIVATIVE_NODES)) {
+        Node *next = derive(direct[orders], x), *next_sampled = failure ? NULL : sample_tree(next, x, 0, 0);
+        if (failure && orders < base) {
+            verdict.outcome = UNSUPPORTED;
+            verdict.reason = failure;
+            return verdict;
+        }
+        if (failure || !derivative_confirmed(sampled, next_sampled, x)) {
+            if (orders >= base) break;
+            verdict.reason = "non riesco a confermare con i numeri una derivata calcolata con le regole di derivazione";
+            return verdict;
+        }
+        direct[++orders] = next;
+        sampled = next_sampled;
+    }
+    failure = NULL;
+
+    /* Verifica indipendente, e smentita: le derivate calcolate una per una
+     * contro la formula, in ogni punto di prova. Con l'ordine fisso la
+     * lettera n, se c'è, è un parametro come gli altri. */
+    int compared = 0;
+    for (int k = (int)base; k <= orders; k++) {
+        Node *left = sample_tree(direct[k], x, 0, 0), *right = sample_tree(g, x, fixed ? 0 : variable, k);
+        for (int p = 0; p < DERIVATIVE_POINTS; p++) {
+            Frac at = derivative_points[p];
+            int side = 0;
+            Range gap = range_sub(sample_range(left, x, at), sample_range(right, x, at));
+            if (!range_known(gap)) continue;
+            if (range_side(gap, &side)) {
+                snprintf(text, sizeof text, "%c = %lld/%lld", x, at.num, at.den);
+                verdict.outcome = REFUTED;
+                verdict.witness = k;
+                verdict.detail = text;
+                return verdict;
+            }
+            compared = 1;
+        }
+    }
+    failure = NULL;
+    if (!compared) { verdict.reason = "non riesco a calcolare con i numeri né le derivate né la formula, in nessuno dei punti di prova"; return verdict; }
+
+    /* 27a. Il caso base: un'uguaglianza tra espressioni, senza n. */
+    Statement first = {direct[base], fixed ? g : node_replace(g, variable, node_num(base)), REL_EQ};
+    Rat gap = difference(&first, rat_int(base));
+    if (failure || !poly_vanishes(gap.num)) {
+        snprintf(text, sizeof text, "la derivata di ordine %lld, calcolata con le regole, non si riduce alla formula%s%s", base,
+                 failure ? ": " : "", failure ? failure : "");
+        failure = NULL;
+        verdict.reason = text;
+        return verdict;
+    }
+    if (fixed) proof_add("\\textbf{Proof.} By the rules of differentiation.\n\\begin{itemize}\n\\item ");
+    else proof_add("\\textbf{Proof.} By induction on $%c$: it is enough that the formula is right for $%c = %lld$ and that its derivative with "
+                   "respect to $%c$ is the formula for $%c + 1$.\n\\begin{itemize}\n\\item \\emph{Base case}, $%c = %lld$. ",
+                   variable, variable, base, x, variable, variable, base);
+    if (base == 0) proof_add("The derivative of order $0$ is the function itself, $");
+    else proof_add("Differentiating $%lld$ time%s with respect to $%c$ gives $", base, base > 1 ? "s" : "", x);
+    Span left = {proof_length, 0};
+    put_node(direct[base], 0);
+    left.to = proof_length;
+    proof_add("$, and the formula is $");
+    Span right = put_side(g, fixed ? NULL : node_num(base));
+    proof_add("$: the two are equal, because their difference reduces to $0$ by exact algebra.\n");
+    int sound = reread_equal(left, right, base);
+
+    /* 27b. Il passo: la derivata della formula, confrontata anche lei con il
+     * rapporto incrementale per i primi n, e poi l'identità in n. */
+    if (!fixed) {
+        Node *slope = derive(g, x);
+        for (long long k = base; k <= base + 1 && !failure; k++)
+            if (!derivative_confirmed(sample_tree(g, x, variable, k), sample_tree(slope, x, variable, k), x)) {
+                verdict.reason = "non riesco a confermare con i numeri la derivata della formula";
+                return verdict;
+            }
+        if (failure) { verdict.outcome = UNSUPPORTED; verdict.reason = failure; return verdict; }
+        Statement step = {slope, node_replace(g, variable, node_affine(1, variable, 1)), REL_EQ};
+        proof_add("\\item \\emph{Inductive step}. Assume the statement for some $%c \\ge %lld$. The derivative of order $%c + 1$ is then the "
+                  "derivative of the formula for $%c$, which the rules of differentiation give as $", variable, base, variable, variable);
+        put_node(slope, 0);
+        proof_add("$. It remains to prove that this is the formula for $%c + 1$: $", variable);
+        put_comparison(step.lhs, REL_EQ, step.rhs);
+        proof_add("$ for every $%c \\ge %lld$.\n", variable, base);
+        atom_count = base_poly_count = atan_count = 0;
+        Verdict inner = induct(&step, variable, 1, base, 1);
+        if (inner.outcome != PROVED) {
+            if (inner.outcome == REFUTED) snprintf(text, sizeof text, "la derivata della formula non è la formula per %c + 1: per %c = %lld sono diverse", variable, variable, inner.witness);
+            else snprintf(text, sizeof text, "non riesco a dimostrare che la derivata della formula è la formula per %c + 1: %s", variable, inner.reason);
+            verdict.reason = text;
+            return verdict;
+        }
+    }
+    proof_add("\\item \\emph{Check with numbers}. The derivative%s computed here agree%s with the formula at the sample points, and each "
+              "differentiation agrees with a difference quotient.\n\\end{itemize}\n$\\Box$", orders > base ? "s" : "", orders > base ? "" : "s");
+    if (!sound) {
+        unjustified_steps++;
+        verdict.reason = "una formula della dimostrazione, riletta dal testo, non è confermata";
+        return verdict;
+    }
+    verdict.outcome = PROVED;
+    verdict.reason = "le derivate non hanno una notazione nei certificati";
+    verdict.proof = proof_text;
+    return verdict;
+}
+
+/* =============================================================================
+ * 28. INSIEMI QUALSIASI: MODELLI FINITI, ISTANZE, UGUALI AL POSTO DI UGUALI
+ * ============================================================================
+ *
+ * A che cosa serve. "In un insieme con un'operazione, un elemento neutro a
+ * sinistra e uno a destra coincidono" non parla di numeri: l'insieme è
+ * qualsiasi, e dell'operazione si sa solo ciò che dicono le ipotesi. Non
+ * c'è una regola da sostituire né un conto da fare, e le regole del capitolo
+ * 18, che lavorano con i polinomi, non hanno presa. Il linguaggio di questi
+ * enunciati è nel paragrafo 17o di parser.c; qui c'è il modo di deciderli,
+ * che è fatto di due metà molto diverse.
+ *
+ * SMENTIRE: I MODELLI FINITI (28a)
+ *
+ * L'enunciato afferma qualcosa di ogni insieme e di ogni operazione. Per
+ * smentirlo basta un esempio in cui le ipotesi valgono e la tesi no, e un
+ * esempio si può cercare tra gli insiemi con uno, due, tre elementi: lì
+ * un'operazione è una tabella, le tabelle sono in numero finito, e che un
+ * enunciato valga in una tabella si controlla con un conto finito e
+ * completo. Un esempio trovato così è un controesempio vero: il verdetto è
+ * FALSO, con le tabelle stampate.
+ *
+ * Non trovarne non dimostra nulla. "Ogni applicazione iniettiva di un
+ * insieme in sé è suriettiva" vale in ogni insieme finito, e quindi in ogni
+ * tabella che si possa provare, ma è falso: n -> n + 1 sui naturali è
+ * iniettiva e non raggiunge lo zero. Per questo la ricerca dei modelli fa
+ * due sole cose: smentisce, e fa da controllo indipendente di ciò che
+ * l'altra metà dimostra. Un enunciato è dichiarato DIMOSTRATO solo se ha
+ * una dimostrazione scritta, ricontrollata passo per passo, e in più nessun
+ * modello piccolo lo contraddice.
+ *
+ * Gli insiemi provati non sono mai vuoti. Per smentire non importa: un
+ * controesempio non vuoto è un controesempio. Per dimostrare, vedi sotto.
+ *
+ * Fa eccezione l'enunciato che chiede un esempio, \exists S\ \exists R
+ * \subseteq S \times S\ (...): lì un modello in cui la condizione vale è
+ * proprio ciò che si chiede, e trovarlo è una dimostrazione.
+ *
+ * DIMOSTRARE: ISTANZE E UGUALI AL POSTO DI UGUALI (28b-28e)
+ *
+ * Si ragiona per assurdo, come si fa a mano: si suppongono le ipotesi e la
+ * negazione della tesi, e si cerca una contraddizione. Tutto ciò che si sa
+ * è un elenco di condizioni vere (Known), che cresce con cinque mosse,
+ * ognuna una regola di deduzione valida:
+ *
+ *   28-1. Una parte. Da "A e B" seguono A e B; da "A oppure B", saputo che
+ *         A è falsa, segue B.
+ *   28-2. Un nome. Da "esiste x in S con P(x)" si prende un tale elemento e
+ *         gli si dà un nome nuovo, c: vale P(c). È l'unico modo in cui
+ *         nasce un elemento, insieme all'applicare un simbolo a elementi
+ *         che ci sono già: per questo ciò che si dimostra vale anche se
+ *         qualche insieme è vuoto.
+ *   28-3. Un'istanza. Da "per ogni x in S vale P(x)", e da un elemento t di
+ *         S, segue P(t).
+ *   28-4. Uguali al posto di uguali. Le uguaglianze note s = t dividono gli
+ *         elementi in classi; se a = a' e b = b' allora f(a, b) = f(a', b')
+ *         (chiusura per congruenza). Vale anche per le parti e le
+ *         relazioni: se x sta in X e x = y, allora y sta in X.
+ *   28-5. Due casi. Se di "A oppure B" non si sa quale valga, si prova che
+ *         la contraddizione arriva in tutti e due i casi.
+ *
+ * La contraddizione è un'uguaglianza che dovrebbe essere falsa (si sa
+ * s diverso da t, e s e t sono finiti nella stessa classe), oppure una
+ * disgiunzione di cui tutte le parti sono false.
+ *
+ * Quali istanze. Le regole dicono che cosa è lecito, non che cosa conviene:
+ * le istanze possibili sono infinite. Se ne provano di due tipi, per un
+ * numero fisso di giri:
+ *
+ *   - sugli elementi che hanno un nome (quelli dichiarati, quelli della
+ *     tesi, quelli nati da 28-2), tutte;
+ *   - quelle che riscrivono un elemento presente: un termine della
+ *     condizione che contiene tutte le sue variabili corrisponde a un
+ *     elemento che c'è già. È ciò che fa chi applica l'associatività a
+ *     (a b) c perché ce l'ha davanti;
+ *   - sugli altri elementi presenti, solo quelle che non introducono
+ *     elementi nuovi e contengono un confronto già deciso: sono quelle da
+ *     cui 28-1 può trarre subito qualcosa.
+ *
+ * Non trovare la contraddizione vuol dire NON DIMOSTRATO, mai FALSO: la
+ * ricerca non è completa.
+ *
+ * LA DIMOSTRAZIONE SCRITTA E IL SUO CONTROLLO (28e)
+ *
+ * Trovata la contraddizione, si risale da lì a ciò che è servito, e solo
+ * quello viene scritto, un passo per riga. Ogni passo scritto viene
+ * ricontrollato con un metodo diverso da quello che l'ha trovato:
+ *
+ *   - una catena di uguaglianze s = u = ... = t viene riletta anello per
+ *     anello: ogni termine deve ottenersi dal precedente sostituendo, in un
+ *     solo punto, un membro di un'uguaglianza già scritta con l'altro
+ *     (rewrites()). La ricerca usa classi e rappresentanti; questo
+ *     controllo guarda solo come sono scritti i termini.
+ *   - un passo "da (p), poiché A vale e B no, segue C" viene ricontrollato
+ *     con una tabella di verità: in ogni modo di dare vero o falso alle
+ *     condizioni elementari di (p), se (p) è vera e A e B hanno il valore
+ *     detto, allora C è vera (follows()).
+ *
+ * Se un controllo fallisce la dimostrazione non viene emessa, e
+ * unjustified_steps lo registra.
+ *
+ * CHE COSA NON C'È
+ *
+ * Applicazioni e parti da costruire (\exists f \in S^{S}), immagini e
+ * controimmagini di parti, l'insieme delle parti, potenze x^{n} con n
+ * numero: il linguaggio non le legge. E nessun certificato per checker.c:
+ * servirebbe che il verificatore sapesse rileggere catene e istanze, che è
+ * ciò che fa qui il controllo del paragrafo 28e.
+ */
+
+/* 28a. I MODELLI FINITI */
+
+/* Un'interpretazione finita dell'enunciato in corso: quanti elementi ha
+ * ogni insieme, e la tabella di ogni simbolo dichiarato. Gli elementi
+ * dell'insieme di posto i sono i numeri da 0 a size[i] - 1.
+ *
+ * La tabella di un simbolo dà il suo valore per ogni scelta degli
+ * argomenti: alla cella a + b * (elementi del primo insieme) c'è il valore
+ * in (a, b), che è un elemento del codominio, oppure 0 o 1 per una parte o
+ * una relazione. Un elemento con un nome ha la sola cella 0. */
+typedef struct {
+    int size[MAX_SORTS];
+    unsigned char table[MAX_SYMBOLS][MAX_MODEL_SIZE * MAX_MODEL_SIZE];
+} Model;
+
+/* Ritorna il valore dell'elemento e nel modello m, con ogni variabile al
+ * valore che ha in value[]; per una parte o una relazione applicata, 1 se
+ * vale. */
+static int model_element(const Model *m, const Elem *e, const int *value) {
+    if (e->symbol < 0) return value[e->slot];
+    int a = e->arg[0] ? model_element(m, e->arg[0], value) : 0, b = e->arg[1] ? model_element(m, e->arg[1], value) : 0;
+    return m->table[e->symbol][a + b * m->size[symbols[e->symbol].domain[0]]];
+}
+
+/* Quanti elementi i quantificatori hanno provato da quando model_search()
+ * ha cominciato. Con molti quantificatori uno dentro l'altro il conto su un
+ * solo modello cresce come una potenza: venti "per ogni" su tre elementi
+ * sono miliardi di prove. Oltre MAX_MODEL_STEPS model_holds() smette di
+ * calcolare, e chi la chiama deve buttare via la sua risposta. */
+static long long model_steps;
+
+/* Ritorna 1 se la condizione s vale nel modello m, con le variabili libere
+ * ai valori di value[]. È un conto finito e completo: ogni quantificatore
+ * prova tutti gli elementi del suo insieme. value[] viene usato anche per
+ * le variabili che s lega. Se model_steps supera MAX_MODEL_STEPS la
+ * risposta non vuol dire nulla. */
+static int model_holds(const Model *m, const Sentence *s, int *value) {
+    switch (s->kind) {
+    case S_TRUE:
+        return 1;
+    case S_EQUAL:
+        return model_element(m, s->left, value) == model_element(m, s->right, value);
+    case S_HOLDS:
+        return model_element(m, s->left, value);
+    case S_NOT:
+        return !model_holds(m, s->a, value);
+    case S_AND:
+        return model_holds(m, s->a, value) && model_holds(m, s->b, value);
+    case S_OR:
+        return model_holds(m, s->a, value) || model_holds(m, s->b, value);
+    case S_IMPLIES:
+        return !model_holds(m, s->a, value) || model_holds(m, s->b, value);
+    case S_IFF:
+        return model_holds(m, s->a, value) == model_holds(m, s->b, value);
+    case S_FORALL: case S_EXISTS:
+        break;
+    }
+    int every = s->kind == S_FORALL;
+    for (int x = 0; x < m->size[slot_sort[s->slot]]; x++) {
+        if (++model_steps > MAX_MODEL_STEPS) return 0;
+        value[s->slot] = x;
+        if (model_holds(m, s->a, value) != every) return !every;
+    }
+    return every;
+}
+
+/* Ritorna quanti valori può prendere una cella della tabella del simbolo
+ * symbol nel modello m, e mette in *cells quante celle ha la tabella. */
+static int model_cells(const Model *m, int symbol, int *cells) {
+    const Symbol *s = &symbols[symbol];
+    *cells = 1;
+    for (int i = 0; i < s->arity; i++) *cells *= m->size[s->domain[i]];
+    return s->range == TRUTH ? 2 : m->size[s->range];
+}
+
+/* Cerca un modello in cui la condizione root vale (wanted = 1) o non vale
+ * (wanted = 0), tra quelli in cui ogni insieme ha da 1 a MAX_MODEL_SIZE
+ * elementi, dai più piccoli. Se lo trova lo lascia in *m e ritorna 1.
+ *
+ * Non sempre li prova tutti: una scelta delle grandezze con più di
+ * MAX_MODELS tabelle viene saltata, e dopo MAX_MODEL_WORK tabelle in tutto,
+ * o MAX_MODEL_STEPS elementi provati dai quantificatori, la ricerca si
+ * ferma. In *tried mette quante tabelle ha provato, e in
+ * *bound il più grande k per cui ha provato tutti i modelli con insiemi di
+ * al più k elementi: è ciò che il verdetto può dire di aver controllato. */
+static int model_search(const Sentence *root, int wanted, Model *m, long long *tried, int *bound) {
+    int value[MAX_SLOTS], codes = 1, complete[MAX_MODEL_SIZE * MAX_MODEL_SIZE * MAX_MODEL_SIZE * MAX_MODEL_SIZE] = {0};
+    *tried = 0;
+    *bound = 0;
+    model_steps = 0;
+    for (int i = 0; i < sort_count; i++) codes *= MAX_MODEL_SIZE;
+
+    /* Le grandezze, per numero totale di elementi: code le elenca tutte, e
+     * a ogni giro si tengono quelle con quel totale. */
+    for (int total = sort_count; sort_count && total <= sort_count * MAX_MODEL_SIZE && *tried < MAX_MODEL_WORK; total++) {
+        for (int code = 0; code < codes && *tried < MAX_MODEL_WORK; code++) {
+            int sum = 0, rest = code;
+            for (int i = 0; i < sort_count; i++, rest /= MAX_MODEL_SIZE) sum += m->size[i] = 1 + rest % MAX_MODEL_SIZE;
+            if (sum != total) continue;
+
+            /* Quante tabelle: il prodotto, su tutte le celle, dei valori
+             * possibili. */
+            double count = 1;
+            for (int s = 0; s < symbol_count && count <= MAX_MODELS; s++) {
+                int cells, values = model_cells(m, s, &cells);
+                for (int c = 0; c < cells && count <= MAX_MODELS; c++) count *= values;
+            }
+            if (count > MAX_MODELS) continue;
+
+            /* Tutte le tabelle, come un contachilometri: si parte da tutte
+             * le celle a zero e si aumenta la prima che può crescere,
+             * azzerando quelle prima di lei. */
+            memset(m->table, 0, sizeof m->table);
+            for (int more = 1; more && *tried < MAX_MODEL_WORK; ) {
+                /* Una risposta ottenuta a conto interrotto non conta, e la
+                 * ricerca finisce lì: *tried è già oltre il suo limite. */
+                int holds = model_holds(m, root, value);
+                if (model_steps > MAX_MODEL_STEPS) { *tried = MAX_MODEL_WORK; break; }
+                ++*tried;
+                if (holds == wanted) return 1;
+                more = 0;
+                for (int s = 0; s < symbol_count && !more; s++) {
+                    int cells, values = model_cells(m, s, &cells);
+                    for (int c = 0; c < cells && !more; c++) {
+                        if (++m->table[s][c] < values) more = 1; else m->table[s][c] = 0;
+                    }
+                }
+                if (!more) complete[code] = 1;
+            }
+        }
+    }
+
+    /* Il più grande k con tutte le grandezze fino a k provate per intero. */
+    for (int k = 1; k <= MAX_MODEL_SIZE; k++) {
+        int all = 1;
+        for (int code = 0; code < codes; code++) {
+            int inside = 1, rest = code;
+            for (int i = 0; i < sort_count; i++, rest /= MAX_MODEL_SIZE) inside = inside && 1 + rest % MAX_MODEL_SIZE <= k;
+            if (inside && !complete[code]) all = 0;
+        }
+        if (!all) break;
+        *bound = k;
+    }
+    return 0;
+}
+
+/* Scrive il nome del simbolo di posto symbol: la lettera, o il comando
+ * LaTeX, con il pedice se c'è. */
+static void put_symbol(int symbol) {
+    const Symbol *s = &symbols[symbol];
+    if (s->name >= GREEK_NAMES) proof_add("\\%s", greek_letters[s->name - GREEK_NAMES]);
+    else if (s->name >= OPERATION_NAMES) proof_add("\\%s", operation_symbols[s->name - OPERATION_NAMES]);
+    else proof_add("%c", s->name);
+    if (s->index) proof_add("_{%d}", s->index);
+}
+
+/* Scrive l'elemento numero x dell'insieme di posto sort in un modello: la
+ * minuscola della lettera dell'insieme, con il numero per pedice. Così gli
+ * elementi di due insiemi diversi non si confondono. */
+static void put_model_element(int sort, int x) { proof_add("%c_{%d}", tolower(sort_name[sort]), x); }
+
+/* Scrive il modello m: gli insiemi, poi ogni simbolo dichiarato con la sua
+ * tabella. Una parte e una relazione si scrivono come l'insieme degli
+ * elementi, o delle coppie, per cui valgono. */
+static void put_model(const Model *m) {
+    for (int i = 0; i < sort_count; i++) {
+        proof_add("%s$%c = \\{", i ? ", " : "", sort_name[i]);
+        for (int x = 0; x < m->size[i]; x++) { if (x) proof_add(", "); put_model_element(i, x); }
+        proof_add("\\}$");
+    }
+    for (int s = 0; s < symbol_count; s++) {
+        const Symbol *symbol = &symbols[s];
+        int cells, first = m->size[symbol->arity ? symbol->domain[0] : 0], written = 0;
+        model_cells(m, s, &cells);
+        proof_add("; $");
+        if (symbol->range == TRUTH) { put_symbol(s); proof_add(" = \\{"); }
+        for (int c = 0; c < cells; c++) {
+            if (symbol->range == TRUTH && !m->table[s][c]) continue;
+            if (written++) proof_add(", ");
+
+            /* Gli argomenti, come li si scrive nell'enunciato. */
+            int infix = symbol->name >= OPERATION_NAMES && symbol->name < GREEK_NAMES;
+            if (symbol->range != TRUTH && !infix) put_symbol(s);
+            if (symbol->arity && !infix) proof_add(symbol->arity == 2 || symbol->range != TRUTH ? "(" : "");
+            if (symbol->arity) put_model_element(symbol->domain[0], c % first);
+            if (infix) { proof_add(" "); put_symbol(s); proof_add(" "); }
+            else if (symbol->arity == 2) proof_add(", ");
+            if (symbol->arity == 2) put_model_element(symbol->domain[1], c / first);
+            if (symbol->arity && !infix) proof_add(symbol->arity == 2 || symbol->range != TRUTH ? ")" : "");
+            if (symbol->range != TRUTH) { proof_add(" = "); put_model_element(symbol->range, m->table[s][c]); }
+        }
+        if (symbol->range == TRUTH) proof_add(written ? "\\}" : "\\} = \\emptyset");
+        proof_add("$");
+    }
+}
+
+/* 28b. GLI ELEMENTI DI CUI SI PARLA */
+
+/* Un elemento nominato in una dimostrazione: un simbolo applicato ad altri
+ * elementi, già in tabella. Due scritture uguali sono lo stesso posto della
+ * tabella, quindi "scritti allo stesso modo" si controlla confrontando due
+ * numeri. Il posto 0 è riservato a "vero", il valore di una parte o di una
+ * relazione che vale: così x \in X è l'uguaglianza X(x) = vero, e le regole
+ * sulle uguaglianze servono anche per le appartenenze. */
+typedef struct {
+    short symbol;  /* posto in symbols[]; -1 per "vero" */
+    short arg[2];  /* gli argomenti, posti in questa tabella; -1 dove mancano */
+} Ground;
+
+/* La tabella degli elementi. È una sola per tutti i rami della ricerca: un
+ * ramo ne usa i primi now->grounds posti, e chi torna a un ramo precedente
+ * riusa i posti dopo. */
+static Ground ground[MAX_GROUND];
+
+/* Ciò che si sa in un ramo: una condizione dell'enunciato, con il segno con
+ * cui è vera e con un elemento al posto di ogni variabile libera. Come ci
+ * si è arrivati lo dicono origin e parent: serve a scrivere la
+ * dimostrazione e a ricontrollarla. */
+typedef enum {
+    K_GIVEN,     /* un'ipotesi dell'enunciato */
+    K_DENIED,    /* la tesi, supposta falsa */
+    K_PART,      /* 28-1: segue da parent, date le condizioni già decise */
+    K_INSTANCE,  /* 28-3: parent, un "per ogni", su degli elementi */
+    K_NAMED,     /* 28-2: parent, un "esiste", su un elemento con un nome nuovo */
+    K_CASE       /* 28-5: uno dei due casi lasciati aperti da parent */
+} Origin;
+
+/* A che punto è una condizione nota. */
+typedef enum {
+    K_NEW,      /* appena aggiunta: va ancora guardata */
+    K_DONE,     /* usata: è un fatto, oppure le sue conseguenze sono in elenco */
+    K_WAITING,  /* una disgiunzione di cui non si sa ancora quale parte valga */
+    K_RULE      /* un "per ogni": dà un'istanza per ogni elemento */
+} Stage;
+
+/* Una condizione nota (vedi Origin). Se è un confronto tra due elementi è un
+ * "fatto", e left e right dicono quali: uguali se negated è 0, diversi se è
+ * 1. Per un'appartenenza right è 0, "vero".
+ *
+ * Invariante: source non è una negazione (le negazioni sono nel segno), e
+ * parent, quando c'è, viene prima nell'elenco. */
+typedef struct {
+    const Sentence *source;  /* la condizione, com'è nell'enunciato */
+    signed char negated;     /* 1 se è vera la sua negazione */
+    signed char origin;      /* un Origin */
+    signed char stage;       /* uno Stage */
+    short parent;            /* da quale condizione viene; -1 se da nessuna */
+    short left, right;       /* fatto: i due elementi; -1 altrimenti */
+    int stamp;               /* numero d'ordine: vedi Branch.clock */
+    short value[MAX_SLOTS];  /* l'elemento al posto di ogni variabile; -1 per
+                                le variabili non ancora sostituite */
+} Known;
+
+/* Un ramo della ricerca: tutto ciò che si sa dopo certe scelte di casi.
+ *
+ * Le uguaglianze note sono tenute in due modi. rep[] dà per ogni elemento
+ * il rappresentante della sua classe: due elementi sono uguali, per ciò che
+ * si sa, quando hanno lo stesso rappresentante. up[] e why[] ricordano
+ * perché: formano una foresta in cui ogni arco t - up[t] è un'uguaglianza
+ * tra i due elementi, nota come fatto (why = il suo posto in known[])
+ * oppure ottenuta sostituendo uguali negli argomenti (why = CONGRUENT). Due
+ * elementi della stessa classe sono collegati da un solo cammino, che non
+ * cambia più: gli archi si aggiungono solo tra classi diverse. Quel cammino
+ * è la catena di uguaglianze da scrivere.
+ *
+ * clock numera le condizioni nell'ordine in cui vengono aggiunte: un passo
+ * della dimostrazione può usare solo ciò che ha un numero più basso del
+ * suo. */
+typedef struct {
+    Known known[MAX_KNOWN];
+    int knowns;
+    short rep[MAX_GROUND], up[MAX_GROUND], why[MAX_GROUND];
+    short different[MAX_DIFFERENT];  /* i fatti "diversi", posti in known[] */
+    int differents;
+    int grounds;                     /* elementi in uso nella tabella */
+    int symbols;                     /* simboli in uso, compresi i nomi nuovi */
+    int clock;
+} Branch;
+
+/* Valore di Branch.why per un arco che non è un fatto: i due elementi sono
+ * uguali perché hanno lo stesso simbolo e argomenti uguali (28-4). */
+#define CONGRUENT (-1)
+
+/* I rami, uno per profondità della distinzione di casi, e quello in cui si
+ * sta lavorando. */
+static Branch branch[MAX_SPLITS + 1];
+static Branch *now;
+
+/* 1 se la ricerca si è fermata perché una tabella è piena: allora non aver
+ * trovato una dimostrazione non dice nulla. */
+static int exhausted;
+
+/* Come si è chiuso l'ultimo ramo: il fatto "diversi" i cui due elementi sono
+ * risultati uguali, oppure la disgiunzione di cui ogni parte è falsa. Uno
+ * solo dei due non è -1. */
+static int clash_fact, clash_choice;
+
+/* Tabelle per ritrovare un elemento senza scorrere tutto l'elenco: per
+ * scrittura (exact) e, tra una chiusura e l'altra, per classi degli
+ * argomenti (classes). Contengono posti di ground[], o -1. */
+static short exact[4 * MAX_GROUND], classes[4 * MAX_GROUND];
+
+/* Ritorna il posto da cui cominciare a cercare, in una delle due tabelle,
+ * il simbolo symbol applicato ad a e b. */
+static unsigned ground_hash(int symbol, int a, int b) {
+    return ((unsigned)symbol * 31u + (unsigned)(a + 1)) * 2053u + (unsigned)(b + 1);
+}
+
+/* Modi di cercare un elemento (vedi ground_lookup()). */
+typedef enum { G_EXACT, G_CREATE, G_CLASS } Lookup;
+
+/* Ritorna il posto dell'elemento "symbol applicato ad a e b", o -1.
+ *
+ *   G_EXACT:  quello scritto proprio così, se è in tabella;
+ *   G_CREATE: come sopra, e se manca lo aggiunge (se la tabella è piena
+ *             annota exhausted e ritorna -1);
+ *   G_CLASS:  uno qualsiasi in tabella i cui argomenti siano uguali ad a e
+ *             b per ciò che si sa. Vale solo subito dopo closure(). */
+static int ground_lookup(int symbol, int a, int b, Lookup mode) {
+    unsigned size = sizeof exact / sizeof *exact;
+    if (mode == G_CLASS && a >= 0) {
+        int ra = now->rep[a], rb = b >= 0 ? now->rep[b] : -1;
+        for (unsigned h = ground_hash(symbol, ra, rb) % size; classes[h] >= 0; h = (h + 1) % size) {
+            const Ground *g = &ground[classes[h]];
+            if (g->symbol == symbol && now->rep[g->arg[0]] == ra && (g->arg[1] >= 0 ? now->rep[g->arg[1]] : -1) == rb) return classes[h];
+        }
+        return -1;
+    }
+    unsigned h = ground_hash(symbol, a, b) % size;
+    for (; exact[h] >= 0; h = (h + 1) % size) {
+        const Ground *g = &ground[exact[h]];
+        if (g->symbol == symbol && g->arg[0] == a && g->arg[1] == b) return exact[h];
+    }
+    if (mode != G_CREATE) return -1;
+    if (now->grounds == MAX_GROUND) { exhausted = 1; return -1; }
+
+    /* Un elemento nuovo: da solo nella sua classe. */
+    int id = now->grounds++;
+    ground[id] = (Ground){(short)symbol, {(short)a, (short)b}};
+    now->rep[id] = (short)id;
+    now->up[id] = -1;
+    exact[h] = (short)id;
+    return id;
+}
+
+/* Rifà la tabella exact per gli elementi del ramo corrente: va chiamata
+ * quando si cambia ramo, perché i posti dopo now->grounds non valgono più. */
+static void ground_reindex(void) {
+    unsigned size = sizeof exact / sizeof *exact;
+    memset(exact, -1, sizeof exact);
+    for (int id = 0; id < now->grounds; id++) {
+        unsigned h = ground_hash(ground[id].symbol, ground[id].arg[0], ground[id].arg[1]) % size;
+        while (exact[h] >= 0) h = (h + 1) % size;
+        exact[h] = (short)id;
+    }
+}
+
+/* Ritorna il posto dell'elemento che e indica quando ogni variabile vale
+ * l'elemento di value[]; -1 se manca dalla tabella, -2 se e contiene una
+ * variabile non ancora sostituita. mode è G_EXACT o G_CREATE, come in
+ * ground_lookup(). */
+static int elem_ground(const Elem *e, const short *value, Lookup mode) {
+    int arg[2] = {-1, -1};
+    if (e->symbol < 0) return value[e->slot] >= 0 ? value[e->slot] : -2;
+    for (int i = 0; i < 2 && e->arg[i]; i++) {
+        arg[i] = elem_ground(e->arg[i], value, mode);
+        if (arg[i] < 0) return arg[i];
+    }
+
+    return ground_lookup(e->symbol, arg[0], arg[1], mode);
+}
+
+/* Scrive l'elemento di posto id. tight chiede le parentesi intorno a
+ * un'operazione scritta tra i suoi operandi. */
+static void put_ground(int id, int tight) {
+    const Ground *g = &ground[id];
+    if (g->symbol < 0) { proof_add("\\top"); return; }
+    int name = symbols[g->symbol].name;
+    if (name >= OPERATION_NAMES && name < GREEK_NAMES) {
+        if (tight) proof_add("\\left(");
+        put_ground(g->arg[0], 1);
+        proof_add(" ");
+        put_symbol(g->symbol);
+        proof_add(" ");
+        put_ground(g->arg[1], 1);
+        if (tight) proof_add("\\right)");
+        return;
+    }
+    put_symbol(g->symbol);
+    if (g->arg[0] < 0) return;
+    proof_add("\\left(");
+    put_ground(g->arg[0], 0);
+    if (g->arg[1] >= 0) { proof_add(", "); put_ground(g->arg[1], 0); }
+    proof_add("\\right)");
+}
+
+/* Scrive l'elemento e, con gli elementi di value[] al posto delle variabili
+ * sostituite e la lettera per le altre. */
+static void put_elem(const Elem *e, const short *value, int tight) {
+    if (e->symbol < 0) {
+        if (value[e->slot] >= 0) put_ground(value[e->slot], tight); else proof_add("%c", slot_letter[e->slot]);
+        return;
+    }
+    int name = symbols[e->symbol].name;
+    if (name >= OPERATION_NAMES && name < GREEK_NAMES) {
+        if (tight) proof_add("\\left(");
+        put_elem(e->arg[0], value, 1);
+        proof_add(" ");
+        put_symbol(e->symbol);
+        proof_add(" ");
+        put_elem(e->arg[1], value, 1);
+        if (tight) proof_add("\\right)");
+        return;
+    }
+    put_symbol(e->symbol);
+    if (!e->arg[0]) return;
+    proof_add("\\left(");
+    put_elem(e->arg[0], value, 0);
+    if (e->arg[1]) { proof_add(", "); put_elem(e->arg[1], value, 0); }
+    proof_add("\\right)");
+}
+
+/* Scrive la condizione s, negata se negated, con gli elementi di value[] al
+ * posto delle variabili sostituite. tight chiede le parentesi intorno a ciò
+ * che non è un confronto. */
+static void put_sentence(const Sentence *s, int negated, const short *value, int tight) {
+    static const char *const connective[] = {[S_AND] = "\\land", [S_OR] = "\\lor", [S_IMPLIES] = "\\implies", [S_IFF] = "\\iff"};
+    switch (s->kind) {
+    case S_TRUE:
+        proof_add(negated ? "\\bot" : "\\top");
+        return;
+    case S_NOT:
+        put_sentence(s->a, !negated, value, tight);
+        return;
+    case S_EQUAL:
+        put_elem(s->left, value, 0);
+        proof_add(negated ? " \\neq " : " = ");
+        put_elem(s->right, value, 0);
+        return;
+    case S_HOLDS:
+        /* Una parte: x \in X. Una relazione: (x, y) \in R. */
+        if (s->left->arg[1]) proof_add("(");
+        put_elem(s->left->arg[0], value, 0);
+        if (s->left->arg[1]) { proof_add(", "); put_elem(s->left->arg[1], value, 0); proof_add(")"); }
+        proof_add(negated ? " \\notin " : " \\in ");
+        put_symbol(s->left->symbol);
+        return;
+    case S_AND: case S_OR: case S_IMPLIES: case S_IFF:
+        if (negated) proof_add("\\lnot ");
+        if (negated || tight) proof_add("(");
+        put_sentence(s->a, 0, value, 1);
+        proof_add(" %s ", connective[s->kind]);
+        put_sentence(s->b, 0, value, 1);
+        if (negated || tight) proof_add(")");
+        return;
+    case S_FORALL: case S_EXISTS:
+        proof_add("%s\\%s %c \\in %c\\ (", negated ? "\\lnot " : "", s->kind == S_FORALL ? "forall" : "exists",
+                  slot_letter[s->slot], sort_name[slot_sort[s->slot]]);
+        put_sentence(s->a, 0, value, 0);
+        proof_add(")");
+        return;
+    }
+}
+
+/* 28c. CIÒ CHE SI SA: UGUAGLIANZE, CLASSI, CATENE */
+
+/* 28-4. Annota che gli elementi a e b, di classi diverse, sono uguali, per
+ * la ragione reason: un fatto, o CONGRUENT. Le due classi diventano una, e
+ * nella foresta nasce l'arco a - b.
+ *
+ * Perché l'arco possa partire da a, a deve essere la radice del suo albero:
+ * prima si rovesciano gli archi da a alla vecchia radice, che restano le
+ * stesse uguaglianze lette nell'altro verso. */
+static void classes_join(int a, int b, int reason) {
+    int node = a, above = now->up[a], why = now->why[a];
+    while (above >= 0) {
+        int next = now->up[above], next_why = now->why[above];
+        now->up[above] = (short)node;
+        now->why[above] = (short)why;
+        node = above;
+        above = next;
+        why = next_why;
+    }
+    now->up[a] = (short)b;
+    now->why[a] = (short)reason;
+    for (int from = now->rep[a], to = now->rep[b], id = 0; id < now->grounds; id++)
+        if (now->rep[id] == from) now->rep[id] = (short)to;
+}
+
+/* 28-4. Chiusura per congruenza: finché due elementi hanno lo stesso
+ * simbolo e argomenti uguali per ciò che si sa, ma stanno in classi
+ * diverse, li unisce. Al ritorno la tabella `classes` è aggiornata.
+ *
+ * A ogni giro la tabella viene rifatta: ogni elemento vi entra con la
+ * "firma" data dal simbolo e dalle classi degli argomenti, e se la firma
+ * c'è già i due elementi sono uguali. Un'unione cambia le classi, quindi le
+ * firme, e il giro ricomincia. */
+static void closure(void) {
+    unsigned size = sizeof classes / sizeof *classes;
+    for (int changed = 1; changed; ) {
+        changed = 0;
+        memset(classes, -1, sizeof classes);
+        for (int id = 1; id < now->grounds && !changed; id++) {
+            const Ground *g = &ground[id];
+            if (g->arg[0] < 0) continue;
+            int found = ground_lookup(g->symbol, g->arg[0], g->arg[1], G_CLASS);
+            if (found >= 0 && now->rep[found] != now->rep[id]) { classes_join(id, found, CONGRUENT); changed = 1; }
+            if (found >= 0) continue;
+            unsigned h = ground_hash(g->symbol, now->rep[g->arg[0]], g->arg[1] >= 0 ? now->rep[g->arg[1]] : -1) % size;
+            while (classes[h] >= 0) h = (h + 1) % size;
+            classes[h] = (short)id;
+        }
+    }
+}
+
+/* Ritorna il posto in known[] di un fatto "diversi" tra la classe di a e
+ * quella di b, o -1 se non se ne conosce nessuno. */
+static int different_fact(int a, int b) {
+    for (int i = 0; i < now->differents; i++) {
+        const Known *k = &now->known[now->different[i]];
+        int l = now->rep[k->left], r = now->rep[k->right];
+        if ((l == now->rep[a] && r == now->rep[b]) || (l == now->rep[b] && r == now->rep[a])) return now->different[i];
+    }
+    return -1;
+}
+
+/* Mette in node[] il cammino nella foresta dall'elemento a all'elemento b,
+ * estremi compresi, e ritorna quanti archi ha; -1 se a e b non sono
+ * collegati o se il cammino ha più di max archi.
+ *
+ * Si sale da a fino alla radice, poi da b finché si incontra il cammino di
+ * a: quello è il punto in cui i due si congiungono. */
+static int forest_path(int a, int b, short *node, int max) {
+    short from_a[MAX_GROUND], from_b[MAX_CHAIN + 1];
+    int count_a = 0, count_b = 0, meet = -1;
+    for (int t = a; t >= 0; t = now->up[t]) from_a[count_a++] = (short)t;
+    for (int t = b; t >= 0 && meet < 0; t = now->up[t]) {
+        for (int i = 0; i < count_a && meet < 0; i++)
+            if (from_a[i] == t) meet = i;
+        if (meet < 0) { if (count_b == max) return -1; from_b[count_b++] = (short)t; }
+    }
+    if (meet < 0 || meet + count_b > max) return -1;
+    for (int i = 0; i <= meet; i++) node[i] = from_a[i];
+    for (int i = 0; i < count_b; i++) node[meet + 1 + i] = from_b[count_b - 1 - i];
+    return meet + count_b;
+}
+
+/* Una catena di uguaglianze t_0 = t_1 = ... = t_n: ogni anello cambia un
+ * solo punto del termine, usando un fatto. */
+typedef struct {
+    int links;                  /* n */
+    short term[MAX_CHAIN + 1];  /* t_0, ..., t_n: posti in ground[] */
+    short fact[MAX_CHAIN];      /* fact[i] giustifica t_i = t_{i+1}: posto in known[] */
+} Chain;
+
+/* Allunga la catena c, che finisce con l'elemento a, fino all'elemento b,
+ * seguendo il cammino della foresta. Ritorna 0 se a e b non sono collegati
+ * o se la catena diventa troppo lunga.
+ *
+ * Un arco che è un fatto è un anello. Un arco di congruenza, tra f(a1, a2)
+ * e f(b1, b2), si svolge: prima la catena da a1 a b1 dentro f(_, a2), poi
+ * quella da a2 a b2 dentro f(b1, _). I termini intermedi possono non
+ * essere in tabella, e vengono aggiunti: servono solo a essere scritti. */
+static int chain_extend(Chain *c, int a, int b) {
+    short node[MAX_CHAIN + 1];
+    int edges = forest_path(a, b, node, MAX_CHAIN);
+    if (edges < 0) return 0;
+    for (int i = 0; i < edges; i++) {
+        int low = now->up[node[i]] == node[i + 1] ? node[i] : node[i + 1], reason = now->why[low];
+        if (reason != CONGRUENT) {
+            if (c->links == MAX_CHAIN) return 0;
+            c->fact[c->links++] = (short)reason;
+            c->term[c->links] = node[i + 1];
+            continue;
+        }
+
+        /* Un argomento per volta: inner è la catena tra i due argomenti,
+         * e ogni suo anello diventa un anello tra due applicazioni. */
+        const Ground from = ground[node[i]], to = ground[node[i + 1]];
+        for (int side = 0; side < 2 && from.arg[side] >= 0; side++) {
+            Chain inner = {0, {from.arg[side]}, {0}};
+            if (!chain_extend(&inner, from.arg[side], to.arg[side])) return 0;
+            for (int j = 0; j < inner.links; j++) {
+                int step = side ? ground_lookup(from.symbol, to.arg[0], inner.term[j + 1], G_CREATE)
+                                : ground_lookup(from.symbol, inner.term[j + 1], from.arg[1], G_CREATE);
+                if (step < 0 || c->links == MAX_CHAIN) return 0;
+                c->fact[c->links++] = inner.fact[j];
+                c->term[c->links] = (short)step;
+            }
+        }
+    }
+    return 1;
+}
+
+/* Controllo di un anello, indipendente dalle classi: ritorna 1 se
+ * l'elemento v si ottiene dall'elemento u sostituendo, in un solo punto, l
+ * con r oppure r con l. Guarda solo come i due elementi sono scritti: o
+ * sono proprio l e r, oppure hanno lo stesso simbolo, un argomento identico
+ * e l'altro che si ottiene allo stesso modo. */
+static int rewrites(int u, int v, int l, int r) {
+    if ((u == l && v == r) || (u == r && v == l)) return 1;
+    const Ground *a = &ground[u], *b = &ground[v];
+    if (a->symbol != b->symbol || a->arg[0] < 0) return 0;
+    int first = a->arg[0] == b->arg[0], second = a->arg[1] == b->arg[1];
+    if (first == second) return 0;
+    return first ? rewrites(a->arg[1], b->arg[1], l, r) : rewrites(a->arg[0], b->arg[0], l, r);
+}
+
+/* Mette in *c la catena di uguaglianze dall'elemento a all'elemento b
+ * fatta solo di fatti con numero d'ordine minore di stamp, e la
+ * ricontrolla anello per anello con rewrites(). Ritorna 1 se la catena
+ * esiste e supera il controllo; 0 se a e b non risultavano uguali a quel
+ * punto. Un anello che non supera il controllo è un errore del programma:
+ * lo registra unjustified_steps. */
+static int chain_between(Chain *c, int a, int b, int stamp) {
+    c->links = 0;
+    c->term[0] = (short)a;
+    if (now->rep[a] != now->rep[b] || !chain_extend(c, a, b)) return 0;
+    for (int i = 0; i < c->links; i++) {
+        const Known *fact = &now->known[c->fact[i]];
+        if (fact->stamp >= stamp) return 0;
+        if (fact->negated || fact->left < 0 || !rewrites(c->term[i], c->term[i + 1], fact->left, fact->right)) { unjustified_steps++; return 0; }
+    }
+    return 1;
+}
+
+/* 28d. LA RICERCA */
+
+/* Aggiunge all'elenco del ramo la condizione source, vera con il segno
+ * negated e con gli elementi di value[] al posto delle variabili, arrivata
+ * da parent nel modo origin. Ritorna il suo posto, o -1 se l'elenco è
+ * pieno. Le negazioni in testa passano nel segno. */
+static int known_add(const Sentence *source, int negated, const short *value, Origin origin, int parent) {
+    while (source->kind == S_NOT) { source = source->a; negated = !negated; }
+    if (now->knowns == MAX_KNOWN) { exhausted = 1; return -1; }
+    Known *k = &now->known[now->knowns];
+    k->source = source;
+    k->negated = (signed char)negated;
+    k->origin = (signed char)origin;
+    k->stage = K_NEW;
+    k->parent = (short)parent;
+    k->left = k->right = -1;
+    k->stamp = now->clock++;
+    memcpy(k->value, value, sizeof k->value);
+    return now->knowns++;
+}
+
+/* Come si legge un connettivo tenuto conto del segno: le due parti con il
+ * loro segno, e se insieme fanno una congiunzione o una disgiunzione. Sono
+ * le stesse leggi di junction() (capitolo 18), per quest'altro albero. */
+typedef struct {
+    int conjunction;       /* 1 congiunzione, 0 disgiunzione */
+    const Sentence *x, *y; /* le due parti */
+    int nx, ny;            /* 1 se la parte va presa negata */
+} Parts;
+
+/* Se s è una congiunzione, una disgiunzione o un'implicazione mette in *p
+ * il modo di leggerla, negata se negated, e ritorna 1. */
+static int sentence_parts(const Sentence *s, int negated, Parts *p) {
+    if (s->kind != S_AND && s->kind != S_OR && s->kind != S_IMPLIES) return 0;
+    *p = (Parts){(s->kind == S_AND) != negated, s->a, s->b, s->kind == S_IMPLIES ? !negated : negated, negated};
+    return 1;
+}
+
+/* Mette in tabella gli elementi nominati dai confronti di s che non stanno
+ * sotto un quantificatore: così truth() li trova, e la chiusura per
+ * congruenza li confronta con gli altri. */
+static void sentence_ground(const Sentence *s, const short *value) {
+    if (s->kind == S_FORALL || s->kind == S_EXISTS || s->kind == S_TRUE) return;
+    if (s->kind == S_EQUAL || s->kind == S_HOLDS) {
+        elem_ground(s->left, value, G_CREATE);
+        if (s->right) elem_ground(s->right, value, G_CREATE);
+        return;
+    }
+    sentence_ground(s->a, value);
+    if (s->b) sentence_ground(s->b, value);
+}
+
+/* Ritorna ciò che si sa della condizione s, negata se negated, con gli
+ * elementi di value[] al posto delle variabili: 1 se è vera, 0 se è falsa,
+ * -1 se non si sa. Un confronto è vero se i due elementi sono nella stessa
+ * classe, falso se si sa che sono diversi; i connettivi seguono le tavole
+ * di verità, dove "non si sa" resta tale a meno che l'altra parte decida;
+ * di un quantificatore non si sa mai nulla. Va chiamata dopo closure(). */
+static int truth(const Sentence *s, int negated, const short *value) {
+    int a, b, known = -1;
+    switch (s->kind) {
+    case S_TRUE:
+        known = 1;
+        break;
+    case S_NOT:
+        return truth(s->a, !negated, value);
+    case S_EQUAL: case S_HOLDS:
+        a = elem_ground(s->left, value, G_EXACT);
+        b = s->kind == S_EQUAL ? elem_ground(s->right, value, G_EXACT) : 0;
+        if (a >= 0 && b >= 0) known = now->rep[a] == now->rep[b] ? 1 : different_fact(a, b) >= 0 ? 0 : -1;
+        break;
+    case S_AND:
+        a = truth(s->a, 0, value);
+        b = truth(s->b, 0, value);
+        known = (a == 0 || b == 0) ? 0 : (a == 1 && b == 1) ? 1 : -1;
+        break;
+    case S_OR: case S_IMPLIES:
+        a = truth(s->a, s->kind == S_IMPLIES, value);
+        b = truth(s->b, 0, value);
+        known = (a == 1 || b == 1) ? 1 : (a == 0 && b == 0) ? 0 : -1;
+        break;
+    case S_IFF:
+        a = truth(s->a, 0, value);
+        b = truth(s->b, 0, value);
+        if (a >= 0 && b >= 0) known = a == b;
+        break;
+    case S_FORALL: case S_EXISTS:
+        break;
+    }
+    return known < 0 ? -1 : known != negated;
+}
+
+/* Guarda per la prima volta la condizione nota di posto i, e ne trae ciò
+ * che non richiede scelte: un fatto entra tra le uguaglianze o tra i
+ * "diversi"; di una congiunzione si aggiungono le due parti (28-1); un
+ * "esiste" riceve un nome (28-2); una disgiunzione e un "per ogni" restano
+ * in attesa. */
+static void known_open(int i) {
+    Known *k = &now->known[i];
+    const Sentence *s = k->source;
+    Parts p;
+    k->stage = K_DONE;
+    switch (s->kind) {
+    case S_TRUE: case S_NOT:
+        return;
+    case S_EQUAL: case S_HOLDS:
+        k->left = (short)elem_ground(s->left, k->value, G_CREATE);
+        k->right = (short)(s->kind == S_EQUAL ? elem_ground(s->right, k->value, G_CREATE) : 0);
+        if (k->left < 0 || k->right < 0) { k->left = k->right = -1; exhausted = 1; return; }
+        if (k->negated && now->differents < MAX_DIFFERENT) now->different[now->differents++] = (short)i;
+        else if (k->negated) exhausted = 1;
+        else if (now->rep[k->left] != now->rep[k->right]) classes_join(k->left, k->right, i);
+        return;
+    case S_AND: case S_OR: case S_IMPLIES: case S_IFF:
+        if (sentence_parts(s, k->negated, &p) && p.conjunction) {
+            known_add(p.x, p.nx, k->value, K_PART, i);
+            known_add(p.y, p.ny, k->value, K_PART, i);
+            return;
+        }
+        sentence_ground(s, k->value);
+        k->stage = K_WAITING;
+        return;
+    case S_FORALL: case S_EXISTS:
+        break;
+    }
+    if ((s->kind == S_FORALL) != k->negated) { k->stage = K_RULE; return; }
+
+    /* 28-2. Un nome nuovo: la lettera della variabile, con il primo pedice
+     * che non sia già di un altro simbolo. */
+    Symbol name = {slot_letter[s->slot], 0, 0, {0, 0}, slot_sort[s->slot]};
+    short value[MAX_SLOTS];
+    while (symbol_find(name.name, name.index) >= 0) name.index++;
+    if (symbol_count == MAX_SYMBOLS) { exhausted = 1; return; }
+    symbols[symbol_count] = name;
+    memcpy(value, k->value, sizeof value);
+    value[s->slot] = (short)ground_lookup(symbol_count++, -1, -1, G_CREATE);
+    if (value[s->slot] >= 0) known_add(s->a, k->negated, value, K_NAMED, i);
+}
+
+/* 28-1. Riguarda la disgiunzione in attesa di posto i alla luce di ciò che
+ * si sa adesso. Se una parte è vera non c'è altro da trarne; se una è
+ * falsa, vale l'altra, che entra in elenco; se lo sono tutte e due il ramo
+ * si chiude, e clash_choice lo annota. Un "se e solo se" si tratta allo
+ * stesso modo: saputa una parte, l'altra è decisa. Ritorna 1 se ha
+ * aggiunto qualcosa o chiuso il ramo. */
+static int known_decide(int i) {
+    Known *k = &now->known[i];
+    const Sentence *s = k->source;
+    Parts p;
+    if (s->kind == S_IFF) {
+        int a = truth(s->a, 0, k->value), b = truth(s->b, 0, k->value);
+        if (a < 0 && b < 0) return 0;
+        k->stage = K_DONE;
+        if (a >= 0 && b >= 0) {
+            if ((a == b) != k->negated) return 0;
+            clash_choice = i;
+        } else if (a >= 0) {
+            known_add(s->b, a ? k->negated : !k->negated, k->value, K_PART, i);
+        } else {
+            known_add(s->a, b ? k->negated : !k->negated, k->value, K_PART, i);
+        }
+        return 1;
+    }
+    sentence_parts(s, k->negated, &p);
+    int x = truth(p.x, p.nx, k->value), y = truth(p.y, p.ny, k->value);
+    if (x != 0 && y != 0 && x != 1 && y != 1) return 0;
+    k->stage = K_DONE;
+    if (x == 1 || y == 1) return 0;
+    if (x == 0 && y == 0) clash_choice = i;
+    else if (x == 0) known_add(p.y, p.ny, k->value, K_PART, i);
+    else known_add(p.x, p.nx, k->value, K_PART, i);
+    return 1;
+}
+
+/* Trae da ciò che si sa tutto ciò che non richiede istanze né scelte:
+ * apre le condizioni nuove, chiude per congruenza, riguarda le disgiunzioni
+ * in attesa, finché nulla cambia. Ritorna 1 se il ramo si è chiuso con una
+ * contraddizione, annotata in clash_fact o clash_choice. */
+static int settle(void) {
+    clash_fact = clash_choice = -1;
+    for (int changed = 1; changed && !exhausted; ) {
+        changed = 0;
+        for (int i = 0; i < now->knowns && !exhausted; i++)
+            if (now->known[i].stage == K_NEW) { known_open(i); changed = 1; }
+        closure();
+
+        /* Una contraddizione: due elementi che si sanno diversi sono finiti
+         * nella stessa classe. */
+        for (int i = 0; i < now->differents; i++) {
+            const Known *k = &now->known[now->different[i]];
+            if (now->rep[k->left] == now->rep[k->right]) { clash_fact = now->different[i]; return 1; }
+        }
+        for (int i = 0; i < now->knowns && !exhausted; i++) {
+            if (now->known[i].stage != K_WAITING || !known_decide(i)) continue;
+            if (clash_choice >= 0) return 1;
+            changed = 1;
+        }
+    }
+    return 0;
+}
+
+/* Un "per ogni" noto, pronto per le sue istanze (28-3): le variabili dei
+ * "per ogni" consecutivi con cui la condizione comincia, e ciò che li
+ * segue. */
+typedef struct {
+    int known;             /* il suo posto in known[] */
+    int slot[MAX_BOUND];   /* le variabili, dalla più esterna */
+    int slots;
+    unsigned all;          /* le stesse, come bit: il bit i è la variabile di posto i */
+    const Sentence *body;  /* la condizione che segue i "per ogni" */
+    int negated;           /* il segno con cui è vera */
+} Rule;
+
+/* Aggiunge all'elenco l'istanza di rule con gli elementi di value[] al
+ * posto delle sue variabili, se non c'è già: due istanze su elementi uguali
+ * per ciò che si sa sono la stessa. Ritorna 1 se l'ha aggiunta. */
+static int instance_add(const Rule *rule, const short *value) {
+    for (int i = rule->known + 1; i < now->knowns; i++) {
+        const Known *k = &now->known[i];
+        int same = k->parent == rule->known && k->origin == K_INSTANCE;
+        for (int j = 0; j < rule->slots && same; j++) same = now->rep[k->value[rule->slot[j]]] == now->rep[value[rule->slot[j]]];
+        if (same) return 0;
+    }
+    return known_add(rule->body, rule->negated, value, K_INSTANCE, rule->known) >= 0;
+}
+
+/* Ritorna le variabili che compaiono nell'elemento e, come bit. */
+static unsigned elem_slots(const Elem *e) {
+    if (e->symbol < 0) return 1u << e->slot;
+    return (e->arg[0] ? elem_slots(e->arg[0]) : 0) | (e->arg[1] ? elem_slots(e->arg[1]) : 0);
+}
+
+/* Confronto di uno schema con gli elementi presenti. Cerca ogni modo di
+ * dare un elemento alle variabili ancora libere in value[] così che ogni
+ * schema pattern[i], per i < count, diventi uguale, per ciò che si sa,
+ * all'elemento target[i]; per ogni modo trovato aggiunge l'istanza di rule,
+ * e ritorna quante ne ha aggiunte. I due elenchi hanno MAX_PATTERN posti e
+ * vengono usati come pila: uno schema così annidato da riempirla non viene
+ * confrontato.
+ *
+ * Una variabile libera prende l'elemento che ha di fronte; una già fissata
+ * deve essergli uguale. Un simbolo applicato deve trovare, nella classe di
+ * ciò che ha di fronte, un elemento con lo stesso simbolo: ce ne possono
+ * essere più d'uno, e si provano tutti. È così che (x \perp y) \perp z
+ * trova e \perp c quando si sa che e = b \perp a: x = b, y = a, z = c. */
+static int instance_match(const Rule *rule, const Elem **pattern, short *target, int count, short *value) {
+    if (count == 0) return instance_add(rule, value);
+    const Elem *p = pattern[count - 1];
+    int facing = target[count - 1], made = 0;
+    if (p->symbol < 0) {
+        int fixed = value[p->slot];
+        if (fixed >= 0) return now->rep[fixed] == now->rep[facing] ? instance_match(rule, pattern, target, count - 1, value) : 0;
+        value[p->slot] = (short)facing;
+        made = instance_match(rule, pattern, target, count - 1, value);
+        value[p->slot] = -1;
+        return made;
+    }
+    for (int id = 1; id < now->grounds && !exhausted && count < MAX_PATTERN; id++) {
+        if (now->rep[id] != now->rep[facing] || ground[id].symbol != p->symbol) continue;
+        int next = count - 1;
+        for (int i = 0; i < 2 && p->arg[i]; i++) { pattern[next] = p->arg[i]; target[next++] = ground[id].arg[i]; }
+        made += instance_match(rule, pattern, target, next, value);
+    }
+    pattern[count - 1] = p;
+    target[count - 1] = (short)facing;
+    return made;
+}
+
+/* 28-3, le istanze che riscrivono un elemento presente. Per ogni elemento
+ * scritto nella condizione s (fuori dai quantificatori più interni) che sia
+ * un simbolo applicato e contenga tutte le variabili di rule, cerca gli
+ * elementi presenti che gli corrispondono e aggiunge quelle istanze.
+ * Ritorna quante ne ha aggiunte. */
+static int instance_rewrite_elem(const Rule *rule, const Elem *e) {
+    const Elem *pattern[MAX_PATTERN];
+    short target[MAX_PATTERN], value[MAX_SLOTS];
+    int made = 0;
+    if (e->symbol < 0) return 0;
+    for (int i = 0; i < 2 && e->arg[i]; i++) made += instance_rewrite_elem(rule, e->arg[i]);
+    if (!e->arg[0] || symbols[e->symbol].range == TRUTH || (elem_slots(e) & rule->all) != rule->all) return made;
+    for (int id = 1, last = now->grounds; id < last && !exhausted; id++) {
+        if (ground[id].symbol != e->symbol) continue;
+        int count = 0;
+        memcpy(value, now->known[rule->known].value, sizeof value);
+        for (int i = 0; i < 2 && e->arg[i]; i++) { pattern[count] = e->arg[i]; target[count++] = ground[id].arg[i]; }
+        made += instance_match(rule, pattern, target, count, value);
+    }
+    return made;
+}
+
+/* Come instance_rewrite_elem(), per tutti gli elementi dei confronti di s. */
+static int instance_rewrite(const Rule *rule, const Sentence *s) {
+    if (s->kind == S_FORALL || s->kind == S_EXISTS || s->kind == S_TRUE) return 0;
+    if (s->kind == S_EQUAL || s->kind == S_HOLDS) return instance_rewrite_elem(rule, s->left) + (s->right ? instance_rewrite_elem(rule, s->right) : 0);
+    return instance_rewrite(rule, s->a) + (s->b ? instance_rewrite(rule, s->b) : 0);
+}
+
+/* Esamina, senza aggiungere nulla, l'elemento e di un'istanza che si pensa
+ * di fare, con gli elementi di value[] al posto delle variabili. Ritorna il
+ * posto di un elemento uguale a lui per ciò che si sa, o un numero negativo
+ * se non c'è; annota in *missing se l'istanza introdurrebbe un elemento
+ * nuovo. Un elemento con un nome c'è sempre: l'enunciato lo dà. */
+static int instance_elem(const Elem *e, const short *value, int *missing) {
+    int arg[2] = {-1, -1};
+    if (e->symbol < 0) return value[e->slot] >= 0 ? value[e->slot] : -2;
+    for (int i = 0; i < 2 && e->arg[i]; i++) {
+        arg[i] = instance_elem(e->arg[i], value, missing);
+        if (arg[i] < 0) return arg[i];
+    }
+    int found = ground_lookup(e->symbol, arg[0], arg[1], arg[0] < 0 ? G_CREATE : G_CLASS);
+    if (found < 0 && symbols[e->symbol].range != TRUTH) *missing = 1;
+    return found;
+}
+
+/* Come instance_elem(), per tutti i confronti della condizione s che non
+ * stanno sotto un quantificatore; annota in più in *decided se di uno di
+ * quei confronti si sa già se è vero o falso. */
+static void instance_survey(const Sentence *s, const short *value, int *missing, int *decided) {
+    if (s->kind == S_FORALL || s->kind == S_EXISTS || s->kind == S_TRUE) return;
+    if (s->kind == S_EQUAL || s->kind == S_HOLDS) {
+        int a = instance_elem(s->left, value, missing), b = s->kind == S_EQUAL ? instance_elem(s->right, value, missing) : 0;
+        if (a >= 0 && b >= 0 && (now->rep[a] == now->rep[b] || different_fact(a, b) >= 0)) *decided = 1;
+        return;
+    }
+    instance_survey(s->a, value, missing, decided);
+    if (s->b) instance_survey(s->b, value, missing, decided);
+}
+
+/* 28-3, le istanze per scelta degli elementi. Prova ogni scelta di un
+ * elemento per ciascuna variabile di rule, uno per classe: con named = 1
+ * tra i soli elementi con un nome, e le prende tutte; con named = 0 tra
+ * tutti, e prende quelle che non introducono elementi nuovi e contengono un
+ * confronto già deciso. Se le scelte sono troppe non ne prova nessuna.
+ * Ritorna quante istanze ha aggiunto. */
+static int instance_choices(const Rule *rule, int named) {
+    static short candidate[MAX_BOUND][MAX_GROUND];
+    int candidates[MAX_BOUND], pick[MAX_BOUND] = {0}, made = 0;
+    long long choices = 1;
+    for (int j = 0; j < rule->slots && choices <= MAX_TUPLES; j++) {
+        candidates[j] = 0;
+        for (int id = 1; id < now->grounds; id++) {
+            if (symbols[ground[id].symbol].range != slot_sort[rule->slot[j]] || (named && ground[id].arg[0] >= 0)) continue;
+            int fresh = 1;
+            for (int c = 0; c < candidates[j] && fresh; c++) fresh = now->rep[candidate[j][c]] != now->rep[id];
+            if (fresh) candidate[j][candidates[j]++] = (short)id;
+        }
+        choices *= candidates[j];
+    }
+    if (choices == 0 || choices > (named ? MAX_FREE_TUPLES : MAX_TUPLES)) return 0;
+
+    /* Ogni scelta, come un contachilometri. */
+    for (int more = 1; more && !exhausted; ) {
+        short value[MAX_SLOTS];
+        int missing = 0, decided = 0;
+        memcpy(value, now->known[rule->known].value, sizeof value);
+        for (int j = 0; j < rule->slots; j++) value[rule->slot[j]] = candidate[j][pick[j]];
+        if (!named) instance_survey(rule->body, value, &missing, &decided);
+        if (named || (!missing && decided)) made += instance_add(rule, value);
+        more = 0;
+        for (int j = 0; j < rule->slots && !more; j++) {
+            if (++pick[j] < candidates[j]) more = 1; else pick[j] = 0;
+        }
+    }
+    return made;
+}
+
+/* 28-3. Aggiunge le istanze dei "per ogni" noti che vale la pena provare,
+ * come descritto in testa al capitolo ("Quali istanze"), e ritorna quante
+ * ne ha aggiunte. Va chiamata dopo settle(), con le classi aggiornate: le
+ * istanze aggiunte non vengono aperte qui, quindi le classi non cambiano
+ * mentre si cerca. */
+static int instantiate(void) {
+    int made = 0, before = now->knowns;
+    for (int r = 0; r < before && !exhausted; r++) {
+        if (now->known[r].stage != K_RULE) continue;
+        Rule rule = {r, {0}, 0, 0, now->known[r].source, now->known[r].negated};
+        while (rule.slots < MAX_BOUND && (rule.body->kind == S_FORALL || rule.body->kind == S_EXISTS) &&
+               (rule.body->kind == S_FORALL) != rule.negated) {
+            rule.all |= 1u << rule.body->slot;
+            rule.slot[rule.slots++] = rule.body->slot;
+            rule.body = rule.body->a;
+        }
+        made += instance_choices(&rule, 1);
+        made += instance_rewrite(&rule, rule.body);
+        made += instance_choices(&rule, 0);
+    }
+    return made;
+}
+
+/* 28e. LA DIMOSTRAZIONE SCRITTA, E IL SUO CONTROLLO */
+
+/* Perché un confronto tra due elementi ha un certo valore: è vero per una
+ * catena di uguaglianze tra i due, oppure è falso perché due catene li
+ * portano ai due elementi di un fatto "diversi". */
+typedef struct {
+    int value;       /* 1 vero, 0 falso, -1 non si sa */
+    Chain chain[2];  /* vero: chain[0] va da un elemento all'altro. Falso: le
+                        due catene, dai due elementi a quelli di `against` */
+    int against;     /* falso: il fatto "diversi", posto in known[] */
+} Reason;
+
+/* Ricostruisce in *reason ciò che si sapeva del confronto s, con gli
+ * elementi di value[] al posto delle variabili, usando solo i fatti con
+ * numero d'ordine minore di stamp. Ogni catena trovata è già stata
+ * ricontrollata anello per anello (chain_between()). */
+static void literal_reason(const Sentence *s, const short *value, int stamp, Reason *reason) {
+    int a = elem_ground(s->left, value, G_EXACT), b = s->kind == S_EQUAL ? elem_ground(s->right, value, G_EXACT) : 0;
+    reason->value = -1;
+    if (a < 0 || b < 0) return;
+    if (chain_between(&reason->chain[0], a, b, stamp)) { reason->value = 1; return; }
+    for (int i = 0; i < now->differents; i++) {
+        const Known *d = &now->known[now->different[i]];
+        if (d->stamp >= stamp) continue;
+        for (int swap = 0; swap < 2; swap++) {
+            if (!chain_between(&reason->chain[0], a, swap ? d->right : d->left, stamp) ||
+                !chain_between(&reason->chain[1], b, swap ? d->left : d->right, stamp)) continue;
+            reason->value = 0;
+            reason->against = now->different[i];
+            return;
+        }
+    }
+}
+
+/* Un passo 28-1 riletto per essere scritto e ricontrollato: le condizioni
+ * elementari della premessa, con il valore di quelle che servono, e i fatti
+ * su cui quei valori poggiano. Una condizione elementare è ciò che i
+ * connettivi collegano: un confronto, un quantificatore, una dichiarazione. */
+typedef struct {
+    const Sentence *atom[MAX_PROP_ATOMS];
+    int value[MAX_PROP_ATOMS];  /* 1, 0, oppure -1: non serve o non si sa */
+    int atoms;
+    short used[(2 * MAX_CHAIN + 1) * MAX_PROP_ATOMS];
+    int uses;
+} Deduction;
+
+/* Elenca in d le condizioni elementari di s. Ritorna 0 se sono troppe. */
+static int deduction_atoms(const Sentence *s, Deduction *d) {
+    if (s->kind == S_NOT) return deduction_atoms(s->a, d);
+    if (s->kind == S_AND || s->kind == S_OR || s->kind == S_IMPLIES || s->kind == S_IFF) return deduction_atoms(s->a, d) && deduction_atoms(s->b, d);
+    if (d->atoms == MAX_PROP_ATOMS) return 0;
+    d->atom[d->atoms++] = s;
+    return 1;
+}
+
+/* Ritorna il valore di s quando la condizione elementare di posto i vale
+ * vero se il bit i di bits è 1, falso altrimenti. */
+static int deduction_value(const Sentence *s, const Deduction *d, unsigned bits) {
+    switch (s->kind) {
+    case S_NOT: return !deduction_value(s->a, d, bits);
+    case S_AND: return deduction_value(s->a, d, bits) && deduction_value(s->b, d, bits);
+    case S_OR: return deduction_value(s->a, d, bits) || deduction_value(s->b, d, bits);
+    case S_IMPLIES: return !deduction_value(s->a, d, bits) || deduction_value(s->b, d, bits);
+    case S_IFF: return deduction_value(s->a, d, bits) == deduction_value(s->b, d, bits);
+    default: break;
+    }
+    for (int i = 0; i < d->atoms; i++)
+        if (d->atom[i] == s) return bits >> i & 1;
+    return 0;
+}
+
+/* Controllo di un passo con la tabella di verità: ritorna 1 se, in ogni
+ * modo di dare vero o falso alle condizioni elementari che rispetta i
+ * valori noti di d, quando premise è vera lo è anche conclusion (negata se
+ * negated). Con conclusion NULL chiede che premise non sia mai vera: è una
+ * contraddizione. Le condizioni di cui non si sa nulla sono lasciate
+ * libere, quindi il passo è valido qualunque cosa valgano. */
+static int deduction_follows(const Known *premise, const Sentence *conclusion, int negated, const Deduction *d) {
+    for (unsigned bits = 0; bits < 1u << d->atoms; bits++) {
+        int respects = 1;
+        for (int i = 0; i < d->atoms && respects; i++) respects = d->value[i] < 0 || (int)(bits >> i & 1) == d->value[i];
+        if (!respects || deduction_value(premise->source, d, bits) == premise->negated) continue;
+        if (!conclusion || deduction_value(conclusion, d, bits) == negated) return 0;
+    }
+    return 1;
+}
+
+/* Rilegge il passo che dalla condizione nota di posto premise trae
+ * conclusion (negata se negated; NULL per una contraddizione), fatto quando
+ * il numero d'ordine era stamp. Riempie *d con le sole condizioni
+ * elementari che servono e con i fatti su cui poggiano, e ritorna 1 se il
+ * passo supera il controllo della tabella di verità. Se non lo supera è un
+ * errore del programma, che unjustified_steps registra; se le condizioni
+ * elementari sono troppe per la tabella il passo non si può controllare, e
+ * la risposta è 0 senza che sia un errore.
+ *
+ * "Che servono": si parte da tutte quelle di cui si sapeva il valore, e si
+ * prova a dimenticarle una per volta; quelle senza cui il passo regge
+ * ancora non vengono scritte. */
+static int deduction_read(int premise, const Sentence *conclusion, int negated, int stamp, Deduction *d) {
+    const Known *p = &now->known[premise];
+    Reason reason;
+    d->atoms = d->uses = 0;
+    if (!deduction_atoms(p->source, d)) return 0;
+    for (int i = 0; i < d->atoms; i++) {
+        d->value[i] = d->atom[i]->kind == S_TRUE ? 1 : -1;
+        if (d->atom[i]->kind != S_EQUAL && d->atom[i]->kind != S_HOLDS) continue;
+        literal_reason(d->atom[i], p->value, stamp, &reason);
+        d->value[i] = reason.value;
+    }
+    if (!deduction_follows(p, conclusion, negated, d)) { unjustified_steps++; return 0; }
+    for (int i = 0; i < d->atoms; i++) {
+        int kept = d->value[i];
+        if (kept < 0 || d->atom[i]->kind == S_TRUE) continue;
+        d->value[i] = -1;
+        if (!deduction_follows(p, conclusion, negated, d)) d->value[i] = kept;
+    }
+
+    /* I fatti usati dalle condizioni rimaste. */
+    for (int i = 0; i < d->atoms; i++) {
+        if (d->value[i] < 0 || d->atom[i]->kind == S_TRUE) continue;
+        literal_reason(d->atom[i], p->value, stamp, &reason);
+        for (int c = 0; c < (reason.value ? 1 : 2); c++)
+            for (int j = 0; j < reason.chain[c].links; j++) d->used[d->uses++] = reason.chain[c].fact[j];
+        if (!reason.value) d->used[d->uses++] = (short)reason.against;
+    }
+    return 1;
+}
+
+/* Le condizioni note che servono alla contraddizione del ramo, e il numero
+ * con cui ognuna è citata nella dimostrazione scritta. */
+static char needed[MAX_KNOWN];
+static short label[MAX_KNOWN];
+
+/* Scrive il riferimento alla condizione nota di posto i: (H3) per la terza
+ * ipotesi, che è la condizione di posto 2, e il suo numero per le altre. */
+static void put_label(int i) {
+    if (now->known[i].origin == K_GIVEN) proof_add("(H%d)", i + 1); else proof_add("(%d)", label[i]);
+}
+
+/* Scrive ", by (3), (5)" con i riferimenti ai fatti delle catene di reason
+ * e, se il confronto è falso, al fatto "diversi". Ogni fatto una volta. */
+static void put_reason_labels(const Reason *reason) {
+    short seen[2 * MAX_CHAIN + 1];
+    int count = 0;
+    for (int c = 0; c < (reason->value ? 1 : 2); c++)
+        for (int j = 0; j < reason->chain[c].links; j++) seen[count++] = reason->chain[c].fact[j];
+    if (!reason->value) seen[count++] = (short)reason->against;
+    for (int i = 0, written = 0; i < count; i++) {
+        int repeated = 0;
+        for (int j = 0; j < i; j++) repeated = repeated || seen[j] == seen[i];
+        if (repeated) continue;
+        proof_add(written++ ? ", " : " by ");
+        put_label(seen[i]);
+    }
+}
+
+/* Scrive perché il confronto s ha il valore che reason dice: la catena di
+ * uguaglianze, se è un'uguaglianza vera con più di un anello, altrimenti
+ * il confronto stesso; poi i fatti usati. */
+static void put_reason(const Sentence *s, const short *value, const Reason *reason) {
+    const Chain *c = &reason->chain[0];
+    proof_add("$");
+    if (reason->value && s->kind == S_EQUAL && c->links > 1) {
+        for (int i = 0; i <= c->links; i++) { if (i) proof_add(" = "); put_ground(c->term[i], 0); }
+    } else {
+        put_sentence(s, !reason->value, value, 0);
+    }
+    proof_add("$");
+    put_reason_labels(reason);
+}
+
+/* Ritorna 1 se la condizione nota k è proprio `written`, letta con il
+ * segno negated: le negazioni in testa a written passano nel segno, come
+ * fa known_add(). */
+static int known_is(const Known *k, const Sentence *written, int negated) {
+    while (written->kind == S_NOT) { written = written->a; negated = !negated; }
+    return k->source == written && k->negated == negated;
+}
+
+/* Controlla che la condizione nota di posto i, che non è un passo 28-1,
+ * venga davvero da parent nel modo che origin dice: è un controllo sulla
+ * forma, fatto rileggendo l'albero dell'enunciato. Ritorna 1 se regge. */
+static int known_derived(int i) {
+    const Known *k = &now->known[i], *p = &now->known[k->parent];
+    const Sentence *body = p->source;
+    Parts parts;
+    switch (k->origin) {
+    case K_INSTANCE:
+        /* Il corpo dei "per ogni" con cui parent comincia, con un elemento
+         * del suo insieme al posto di ogni variabile. */
+        while ((body->kind == S_FORALL || body->kind == S_EXISTS) && (body->kind == S_FORALL) != p->negated) {
+            int id = k->value[body->slot];
+            if (id < 1 || symbols[ground[id].symbol].range != slot_sort[body->slot]) return 0;
+            body = body->a;
+        }
+        return body != p->source && known_is(k, body, p->negated);
+    case K_NAMED:
+        /* parent è un "esiste", e il nome è nuovo: nessuna condizione nota
+         * prima di questa lo usa. */
+        if ((body->kind != S_FORALL && body->kind != S_EXISTS) || (body->kind == S_EXISTS) == p->negated) return 0;
+        if (k->value[body->slot] < 1 || ground[k->value[body->slot]].arg[0] >= 0) return 0;
+        for (int j = 0; j < i; j++)
+            for (int v = 0; v < MAX_SLOTS; v++)
+                if (now->known[j].value[v] == k->value[body->slot]) return 0;
+        return known_is(k, body->a, p->negated);
+    case K_CASE:
+        /* Uno dei due casi di una disgiunzione. Per un "se e solo se" il
+         * caso è una scelta per il primo lato, e per il secondo il valore
+         * che ne segue: lo stesso se l'equivalenza è vera, l'opposto se è
+         * negata. Il primo lato è la condizione nota subito prima. */
+        if (body->kind == S_IFF) {
+            const Known *first = &now->known[i > 0 ? i - 1 : 0];
+            if (known_is(k, body->a, 0) || known_is(k, body->a, 1)) return 1;
+            return i > 0 && first->parent == k->parent && first->origin == K_CASE &&
+                   (known_is(first, body->a, 0) || known_is(first, body->a, 1)) &&
+                   known_is(k, body->b, known_is(first, body->a, 1) != p->negated);
+        }
+        return sentence_parts(body, p->negated, &parts) && !parts.conjunction &&
+               (known_is(k, parts.x, parts.nx) || known_is(k, parts.y, parts.ny));
+    default:
+        return 1;
+    }
+}
+
+/* Scrive la dimostrazione del ramo che si è appena chiuso: le sole
+ * condizioni note che servono alla contraddizione, una per riga, e la
+ * contraddizione. `leaf` è il numero del caso, 0 se non ci sono casi.
+ * Ritorna 1 se ogni passo scritto ha superato il suo controllo; se ritorna
+ * 0 il testo scritto va cancellato da chi chiama. */
+static int leaf_write(int leaf) {
+    static Deduction d;
+    static Reason reason;
+    memset(needed, 0, sizeof needed);
+
+    /* Da dove nasce la contraddizione: un fatto "diversi" tra due elementi
+     * uguali, o una disgiunzione senza parti vere. */
+    if (clash_fact >= 0) {
+        const Known *f = &now->known[clash_fact];
+        if (!chain_between(&reason.chain[0], f->left, f->right, INT_MAX)) return 0;
+        needed[clash_fact] = 1;
+        for (int j = 0; j < reason.chain[0].links; j++) needed[reason.chain[0].fact[j]] = 1;
+    } else {
+        if (!deduction_read(clash_choice, NULL, 0, INT_MAX, &d)) return 0;
+        needed[clash_choice] = 1;
+        for (int j = 0; j < d.uses; j++) needed[d.used[j]] = 1;
+    }
+
+    /* All'indietro: ciò che serve a ciò che serve. Una condizione viene
+     * sempre dopo quelle da cui dipende, quindi basta un passaggio. Ogni
+     * passo viene ricontrollato qui, prima di scrivere qualcosa. */
+    for (int i = now->knowns - 1; i >= 0; i--) {
+        const Known *k = &now->known[i];
+        if (!needed[i] || k->parent < 0) continue;
+        needed[k->parent] = 1;
+        if (k->origin != K_PART) {
+            if (!known_derived(i)) { unjustified_steps++; return 0; }
+            continue;
+        }
+        if (!deduction_read(k->parent, k->source, k->negated, k->stamp, &d)) return 0;
+        for (int j = 0; j < d.uses; j++) needed[d.used[j]] = 1;
+    }
+
+    /* Le righe. */
+    int number = 0;
+    if (leaf) proof_add("\\item \\emph{Case %d.}\n\\begin{enumerate}\n", leaf);
+    else proof_add("\\item \\emph{Suppose not.}\n\\begin{enumerate}\n");
+    for (int i = 0; i < now->knowns; i++) {
+        const Known *k = &now->known[i];
+        if (!needed[i] || k->origin == K_GIVEN) continue;
+        label[i] = (short)++number;
+        proof_add("\\item ");
+        if (k->origin == K_DENIED) {
+            proof_add("Suppose that the claim fails");
+        } else if (k->origin == K_INSTANCE) {
+            proof_add("By ");
+            put_label(k->parent);
+            proof_add(" with");
+            const Known *p = &now->known[k->parent];
+            int written = 0;
+            for (const Sentence *q = p->source; (q->kind == S_FORALL || q->kind == S_EXISTS) && (q->kind == S_FORALL) != p->negated; q = q->a) {
+                proof_add("%s $%c := ", written++ ? "," : "", slot_letter[q->slot]);
+                put_ground(k->value[q->slot], 0);
+                proof_add("$");
+            }
+        } else if (k->origin == K_NAMED) {
+            /* Un "esiste" vero dà l'elemento; un "per ogni" falso dà un
+             * elemento per cui non vale. */
+            const Sentence *q = now->known[k->parent].source;
+            proof_add("By ");
+            put_label(k->parent);
+            proof_add(q->kind == S_EXISTS ? " there is such an element of $%c$; call it $" : " some element of $%c$ makes it fail; call it $",
+                      sort_name[slot_sort[q->slot]]);
+            put_ground(k->value[q->slot], 0);
+            proof_add("$. For it");
+        } else if (k->origin == K_CASE) {
+            proof_add("By ");
+            put_label(k->parent);
+            proof_add(" there are two cases. In this one");
+        } else {
+            /* 28-1: la premessa, e ciò che di lei si sa già. */
+            deduction_read(k->parent, k->source, k->negated, k->stamp, &d);
+            proof_add("From ");
+            put_label(k->parent);
+            for (int a = 0, written = 0; a < d.atoms; a++) {
+                if (d.value[a] < 0 || d.atom[a]->kind == S_TRUE) continue;
+                literal_reason(d.atom[a], now->known[k->parent].value, k->stamp, &reason);
+                proof_add(written++ ? " and " : ", since ");
+                put_reason(d.atom[a], now->known[k->parent].value, &reason);
+            }
+        }
+        proof_add(": $");
+        put_sentence(k->source, k->negated, k->value, 0);
+        proof_add("$.\n");
+    }
+
+    /* La contraddizione. */
+    proof_add("\\item This is a contradiction: ");
+    if (clash_fact >= 0) {
+        const Known *f = &now->known[clash_fact];
+        reason.value = 1;
+        chain_between(&reason.chain[0], f->left, f->right, INT_MAX);
+        put_reason(f->source, f->value, &reason);
+        proof_add(", against ");
+        put_label(clash_fact);
+    } else {
+        deduction_read(clash_choice, NULL, 0, INT_MAX, &d);
+        put_label(clash_choice);
+        proof_add(" cannot hold");
+        for (int a = 0, written = 0; a < d.atoms; a++) {
+            if (d.value[a] < 0 || d.atom[a]->kind == S_TRUE) continue;
+            literal_reason(d.atom[a], now->known[clash_choice].value, INT_MAX, &reason);
+            proof_add(written++ ? " and " : ", since ");
+            put_reason(d.atom[a], now->known[clash_choice].value, &reason);
+        }
+    }
+    proof_add(".\n\\end{enumerate}\n");
+    return !exhausted;
+}
+
+/* Quanti rami sono stati chiusi finora nella dimostrazione in corso: serve
+ * a numerare i casi. */
+static int leaves_closed;
+
+/* Cerca una contraddizione in ogni continuazione del ramo di profondità
+ * depth, e scrive la dimostrazione di ogni ramo che chiude. Ritorna 1 se li
+ * chiude tutti, e allora ciò che il ramo suppone è impossibile.
+ *
+ * Prima ciò che segue senza scelte e le istanze, per un numero fisso di
+ * giri. Se non basta, 28-5: la prima disgiunzione in attesa dà due casi,
+ * ognuno una copia del ramo con una parte in più tra le cose note, e
+ * devono chiudersi tutti e due. */
+static int refute(int depth) {
+    now = &branch[depth];
+    for (int round = 0; !exhausted; round++) {
+        if (settle()) return leaf_write(depth || leaves_closed ? ++leaves_closed : 0);
+        if (round == MAX_ROUNDS || !instantiate()) break;
+    }
+    int open = -1;
+    for (int i = 0; i < now->knowns && open < 0; i++)
+        if (now->known[i].stage == K_WAITING) open = i;
+    if (exhausted || open < 0 || depth == MAX_SPLITS) return 0;
+    for (int side = 0; side < 2; side++) {
+        /* Il caso: una copia del ramo, con i suoi elementi e i suoi nomi. */
+        branch[depth].symbols = symbol_count;
+        branch[depth + 1] = branch[depth];
+        now = &branch[depth + 1];
+        ground_reindex();
+        Known *k = &now->known[open];
+        Parts parts;
+        k->stage = K_DONE;
+        if (k->source->kind == S_IFF) {
+            /* "A se e solo se B": o tutte e due vere, o tutte e due false;
+             * se è negato, una vera e l'altra falsa. Il caso fissa A, e con
+             * lei B. */
+            known_add(k->source->a, side, k->value, K_CASE, open);
+            known_add(k->source->b, side != k->negated, k->value, K_CASE, open);
+        } else if (sentence_parts(k->source, k->negated, &parts)) {
+            known_add(side ? parts.y : parts.x, side ? parts.ny : parts.nx, k->value, K_CASE, open);
+        }
+        if (!refute(depth + 1)) return 0;
+        now = &branch[depth];
+        symbol_count = now->symbols;
+    }
+    return 1;
+}
+
+/* Ritorna 1 se dalle ipotesi, le condizioni di hypothesis[0..hypotheses),
+ * segue claim: lo dimostra per assurdo, e scrive la dimostrazione. Se
+ * ritorna 0 non lascia testo. */
+static int abstract_claim(const Sentence **hypothesis, int hypotheses, const Sentence *claim) {
+    short nothing[MAX_SLOTS];
+    size_t start = proof_length;
+    int declared = symbol_count;
+    memset(nothing, -1, sizeof nothing);
+
+    /* Il ramo di partenza: "vero" al posto 0, le ipotesi, la tesi negata. */
+    now = &branch[0];
+    now->knowns = now->differents = now->clock = 0;
+    now->grounds = 0;
+    memset(exact, -1, sizeof exact);
+    ground_lookup(-1, -1, -1, G_CREATE);
+    for (int i = 0; i < hypotheses; i++) known_add(hypothesis[i], 0, nothing, K_GIVEN, -1);
+    known_add(claim, 1, nothing, K_DENIED, -1);
+
+    proof_add("\\item \\emph{Claim:} $");
+    put_sentence(claim, 0, nothing, 0);
+    proof_add("$.\n\\begin{itemize}\n");
+    leaves_closed = 0;
+    int proved = refute(0);
+    proof_add("\\end{itemize}\n");
+
+    /* I nomi dati durante la dimostrazione valgono solo per lei. */
+    symbol_count = declared;
+    if (!proved) proof_cut(start);
+    return proved;
+}
+
+/* Aggiunge a list[], dal posto count, le condizioni di cui s è la
+ * congiunzione, saltando le dichiarazioni; ritorna il nuovo numero, al più
+ * max. */
+static int conjuncts(const Sentence *s, const Sentence **list, int count, int max) {
+    if (s->kind == S_AND) return conjuncts(s->b, list, conjuncts(s->a, list, count, max), max);
+    if (s->kind != S_TRUE && count < max) list[count++] = s;
+    return count;
+}
+
+/* Il testo di un modello, per il verdetto in una riga. */
+static char model_text[2048];
+
+/* Decide l'enunciato su insiemi qualsiasi scritto in formula e ne ritorna
+ * il verdetto, come descritto in testa al capitolo: prima i modelli finiti,
+ * che possono smentirlo (o, se chiede un esempio, dimostrarlo); poi la
+ * dimostrazione per assurdo di ogni affermazione della tesi.
+ *
+ * Svuota l'arena: i risultati di chiamate precedenti non sono più validi. */
+static Verdict prove_abstract(const char *formula) {
+    Verdict verdict = {UNSUPPORTED, 0, 0, 0, NULL, NULL, NULL, "con istanze delle ipotesi e uguali al posto di uguali", NULL, NULL};
+    static Model model;
+    const Sentence *hypothesis[MAX_KNOWN / 8], *claim[MAX_KNOWN / 8];
+    short nothing[MAX_SLOTS];
+    long long tried;
+    int bound, value[MAX_SLOTS];
+
+    /* Ripartenza da zero e parsing. */
+    proof_reset();
+    arena_used = arena_keep;
+    failure = NULL;
+    syntax_error = NULL;
+    cursor = formula;
+    next_token();
+    const Sentence *root = abstract_statement();
+    if (syntax_error || failure) { verdict.reason = syntax_error ? syntax_error : failure; return verdict; }
+    memset(nothing, -1, sizeof nothing);
+
+    /* 28a. I modelli finiti. Per chi chiede un esempio, uno in cui la
+     * condizione vale; per gli altri, uno in cui non vale. */
+    int found = model_search(root, abstract_example, &model, &tried, &bound);
+    if (found) {
+        /* Il modello trovato viene ricalcolato pezzo per pezzo: ipotesi
+         * vere e tesi falsa, e non solo "l'implicazione è falsa". */
+        model_steps = 0;
+        int confirmed = abstract_example ? model_holds(&model, root, value)
+                      : root->kind == S_IMPLIES ? model_holds(&model, root->a, value) && !model_holds(&model, root->b, value)
+                      : !model_holds(&model, root, value);
+        if (!confirmed) {
+            unjustified_steps++;
+            verdict.outcome = NOT_PROVED;
+            verdict.reason = "la verifica indipendente non conferma il modello trovato";
+            return verdict;
+        }
+        proof_add(abstract_example ? "\\textbf{Proof.} An example: " : "\\textbf{The statement is false.} A counterexample: ");
+        size_t from = proof_length;
+        put_model(&model);
+        snprintf(model_text, sizeof model_text, "%s", proof_text + from);
+        proof_add(abstract_example ? ". Computing with these tables, the condition holds. $\\Box$"
+                                   : ". Computing with these tables, the hypotheses hold and the conclusion fails.");
+        verdict.outcome = abstract_example ? PROVED : REFUTED;
+        verdict.method = "con un esempio";
+        verdict.detail = abstract_example ? NULL : model_text;
+        verdict.proof = proof_text;
+        return verdict;
+    }
+    verdict.outcome = NOT_PROVED;
+    if (abstract_example) {
+        verdict.reason = "nessun esempio tra gli insiemi con pochi elementi: può essercene uno più grande";
+        return verdict;
+    }
+
+    /* Senza il controllo indipendente non si dimostra: se nemmeno i modelli
+     * con un elemento per insieme sono stati provati tutti, ci si ferma. */
+    if (bound < 1) {
+        verdict.reason = "i modelli con pochi elementi sono troppi per provarli: manca il controllo indipendente";
+        return verdict;
+    }
+
+    /* 28b-28e. La dimostrazione: ipotesi e tesi, un'affermazione per
+     * volta. */
+    const Sentence *thesis = root->kind == S_IMPLIES ? root->b : root;
+    int hypotheses = root->kind == S_IMPLIES ? conjuncts(root->a, hypothesis, 0, MAX_KNOWN / 8) : 0;
+    int claims = conjuncts(thesis, claim, 0, MAX_KNOWN / 8), proved = 1;
+    exhausted = 0;
+    proof_add("\\textbf{Proof.} By contradiction: we suppose that the hypotheses hold and that a claim fails.");
+    for (int i = 0; i < hypotheses; i++) {
+        proof_add("%s (H%d) $", i ? "," : " The hypotheses:", i + 1);
+        put_sentence(hypothesis[i], 0, nothing, 0);
+        proof_add("$");
+    }
+    proof_add("%s\n\\begin{itemize}\n", hypotheses ? "." : "");
+    for (int i = 0; i < claims && proved; i++) proved = abstract_claim(hypothesis, hypotheses, claim[i]);
+    if (!proved) {
+        verdict.reason = exhausted ? "la ricerca è stata interrotta: troppi elementi o troppe istanze senza arrivare a una dimostrazione"
+                                   : "nessun controesempio tra gli insiemi con pochi elementi, ma le istanze provate non bastano a dimostrarlo";
+        return verdict;
+    }
+    proof_add("\\end{itemize}\nIndependent check: no choice of sets with at most $%d$ element%s each, and of tables for what is declared, "
+              "contradicts the statement (%lld were tried). $\\Box$", bound, bound == 1 ? "" : "s", tried);
+    verdict.outcome = PROVED;
+    verdict.proof = proof_text;
+    return verdict;
+}
+
+/* =============================================================================
  * 20. DIMOSTRARE UN ENUNCIATO
  * ============================================================================
  *
@@ -12195,10 +21358,18 @@ static Verdict prove_quantified(const char *formula) {
  * Le convenzioni, nell'ordine in cui si applicano. Un enunciato che nomina un
  * insieme numerico, con \mathbb, va alle regole sui quantificatori: ogni sua
  * lettera deve essere quantificata su uno di quegli insiemi, quindi non c'è
- * modo di leggerlo in un altro senso. Tra gli altri, una lettera maiuscola
- * senza pedice è un insieme: un enunciato che ne contiene una, o che usa un
- * simbolo proprio degli insiemi, va alla decisione per regioni. Ogni altro va
- * all'induzione, dove le maiuscole compaiono solo con un pedice, come F_{k}.
+ * modo di leggerlo in un altro senso. Tra gli altri, quello che parla di
+ * elementi (dichiara qualcosa con \colon, quantifica una lettera minuscola,
+ * dice x \in X) è un enunciato su insiemi qualsiasi, e va al capitolo 28.
+ * Negli altri una lettera maiuscola senza pedice è un insieme: un enunciato
+ * che ne contiene una, o che usa un simbolo proprio degli insiemi, va alla
+ * decisione per regioni. Ogni altro va
+ * all'induzione, dove le maiuscole compaiono solo con un pedice, come F_{k}:
+ * a quella del capitolo 13 se è un'uguaglianza, a quella del capitolo 25 se
+ * è una disuguaglianza. Prima però, se contiene \implies, è un enunciato su
+ * una successione definita per ricorrenza, e va al capitolo 26: negli altri
+ * enunciati senza \mathbb un'implicazione non ha posto. E prima ancora, se
+ * comincia con il segno di derivata di Leibniz, va al capitolo 27.
  *
  * Guardare solo i simboli non basta, e ha già causato una dimostrazione falsa:
  * S \times T = T \times S non contiene né unioni né inclusioni, veniva letto
@@ -12231,6 +21402,28 @@ static int uses_set_notation(const char *formula) {
     return found;
 }
 
+/* Ritorna 1 se formula parla di elementi di insiemi qualsiasi, cioè è un
+ * enunciato del linguaggio di 17o: dichiara qualcosa con \colon, oppure un
+ * suo quantificatore lega una lettera minuscola, oppure dice di una lettera
+ * minuscola che appartiene a qualcosa. Gli enunciati sugli insiemi del
+ * capitolo 14 quantificano solo lettere maiuscole, non dichiarano nulla e
+ * non nominano elementi. Usa il lettore di token del parser, e lascia il
+ * suo stato da reimpostare. */
+static int uses_elements(const char *formula) {
+    int found = 0;
+    syntax_error = NULL;
+    cursor = formula;
+    for (next_token(); token.kind != T_END && !found; ) {
+        int quantifier = is_command("forall") || is_command("exists"), element = token.kind == T_LETTER && islower(token.ch);
+        found = is_command("colon");
+        next_token();
+        if (quantifier && token.kind == T_LETTER && islower(token.ch)) found = 1;
+        if (element && (is_command("in") || is_command("notin"))) found = 1;
+    }
+    syntax_error = NULL;
+    return found;
+}
+
 /* Prova a dimostrare l'enunciato scritto in formula.
  *
  * variable, has_base e base riguardano le dimostrazioni per induzione (vedi
@@ -12242,8 +21435,21 @@ static Verdict prove(const char *formula, int variable, int has_base, long long 
     /* Il grafico dell'enunciato precedente non vale più. */
     if (figure) { pl_close(figure); figure = NULL; }
     if (strstr(formula, "\\mathbb")) return prove_quantified(formula);
+
+    /* Il segno di derivata: se la formula è scritta davvero così va al
+     * capitolo 27, altrimenti prosegue come ogni altra. */
+    if (starts_with_derivative(formula)) {
+        Verdict verdict = prove_derivative(formula, variable, has_base, base);
+        if (verdict.reason != NOT_A_DERIVATIVE) return verdict;
+    }
+    if (uses_elements(formula)) return prove_abstract(formula);
     if (uses_set_notation(formula)) return prove_sets(formula);
-    return prove_by_induction(formula, variable, has_base, base);
+    if (strstr(formula, "\\implies")) return prove_sequence(formula, variable, has_base, base);
+
+    /* Un'uguaglianza al capitolo 13; ciò che quello rifiuta perché non è
+     * un'uguaglianza, al capitolo 25. */
+    Verdict verdict = prove_by_induction(formula, variable, has_base, base);
+    return verdict.reason == NOT_AN_EQUALITY ? prove_inequality(formula, variable, has_base, base) : verdict;
 }
 
 /* Scrive su out il verdetto in una riga, senza a capo. */

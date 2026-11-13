@@ -1,0 +1,44 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Hypotheses that name a number, and a modulus that is a letter (24)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+$\mathbb{N} = \{1, 2, 3, \ldots\}$. A hypothesis ``there is $k$'' is used with its witness; $a \equiv b \pmod{n}$ and $n \mid a$, with $n$ a letter, are read as ``there is an integer $q$ with $a - b = qn$''.
+
+\begin{enumerate}
+\item $\displaystyle \forall x, y \in \mathbb{Q}\ ((\exists k \in \mathbb{Z}\ (x - y = k)) \implies \exists m \in \mathbb{Z}\ (y - x = m))$
+\item $\displaystyle \forall x, y, z \in \mathbb{Q}\ (((\exists k \in \mathbb{Z}\ (x - y = k)) \land (\exists j \in \mathbb{Z}\ (y - z = j))) \implies \exists m \in \mathbb{Z}\ (x - z = m))$
+\item $\displaystyle \forall x, y \in \mathbb{Q}\ ((\exists k \in \mathbb{Z}\ (x - y = k)) \iff (\exists m \in \mathbb{Z}\ (y - x = m)))$
+\item $\displaystyle \forall x, y \in \mathbb{Q}\ (x - y \in \mathbb{Z} \implies y - x \in \mathbb{Z})$
+\item $\displaystyle \forall x, y, z, w \in \mathbb{Q}\ ((x - y \in \mathbb{Z} \land z - w \in \mathbb{Z}) \implies (x + z) - (y + w) \in \mathbb{Z})$
+\item $\displaystyle \forall n \in \mathbb{N}\ \forall a \in \mathbb{Z}\ (a \equiv a \pmod{n})$
+\item $\displaystyle \forall n \in \mathbb{Z}\ \forall a, b \in \mathbb{Z}\ (a \equiv b \pmod{n} \implies b \equiv a \pmod{n})$
+\item $\displaystyle \forall n \in \mathbb{N}\ \forall a, b, c \in \mathbb{Z}\ ((a \equiv b \pmod{n} \land b \equiv c \pmod{n}) \implies a \equiv c \pmod{n})$
+\item $\displaystyle \forall n \in \mathbb{N}\ \forall a, b, c, d \in \mathbb{Z}\ ((a \equiv b \pmod{n} \land c \equiv d \pmod{n}) \implies a + c \equiv b + d \pmod{n})$
+\item $\displaystyle \forall n \in \mathbb{N}\ \forall a, b, c, d \in \mathbb{Z}\ ((a \equiv b \pmod{n} \land c \equiv d \pmod{n}) \implies ac \equiv bd \pmod{n})$
+\item $\displaystyle \forall n \in \mathbb{N}\ \forall a, b \in \mathbb{Z}\ (a \equiv b \pmod{n} \implies a^{2} \equiv b^{2} \pmod{n})$
+\item $\displaystyle \forall n \in \mathbb{N}\ \forall a, b \in \mathbb{Z}\ (a \equiv b \pmod{2n} \implies a \equiv b \pmod{n})$
+\item $\displaystyle \forall m, n \in \mathbb{N}\ \forall a, b \in \mathbb{Z}\ ((m \mid n \land a \equiv b \pmod{n}) \implies a \equiv b \pmod{m})$
+\item $\displaystyle \forall a, b, d \in \mathbb{Z}\ ((d \mid a \land d \mid b) \implies d \mid a + b)$
+\item $\displaystyle \forall a, b, c \in \mathbb{Z}\ ((a \mid b \land b \mid c) \implies a \mid c)$
+\item $\displaystyle \forall n \in \mathbb{N}\ \forall a, b \in \mathbb{Z}\ ((n \mid a \land n \nmid b) \implies n \nmid a + b)$
+\item $\displaystyle \forall m \in \mathbb{N}\ \forall a, b, c \in \mathbb{Z} \setminus \{0\}\ (((\exists k \in \mathbb{Z}\ (ac - bc = mk)) \land (\exists u, v \in \mathbb{Z}\ (uc + vm = 1))) \implies \exists j \in \mathbb{Z}\ (a - b = mj))$
+\item $\displaystyle \forall k, m \in \mathbb{N}\ \forall a, b \in \mathbb{Z}\ ((\exists q \in \mathbb{Z}\ (a - b = mq)) \implies \exists j \in \mathbb{Z}\ (ka - kb = mj))$
+\item $\displaystyle \forall a \in \mathbb{Z}\ \forall m, n \in \mathbb{N}\ \exists p \in \mathbb{N}\ (ma + na = pa)$
+\item $\displaystyle \forall m \in \mathbb{N}\ \forall c \in \mathbb{Z}\ \exists a, j \in \mathbb{Z}\ (a - c = mj)$
+\item $\displaystyle \forall a, b, c, d \in \mathbb{Z}\ \exists p, q \in \mathbb{Z}\ (p = a + c \land q = b + d)$
+\item $\displaystyle \forall a, b, c \in \mathbb{Z}\ \forall d \in \mathbb{Z} \setminus \{0\}\ ((da = c \land db = c) \implies a = b)$
+\item $\displaystyle \forall n \in \mathbb{N}\ \forall a, b, c \in \mathbb{Z}\ (((\exists k \in \mathbb{Z}\ (a - b = kn)) \land (\exists k \in \mathbb{Z}\ (b - c = kn))) \implies \exists k \in \mathbb{Z}\ (a - c = kn))$
+\item $\displaystyle \forall x, y \in \mathbb{Q}\ ((\exists k \in \mathbb{Z}\ (x = 2k) \land \exists k \in \mathbb{Z}\ (y = 2k)) \implies \exists k \in \mathbb{Z}\ (x + y = 2k))$
+\end{enumerate}
+\end{document}

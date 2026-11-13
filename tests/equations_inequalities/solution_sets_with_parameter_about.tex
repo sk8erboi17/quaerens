@@ -1,0 +1,34 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{solution\_sets\_with\_parameter.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{solution\_sets\_with\_parameter.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_equations\_inequalities.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 35 requests with a real parameter. Nothing is claimed: the engine must find the solutions and write them as a textbook does, as a list of cases on the parameter, for example $(a < 0 \land 4a \le x \le 0) \lor (a = 0 \land x = 0) \lor (a > 0 \land 0 \le x \le 4a)$.
+
+\item \textbf{What it exercises.} Solving with a parameter (rule 18t): in each case of the parameter the condition is solved at one value, and each endpoint found there is recognised as the root, written as a function of the parameter, of a polynomial of first or second degree in $x$. The written solutions are read back and compared with the condition at the value of every case and at two more values of every interval.
+
+\item \textbf{Variety.} The 19 textbook exercises 215--233, two of which have an absolute value and a square root of an expression in the parameter in the printed result (224 and 226: the engine writes the two cases of the absolute value, and $\sqrt{4 - k^{2}}$ as the book does); requests whose answer is no $x$, or every $x$, whatever the parameter; a discriminant that is not a square, so that the endpoints are $k \pm \sqrt{k^{2} - 1}$; conditions made of two comparisons; a quotient; and seven requests for the values of the parameter, with a statement of degree four, a conjunction of two quantified statements, and the answers \emph{no value} and \emph{every value}.
+
+\item \textbf{Expected result.} The line \texttt{PASS: 35 of 35 solution sets with a parameter found and equal to the expected ones on a grid of numbers}. The expected solutions are written in the test: those of the textbook exercises are the printed results, the others were worked out by hand; none is copied from the engine's output. The engine's text need not be the same text, so the two are compared as conditions, at every point of a grid of rational values of the parameter and of $x$.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_equations_inequalities \
+    tests/equations_inequalities/test_equations_inequalities.c \
+    && /tmp/test_equations_inequalities
+\end{verbatim}
+\end{enumerate}
+\end{document}

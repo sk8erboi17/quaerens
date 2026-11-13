@@ -1,0 +1,56 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{False statements about congruences and divisibility (36)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+$\mathbb{N} = \{1, 2, 3, \ldots\}$, $\mathbb{N}_{0} = \mathbb{N} \cup \{0\}$; $a \mid b$: $b$ is $a$ times an integer; $a \equiv b \pmod{m}$: $m \mid a - b$. Every statement below is false.
+
+\begin{enumerate}
+\item $\displaystyle \forall x \in \mathbb{Z}\ (5x \equiv 8 \pmod{36} \iff x \equiv 15 \pmod{36})$
+\item $\displaystyle \forall x \in \mathbb{Z}\ (5x \equiv 8 \pmod{36} \iff x \equiv 16 \pmod{18})$
+\item $\displaystyle \forall x \in \mathbb{Z}\ (24x \equiv 42 \pmod{15} \iff x \equiv 3 \pmod{15})$
+\item $\displaystyle \forall x \in \mathbb{Z}\ (24x \equiv 42 \pmod{15} \iff x \equiv 8 \pmod{15})$
+\item $\displaystyle \forall x \in \mathbb{Z}\ (10x \equiv 2 \pmod{6} \iff x \equiv 2 \pmod{6})$
+\item $\displaystyle \forall x \in \mathbb{Z}\ (200x \equiv 10 \pmod{15} \iff x \equiv 2 \pmod{15})$
+\item $\displaystyle \forall x \in \mathbb{Z}\ ((x \equiv 2 \pmod{3} \land x \equiv 5 \pmod{4} \land x \equiv 3 \pmod{5}) \iff x \equiv 23 \pmod{60})$
+\item $\displaystyle \forall x \in \mathbb{Z}\ ((x \equiv 2 \pmod{3} \land x \equiv 5 \pmod{4} \land x \equiv 3 \pmod{5}) \iff x \equiv 53 \pmod{30})$
+\item $\displaystyle \forall a \in \mathbb{Z}\ ((\exists b \in \mathbb{Z}\ (ab \equiv 1 \pmod{12})) \iff 12 \nmid a)$
+\item $\displaystyle \forall a \in \mathbb{Z}\ ((\exists b \in \mathbb{Z}\ (ab \equiv 1 \pmod{12})) \iff (a \equiv 1 \pmod{12} \lor a \equiv 5 \pmod{12} \lor a \equiv 7 \pmod{12}))$
+\item $\displaystyle \forall a \in \mathbb{Z}\ ((\exists b \in \mathbb{Z}\ (ab \equiv 1 \pmod{15})) \iff 3 \nmid a)$
+\item $\displaystyle \forall x \in \mathbb{Z}\ (7x \equiv 1 \pmod{15} \iff x \equiv 7 \pmod{15})$
+\item $\displaystyle \forall a, b \in \mathbb{Z}\ ((2 \nmid a \land 2 \nmid b) \implies a^{2} \equiv b^{2} \pmod{16})$
+\item $\displaystyle \forall a, b \in \mathbb{Z}\ (2 \nmid a \implies a^{2} \equiv b^{2} \pmod{4})$
+\item $\displaystyle \forall x \in \mathbb{Z}\ ((\exists k \in \mathbb{Z}\ (5x - 8 = 36k)) \iff (\exists j \in \mathbb{Z}\ (x = 15 + 36j)))$
+\item $\displaystyle \forall x \in \mathbb{Z}\ ((\exists k \in \mathbb{Z}\ (3x - 1 = 5k)) \iff (\exists j \in \mathbb{Z}\ (x = 2 + 10j)))$
+\item $\displaystyle \exists h, k \in \mathbb{Z}\ (3 = 70h + 125k)$
+\item $\displaystyle \exists h, k \in \mathbb{Z}\ (5 = 300h + 490k)$
+\item $\displaystyle \forall n \in \mathbb{N}\ (41 \nmid n^{2} + n + 41)$
+\item $\displaystyle \forall x \in \mathbb{Z}\ (5 \nmid x^{2} + 1)$
+\item $\displaystyle \forall x \in \mathbb{Z}\ (x^{2} \equiv 1 \pmod{8})$
+\item $\displaystyle \forall x \in \mathbb{Z}\ (4 \mid x^{3} - x)$
+\item $\displaystyle \forall x \in \mathbb{Z}\ (60 \mid x^{5} - x)$
+\item $\displaystyle \forall n \in \mathbb{N}_{0}\ (9 \nmid 3n^{2} + 6)$
+\item $\displaystyle \forall x \in \mathbb{Z}\ (\frac{x}{2} \equiv 1 \pmod{3} \iff x \equiv 2 \pmod{3})$
+\item $\displaystyle \forall n \in \mathbb{N}\ \exists m \in \mathbb{N}\ (4 \mid n + 2m \land 2 \nmid m)$
+\item $\displaystyle \forall x, y \in \mathbb{Z}\ ((x \equiv y \pmod{2} \land x \equiv y \pmod{4}) \implies x \equiv y \pmod{8})$
+\item $\displaystyle \forall x, y \in \mathbb{Z}\ (2x \equiv 2y \pmod{6} \implies x \equiv y \pmod{6})$
+\item $\displaystyle \forall x, y \in \mathbb{Z}\ (x \equiv y \pmod{3} \implies x = y)$
+\item $\displaystyle \exists x \in \mathbb{Z}\ (x^{2} \equiv 2 \pmod{3})$
+\item $\displaystyle \exists x \in \mathbb{Z}\ (x^{2} \equiv 3 \pmod{7} \lor x^{2} \equiv 5 \pmod{7})$
+\item $\displaystyle \forall x \in \mathbb{Q}\ (2 \mid 2x)$
+\item $\displaystyle R = \{(a, b) \in \mathbb{Z}^{2} \mid 4 \mid a^{2} - b^{2}\} \implies (\forall x, y\ (((x, y) \in R \land (y, x) \in R) \implies x = y))$
+\item $\displaystyle R = \{(a, b) \in \mathbb{Z}^{2} \mid 3 \mid a + b\} \implies (\forall x, y, z\ (((x, y) \in R \land (y, z) \in R) \implies (x, z) \in R))$
+\item $\displaystyle R = \{(a, b) \in \mathbb{Z}^{2} \mid 3 \mid a + b\} \implies (\forall x \in \mathbb{Z}\ ((x, x) \in R))$
+\item $\displaystyle R = \{(a, b) \in \mathbb{Z}^{2} \mid a \equiv b \pmod{3}\} \implies (\forall x, y, z, w\ (((x, y) \in R \land (z, w) \in R) \implies (x + z, y - w) \in R))$
+\end{enumerate}
+\end{document}

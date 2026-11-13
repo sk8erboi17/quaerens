@@ -1,0 +1,42 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{False statements close to those of \texttt{witnesses.tex} (22)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Each statement is false: a hypothesis was dropped, a modulus or a coefficient was changed, or an implication was turned round. None may be reported as proved.
+
+\begin{enumerate}
+\item $\displaystyle \forall x, y \in \mathbb{Q}\ ((\exists k \in \mathbb{Z}\ (x - y = k)) \implies \exists m \in \mathbb{Z}\ (x + y = m))$
+\item $\displaystyle \forall x, y, z \in \mathbb{Q}\ (((\exists k \in \mathbb{Z}\ (x - y = k)) \land (\exists j \in \mathbb{Z}\ (y - z = 2j))) \implies \exists m \in \mathbb{Z}\ (x - z = 2m))$
+\item $\displaystyle \forall x, y \in \mathbb{Q}\ (x - y \in \mathbb{Z} \implies x + y \in \mathbb{Z})$
+\item $\displaystyle \forall x, y, z, w \in \mathbb{Q}\ ((x - y \in \mathbb{Z} \land z - w \in \mathbb{Z}) \implies xz - yw \in \mathbb{Z})$
+\item $\displaystyle \forall n \in \mathbb{N}\ \forall a, b, c \in \mathbb{Z}\ ((a \equiv b \pmod{n} \land b \equiv c \pmod{n}) \implies a \equiv c \pmod{n + 1})$
+\item $\displaystyle \forall n \in \mathbb{N}\ \forall a, b, c \in \mathbb{Z}\ (a \equiv b \pmod{n} \implies a \equiv c \pmod{n})$
+\item $\displaystyle \forall n \in \mathbb{N}\ \forall a, b, c, d \in \mathbb{Z}\ ((a \equiv b \pmod{n} \land c \equiv d \pmod{n}) \implies a + c \equiv b - d \pmod{n})$
+\item $\displaystyle \forall n \in \mathbb{N}\ \forall a, b, c, d \in \mathbb{Z}\ ((a \equiv b \pmod{n} \land c \equiv d \pmod{n}) \implies ac \equiv bd + 1 \pmod{n})$
+\item $\displaystyle \forall n \in \mathbb{N}\ \forall a, b \in \mathbb{Z}\ (a^{2} \equiv b^{2} \pmod{n} \implies a \equiv b \pmod{n})$
+\item $\displaystyle \forall n \in \mathbb{N}\ \forall a, b \in \mathbb{Z}\ (a \equiv b \pmod{n} \implies a \equiv b \pmod{2n})$
+\item $\displaystyle \forall m, n \in \mathbb{N}\ \forall a, b \in \mathbb{Z}\ ((n \mid m \land a \equiv b \pmod{n}) \implies a \equiv b \pmod{m})$
+\item $\displaystyle \forall a, b, d \in \mathbb{Z}\ (d \mid ab \implies d \mid a)$
+\item $\displaystyle \forall a, b, c \in \mathbb{Z}\ ((a \mid b \land a \mid c) \implies b \mid c)$
+\item $\displaystyle \forall n \in \mathbb{N}\ \forall a, b \in \mathbb{Z}\ ((n \nmid a \land n \nmid b) \implies n \nmid a + b)$
+\item $\displaystyle \forall m \in \mathbb{N}\ \forall a, b, c \in \mathbb{Z} \setminus \{0\}\ ((\exists k \in \mathbb{Z}\ (ac - bc = mk)) \implies \exists j \in \mathbb{Z}\ (a - b = mj))$
+\item $\displaystyle \forall k, m \in \mathbb{N}\ \forall a, b \in \mathbb{Z}\ ((\exists q \in \mathbb{Z}\ (ka - kb = mq)) \implies \exists j \in \mathbb{Z}\ (a - b = mj))$
+\item $\displaystyle \forall a \in \mathbb{Z}\ \forall m, n \in \mathbb{N}\ \exists p \in \mathbb{N}\ (ma - na = pa)$
+\item $\displaystyle \forall m \in \mathbb{N}\ \forall c \in \mathbb{Z}\ \exists j \in \mathbb{Z}\ (1 - c = mj)$
+\item $\displaystyle \forall a, b, d \in \mathbb{Z}\ (da = db \implies a = b)$
+\item $\displaystyle \forall a, b, c, d \in \mathbb{Z}\ ((da = c \land db = c) \implies a = b)$
+\item $\displaystyle \forall x, y, z \in \mathbb{Q}\ (((\exists k \in \mathbb{Z}\ (x - y = k)) \land (\exists k \in \mathbb{Z}\ (y - z = k))) \implies \exists k \in \mathbb{Z}\ (x + z = k))$
+\item $\displaystyle \forall x, y \in \mathbb{Q}\ ((\exists k \in \mathbb{Z}\ (x = 2k) \land \exists k \in \mathbb{Z}\ (y = 3k)) \implies \exists k \in \mathbb{Z}\ (x + y = 2k))$
+\end{enumerate}
+\end{document}

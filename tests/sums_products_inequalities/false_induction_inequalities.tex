@@ -1,0 +1,53 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{False inequalities that an induction must not prove (33)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Each statement is an inequality in the integer $n$, claimed for every $n$ from the stated value on ($n \ge 1$ when nothing is said). None of them holds for every such $n$: some fail at the first value, some at one later value only, some hold only from a larger starting value than the stated one, some fail only beyond the first eleven values, and three stop being defined at some $n$.
+
+\begin{enumerate}
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{\sqrt{k}} \ge \sqrt{n} + \frac{1}{10}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{\sqrt{k}} > \sqrt{n}$
+\item $\displaystyle \sum_{k=1}^{n} \sqrt{k} \le \frac{2n\sqrt{n}}{3}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{\sqrt{k}} \le 2\sqrt{n} - 1 - \frac{n - 1}{100}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{k^{2}} \le \frac{5}{3} - \frac{1}{n}$ for every integer $n\ge 3$.
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{k^{2}} \le \frac{8}{5}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{k^{3}} \le \frac{5}{4} - \frac{1}{2n^{2}}$
+\item $\displaystyle H_{n} \ge \frac{2n}{n + 1} + \frac{1}{100}$
+\item $\displaystyle 2^{n} \ge n^{2}$
+\item $\displaystyle 2^{n} > n^{2}$ for every integer $n\ge 4$.
+\item $\displaystyle 2^{n} \ge n^{3}$
+\item $\displaystyle 2^{n} \ge n^{3}$ for every integer $n\ge 9$.
+\item $\displaystyle 3^{n} > n^{3}$
+\item $\displaystyle n! \ge 3^{n}$ for every integer $n\ge 6$.
+\item $\displaystyle n! \ge 2^{n}$
+\item $\displaystyle \prod_{k=1}^{n} \frac{2k - 1}{2k} \ge \frac{1}{\sqrt{3n + 1}}$
+\item $\displaystyle \prod_{k=1}^{n} \frac{2k - 1}{2k} \le \frac{1}{2\sqrt{n}}$
+\item $\displaystyle \binom{2n}{n} \le \frac{4^{n}}{2\sqrt{n}}$
+\item $\displaystyle \binom{2n}{n} \ge \frac{4^{n}}{n}$
+\item $\displaystyle \left(\frac{3}{2}\right)^{n} \ge 1 + \frac{3n}{5}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{\sqrt{k}} \ge \sqrt{n} + \prod_{j=1}^{11} \left(n - j\right)$
+\item $\displaystyle 2^{n} \ge n + 1 + \prod_{j=0}^{11} \left(n - j\right)$ for every integer $n\ge 0$.
+\item $\displaystyle n! \ge 2^{n - 1} + 20 \prod_{j=1}^{12} \left(n - j\right)$
+\item $\displaystyle \left(n - 13\right)\left(n - 15\right) \ge 0$
+\item $\displaystyle \left(n - 20\right)^{2} > 0$
+\item $\displaystyle 1000\left(n - 20\right)\left(n - 22\right) + \sum_{k=1}^{n} \frac{1}{\sqrt{k}} \ge \sqrt{n}$
+\item $\displaystyle n^{3} + 2000 \ge 2^{n}$
+\item $\displaystyle 1000n \ge 2^{n}$
+\item $\displaystyle \frac{n - 50}{n - 50} + 2^{n} > n + 1$
+\item $\displaystyle 0 \cdot \sqrt{30 - n} + n^{2} \ge 2n - 1$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{k - 40} \le n^{2}$
+\item $\displaystyle \sqrt{n + 1} - \sqrt{n} \ge \frac{1}{2\sqrt{n}}$
+\item $\displaystyle \sqrt{n + 1} - \sqrt{n} \le \frac{1}{2\sqrt{n + 1}}$
+\end{enumerate}
+\end{document}

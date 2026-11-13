@@ -1,0 +1,50 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Relations and correspondences given by a rule (30)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+$\mathbb{N} = \{1, 2, 3, \ldots\}$, $\mathbb{N}_{0} = \mathbb{N} \cup \{0\}$; $\exists! y$: there is exactly one $y$. A relation is declared by its rule, and every $(s, t) \in R$ stands for the rule with $s$ and $t$ in place of its two letters.
+
+\begin{enumerate}
+\item $\displaystyle G = \{(x, y) \in \mathbb{Z} \times \mathbb{Z} \mid y = 2x + 1\} \implies (\forall x \in \mathbb{Z}\ \exists! y \in \mathbb{Z}\ ((x, y) \in G))$
+\item $\displaystyle G = \{(x, y) \in \mathbb{Z}^{2} \mid 2y = x\} \implies (\lnot (\forall x \in \mathbb{Z}\ \exists! y \in \mathbb{Z}\ ((x, y) \in G)))$
+\item $\displaystyle G = \{(x, y) \in \mathbb{Q}^{2} \mid 2y = x\} \implies (\forall x \in \mathbb{Q}\ \exists! y \in \mathbb{Q}\ ((x, y) \in G))$
+\item $\displaystyle G = \{(x, y) \in \mathbb{N} \times \mathbb{Z} \mid y^{2} = x\} \implies (\lnot (\forall x \in \mathbb{N}\ \exists! y \in \mathbb{Z}\ ((x, y) \in G)))$
+\item $\displaystyle G = \{(x, y) \in \mathbb{N}_{0} \times \mathbb{N}_{0} \mid y = x^{2} + 1\} \implies (\forall x \in \mathbb{N}_{0}\ \exists! y \in \mathbb{N}_{0}\ ((x, y) \in G))$
+\item $\displaystyle R = \{(a, b) \in \mathbb{Z}^{2} \mid a - b \in \mathbb{N}_{0}\} \implies (\forall x \in \mathbb{Z}\ ((x, x) \in R))$
+\item $\displaystyle R = \{(a, b) \in \mathbb{Z}^{2} \mid a - b \in \mathbb{N}_{0}\} \implies (\lnot (\forall x, y\ ((x, y) \in R \implies (y, x) \in R)))$
+\item $\displaystyle R = \{(a, b) \in \mathbb{Z}^{2} \mid a = b + 1\} \implies (\forall x\ ((x, x) \notin R))$
+\item $\displaystyle R = \{(a, b) \in \mathbb{Z}^{2} \mid a = b + 1\} \implies (\lnot (\forall x, y, z\ (((x, y) \in R \land (y, z) \in R) \implies (x, z) \in R)))$
+\item $\displaystyle R = \{(a, b) \in \mathbb{Z}^{2} \mid a = b + 1\} \implies (\forall x \in \mathbb{Z}\ \exists y\ ((x, y) \in R \land y \neq x))$
+\item $\displaystyle R = \{(x, y) \in \mathbb{N} \times \mathbb{Z} \mid x = y^{2}\} \implies ((4, -2) \in R \land (4, 3) \notin R \land (-4, 2) \notin R \land (0, 0) \notin R)$
+\item $\displaystyle R = \{(x, y) \in \mathbb{N} \times \mathbb{Z} \mid x = y^{2}\} \implies (\lnot (\forall x, y\ ((x, y) \in R \implies (y, x) \in R)))$
+\item $\displaystyle R = \{(x, y) \in \mathbb{Z}^{2} \mid \exists k \in \mathbb{Z}\ (y = kx)\} \implies (\forall k \in \mathbb{Z}\ ((k, 0) \in R))$
+\item $\displaystyle R = \{(x, y) \in \mathbb{Z}^{2} \mid \exists k \in \mathbb{Z}\ (y = kx)\} \implies (\forall y \in \mathbb{Z}\ ((1, y) \in R))$
+\item $\displaystyle R = \{(x, y) \in \mathbb{N}^{2} \mid \exists a \in \mathbb{Z}\ (y = ax)\} \implies (\lnot (\forall x, y \in \mathbb{N}\ ((x, y) \in R \lor (y, x) \in R)))$
+\item $\displaystyle R = \{(x, y) \in \mathbb{Z}^{2} \mid y = 2x\} \implies (\forall a \in \mathbb{Z}\ ((a + 1, 2a + 2) \in R))$
+\item $\displaystyle R = \{(x, y) \in \mathbb{Z}^{2} \mid y = x^{2}\} \implies (\forall a \in \mathbb{Z}\ ((a - 1, a^{2} - 2a + 1) \in R))$
+\item $\displaystyle (R = \{(x, y) \in \mathbb{Z}^{2} \mid y = 2x\} \land S = \{(x, y) \in \mathbb{Z}^{2} \mid (y, x) \in R\}) \implies (\forall a \in \mathbb{Z}\ ((2a, a) \in S))$
+\item $\displaystyle (R = \{(x, y) \in \mathbb{Z}^{2} \mid y = 2x\} \land S = \{(x, y) \in \mathbb{Z}^{2} \mid (y, x) \in R\}) \implies (\lnot (\forall x \in \mathbb{Z}\ \exists! y \in \mathbb{Z}\ ((x, y) \in S)))$
+\item $\displaystyle \forall x \in \mathbb{Z}\ \exists! y \in \mathbb{Z}\ (x + y = 0)$
+\item $\displaystyle \exists x \in \mathbb{Z}\ \exists! y \in \mathbb{Z}\ (y^{2} = x^{2})$
+\item $\displaystyle \lnot (\forall x \in \mathbb{Z}\ \exists! y \in \mathbb{Z}\ (y^{2} = x^{2}))$
+\item $\displaystyle \forall x \in \mathbb{Z}\ (x^{2} \in \mathbb{N}_{0} \land \frac{x^{2} + x}{2} \in \mathbb{Z})$
+\item $\displaystyle \lnot (\forall x \in \mathbb{Z}\ (\frac{x}{2} \in \mathbb{Z}))$
+\item $\displaystyle \forall n \in \mathbb{N}\ (n - 1 \in \mathbb{N}_{0})$
+\item $\displaystyle \exists n \in \mathbb{Z}\ (n \notin \mathbb{N} \land n + 1 \in \mathbb{N})$
+\item $\displaystyle R = \{(x, y) \in \mathbb{Z}^{2} \mid x^{2} = y^{2}\} \implies ((\forall x \in \mathbb{Z}\ ((x, x) \in R) \land \forall x, y\ ((x, y) \in R \implies (y, x) \in R) \land \forall x, y, z\ (((x, y) \in R \land (y, z) \in R) \implies (x, z) \in R)) \land \forall x, y, z, w\ (((x, y) \in R \land (z, w) \in R) \implies (xz, yw) \in R))$
+\item $\displaystyle R = \{(x, y) \in \mathbb{Q}^{2} \mid 2x + 3y = 5\} \implies (\forall x, y, z\ (((x, y) \in R \land (x, z) \in R) \implies y = z))$
+\item $\displaystyle G = \{(x, y) \in \mathbb{Q} \setminus \{0\} \times \mathbb{Q} \mid xy = 1\} \implies (\forall x \in \mathbb{Q} \setminus \{0\}\ \exists! y \in \mathbb{Q}\ ((x, y) \in G))$
+\item $\displaystyle R = \{(Z, y) \in \mathbb{Z}^{2} \mid \exists k \in \mathbb{Z}\ (y = kZ)\} \implies (\forall N \in \mathbb{Z}\ ((N, 0) \in R))$
+\end{enumerate}
+\end{document}

@@ -28,6 +28,6 @@ cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_maps_and_relations \
     tests/set_theory/test_maps_and_relations.c && /tmp/test_maps_and_relations
 \end{verbatim}
 
-\item \textbf{Expected result.} One \texttt{PASS} line for the file when every statement is proved with a written proof. The engine does not yet treat statements of this kind: each one is reported as not supported, and the test fails. The file states the goal.
+\item \textbf{Expected result.} One \texttt{PASS} line for the file when every statement is proved with a written proof. Today the engine proves 9 of the 16 statements: the first six, a set of pairs of numbers given by a rule, and whether it is the graph of a map; and statements 9, 11 and 13, about an arbitrary relation on an arbitrary set, proved with instances of the hypotheses (chapter 28 of \texttt{main.c}). The others use notation that is not read yet (a relation written as a set of pairs, the composition of two relations) and are reported as not supported, so the test fails. The file states the goal.
 \end{enumerate}
 \end{document}

@@ -1,0 +1,55 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Inequalities with a parameter to solve (35)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Each item asks for the solutions of a condition in the real variable $x$ for every value of a real parameter, or for the values of the parameter for which a statement about every $x$, or some $x$, holds. Nothing is claimed: the engine must find them. The first 19 are the textbook exercises 215--233; the expected solutions are in \texttt{test\_equations\_inequalities.c}.
+
+\begin{enumerate}
+\item $\displaystyle \forall a \in \mathbb{R}\ \{x \in \mathbb{R} \mid x^{2} - 4ax \le 0\}$
+\item $\displaystyle \forall a \in \mathbb{R}\ \{x \in \mathbb{R} \mid a^{2}x^{2} + 3ax - 10 \ge 0\}$
+\item $\displaystyle \forall a \in \mathbb{R}\ \{x \in \mathbb{R} \mid x^{2} + 2ax - 8a^{2} \le 0\}$
+\item $\displaystyle \forall a \in \mathbb{R}\ \{x \in \mathbb{R} \mid 2a^{2}x^{2} + 5ax - 3 < 0\}$
+\item $\displaystyle \forall a \in \mathbb{R}\ \{x \in \mathbb{R} \mid ax^{2} + x(a^{2} - 1) - a < 0\}$
+\item $\displaystyle \forall b \in \mathbb{R}\ \{x \in \mathbb{R} \mid (b + 1)x^{2} - 4bx + 4b - 4 > 0\}$
+\item $\displaystyle \forall a \in \mathbb{R}\ \{x \in \mathbb{R} \mid -3x^{2} + 2a(a + x) - 3ax \ge 0\}$
+\item $\displaystyle \forall a \in \mathbb{R}\ \{x \in \mathbb{R} \mid x^{2} - 4 + a(4 - x) < 3x\}$
+\item $\displaystyle \forall a \in \mathbb{R}\ \{x \in \mathbb{R} \mid 3x^{2} + a(1 - 2x) \ge 1 - x^{2}\}$
+\item $\displaystyle \forall a \in \mathbb{R}\ \{x \in \mathbb{R} \mid (x + 2a)(x - 2a) \ge 1 - 4a\}$
+\item $\displaystyle \forall a \in \mathbb{R}\ \{x \in \mathbb{R} \mid ax^{2} + (3 - a^{2})x - 3a \ge 0\}$
+\item $\displaystyle \forall k \in \mathbb{R}\ \{x \in \mathbb{R} \mid (x + k)^{2} - 2k(x - 2) - 4(x + k) < 0\}$
+\item $\displaystyle \forall k \in \mathbb{R}\ \{x \in \mathbb{R} \mid x(x + 4) - k(k + 6) - 5 > 0\}$
+\item $\displaystyle \forall k \in \mathbb{R}\ \{x \in \mathbb{R} \mid 2x(x - 1) - k(x + 2) + 3k \ge 0\}$
+\item $\displaystyle \forall a \in \mathbb{R}\ \{x \in \mathbb{R} \mid x^{2} + 4ax + 5a^{2} > 0\}$
+\item $\displaystyle \forall a \in \mathbb{R}\ \{x \in \mathbb{R} \mid x^{2} - (a + 1)x + a < 0\}$
+\item $\displaystyle \forall a \in \mathbb{R}\ \{x \in \mathbb{R} \mid x(x - a) \le 2(a - x)\}$
+\item $\displaystyle \{k \in \mathbb{R} \mid \forall x \in \mathbb{R}\ (x^{2} - 2kx + 7 > 0)\}$
+\item $\displaystyle \{b \in \mathbb{R} \mid \lnot \exists x \in \mathbb{R}\ (x^{2} + 3bx - b \le 0)\}$
+\item $\displaystyle \forall a \in \mathbb{R}\ \{x \in \mathbb{R} \mid x^{2} < a\}$
+\item $\displaystyle \forall m \in \mathbb{R}\ \{x \in \mathbb{R} \mid mx > 1\}$
+\item $\displaystyle \forall a \in \mathbb{R}\ \{x \in \mathbb{R} \mid \frac{1}{x - a} > 1\}$
+\item $\displaystyle \forall a \in \mathbb{R}\ \{x \in \mathbb{R} \mid x^{2} + a^{2} < 0\}$
+\item $\displaystyle \forall a \in \mathbb{R}\ \{x \in \mathbb{R} \mid x^{2} + 1 > 0\}$
+\item $\displaystyle \forall k \in \mathbb{R}\ \{x \in \mathbb{R} \mid x^{2} - 2kx + 1 \le 0\}$
+\item $\displaystyle \forall a \in \mathbb{R}\ \{x \in \mathbb{R} \mid x > a \land x < 2a + 1\}$
+\item $\displaystyle \forall a \in \mathbb{R}\ \{x \in \mathbb{R} \mid (x - a)(x - 1) > 0 \land x < 3\}$
+\item $\displaystyle \forall a \in \mathbb{R}\ \{x \in \mathbb{R} \mid \frac{x - a}{x + a} \ge 0\}$
+\item $\displaystyle \{a \in \mathbb{R} \mid \forall x \in \mathbb{R}\ (x^{4} + ax^{2} + 1 > 0)\}$
+\item $\displaystyle \{k \in \mathbb{R} \mid \exists x \in \mathbb{R}\ (x^{2} + kx + 1 = 0)\}$
+\item $\displaystyle \{a \in \mathbb{R} \mid \forall x \in \mathbb{R}\ (ax^{2} + 2x + a < 0)\}$
+\item $\displaystyle \{m \in \mathbb{R} \mid \forall x \in \mathbb{R}\ (x^{2} + 1 > m)\}$
+\item $\displaystyle \{a \in \mathbb{R} \mid \exists x \in \mathbb{R}\ (x^{2} + a^{2} < 0)\}$
+\item $\displaystyle \{a \in \mathbb{R} \mid \forall x \in \mathbb{R}\ (x^{2} + a^{2} \ge 0)\}$
+\item $\displaystyle \{k \in \mathbb{R} \mid \left(\exists x \in \mathbb{R}\ (x^{2} = k)\right) \land \left(\forall x \in \mathbb{R}\ (x^{2} + k \neq 4)\right)\}$
+\end{enumerate}
+\end{document}

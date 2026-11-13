@@ -1,0 +1,46 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Sequences defined by a recurrence (26)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Each statement defines a sequence by its first values and by a rule that gives each term from the previous ones, and then claims either a formula for the $n$-th term or bounds on the terms. All of them are true. $F_n$ are the Fibonacci numbers with $F_0 = 0$, $F_1 = 1$, and $H_n = 1 + \frac12 + \dots + \frac1n$; $x$ is a real number for which every expression is defined. Two statements are written as one formula, with the hypotheses before $\implies$.
+
+\begin{enumerate}
+\item Sia $a_0=0$, $a_1=\sin x$ e $a_{n+1}=2\cos x\,a_n-a_{n-1}$ per $n\ge1$. Allora $a_n=\sin(nx)$ per ogni $n\ge0$.
+\item Sia $b_0=1$, $b_1=\cos x$ e $b_{n+1}=2\cos x\,b_n-b_{n-1}$ per $n\ge1$. Allora $b_n=\cos(nx)$ per ogni $n\ge0$.
+\item Sia $a_0=\cos x$ e $a_{n+1}=2a_n^2-1$. Allora $a_n=\cos\left(2^n x\right)$ per ogni $n\ge0$.
+\item Sia $t_0=\tan x$ e $t_{n+1}=\dfrac{2t_n}{1-t_n^2}$. Allora $t_n=\tan\left(2^n x\right)$ per ogni $n\ge0$.
+\item Let $a_0=1$ and $a_{n+1}=2a_n+1$. Then $a_n=2^{n+1}-1$ for every integer $n\ge0$.
+\item Let $a_0=5$ and $a_{n+1}=3a_n-4$. Then $a_n=3^{n+1}+2$ for every integer $n\ge0$.
+\item Let $a_1=1$ and $a_{n+1}=a_n+2n+1$. Then $a_n=n^2$ for every integer $n\ge1$.
+\item Let $a_0=2$, $a_1=5$ and $a_{n+2}=5a_{n+1}-6a_n$. Then $a_n=2^n+3^n$ for every integer $n\ge0$.
+\item Let $a_0=1$, $a_1=4$ and $a_{n+2}=4a_{n+1}-4a_n$. Then $a_n=\left(n+1\right)2^n$ for every integer $n\ge0$.
+\item Let $a_0=0$, $a_1=1$ and $a_{n+2}=a_{n+1}+a_n$. Then $a_n=F_n$ for every integer $n\ge0$.
+\item Let $a_1=1$ and $a_{n+1}=\frac{a_n}{1+a_n}$. Then $a_n=\frac{1}{n}$ for every integer $n\ge1$.
+\item Let $a_1=2$ and $a_{n+1}=\frac{\left(n+1\right)a_n}{n}$. Then $a_n=2n$ for every integer $n\ge1$.
+\item Let $a_0=1$ and $a_{n+1}=\left(n+1\right)a_n$. Then $a_n=n!$ for every integer $n\ge0$.
+\item Let $a_1=1$ and $a_{n+1}=a_n+\frac{1}{n+1}$. Then $a_n=H_n$ for every integer $n\ge1$.
+\item \[ a_{0} = 3, a_{n + 1} = 2 a_{n} - 1 \implies a_{n} = 2^{n + 1} + 1 \]
+\item Sia $a_0=0$ e $a_{n+1}=\sqrt{6+a_n}$. Allora $a_n<3$ e $a_n<a_{n+1}$ per ogni $n\ge0$.
+\item Sia $a_0=0$ e $a_{n+1}=\sqrt{1+2a_n}$. Allora $a_n<1+\sqrt2$ e $a_n<a_{n+1}$ per ogni $n\ge0$.
+\item Sia $a_0=0$ e $a_{n+1}=\sqrt{2+a_n}$. Allora $a_n<2$ e $a_n<a_{n+1}$ per ogni $n\ge0$.
+\item \[ a_{0} = 0, a_{n + 1} = \sqrt{12 + a_{n}} \implies a_{n} < 4 \land a_{n} < a_{n + 1} \]
+\item Let $a_0=1$ and $a_{n+1}=\frac{a_n}{2}+1$. Then $a_n<2$ and $a_n<a_{n+1}$ for every integer $n\ge0$.
+\item Let $a_0=4$ and $a_{n+1}=\frac{a_n}{2}+1$. Then $a_n>2$ and $a_{n+1}<a_n$ for every integer $n\ge0$.
+\item Let $a_0=5$ and $a_{n+1}=\frac{a_n+3}{2}$. Then $a_n>3$ and $a_{n+1}<a_n$ for every integer $n\ge0$.
+\item Let $a_0=2$ and $a_{n+1}=\frac{a_n}{2}+\frac{1}{a_n}$. Then $a_n^2\ge2$ and $a_{n+1}\le a_n$ for every integer $n\ge0$.
+\item Let $a_0=1$ and $a_{n+1}=\sqrt{2a_n}$. Then $a_n<2$ and $a_n<a_{n+1}$ for every integer $n\ge0$.
+\item Let $a_0=1$ and $a_{n+1}=\frac{1}{1+a_n}$. Then $a_n>0$ and $a_n\le1$ for every integer $n\ge0$.
+\item Let $a_0=\frac{1}{2}$ and $a_{n+1}=a_n^2$. Then $a_n>0$, $a_n<1$ and $a_{n+1}<a_n$ for every integer $n\ge0$.
+\end{enumerate}
+\end{document}

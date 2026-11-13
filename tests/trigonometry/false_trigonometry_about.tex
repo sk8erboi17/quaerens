@@ -1,0 +1,33 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_trigonometry.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_trigonometry.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_trigonometry.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 283 false statements: textbook results with one detail changed, and the five results that the textbook prints wrong.
+
+\item \textbf{What it exercises.} The anti-regression check against false proofs. A result with $2k\pi$ written for $k\pi$, an angle moved to a nearby one, a $<$ written for a $\le$, a family or an interval dropped, a point where a side has no value taken as a solution: the engine must never prove one of them, and today it finds a counterexample for 239.
+
+\item \textbf{Variety.} Every kind of change is applied to equations, inequalities and systems, periodic or restricted to an interval. Each false statement has a point where its two sides differ, found by an independent oracle (\texttt{tools/fuzz/fuzz\_trigonometry.py}).
+
+\item \textbf{Expected result.} The lines \texttt{PASS: 283 of 283 false statements rejected} and \texttt{PASS: 239 of 283 statements \ldots are REFUTED (at least 239 wanted), 0 are PROVED (none allowed)}.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_trigonometry \
+    tests/trigonometry/test_trigonometry.c && /tmp/test_trigonometry
+\end{verbatim}
+\end{enumerate}
+\end{document}

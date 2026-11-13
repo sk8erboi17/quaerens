@@ -1,0 +1,34 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_abstract\_structures.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_abstract\_structures.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_algebraic\_structures.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 26 statements that must never be reported as proved. It is the anti-regression test of chapter 28 of \texttt{main.c}.
+
+\item \textbf{What the statements are.} Statements of \texttt{abstract\_structures.tex} wrong by little: two neutral elements on the same side, a neutral element on one side claimed on the other, associativity claimed to give commutativity, a composition claimed injective when only one map is, a symmetric and transitive relation claimed reflexive. Five statements hold on every finite set and are false in general (an injective map of a set into itself is surjective; a right inverse is unique): no finite model contradicts them, so they check that the absence of small counterexamples is never taken for a proof. Three fail only on the empty set, which is never among the models tried. Two ask for an example that does not exist.
+
+\item \textbf{Adding statements.} Any new statement must be false for some choice of the sets and of what is declared, the empty set included.
+
+\item \textbf{Expected result.} The line \texttt{PASS: 26 of 26 false statements rejected}. Today the first sixteen are refuted with a finite model; the others are left undecided.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_algebraic_structures \
+    tests/algebraic_structures/test_algebraic_structures.c \
+    && /tmp/test_algebraic_structures
+\end{verbatim}
+\end{enumerate}
+\end{document}

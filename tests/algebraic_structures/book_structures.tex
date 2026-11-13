@@ -1,0 +1,164 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Exercises on operations, relations and congruences from a textbook (144)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Every statement below is true: it is a claim that an exercise of a university textbook on algebraic structures asks to prove, written out with quantifiers. An operation or a relation is declared with its rule, or, on an arbitrary set $S$, without one; a property such as ``associative'' is written in full. The engine must prove them all.
+
+\begin{enumerate}
+\item $\displaystyle \forall a \in \mathbb{Z}\ \exists n \in \mathbb{N}\ (a = na)$
+\item $\displaystyle \forall m, n \in \mathbb{N} \setminus \{1\}\ \exists p \in \mathbb{N} \setminus \{1\}\ (mn = p)$
+\item $\displaystyle \lnot (\forall a, b, c \in \mathbb{Z}\ ((a - b) - c = a - (b - c)))$
+\item $\displaystyle \lnot (\forall a, b \in \mathbb{Z}\ (a - b = b - a))$
+\item $\displaystyle \exists e \in \mathbb{Z}\ \forall a \in \mathbb{Z}\ (a - e = a)$
+\item $\displaystyle \lnot (\exists e \in \mathbb{Z}\ \forall a \in \mathbb{Z}\ (e - a = a))$
+\item $\displaystyle \forall a, x, y \in \mathbb{Z}\ ((a - x = a - y \implies x = y) \land (x - a = y - a \implies x = y))$
+\item $\displaystyle (\perp \colon \mathbb{Z} \times \mathbb{Z} \to \mathbb{Z} \land \forall a, b \in \mathbb{Z}\ (a \perp b = a - b)) \implies (\lnot (\forall a, b, c \in \mathbb{Z}\ ((a \perp b) \perp c = a \perp (b \perp c))) \land \lnot (\forall a, b \in \mathbb{Z}\ (a \perp b = b \perp a)) \land \exists e \in \mathbb{Z}\ \forall a \in \mathbb{Z}\ (a \perp e = a) \land \lnot (\exists e \in \mathbb{Z}\ \forall a \in \mathbb{Z}\ (e \perp a = a)) \land \forall a, x, y \in \mathbb{Z}\ ((a \perp x = a \perp y \implies x = y) \land (x \perp a = y \perp a \implies x = y)))$
+\item $\displaystyle \lnot (\forall a, b, c \in \mathbb{Q} \setminus \{0\}\ (\frac{\frac{a}{b}}{c} = \frac{a}{\frac{b}{c}}))$
+\item $\displaystyle \lnot (\forall a, b \in \mathbb{Q} \setminus \{0\}\ (\frac{a}{b} = \frac{b}{a}))$
+\item $\displaystyle \exists e \in \mathbb{Q} \setminus \{0\}\ \forall a \in \mathbb{Q} \setminus \{0\}\ (\frac{a}{e} = a)$
+\item $\displaystyle \forall a, x, y \in \mathbb{Q} \setminus \{0\}\ ((\frac{a}{x} = \frac{a}{y} \implies x = y) \land (\frac{x}{a} = \frac{y}{a} \implies x = y))$
+\item $\displaystyle \lnot (\forall a, b, c \in \mathbb{Z}\ ((a^{2} + b)^{2} + c = a^{2} + (b^{2} + c)))$
+\item $\displaystyle \lnot (\forall a, b \in \mathbb{Z}\ (a^{2} + b = b^{2} + a))$
+\item $\displaystyle \exists e \in \mathbb{Z}\ \forall a \in \mathbb{Z}\ (e^{2} + a = a)$
+\item $\displaystyle \lnot (\exists e \in \mathbb{Z}\ \forall a \in \mathbb{Z}\ (a^{2} + e = a))$
+\item $\displaystyle \forall a \in \mathbb{Z}\ \lnot (\forall x, y \in \mathbb{Z}\ ((a^{2} + x = a^{2} + y \implies x = y) \land (x^{2} + a = y^{2} + a \implies x = y)))$
+\item $\displaystyle (\perp \colon \mathbb{Z} \times \mathbb{Z} \to \mathbb{Z} \land \forall a, b \in \mathbb{Z}\ (a \perp b = a^{2} + b)) \implies (\lnot (\forall a, b, c \in \mathbb{Z}\ ((a \perp b) \perp c = a \perp (b \perp c))) \land \lnot (\forall a, b \in \mathbb{Z}\ (a \perp b = b \perp a)) \land \exists e \in \mathbb{Z}\ \forall a \in \mathbb{Z}\ (e \perp a = a) \land \lnot (\exists e \in \mathbb{Z}\ \forall a \in \mathbb{Z}\ (a \perp e = a)) \land \forall a \in \mathbb{Z}\ \lnot (\forall x, y \in \mathbb{Z}\ ((a \perp x = a \perp y \implies x = y) \land (x \perp a = y \perp a \implies x = y))))$
+\item $\displaystyle \lnot (\forall a, b, c \in \mathbb{Z}\ (4(4a + b) + c = 4a + (4b + c)))$
+\item $\displaystyle \lnot (\forall a, b \in \mathbb{Z}\ (4a + b = 4b + a))$
+\item $\displaystyle \exists e \in \mathbb{Z}\ \forall a \in \mathbb{Z}\ (4e + a = a)$
+\item $\displaystyle \lnot (\exists e \in \mathbb{Z}\ \forall a \in \mathbb{Z}\ (4a + e = a))$
+\item $\displaystyle \forall a, x, y \in \mathbb{Z}\ ((4a + x = 4a + y \implies x = y) \land (4x + a = 4y + a \implies x = y))$
+\item $\displaystyle \forall a, b \in \mathbb{N}\ \exists c \in \mathbb{N}\ (4a + b = c)$
+\item $\displaystyle \forall m, n \in \mathbb{N}_{0}\ \exists p \in \mathbb{N}_{0}\ (4(-m) + (-n) = -p)$
+\item $\displaystyle (\perp \colon \mathbb{Z} \times \mathbb{Z} \to \mathbb{Z} \land \forall a, b \in \mathbb{Z}\ (a \perp b = 4a + b)) \implies (\lnot (\forall a, b, c \in \mathbb{Z}\ ((a \perp b) \perp c = a \perp (b \perp c))) \land \lnot (\forall a, b \in \mathbb{Z}\ (a \perp b = b \perp a)) \land \exists e \in \mathbb{Z}\ \forall a \in \mathbb{Z}\ (e \perp a = a) \land \lnot (\exists e \in \mathbb{Z}\ \forall a \in \mathbb{Z}\ (a \perp e = a)) \land \forall a, x, y \in \mathbb{Z}\ ((a \perp x = a \perp y \implies x = y) \land (x \perp a = y \perp a \implies x = y)) \land \forall a, b \in \mathbb{N}\ \exists c \in \mathbb{N}\ (a \perp b = c))$
+\item $\displaystyle \lnot (\forall a, b, c \in \mathbb{N}\ ((a^{b})^{c} = a^{b^{c}}))$
+\item $\displaystyle \lnot (\forall a, b \in \mathbb{N}\ (a^{b} = b^{a}))$
+\item $\displaystyle \lnot (\forall x, y \in \mathbb{N}\ ((1^{x} = 1^{y} \implies x = y) \land (x^{1} = y^{1} \implies x = y)))$
+\item $\displaystyle \forall a, b \in \mathbb{Z}\ (a^{2} + b^{2} = b^{2} + a^{2})$
+\item $\displaystyle \lnot (\forall a, b, c \in \mathbb{Z}\ ((a^{2} + b^{2})^{2} + c^{2} = a^{2} + (b^{2} + c^{2})^{2}))$
+\item $\displaystyle \forall a \in \mathbb{Z}\ \lnot (\forall x, y \in \mathbb{Z}\ (a^{2} + x^{2} = a^{2} + y^{2} \implies x = y))$
+\item $\displaystyle \lnot (\exists e \in \mathbb{Z}\ \forall a \in \mathbb{Z}\ (e^{2} + a^{2} = a))$
+\item $\displaystyle (\perp \colon \mathbb{Z} \times \mathbb{Z} \to \mathbb{Z} \land \forall a, b \in \mathbb{Z}\ (a \perp b = a^{2} + b^{2})) \implies (\forall a, b \in \mathbb{Z}\ (a \perp b = b \perp a) \land \lnot (\forall a, b, c \in \mathbb{Z}\ ((a \perp b) \perp c = a \perp (b \perp c))) \land \forall a \in \mathbb{Z}\ \lnot (\forall x, y \in \mathbb{Z}\ ((a \perp x = a \perp y \implies x = y) \land (x \perp a = y \perp a \implies x = y))) \land \lnot (\exists e \in \mathbb{Z}\ \forall a \in \mathbb{Z}\ (e \perp a = a \land a \perp e = a)))$
+\item $\displaystyle \forall a, b \in \mathbb{Z}\ (3(a + b) = 3(b + a))$
+\item $\displaystyle \lnot (\forall a, b, c \in \mathbb{Z}\ (3(3(a + b) + c) = 3(a + 3(b + c))))$
+\item $\displaystyle \forall a, x, y \in \mathbb{Z}\ (3(a + x) = 3(a + y) \implies x = y)$
+\item $\displaystyle \lnot (\exists e \in \mathbb{Z}\ \forall a \in \mathbb{Z}\ (3(e + a) = a))$
+\item $\displaystyle (\perp \colon \mathbb{Z} \times \mathbb{Z} \to \mathbb{Z} \land \forall a, b \in \mathbb{Z}\ (a \perp b = 3(a + b))) \implies (\forall a, b \in \mathbb{Z}\ (a \perp b = b \perp a) \land \lnot (\forall a, b, c \in \mathbb{Z}\ ((a \perp b) \perp c = a \perp (b \perp c))) \land \forall a, x, y \in \mathbb{Z}\ ((a \perp x = a \perp y \implies x = y) \land (x \perp a = y \perp a \implies x = y)) \land \lnot (\exists e \in \mathbb{Z}\ \forall a \in \mathbb{Z}\ (e \perp a = a \land a \perp e = a)))$
+\item $\displaystyle \forall a, b \in \mathbb{N}\ \exists c \in \mathbb{N}\ (a + b + ab = c)$
+\item $\displaystyle \forall a, b, c \in \mathbb{N}\ ((a + b + ab) + c + (a + b + ab)c = a + (b + c + bc) + a(b + c + bc))$
+\item $\displaystyle \forall a, b \in \mathbb{N}\ (a + b + ab = b + a + ba)$
+\item $\displaystyle \forall a, x, y \in \mathbb{N}\ (a + x + ax = a + y + ay \implies x = y)$
+\item $\displaystyle \lnot (\exists e \in \mathbb{N}\ \forall a \in \mathbb{N}\ (e + a + ea = a))$
+\item $\displaystyle (\perp \colon \mathbb{N} \times \mathbb{N} \to \mathbb{N} \land \forall a, b \in \mathbb{N}\ (a \perp b = a + b + ab)) \implies (\forall a, b, c \in \mathbb{N}\ ((a \perp b) \perp c = a \perp (b \perp c)) \land \forall a, b \in \mathbb{N}\ (a \perp b = b \perp a) \land \forall a, x, y \in \mathbb{N}\ ((a \perp x = a \perp y \implies x = y) \land (x \perp a = y \perp a \implies x = y)) \land \lnot (\exists e \in \mathbb{N}\ \forall a \in \mathbb{N}\ (e \perp a = a \land a \perp e = a)))$
+\item $\displaystyle \forall a, b, c, d, e, f \in \mathbb{Q}\ ((ac)e = a(ce) \land (ac)f + (ad + b) = a(cf + d) + b)$
+\item $\displaystyle \exists u, v \in \mathbb{Q}\ \forall a, b \in \mathbb{Q}\ (ua = a \land ub + v = b \land au = a \land av + b = b)$
+\item $\displaystyle \lnot (\forall a, b, c, d \in \mathbb{Q}\ (ac = ca \land ad + b = cb + d))$
+\item $\displaystyle (X \cap Y) \cap Z = X \cap (Y \cap Z)$
+\item $\displaystyle X \cap Y = Y \cap X$
+\item $\displaystyle X \subseteq S \implies (X \cap S = X \land S \cap X = X)$
+\item $\displaystyle (X \subseteq S \land Y \subseteq S \land S \cap X = S \cap Y) \implies X = Y$
+\item $\displaystyle (V \subseteq S \land V \neq S) \implies \exists X (X \subseteq S \land V \cap X = V \cap S \land X \neq S)$
+\item $\displaystyle V \subseteq S \implies ((\lnot \exists X \exists Y (X \subseteq S \land Y \subseteq S \land V \cap X = V \cap Y \land X \neq Y)) \iff V = S)$
+\item $\displaystyle X \cap X = X$
+\item $\displaystyle (X \cap Y) \cap X = X \cap Y \land (X \cap Y) \cap Y = X \cap Y \land (X \cap Y) \cap (X \cap Y) = X \cap Y$
+\item $\displaystyle (X \cup Y) \cup Z = X \cup (Y \cup Z)$
+\item $\displaystyle X \cup Y = Y \cup X$
+\item $\displaystyle X \cup \emptyset = X \land \emptyset \cup X = X$
+\item $\displaystyle \emptyset \cup X = \emptyset \cup Y \implies X = Y$
+\item $\displaystyle (V \subseteq S \land V \neq \emptyset) \implies \exists X (X \subseteq S \land V \cup X = V \cup \emptyset \land X \neq \emptyset)$
+\item $\displaystyle X \cup X = X$
+\item $\displaystyle (X \cup Y) \cup X = X \cup Y \land (X \cup Y) \cup Y = X \cup Y \land (X \cup Y) \cup (X \cup Y) = X \cup Y$
+\item $\displaystyle S \neq \emptyset \implies \exists X \exists Y \exists Z (X \subseteq S \land Y \subseteq S \land Z \subseteq S \land (X \setminus Y) \setminus Z \neq X \setminus (Y \setminus Z))$
+\item $\displaystyle S \neq \emptyset \implies (S \setminus \emptyset) \setminus S \neq S \setminus (\emptyset \setminus S)$
+\item $\displaystyle S \neq \emptyset \implies \exists X \exists Y (X \subseteq S \land Y \subseteq S \land X \setminus Y \neq Y \setminus X)$
+\item $\displaystyle S \neq \emptyset \implies S \setminus \emptyset \neq \emptyset \setminus S$
+\item $\displaystyle X \setminus \emptyset = X$
+\item $\displaystyle S \neq \emptyset \implies \lnot \exists V (V \subseteq S \land \lnot \exists X (X \subseteq S \land V \setminus X \neq X))$
+\item $\displaystyle X \setminus X = \emptyset \land X \setminus \emptyset = X \land \emptyset \setminus X = \emptyset \land \emptyset \setminus \emptyset = \emptyset$
+\item $\displaystyle (((X \cup Y) \setminus (X \cap Y)) \cup Z) \setminus (((X \cup Y) \setminus (X \cap Y)) \cap Z) = (X \cup ((Y \cup Z) \setminus (Y \cap Z))) \setminus (X \cap ((Y \cup Z) \setminus (Y \cap Z)))$
+\item $\displaystyle (X \cup Y) \setminus (X \cap Y) = (Y \cup X) \setminus (Y \cap X)$
+\item $\displaystyle (X \cup \emptyset) \setminus (X \cap \emptyset) = X \land (\emptyset \cup X) \setminus (\emptyset \cap X) = X$
+\item $\displaystyle (X \cup X) \setminus (X \cap X) = \emptyset$
+\item $\displaystyle \forall x \in \mathbb{Z}\ (x^{2} = x^{2})$
+\item $\displaystyle \forall x, y \in \mathbb{Z}\ (x^{2} = y^{2} \implies y^{2} = x^{2})$
+\item $\displaystyle \forall x, y, z \in \mathbb{Z}\ ((x^{2} = y^{2} \land y^{2} = z^{2}) \implies x^{2} = z^{2})$
+\item $\displaystyle \forall x, y, z, w \in \mathbb{Z}\ ((x^{2} = y^{2} \land z^{2} = w^{2}) \implies (xz)^{2} = (yw)^{2})$
+\item $\displaystyle R = \{(x, y) \in \mathbb{Z}^{2} \mid x^{2} = y^{2}\} \implies ((\forall x \in \mathbb{Z}\ ((x, x) \in R) \land \forall x, y\ ((x, y) \in R \implies (y, x) \in R) \land \forall x, y, z\ (((x, y) \in R \land (y, z) \in R) \implies (x, z) \in R)) \land \forall x, y, z, w\ (((x, y) \in R \land (z, w) \in R) \implies (xz, yw) \in R))$
+\item $\displaystyle \forall x \in \mathbb{Q}\ \exists k \in \mathbb{Z}\ (x - x = k)$
+\item $\displaystyle \forall a \in \mathbb{Z}\ ((aa - 2)(a - a) = 0)$
+\item $\displaystyle \forall a, b \in \mathbb{Z}\ ((ab - 2)(a - b) = 0 \implies (ba - 2)(b - a) = 0)$
+\item $\displaystyle \lnot (\forall a, b, c, d \in \mathbb{Z}\ (((ab - 2)(a - b) = 0 \land (cd - 2)(c - d) = 0) \implies ((ac)(bd) - 2)(ac - bd) = 0))$
+\item $\displaystyle \forall x \in \mathbb{Z}\ ((\exists k \in \mathbb{Z}\ (5x - 8 = 36k)) \iff (\exists j \in \mathbb{Z}\ (x = 16 + 36j)))$
+\item $\displaystyle \forall x \in \mathbb{Z}\ ((\exists k \in \mathbb{Z}\ (24x - 42 = 15k)) \iff (\exists j \in \mathbb{Z}\ (x = 3 + 5j)))$
+\item $\displaystyle \forall x \in \mathbb{Z}\ ((\exists k \in \mathbb{Z}\ (17x - 3 = 29k)) \iff (\exists j \in \mathbb{Z}\ (x = 7 + 29j)))$
+\item $\displaystyle \forall x \in \mathbb{Z}\ ((\exists k \in \mathbb{Z}\ (3x - 1 = 5k)) \iff (\exists j \in \mathbb{Z}\ (x = 2 + 5j)))$
+\item $\displaystyle \forall x \in \mathbb{Z}\ ((\exists k \in \mathbb{Z}\ (15x - 3 = 7k)) \iff (\exists j \in \mathbb{Z}\ (x = 3 + 7j)))$
+\item $\displaystyle \forall x \in \mathbb{Z}\ ((\exists k \in \mathbb{Z}\ (53x - 7 = 8k)) \iff (\exists j \in \mathbb{Z}\ (x = 3 + 8j)))$
+\item $\displaystyle \forall x \in \mathbb{Z}\ ((\exists k \in \mathbb{Z}\ (10x - 2 = 6k)) \iff (\exists j \in \mathbb{Z}\ (x = 2 + 3j)))$
+\item $\displaystyle \forall x \in \mathbb{Z}\ ((\exists k \in \mathbb{Z}\ (8x - 4 = 9k)) \iff (\exists j \in \mathbb{Z}\ (x = 5 + 9j)))$
+\item $\displaystyle \forall x \in \mathbb{Z}\ ((\exists k \in \mathbb{Z}\ (200x - 10 = 15k)) \iff (\exists j \in \mathbb{Z}\ (x = 2 + 3j)))$
+\item $\displaystyle \forall x \in \mathbb{Z}\ ((\exists k \in \mathbb{Z}\ (24x - 66 = 30k)) \iff (\exists j \in \mathbb{Z}\ (x = 4 + 5j)))$
+\item $\displaystyle \forall a \in \mathbb{Z}\ ((\exists b, k \in \mathbb{Z}\ (ab - 1 = 7k)) \iff \lnot (\exists j \in \mathbb{Z}\ (a = 7j)))$
+\item $\displaystyle \forall a \in \mathbb{Z}\ ((\exists b, k \in \mathbb{Z}\ (ab - 1 = 12k)) \iff (\exists j \in \mathbb{Z}\ (a = 1 + 12j \lor a = 5 + 12j \lor a = 7 + 12j \lor a = 11 + 12j)))$
+\item $\displaystyle \forall a \in \mathbb{Z}\ ((\exists b, k \in \mathbb{Z}\ (ab - 1 = 15k)) \iff (\exists j \in \mathbb{Z}\ (a = 1 + 15j \lor a = 2 + 15j \lor a = 4 + 15j \lor a = 7 + 15j \lor a = 8 + 15j \lor a = 11 + 15j \lor a = 13 + 15j \lor a = 14 + 15j)))$
+\item $\displaystyle \forall a \in \mathbb{Z}\ ((\exists b, k \in \mathbb{Z}\ (ab - 1 = 18k)) \iff (\exists j \in \mathbb{Z}\ (a = 1 + 18j \lor a = 5 + 18j \lor a = 7 + 18j \lor a = 11 + 18j \lor a = 13 + 18j \lor a = 17 + 18j)))$
+\item $\displaystyle \forall a \in \mathbb{Z}\ ((\exists b, k \in \mathbb{Z}\ (ab - 1 = 24k)) \iff (\exists j \in \mathbb{Z}\ (a = 1 + 24j \lor a = 5 + 24j \lor a = 7 + 24j \lor a = 11 + 24j \lor a = 13 + 24j \lor a = 17 + 24j \lor a = 19 + 24j \lor a = 23 + 24j)))$
+\item $\displaystyle \forall x \in \mathbb{Z}\ ((\exists k \in \mathbb{Z}\ (5x - 1 = 12k)) \iff (\exists j \in \mathbb{Z}\ (x = 5 + 12j)))$
+\item $\displaystyle \forall x \in \mathbb{Z}\ ((\exists k \in \mathbb{Z}\ (7x - 1 = 12k)) \iff (\exists j \in \mathbb{Z}\ (x = 7 + 12j)))$
+\item $\displaystyle \exists k \in \mathbb{Z}\ (5 \cdot 5 - 1 = 12k)$
+\item $\displaystyle \forall x \in \mathbb{Z}\ ((\exists k \in \mathbb{Z}\ (4x - 1 = 15k)) \iff (\exists j \in \mathbb{Z}\ (x = 4 + 15j)))$
+\item $\displaystyle \forall x \in \mathbb{Z}\ ((\exists k \in \mathbb{Z}\ (7x - 1 = 15k)) \iff (\exists j \in \mathbb{Z}\ (x = 13 + 15j)))$
+\item $\displaystyle \forall m, n \in \mathbb{Z}\ \exists k \in \mathbb{Z}\ ((2m + 1)^{2} - (2n + 1)^{2} = 4k)$
+\item $\displaystyle \forall a, b \in \mathbb{Z}\ (((\exists m \in \mathbb{Z}\ (a = 2m + 1)) \land (\exists n \in \mathbb{Z}\ (b = 2n + 1))) \implies \exists k \in \mathbb{Z}\ (a^{2} - b^{2} = 4k))$
+\item $\displaystyle \forall a, b \in \mathbb{Z}\ ((2 \nmid a \land 2 \nmid b) \implies a^{2} \equiv b^{2} \pmod{4})$
+\item $\displaystyle \forall x \in \mathbb{Z}\ (((\exists a \in \mathbb{Z}\ (x - 2 = 3a)) \land (\exists b \in \mathbb{Z}\ (x - 5 = 4b)) \land (\exists c \in \mathbb{Z}\ (x - 3 = 5c))) \iff (\exists j \in \mathbb{Z}\ (x = 53 + 60j)))$
+\item $\displaystyle \exists h, k \in \mathbb{Z}\ (10 = 300h + 490k)$
+\item $\displaystyle 10 = 300 \cdot 18 + 490 \cdot (-11)$
+\item $\displaystyle \exists h, k \in \mathbb{Z}\ (5 = 70h + 125k)$
+\item $\displaystyle 5 = 70 \cdot 9 + 125 \cdot (-5)$
+\item $\displaystyle \forall a \in \mathbb{Z}\ \forall m, n \in \mathbb{N}\ \exists p \in \mathbb{N}\ (ma + na = pa)$
+\item $\displaystyle \forall a, b, c, d \in \mathbb{Z}\ \exists p, q \in \mathbb{Z}\ (p = a + c \land q = b + d)$
+\item $\displaystyle \forall a, b, c, d \in \mathbb{Z}\ \exists p, q \in \mathbb{Z}\ (p = ac - bd \land q = ad + bc)$
+\item $\displaystyle \forall a \in \mathbb{Z}\ \forall m, n \in \mathbb{Z}\ \exists p \in \mathbb{Z}\ (ma - na = pa)$
+\item $\displaystyle (\perp \colon S \times S \to S \land \ast \colon T \times T \to T \land \forall x, y, z \in S\ ((x \perp y) \perp z = x \perp (y \perp z)) \land \forall x, y, z \in T\ ((x \ast y) \ast z = x \ast (y \ast z))) \implies \forall a, b, c \in S\ \forall u, v, w \in T\ (((a \perp b) \perp c, (u \ast v) \ast w) = (a \perp (b \perp c), u \ast (v \ast w)))$
+\item $\displaystyle (\perp \colon S \times S \to S \land \ast \colon T \times T \to T \land \forall x, y \in S\ (x \perp y = y \perp x) \land \forall x, y \in T\ (x \ast y = y \ast x)) \implies \forall a, b \in S\ \forall u, v \in T\ ((a \perp b, u \ast v) = (b \perp a, v \ast u))$
+\item $\displaystyle (\perp \colon S \times S \to S \land \ast \colon T \times T \to T \land u \in S \land v \in T \land \forall x \in S\ (u \perp x = x \land x \perp u = x) \land \forall y \in T\ (v \ast y = y \land y \ast v = y)) \implies \forall x \in S\ \forall y \in T\ ((u \perp x, v \ast y) = (x, y) \land (x \perp u, y \ast v) = (x, y))$
+\item $\displaystyle (\perp \colon S \times S \to S \land \ast \colon T \times T \to T \land T \neq \emptyset \land \pi \colon S \times T \to S \land \forall x \in S\ \forall y \in T\ (\pi(x, y) = x)) \implies (\forall a, b \in S\ \forall u, v \in T\ (\pi(a \perp b, u \ast v) = \pi(a, u) \perp \pi(b, v)) \land \forall z \in S\ \exists x \in S\ \exists y \in T\ (\pi(x, y) = z))$
+\item $\displaystyle (\iota \colon S \to S \land \forall x \in S\ (\iota(x) = x)) \implies \forall f \in S^{S}\ \forall x \in S\ (\iota(f(x)) = f(x) \land f(\iota(x)) = f(x))$
+\item $\displaystyle \forall f, g \in S^{S}\ ((\forall a, b \in S\ (f(a) = f(b) \implies a = b) \land \forall a, b \in S\ (g(a) = g(b) \implies a = b)) \implies \forall a, b \in S\ (f(g(a)) = f(g(b)) \implies a = b))$
+\item $\displaystyle \forall f, g \in S^{S}\ ((\forall y \in S\ \exists x \in S\ (f(x) = y) \land \forall y \in S\ \exists x \in S\ (g(x) = y)) \implies \forall y \in S\ \exists x \in S\ (f(g(x)) = y))$
+\item $\displaystyle (\perp \colon S \times S \to S \land \forall x, y, z \in S\ ((x \perp y) \perp z = x \perp (y \perp z))) \implies \forall f, g, h \in S^{X}\ \forall x \in X\ ((f(x) \perp g(x)) \perp h(x) = f(x) \perp (g(x) \perp h(x)))$
+\item $\displaystyle (\perp \colon S \times S \to S \land \forall x, y \in S\ (x \perp y = y \perp x)) \implies \forall f, g \in S^{X}\ \forall x \in X\ (f(x) \perp g(x) = g(x) \perp f(x))$
+\item $\displaystyle (\perp \colon S \times S \to S \land u \in S \land \forall y \in S\ (u \perp y = y \land y \perp u = y) \land e \colon X \to S \land \forall x \in X\ (e(x) = u)) \implies \forall f \in S^{X}\ \forall x \in X\ (e(x) \perp f(x) = f(x) \land f(x) \perp e(x) = f(x))$
+\item $\displaystyle \forall x, y \in \mathbb{Q}\ ((\exists k \in \mathbb{Z}\ (x - y = k)) \implies \exists m \in \mathbb{Z}\ (y - x = m))$
+\item $\displaystyle \forall x, y, z \in \mathbb{Q}\ (((\exists k \in \mathbb{Z}\ (x - y = k)) \land (\exists j \in \mathbb{Z}\ (y - z = j))) \implies \exists m \in \mathbb{Z}\ (x - z = m))$
+\item $\displaystyle \forall x, y, z, w \in \mathbb{Q}\ (((\exists k \in \mathbb{Z}\ (x - y = k)) \land (\exists j \in \mathbb{Z}\ (z - w = j))) \implies \exists m \in \mathbb{Z}\ ((x + z) - (y + w) = m))$
+\item $\displaystyle \forall x, y \in \mathbb{Q}\ (x - y \in \mathbb{Z} \implies y - x \in \mathbb{Z})$
+\item $\displaystyle R = \{(x, y) \in \mathbb{Q}^{2} \mid x - y \in \mathbb{Z}\} \implies ((\forall x \in \mathbb{Q}\ ((x, x) \in R) \land \forall x, y\ ((x, y) \in R \implies (y, x) \in R) \land \forall x, y, z\ (((x, y) \in R \land (y, z) \in R) \implies (x, z) \in R)) \land \forall x, y, z, w\ (((x, y) \in R \land (z, w) \in R) \implies (x + z, y + w) \in R))$
+\item $\displaystyle X \subseteq S \implies (\forall x \in S\ (x = x \lor (x \in X \land x \in X)) \land \forall x, y \in S\ ((x = y \lor (x \in X \land y \in X)) \implies (y = x \lor (y \in X \land x \in X))) \land \forall x, y, z \in S\ (((x = y \lor (x \in X \land y \in X)) \land (y = z \lor (y \in X \land z \in X))) \implies (x = z \lor (x \in X \land z \in X))))$
+\item $\displaystyle X \subseteq S \implies \forall x, y, z, w \in S\ (((x = y \lor (x \in X \land y \in X)) \land (z = w \lor (z \in X \land w \in X))) \implies (x = y \lor (x \in X \land y \in X)))$
+\item $\displaystyle (\perp \colon S \times S \to S \land \ast \colon T \times T \to T \land f \colon S \to T \land \forall x, y \in S\ (f(x \perp y) = f(x) \ast f(y)) \land Y \subseteq T \land \forall u, v \in Y\ (u \ast v \in Y)) \implies \forall x, y \in S\ ((f(x) \in Y \land f(y) \in Y) \implies f(x \perp y) \in Y)$
+\item $\displaystyle X \subseteq S \implies \forall f, g \in S^{S}\ ((\forall x \in X\ (f(x) \in X) \land \forall x \in X\ (g(x) \in X)) \implies \forall x \in X\ (f(g(x)) \in X))$
+\item $\displaystyle R \subseteq S \times S \implies \forall f, g \in S^{S}\ ((\forall x, y \in S\ ((x, y) \in R \implies (f(x), f(y)) \in R) \land \forall x, y \in S\ ((x, y) \in R \implies (g(x), g(y)) \in R)) \implies \forall x, y \in S\ ((x, y) \in R \implies (f(g(x)), f(g(y))) \in R))$
+\item $\displaystyle \forall m \in \mathbb{N}\ \forall a, b, c \in \mathbb{Z} \setminus \{0\}\ (((\exists k \in \mathbb{Z}\ (ac - bc = mk)) \land (\exists u, v \in \mathbb{Z}\ (uc + vm = 1))) \implies \exists j \in \mathbb{Z}\ (a - b = mj))$
+\item $\displaystyle \forall m, n \in \mathbb{N}\ \forall a, b \in \mathbb{Z}\ (((\exists q \in \mathbb{Z}\ (n = mq)) \land (\exists k \in \mathbb{Z}\ (a - b = nk))) \implies \exists j \in \mathbb{Z}\ (a - b = mj))$
+\item $\displaystyle \forall m \in \mathbb{N}\ \forall c \in \mathbb{Z}\ \exists a, j \in \mathbb{Z}\ (a - c = mj)$
+\item $\displaystyle \forall k, m \in \mathbb{N}\ \forall a, b \in \mathbb{Z}\ ((\exists q \in \mathbb{Z}\ (a - b = mq)) \implies \exists j \in \mathbb{Z}\ (ka - kb = mj))$
+\item $\displaystyle \exists p, q \in \mathbb{Z}\ (300 = 10p \land 490 = 10q)$
+\item $\displaystyle \exists p, q \in \mathbb{Z}\ (70 = 5p \land 125 = 5q)$
+\item $\displaystyle \exists e \in \mathbb{N}\ \forall a \in \mathbb{N}\ (a^{e} = a)$
+\item $\displaystyle \lnot (\exists e \in \mathbb{N}\ \forall a \in \mathbb{N}\ (e^{a} = a))$
+\item $\displaystyle \forall a \in \mathbb{Z}\ \exists m, n \in \mathbb{N}_{0}\ (2^{m} a = 2^{n} a)$
+\end{enumerate}
+\end{document}

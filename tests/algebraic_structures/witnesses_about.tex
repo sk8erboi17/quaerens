@@ -1,0 +1,34 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{witnesses.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{witnesses.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_algebraic\_structures.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 24 true statements whose proof has to use a hypothesis of the form ``there is $k$'', or a congruence or a divisibility whose modulus is a letter. Each must be proved, with a written proof.
+
+\item \textbf{What it exercises.} Rule 18u of \texttt{main.c}: the witness of each such hypothesis gets a name, memberships and divisibilities are replaced by their definition, and the number the thesis asks for is found as a polynomial in the named witnesses, such that the equation of the thesis is a combination of the hypotheses (rule 18s, with the extension to a factor that is never zero). The last statements have no hypothesis: the value is found when solving the equation would divide by a number that can be zero, or when two values are asked for at once.
+
+\item \textbf{Variety.} Congruence modulo a letter is reflexive, symmetric, transitive, compatible with sum, product and square; divisibility chains; ``the difference is an integer'' among the rationals, written with $\exists$ and with $\in \mathbb{Z}$; cancellation with a B\'ezout identity; an equivalence; a negated divisibility among the hypotheses; two hypotheses and a thesis that all use the same letter $k$, as books write them.
+
+\item \textbf{Expected result.} The line \texttt{PASS: 24 of 24 statements proved, each with a written proof}.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_algebraic_structures \
+    tests/algebraic_structures/test_algebraic_structures.c \
+    && /tmp/test_algebraic_structures
+\end{verbatim}
+\end{enumerate}
+\end{document}

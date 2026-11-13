@@ -1,0 +1,227 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Exponential and logarithmic results that are wrong (207)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Every statement below is false: a textbook result with one detail changed (an endpoint moved, included or excluded, a solution dropped, a point outside the domain included), or the one result printed wrong in the book. The engine must never prove one of them.
+
+\begin{enumerate}
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( -2 \cdot 5^{x+2} + 25^{x+1} = 375 \iff \left( x = 2 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( -2 \cdot 5^{x+2} + 25^{x+1} = 375 \iff \left( x = 0 \lor x = 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \lnot \left( -2 \cdot 5^{x+2} + 25^{x+1} = 375 \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 9^{x} + 9 = 10 \cdot 3^{x} \iff \left( x = 0 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 9^{x} + 9 = 10 \cdot 3^{x} \iff \left( x = 0 \lor x = 1 \lor x = 2 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 9^{x} + 9 = 10 \cdot 3^{x} \iff \left( x = 0 \lor x = 3 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 2^{4x+3} + 2 = 17 \cdot 4^{x} \iff \left( x = \frac{1}{2} \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 2^{4x+3} + 2 = 17 \cdot 4^{x} \iff \left( x = -\frac{3}{2} \lor x = \frac{1}{2} \lor x = 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 2^{4x+3} + 2 = 17 \cdot 4^{x} \iff \left( x = -\frac{2}{3} \lor x = \frac{1}{2} \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 5^{x+2} - 4 \cdot 5^{1-x} - 30 = -5^{2-x} \iff \left( x = 0 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 5^{x+2} - 4 \cdot 5^{1-x} - 30 = -5^{2-x} \iff \left( x = -1 \lor x = 0 \lor x = 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 5^{x+2} - 4 \cdot 5^{1-x} - 30 = -5^{2-x} \iff \left( x = -1 \lor x = \frac{1}{5} \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 3^{x} - 3^{-1} = 3(2 \cdot 3^{-x} + 8 \cdot 3^{-1}) \iff \left( x = 9 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 3^{x} - 3^{-1} = 3(2 \cdot 3^{-x} + 8 \cdot 3^{-1}) \iff \left( x = -1 \lor x = 2 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \lnot \left( 3^{x} - 3^{-1} = 3(2 \cdot 3^{-x} + 8 \cdot 3^{-1}) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{4}{2^{x} - 1} + \frac{3}{2^{x} + 1} = 5 \iff \left( x = 2 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{4}{2^{x} - 1} + \frac{3}{2^{x} + 1} = 5 \iff \left( x = 0 \lor x = 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \lnot \left( \frac{4}{2^{x} - 1} + \frac{3}{2^{x} + 1} = 5 \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{2 \cdot (3^{x} + 1)}{3^{x}} = \frac{3 \cdot (3^{x} + 1)}{2 \cdot 3^{x} + 1} \iff \left( x = 0 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{2 \cdot (3^{x} + 1)}{3^{x}} = \frac{3 \cdot (3^{x} + 1)}{2 \cdot 3^{x} + 1} \iff \left( x = -1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \left(\frac{1}{4}\right)^{x} - 4 = 3 \cdot 2^{-x} \iff \left( x = 2 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \left(\frac{1}{4}\right)^{x} - 4 = 3 \cdot 2^{-x} \iff \left( x = -2 \lor x = 0 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \lnot \left( \left(\frac{1}{4}\right)^{x} - 4 = 3 \cdot 2^{-x} \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \sqrt[3]{11^{9x}} - 11^{2x} + 121(1 - 11^{x}) = 0 \iff \left( x = 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \sqrt[3]{11^{9x}} - 11^{2x} + 121(1 - 11^{x}) = 0 \iff \left( x = 0 \lor x = 1 \lor x = 2 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \sqrt[3]{11^{9x}} - 11^{2x} + 121(1 - 11^{x}) = 0 \iff \left( x = -1 \lor x = 0 \lor x = 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{\sqrt{3^{x}}}{\sqrt{3^{x+1}} \cdot 9^{x+2}} = \frac{1}{9} \iff \left( x = \frac{5}{4} \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{\sqrt{3^{x}}}{\sqrt{3^{x+1}} \cdot 9^{x+2}} = \frac{1}{9} \iff \left( x = -\frac{4}{5} \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \lnot \left( \frac{\sqrt{3^{x}}}{\sqrt{3^{x+1}} \cdot 9^{x+2}} = \frac{1}{9} \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{\sqrt{3 \cdot \sqrt{9^{x}}}}{81^{x-1}} = 9^{2x+3} \iff \left( x = \frac{1}{5} \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{\sqrt{3 \cdot \sqrt{9^{x}}}}{81^{x-1}} = 9^{2x+3} \iff \left( x = -5 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \lnot \left( \frac{\sqrt{3 \cdot \sqrt{9^{x}}}}{81^{x-1}} = 9^{2x+3} \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{(2^{x})^{x-3}}{\sqrt{8^{x}}} = \frac{(\sqrt{2})^{3x}}{32} \iff \left( x = 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \lnot \left( \frac{(2^{x})^{x-3}}{\sqrt{8^{x}}} = \frac{(\sqrt{2})^{3x}}{32} \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{(2^{x})^{x-3}}{\sqrt{8^{x}}} = \frac{(\sqrt{2})^{3x}}{32} \iff \left( x = 1 \lor x = 3 \lor x = 5 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \sqrt[x+2]{25^{x}} \cdot \sqrt[x]{5^{4}} = 125 \iff \left( x = -4 \lor x = 2 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \sqrt[x+2]{25^{x}} \cdot \sqrt[x]{5^{4}} = 125 \iff \left( x = 4 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \lnot \left( \sqrt[x+2]{25^{x}} \cdot \sqrt[x]{5^{4}} = 125 \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{24}{3^{x} - 1} - \frac{9}{3^{x}} = 2 \iff \left( x = 0 \lor x = 2 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{24}{3^{x} - 1} - \frac{9}{3^{x}} = 2 \iff \left( x = 9 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \lnot \left( \frac{24}{3^{x} - 1} - \frac{9}{3^{x}} = 2 \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 3^{-x} + \frac{3^{x} + 2}{3^{x} + 6} = \frac{24}{3^{2x} + 6 \cdot 3^{x}} \iff \left( x = 3 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 3^{-x} + \frac{3^{x} + 2}{3^{x} + 6} = \frac{24}{3^{2x} + 6 \cdot 3^{x}} \iff \left( x = 0 \lor x = 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \lnot \left( 3^{-x} + \frac{3^{x} + 2}{3^{x} + 6} = \frac{24}{3^{2x} + 6 \cdot 3^{x}} \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 1 + 26 \cdot 3^{\frac{1}{2}x - 2} = 3^{x-1} \iff \left( x = 2 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 1 + 26 \cdot 3^{\frac{1}{2}x - 2} = 3^{x-1} \iff \left( x = 4 \lor x = 9 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \lnot \left( 1 + 26 \cdot 3^{\frac{1}{2}x - 2} = 3^{x-1} \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \left| 8^{x} - 2 \right| = \sqrt{2^{3x}} \iff \left( x = \frac{2}{3} \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \lnot \left( \left| 8^{x} - 2 \right| = \sqrt{2^{3x}} \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \left| 8^{x} - 2 \right| = \sqrt{2^{3x}} \iff \left( x = 0 \lor x = \frac{2}{3} \lor x = 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 4^{\sqrt{x+2}} + 6 = 4^{2 - \sqrt{x+2}} \iff \left( x = \frac{7}{4} \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 4^{\sqrt{x+2}} + 6 = 4^{2 - \sqrt{x+2}} \iff \left( x = -2 \lor x = -\frac{7}{4} \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \lnot \left( 4^{\sqrt{x+2}} + 6 = 4^{2 - \sqrt{x+2}} \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 10^{x} - 2^{x} - 5^{x} + 1 = 0 \iff \left( x = 0 \lor x = 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 10^{x} - 2^{x} - 5^{x} + 1 = 0 \iff \left( x = 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \lnot \left( 10^{x} - 2^{x} - 5^{x} + 1 = 0 \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 25 \cdot \left(\frac{2}{5}\right)^{-x} - 10\left[\left(\frac{5}{2}\right)^{2x} - 1\right] = 4\left(\frac{5}{2}\right)^{x} \iff \left( x = -1 \lor x = 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 25 \cdot \left(\frac{2}{5}\right)^{-x} - 10\left[\left(\frac{5}{2}\right)^{2x} - 1\right] = 4\left(\frac{5}{2}\right)^{x} \iff \left( x = \frac{5}{2} \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \lnot \left( 25 \cdot \left(\frac{2}{5}\right)^{-x} - 10\left[\left(\frac{5}{2}\right)^{2x} - 1\right] = 4\left(\frac{5}{2}\right)^{x} \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 2^{2x-1} \cdot 3^{x} = \frac{1}{2 \cdot 3^{x}} \iff \left( x = 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 2^{2x-1} \cdot 3^{x} = \frac{1}{2 \cdot 3^{x}} \iff \left( x = -1 \lor x = 0 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \lnot \left( 2^{2x-1} \cdot 3^{x} = \frac{1}{2 \cdot 3^{x}} \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 2 - \frac{6}{4^{x+1}} + \frac{1}{4^{2x+1}} = 0 \iff \left( x = -1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 2 - \frac{6}{4^{x+1}} + \frac{1}{4^{2x+1}} = 0 \iff \left( x = -1 \lor x = \frac{1}{2} \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 2 - \frac{6}{4^{x+1}} + \frac{1}{4^{2x+1}} = 0 \iff \left( x = -1 \lor x = -\frac{1}{2} \lor x = 0 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 5^{x+1} \cdot 25^{x} = \sqrt{5^{1-x}} \cdot \sqrt{125} \iff \left( x = \frac{7}{2} \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 5^{x+1} \cdot 25^{x} = \sqrt{5^{1-x}} \cdot \sqrt{125} \iff \left( x = -\frac{2}{7} \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \lnot \left( 5^{x+1} \cdot 25^{x} = \sqrt{5^{1-x}} \cdot \sqrt{125} \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{5^{x+2} \cdot 25^{1-x}}{125^{x}} = \frac{1}{5} \iff \left( x = \frac{4}{5} \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{5^{x+2} \cdot 25^{1-x}}{125^{x}} = \frac{1}{5} \iff \left( x = -\frac{5}{4} \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \lnot \left( \frac{5^{x+2} \cdot 25^{1-x}}{125^{x}} = \frac{1}{5} \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 27^{\frac{2}{3}x} - 3^{2x+3} + 9^{x+2} = 165 \iff \left( x = 2 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 27^{\frac{2}{3}x} - 3^{2x+3} + 9^{x+2} = 165 \iff \left( x = \frac{1}{2} \lor x = 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \lnot \left( 27^{\frac{2}{3}x} - 3^{2x+3} + 9^{x+2} = 165 \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \left(\frac{2}{5}\right)^{x-1} - \left(\frac{5}{2}\right)^{\frac{x-1}{x}} = 0 \iff \left( x = 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \lnot \left( \left(\frac{2}{5}\right)^{x-1} - \left(\frac{5}{2}\right)^{\frac{x-1}{x}} = 0 \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \left(\frac{2}{5}\right)^{x-1} - \left(\frac{5}{2}\right)^{\frac{x-1}{x}} = 0 \iff \left( x = -1 \lor x = 0 \lor x = 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{5^{x}}{5^{x} + 1} - \frac{1}{25^{x} - 1} = 1 \iff \left( x = 0 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{5^{x}}{5^{x} + 1} - \frac{1}{25^{x} - 1} = 1 \iff \left( x = 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 2^{x+5} \cdot 3^{x+2} \le 8 \cdot 6^{\frac{3x-1}{x}} \iff \left( x \le 0 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 2^{x+5} \cdot 3^{x+2} \le 8 \cdot 6^{\frac{3x-1}{x}} \iff \left( x < 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 2^{x+5} \cdot 3^{x+2} \le 8 \cdot 6^{\frac{3x-1}{x}} \iff \left( x > 0 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{3 \cdot 3^{2x} - 4 \cdot 4^{2x}}{\left| -1 + 5^{x+1} \right| - 4} < 0 \iff \left( x < -\frac{1}{2} \lor x \ge 0 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{3 \cdot 3^{2x} - 4 \cdot 4^{2x}}{\left| -1 + 5^{x+1} \right| - 4} < 0 \iff \left( x \le -\frac{1}{2} \lor x > 0 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{3 \cdot 3^{2x} - 4 \cdot 4^{2x}}{\left| -1 + 5^{x+1} \right| - 4} < 0 \iff \left( x < -\frac{1}{2} \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{9 \cdot 3^{-x}}{9^{x} + 3^{2x}} > \frac{27}{2} \iff \left( x \le -\frac{1}{3} \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{9 \cdot 3^{-x}}{9^{x} + 3^{2x}} > \frac{27}{2} \iff \left( x < \frac{1}{3} \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{9 \cdot 3^{-x}}{9^{x} + 3^{2x}} > \frac{27}{2} \iff \left( x > -\frac{1}{3} \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( (2^{x+2})^{2} \cdot 3^{x} < \frac{2}{3^{x+3}} \iff \left( x \le -\frac{3}{2} \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( (2^{x+2})^{2} \cdot 3^{x} < \frac{2}{3^{x+3}} \iff \left( x < -\frac{2}{3} \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( (2^{x+2})^{2} \cdot 3^{x} < \frac{2}{3^{x+3}} \iff \left( x > -\frac{3}{2} \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{7^{2\sqrt{2x^{2-x}}}}{\sqrt{9^{x} - 10 \cdot 3^{x} + 9}} \ge 0 \iff \left( x \ge 2 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{7^{2\sqrt{2x^{2-x}}}}{\sqrt{9^{x} - 10 \cdot 3^{x} + 9}} \ge 0 \iff \left( x < 0 \lor x > 2 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{7^{2\sqrt{2x^{2-x}}}}{\sqrt{9^{x} - 10 \cdot 3^{x} + 9}} \ge 0 \iff \left( x > 0 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{\sqrt{\frac{3^{6x}}{3^{2}}}}{3^{7}} < \left| -3^{-x} \right| \iff \left( x \le 2 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{\sqrt{\frac{3^{6x}}{3^{2}}}}{3^{7}} < \left| -3^{-x} \right| \iff \left( x < 3 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{\sqrt{\frac{3^{6x}}{3^{2}}}}{3^{7}} < \left| -3^{-x} \right| \iff \left( x > 2 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 2^{x} - 1 > \sqrt{3 \cdot 2^{x} - 3} \iff \left( x \ge 2 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 2^{x} - 1 > \sqrt{3 \cdot 2^{x} - 3} \iff \left( x > 0 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 2^{x} - 1 > \sqrt{3 \cdot 2^{x} - 3} \iff \left( x > 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 2^{x} < \frac{7^{x+1}}{2} \iff \left( x \ge -1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 2^{x} < \frac{7^{x+1}}{2} \iff \left( x < -1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 2^{x} < \frac{7^{x+1}}{2} \iff \left( x > 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 16 \cdot 4^{2x} < 3^{x+1} \iff \left( x \le -1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 16 \cdot 4^{2x} < 3^{x+1} \iff \left( x > -1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 16 \cdot 4^{2x} < 3^{x+1} \iff \left( x < 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 2^{x} + 2^{x+1} + 2^{x+2} > 14 \iff \left( x \ge 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 2^{x} + 2^{x+1} + 2^{x+2} > 14 \iff \left( x > 2 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 2^{x} + 2^{x+1} + 2^{x+2} > 14 \iff \left( x < 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \log_{3}(2 + x)\log_{2}(x - 4) = 0 \iff \left( x = -1 \lor x = 5 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \log_{3}(2 + x)\log_{2}(x - 4) = 0 \iff \left( x = 4 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \lnot \left( \log_{3}(2 + x)\log_{2}(x - 4) = 0 \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{3\log_{\frac{1}{2}} x}{\log_{2} x - 1} = -4 \iff \left( x = 4 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{3\log_{\frac{1}{2}} x}{\log_{2} x - 1} = -4 \iff \left( x = 2 \lor x = 16 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \lnot \left( \frac{3\log_{\frac{1}{2}} x}{\log_{2} x - 1} = -4 \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \left(\log_{10} x\right)^{2} - 2\log_{10} x = -1 \iff \left( x = 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \left(\log_{10} x\right)^{2} - 2\log_{10} x = -1 \iff \left( x = \frac{1}{10} \lor x = 10 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \lnot \left( \left(\log_{10} x\right)^{2} - 2\log_{10} x = -1 \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \left(\log_{10} x^{2}\right)^{2} + 4\log_{10} x = 0 \iff \left( x = 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \lnot \left( \left(\log_{10} x^{2}\right)^{2} + 4\log_{10} x = 0 \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \left(\log_{10} x^{2}\right)^{2} + 4\log_{10} x = 0 \iff \left( x = -1 \lor x = \frac{1}{10} \lor x = 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( -\log_{\frac{1}{3}} 6 + \log_{3}(x + 1) = \log_{3}(5x) \iff \left( x = -6 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( -\log_{\frac{1}{3}} 6 + \log_{3}(x + 1) = \log_{3}(5x) \iff \left( x = 6 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 1 + \frac{\log_{2}(x + 1)}{\log_{2} x} = \frac{1}{\log_{2} x} \iff \left( x = 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( 1 + \frac{\log_{2}(x + 1)}{\log_{2} x} = \frac{1}{\log_{2} x} \iff \left( x = -2 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{3}{\log_{2} x - 1} + \frac{2}{\log_{2} x + 1} = 2 \iff \left( x = 8 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{3}{\log_{2} x - 1} + \frac{2}{\log_{2} x + 1} = 2 \iff \left( x = -\frac{1}{2} \lor x = 8 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{3}{\log_{2} x - 1} + \frac{2}{\log_{2} x + 1} = 2 \iff \left( x = \frac{\sqrt{2}}{2} \lor x = 2 \lor x = 8 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \log_{3}(2x - 1) = 2\log_{9}(3x + 6) - 2 \iff \left( x = \frac{1}{2} \lor x = 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \log_{3}(2x - 1) = 2\log_{9}(3x + 6) - 2 \iff \left( x = 3 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \lnot \left( \log_{3}(2x - 1) = 2\log_{9}(3x + 6) - 2 \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{3}{\log_{2} x(1 + \log_{2} x)} = 2 - \frac{3}{\log_{2} x} \iff \left( x = 4 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{3}{\log_{2} x(1 + \log_{2} x)} = 2 - \frac{3}{\log_{2} x} \iff \left( x = \frac{1}{2\sqrt{2}} \lor x = 1 \lor x = 4 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{3}{\log_{2} x(1 + \log_{2} x)} = 2 - \frac{3}{\log_{2} x} \iff \left( x = \frac{1}{2\sqrt{2}} \lor x = \frac{1}{2} \lor x = 4 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{\log_{\frac{1}{3}}(2x + 4) + \log_{3} x + \log_{3}(x - 1)}{\log_{3}\frac{x}{2}} = 0 \iff \left( x = -1 \lor x = 4 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{\log_{\frac{1}{3}}(2x + 4) + \log_{3} x + \log_{3}(x - 1)}{\log_{3}\frac{x}{2}} = 0 \iff \left( x = 2 \lor x = 4 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \lnot \left( \frac{\log_{\frac{1}{3}}(2x + 4) + \log_{3} x + \log_{3}(x - 1)}{\log_{3}\frac{x}{2}} = 0 \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \sqrt{2\left(\log_{\frac{1}{2}} x\right)^{2} + \log_{\frac{1}{2}} x - 1} = \sqrt{2\left(\log_{\frac{1}{2}} x\right)^{2} + \log_{\frac{1}{2}} x - 1} \iff \left( 0 < x < \frac{\sqrt{2}}{2} \lor x \ge 2 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \sqrt{2\left(\log_{\frac{1}{2}} x\right)^{2} + \log_{\frac{1}{2}} x - 1} = \sqrt{2\left(\log_{\frac{1}{2}} x\right)^{2} + \log_{\frac{1}{2}} x - 1} \iff \left( x \le \frac{\sqrt{2}}{2} \lor x \ge 2 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \sqrt{2\left(\log_{\frac{1}{2}} x\right)^{2} + \log_{\frac{1}{2}} x - 1} = \sqrt{2\left(\log_{\frac{1}{2}} x\right)^{2} + \log_{\frac{1}{2}} x - 1} \iff \left( 0 < x \le \frac{\sqrt{2}}{2} \lor x > 2 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{\sqrt{e^{x} - 6}}{2\left(\ln x\right)^{2} - 3\ln x + 1} = \frac{\sqrt{e^{x} - 6}}{2\left(\ln x\right)^{2} - 3\ln x + 1} \iff \left( x \ge \ln 6 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{\sqrt{e^{x} - 6}}{2\left(\ln x\right)^{2} - 3\ln x + 1} = \frac{\sqrt{e^{x} - 6}}{2\left(\ln x\right)^{2} - 3\ln x + 1} \iff \left( \ln 6 < x < e \lor x > e \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{\sqrt{e^{x} - 6}}{2\left(\ln x\right)^{2} - 3\ln x + 1} = \frac{\sqrt{e^{x} - 6}}{2\left(\ln x\right)^{2} - 3\ln x + 1} \iff \left( 1 \le x < e \lor x > e \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \sqrt{1 - 3^{x-2}} - \sqrt{6^{2x+1} - 12} = \sqrt{1 - 3^{x-2}} - \sqrt{6^{2x+1} - 12} \iff \left( \frac{\ln 2}{2\ln 6} < x \le 2 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \sqrt{1 - 3^{x-2}} - \sqrt{6^{2x+1} - 12} = \sqrt{1 - 3^{x-2}} - \sqrt{6^{2x+1} - 12} \iff \left( \frac{\ln 2}{2\ln 6} \le x < 2 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \sqrt{1 - 3^{x-2}} - \sqrt{6^{2x+1} - 12} = \sqrt{1 - 3^{x-2}} - \sqrt{6^{2x+1} - 12} \iff \left( 0 \le x \le 2 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{\sqrt{4 - x^{2}}}{\log_{3}\log_{\frac{1}{2}}(1 - 2^{x})} = \frac{\sqrt{4 - x^{2}}}{\log_{3}\log_{\frac{1}{2}}(1 - 2^{x})} \iff \left( -2 \le x < 0 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{\sqrt{4 - x^{2}}}{\log_{3}\log_{\frac{1}{2}}(1 - 2^{x})} = \frac{\sqrt{4 - x^{2}}}{\log_{3}\log_{\frac{1}{2}}(1 - 2^{x})} \iff \left( -2 \le x < -1 \lor -1 < x \le 0 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{\sqrt{4 - x^{2}}}{\log_{3}\log_{\frac{1}{2}}(1 - 2^{x})} = \frac{\sqrt{4 - x^{2}}}{\log_{3}\log_{\frac{1}{2}}(1 - 2^{x})} \iff \left( -2 < x < -1 \lor -1 < x < 0 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{\sqrt{\log_{\frac{1}{3}} x}}{\log_{2}(3 - 2x)} = \frac{\sqrt{\log_{\frac{1}{3}} x}}{\log_{2}(3 - 2x)} \iff \left( 0 < x \le 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{\sqrt{\log_{\frac{1}{3}} x}}{\log_{2}(3 - 2x)} = \frac{\sqrt{\log_{\frac{1}{3}} x}}{\log_{2}(3 - 2x)} \iff \left( 0 \le x < 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{\sqrt{\log_{\frac{1}{3}} x}}{\log_{2}(3 - 2x)} = \frac{\sqrt{\log_{\frac{1}{3}} x}}{\log_{2}(3 - 2x)} \iff \left( 0 < x < \frac{3}{2} \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{\sqrt{9^{x} - 3}}{\log_{3}\sqrt{\left| x \right|}} = \frac{\sqrt{9^{x} - 3}}{\log_{3}\sqrt{\left| x \right|}} \iff \left( x \ge \frac{1}{2} \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{\sqrt{9^{x} - 3}}{\log_{3}\sqrt{\left| x \right|}} = \frac{\sqrt{9^{x} - 3}}{\log_{3}\sqrt{\left| x \right|}} \iff \left( \frac{1}{2} < x < 1 \lor x > 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{\sqrt{9^{x} - 3}}{\log_{3}\sqrt{\left| x \right|}} = \frac{\sqrt{9^{x} - 3}}{\log_{3}\sqrt{\left| x \right|}} \iff \left( 0 < x < 1 \lor x > 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \sqrt{\frac{\ln(3 - x) - \ln(2x)}{\ln(3 - x)}} = \sqrt{\frac{\ln(3 - x) - \ln(2x)}{\ln(3 - x)}} \iff \left( 0 < x \le 1 \lor 2 \le x < 3 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \sqrt{\frac{\ln(3 - x) - \ln(2x)}{\ln(3 - x)}} = \sqrt{\frac{\ln(3 - x) - \ln(2x)}{\ln(3 - x)}} \iff \left( 0 < x < 1 \lor 2 < x < 3 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \sqrt{\frac{\ln(3 - x) - \ln(2x)}{\ln(3 - x)}} = \sqrt{\frac{\ln(3 - x) - \ln(2x)}{\ln(3 - x)}} \iff \left( 0 < x \le 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \sqrt{\frac{\log_{10} x - 2}{2^{2x-2} - 64}} = \sqrt{\frac{\log_{10} x - 2}{2^{2x-2} - 64}} \iff \left( 0 < x \le 4 \lor x \ge 100 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \sqrt{\frac{\log_{10} x - 2}{2^{2x-2} - 64}} = \sqrt{\frac{\log_{10} x - 2}{2^{2x-2} - 64}} \iff \left( 0 < x < 4 \lor x > 100 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \sqrt{\frac{\log_{10} x - 2}{2^{2x-2} - 64}} = \sqrt{\frac{\log_{10} x - 2}{2^{2x-2} - 64}} \iff \left( x < 4 \lor x \ge 100 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{\log_{10}(12x - 7)}{\left| 7^{x} - 1 \right| - 6} = \frac{\log_{10}(12x - 7)}{\left| 7^{x} - 1 \right| - 6} \iff \left( x > \frac{7}{12} \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{\log_{10}(12x - 7)}{\left| 7^{x} - 1 \right| - 6} = \frac{\log_{10}(12x - 7)}{\left| 7^{x} - 1 \right| - 6} \iff \left( \frac{7}{12} \le x < 1 \lor x > 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{\log_{10}(12x - 7)}{\left| 7^{x} - 1 \right| - 6} = \frac{\log_{10}(12x - 7)}{\left| 7^{x} - 1 \right| - 6} \iff \left( x > 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( e^{\frac{6}{\log_{2}(3 + x) - 2}} = e^{\frac{6}{\log_{2}(3 + x) - 2}} \iff \left( x > -3 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( e^{\frac{6}{\log_{2}(3 + x) - 2}} = e^{\frac{6}{\log_{2}(3 + x) - 2}} \iff \left( -3 \le x < 1 \lor x > 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( e^{\frac{6}{\log_{2}(3 + x) - 2}} = e^{\frac{6}{\log_{2}(3 + x) - 2}} \iff \left( x < 1 \lor x > 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{1}{\log_{2} x^{2} - 4} - \frac{1}{2 - \log_{2}\left| x \right|} = \frac{1}{\log_{2} x^{2} - 4} - \frac{1}{2 - \log_{2}\left| x \right|} \iff \left( x < 0 \lor 0 < x < 4 \lor x > 4 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{1}{\log_{2} x^{2} - 4} - \frac{1}{2 - \log_{2}\left| x \right|} = \frac{1}{\log_{2} x^{2} - 4} - \frac{1}{2 - \log_{2}\left| x \right|} \iff \left( x < -4 \lor -4 < x < 4 \lor x > 4 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{1}{\log_{2} x^{2} - 4} - \frac{1}{2 - \log_{2}\left| x \right|} = \frac{1}{\log_{2} x^{2} - 4} - \frac{1}{2 - \log_{2}\left| x \right|} \iff \left( 0 < x < 4 \lor x > 4 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \sqrt{\left| e^{x} - 2 \right| - 1} = \sqrt{\left| e^{x} - 2 \right| - 1} \iff \left( x < 0 \lor x \ge \ln 3 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \sqrt{\left| e^{x} - 2 \right| - 1} = \sqrt{\left| e^{x} - 2 \right| - 1} \iff \left( x \le 0 \lor x > \ln 3 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \sqrt{\left| e^{x} - 2 \right| - 1} = \sqrt{\left| e^{x} - 2 \right| - 1} \iff \left( x \le 0 \lor x \ge 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \log_{\frac{1}{2}}\left[\log_{\frac{1}{2}}(x + 5)\right] = \log_{\frac{1}{2}}\left[\log_{\frac{1}{2}}(x + 5)\right] \iff \left( -5 < x \le -4 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \log_{\frac{1}{2}}\left[\log_{\frac{1}{2}}(x + 5)\right] = \log_{\frac{1}{2}}\left[\log_{\frac{1}{2}}(x + 5)\right] \iff \left( -5 \le x < -4 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \log_{\frac{1}{2}}\left[\log_{\frac{1}{2}}(x + 5)\right] = \log_{\frac{1}{2}}\left[\log_{\frac{1}{2}}(x + 5)\right] \iff \left( x > -5 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{1}{5^{x} - 25^{x} + 6} = \frac{1}{5^{x} - 25^{x} + 6} \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{1}{5^{x} - 25^{x} + 6} = \frac{1}{5^{x} - 25^{x} + 6} \iff \left( x < 1 \lor x > 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{1}{5^{x} - 25^{x} + 6} = \frac{1}{5^{x} - 25^{x} + 6} \iff \left( x < \frac{\log_{10} 5}{\log_{10} 3} \lor x > \frac{\log_{10} 5}{\log_{10} 3} \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{5}{\left| \log_{2}(5 - x) \right| - 1} = \frac{5}{\left| \log_{2}(5 - x) \right| - 1} \iff \left( x < 3 \lor 3 < x < 5 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{5}{\left| \log_{2}(5 - x) \right| - 1} = \frac{5}{\left| \log_{2}(5 - x) \right| - 1} \iff \left( x < \frac{9}{2} \lor \frac{9}{2} < x < 5 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{5}{\left| \log_{2}(5 - x) \right| - 1} = \frac{5}{\left| \log_{2}(5 - x) \right| - 1} \iff \left( x < 3 \lor 3 < x < \frac{9}{2} \lor \frac{9}{2} < x \le 5 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \log_{10}(2^{-x} - 3) = \log_{10}(2^{-x} - 3) \iff \left( x \le -\frac{\log_{10} 3}{\log_{10} 2} \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \log_{10}(2^{-x} - 3) = \log_{10}(2^{-x} - 3) \iff \left( x < \frac{\log_{10} 3}{\log_{10} 2} \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \log_{10}(2^{-x} - 3) = \log_{10}(2^{-x} - 3) \iff \left( x < -\frac{\log_{10} 2}{\log_{10} 3} \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \ln(1 - 2\sqrt{-x}) = \ln(1 - 2\sqrt{-x}) \iff \left( -\frac{1}{4} \le x \le 0 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \ln(1 - 2\sqrt{-x}) = \ln(1 - 2\sqrt{-x}) \iff \left( -\frac{1}{4} < x < 0 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \ln(1 - 2\sqrt{-x}) = \ln(1 - 2\sqrt{-x}) \iff \left( x > -\frac{1}{4} \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \sqrt{\log_{2}(x + 1)} + \sqrt{\log_{\frac{1}{2}} x - 4} = \sqrt{\log_{2}(x + 1)} + \sqrt{\log_{\frac{1}{2}} x - 4} \iff \left( 0 \le x \le \frac{1}{16} \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \sqrt{\log_{2}(x + 1)} + \sqrt{\log_{\frac{1}{2}} x - 4} = \sqrt{\log_{2}(x + 1)} + \sqrt{\log_{\frac{1}{2}} x - 4} \iff \left( 0 < x < \frac{1}{16} \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \sqrt{\log_{2}(x + 1)} + \sqrt{\log_{\frac{1}{2}} x - 4} = \sqrt{\log_{2}(x + 1)} + \sqrt{\log_{\frac{1}{2}} x - 4} \iff \left( 0 < x \le 16 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \sqrt{\frac{\ln(x^{2} + 4)}{\ln(x + 1) - 2}} = \sqrt{\frac{\ln(x^{2} + 4)}{\ln(x + 1) - 2}} \iff \left( x \ge e^{2} - 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \sqrt{\frac{\ln(x^{2} + 4)}{\ln(x + 1) - 2}} = \sqrt{\frac{\ln(x^{2} + 4)}{\ln(x + 1) - 2}} \iff \left( x > -1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \sqrt{\frac{\ln(x^{2} + 4)}{\ln(x + 1) - 2}} = \sqrt{\frac{\ln(x^{2} + 4)}{\ln(x + 1) - 2}} \iff \left( x > e^{2} \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \sqrt{\log_{\frac{1}{3}}\left| x \right|} = \sqrt{\log_{\frac{1}{3}}\left| x \right|} \iff \left( -1 \le x \le 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \sqrt{\log_{\frac{1}{3}}\left| x \right|} = \sqrt{\log_{\frac{1}{3}}\left| x \right|} \iff \left( -1 < x < 0 \lor 0 < x \le 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \sqrt{\log_{\frac{1}{3}}\left| x \right|} = \sqrt{\log_{\frac{1}{3}}\left| x \right|} \iff \left( 0 < x \le 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \log_{\frac{1}{2}}\log_{2}\log_{3} x = \log_{\frac{1}{2}}\log_{2}\log_{3} x \iff \left( x \ge 3 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \log_{\frac{1}{2}}\log_{2}\log_{3} x = \log_{\frac{1}{2}}\log_{2}\log_{3} x \iff \left( x > 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \log_{\frac{1}{2}}\log_{2}\log_{3} x = \log_{\frac{1}{2}}\log_{2}\log_{3} x \iff \left( x > 0 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{2}{\log_{3}\sqrt{x}} = \frac{2}{\log_{3}\sqrt{x}} \iff \left( x > 0 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{2}{\log_{3}\sqrt{x}} = \frac{2}{\log_{3}\sqrt{x}} \iff \left( 0 \le x < 1 \lor x > 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{2}{\log_{3}\sqrt{x}} = \frac{2}{\log_{3}\sqrt{x}} \iff \left( x < -1 \lor -1 < x < 0 \lor 0 < x < 1 \lor x > 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \sqrt{\frac{3^{x} - 2}{\log_{3} x}} = \sqrt{\frac{3^{x} - 2}{\log_{3} x}} \iff \left( 0 < x < \log_{3} 2 \lor x > 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \sqrt{\frac{3^{x} - 2}{\log_{3} x}} = \sqrt{\frac{3^{x} - 2}{\log_{3} x}} \iff \left( 0 < x \le \log_{3} 2 \lor x \ge 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \sqrt{\frac{3^{x} - 2}{\log_{3} x}} = \sqrt{\frac{3^{x} - 2}{\log_{3} x}} \iff \left( x \le \log_{3} 2 \lor x > 1 \right) \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \frac{2}{\log_{3}\sqrt{x}} = \frac{2}{\log_{3}\sqrt{x}} \iff \left( x < -1 \lor -1 < x < 0 \lor x > 0 \right) \right)$
+\end{enumerate}
+\end{document}

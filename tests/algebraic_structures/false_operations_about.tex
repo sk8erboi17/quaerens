@@ -1,0 +1,35 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_operations.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_operations.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_algebraic\_structures.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 22 statements that must never be reported as proved: 20 false statements about binary operations and maps, and two whose hypotheses cannot be satisfied, because the rule has values outside the set ($a - b$ and $\frac{a + b}{2}$ on $\mathbb{N}$): from such a rule anything would follow. It is an anti-regression test against changes that make the engine prove more statements by making it less strict.
+
+\item \textbf{What the statements are.} Each one is close to a true statement of \texttt{operations.tex}: a property claimed of an operation that does not have it (the difference is not associative, $a^{2} + b$ is not regular on the right, $3(a + b)$ has no neutral element), the negation of a property that holds, a neutral element on the wrong side, a property true for the first numbers tried and false later, a composition of maps that is not injective.
+
+\item \textbf{How the statements are written.} Every property is written out as a formula, not named.
+
+\item \textbf{Adding statements.} Any new statement must be false, or have a rule that does not define an operation.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_algebraic_structures \
+    tests/algebraic_structures/test_algebraic_structures.c && /tmp/test_algebraic_structures
+\end{verbatim}
+
+\item \textbf{Expected result.} The line \texttt{PASS: 22 of 22 false statements rejected}. Today the engine also proves the negation of 20 of them; for the two whose rule does not define an operation it answers that the rule leaves the codomain.
+\end{enumerate}
+\end{document}

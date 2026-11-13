@@ -1,0 +1,44 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_induction\_inequalities.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_induction\_inequalities.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_induction\_inequalities.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 33 inequalities that do not hold for every $n$ from their starting value. It is an anti-regression test: the engine must never report any of them as proved.
+
+\item \textbf{The kinds of error.}
+\begin{itemize}
+\item Wrong at the first value: a constant too large, the wrong direction, a strict sign where the two sides are equal (items 1, 2, 3, 7, 8, 15, 19, 20, 32, 33).
+\item Wrong at one later value, or true only from a larger starting value than the stated one: $2^{n} \ge n^{2}$ fails only at $n = 3$, $3^{n} > n^{3}$ only at $n = 3$, $n! \ge 3^{n}$ from $n = 6$ only at $n = 6$ (items 5, 9 to 14, 16, 17, 18).
+\item Wrong only beyond the first eleven values, where the engine no longer computes: a bound that the sum passes at $n = 22$ or $n = 40$, a term that is zero for $n = 1, \ldots, 11$, a product of two factors that is negative at one far value of $n$, an exponential that overtakes a polynomial at $n = 12$ or $n = 14$ (items 4, 6, 21 to 28).
+\item Not defined at some $n$: a division by zero at $n = 50$ and at $n = 40$, the square root of a negative number from $n = 31$ on (items 29, 30, 31). Where they are defined, the three inequalities are true.
+\end{itemize}
+
+\item \textbf{Why it matters.} For the third kind the base case holds and so do all the values the engine computes: only the inequality of the inductive step, decided for every real $n$ by the sign table, can stop the proof. For the fourth kind only the check that every expression is defined for every $n$ can.
+
+\item \textbf{How falsity was checked.} A script that does not use the engine computed each statement with eighty decimal digits and found the first $n$ at which it fails or is not defined.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_induction_inequalities \
+    tests/sums_products_inequalities/test_induction_inequalities.c \
+    && /tmp/test_induction_inequalities
+\end{verbatim}
+
+\item \textbf{Expected result.} The line \texttt{PASS: 33 of 33 false statements rejected}. The statements of the first two kinds are answered \texttt{FALSO}, with the value of $n$; the others \texttt{NON DIMOSTRATO} or \texttt{NON SUPPORTATO}.
+
+\item \textbf{Adding statements.} Any new statement must fail, or not be defined, at some $n$ from its starting value on. Every false inequality that the engine proves, or that a fuzz run finds, goes here.
+\end{enumerate}
+\end{document}

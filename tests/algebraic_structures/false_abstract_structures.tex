@@ -1,0 +1,46 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Statements on arbitrary sets that must not be proved (26)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+None of these statements is true for every set: most are false already on a set with two or three elements, some hold on every finite set and fail on an infinite one, some fail only when a set is empty, and the last two ask for an example that does not exist. None may be reported as proved.
+
+\begin{enumerate}
+\item $\displaystyle (\perp \colon S \times S \to S \land u \in S \land v \in S \land \forall x \in S\ (u \perp x = x) \land \forall x \in S\ (v \perp x = x)) \implies u = v$
+\item $\displaystyle (\perp \colon S \times S \to S \land e \in S \land \forall x \in S\ (e \perp x = x)) \implies \forall x \in S\ (x \perp e = x)$
+\item $\displaystyle (\perp \colon S \times S \to S \land \forall x, y, z \in S\ ((x \perp y) \perp z = x \perp (y \perp z))) \implies \forall a, b \in S\ (a \perp b = b \perp a)$
+\item $\displaystyle (\perp \colon S \times S \to S \land \forall x, y \in S\ (x \perp y = y \perp x)) \implies \forall a, b, c \in S\ ((a \perp b) \perp c = a \perp (b \perp c))$
+\item $\displaystyle (\perp \colon S \times S \to S \land \forall x, y, z \in S\ ((x \perp y) \perp z = x \perp (y \perp z)) \land e \in S \land \forall x \in S\ (e \perp x = x \land x \perp e = x)) \implies \forall a, x, y \in S\ (a \perp x = a \perp y \implies x = y)$
+\item $\displaystyle \forall f, g \in S^{S}\ ((\forall a, b \in S\ (f(a) = f(b) \implies a = b)) \implies \forall a, b \in S\ (f(g(a)) = f(g(b)) \implies a = b))$
+\item $\displaystyle \forall f, g \in S^{S}\ ((\forall y \in S\ \exists x \in S\ (g(x) = y)) \implies \forall y \in S\ \exists x \in S\ (f(g(x)) = y))$
+\item $\displaystyle (f \colon S \to T \land g \colon T \to S \land \forall x \in S\ (g(f(x)) = x)) \implies \forall y \in T\ \exists x \in S\ (f(x) = y)$
+\item $\displaystyle (f \colon S \to T \land g \colon T \to S \land \forall x \in S\ (g(f(x)) = x)) \implies \forall a, b \in T\ (g(a) = g(b) \implies a = b)$
+\item $\displaystyle R \subseteq S \times S \implies ((\forall x, y \in S\ ((x, y) \in R \implies (y, x) \in R) \land \forall x, y, z \in S\ (((x, y) \in R \land (y, z) \in R) \implies (x, z) \in R)) \implies \forall x \in S\ ((x, x) \in R))$
+\item $\displaystyle (R \subseteq S \times S \land \forall x \in S\ ((x, x) \in R) \land \forall x, y \in S\ ((x, y) \in R \implies (y, x) \in R)) \implies \forall x, y, z \in S\ (((x, y) \in R \land (y, z) \in R) \implies (x, z) \in R)$
+\item $\displaystyle (R \subseteq S \times S \land \forall x, y, z \in S\ (((x, y) \in R \land (y, z) \in R) \implies (x, z) \in R)) \implies \forall x, y \in S\ ((x, y) \in R \implies (y, x) \in R)$
+\item $\displaystyle R \subseteq S \times S \implies ((\forall x, y\ (((x, y) \in R \land (y, x) \in R) \implies x = y)) \implies \forall x, y\ ((x, y) \in R \implies x = y))$
+\item $\displaystyle (u \in S \land X \subseteq S) \implies u \in X$
+\item $\displaystyle X \subseteq S \implies \forall f \in S^{S}\ ((\forall x \in X\ (f(f(x)) \in X)) \implies \forall x \in X\ (f(x) \in X))$
+\item $\displaystyle (\perp \colon S \times S \to S \land \ast \colon T \times T \to T \land f \colon S \to T \land \forall x, y \in S\ (f(x \perp y) = f(x) \ast f(y)) \land Y \subseteq T) \implies \forall x, y \in S\ ((f(x) \in Y \land f(y) \in Y) \implies f(x \perp y) \in Y)$
+\item $\displaystyle \forall f \in S^{S}\ ((\forall a, b \in S\ (f(a) = f(b) \implies a = b)) \implies \forall y \in S\ \exists x \in S\ (f(x) = y))$
+\item $\displaystyle \forall f \in S^{S}\ ((\forall y \in S\ \exists x \in S\ (f(x) = y)) \implies \forall a, b \in S\ (f(a) = f(b) \implies a = b))$
+\item $\displaystyle \forall f, g \in S^{S}\ ((\forall x \in S\ (f(g(x)) = x)) \implies \forall x \in S\ (g(f(x)) = x))$
+\item $\displaystyle (\perp \colon S \times S \to S \land \forall x, y, z \in S\ ((x \perp y) \perp z = x \perp (y \perp z)) \land e \in S \land \forall x \in S\ (e \perp x = x \land x \perp e = x) \land a \in S \land b \in S \land c \in S \land a \perp b = e \land a \perp c = e) \implies b = c$
+\item $\displaystyle (R \subseteq S \times S \land S \neq \emptyset \land \forall x \in S\ ((x, x) \notin R) \land \forall x, y, z \in S\ (((x, y) \in R \land (y, z) \in R) \implies (x, z) \in R)) \implies \exists x \in S\ \forall y \in S\ ((x, y) \notin R)$
+\item $\displaystyle (\pi \colon S \times T \to S \land \forall x \in S\ \forall y \in T\ (\pi(x, y) = x)) \implies \forall z \in S\ \exists x \in S\ \exists y \in T\ (\pi(x, y) = z)$
+\item $\displaystyle \forall f \in S^{S}\ \exists x \in S\ (f(x) = f(x))$
+\item $\displaystyle X \subseteq S \implies \exists x \in S\ (x \in X \lor x \notin X)$
+\item $\displaystyle \exists S\ \exists R \subseteq S \times S\ ((\forall x \in S\ ((x, x) \in R)) \land \exists x \in S\ ((x, x) \notin R))$
+\item $\displaystyle \exists S\ \exists f \colon S \to S\ ((\forall a, b \in S\ (f(a) = f(b) \implies a = b)) \land \lnot (\forall y \in S\ \exists x \in S\ (f(x) = y)))$
+\end{enumerate}
+\end{document}

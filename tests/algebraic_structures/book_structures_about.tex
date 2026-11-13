@@ -1,0 +1,34 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{book\_structures.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{book\_structures.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_algebraic\_structures.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 144 true statements taken from the exercises of a university textbook on algebraic structures (sections on operations, relations and congruences). Each exercise was split into the single claims it asks to prove, and each claim is written out with quantifiers.
+
+\item \textbf{What it exercises.} Binary operations declared with their rule and properties written in full (associative, commutative, neutral element, cancellation), relations given by a rule, operations on the parts of a set, congruences with given moduli decided by trying every remainder (rule 18r), and existence of integer combinations $c = ah + bk$. The last 33 statements came from \texttt{book\_structures\_beyond.tex} when the engine learned to prove them: hypotheses of the form ``there is $k$'' and congruences modulo a letter (rule 18u), operations, maps and relations on an arbitrary set (chapter 28), and powers whose exponent is a letter that the proof gives a value to.
+
+\item \textbf{Variety.} Operations on $\mathbb{Z}$, $\mathbb{Q}$ and $\mathbb{N}$ given by a polynomial rule, union, intersection and difference on $\mathcal{P}(S)$, linear congruences and systems of congruences, the relation ``the difference is an integer'' on $\mathbb{Q}$, cancellation in a congruence with a B\'ezout identity, products of two structures, maps into a structure, compositions of injective and of surjective maps, relations preserved by maps. The statements were written from the textbook by hand; they were not checked by an independent script, so a statement the engine one day calls false must be looked at before it is trusted.
+
+\item \textbf{Expected result.} The line \texttt{PASS: 144 of 144 statements proved, each with a written proof}.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_algebraic_structures \
+    tests/algebraic_structures/test_algebraic_structures.c \
+    && /tmp/test_algebraic_structures
+\end{verbatim}
+\end{enumerate}
+\end{document}

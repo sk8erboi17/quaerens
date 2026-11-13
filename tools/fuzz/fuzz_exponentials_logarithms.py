@@ -21,7 +21,8 @@ programma per sapere che cosa è vero.
   fuzz  genera enunciati di cui la verità è nota PER COSTRUZIONE, li scrive in
       <cartella>/fuzz_exponentials_logarithms_<seme>.tex, li dà al programma e
       confronta le risposte. Accanto scrive un file .expected con ciò che
-      l'oracolo si aspetta, enunciato per enunciato.
+      l'oracolo si aspetta, una riga per enunciato: numero, generatore, tipo
+      (solve, true, false) e soluzioni della condizione.
 
 L'ORACOLO NUMERICO (usato da check-data, e da fuzz come controllo di sé)
 
@@ -35,14 +36,20 @@ Precisione garantita. Ogni valore è un intervallo con gli estremi `decimal`,
 arrotondati verso l'esterno a ogni operazione: l'intervallo contiene sempre il
 numero vero. Somme, prodotti e quozienti usano l'arrotondamento per difetto e
 per eccesso; exp, ln e sqrt di `decimal` sono arrotondati correttamente, e
-l'intervallo si allarga di due unità sull'ultima cifra per parte. Si calcola
-prima con 50 cifre e, se un segno non si decide, con 110. Un segno è certo
-quando l'intervallo non contiene lo zero. Se con 110 cifre lo contiene ancora,
-ed è tutto dentro +-10^-45 (per un confronto: 10^-45 volte il più grande dei
-due membri), il valore è trattato come zero: è un PAREGGIO. Un pareggio è
-atteso in un punto speciale (una soluzione stampata, il bordo del campo di
-esistenza); altrove è segnalato come SUSPECT. Se l'intervallo contiene lo
-zero ma è più largo, il punto è SUSPECT senza verdetto.
+l'intervallo si allarga di due unità sull'ultima cifra per parte. Un segno è
+certo quando l'intervallo non contiene lo zero. Si calcola prima con 60 cifre
+e, se un segno non si decide, con 110; quando x è un numero esatto e nemmeno
+110 bastano, con 1000. Se all'ultimo tentativo l'intervallo contiene ancora lo
+zero, ed è tutto dentro +-10^-45 (per un confronto: 10^-45 volte il più
+grande dei due membri), il valore è trattato come zero: è un PAREGGIO. Le 1000
+cifre servono a non scambiare per uguali due membri che si avvicinano senza
+toccarsi, come 1 - 5^{-x} e 1 per x grande. Un pareggio è atteso in un punto
+speciale (una soluzione stampata, il bordo del campo di esistenza); accanto a
+un punto speciale o tra due è segnalato come SUSPECT. Se l'intervallo contiene
+lo zero ma è più largo, il punto è SUSPECT senza verdetto.
+
+Due membri scritti allo stesso modo (E = E, la richiesta di un campo di
+esistenza) non si sottraggono: il confronto è vero dove E ha valore.
 
 Che cosa vuol dire "non ha valore" (la convenzione dei libri: un confronto è
 falso dove uno dei suoi membri non ha valore):
@@ -59,7 +66,7 @@ falso dove uno dei suoi membri non ha valore):
 DOVE GUARDA check-data
 
   - una griglia: i multipli di 1/16 tra -12 e 12, gli interi fino a +-130,
-    e +-1000;
+    e +-300;
   - i punti speciali: i numeri con cui x è confrontata nel risultato, e i
     punti in cui cambia il segno di qualcosa nella condizione (un confronto,
     un denominatore, l'argomento di un logaritmo, un radicando). Questi ultimi
@@ -95,14 +102,19 @@ la verità in ogni cella (ogni punto, ogni intervallo tra due punti).
       rovesciate; la radice c > 0 cade in x = (log_b c - q)/p, che è
       razionale quando c è una potenza di b e altrimenti si scrive con un
       logaritmo. Il testo può essere scritto sviluppato (9^x + 9 = 10 * 3^x):
-      vale (b^k)^E = b^{kE}, spostare un termine da un membro all'altro non
-      cambia il confronto, e dividere per t^m > 0 nemmeno.
+      vale (b^k)^E = b^{kE} = (b^E)^k, spostare un termine da un membro
+      all'altro non cambia il confronto, e dividere per t^m > 0 nemmeno.
  (ii) sostituzione t = \log_b x. Come sopra, ma t prende tutti i valori reali
       per x > 0, la radice c cade in x = b^c, e per x <= 0 la condizione non
-      ha valore.
+      ha valore. Uno dei logaritmi può essere scritto con x^2, (1/2) \log_b x^2
+      per \log_b x oppure (1/4) (\log_b x^2)^2 per il suo quadrato: finché ne
+      resta uno scritto \log_b x il campo di esistenza è ancora x > 0, e lì i
+      due sono lo stesso numero.
 (iii) monomi, b^{E(x)} ? b^{F(x)}. b^u è strettamente monotono in u: il
       confronto equivale a E ? F (rovesciato se b < 1) dove E e F sono
       definiti. E - F è costruito dalle sue radici e dai suoi poli, razionali.
+      Il secondo membro può essere scritto come numero (b^m) o con la base
+      inversa, (1/b)^{-F} = b^F.
  (iv) somme di logaritmi, \log_b f + \log_b g ? c (e differenze). Hanno
       valore solo per f > 0 e g > 0; lì equivalgono a f g ? b^c (rovesciato se
       b < 1), per le proprietà dei logaritmi. I coefficienti sono scelti in
@@ -112,9 +124,10 @@ la verità in ogni cella (ogni punto, ogni intervallo tra due punti).
       generatore conosce il segno esatto in ogni razionale, senza calcolare
       logaritmi: \log_b(L) - k ha il segno di L - b^k (rovesciato se b < 1),
       b^L - b^k quello di L - k, \sqrt{L} - k quello di L - k^2, dove L è
-      a x + c oppure |a x + c|. Radici, logaritmi e reciproci di questi pezzi
-      (e dei loro prodotti e quozienti) hanno valore dove il segno lo
-      permette.
+      a x + c oppure |a x + c|; \log_{b1}\log_{b2}(L) - m ha valore dove
+      \log_{b2} L > 0 e lì il segno di L - b2^{b1^m}, rovesciato una volta per
+      ogni base minore di 1. Radici, logaritmi e reciproci di questi pezzi (e
+      dei loro prodotti e quozienti) hanno valore dove il segno lo permette.
 
 Controllo di sé. Ogni condizione generata viene anche riletta dall'oracolo
 numerico, dal testo, e confrontata con le celle: sono due strade diverse verso
@@ -148,7 +161,7 @@ from math import gcd
 rnd = random.Random()
 
 ZERO, ONE = Decimal(0), Decimal(1)
-DIGITS = (50, 110)           # le cifre dei due tentativi di calcolo
+DIGITS = (60, 110)           # le cifre dei due tentativi di calcolo
 CONFIRM = 1000               # le cifre con cui si conferma un pareggio in un numero esatto
 TIE = Decimal("1e-45")       # sotto questa soglia un valore che non si separa dallo zero è un pareggio
 WIDTH = Decimal("1e-70")     # l'ampiezza a cui si ferma la bisezione
@@ -950,16 +963,20 @@ def special_points(condition, points):
 
 # ---------------------------------------------------------------- check-data: un esercizio
 class Report:
-    """Ciò che check-data ha da dire di un esercizio: le righe da stampare e i conti."""
+    """Ciò che check-data ha da dire di un esercizio: le righe da stampare e i conti. differs
+    dice che condizione e risultato stampato sono diversi in qualche punto; broken che i dati
+    sono incoerenti (una riga DATA); suspect che in qualche punto non c'è un verdetto certo."""
 
     def __init__(self, number):
         self.number, self.lines = number, []
         self.points = self.solutions = self.variants = 0
-        self.differs = self.broken = False
+        self.differs = self.broken = self.suspect = False
         self.gap = ZERO
 
     def say(self, label, text):
         self.lines.append("%s: exercise %s: %s" % (label, self.number, text))
+        self.broken = self.broken or label == "DATA"
+        self.suspect = self.suspect or label == "SUSPECT"
 
 
 def runs(points, flags):
@@ -1033,7 +1050,6 @@ def check_exercise(ex, report):
         report.say("DATA", "expected and the result in check differ (%d points)" % mismatch["expected"])
     if mismatch["corrected"]:
         report.say("DATA", "the corrected result is not confirmed either (%d points)" % mismatch["corrected"])
-    report.broken = bool(mismatch["solve"] or mismatch["expected"] or mismatch["corrected"])
 
     if any(differ):
         report.differs = True
@@ -1047,13 +1063,15 @@ def check_exercise(ex, report):
             report.lines.append("   at %s: %s" % (where, side))
     elif not confirmed:
         report.say("DATA", "book_confirmed is false but the printed result agrees with the condition everywhere")
-        report.broken = True
 
     # Le soluzioni stampate di un'equazione: i due membri devono coincidere entro 10^-45.
     if ex["kind"].endswith("equation"):
         for node in walk(expected):
             if node.op == "cmp" and node.value == "=" and node.args[0].op == "x":
-                values, env = evaluate([condition], constant(node.args[1]))
+                try:
+                    values, env = evaluate([condition], constant(node.args[1]))
+                except Imprecise:
+                    continue  # già segnalato sopra: il numero è tra i punti speciali
                 if values[0]:
                     report.solutions += 1
                     report.gap = max(report.gap, env.gap)
@@ -1062,13 +1080,15 @@ def check_exercise(ex, report):
     for i, variant in enumerate(ex["false_checks"], 1):
         v_condition, v_result = split_check(parse(variant["check"]))
         witness = constant(parse(variant["witness"], "expr"))
-        values, env = evaluate([v_condition, v_result, condition], witness)
+        try:
+            values, env = evaluate([v_condition, v_result, condition], witness)
+        except Imprecise:
+            report.say("SUSPECT", "cannot decide a sign at the witness %s of false variant %d" % (variant["witness"], i))
+            continue
         if values[0] != values[2] or not same(v_condition, condition):
             report.say("DATA", "false variant %d does not have the condition of the exercise" % i)
-            report.broken = True
         elif values[0] == values[1]:
             report.say("DATA", "false variant %d does not differ at its witness %s" % (i, variant["witness"]))
-            report.broken = True
         else:
             report.variants += 1
     if not 2 <= len(ex["false_checks"]) <= 3:
@@ -1085,20 +1105,22 @@ def check_data(path):
             check_exercise(ex, report)
         except (Syntax, KeyError) as problem:
             report.say("DATA", "cannot read the exercise: %r" % (problem,))
-            report.broken = True
         print("\n".join(report.lines), end="\n" if report.lines else "")
         reports.append((ex, report))
     undeclared = [str(r.number) for ex, r in reports if r.differs and ex.get("book_confirmed", True)]
     declared = [str(r.number) for ex, r in reports if r.differs and not ex.get("book_confirmed", True)]
     broken = [str(r.number) for ex, r in reports if r.broken]
+    suspect = [str(r.number) for ex, r in reports if r.suspect]
     print("checked %d exercises at %d points: %d printed results confirmed, %d not confirmed%s"
-          % (len(reports), sum(r.points for _, r in reports), sum(not r.differs and not r.broken for _, r in reports),
+          % (len(reports), sum(r.points for _, r in reports), sum(not (r.differs or r.broken or r.suspect) for _, r in reports),
              len(undeclared) + len(declared), " (%s)" % ", ".join(undeclared + declared) if undeclared or declared else ""))
     print("%d false variants differ at their witnesses; %d printed solutions of equations hold, the two sides agreeing within %.1e"
           % (sum(r.variants for _, r in reports), sum(r.solutions for _, r in reports), max([r.gap for _, r in reports] + [ZERO])))
     if broken:
         print("exercises with DATA problems: %s" % ", ".join(broken))
-    return 1 if undeclared or broken else 0
+    if suspect:
+        print("exercises with SUSPECT points, not counted as confirmed: %s" % ", ".join(suspect))
+    return 1 if undeclared or broken or suspect else 0
 
 
 # ---------------------------------------------------------------- fuzz: scrivere il LaTeX
@@ -1434,10 +1456,13 @@ def exp_substitution():
         cells.reverse()
 
     def power(k):
+        """t^k scritto come b^{k(px+q)}, oppure (b^2)^{k(px+q)/2}, oppure (b^{px+q})^k."""
         if k == 0:
             return ""
-        if b != "e" and b.denominator == 1 and k % 2 == 0 and b * b <= 100 and rnd.random() < 0.5:
+        if b != "e" and b.denominator == 1 and k % 2 == 0 and b * b <= 100 and rnd.random() < 0.4:
             return "%d^{%s}" % (int(b * b), affine_tex(k * p / 2, k * q / 2))
+        if k > 1 and rnd.random() < 0.2:
+            return "\\left(%s^{%s}\\right)^{%d}" % (base_tex(b), affine_tex(p, q), k)
         return "%s^{%s}" % (base_tex(b), affine_tex(k * p, k * q))
     return dress(condition, power, " \\cdot ", True), breaks, cells
 
@@ -1477,8 +1502,22 @@ def log_substitution():
 
     def power(k):
         return "" if k == 0 else name if k == 1 else "\\left(%s\\right)^{%d}" % (name, k)
+    text = dress(condition, power, "", False)
+    spots = [m.start() for m in re.finditer(re.escape(name), text)]
+    if len(spots) >= 2 and rnd.random() < 0.25:
+        # Uno dei logaritmi scritto con x^2: (1/2) \log_b x^2 al posto di \log_b x, oppure
+        # (1/4) (\log_b x^2)^2 al posto di (\log_b x)^2. Per x > 0 è lo stesso numero; per
+        # x < 0 avrebbe valore, ma resta almeno un \log_b x che non ne ha, e il confronto è
+        # falso come prima: le celle non cambiano. È il tranello dell'esercizio 402.
+        square = "\\left(%s\\right)^{2}" % name
+        squares = [m.start() for m in re.finditer(re.escape(square), text)]
+        if squares and rnd.random() < 0.5:
+            spot, old, new = rnd.choice(squares), square, "\\left(\\frac{1}{4}\\left(%s x^{2}\\right)^{2}\\right)" % log_name(b)
+        else:
+            spot, old, new = rnd.choice(spots), name, "\\left(\\frac{1}{2}%s x^{2}\\right)" % log_name(b)
+        text = text[:spot] + new + text[spot + len(old):]
     # Per x <= 0 il logaritmo non ha valore: due celle false, e lo zero come primo punto di rottura.
-    return dress(condition, power, "", False), [Point(0)] + breaks, [False, False] + cells
+    return text, [Point(0)] + breaks, [False, False] + cells
 
 
 # ---------------------------------------------------------------- fuzz: (iii) monomi
@@ -1604,13 +1643,14 @@ class Piece:
 
 
 class Inner:
-    """Ciò su cui lavora un pezzo: a x + c, oppure |a x + c|."""
+    """Ciò su cui lavora un pezzo: a x + c, oppure |a x + c|. linear è il testo di a x + c,
+    tex quello dell'espressione intera, con le sbarre quando c'è il valore assoluto."""
 
     def __init__(self):
         self.a, self.c = Fraction(rnd.choice([1, 1, 1, 2, -1, -2, 3])), Fraction(rnd.randint(-5, 5))
         self.absolute = rnd.random() < 0.15
-        self.plain = affine_tex(self.a, self.c)
-        self.tex = "\\left| %s \\right|" % self.plain if self.absolute else self.plain
+        self.linear = affine_tex(self.a, self.c)
+        self.tex = "\\left| %s \\right|" % self.linear if self.absolute else self.linear
 
     def at(self, x):
         v = self.a * x + self.c
@@ -1623,7 +1663,8 @@ class Inner:
         return [(k - self.c) / self.a, (-k - self.c) / self.a] if k >= 0 else []
 
     def logarithm(self, b):
-        if self.absolute or self.plain == "x":
+        """Il testo del logaritmo in base b: senza parentesi quando l'argomento è un solo fattore."""
+        if self.absolute or self.linear == "x":
             return "%s%s%s" % (log_name(b), "" if self.absolute else " ", self.tex)
         return "%s(%s)" % (log_name(b), self.tex)
 
@@ -1781,27 +1822,35 @@ def make_case(index):
         return check_text(condition, spoiled), true, generator.__name__, breaks, cells
 
 
+def read_solutions(answer, names):
+    """Le soluzioni scritte in una risposta RISOLTO, come condizione. Stanno dopo il nome del
+    metodo e i due punti, e possono essere seguite da un'osservazione tra parentesi: si prova
+    dal primo ": " in poi, togliendo dal fondo una parentesi alla volta, finché il testo si legge."""
+    for start in [m.end() for m in re.finditer(": ", answer)] or [0]:
+        text = answer[start:]
+        for cut in [len(text)] + [m.start() for m in re.finditer(r" \(", text)][::-1]:
+            try:
+                return parse_result(text[:cut], names)
+            except Syntax:
+                continue
+    raise Syntax("no solutions can be read in the answer")
+
+
 def check_solution(answer, breaks, cells):
     """Confronta le soluzioni scritte dal programma con le celle dell'oracolo, in ogni punto di
     rottura, in ogni estremo scritto dal programma e tra un punto e l'altro. Ritorna "ok",
     "bug" oppure "suspect"."""
-    text = answer.split(": ", 1)[1] if ": " in answer else answer
-    remark = ""
-    m = re.search(r" \((?:estremi irrazionali|[^()\\]*\bè la radice)", text)
-    if m:
-        text, remark = text[:m.start()], text[m.start():]
-
     # Una radice senza scrittura ha un nome, e il programma dice tra quali numeri sta: l'oracolo, che
     # conosce tutti i punti di rottura, deve trovarne lì uno solo, ed è quello.
     names = {}
-    for m in re.finditer(r"(r_\{\d+\}) è la radice di .*? tra (-?\d+(?:/\d+)?) e (-?\d+(?:/\d+)?)", remark):
+    for m in re.finditer(r"(r_\{\d+\}) è la radice di .*? tra (-?\d+(?:/\d+)?) e (-?\d+(?:/\d+)?)", answer):
         low, high = TOP.fraction(Fraction(m.group(2))), TOP.fraction(Fraction(m.group(3)))
         inside = [p for p in breaks if compare(p.interval, low) > 0 and compare(p.interval, high) < 0]
         if len(inside) != 1:
             return "bug"
         names[m.group(1)] = inside[0].interval
     try:
-        solutions = parse_result(text, names)
+        solutions = read_solutions(answer, names)
         ends = printed_numbers(solutions)
         wrong = first_difference(breaks, cells, ends, lambda x: evaluate([solutions], x)[0][0])
     except (Syntax, Imprecise):

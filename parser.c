@@ -16,14 +16,17 @@
  *
  * COME È FATTO
  *
- * Tre notazioni, tre alberi, una sola tecnica (discesa ricorsiva: una
- * funzione per regola della grammatica):
+ * Quattro notazioni, quattro alberi, una sola tecnica (discesa ricorsiva:
+ * una funzione per regola della grammatica):
  *
  *   - le espressioni, con somme, prodotti, potenze e funzioni: Node
  *     (capitoli 8 e 9);
  *   - gli enunciati sugli insiemi: SetNode (capitolo 14);
  *   - gli enunciati con quantificatori, gli insiemi numerici e gli insiemi
- *     di soluzioni: Formula (capitolo 17), le cui foglie sono espressioni.
+ *     di soluzioni: Formula (capitolo 17), le cui foglie sono espressioni;
+ *   - gli enunciati su insiemi qualsiasi, con elementi, operazioni,
+ *     applicazioni e relazioni senza una regola: Sentence (paragrafo 17o,
+ *     in fondo al capitolo 17), le cui foglie sono Elem.
  *
  * Il capitolo 21 legge il documento: trova gli \item, la formula di
  * ognuno e le poche parole che possono seguirla ("per ogni intero n \ge 2").
@@ -150,13 +153,27 @@ typedef struct {
 
 /* Un'applicazione dichiarata dall'enunciato con "f \colon A \to B". La regola
  * che la definisce, "f(x) = espressione", arriva dopo, da un'altra ipotesi:
- * finché manca, body è NULL e parameter non ha significato. */
+ * finché manca, body è NULL e parameter non ha significato.
+ *
+ * Un'operazione binaria, dichiarata con "\ast \colon A \times B \to C", è
+ * un'applicazione con due argomenti: la sua regola è "x \ast y = espressione"
+ * (vedi 9g). Gli ultimi tre campi servono solo a lei. */
 typedef struct {
-    int name;                    /* la lettera f */
-    NumberSet domain, codomain;  /* A e B */
+    int name;                    /* la lettera f, oppure il nome interno di un
+                                    simbolo di operazione (operation_name()) */
+    NumberSet domain, codomain;  /* A e B; per un'operazione A e C */
     int parameter;               /* la variabile x della regola */
     Node *body;                  /* il valore di f(x), nell'arena; NULL se manca */
+    int binary;                  /* 1 se è un'operazione binaria */
+    NumberSet second;            /* operazione: B, l'insieme del secondo argomento */
+    int parameter2;              /* operazione: la variabile y della regola */
 } Map;
+
+/* I simboli con cui un enunciato può indicare un'operazione binaria che
+ * dichiara. Sono comandi LaTeX che per il resto della grammatica non vogliono
+ * dire nulla: \cdot e \times, che sono il prodotto, non ci sono. Il nome
+ * interno del simbolo di posto i è OPERATION_NAMES + i. */
+static const char *const operation_symbols[] = {"ast", "star", "circ", "bullet", "diamond", "perp", "oplus", "otimes", "odot"};
 
 /* Le applicazioni dichiarate dall'enunciato in corso. Chi le dichiara deve
  * svuotare la tabella quando ha finito: finché una lettera è qui, il parser
@@ -180,6 +197,34 @@ typedef struct {
     Relation relation;
 } Statement;
 
+/* Un enunciato su una successione che l'enunciato stesso definisce per
+ * ricorrenza: "se a_0 = 0 e a_{n+1} = \sqrt{6 + a_n}, allora a_n < 3". Le
+ * ipotesi sono uguaglianze, i valori iniziali e la ricorrenza, più
+ * eventualmente "n \ge q", che dice da quale n la ricorrenza vale; le tesi
+ * sono confronti. Che le ipotesi definiscano davvero una successione lo
+ * controlla il motore (capitolo 26): qui c'è solo com'è scritto. */
+typedef struct {
+    int givens;                    /* ipotesi valide in given[] */
+    Statement given[MAX_GIVEN];    /* le uguaglianze, nell'ordine in cui sono scritte */
+    int has_since;                 /* 1 se tra le ipotesi c'è "n \ge q" */
+    int since_name;                /* la lettera n di quell'ipotesi */
+    long long since;               /* il numero q */
+    int claims;                    /* tesi valide in claim[] */
+    Statement claim[MAX_CLAIMS];
+} SequenceStatement;
+
+/* Un enunciato sulla derivata di una funzione: "la derivata di ordine n di
+ * function, rispetto a variable, è formula". L'ordine è una lettera, quella
+ * su cui si fa induzione, e allora function non la contiene e formula di
+ * solito sì; oppure è un numero. Gli alberi stanno nell'arena. */
+typedef struct {
+    int variable;     /* la lettera x rispetto a cui si deriva */
+    int order;        /* la lettera n dell'ordine di derivazione, o 0 se è un numero */
+    long long times;  /* l'ordine, quando è un numero: almeno 1 */
+    Node *function;   /* la funzione da derivare */
+    Node *formula;    /* ciò che l'enunciato dice della derivata */
+} DerivativeStatement;
+
 /* =============================================================================
  * 9. PARSING: DAL LATEX ALL'ALBERO
  * ============================================================================
@@ -187,7 +232,8 @@ typedef struct {
  * Il sottoinsieme di LaTeX accettato, dalla precedenza più bassa alla più alta:
  *
  *     statement := expr ('=' | \ge | \le | '<' | '>') expr
- *     expr      := ['-' | '+'] term { ('+' | '-') term }
+ *     expr      := sum [ operazione sum ]
+ *     sum       := ['-' | '+'] term { ('+' | '-') term }
  *     term      := factor { [\cdot | '/'] factor }
  *     factor    := primary { '!' | '^' group }
  *     primary   := numero | lettera ['_' group] | \pi
@@ -200,6 +246,17 @@ typedef struct {
  *     group     := '{' expr '}' | un solo token
  *     argomento := '(' expr ')' | factor
  *
+ * Una seconda forma di enunciato, per le successioni definite per
+ * ricorrenza, mette delle ipotesi davanti alla tesi (vedi
+ * parse_sequence_statement()):
+ *
+ *     sequence  := given { ',' given } \implies statement { \land statement }
+ *     given     := expr '=' expr | lettera \ge numero
+ *
+ * Una terza, per le derivate (vedi parse_derivative_statement()):
+ *
+ *     derivative := \frac '{' 'd' ['^' group] '}' '{' 'd' lettera ['^' group] '}' term '=' expr
+ *
  * Le convenzioni che la grammatica fissa, e che in LaTeX sono implicite:
  *
  *   - Due fattori accostati si moltiplicano: `2k`, `n(n+1)`, `k k!`.
@@ -210,6 +267,13 @@ typedef struct {
  *   - `\sin^{2}(x)` è il quadrato di sin(x).
  *   - Senza graffe un esponente o un pedice è un solo token: `x^12` vale
  *     x^1 seguito da 2, come in TeX.
+ *   - Un'operazione dichiarata dall'enunciato, come `a \ast b`, non ha una
+ *     precedenza: `a + b \ast c` si può leggere in due modi, e i libri non
+ *     sono d'accordo su quale. Qui non si sceglie: i due operandi devono
+ *     essere fattori soli (una lettera, un numero, una parentesi, f(x)), e
+ *     il risultato si combina con altro solo tra parentesi, anche con la
+ *     stessa operazione: `(a \ast b) \ast c`. Ogni altra scrittura è un errore
+ *     di sintassi (9g).
  *
  * La tecnica è la discesa ricorsiva: una funzione per regola, e ogni funzione
  * chiama quella della regola di precedenza superiore.
@@ -344,6 +408,16 @@ static void expect_char(int c, const char *message) {
     if (is_char(c)) next_token(); else syntax(message);
 }
 
+/* Se il token corrente è uno dei simboli di operation_symbols[] ritorna il
+ * suo nome interno, quello che l'operazione ha nella tabella `maps`;
+ * altrimenti ritorna 0. Che l'operazione sia stata dichiarata lo dice poi
+ * map_find(). */
+static int operation_name(void) {
+    for (size_t i = 0; i < sizeof operation_symbols / sizeof *operation_symbols; i++)
+        if (is_command(operation_symbols[i])) return OPERATION_NAMES + (int)i;
+    return 0;
+}
+
 /* Ritorna un nuovo nodo di tipo kind con figli a e b; gli altri campi sono a
  * zero. Se l'arena è piena ritorna un nodo di riserva, così il parser non deve
  * controllare ogni allocazione: l'errore è già in `failure`. */
@@ -443,7 +517,8 @@ static Node *parse_bigop(void) {
     return node;
 }
 
-/* funzione ['^' group] argomento, con \log che ammette anche '_' group.
+/* funzione ['^' group] argomento, con \log che ammette anche '_' group:
+ * la base, che se manca è 10.
  *
  * Il token corrente è il comando della funzione fn. */
 static Node *parse_function(Function fn) {
@@ -467,6 +542,9 @@ static Node *parse_function(Function fn) {
         argument = parse_factor();
     }
 
+    /* \log senza base è il logaritmo in base 10, come nei libri di scuola;
+     * il logaritmo naturale si scrive \ln. */
+    if (fn == FN_LOG && !base) base = node_num(10);
     Node *call = node_call(fn, argument, base);
     return exponent ? node_new(N_POW, call, exponent) : call;
 }
@@ -582,6 +660,12 @@ static int starts_factor(void) {
            is_command("sqrt") || is_command("sum") || is_command("prod") || is_command("pi");
 }
 
+/* Quanti segni, prodotti e quozienti sono stati letti, fuori da ogni
+ * parentesi, nell'espressione in corso: zero vuol dire che finora è un fattore
+ * solo. Serve a parse_expr() per sapere se un operando di un'operazione
+ * dichiarata è scritto in modo non ambiguo (9g). */
+static int joins;
+
 /* term := factor { [\cdot | '/'] factor } */
 static Node *parse_term(void) {
     Node *node = parse_factor();
@@ -597,19 +681,51 @@ static Node *parse_term(void) {
         } else {
             return node;
         }
+        joins++;
     }
 }
 
-/* expr := ['-' | '+'] term { ('+' | '-') term } */
-static Node *parse_expr(void) {
+/* sum := ['-' | '+'] term { ('+' | '-') term } */
+static Node *parse_sum(void) {
     Node *node;
-    if (is_char('-')) { next_token(); node = node_new(N_NEG, parse_term(), NULL); }
+    if (is_char('-')) { next_token(); node = node_new(N_NEG, parse_term(), NULL); joins++; }
     else { if (is_char('+')) next_token(); node = parse_term(); }
     for (;;) {
         if (is_char('+')) { next_token(); node = node_new(N_ADD, node, parse_term()); }
         else if (is_char('-')) { next_token(); node = node_new(N_SUB, node, parse_term()); }
         else return node;
+        joins++;
     }
+}
+
+/* expr := sum [ operazione sum ]
+ *
+ * 9g. Un'operazione dichiarata dall'enunciato, tra due operandi. Il nodo è
+ * lo stesso di f(x), N_APPLY, con due argomenti. Gli operandi devono essere
+ * fattori soli, e dopo il secondo non può seguire un'altra operazione: vedi
+ * le convenzioni in testa al capitolo.
+ *
+ * `joins` conta ciò che questa chiamata legge fuori dalle parentesi: chi è
+ * stato chiamato da dentro una parentesi, una graffa o un argomento rimette
+ * alla fine il conto di chi sta fuori, per il quale tutto questo è un fattore
+ * solo. */
+static Node *parse_expr(void) {
+    int outside = joins;
+    joins = 0;
+    Node *node = parse_sum();
+    int name = operation_name();
+    if (name && map_find(name)) {
+        if (joins) syntax("accanto a un'operazione dichiarata somme, prodotti e segni vanno tra parentesi");
+        next_token();
+        joins = 0;
+        Node *right = parse_sum();
+        if (joins) syntax("accanto a un'operazione dichiarata somme, prodotti e segni vanno tra parentesi");
+        if (operation_name()) syntax("un'operazione dichiarata, se è ripetuta, vuole le parentesi");
+        node = node_new(N_APPLY, node, right);
+        node->name = name;
+    }
+    joins = outside;
+    return node;
 }
 
 /* Analizza text come una sola espressione e ne ritorna l'albero. In caso di
@@ -623,12 +739,9 @@ static Node *parse_expression(const char *text) {
     return node;
 }
 
-/* Analizza text come enunciato e lo mette in *statement. Ritorna 1 se riesce;
- * altrimenti ritorna 0 e syntax_error dice perché. */
-static int parse_statement(const char *text, Statement *statement) {
-    syntax_error = NULL;
-    cursor = text;
-    next_token();
+/* statement := expr ('=' | \ge | \le | '<' | '>') expr, dal token corrente:
+ * lo mette in *statement. */
+static void parse_comparison(Statement *statement) {
     statement->lhs = parse_expr();
 
     /* La relazione tra i due membri. */
@@ -641,6 +754,135 @@ static int parse_statement(const char *text, Statement *statement) {
     next_token();
 
     statement->rhs = parse_expr();
+}
+
+/* Analizza text come enunciato e lo mette in *statement. Ritorna 1 se riesce;
+ * altrimenti ritorna 0 e syntax_error dice perché. */
+static int parse_statement(const char *text, Statement *statement) {
+    syntax_error = NULL;
+    cursor = text;
+    next_token();
+    parse_comparison(statement);
+    if (token.kind != T_END) syntax("testo inatteso dopo l'enunciato");
+    return syntax_error == NULL;
+}
+
+/* Ritorna 1 se text comincia con il segno di derivata di Leibniz: \frac,
+ * \dfrac o \tfrac seguito da {d} oppure da {d^. Solo allora vale la pena di
+ * provare a leggerlo come enunciato su una derivata. */
+static int starts_with_derivative(const char *text) {
+    static const char *const fraction[] = {"\\frac", "\\dfrac", "\\tfrac"};
+    while (isspace((unsigned char)*text)) text++;
+    for (size_t i = 0; i < sizeof fraction / sizeof *fraction; i++) {
+        size_t length = strlen(fraction[i]);
+        if (strncmp(text, fraction[i], length) == 0 && text[length] == '{' && text[length + 1] == 'd')
+            return text[length + 2] == '^' || text[length + 2] == '}';
+    }
+    return 0;
+}
+
+/* Analizza text come enunciato su una derivata (vedi DerivativeStatement) e
+ * lo mette in *out:
+ *
+ *     \frac{d^{n}}{dx^{n}} \sin x = \sin\left(x + \frac{n \pi}{2}\right)
+ *     \frac{d^{2}}{dx^{2}} x^{3} = 6x,        \frac{d}{dx} \ln x = \frac{1}{x}
+ *
+ * Il segno di derivata è la frazione di Leibniz. L'ordine è l'esponente,
+ * lo stesso sopra e sotto: una lettera, un numero da 1 in su, oppure
+ * niente, che vuol dire 1. La funzione è il term che segue il segno, come
+ * per il corpo di una somma. Ritorna 1 se text ha questa forma; altrimenti
+ * ritorna 0 e syntax_error dice perché. */
+static int parse_derivative_statement(const char *text, DerivativeStatement *out) {
+    const char *shape = "il segno di derivata si scrive \\frac{d^{n}}{dx^{n}}, con lo stesso ordine sopra e sotto";
+    Node *above = NULL, *below = NULL;
+    memset(out, 0, sizeof *out);
+    syntax_error = NULL;
+    cursor = text;
+    next_token();
+    if (!is_command("frac") && !is_command("dfrac") && !is_command("tfrac")) syntax(shape);
+    next_token();
+
+    /* Sopra: d, o d^n. */
+    expect_char('{', shape);
+    if (token.kind != T_LETTER || token.ch != 'd') syntax(shape);
+    next_token();
+    if (is_char('^')) { next_token(); above = parse_group(); }
+    expect_char('}', shape);
+
+    /* Sotto: dx, o dx^n con lo stesso n. */
+    expect_char('{', shape);
+    if (token.kind != T_LETTER || token.ch != 'd') syntax(shape);
+    next_token();
+    if (token.kind != T_LETTER) syntax(shape);
+    out->variable = token.ch;
+    next_token();
+    if (is_char('^')) { next_token(); below = parse_group(); }
+    expect_char('}', shape);
+
+    /* L'ordine: niente, una lettera o un numero, uguale nei due posti. */
+    out->times = 1;
+    if (!above != !below) syntax(shape);
+    else if (above && above->kind == N_VAR && below->kind == N_VAR && above->name == below->name) out->order = above->name;
+    else if (above && above->kind == N_NUM && below->kind == N_NUM && above->value == below->value && above->value >= 1) out->times = above->value;
+    else if (above) syntax(shape);
+
+    /* La funzione, il segno di uguale, la formula. */
+    out->function = parse_term();
+    expect_char('=', "dopo la funzione da derivare serve = e la formula della derivata");
+    out->formula = parse_expr();
+    if (token.kind != T_END) syntax("testo inatteso dopo l'enunciato");
+    return syntax_error == NULL;
+}
+
+/* Analizza text come enunciato su una successione definita per ricorrenza
+ * (vedi SequenceStatement) e lo mette in *out:
+ *
+ *     sequence := given { ',' given } \implies statement { \land statement }
+ *     given    := expr '=' expr | lettera \ge numero
+ *
+ * per esempio
+ *
+ *     a_{0} = 0, a_{1} = \sin x, a_{n + 1} = 2\cos x\, a_{n} - a_{n - 1}, n \ge 1 \implies a_{n} = \sin(n x)
+ *
+ * La virgola separa le ipotesi; \, è uno spazio e non conta. Ritorna 1 se
+ * riesce; altrimenti ritorna 0 e syntax_error dice perché. */
+static int parse_sequence_statement(const char *text, SequenceStatement *out) {
+    memset(out, 0, sizeof *out);
+    syntax_error = NULL;
+    cursor = text;
+    next_token();
+
+    /* Le ipotesi. "n \ge q" si riconosce dopo averla letta: una lettera,
+     * la relazione, un numero. */
+    for (;;) {
+        Statement given;
+        parse_comparison(&given);
+        if (syntax_error) return 0;
+        int number = given.rhs->kind == N_NUM || (given.rhs->kind == N_NEG && given.rhs->a->kind == N_NUM);
+        if (given.relation == REL_GE && given.lhs->kind == N_VAR && number && !out->has_since) {
+            out->has_since = 1;
+            out->since_name = given.lhs->name;
+            out->since = given.rhs->kind == N_NUM ? given.rhs->value : -given.rhs->a->value;
+        } else if (given.relation != REL_EQ) {
+            syntax("le ipotesi su una successione sono uguaglianze, più al massimo una della forma n \\ge numero");
+        } else if (out->givens == MAX_GIVEN) {
+            syntax("troppe ipotesi su una successione");
+        } else {
+            out->given[out->givens++] = given;
+        }
+        if (!is_char(',')) break;
+        next_token();
+    }
+    if (is_command("implies") || is_command("Rightarrow") || is_command("Longrightarrow")) next_token();
+    else syntax("dopo le ipotesi su una successione serve \\implies e la tesi");
+
+    /* Le tesi. */
+    for (;;) {
+        if (out->claims == MAX_CLAIMS) { syntax("troppe tesi su una successione"); break; }
+        parse_comparison(&out->claim[out->claims++]);
+        if (!is_command("land") && !is_command("wedge")) break;
+        next_token();
+    }
     if (token.kind != T_END) syntax("testo inatteso dopo l'enunciato");
     return syntax_error == NULL;
 }
@@ -661,7 +903,9 @@ static int parse_statement(const char *text, Statement *statement) {
  *     implication := disjunction [ \implies implication ]
  *     disjunction := conjunction { \lor conjunction }
  *     conjunction := negation { \land negation }
- *     negation    := \lnot negation | \exists lettera negation | relation
+ *     negation    := \lnot negation | relation
+ *                  | (\exists | \forall) lettera { ',' lettera } [limit] negation
+ *     limit       := \subseteq union | \in \mathcal{P} '(' formula ')'
  *     relation    := union [ ('=' | \subseteq | \supseteq | \neq) union ]
  *     union       := inter { (\cup | \setminus | \triangle) inter }
  *     inter       := product { \cap product }
@@ -672,6 +916,14 @@ static int parse_statement(const char *text, Statement *statement) {
  * Le parentesi racchiudono una formula intera, così la stessa regola serve per
  * raggruppare sia espressioni tra insiemi sia condizioni. Che ogni operatore
  * riceva operandi del tipo giusto lo controlla, dopo, set_check().
+ *
+ * I quantificatori. L'albero ne ha uno solo, "esiste un insieme": gli altri
+ * modi di scrivere si riducono a quello qui, nel lettore. "Per ogni X vale P"
+ * è "non esiste X per cui P non vale". Con un limite, \exists X \subseteq A
+ * (o \exists X \in \mathcal{P}(A)) vuol dire "esiste X contenuto in A tale
+ * che", e \forall X \subseteq A "per ogni X, se è contenuto in A allora".
+ * Più lettere dopo lo stesso quantificatore sono più quantificatori, tutti
+ * con lo stesso limite.
  *
  * Gli oggetti sono di tre tipi, e non si mescolano:
  *
@@ -839,19 +1091,50 @@ static SetNode *set_relation(void) {
     return left;
 }
 
-/* negation := \lnot negation | \exists lettera negation | relation */
+/* negation: vedi la grammatica in testa al capitolo, e lì come ogni
+ * quantificatore si riduce a "esiste un insieme". */
 static SetNode *set_negation(void) {
     if (is_command("lnot") || is_command("neg")) {
         next_token();
         return set_node(SET_NOT, set_negation(), NULL);
     }
-    if (is_command("exists")) {
-        next_token();
-        if (token.kind != T_LETTER || !isupper(token.ch)) { syntax("dopo \\exists serve la lettera di un insieme"); return set_node(SET_EMPTY, NULL, NULL); }
-        int var = set_var_index(token.ch);
-        next_token();
-        SetNode *node = set_node(SET_EXISTS, set_negation(), NULL);
-        node->var = var;
+    if (is_command("exists") || is_command("forall")) {
+        int every = is_command("forall"), var[MAX_SET_VARS], vars = 0;
+        do {
+            next_token();  /* supera il quantificatore, poi ogni virgola */
+            if (token.kind != T_LETTER || !isupper(token.ch) || vars == MAX_SET_VARS) {
+                syntax("dopo \\exists o \\forall servono le lettere degli insiemi, non più di 4");
+                return set_node(SET_EMPTY, NULL, NULL);
+            }
+            var[vars++] = set_var_index(token.ch);
+            next_token();
+        } while (is_char(','));
+
+        /* Il limite: l'insieme che deve contenere ogni lettera. */
+        SetNode *limit = NULL;
+        if (is_command("subseteq")) {
+            next_token();
+            limit = set_union();
+        } else if (is_command("in")) {
+            next_token();
+            SetNode *parts = set_primary();
+            if (parts->kind != SET_POWER) syntax("dopo \\in, in un quantificatore su insiemi, serve un insieme delle parti \\mathcal{P}(A)");
+            limit = parts->a;
+        }
+
+        /* Un quantificatore per lettera, dall'ultima alla prima. */
+        SetNode *node = set_negation();
+        for (int i = vars - 1; i >= 0 && !syntax_error; i--) {
+            if (limit) {
+                SetNode *letter = set_node(SET_VAR, NULL, NULL);
+                letter->var = var[i];
+                node = set_node(every ? SET_IMPLIES : SET_AND, set_node(SET_SUBSET, letter, limit), node);
+            }
+            if (every) node = set_node(SET_NOT, node, NULL);
+            node = set_node(SET_EXISTS, node, NULL);
+            node->var = var[i];
+            if (every) node = set_node(SET_NOT, node, NULL);
+        }
         return node;
     }
     return set_relation();
@@ -950,31 +1233,83 @@ static SetType set_check(SetNode *n) {
  * La grammatica, dalla precedenza più bassa alla più alta:
  *
  *     statement   := formula
- *                  | \{ lettera \in numbers (\mid | ':') formula \}
+ *                  | [ \forall lettera \in numbers ]
+ *                    \{ lettera \in numbers (\mid | ':') formula \}
  *     formula     := implication { \iff implication }
  *     implication := disjunction [ \implies implication ]
  *     disjunction := conjunction { \lor conjunction }
  *     conjunction := unary { \land unary }
  *     unary       := \lnot unary
- *                  | (\forall | \exists) lettera { ',' lettera } \in numbers unary
+ *                  | (\forall | \exists) lettera { ',' lettera } [\in numbers] unary
+ *                  | \exists '!' lettera \in numbers unary
  *                  | lettera \colon numbers \to numbers
+ *                  | operazione \colon pairs \to numbers
+ *                  | lettera '=' \{ '(' lettera ',' lettera ')' \in pairs
+ *                                    (\mid | ':') formula \}
+ *                  | '(' expr ',' expr ')' (\in | \notin) lettera
+ *                  | expr (\in | \notin) numbers
+ *                  | expr (\mid | \nmid) expr
+ *                  | expr \equiv expr \pmod group
  *                  | \begin{cases} formula { \\ formula } \end{cases}
  *                  | expr relation expr { relation expr }
  *                  | '(' formula ')'
  *     relation    := '=' | \neq | '<' | '>' | \le | \ge
+ *     pairs       := side \times side | side '^' 2
+ *     side        := numbers | '(' numbers ')'
  *     numbers     := (\mathbb{N} | \mathbb{N}_{0} | \mathbb{Z} | \mathbb{Q} | \mathbb{Q}^{+}
  *                     | \mathbb{R} | \mathbb{R}^{+})
  *                    { \setminus \{ numero { ',' numero } \} }
  *
  * expr è l'espressione del capitolo 9, che riconosce anche f(x) quando f è
- * un'applicazione dichiarata.
+ * un'applicazione dichiarata, e a \ast b quando \ast è un'operazione
+ * dichiarata.
+ *
+ * Definizioni svolte. Tre scritture non sono condizioni nuove ma
+ * abbreviazioni, e il lettore le sostituisce con ciò che abbreviano prima
+ * che il motore le veda:
+ *
+ *   - una relazione data da una regola (17i). Dichiarata tra le ipotesi con
+ *     R = \{(x, y) \in A \times B \mid c\}, la lettera R è un nome per la
+ *     condizione c, e (s, t) \in R vuol dire: s sta in A, t sta in B, e vale
+ *     c con s e t al posto di x e y (17j);
+ *   - \exists! y \in A\ P, "esiste un solo y": esiste y in A con P, e ogni
+ *     z di A con P è uguale a y (17l);
+ *   - s \in A con A un insieme numerico resta invece una condizione, F_IN:
+ *     il motore sa stabilirla da sé (17k).
+ *
+ * Divisibilità e congruenze (17n). a \mid b, "a divide b", vuol dire che b
+ * è a per un numero intero; a \equiv b \pmod{m} vuol dire che m divide
+ * a - b, ed è letto proprio così: un solo tipo di condizione, F_DIVIDES. La
+ * barra \mid è anche quella di \{x \in A \mid c\}: lì la consuma chi legge
+ * l'insieme, prima che cominci la condizione, quindi non c'è ambiguità.
+ *
+ * La sostituzione si fa sul testo: si riscrive il pezzo di enunciato con gli
+ * argomenti, tra parentesi, al posto delle lettere, e lo si rilegge con
+ * questa stessa grammatica (unfold()). Così ogni nodo dell'albero ha ancora
+ * il suo pezzo di testo, quello svolto, e la dimostrazione scritta cita ciò
+ * che è stato davvero dimostrato. Due cautele rendono la sostituzione fedele:
+ * le parentesi intorno a ogni argomento che non sia una lettera sola, e
+ * lettere nuove, mai usate nell'enunciato, per ogni variabile legata dentro
+ * la regola, così che nessuna lettera degli argomenti venga catturata da un
+ * quantificatore della regola.
+ *
+ * Quantificatori senza insieme (17m). I libri scrivono "R è simmetrica" come
+ * \forall x, y\ ((x, y) \in R \implies (y, x) \in R), senza dire dove
+ * variano x e y. Lo si accetta solo quando l'insieme non cambia il senso:
+ * quando la condizione stessa obbliga la lettera a stare in un insieme, cioè
+ * quando fuori da quell'insieme un "per ogni" è vero e un "esiste" è falso
+ * comunque. Allora la lettera varia in quell'insieme; in ogni altro caso
+ * l'enunciato è respinto, perché letto alla lettera parlerebbe di "ogni
+ * oggetto", e non è ciò che un libro intende.
  *
  * Tre scritture dei libri di scuola. Una catena di confronti, a < b \le c,
  * dice a < b e b \le c. Un sistema, \begin{cases} ... \end{cases}, è la
  * congiunzione delle sue righe. E \{x \in \mathbb{R} \mid c\}, l'insieme
  * delle soluzioni di c, non afferma nulla: chiede per quali x vale c, e la
  * risposta del motore è un verdetto RISOLTO. Per questo sta solo in cima a un
- * enunciato (17h).
+ * enunciato (17h). Davanti può avere un solo "per ogni", quello di un
+ * parametro: \forall a \in \mathbb{R}\ \{x \in \mathbb{R} \mid c\} chiede le
+ * soluzioni in x per ogni valore di a.
  *
  * I numeri reali e le relazioni d'ordine li tratta una regola sola del
  * motore, la tabella dei segni (18p): le altre lavorano sui razionali con =
@@ -986,6 +1321,11 @@ static SetType set_check(SetNode *n) {
  * che ogni lettera sia quantificata, e una volta sola; che le espressioni
  * siano razionali; che un'applicazione sia applicata a una variabile del suo
  * dominio.
+ *
+ * Gli insiemi qualsiasi. Tutto ciò vale quando le lettere variano tra i
+ * numeri. Un enunciato in cui variano in un insieme S di cui non si sa
+ * nulla, e l'operazione o l'applicazione non hanno una regola, ha una
+ * grammatica e un albero suoi: sono in fondo al capitolo, nel paragrafo 17o.
  */
 
 /* Ritorna 1 se il numero value appartiene a set. */
@@ -1008,6 +1348,22 @@ static int numbers_equal(const NumberSet *a, const NumberSet *b) {
     if (a->bounded && (a->low != b->low || a->strict != b->strict)) return 0;
     for (int i = 0; i < a->holes; i++)
         if (numbers_contain(b, a->hole[i])) return 0;
+    return 1;
+}
+
+/* Ritorna 1 se ogni elemento di a è anche un elemento di b. Serve dove a un
+ * elemento di a si chiede solo di stare in b: l'argomento di un'applicazione
+ * il cui dominio è b (argument_in()), una coppia di una relazione tra
+ * elementi di b (member_is_plain()).
+ *
+ * Si guarda una proprietà alla volta: b può chiedere numeri interi, o
+ * razionali; può avere un estremo inferiore, che a deve allora rispettare; e
+ * i punti che b esclude non devono stare in a. */
+static int numbers_subset(const NumberSet *a, const NumberSet *b) {
+    if ((b->integers && !a->integers) || (a->reals && !b->reals)) return 0;
+    if (b->bounded && (!a->bounded || a->low < b->low || (a->low == b->low && b->strict && !a->strict))) return 0;
+    for (int i = 0; i < b->holes; i++)
+        if (numbers_contain(a, b->hole[i])) return 0;
     return 1;
 }
 
@@ -1044,7 +1400,10 @@ static void numbers_sample(const NumberSet *set, Frac *out, int wanted) {
  *
  * Warning: se aggiungi un tipo, aggiungi il ramo che lo costruisce nel parser
  * di questo capitolo, il suo case in formula_check(), in junction() o in
- * establish() (capitolo 18) e in sample_holds() (capitolo 19). */
+ * establish() (capitolo 18) e in sample_holds() (capitolo 19). La tabella
+ * dei segni (18p) prende per un confronto ogni nodo che non sia un
+ * connettivo: un tipo nuovo che non lo è va fermato prima, in
+ * decide_quantified(), come F_IN e F_DIVIDES. */
 typedef enum {
     F_EQUAL, F_DISTINCT,              /* left = right, left diverso da right */
     F_LESS, F_LESS_EQ,                /* left < right, left <= right: solo con la
@@ -1055,8 +1414,13 @@ typedef enum {
     F_SOLVE,                          /* \{variable \in numbers \mid a\}: non è una
                                          condizione ma una domanda, "per quali
                                          valori vale a?", e sta solo in cima a
-                                         un enunciato (17h) */
-    F_MAP                             /* dichiarazione di un'applicazione */
+                                         un enunciato, o sotto il "per ogni" di
+                                         un parametro (17h) */
+    F_MAP,                            /* dichiarazione: di un'applicazione, di
+                                         un'operazione o di una relazione data
+                                         da una regola */
+    F_IN,                             /* left appartiene a numbers (17k) */
+    F_DIVIDES                         /* left divide right (17n) */
 } FormulaKind;
 
 /* Un nodo dell'albero di un enunciato con quantificatori: una condizione, cioè
@@ -1072,14 +1436,20 @@ typedef enum {
 typedef struct Formula Formula;
 struct Formula {
     FormulaKind kind;
-    Node *left, *right;       /* i confronti (da F_EQUAL a F_LESS_EQ): i due membri */
+    Node *left, *right;       /* i confronti (da F_EQUAL a F_LESS_EQ): i due membri.
+                                 F_IN: left è l'espressione, right è NULL.
+                                 F_DIVIDES: left è il divisore, right ciò che
+                                 divide */
     int swapped;              /* F_LESS, F_LESS_EQ: 1 se nell'enunciato c'era > o
                                  \ge, e quindi left è il membro scritto a destra.
                                  Serve solo a chi deve mostrare i membri com'erano
-                                 scritti (il grafico, 18q) */
+                                 scritti (il grafico, 18q). F_IN, F_DIVIDES: 1
+                                 se c'era \notin o \nmid, e la condizione è la
+                                 negazione */
     Formula *a, *b;           /* le condizioni componenti */
     int variable;             /* F_FORALL, F_EXISTS, F_SOLVE: la lettera legata */
-    NumberSet numbers;        /* F_FORALL, F_EXISTS, F_SOLVE: l'insieme su cui varia */
+    NumberSet numbers;        /* F_FORALL, F_EXISTS, F_SOLVE: l'insieme su cui varia.
+                                 F_IN: l'insieme a cui left appartiene */
     const char *start, *end;  /* com'è scritto nell'enunciato: [start, end) */
     unsigned has_witness;     /* il bit r dice se witness[r] è stato scelto */
     Rat witness[MAX_CASES];   /* il valore scelto per variable nel caso r: un
@@ -1140,6 +1510,21 @@ static Formula *formula_node(FormulaKind kind, Formula *a, Formula *b, const cha
  * duplicazione. */
 static Rat eval(const Node *node);
 
+/* Ritorna 1 se il token corrente è l'apice di un quadrato cartesiano, ^2 o
+ * ^{2}: non fa parte dell'insieme numerico, e lo legge parse_pairs(). Il
+ * lettore resta dov'era. */
+static int square_follows(void) {
+    ParserState here = parser_save();
+    const char *here_consumed = consumed;
+    int caret = is_char('^');
+    next_token();
+    if (is_char('{')) next_token();
+    int square = caret && token.kind == T_NUM && token.value == 2 && token.digits == 1;
+    parser_restore(here);
+    consumed = here_consumed;
+    return square;
+}
+
 /* numbers: vedi la grammatica in testa al capitolo. */
 static NumberSet parse_numbers(void) {
     NumberSet set = {0};
@@ -1156,7 +1541,7 @@ static NumberSet parse_numbers(void) {
 
     /* Il pedice 0 oppure l'apice +, con o senza graffe. */
     int zero = 0, plus = 0;
-    if (is_char('_') || is_char('^')) {
+    if ((is_char('_') || is_char('^')) && !square_follows()) {
         int subscript = is_char('_');
         next_token();
         int braces = is_char('{');
@@ -1210,8 +1595,655 @@ static NumberSet parse_numbers(void) {
     return set;
 }
 
-/* Prototipo in avanti inevitabile: la grammatica è ricorsiva. */
+/* Prototipi in avanti inevitabili: la grammatica è ricorsiva. */
 static Formula *logic_formula(void);
+static Formula *logic_unary(void);
+
+/* Le variabili quantificate visibili in un punto dell'enunciato, dalla più
+ * esterna. Servono in due momenti diversi: al lettore, che in 17b le aggiunge
+ * mentre legge la condizione di un quantificatore (17j e 17m devono sapere
+ * dove varia una lettera), e poi a formula_check(). */
+static Bound scope[MAX_BOUND];
+static int scope_count;
+
+/* Ritorna la variabile quantificata di nome name visibile in questo punto, o
+ * NULL se non c'è. */
+static const Bound *scope_find(int name) {
+    for (int i = 0; i < scope_count; i++)
+        if (scope[i].name == name) return &scope[i];
+    return NULL;
+}
+
+/* Un insieme di coppie dato da una regola, R = \{(x, y) \in A \times B \mid
+ * c\} (17i): una corrispondenza tra A e B, o una relazione su A se B = A. Per
+ * il programma R è un nome per la condizione c, e ogni (s, t) \in R viene
+ * svolto (17j).
+ *
+ * Invariante: le due lettere sono diverse; [start, end) è il testo di c
+ * com'è scritto, e resta valido finché dura la lettura dell'enunciato. */
+typedef struct {
+    int name;                  /* la lettera R */
+    int letter[2];             /* x e y */
+    NumberSet numbers[2];      /* A e B */
+    const char *start, *end;   /* il testo di c */
+    const Formula *condition;  /* c letta una volta: serve ai controlli di
+                                  pair_sets_check(), non alle dimostrazioni */
+    int bound[MAX_RENAMED];    /* le lettere che c lega: variabili di
+                                  quantificatori e indici di somme */
+    int bounds;                /* quante sono */
+} PairSet;
+
+/* Gli insiemi di coppie dichiarati dall'enunciato in corso. */
+static PairSet pair_sets[MAX_PAIR_SETS];
+static int pair_set_count;
+
+/* Ritorna l'insieme di coppie di nome name, o NULL se non è stato dichiarato. */
+static PairSet *pair_set_find(int name) {
+    for (int i = 0; i < pair_set_count; i++)
+        if (pair_sets[i].name == name) return &pair_sets[i];
+    return NULL;
+}
+
+/* letter_taken[c] è 1 se la lettera c compare nell'enunciato in corso, o è
+ * già stata data da fresh_letter(). */
+static char letter_taken[128];
+
+/* Ritorna una lettera che l'enunciato non usa, e la segna come usata. Se sono
+ * finite annota l'errore e ritorna una lettera qualsiasi. Mancano dall'elenco
+ * e, che senza quantificatore è il numero di Nepero, e le lettere che in
+ * stampa si confondono con delle cifre. */
+static int fresh_letter(void) {
+    for (const char *c = "abcdfghjkmnpqrstuvwxyzABCDFGHJKLMNPQRSTUVWXYZ"; *c; c++)
+        if (!letter_taken[(int)*c]) { letter_taken[(int)*c] = 1; return *c; }
+    syntax("le lettere non bastano per svolgere le definizioni dell'enunciato");
+    return 'a';
+}
+
+/* Un'appartenenza (s, t) \in R che obbliga una lettera a stare in un insieme:
+ * `letter` è scritta da sola al posto di una delle due componenti, e
+ * l'insieme di quella componente è quello in cui la lettera varia. Chi
+ * afferma `atom` afferma quindi anche che la lettera sta nel suo insieme: è
+ * ciò che serve a 17m. */
+typedef struct {
+    const Formula *atom;  /* la condizione che svolge l'appartenenza */
+    int letter;           /* la lettera */
+} Guard;
+
+/* Le appartenenze di questo tipo lette nell'enunciato in corso. */
+static Guard guards[MAX_GUARDS];
+static int guard_count;
+
+/* 17m. Ritorna 1 se la condizione f, negata se negated, obbliga la variabile
+ * `letter` a stare nell'insieme in cui varia: cioè se ogni volta che f (o la
+ * sua negazione) è vera, un'appartenenza di guards[] per quella lettera è
+ * vera.
+ *
+ * Le regole sono quelle della logica, e ognuna è un'implicazione vera: una
+ * congiunzione impone ciò che impone una sua parte; una disgiunzione solo ciò
+ * che impongono tutte e due; "A implica B" è "non A, oppure B"; "esiste w
+ * tale che P" impone ciò che impone P. Un "per ogni w" e un "se e solo se"
+ * non impongono nulla: la risposta 0 vuol dire solo "non risulta". */
+static int imposes_membership(const Formula *f, int negated, int letter) {
+    for (int i = 0; i < guard_count; i++)
+        if (guards[i].atom == f && guards[i].letter == letter) return !negated;
+    switch (f->kind) {
+    case F_NOT:
+        return imposes_membership(f->a, !negated, letter);
+    case F_AND: case F_OR: case F_IMPLIES: {
+        int left = imposes_membership(f->a, f->kind == F_IMPLIES ? !negated : negated, letter);
+        int right = imposes_membership(f->b, negated, letter);
+        return (f->kind == F_AND) != negated ? left || right : left && right;
+    }
+    case F_FORALL: case F_EXISTS:
+        return (f->kind == F_EXISTS) != negated && imposes_membership(f->a, negated, letter);
+    default:
+        return 0;
+    }
+}
+
+/* Il testo che si sta scrivendo per svolgere una definizione, e quanti
+ * caratteri sono stati scritti in tutto per l'enunciato in corso: il secondo
+ * numero ha un tetto, MAX_UNFOLDED, perché una definizione dentro l'altra
+ * moltiplica la lunghezza a ogni livello. */
+static char draft[4 * MAX_FORMULA];
+static size_t draft_length;
+static size_t unfolded;
+
+/* Aggiunge alla bozza i caratteri [from, to). Se non c'è posto annota
+ * l'errore. */
+static void draft_add(const char *from, const char *to) {
+    size_t length = (size_t)(to - from);
+    if (length >= sizeof draft - draft_length) { syntax("enunciato troppo lungo, una volta svolte le definizioni"); return; }
+    memcpy(draft + draft_length, from, length);
+    draft_length += length;
+}
+
+/* Aggiunge alla bozza la stringa word. */
+static void draft_word(const char *word) { draft_add(word, word + strlen(word)); }
+
+/* Dove il lettore era arrivato quando ha cominciato a leggere un altro testo:
+ * serve a tornarci. */
+typedef struct {
+    ParserState state;
+    const char *consumed;
+} Detour;
+
+/* Porta il lettore all'inizio di text, e ritorna il punto in cui era. */
+static Detour detour_begin(const char *text) {
+    Detour detour = {parser_save(), consumed};
+    cursor = text;
+    next_token();
+    return detour;
+}
+
+/* Riporta il lettore dov'era prima di detour_begin(). Un errore incontrato
+ * nel frattempo resta: ferma anche la lettura a cui si torna. */
+static void detour_end(Detour detour) {
+    const char *problem = syntax_error;
+    parser_restore(detour.state);
+    consumed = detour.consumed;
+    if (problem) syntax(problem);
+}
+
+/* Aggiunge alla bozza il testo [start, end) dell'enunciato in cui ogni
+ * lettera from[i], per i < count, è sostituita dalla stringa to[i].
+ *
+ * Il testo viene diviso in token dallo stesso lettore che lo leggerà: così
+ * una "lettera" è ciò che la grammatica chiama lettera, e la x dentro
+ * \exists o \max non viene toccata. Ogni altro token è copiato com'è, con
+ * gli spazi che lo precedono: due token che erano separati lo restano.
+ *
+ * Non sono variabili nemmeno le lettere tra le graffe di \mathbb{Z} e di
+ * \begin{cases}, che per il lettore sono token "lettera" come gli altri:
+ * dopo uno di quei comandi si copia senza sostituire fino alla graffa
+ * chiusa. Prima non era così, e con una relazione le cui due lettere erano
+ * (Z, y) e la regola \exists k \in \mathbb{Z}\ (Z + k = y), l'appartenenza
+ * (N, 0) \in R diventava \exists k \in \mathbb{N}\ (N + k = 0): un altro
+ * enunciato, e ne usciva dimostrato un falso. I due casi sono nei test. */
+static void draft_rewrite(const char *start, const char *end, const int *from, const char *const *to, int count) {
+    size_t length = (size_t)(end - start);
+    char *copy = arena_alloc(length + 1);
+    if (!copy) return;
+    memcpy(copy, start, length);
+    copy[length] = 0;
+
+    Detour detour = detour_begin(copy);
+    const char *copied = copy;  /* fin dove il testo è già nella bozza */
+    int verbatim = 0;           /* 1 tra \mathbb o \begin e la graffa chiusa */
+    while (token.kind != T_END) {
+        const char *first = token.start, *replacement = NULL;
+        if (is_command("mathbb") || is_command("begin") || is_command("end")) verbatim = 1;
+        else if (is_char('}')) verbatim = 0;
+        for (int i = 0; i < count && !verbatim; i++)
+            if (token.kind == T_LETTER && token.ch == from[i]) replacement = to[i];
+        next_token();  /* ora `consumed` è la fine del token appena esaminato */
+        draft_add(copied, replacement ? first : consumed);
+        if (replacement) draft_word(replacement);
+        copied = consumed;
+    }
+    detour_end(detour);
+}
+
+/* Legge come formula il testo della bozza, che è la definizione svolta di un
+ * pezzo di enunciato, e ne ritorna l'albero. Il testo viene copiato
+ * nell'arena, dove i nodi lo citano; poi il lettore riprende da dov'era. */
+static Formula *unfold(void) {
+    char *text = arena_alloc(draft_length + 1);
+    unfolded += draft_length;
+    if (unfolded > MAX_UNFOLDED) syntax("enunciato troppo lungo, una volta svolte le definizioni");
+    if (!text || syntax_error) text = "";
+    else { memcpy(text, draft, draft_length); text[draft_length] = 0; }
+
+    Detour detour = detour_begin(text);
+    Formula *node = logic_formula();
+    if (token.kind != T_END) syntax("testo inatteso dopo una definizione svolta");
+    detour_end(detour);
+    return node;
+}
+
+/* Ritorna la condizione "0 = 0" con il testo che comincia in start: è ciò
+ * che una regola ritorna dopo un errore di sintassi, quando l'albero non
+ * verrà usato. */
+static Formula *logic_nothing(const char *start) {
+    Formula *nothing = formula_node(F_EQUAL, NULL, NULL, start);
+    nothing->left = nothing->right = node_num(0);
+    return nothing;
+}
+
+/* side := numbers | '(' numbers ')' */
+static NumberSet parse_side(void) {
+    if (token.kind != T_OPEN) return parse_numbers();
+    next_token();
+    NumberSet set = parse_numbers();
+    if (token.kind == T_CLOSE) next_token(); else syntax("manca la parentesi chiusa");
+    return set;
+}
+
+/* pairs := side \times side | side '^' 2
+ *
+ * Mette in side[0] e side[1] gli insiemi delle due componenti. */
+static void parse_pairs(NumberSet *side) {
+    side[0] = parse_side();
+    if (is_command("times")) {
+        next_token();
+        side[1] = parse_side();
+        return;
+    }
+    side[1] = side[0];
+    if (!is_char('^')) { syntax("serve un insieme di coppie: A \\times B oppure A^{2}"); return; }
+    next_token();
+    int braces = is_char('{');
+    if (braces) next_token();
+    if (token.kind != T_NUM || token.value != 2 || token.digits != 1) syntax("di un insieme è riconosciuto solo il quadrato, A^{2}");
+    next_token();
+    if (braces) expect_char('}', "manca }");
+}
+
+/* Aggiunge a set->bound l'indice di ogni somma o prodotto dell'espressione
+ * node. */
+static void bound_indices(const Node *node, PairSet *set) {
+    if (!node) return;
+    if (node->kind == N_BIGOP) {
+        if (set->bounds == MAX_RENAMED) { syntax("troppe lettere legate nella regola di una relazione"); return; }
+        set->bound[set->bounds++] = node->name;
+    }
+    bound_indices(node->a, set);
+    bound_indices(node->b, set);
+    bound_indices(node->c, set);
+}
+
+/* Aggiunge a set->bound ogni lettera legata nella condizione f: le variabili
+ * dei quantificatori e gli indici delle somme. */
+static void bound_letters(const Formula *f, PairSet *set) {
+    if (!f) return;
+    if (f->kind == F_FORALL || f->kind == F_EXISTS) {
+        if (set->bounds == MAX_RENAMED) { syntax("troppe lettere legate nella regola di una relazione"); return; }
+        set->bound[set->bounds++] = f->variable;
+    }
+    bound_indices(f->left, set);
+    bound_indices(f->right, set);
+    bound_letters(f->a, set);
+    bound_letters(f->b, set);
+}
+
+/* 17i. Una relazione data da una regola: legge ciò che segue "R = \{" nella
+ * dichiarazione R = \{(x, y) \in A \times B \mid c\} e registra R in
+ * pair_sets[]. name è la lettera R e start l'inizio della dichiarazione.
+ *
+ * La condizione c viene letta anche qui, una volta, con x e y visibili: per
+ * sapere dove finisce il suo testo, quali lettere lega, e perché
+ * pair_sets_check() possa poi controllare che non contenga altre lettere. Le
+ * dimostrazioni non useranno quest'albero ma una copia svolta per ogni
+ * (s, t) \in R. */
+static Formula *logic_pair_set(int name, const char *start) {
+    PairSet set;
+    memset(&set, 0, sizeof set);
+    set.name = name;
+
+    /* (x, y) \in A \times B, e la barra. */
+    if (token.kind == T_OPEN) next_token(); else syntax("una relazione data da una regola si scrive R = \\{(x, y) \\in A \\times B \\mid ...\\}");
+    for (int i = 0; i < 2 && !syntax_error; i++) {
+        if (token.kind != T_LETTER) { syntax("le due componenti della coppia, in una relazione data da una regola, devono essere due lettere"); break; }
+        set.letter[i] = token.ch;
+        next_token();
+        if (i == 0) expect_char(',', "le due componenti della coppia, in una relazione data da una regola, devono essere due lettere");
+    }
+    if (token.kind == T_CLOSE) next_token(); else syntax("le due componenti della coppia, in una relazione data da una regola, devono essere due lettere");
+    if (is_command("in")) next_token(); else syntax("in R = \\{(x, y) \\in A \\times B \\mid ...\\} manca \\in");
+    parse_pairs(set.numbers);
+    if (is_command("mid") || is_char(':')) next_token(); else syntax("in R = \\{(x, y) \\in A \\times B \\mid ...\\} manca \\mid");
+
+    /* Una dichiarazione sta fuori dai quantificatori: la sua regola non può
+     * dipendere da una lettera che cambia. */
+    if (scope_count) syntax("una relazione si dichiara tra le ipotesi, fuori dai quantificatori");
+    else if (set.letter[0] == set.letter[1]) syntax("le due componenti della coppia devono essere due lettere diverse");
+    else if (pair_set_find(name) || map_find(name)) syntax("la stessa lettera è dichiarata due volte");
+    else if (pair_set_count == MAX_PAIR_SETS) syntax("troppe relazioni dichiarate in un enunciato");
+
+    /* La condizione, con le due lettere visibili. */
+    set.start = token.start;
+    for (int i = 0; i < 2 && !syntax_error; i++) scope[scope_count++] = (Bound){set.letter[i], &set.numbers[i]};
+    set.condition = logic_formula();
+    scope_count = 0;
+    set.end = consumed;
+    expect_char(ESCAPED + '}', "manca \\}");
+    bound_letters(set.condition, &set);
+    if (!syntax_error) pair_sets[pair_set_count++] = set;
+    return formula_node(F_MAP, NULL, NULL, start);
+}
+
+/* Ritorna 1 se l'espressione node è fatta solo di numeri e operazioni: è un
+ * numero scritto per esteso, come -\frac{1}{2}. */
+static int node_is_numeral(const Node *node) {
+    if (!node) return 1;
+    if (node->kind == N_NUM) return 1;
+    if (node->kind != N_NEG && node->kind != N_ADD && node->kind != N_SUB && node->kind != N_MUL && node->kind != N_DIV) return 0;
+    return node_is_numeral(node->a) && node_is_numeral(node->b);
+}
+
+/* Ritorna 1 se "argument appartiene a numbers" è vero per come l'enunciato è
+ * scritto, senza bisogno di dimostrarlo: argument è una variabile che varia
+ * in quell'insieme o in una sua parte, oppure un numero che vi appartiene.
+ * Se è una variabile che varia proprio in quell'insieme mette la lettera in
+ * *letter, altrimenti 0.
+ *
+ * Una lettera di un quantificatore senza insieme (17m), che ancora non sa
+ * dove varia, lo impara qui: il suo insieme diventa numbers. È l'unico punto
+ * in cui il lettore scrive nell'insieme di una variabile già in vista, e per
+ * questo toglie il const al puntatore di `scope`. */
+static int member_is_plain(const Node *argument, const NumberSet *numbers, int *letter) {
+    Num value;
+    *letter = 0;
+    if (argument->kind == N_VAR) {
+        const Bound *variable = scope_find(argument->name);
+        if (!variable) return 0;
+        if (!variable->numbers->start) *(NumberSet *)variable->numbers = *numbers;
+        if (numbers_equal(variable->numbers, numbers)) *letter = argument->name;
+        return numbers_subset(variable->numbers, numbers);
+    }
+    return node_is_numeral(argument) && rat_number(eval(argument), &value) && value.im.num == 0 && numbers_contain(numbers, value.re);
+}
+
+/* IL CONTROLLO DELLO SVOLGIMENTO (17j)
+ *
+ * Svolgere "(s, t) \in R" vuol dire riscrivere un testo: la regola di R con
+ * gli argomenti al posto delle due lettere. Se la riscrittura sbaglia, il
+ * programma dimostra un altro enunciato, e ogni controllo successivo lo
+ * conferma, perché controlla l'enunciato riscritto. È già successo: una
+ * lettera dentro \mathbb{Z} era stata presa per una variabile.
+ *
+ * Per questo lo svolgimento si rifà in un secondo modo, che non passa dal
+ * testo: nell'albero della regola, letta una volta sola quando R è stata
+ * dichiarata, si mettono gli alberi degli argomenti al posto delle due
+ * lettere (formula_substitute()), e il risultato deve essere la stessa formula
+ * che il lettore ha ricavato dal testo riscritto. "La stessa" a meno dei
+ * nomi delle lettere legate (formula_alike()): se nella regola c'è
+ * un'altra relazione, svolta anche lei, i suoi quantificatori hanno ricevuto
+ * lettere nuove diverse nelle due letture. Le due strade hanno in comune
+ * solo il lettore: nell'albero non ci sono né parentesi da aggiungere né
+ * lettere da riconoscere dentro un comando.
+ */
+
+/* Ritorna una copia dell'espressione node in cui ogni variabile from[i], per
+ * i < count, è sostituita dall'albero to[i]. L'indice di una somma che è una
+ * delle from[i] prende il nome della variabile to[i]: è il modo di
+ * rinominare una lettera legata. Gli alberi to[i] non vengono copiati: gli
+ * alberi non si modificano mai. */
+static Node *node_substitute(const Node *node, const int *from, const Node *const *to, int count) {
+    if (!node) return NULL;
+    for (int i = 0; i < count && node->kind == N_VAR; i++)
+        if (node->name == from[i]) return (Node *)to[i];
+    Node *copy = node_new(node->kind, node_substitute(node->a, from, to, count), node_substitute(node->b, from, to, count));
+    copy->c = node_substitute(node->c, from, to, count);
+    copy->value = node->value;
+    copy->op = node->op;
+    copy->name = node->name;
+    for (int i = 0; i < count && node->kind == N_BIGOP; i++)
+        if (node->name == from[i] && to[i]->kind == N_VAR) copy->name = to[i]->name;
+    return copy;
+}
+
+/* Ritorna una copia della formula f con la stessa sostituzione di
+ * node_substitute() in ogni sua espressione; la lettera di un quantificatore
+ * che è una delle from[i] prende il nome della variabile to[i]. Tutto il
+ * resto della formula (il testo da cui viene, l'insieme di un
+ * quantificatore) passa alla copia com'è. Serve anche al motore, per
+ * mettere un numero al posto di un parametro (18t). */
+static Formula *formula_substitute(const Formula *f, const int *from, const Node *const *to, int count) {
+    if (!f) return NULL;
+    Formula *a = formula_substitute(f->a, from, to, count), *b = formula_substitute(f->b, from, to, count);
+    Formula *copy = formula_node(f->kind, a, b, f->start);
+    *copy = *f;
+    copy->a = a;
+    copy->b = b;
+    copy->left = node_substitute(f->left, from, to, count);
+    copy->right = node_substitute(f->right, from, to, count);
+    for (int i = 0; i < count; i++)
+        if (f->variable == from[i] && to[i]->kind == N_VAR) copy->variable = to[i]->name;
+    return copy;
+}
+
+/* Le lettere legate incontrate scendendo insieme in due formule che si
+ * stanno confrontando: alike_first[i] nella prima corrisponde ad
+ * alike_second[i] nella seconda. È una pila: l'ultima coppia è la più
+ * interna. */
+static int alike_first[MAX_RENAMED + MAX_BOUND], alike_second[MAX_RENAMED + MAX_BOUND], alike_count;
+
+/* Ritorna 1 se le due espressioni sono la stessa a meno dei nomi delle
+ * lettere legate: una variabile legata nell'una deve essere legata nello
+ * stesso punto nell'altra, una libera deve avere lo stesso nome. */
+static int node_alike(const Node *a, const Node *b) {
+    if (!a || !b) return a == b;
+    if (a->kind != b->kind || a->value != b->value || a->op != b->op) return 0;
+    if (a->kind == N_VAR) {
+        for (int i = alike_count - 1; i >= 0; i--)
+            if (alike_first[i] == a->name || alike_second[i] == b->name) return alike_first[i] == a->name && alike_second[i] == b->name;
+        return a->name == b->name;
+    }
+    if (a->kind != N_BIGOP) return a->name == b->name && node_alike(a->a, b->a) && node_alike(a->b, b->b) && node_alike(a->c, b->c);
+
+    /* Una somma: gli estremi stanno fuori dal suo indice, il termine dentro. */
+    if (!node_alike(a->a, b->a) || !node_alike(a->b, b->b) || alike_count == MAX_RENAMED + MAX_BOUND) return 0;
+    alike_first[alike_count] = a->name;
+    alike_second[alike_count++] = b->name;
+    int same = node_alike(a->c, b->c);
+    alike_count--;
+    return same;
+}
+
+static int formula_alike(const Formula *a, const Formula *b);
+
+/* Ritorna 1 se le due formule hanno la stessa forma in cima e parti che
+ * formula_alike() trova uguali. */
+static int formula_alike_here(const Formula *a, const Formula *b) {
+    if (!a || !b) return a == b;
+    int binder = a->kind == F_FORALL || a->kind == F_EXISTS || a->kind == F_SOLVE;
+    if (a->kind != b->kind || a->swapped != b->swapped || !node_alike(a->left, b->left) || !node_alike(a->right, b->right)) return 0;
+    if ((binder || a->kind == F_IN) && !numbers_equal(&a->numbers, &b->numbers)) return 0;
+    if (!binder) return formula_alike(a->a, b->a) && formula_alike(a->b, b->b);
+    if (alike_count == MAX_RENAMED + MAX_BOUND) return 0;
+    alike_first[alike_count] = a->variable;
+    alike_second[alike_count++] = b->variable;
+    int same = formula_alike(a->a, b->a);
+    alike_count--;
+    return same;
+}
+
+/* Ritorna 1 se f è fatta solo di appartenenze a un insieme numerico. */
+static int only_memberships(const Formula *f) {
+    return f->kind == F_IN || (f->kind == F_AND && only_memberships(f->a) && only_memberships(f->b));
+}
+
+/* Ritorna 1 se le due formule sono la stessa a meno dei nomi delle lettere
+ * legate (vedi node_alike()); a è quella letta dal testo riscritto.
+ *
+ * In a possono esserci, davanti a un pezzo, delle appartenenze che in b
+ * mancano. Capita quando la regola di una relazione nomina un'altra
+ * relazione: (y, x) \in R, letta dove x e y sono lettere del loro insieme,
+ * non ha bisogno di dire che vi appartengono; riletta con 2a al posto di x
+ * lo dice. Quelle appartenenze le aggiunge lo svolgimento della relazione
+ * interna, che ha il suo controllo. */
+static int formula_alike(const Formula *a, const Formula *b) {
+    if (formula_alike_here(a, b)) return 1;
+    return a && a->kind == F_AND && only_memberships(a->a) && formula_alike(a->b, b);
+}
+
+/* 17j. Prova a leggere "(s, t) \in R" oppure "(s, t) \notin R", con R una
+ * relazione dichiarata; il token corrente è la parentesi aperta. Ritorna la
+ * condizione svolta, o NULL se ciò che segue non ha questa forma: allora il
+ * lettore va rimesso dov'era da chi chiama.
+ *
+ * Svolgere vuol dire scrivere la definizione di R con s e t al posto delle
+ * sue due lettere:
+ *
+ *     s \in A \land t \in B \land (c con s al posto di x e t al posto di y)
+ *
+ * Le prime due parti si omettono quando sono vere per come l'enunciato è
+ * scritto (member_is_plain()). Nel testo di c ogni argomento va tra
+ * parentesi, a meno che sia una lettera sola: con y^{2} e t = a + 1 si deve
+ * leggere (a + 1)^{2}. E ogni lettera che c lega prende un nome nuovo, mai
+ * usato nell'enunciato: se c è \exists k\ (y = kx) e l'argomento s contiene
+ * una k, quella k non deve finire sotto il quantificatore di c. */
+static Formula *logic_member(const char *start) {
+    const Node *argument[2];
+    const char *from[2], *to[2];
+
+    /* I due argomenti, il segno di appartenenza, la relazione. */
+    next_token();
+    for (int i = 0; i < 2; i++) {
+        from[i] = token.start;
+        argument[i] = parse_expr();
+        to[i] = consumed;
+        if (syntax_error || (i == 0 ? !is_char(',') : token.kind != T_CLOSE)) return NULL;
+        next_token();
+    }
+    int negative = is_command("notin");
+    if (!negative && !is_command("in")) return NULL;
+    next_token();
+    const PairSet *set = token.kind == T_LETTER ? pair_set_find(token.ch) : NULL;
+    if (!set) return NULL;
+    next_token();
+
+    /* Che cosa va al posto di ogni lettera della regola: gli argomenti al
+     * posto delle due componenti, lettere nuove al posto di quelle legate. */
+    int letter[2 + MAX_RENAMED], count = 0;
+    const char *replacement[2 + MAX_RENAMED];
+    for (int i = 0; i < 2; i++) {
+        int length = (int)(to[i] - from[i]), alone = argument[i]->kind == N_VAR && length == 1;
+        char *text = arena_alloc((size_t)length + 3);
+        if (!text) return logic_nothing(start);
+        snprintf(text, (size_t)length + 3, alone ? "%.*s" : "(%.*s)", length, from[i]);
+        letter[count] = set->letter[i];
+        replacement[count++] = text;
+    }
+    for (int i = 0; i < set->bounds; i++) {
+        char *text = arena_alloc(2);
+        if (!text) return logic_nothing(start);
+        text[0] = (char)fresh_letter();
+        text[1] = 0;
+        letter[count] = set->bound[i];
+        replacement[count++] = text;
+    }
+
+    /* Il testo svolto, e la sua lettura. */
+    int plain[2], variable[2];
+    draft_length = 0;
+    for (int i = 0; i < 2; i++) {
+        plain[i] = member_is_plain(argument[i], &set->numbers[i], &variable[i]);
+        if (plain[i]) continue;
+        draft_word(replacement[i]);
+        draft_word(" \\in ");
+        draft_add(set->numbers[i].start, set->numbers[i].end);
+        draft_word(" \\land ");
+    }
+    draft_word("(");
+    draft_rewrite(set->start, set->end, letter, replacement, count);
+    draft_word(")");
+    Formula *atom = unfold();
+
+    /* Il controllo dello svolgimento, sull'albero. Ciò che il testo
+     * riscritto ha dato, tolte le appartenenze messe davanti, deve essere
+     * la regola con gli argomenti al posto delle due lettere e, al posto
+     * di ogni lettera legata, la lettera nuova che ha ricevuto. */
+    const Node *tree[2 + MAX_RENAMED] = {argument[0], argument[1]};
+    for (int i = 2; i < count; i++) {
+        Node *renamed = node_new(N_VAR, NULL, NULL);
+        renamed->name = (unsigned char)replacement[i][0];
+        tree[i] = renamed;
+    }
+    const Formula *core = plain[0] && plain[1] ? atom : atom->kind == F_AND ? atom->b : NULL;
+    alike_count = 0;
+    if (!syntax_error && (!core || !formula_alike(core, formula_substitute(set->condition, letter, tree, count))))
+        syntax("lo svolgimento di una relazione, rifatto in un secondo modo, non dà la stessa formula");
+
+    /* Chi afferma l'appartenenza afferma che le lettere scritte da sole
+     * stanno nel loro insieme: lo si annota per 17m. */
+    for (int i = 0; i < 2; i++)
+        if (plain[i] && variable[i] && guard_count < MAX_GUARDS) guards[guard_count++] = (Guard){atom, variable[i]};
+    return negative ? formula_node(F_NOT, atom, NULL, start) : atom;
+}
+
+/* 17l. \exists! y \in A\ P, "esiste un solo y in A tale che P"; il token
+ * corrente è il punto esclamativo. Ritorna la definizione svolta:
+ *
+ *     \exists y \in A\ ((P) \land \forall z \in A\ ((P con z al posto di y) \implies z = y))
+ *
+ * con z una lettera nuova. P viene letta prima una volta, per sapere dove
+ * finisce il suo testo e per avere l'albero con cui ricontrollare lo
+ * svolgimento. */
+static Formula *logic_unique(const char *start) {
+    next_token();
+    int name = token.ch;
+    if (token.kind != T_LETTER) syntax("dopo \\exists! servono una lettera, \\in e un insieme numerico");
+    next_token();
+    if (is_command("in")) next_token(); else syntax("dopo \\exists! servono una lettera, \\in e un insieme numerico");
+    NumberSet numbers = parse_numbers();
+
+    /* Dove comincia e dove finisce P. */
+    const char *from = token.start;
+    int outer = scope_count;
+    if (scope_count < MAX_BOUND) scope[scope_count++] = (Bound){name, &numbers};
+    const Formula *condition = logic_unary();
+    scope_count = outer;
+    const char *to = consumed;
+    if (syntax_error) return logic_nothing(start);
+
+    /* Il testo svolto. */
+    char written[2] = {(char)name, 0}, other[2] = {(char)fresh_letter(), 0};
+    const char *const replacement[1] = {other};
+    draft_length = 0;
+    draft_word("\\exists ");
+    draft_word(written);
+    draft_word(" \\in ");
+    draft_add(numbers.start, numbers.end);
+    draft_word("\\ ((");
+    draft_add(from, to);
+    draft_word(") \\land \\forall ");
+    draft_word(other);
+    draft_word(" \\in ");
+    draft_add(numbers.start, numbers.end);
+    draft_word("\\ ((");
+    draft_rewrite(from, to, &name, replacement, 1);
+    draft_word(") \\implies ");
+    draft_word(other);
+    draft_word(" = ");
+    draft_word(written);
+    draft_word("))");
+    Formula *whole = unfold();
+
+    /* Il controllo dello svolgimento, come per le relazioni: nella formula
+     * letta dal testo la prima copia di P deve essere P, e la seconda P con
+     * la lettera nuova al posto di y, sostituita sull'albero. */
+    Node *renamed = node_new(N_VAR, NULL, NULL);
+    renamed->name = (unsigned char)other[0];
+    const Node *const tree[1] = {renamed};
+    const Formula *both = whole->kind == F_EXISTS ? whole->a : NULL, *every = both && both->kind == F_AND ? both->b : NULL;
+    const Formula *step = every && every->kind == F_FORALL ? every->a : NULL;
+    alike_count = 0;
+    if (!syntax_error && (!step || step->kind != F_IMPLIES || !formula_alike(both->a, condition) ||
+                          !formula_alike(step->a, formula_substitute(condition, &name, tree, 1))))
+        syntax("lo svolgimento di \\exists!, rifatto in un secondo modo, non dà la stessa formula");
+    return whole;
+}
+
+/* Prepara la lettura dell'enunciato il cui testo comincia in text: nessuna
+ * relazione dichiarata, nessuna variabile in vista, e in letter_taken le
+ * lettere che il testo usa. Il lettore resta dov'era. */
+static void unfolding_reset(const char *text) {
+    pair_set_count = guard_count = scope_count = 0;
+    unfolded = 0;
+    memset(letter_taken, 0, sizeof letter_taken);
+
+    /* Un errore incontrato qui lo ritroverà la lettura vera, nel punto in
+     * cui lo riporterà con più precisione: non va conservato. */
+    ParserState here = parser_save();
+    const char *here_consumed = consumed;
+    cursor = text;
+    for (next_token(); token.kind != T_END; next_token())
+        if (token.kind == T_LETTER) letter_taken[token.ch & 127] = 1;
+    parser_restore(here);
+    consumed = here_consumed;
+}
 
 /* unary: vedi la grammatica in testa al capitolo. */
 static Formula *logic_unary(void) {
@@ -1222,6 +2254,14 @@ static Formula *logic_unary(void) {
         next_token();
         Formula *inner = logic_unary();
         return formula_node(F_NOT, inner, NULL, start);
+    }
+
+    /* 17l. "Esiste un solo": si distingue da "esiste" al token dopo. */
+    if (is_command("exists")) {
+        ParserState before = parser_save();
+        next_token();
+        if (is_char('!')) return logic_unique(start);
+        parser_restore(before);
     }
 
     /* 17b. Quantificatore: le lettere, l'insieme, la condizione. */
@@ -1237,17 +2277,40 @@ static Formula *logic_unary(void) {
             name[names++] = token.ch;
             next_token();
         } while (is_char(','));
-        if (!is_command("in")) syntax("dopo le lettere di un quantificatore servono \\in e un insieme numerico");
-        next_token();
-        NumberSet numbers = parse_numbers();
+
+        /* L'insieme, lo stesso per tutte le lettere. Se manca (17m) ogni
+         * lettera aspetta il suo: numbers[i].start resta NULL finché
+         * un'appartenenza della condizione non glielo dà. */
+        NumberSet numbers[MAX_BOUND];
+        memset(numbers, 0, sizeof numbers);
+        int stated = is_command("in") || !pair_set_count;
+        if (stated) {
+            if (!is_command("in")) syntax("dopo le lettere di un quantificatore servono \\in e un insieme numerico");
+            next_token();
+            numbers[0] = parse_numbers();
+            for (int i = 1; i < names; i++) numbers[i] = numbers[0];
+        }
+
+        /* La condizione, letta con le lettere in vista. */
+        int outer = scope_count;
+        for (int i = 0; i < names && scope_count < MAX_BOUND; i++) scope[scope_count++] = (Bound){name[i], &numbers[i]};
         Formula *node = logic_unary();
+        scope_count = outer;
+
+        /* 17m. Senza insieme, il quantificatore ha senso solo se la
+         * condizione obbliga ogni lettera a stare nell'insieme che ha
+         * ricevuto: per un "per ogni" deve farlo la negazione della
+         * condizione, perché è lì che la lettera potrebbe stare fuori. */
+        for (int i = 0; i < names && !stated && !syntax_error; i++)
+            if (!numbers[i].start || !imposes_membership(node, kind == F_FORALL, name[i]))
+                syntax("un quantificatore senza insieme è ammesso solo se la condizione obbliga la lettera a stare in un insieme, con un'appartenenza a una relazione dichiarata");
 
         /* \forall a, b è \forall a \forall b: un nodo per lettera, costruiti
          * dall'ultima lettera alla prima. */
         for (int i = names - 1; i >= 0; i--) {
             node = formula_node(kind, node, NULL, start);
             node->variable = name[i];
-            node->numbers = numbers;
+            node->numbers = numbers[i];
         }
         return node;
     }
@@ -1280,24 +2343,47 @@ static Formula *logic_unary(void) {
         return node;
     }
 
-    /* 17c. Dichiarazione di un'applicazione. Si distingue da un confronto che
-     * comincia con una lettera solo al token dopo, \colon: si guarda avanti
-     * e, se non c'è, si torna indietro. */
-    if (token.kind == T_LETTER) {
+    /* 17c. Dichiarazione di un'applicazione, o di un'operazione binaria: al
+     * posto della lettera c'è allora un simbolo, e il dominio è un insieme di
+     * coppie. Si distingue da un confronto che comincia con una lettera solo
+     * al token dopo, \colon: si guarda avanti e, se non c'è, si torna
+     * indietro. */
+    int symbol = operation_name();
+    if (token.kind == T_LETTER || symbol) {
         ParserState before = parser_save();
-        int name = token.ch;
+        int name = symbol ? symbol : token.ch;
         next_token();
         if (is_command("colon")) {
+            NumberSet domain[2];
             next_token();
-            NumberSet domain = parse_numbers();
+            if (symbol) parse_pairs(domain); else domain[0] = domain[1] = parse_numbers();
             if (is_command("to") || is_command("rightarrow") || is_command("longrightarrow")) next_token();
             else syntax("in una dichiarazione f \\colon A \\to B manca \\to");
             NumberSet codomain = parse_numbers();
-            if (map_find(name)) syntax("la stessa applicazione è dichiarata due volte");
+            if (map_find(name) || pair_set_find(name)) syntax("la stessa applicazione è dichiarata due volte");
             else if (map_count == MAX_MAPS) syntax("troppe applicazioni dichiarate in un enunciato");
-            else if (!syntax_error) maps[map_count++] = (Map){name, domain, codomain, 0, NULL};
+            else if (!syntax_error) maps[map_count++] = (Map){name, domain[0], codomain, 0, NULL, symbol != 0, domain[1], 0};
             return formula_node(F_MAP, NULL, NULL, start);
         }
+
+        /* 17i. Una relazione data da una regola: lettera, uguale, \{. */
+        if (!symbol && is_char('=')) {
+            next_token();
+            if (is_char(ESCAPED + '{')) {
+                next_token();
+                return logic_pair_set(name, start);
+            }
+        }
+        parser_restore(before);
+    }
+
+    /* 17j. Appartenenza a una relazione dichiarata: una coppia tra parentesi.
+     * Se non lo è si torna indietro, e la parentesi apre un'espressione o
+     * una formula (17d, 17e). */
+    if (token.kind == T_OPEN && pair_set_count) {
+        ParserState before = parser_save();
+        Formula *member = logic_member(start);
+        if (member) return member;
         parser_restore(before);
     }
 
@@ -1309,6 +2395,38 @@ static Formula *logic_unary(void) {
     Node *left = parse_expr();
     const char *problem = syntax_error;
     Formula *chain = NULL;
+
+    /* 17k. Appartenenza a un insieme numerico: non una catena di confronti
+     * ma una condizione a sé, che il motore stabilisce con la regola 18e.
+     * Con \notin il nodo è lo stesso, e `swapped` ricorda la negazione. */
+    if (!syntax_error && (is_command("in") || is_command("notin"))) {
+        int negative = is_command("notin");
+        next_token();
+        NumberSet numbers = parse_numbers();
+        Formula *node = formula_node(F_IN, NULL, NULL, start);
+        node->left = left;
+        node->numbers = numbers;
+        node->swapped = negative;
+        return node;
+    }
+
+    /* 17n. Divisibilità e congruenza. a \equiv b \pmod{m} è "m divide
+     * a - b": il nodo della differenza nasce qui. */
+    if (!syntax_error && (is_command("mid") || is_command("nmid") || is_command("equiv"))) {
+        int congruence = is_command("equiv"), negative = is_command("nmid");
+        next_token();
+        Node *right = parse_expr(), *divisor = left;
+        if (congruence) {
+            if (is_command("pmod")) next_token(); else syntax("dopo a \\equiv b serve il modulo, scritto \\pmod{m}");
+            divisor = parse_group();
+            right = node_new(N_SUB, left, right);
+        }
+        Formula *node = formula_node(F_DIVIDES, NULL, NULL, start);
+        node->left = divisor;
+        node->right = right;
+        node->swapped = negative;
+        return node;
+    }
     while (!syntax_error) {
         /* La relazione: =, \neq, <, >, \le, \ge. Le ultime due coppie sono
          * la stessa cosa a membri scambiati. */
@@ -1396,15 +2514,44 @@ static Formula *logic_formula(void) {
     return node;
 }
 
-/* 17h. statement := formula | \{ lettera \in insieme (\mid | :) formula \}
+/* 17h. statement := formula
+ *                  | [ \forall lettera \in insieme ] \{ lettera \in insieme (\mid | :) formula \}
  *
  * La seconda forma è l'insieme delle soluzioni di una condizione, come
  * \{x \in \mathbb{R} \mid \frac{x - 2}{x + 3} \ge 0\}. Chi la scrive non
  * afferma nulla: chiede per quali valori la condizione vale, e la risposta è
  * un verdetto RISOLTO. Per questo sta solo in cima: dentro una formula una
- * \{ resta un errore di sintassi. */
+ * \{ resta un errore di sintassi.
+ *
+ * Con un "per ogni" davanti è la richiesta con un parametro, quella degli
+ * esercizi "risolvi al variare di a": l'albero è il quantificatore con la
+ * richiesta come condizione. Di quantificatori ce ne può stare uno solo, e
+ * senza parentesi attorno alla richiesta. */
 static Formula *logic_statement(void) {
     const char *start = token.start;
+    unfolding_reset(start);
+
+    /* La richiesta con un parametro si distingue da un enunciato che comincia
+     * con lo stesso quantificatore solo dopo l'insieme, dalla \{: si guarda
+     * avanti e, se non c'è, si torna indietro, come in 17c e 17d. Trovata la
+     * \{, la richiesta la legge questa stessa funzione. */
+    if (is_command("forall")) {
+        ParserState before = parser_save();
+        next_token();
+        int name = token.ch, letter = token.kind == T_LETTER;
+        next_token();
+        if (letter && is_command("in")) {
+            next_token();
+            NumberSet numbers = parse_numbers();
+            if (!syntax_error && is_char(ESCAPED + '{')) {
+                Formula *node = formula_node(F_FORALL, logic_statement(), NULL, start);
+                node->variable = name;
+                node->numbers = numbers;
+                return node;
+            }
+        }
+        parser_restore(before);
+    }
     if (!is_char(ESCAPED + '{')) return logic_formula();
     next_token();
     int name = token.ch;
@@ -1421,23 +2568,10 @@ static Formula *logic_statement(void) {
     return node;
 }
 
-/* Le variabili quantificate visibili nel punto dell'enunciato che
- * formula_check() sta esaminando, dalla più esterna. */
-static Bound scope[MAX_BOUND];
-static int scope_count;
-
 /* Il maggior numero di quantificatori uno dentro l'altro incontrato da
  * formula_check() da quando è stato azzerato. Serve alla verifica sul
  * campione (capitolo 19) per decidere quanti valori provare. */
 static int quantifier_depth;
-
-/* Ritorna la variabile quantificata di nome name visibile in questo punto, o
- * NULL se non c'è. */
-static const Bound *scope_find(int name) {
-    for (int i = 0; i < scope_count; i++)
-        if (scope[i].name == name) return &scope[i];
-    return NULL;
-}
 
 /* Controlla che nell'espressione node ogni lettera abbia un significato;
  * altrimenti annota il motivo con fail().
@@ -1446,9 +2580,38 @@ static const Bound *scope_find(int name) {
  * lavorano sui polinomi e lasciano stare ciò che non lo è, mentre l'induzione
  * (18n) e i conti con i numeri trattano anche somme, potenze e funzioni. Una
  * lettera deve essere una variabile quantificata, oppure l'indice di una
- * somma dentro il suo termine. Un'applicazione deve avere per argomento una
- * variabile che varia nel suo dominio: è questo a garantire che f(x) sia
+ * somma dentro il suo termine. Un'applicazione deve avere per argomento un
+ * elemento del suo dominio (argument_in()): è questo a garantire che f(x) sia
  * definito ogni volta che compare, senza doverlo ridimostrare. */
+static void term_check(const Node *node);
+
+/* Ritorna 1 se l'espressione node, argomento di un'applicazione, appartiene
+ * all'insieme domain per come è scritta. Tre casi, e in nessuno serve una
+ * dimostrazione fatta qui:
+ *
+ *   - una variabile quantificata su quell'insieme, o su una sua parte;
+ *   - un numero che vi appartiene;
+ *   - il valore di un'applicazione (o di un'operazione) dichiarata con quel
+ *     codominio, o con una sua parte: che i suoi valori ci stiano davvero lo
+ *     dimostra, una volta per tutte, map_defined() (18m). È ciò che dà senso
+ *     a f(g(x)) e a (a \ast b) \ast c.
+ *
+ * Ogni altra espressione viene respinta: per accettare f(x + 1) bisognerebbe
+ * dimostrare che x + 1 sta nel dominio, nel punto in cui compare. */
+static int argument_in(const Node *node, const NumberSet *domain) {
+    Num value;
+    if (node->kind == N_VAR) {
+        const Bound *variable = scope_find(node->name);
+        return variable && variable->numbers && numbers_subset(variable->numbers, domain);
+    }
+    if (node->kind == N_APPLY) {
+        const Map *inner = map_find(node->name);
+        term_check(node);
+        return inner && numbers_subset(&inner->codomain, domain);
+    }
+    return node_is_numeral(node) && rat_number(eval(node), &value) && value.im.num == 0 && numbers_contain(domain, value.re);
+}
+
 static void term_check(const Node *node) {
     if (!node || failure) return;
     switch (node->kind) {
@@ -1464,10 +2627,9 @@ static void term_check(const Node *node) {
         return;
     case N_APPLY: {
         const Map *map = map_find(node->name);
-        const Bound *argument = node->a->kind == N_VAR ? scope_find(node->a->name) : NULL;
         if (!map->body) fail("un'applicazione è usata prima della regola che la definisce");
-        else if (!argument || !argument->numbers || !numbers_equal(argument->numbers, &map->domain))
-            fail("un'applicazione va applicata a una variabile che varia nel suo dominio");
+        else if (!argument_in(node->a, &map->domain) || (map->binary && !argument_in(node->b, &map->second)))
+            fail("un'applicazione va applicata a un elemento del suo dominio: una variabile che vi varia, un numero che vi appartiene, o un valore di un'applicazione che vi arriva");
         return;
     }
     case N_BIGOP:
@@ -1499,8 +2661,11 @@ static void term_check(const Node *node) {
 static int term_is_rational(const Node *node) {
     if (!node) return 1;
     switch (node->kind) {
-    case N_NUM: case N_APPLY:
+    case N_NUM:
         return 1;
+    case N_APPLY:
+        /* Gli argomenti: variabili, numeri o altre applicazioni. */
+        return term_is_rational(node->a) && term_is_rational(node->b);
     case N_VAR:
         return node->name != VAR_PI;
     case N_NEG:
@@ -1528,11 +2693,18 @@ static void formula_check(const Formula *f) {
         term_check(f->left);
         term_check(f->right);
         return;
+    case F_IN:
+        term_check(f->left);
+        return;
+    case F_DIVIDES:
+        term_check(f->left);
+        term_check(f->right);
+        return;
     case F_MAP:
-        fail("un'applicazione si può dichiarare solo tra le ipotesi");
+        fail("un'applicazione, un'operazione o una relazione si possono dichiarare solo tra le ipotesi");
         return;
     case F_FORALL: case F_EXISTS: case F_SOLVE:
-        if (scope_find(f->variable) || map_find(f->variable)) { fail("la stessa lettera ha due significati nello stesso punto dell'enunciato"); return; }
+        if (scope_find(f->variable) || map_find(f->variable) || pair_set_find(f->variable)) { fail("la stessa lettera ha due significati nello stesso punto dell'enunciato"); return; }
         if (scope_count == MAX_BOUND) { fail("troppi quantificatori uno dentro l'altro"); return; }
         scope[scope_count++] = (Bound){f->variable, &f->numbers};
         if (scope_count > quantifier_depth) quantifier_depth = scope_count;
@@ -1545,41 +2717,874 @@ static void formula_check(const Formula *f) {
     }
 }
 
-/* Legge le ipotesi f: una congiunzione di dichiarazioni di applicazioni, già
- * registrate dal parser, e di regole della forma
+/* Legge le ipotesi f: una congiunzione di dichiarazioni (di applicazioni,
+ * operazioni e relazioni), già registrate dal parser, e di regole della forma
  *
  *     \forall x \in A\ (f(x) = espressione)
+ *     \forall x \in A\ \forall y \in B\ (x \ast y = espressione)
  *
- * dove A è il dominio di f. Completa ogni applicazione con la sua regola;
- * un'ipotesi di altro tipo viene annotata con fail(). */
+ * dove A è il dominio di f, e A \times B quello dell'operazione \ast.
+ * Completa ogni applicazione con la sua regola; un'ipotesi di altro tipo
+ * viene annotata con fail(). */
 static void read_definitions(const Formula *f) {
     if (f->kind == F_AND) { read_definitions(f->a); read_definitions(f->b); return; }
     if (f->kind == F_MAP) return;
 
-    /* Riconosce la regola e l'applicazione che definisce. */
-    const Formula *rule = f->kind == F_FORALL ? f->a : NULL;
+    /* Riconosce la regola e l'applicazione che definisce: sotto uno o due
+     * "per ogni" c'è un'uguaglianza il cui primo membro è l'applicazione,
+     * con una variabile per argomento. */
+    const Formula *inner = f->kind == F_FORALL && f->a->kind == F_FORALL ? f->a : NULL;
+    const Formula *rule = f->kind == F_FORALL ? (inner ? inner->a : f->a) : NULL;
     const Node *applied = rule && rule->kind == F_EQUAL && rule->left->kind == N_APPLY ? rule->left : NULL;
-    if (!applied || applied->a->kind != N_VAR || applied->a->name != f->variable) {
-        fail("ipotesi non trattata: sono ammesse la dichiarazione di un'applicazione e la sua regola");
+    Map *map = applied ? map_find(applied->name) : NULL;
+    if (!map || map->binary != (inner != NULL) || applied->a->kind != N_VAR || (inner && applied->b->kind != N_VAR)) {
+        fail("ipotesi non trattata: sono ammesse la dichiarazione di un'applicazione, di un'operazione o di una relazione, e la regola di un'applicazione o di un'operazione");
         return;
     }
-    Map *map = map_find(applied->name);
     if (map->body) { fail("un'applicazione ha due regole"); return; }
-    if (!numbers_equal(&f->numbers, &map->domain)) { fail("la regola di un'applicazione deve valere su tutto il suo dominio"); return; }
 
-    /* L'espressione può contenere solo la variabile della regola. La si
+    /* Ogni argomento è la variabile di uno dei quantificatori, che varia
+     * sull'insieme di quell'argomento. Per un'operazione le due variabili
+     * possono essere quantificate in un ordine e usate nell'altro. */
+    const Formula *first = f, *second = inner;
+    if (inner && applied->a->name == inner->variable) { first = inner; second = f; }
+    if (applied->a->name != first->variable || (inner && (applied->b->name != second->variable || f->variable == inner->variable))) {
+        fail("gli argomenti, nella regola di un'applicazione, devono essere le variabili dei suoi quantificatori");
+        return;
+    }
+    if (!numbers_equal(&first->numbers, &map->domain) || (inner && !numbers_equal(&second->numbers, &map->second))) {
+        fail("la regola di un'applicazione deve valere su tutto il suo dominio");
+        return;
+    }
+
+    /* L'espressione può contenere solo le variabili della regola. La si
      * controlla prima di registrarla: così una regola che cita la propria
      * applicazione trova body ancora NULL e viene respinta da term_check(). */
-    scope[0] = (Bound){f->variable, &f->numbers};
+    scope[0] = (Bound){first->variable, &first->numbers};
     scope_count = 1;
+    if (inner) scope[scope_count++] = (Bound){second->variable, &second->numbers};
     term_check(rule->right);
     scope_count = 0;
 
     /* Che la regola dia un valore per ogni elemento del dominio lo dimostra
      * map_defined() (18m), che sa farlo solo guardando i divisori. */
     if (!term_is_rational(rule->right)) { fail("la regola di un'applicazione deve essere un'espressione razionale"); return; }
-    map->parameter = f->variable;
+    map->parameter = first->variable;
+    if (inner) map->parameter2 = second->variable;
     map->body = rule->right;
+}
+
+/* Controlla la regola di ogni relazione dichiarata (17i): la condizione deve
+ * parlare solo delle due lettere della coppia, e non legarle di nuovo.
+ * Annota il primo problema con fail().
+ *
+ * Senza questo controllo una lettera libera nella regola, che da sola non
+ * vuol dire nulla, prenderebbe un significato diverso in ogni punto in cui
+ * la relazione è usata: quello della variabile con lo stesso nome che lì si
+ * trova in vista. Va chiamata dopo la lettura dell'enunciato. */
+static void pair_sets_check(void) {
+    for (int i = 0; i < pair_set_count && !failure; i++) {
+        const PairSet *set = &pair_sets[i];
+        scope[0] = (Bound){set->letter[0], &set->numbers[0]};
+        scope[1] = (Bound){set->letter[1], &set->numbers[1]};
+        scope_count = 2;
+        formula_check(set->condition);
+        scope_count = 0;
+    }
+}
+
+/* 17o. INSIEMI QUALSIASI: NOTAZIONE E ALBERO
+ *
+ * Fin qui ogni lettera variava in un insieme di numeri. Molti enunciati di
+ * algebra parlano invece di un insieme qualsiasi, con un'operazione, delle
+ * applicazioni o una relazione di cui si sa solo ciò che dicono le ipotesi:
+ *
+ *     (\perp \colon S \times S \to S \land u \in S \land v \in S
+ *         \land \forall x \in S\ (u \perp x = x)
+ *         \land \forall x \in S\ (x \perp v = x)) \implies u = v
+ *
+ * Qui non c'è nessuna regola da sostituire e nessun conto da fare: ci sono
+ * solo elementi, simboli e uguaglianze. È un altro linguaggio, con il suo
+ * albero (Sentence, le cui foglie sono Elem) e il suo capitolo del motore,
+ * il 28. Un enunciato vi arriva quando non nomina insiemi numerici e parla
+ * di elementi: dichiara qualcosa con \colon, oppure quantifica una lettera
+ * minuscola (lo decide prove(), capitolo 20).
+ *
+ * La grammatica, dalla precedenza più bassa alla più alta:
+ *
+ *     statement   := { \exists example } formula
+ *     example     := Set { ',' Set } [ \neq \emptyset ]
+ *                  | name { ',' name } \subseteq Set [ \times Set ]
+ *                  | name \colon Set [ \times Set ] \to Set
+ *                  | lettera { ',' lettera } \in Set '^' Set
+ *     formula     := implication { \iff implication }
+ *     implication := disjunction [ \implies implication ]
+ *     disjunction := conjunction { \lor conjunction }
+ *     conjunction := unary { \land unary }
+ *     unary       := \lnot unary
+ *                  | (\forall | \exists) lettera { ',' lettera } [ \in range ] unary
+ *                  | name \colon Set [ \times Set ] \to Set      (applicazione, operazione)
+ *                  | name \subseteq Set [ \times Set ]           (parte, relazione)
+ *                  | lettera \in Set                             (un elemento con un nome)
+ *                  | Set \neq \emptyset
+ *                  | side ('=' | \neq) side
+ *                  | side (\in | \notin) name
+ *                  | '(' formula ')'
+ *     range       := Set | name | Set '^' Set
+ *     side        := term | '(' term ',' term ')'
+ *     term        := factor [ operazione factor ]
+ *     factor      := name | name '(' term [ ',' term ] ')' | '(' term ')'
+ *     name        := (lettera | lettera greca) [ '_' cifra ]
+ *
+ * Set è una lettera maiuscola che non è stata dichiarata come parte o come
+ * relazione: un insieme qualsiasi, di cui non si sa nulla, nemmeno se è
+ * vuoto. Le convenzioni di lettura, che sono tutto ciò che questo paragrafo
+ * decide:
+ *
+ *   - Le dichiarazioni stanno tra le ipotesi, in cima: l'enunciato è
+ *     "dichiarazioni e ipotesi implicano tesi", e vale per ogni insieme e
+ *     per ogni scelta di ciò che è dichiarato. Una parte X \subseteq S è una
+ *     proprietà degli elementi di S, una relazione R \subseteq S \times T
+ *     una proprietà delle coppie: di loro si scrive solo x \in X e
+ *     (x, y) \in R.
+ *   - \forall f \in T^{S}, "per ogni applicazione da S a T", è letto solo
+ *     dove equivale a una dichiarazione: in testa alla tesi, o sotto altri
+ *     "per ogni" e a destra di un'implicazione. Lì "per ogni f vale P(f)" e
+ *     "sia f un'applicazione; allora P(f)" dicono lo stesso.
+ *   - \forall x \in X, con X una parte dichiarata di S, è "per ogni x di S,
+ *     se x sta in X allora", e \exists x \in X è "esiste x in S che sta in
+ *     X e". L'albero contiene la forma svolta.
+ *   - Un quantificatore senza insieme, \forall x, y\ ((x, y) \in R \implies
+ *     ...), è ammesso come in 17m: solo se la condizione obbliga la lettera
+ *     a comparire in un'appartenenza, che ne fissa l'insieme.
+ *   - Due coppie sono uguali quando lo sono le componenti: (a, b) = (c, d)
+ *     è letto a = c \land b = d.
+ *   - Un'operazione dichiarata si scrive tra i suoi operandi e, come in 9g,
+ *     non ha precedenza: dentro un'altra va tra parentesi.
+ *   - In testa all'enunciato, \exists S \neq \emptyset\ \exists R \subseteq
+ *     S \times S\ (...) chiede un esempio: degli insiemi e dei simboli per
+ *     cui la condizione vale. È l'unico posto in cui un insieme, una parte o
+ *     un'applicazione sono cercati e non dati.
+ *
+ * Ogni elemento ha un insieme: quello della sua variabile, o il codominio
+ * del simbolo. Il lettore lo controlla mentre legge (elem_expect()), così il
+ * motore non incontra mai f(x) con x fuori dal dominio di f.
+ */
+
+/* Il "tipo" di ciò che vale vero o falso: il valore di una parte o di una
+ * relazione applicata ai suoi argomenti. Non è un insieme dell'enunciato:
+ * occupa il posto dopo l'ultimo. */
+#define TRUTH MAX_SORTS
+
+/* Le lettere greche che possono fare da nome di un'applicazione. Il nome
+ * interno di quella di posto i è GREEK_NAMES + i. */
+static const char *const greek_letters[] = {"alpha", "beta", "gamma", "delta", "iota", "kappa", "lambda", "mu", "nu", "pi", "rho",
+                                             "sigma", "tau", "phi", "varphi", "chi", "psi", "omega", "eta", "theta", "xi", "zeta"};
+
+/* Un simbolo di cui l'enunciato parla senza darne una regola: un elemento
+ * con un nome, un'applicazione, un'operazione, una parte di un insieme o una
+ * relazione. Anche gli elementi a cui la dimostrazione dà un nome (capitolo
+ * 28) sono simboli, aggiunti in coda.
+ *
+ * Invariante: due simboli diversi non hanno lo stesso nome e lo stesso
+ * pedice. */
+typedef struct {
+    int name;       /* una lettera; oppure OPERATION_NAMES + i per un simbolo
+                       di operazione, GREEK_NAMES + i per una lettera greca */
+    int index;      /* il pedice, da 1 in su; 0 se non c'è */
+    int arity;      /* quanti argomenti: 0 per un elemento, 1 o 2 */
+    int domain[2];  /* l'insieme di ogni argomento: un posto in sort_name[] */
+    int range;      /* l'insieme del valore, o TRUTH per parti e relazioni */
+} Symbol;
+
+/* I simboli dell'enunciato in corso, e i suoi insiemi: l'insieme di posto i
+ * è la lettera sort_name[i]. */
+static Symbol symbols[MAX_SYMBOLS];
+static int symbol_count;
+static int sort_name[MAX_SORTS];
+static int sort_count;
+
+/* Un'espressione che indica un elemento: una variabile, oppure un simbolo
+ * applicato ai suoi argomenti (nessuno, per un elemento con un nome). Per
+ * una parte o una relazione applicata, il "valore" è vero o falso. I nodi
+ * vivono nell'arena. */
+typedef struct Elem Elem;
+struct Elem {
+    int symbol;    /* il simbolo, posto in symbols[]; -1 per una variabile */
+    int slot;      /* variabile: il suo posto in slot_sort[] */
+    Elem *arg[2];  /* gli argomenti; NULL dove non servono */
+};
+
+/* Tipi di nodo di un enunciato su insiemi qualsiasi.
+ *
+ * Warning: se aggiungi un tipo, aggiungi il ramo che lo costruisce nel
+ * lettore di questo paragrafo e i suoi casi nel capitolo 28: in
+ * model_holds(), in known_shape(), in truth() e in put_sentence(). */
+typedef enum {
+    S_TRUE,                         /* una dichiarazione: non afferma nulla */
+    S_EQUAL,                        /* left = right */
+    S_HOLDS,                        /* left, una parte o una relazione
+                                       applicata, vale */
+    S_NOT,                          /* non a */
+    S_AND, S_OR, S_IMPLIES, S_IFF,  /* connettivi tra a e b */
+    S_FORALL, S_EXISTS              /* per ogni / esiste un elemento, la
+                                       variabile di posto slot: a */
+} SentenceKind;
+
+/* Un nodo dell'albero di un enunciato su insiemi qualsiasi: una condizione.
+ * I campi non usati dal tipo sono NULL o zero. I nodi vivono nell'arena. */
+typedef struct Sentence Sentence;
+struct Sentence {
+    SentenceKind kind;
+    Elem *left, *right;       /* S_EQUAL: i due membri. S_HOLDS: left */
+    Sentence *a, *b;          /* le condizioni componenti */
+    int slot;                 /* S_FORALL, S_EXISTS: la variabile legata */
+    const char *start, *end;  /* com'è scritto nell'enunciato: [start, end) */
+};
+
+/* Le variabili quantificate dell'enunciato in corso. Ogni quantificatore ha
+ * un posto suo, anche se due usano la stessa lettera: così nel capitolo 28
+ * una variabile si riconosce dal posto. slot_sort[i] è l'insieme in cui
+ * varia, o -1 finché un quantificatore senza insieme non lo ha imparato
+ * dall'uso. */
+static int slot_letter[MAX_SLOTS], slot_sort[MAX_SLOTS];
+static int slot_count;
+
+/* I posti delle variabili visibili nel punto che il lettore sta leggendo,
+ * dalla più esterna. */
+static int visible[MAX_SLOTS];
+static int visible_count;
+
+/* 1 finché il lettore non è entrato in una negazione o in un "esiste": lì
+ * "per ogni applicazione f" non vale quanto una dichiarazione (vedi le
+ * convenzioni in testa al paragrafo). map_quantifiers conta quelli letti,
+ * per chi deve accorgersi dopo di averne incontrato uno tra le ipotesi. */
+static int abstract_positive;
+static int map_quantifiers;
+
+/* 1 se l'enunciato in corso chiede un esempio: comincia con degli "esiste"
+ * su insiemi, parti o applicazioni. */
+static int abstract_example;
+
+/* Ritorna il posto del simbolo di nome name e pedice index, o -1. */
+static int symbol_find(int name, int index) {
+    for (int i = 0; i < symbol_count; i++)
+        if (symbols[i].name == name && symbols[i].index == index) return i;
+    return -1;
+}
+
+/* Ritorna il posto della variabile visibile di lettera letter, o -1. */
+static int visible_find(int letter) {
+    for (int i = visible_count - 1; i >= 0; i--)
+        if (slot_letter[visible[i]] == letter) return visible[i];
+    return -1;
+}
+
+/* Registra symbol tra i simboli dell'enunciato. Un nome già preso, da un
+ * simbolo, da un insieme o da una variabile in vista, è un errore. */
+static void symbol_add(Symbol symbol) {
+    int taken = symbol_find(symbol.name, symbol.index) >= 0 || (!symbol.index && visible_find(symbol.name) >= 0);
+    for (int i = 0; i < sort_count; i++) taken = taken || (!symbol.index && sort_name[i] == symbol.name);
+    if (taken) syntax("la stessa lettera ha due significati nello stesso enunciato");
+    else if (symbol_count == MAX_SYMBOLS) syntax("troppi simboli dichiarati in un enunciato");
+    else symbols[symbol_count++] = symbol;
+}
+
+/* name: legge un nome, con il suo pedice, e lo supera. Ritorna il nome
+ * interno e mette il pedice in *index; ritorna 0, senza leggere nulla, se il
+ * token corrente non è un nome. */
+static int abstract_name(int *index) {
+    int name = token.kind == T_LETTER ? token.ch : 0;
+    *index = 0;
+    for (size_t i = 0; !name && i < sizeof greek_letters / sizeof *greek_letters; i++)
+        if (is_command(greek_letters[i])) name = GREEK_NAMES + (int)i;
+    if (!name) return 0;
+    next_token();
+    if (!is_char('_')) return name;
+
+    /* Il pedice: una cifra, con o senza graffe. */
+    next_token();
+    int braces = is_char('{');
+    if (braces) next_token();
+    if (token.kind != T_NUM || token.value < 1 || token.value > 9) syntax("come pedice di un nome è riconosciuta una cifra da 1 a 9");
+    *index = (int)token.value;
+    next_token();
+    if (braces) expect_char('}', "manca }");
+    return name;
+}
+
+/* Ritorna il posto in sort_name[] dell'insieme di lettera letter,
+ * registrandolo se è nuovo. Una lettera che non può indicare un insieme è un
+ * errore. */
+static int sort_index(int letter) {
+    if (letter >= 128 || !isupper(letter) || symbol_find(letter, 0) >= 0) {
+        syntax("serve un insieme: una lettera maiuscola che non sia stata dichiarata come parte o come relazione");
+        return 0;
+    }
+    for (int i = 0; i < sort_count; i++)
+        if (sort_name[i] == letter) return i;
+    if (sort_count == MAX_SORTS) { syntax("troppi insiemi distinti in un enunciato: al massimo 4"); return 0; }
+    sort_name[sort_count] = letter;
+    return sort_count++;
+}
+
+/* Set: legge la lettera di un insieme qualsiasi e la supera. Ritorna il suo
+ * posto in sort_name[]. */
+static int abstract_sort(void) {
+    int letter = token.kind == T_LETTER ? token.ch : 0;
+    if (letter) next_token();
+    return sort_index(letter);
+}
+
+/* Ritorna un nuovo elemento: il simbolo symbol applicato ad a e b, oppure,
+ * con symbol = -1, la variabile di posto slot. */
+static Elem *elem_new(int symbol, int slot, Elem *a, Elem *b) {
+    static Elem spare;
+    Elem *e = arena_alloc(sizeof(Elem));
+    if (!e) e = &spare;
+    *e = (Elem){symbol, slot, {a, b}};
+    return e;
+}
+
+/* Ritorna l'insieme a cui appartiene e: quello della variabile, che può
+ * essere -1 (non ancora noto), o il codominio del simbolo. */
+static int elem_sort(const Elem *e) { return e->symbol < 0 ? slot_sort[e->slot] : symbols[e->symbol].range; }
+
+/* Controlla che e sia un elemento dell'insieme sort. Una variabile che non
+ * sa ancora dove varia lo impara qui. */
+static void elem_expect(const Elem *e, int sort) {
+    if (e->symbol < 0 && slot_sort[e->slot] < 0) slot_sort[e->slot] = sort;
+    if (elem_sort(e) != sort) syntax("un elemento è usato dove serve un elemento di un altro insieme");
+}
+
+/* Ritorna un nuovo nodo di tipo kind con componenti a e b, il cui testo va
+ * da start alla fine dell'ultimo token già letto. */
+static Sentence *sentence_new(SentenceKind kind, Sentence *a, Sentence *b, const char *start) {
+    static Sentence spare;
+    Sentence *s = arena_alloc(sizeof(Sentence));
+    if (!s) s = &spare;
+    *s = (Sentence){kind, NULL, NULL, a, b, 0, start, consumed};
+    return s;
+}
+
+static Elem *abstract_term(void);
+static Sentence *abstract_formula(void);
+static Sentence *abstract_unary(void);
+
+/* factor: vedi la grammatica in testa al paragrafo. */
+static Elem *abstract_factor(void) {
+    if (token.kind == T_OPEN) {
+        next_token();
+        Elem *inner = abstract_term();
+        if (token.kind == T_CLOSE) next_token(); else syntax("manca la parentesi chiusa");
+        return inner;
+    }
+
+    /* Un nome: una variabile in vista, o un simbolo dichiarato. */
+    int index, name = abstract_name(&index);
+    int slot = name && !index ? visible_find(name) : -1, symbol = name ? symbol_find(name, index) : -1;
+    if (slot >= 0) return elem_new(-1, slot, NULL, NULL);
+    if (symbol < 0 || symbols[symbol].range == TRUTH) {
+        syntax(name ? "una lettera non è né quantificata né dichiarata come elemento o applicazione"
+                    : "serve un elemento: una lettera, un'applicazione f(x), o un'operazione tra parentesi");
+        return elem_new(-1, 0, NULL, NULL);
+    }
+
+    /* Gli argomenti, ognuno nel suo insieme. */
+    Elem *e = elem_new(symbol, 0, NULL, NULL);
+    if (symbols[symbol].arity == 0) return e;
+    if (token.kind == T_OPEN) next_token(); else syntax("un'applicazione dichiarata va scritta con i suoi argomenti, f(x)");
+    for (int i = 0; i < symbols[symbol].arity && !syntax_error; i++) {
+        if (i) expect_char(',', "tra i due argomenti di un'applicazione serve una virgola");
+        e->arg[i] = abstract_term();
+        elem_expect(e->arg[i], symbols[symbol].domain[i]);
+    }
+    if (token.kind == T_CLOSE) next_token(); else syntax("manca la parentesi chiusa");
+    return e;
+}
+
+/* term := factor [ operazione factor ] */
+static Elem *abstract_term(void) {
+    Elem *left = abstract_factor();
+    int name = operation_name(), symbol = name ? symbol_find(name, 0) : -1;
+    if (symbol < 0) return left;
+    next_token();
+    Elem *right = abstract_factor();
+    elem_expect(left, symbols[symbol].domain[0]);
+    elem_expect(right, symbols[symbol].domain[1]);
+    return elem_new(symbol, 0, left, right);
+}
+
+/* side := term | '(' term ',' term ')'
+ *
+ * Mette in out[] l'elemento, o le due componenti della coppia, e ritorna
+ * quanti sono; 0 se ciò che segue non è né l'uno né l'altra. Una parentesi
+ * aperta può cominciare una coppia o un elemento, (a \perp b) \perp c: si
+ * prova la coppia e, se dopo il primo elemento non c'è la virgola, si torna
+ * indietro. */
+static int abstract_side(Elem **out) {
+    if (token.kind == T_OPEN) {
+        ParserState before = parser_save();
+        const char *kept = consumed;
+        next_token();
+        out[0] = abstract_term();
+        if (!syntax_error && is_char(',')) {
+            next_token();
+            out[1] = abstract_term();
+            if (token.kind == T_CLOSE) next_token(); else syntax("manca la parentesi chiusa di una coppia");
+            return syntax_error ? 0 : 2;
+        }
+        parser_restore(before);
+        consumed = kept;
+    }
+    out[0] = abstract_term();
+    return syntax_error ? 0 : 1;
+}
+
+/* Prova a leggere un confronto o un'appartenenza:
+ *
+ *     side ('=' | \neq) side        side (\in | \notin) name
+ *
+ * Ritorna la condizione, o NULL se ciò che segue non ha questa forma: allora
+ * il lettore va rimesso dov'era da chi chiama, che decide che altro può
+ * essere. start è l'inizio del testo. */
+static Sentence *abstract_atom(const char *start) {
+    Elem *left[2], *right[2];
+    int count = abstract_side(left);
+    if (!count) return NULL;
+
+    /* Appartenenza a una parte o a una relazione dichiarata. */
+    if (is_command("in") || is_command("notin")) {
+        int negative = is_command("notin"), index;
+        next_token();
+        int name = abstract_name(&index), symbol = name ? symbol_find(name, index) : -1;
+        if (symbol < 0 || symbols[symbol].range != TRUTH || symbols[symbol].arity != count) {
+            syntax("dopo \\in serve una parte dichiarata, per un elemento, o una relazione dichiarata, per una coppia");
+            return NULL;
+        }
+        for (int i = 0; i < count; i++) elem_expect(left[i], symbols[symbol].domain[i]);
+        Sentence *member = sentence_new(S_HOLDS, NULL, NULL, start);
+        member->left = elem_new(symbol, 0, left[0], count == 2 ? left[1] : NULL);
+        return negative ? sentence_new(S_NOT, member, NULL, start) : member;
+    }
+
+    /* Uguaglianza, tra elementi o tra coppie: componente per componente. */
+    int distinct = is_command("neq") || is_command("ne");
+    if (!distinct && !is_char('=')) return NULL;
+    next_token();
+    if (abstract_side(right) != count) {
+        syntax("i due membri di un'uguaglianza devono essere due elementi o due coppie");
+        return NULL;
+    }
+    Sentence *all = NULL;
+    for (int i = 0; i < count; i++) {
+        /* I due membri stanno nello stesso insieme; se di uno solo si sa
+         * quale, l'altro lo impara. */
+        if (elem_sort(left[i]) < 0 && elem_sort(right[i]) < 0) syntax("non si sa in quale insieme stiano i due membri di un'uguaglianza");
+        else if (elem_sort(left[i]) < 0) elem_expect(left[i], elem_sort(right[i]));
+        else elem_expect(right[i], elem_sort(left[i]));
+        Sentence *equal = sentence_new(S_EQUAL, NULL, NULL, start);
+        equal->left = left[i];
+        equal->right = right[i];
+        all = all ? sentence_new(S_AND, all, equal, start) : equal;
+    }
+    return distinct ? sentence_new(S_NOT, all, NULL, start) : all;
+}
+
+/* Prova a leggere una dichiarazione: di un'applicazione o di un'operazione,
+ * di una parte o di una relazione, di un elemento con un nome, o "S non è
+ * vuoto". Registra ciò che dichiara e ritorna il suo nodo; ritorna NULL,
+ * con il lettore dov'era, se ciò che segue non è una dichiarazione. */
+static Sentence *abstract_declaration(const char *start) {
+    ParserState before = parser_save();
+    const char *kept = consumed;
+    Symbol symbol = {0, 0, 0, {0, 0}, 0};
+    symbol.name = operation_name();
+    int operation = symbol.name != 0;
+    if (operation) next_token(); else symbol.name = abstract_name(&symbol.index);
+
+    /* f \colon S \to T, \perp \colon S \times T \to V. */
+    if (symbol.name && is_command("colon")) {
+        next_token();
+        symbol.domain[0] = abstract_sort();
+        symbol.arity = 1;
+        if (is_command("times")) { next_token(); symbol.domain[1] = abstract_sort(); symbol.arity = 2; }
+        if (is_command("to") || is_command("rightarrow") || is_command("longrightarrow")) next_token();
+        else syntax("in una dichiarazione f \\colon A \\to B manca \\to");
+        symbol.range = abstract_sort();
+        if (operation && symbol.arity != 2) syntax("un'operazione si dichiara su un insieme di coppie, A \\times B");
+        symbol_add(symbol);
+        return sentence_new(S_TRUE, NULL, NULL, start);
+    }
+
+    /* X \subseteq S, R \subseteq S \times T. */
+    if (symbol.name && !operation && is_command("subseteq")) {
+        next_token();
+        symbol.domain[0] = abstract_sort();
+        symbol.arity = 1;
+        if (is_command("times")) { next_token(); symbol.domain[1] = abstract_sort(); symbol.arity = 2; }
+        symbol.range = TRUTH;
+        symbol_add(symbol);
+        return sentence_new(S_TRUE, NULL, NULL, start);
+    }
+
+    /* S \neq \emptyset, o X \neq \emptyset con X una parte dichiarata:
+     * "esiste un elemento di S" (che sta in X), scritto con una variabile
+     * che prende la minuscola della lettera. Per un insieme la condizione è
+     * z = z, sempre vera. Così il motore non ha un caso in più: ne ricava
+     * un elemento come da ogni altro "esiste". */
+    int plain = symbol.name && !operation && !symbol.index && symbol.name < 128;
+    if (plain && isupper(symbol.name) && (is_command("neq") || is_command("ne"))) {
+        next_token();
+        if (is_command("emptyset") || is_command("varnothing")) {
+            next_token();
+            int part = symbol_find(symbol.name, 0);
+            if (part >= 0 && (symbols[part].range != TRUTH || symbols[part].arity != 1)) part = -1;
+            int sort = part >= 0 ? symbols[part].domain[0] : sort_index(symbol.name);
+            if (slot_count == MAX_SLOTS) { syntax("troppe variabili quantificate in un enunciato"); return sentence_new(S_TRUE, NULL, NULL, start); }
+            Elem *some = elem_new(-1, slot_count, NULL, NULL);
+            Sentence *body = sentence_new(part >= 0 ? S_HOLDS : S_EQUAL, NULL, NULL, start);
+            body->left = part >= 0 ? elem_new(part, 0, some, NULL) : some;
+            body->right = part >= 0 ? NULL : some;
+            Sentence *exists = sentence_new(S_EXISTS, body, NULL, start);
+            exists->slot = slot_count;
+            slot_letter[slot_count] = tolower(symbol.name);
+            slot_sort[slot_count++] = sort;
+            return exists;
+        }
+    }
+
+    /* u \in S, con u una lettera che non vuol dire ancora nulla: un
+     * elemento di S a cui l'enunciato dà un nome. */
+    if (plain && islower(symbol.name) && is_command("in") && visible_find(symbol.name) < 0 && symbol_find(symbol.name, 0) < 0) {
+        next_token();
+        symbol.range = abstract_sort();
+        symbol_add(symbol);
+        return sentence_new(S_TRUE, NULL, NULL, start);
+    }
+    parser_restore(before);
+    consumed = kept;
+    return NULL;
+}
+
+/* Ritorna 1 se la condizione s, negata se negated, obbliga la variabile di
+ * posto slot a comparire come argomento di una parte o di una relazione:
+ * cioè se ogni volta che s (o la sua negazione) è vera, lo è una di quelle
+ * appartenenze. Le regole sono quelle di imposes_membership() (17m), e la
+ * risposta 0 vuol dire solo "non risulta". */
+static int sentence_forces(const Sentence *s, int negated, int slot) {
+    switch (s->kind) {
+    case S_HOLDS:
+        for (int i = 0; i < 2; i++)
+            if (s->left->arg[i] && s->left->arg[i]->symbol < 0 && s->left->arg[i]->slot == slot) return !negated;
+        return 0;
+    case S_NOT:
+        return sentence_forces(s->a, !negated, slot);
+    case S_AND: case S_OR: case S_IMPLIES: {
+        int left = sentence_forces(s->a, s->kind == S_IMPLIES ? !negated : negated, slot);
+        int right = sentence_forces(s->b, negated, slot);
+        return (s->kind == S_AND) != negated ? left || right : left && right;
+    }
+    case S_FORALL: case S_EXISTS:
+        return (s->kind == S_EXISTS) != negated && sentence_forces(s->a, negated, slot);
+    default:
+        return 0;
+    }
+}
+
+/* Legge un quantificatore, di cui il token corrente è \forall o \exists:
+ * le lettere, il loro insieme, la condizione. Vedi le convenzioni in testa
+ * al paragrafo per le tre forme dell'insieme. */
+static Sentence *abstract_quantifier(const char *start) {
+    SentenceKind kind = is_command("forall") ? S_FORALL : S_EXISTS;
+    int letter[MAX_BOUND], letters = 0;
+    do {
+        next_token();  /* supera il quantificatore, poi ogni virgola */
+        if (token.kind != T_LETTER || letters == MAX_BOUND) {
+            syntax("dopo un quantificatore servono delle lettere separate da virgole, non più di 8");
+            break;
+        }
+        letter[letters++] = token.ch;
+        next_token();
+    } while (is_char(','));
+
+    /* L'insieme: una parte dichiarata (allora part è il suo simbolo), un
+     * insieme qualsiasi, oppure nessuno. Dopo un insieme, ^ e un altro
+     * insieme dicono che le lettere sono applicazioni. */
+    int sort = -1, part = -1, maps = 0, domain = 0;
+    if (is_command("in")) {
+        next_token();
+        ParserState before = parser_save();
+        const char *kept = consumed;
+        int index, name = abstract_name(&index);
+        part = name ? symbol_find(name, index) : -1;
+        if (part >= 0 && symbols[part].range == TRUTH && symbols[part].arity == 1) {
+            sort = symbols[part].domain[0];
+        } else {
+            part = -1;
+            parser_restore(before);
+            consumed = kept;
+            sort = abstract_sort();
+        }
+        if (part < 0 && is_char('^')) {
+            next_token();
+            int braces = is_char('{');
+            if (braces) next_token();
+            domain = abstract_sort();
+            if (braces) expect_char('}', "manca }");
+            maps = 1;
+        }
+    }
+
+    /* "Per ogni applicazione": una dichiarazione, e poi la condizione. */
+    if (maps) {
+        if (kind != S_FORALL || !abstract_positive)
+            syntax("\\forall f \\in T^{S} è letto solo in testa alla tesi, dove vale quanto dichiarare f; un'applicazione da cercare non è trattata");
+        for (int i = 0; i < letters && !syntax_error; i++) symbol_add((Symbol){letter[i], 0, 1, {domain, 0}, sort});
+        map_quantifiers++;
+        return abstract_unary();
+    }
+
+    /* Le variabili, in vista mentre si legge la condizione. */
+    int first = slot_count, outer = visible_count, positive = abstract_positive;
+    for (int i = 0; i < letters && !syntax_error; i++) {
+        if (visible_find(letter[i]) >= 0 || symbol_find(letter[i], 0) >= 0) { syntax("la stessa lettera ha due significati nello stesso punto dell'enunciato"); break; }
+        if (slot_count == MAX_SLOTS) { syntax("troppe variabili quantificate in un enunciato"); break; }
+        slot_letter[slot_count] = letter[i];
+        slot_sort[slot_count] = sort;
+        visible[visible_count++] = slot_count++;
+    }
+    if (kind == S_EXISTS) abstract_positive = 0;
+    Sentence *node = abstract_unary();
+    abstract_positive = positive;
+    visible_count = outer;
+    if (syntax_error) return node;
+
+    /* Senza insieme: ogni lettera deve averlo imparato dall'uso, e la
+     * condizione deve obbligarla a stare lì (per un "per ogni" deve farlo
+     * la sua negazione, come in 17m). */
+    for (int i = 0; i < letters && sort < 0; i++)
+        if (slot_sort[first + i] < 0 || !sentence_forces(node, kind == S_FORALL, first + i))
+            syntax("un quantificatore senza insieme è ammesso solo se la condizione obbliga la lettera a stare in un insieme, con un'appartenenza a una parte o a una relazione dichiarata");
+
+    /* \in X, con X una parte: la forma svolta. Poi un nodo per lettera,
+     * dall'ultima alla prima. */
+    for (int i = letters - 1; i >= 0 && part >= 0; i--) {
+        Sentence *member = sentence_new(S_HOLDS, NULL, NULL, start);
+        member->left = elem_new(part, 0, elem_new(-1, first + i, NULL, NULL), NULL);
+        node = sentence_new(kind == S_FORALL ? S_IMPLIES : S_AND, member, node, start);
+    }
+    for (int i = letters - 1; i >= 0; i--) {
+        node = sentence_new(kind, node, NULL, start);
+        node->slot = first + i;
+    }
+    return node;
+}
+
+/* unary: vedi la grammatica in testa al paragrafo. */
+static Sentence *abstract_unary(void) {
+    const char *start = token.start;
+    if (is_command("lnot") || is_command("neg")) {
+        int positive = abstract_positive;
+        next_token();
+        abstract_positive = 0;
+        Sentence *inner = abstract_unary();
+        abstract_positive = positive;
+        return sentence_new(S_NOT, inner, NULL, start);
+    }
+    if (is_command("forall") || is_command("exists")) return abstract_quantifier(start);
+    Sentence *declared = abstract_declaration(start);
+    if (declared) return declared;
+
+    /* Un confronto o un'appartenenza. Anche loro possono cominciare con una
+     * parentesi: se la lettura non riesce si torna indietro, e la parentesi
+     * deve aprire una formula. Il tentativo può aver dato un insieme a una
+     * variabile che non lo aveva: anche quello si rimette com'era. */
+    int sorts_before[MAX_SLOTS];
+    ParserState before = parser_save();
+    const char *kept = consumed;
+    memcpy(sorts_before, slot_sort, sizeof sorts_before);
+    Sentence *atom = abstract_atom(start);
+    if (atom && !syntax_error) return atom;
+    const char *problem = syntax_error;
+    parser_restore(before);
+    consumed = kept;
+    memcpy(slot_sort, sorts_before, sizeof sorts_before);
+    if (token.kind == T_OPEN) {
+        next_token();
+        Sentence *inner = abstract_formula();
+        if (token.kind == T_CLOSE) next_token(); else syntax("manca la parentesi chiusa");
+
+        /* Se nemmeno così si legge, l'errore più preciso è quello
+         * incontrato leggendo il confronto. */
+        if (syntax_error && problem) syntax_error = problem;
+        return inner;
+    }
+    syntax(problem ? problem : "serve una condizione: un'uguaglianza tra elementi, un'appartenenza, o una formula tra parentesi");
+    return sentence_new(S_TRUE, NULL, NULL, start);
+}
+
+/* conjunction := unary { \land unary } */
+static Sentence *abstract_conjunction(void) {
+    const char *start = token.start;
+    Sentence *node = abstract_unary();
+    while (is_command("land") || is_command("wedge")) {
+        next_token();
+        Sentence *right = abstract_unary();
+        node = sentence_new(S_AND, node, right, start);
+    }
+    return node;
+}
+
+/* disjunction := conjunction { \lor conjunction } */
+static Sentence *abstract_disjunction(void) {
+    const char *start = token.start;
+    Sentence *node = abstract_conjunction();
+    while (is_command("lor") || is_command("vee")) {
+        next_token();
+        Sentence *right = abstract_conjunction();
+        node = sentence_new(S_OR, node, right, start);
+    }
+    return node;
+}
+
+/* implication := disjunction [ \implies implication ]
+ *
+ * A sinistra di un'implicazione non si è "in testa alla tesi": lì un "per
+ * ogni applicazione" sarebbe un'ipotesi su tutte le applicazioni. Che il
+ * primo pezzo sia un'ipotesi lo si sa solo dopo averlo letto, quindi lo si
+ * controlla allora, contando quanti ne ha incontrati. */
+static Sentence *abstract_implication(void) {
+    const char *start = token.start;
+    int before = map_quantifiers;
+    Sentence *node = abstract_disjunction();
+    if (!is_command("implies") && !is_command("Rightarrow") && !is_command("Longrightarrow")) return node;
+    if (map_quantifiers != before) syntax("\\forall f \\in T^{S} è letto solo in testa alla tesi, non tra le ipotesi");
+    next_token();
+    Sentence *right = abstract_implication();
+    return sentence_new(S_IMPLIES, node, right, start);
+}
+
+/* formula := implication { \iff implication }
+ *
+ * I due lati di un'equivalenza fanno ciascuno anche da ipotesi dell'altro:
+ * vale lo stesso controllo. */
+static Sentence *abstract_formula(void) {
+    const char *start = token.start;
+    int before = map_quantifiers;
+    Sentence *node = abstract_implication();
+    while (is_command("iff") || is_command("Leftrightarrow") || is_command("Longleftrightarrow")) {
+        next_token();
+        Sentence *right = abstract_implication();
+        node = sentence_new(S_IFF, node, right, start);
+        if (map_quantifiers != before) syntax("\\forall f \\in T^{S} è letto solo in testa alla tesi, non in un'equivalenza");
+    }
+    return node;
+}
+
+/* Ritorna 1 se in s c'è una dichiarazione fuori posto. allowed dice se nel
+ * punto di s una dichiarazione è ammessa: lo è tra le ipotesi, attraverso
+ * le sole congiunzioni. */
+static int declaration_misplaced(const Sentence *s, int allowed) {
+    if (!s) return 0;
+    if (s->kind == S_TRUE) return !allowed;
+    if (s->kind == S_AND) return declaration_misplaced(s->a, allowed) || declaration_misplaced(s->b, allowed);
+    return declaration_misplaced(s->a, 0) || declaration_misplaced(s->b, 0);
+}
+
+/* statement: legge l'enunciato su insiemi qualsiasi che comincia al token
+ * corrente e ne ritorna l'albero, lasciando in symbols[] e negli altri
+ * elenchi ciò che dichiara. Gli errori sono annotati con syntax(). */
+static Sentence *abstract_statement(void) {
+    symbol_count = sort_count = slot_count = visible_count = 0;
+    abstract_positive = 1;
+    abstract_example = map_quantifiers = 0;
+
+    /* In testa, gli "esiste" di un esempio: insiemi, parti e relazioni,
+     * un'applicazione. Un "esiste" di un altro tipo è già parte della
+     * condizione: si torna indietro e lo legge lei. */
+    while (is_command("exists") && !syntax_error) {
+        ParserState before = parser_save();
+        const char *kept = consumed;
+        Symbol shape = {0, 0, 1, {0, 0}, TRUTH};
+        int name[MAX_BOUND], index[MAX_BOUND], count = 0, operation = 0, sets = 1, sorts_before = sort_count;
+        do {
+            next_token();  /* supera il quantificatore, poi ogni virgola */
+            name[count] = operation_name();
+            if (name[count]) { operation = 1; index[count] = 0; next_token(); }
+            else name[count] = abstract_name(&index[count]);
+            sets = sets && name[count] < 128 && isupper(name[count]) && !index[count];
+        } while (name[count] && ++count < MAX_BOUND && is_char(','));
+        int parts = count > 0 && !operation && is_command("subseteq"), map = count == 1 && is_command("colon");
+
+        /* \exists f, g \in T^{S}: delle applicazioni da S a T. Si distingue
+         * da \exists x \in S, che è già parte della condizione, solo
+         * dall'apice dopo l'insieme. */
+        if (count > 0 && !operation && !parts && !map && !sets && is_command("in")) {
+            next_token();
+            shape.range = abstract_sort();
+            if (!syntax_error && is_char('^')) {
+                next_token();
+                int braces = is_char('{');
+                if (braces) next_token();
+                shape.domain[0] = abstract_sort();
+                if (braces) expect_char('}', "manca }");
+                for (int i = 0; i < count && !syntax_error; i++) {
+                    shape.name = name[i];
+                    shape.index = index[i];
+                    symbol_add(shape);
+                }
+                abstract_example = 1;
+                continue;
+            }
+        }
+        if (!parts && !map && !(sets && count > 0)) {
+            parser_restore(before);
+            consumed = kept;
+            sort_count = sorts_before;
+            break;
+        }
+        abstract_example = 1;
+
+        /* Insiemi, eventualmente detti non vuoti: lo sono comunque quelli
+         * tra cui l'esempio viene cercato. */
+        if (!parts && !map) {
+            for (int i = 0; i < count; i++) sort_index(name[i]);
+            if (is_command("neq") || is_command("ne")) {
+                next_token();
+                if (is_command("emptyset") || is_command("varnothing")) next_token(); else syntax("dopo \\exists S \\neq serve \\emptyset");
+            }
+            continue;
+        }
+
+        /* Il resto della dichiarazione, comune a tutti i nomi letti. */
+        next_token();
+        shape.domain[0] = abstract_sort();
+        if (is_command("times")) { next_token(); shape.domain[1] = abstract_sort(); shape.arity = 2; }
+        if (map) {
+            if (is_command("to") || is_command("rightarrow") || is_command("longrightarrow")) next_token();
+            else syntax("in una dichiarazione f \\colon A \\to B manca \\to");
+            shape.range = abstract_sort();
+            if (operation && shape.arity != 2) syntax("un'operazione si dichiara su un insieme di coppie, A \\times B");
+        }
+        for (int i = 0; i < count && !syntax_error; i++) {
+            shape.name = name[i];
+            shape.index = index[i];
+            symbol_add(shape);
+        }
+    }
+
+    /* La condizione. Chi chiede un esempio ha già dichiarato tutto, anche
+     * gli insiemi: uno che comparisse solo qui non si saprebbe se va
+     * cercato anche lui o se l'enunciato vale per ogni sua scelta. */
+    int sorts_declared = sort_count;
+    Sentence *root = abstract_formula();
+    if (token.kind != T_END) syntax("testo inatteso dopo l'enunciato");
+    if (abstract_example && sort_count != sorts_declared) syntax("in un enunciato che chiede un esempio ogni insieme va introdotto con \\exists");
+    int misplaced = root->kind == S_IMPLIES && !abstract_example ? declaration_misplaced(root->a, 1) || declaration_misplaced(root->b, 0)
+                                                                  : declaration_misplaced(root, 0);
+    if (misplaced) syntax("un'applicazione, un'operazione, una parte o un elemento si dichiarano solo tra le ipotesi, in cima all'enunciato");
+    return root;
 }
 
 /* =============================================================================
@@ -1592,6 +3597,11 @@ static void read_definitions(const Formula *f) {
  *
  *     \item $\displaystyle FORMULA$
  *     \item \[ FORMULA \]
+ *
+ * oppure con una formula in linea che comincia con il segno di derivata,
+ * \frac{d^n}{dx^n} o \dfrac{d^n}{dx^n}: è così che gli eserciziari scrivono
+ * gli enunciati sulle derivate n-esime, e quel segno in testa a un \item non
+ * può essere altro che l'inizio di un enunciato.
  *
  * Il testo che segue la formula nello stesso \item può indicare da dove parte
  * l'induzione, per esempio "per ogni intero $n\ge 2$": la prima formula
@@ -1607,7 +3617,11 @@ static void read_definitions(const Formula *f) {
  *
  * Un \item che comincia con del testo, o con una formula in linea senza
  * \displaystyle, è un enunciato in prosa: non c'è una formula sola da
- * dimostrare e la risposta è NON SUPPORTATO.
+ * dimostrare e la risposta è NON SUPPORTATO. Fa eccezione la prosa che
+ * definisce una successione per ricorrenza e ne afferma qualcosa, "Sia
+ * $a_0 = 0$ e $a_{n+1} = \sqrt{6 + a_n}$. Allora $a_n < 3$ per ogni
+ * $n \ge 0$": le formule sono tra dollari e le parole intorno sono poche e
+ * fisse, quindi la si legge senza indovinare (read_sequence_item()).
  */
 
 /* Legge tutto il file path in un blocco terminato da '\0', da liberare con
@@ -1688,6 +3702,26 @@ static int is_remark(const char *from, const char *to) {
     return words > 0;
 }
 
+/* Ritorna 1 se la formula [from, to) è esattamente "lettera \ge numero", con
+ * spazi e graffe facoltativi e nient'altro, e allora mette la lettera in
+ * *letter e il numero (anche negativo) in *number. */
+static int is_lower_bound(const char *from, const char *to, int *letter, long long *number) {
+    const char *q = from;
+    char *after;
+    while (q < to && isspace((unsigned char)*q)) q++;
+    if (q == to || !isalpha((unsigned char)*q)) return 0;
+    *letter = *q++;
+    while (isspace((unsigned char)*q)) q++;
+    if (strncmp(q, "\\ge", 3) != 0) return 0;
+    q += q[3] == 'q' ? 4 : 3;
+    while (isspace((unsigned char)*q) || *q == '{') q++;
+    *number = strtoll(q, &after, 10);
+    if (after == q) return 0;
+    q = after;
+    while (isspace((unsigned char)*q) || *q == '}') q++;
+    return q == to;
+}
+
 /* Legge il testo [from, to) che segue la formula di un \item: prosa con
  * qualche formula tra dollari, come "per ogni intero $n\ge 2$, con $a>0$".
  *
@@ -1754,20 +3788,10 @@ static int read_conditions(const char *from, const char *to, int *variable, long
         }
         p = close + 1;
 
-        /* lettera \ge numero, con spazi e graffe facoltativi, e nient'altro. */
-        const char *q = open + 1;
-        char *after;
-        while (isspace((unsigned char)*q)) q++;
-        int letter = isalpha((unsigned char)*q) ? *q++ : 0;
-        while (isspace((unsigned char)*q)) q++;
-        int relation = letter && strncmp(q, "\\ge", 3) == 0;
-        if (relation) q += q[3] == 'q' ? 4 : 3;
-        while (isspace((unsigned char)*q) || *q == '{') q++;
-        long long number = strtoll(q, &after, 10);
-        int digits = after != q;
-        q = after;
-        while (isspace((unsigned char)*q) || *q == '}') q++;
-        if (!relation || !digits || q != close || found) {
+        /* lettera \ge numero, e nient'altro. */
+        int letter;
+        long long number;
+        if (found || !is_lower_bound(open + 1, close, &letter, &number)) {
             if (memchr(open, '=', (size_t)(close - open))) *unread = 2;
             else if (!*unread) *unread = 1;
             continue;
@@ -1810,35 +3834,156 @@ static int next_item(const char **position, const char **item, const char **end)
     return 0;
 }
 
+/* Il motivo per cui un \item scritto a parole non è un enunciato. */
+static const char *const PROSE = "enunciato in prosa: serve una formula sola in evidenza";
+
+/* Le parole con cui comincia un \item che definisce una successione per
+ * ricorrenza, quelle che vi separano le ipotesi dalla tesi, e quelle che
+ * possono stare tra una tesi e l'altra. */
+static const char *const opening_words[] = {"sia", "siano", "con", "let", "with"};
+static const char *const closing_words[] = {"allora", "vale", "then"};
+static const char *const joining_words[] = {"e", "ed", "and"};
+
+/* Aggiunge a out->formula, lunga *length, il testo prefix seguito dai
+ * caratteri [from, to), e aggiorna *length. Ritorna 0 se non c'è posto. */
+static int formula_append(Item *out, size_t *length, const char *prefix, const char *from, const char *to) {
+    int written = snprintf(out->formula + *length, sizeof out->formula - *length, "%s%.*s", prefix, (int)(to - from), from);
+    if (written < 0 || (size_t)written >= sizeof out->formula - *length) return 0;
+    *length += (size_t)written;
+    return 1;
+}
+
+/* Legge un \item che definisce una successione per ricorrenza e ne afferma
+ * qualcosa, scritto a parole con le formule tra dollari:
+ *
+ *     Sia $a_0=0$, $a_1=\sin x$ e $a_{n+1}=2\cos x\,a_n-a_{n-1}$ per $n\ge1$.
+ *     Allora $a_n=\sin(nx)$ per ogni $n\ge0$.
+ *
+ * e ne mette in out->formula la scrittura in formula, quella che legge
+ * parse_sequence_statement():
+ *
+ *     a_0=0, a_1=\sin x, a_{n+1}=2\cos x\,a_n-a_{n-1}, n \ge 1 \implies a_n=\sin(nx)
+ *
+ * Che cosa viene letto, e nient'altro:
+ *
+ *   21a. una delle opening_words;
+ *   21b. le ipotesi, fino a una delle closing_words: le formule che
+ *        cominciano con una lettera con pedice e contengono un segno =; una
+ *        formula "lettera \ge numero" dice da dove vale la regola. Ogni
+ *        altra formula o parola ("$a_0>0$", "$0\le x\le\pi$", "tale che...")
+ *        è una condizione che il programma non sa leggere, e *unread
+ *        diventa 1: l'enunciato può ancora essere dimostrato, senza usarla,
+ *        ma non dichiarato falso;
+ *   21c. le tesi: le formule che si susseguono, separate solo da virgole e
+ *        da una delle joining_words.
+ *
+ * Mette in *tail il punto dove le tesi finiscono: il testo che resta è
+ * quello di ogni \item, e lo legge read_conditions(). Ritorna NULL se
+ * riesce, PROSE se l'\item non ha questa forma, o un altro motivo, in
+ * italiano. */
+static const char *read_sequence_item(const char *item, const char *end, Item *out, const char **tail, int *unread) {
+    const char *long_text = "enunciato troppo lungo";
+    size_t length = 0;
+    int givens = 0, claims = 0, since = 0, closed = 0;
+    const char *p = item;
+    *unread = 0;
+
+    /* 21a. La parola d'apertura. */
+    while (p < end && isalpha((unsigned char)*p)) p++;
+    if (!word_in(item, p, opening_words, sizeof opening_words / sizeof *opening_words)) return PROSE;
+
+    /* 21b. Le ipotesi. */
+    while (p < end && !closed) {
+        unsigned char ch = (unsigned char)*p;
+        if (isalpha(ch) || ch >= 128) {
+            const char *word = p;
+            while (p < end && (isalpha((unsigned char)*p) || (unsigned char)*p >= 128)) p++;
+            if (givens && word_in(word, p, closing_words, sizeof closing_words / sizeof *closing_words)) closed = 1;
+            else if (!word_in(word, p, plain_words, sizeof plain_words / sizeof *plain_words)) *unread = 1;
+            continue;
+        }
+        if (ch != '$') {
+            if (!strchr(" \t\r\n.,;:(){}", ch)) *unread = 1;
+            p++;
+            continue;
+        }
+        const char *open = p + 1, *close = memchr(open, '$', (size_t)(end - open)), *first = open;
+        if (!close) return PROSE;
+        p = close + 1;
+
+        /* Una formula: da dove vale la regola, un'ipotesi, o una condizione
+         * non letta. */
+        int letter;
+        long long number;
+        while (first < close && isspace((unsigned char)*first)) first++;
+        if (!since && is_lower_bound(open, close, &letter, &number)) {
+            char bound[48];
+            snprintf(bound, sizeof bound, ", %c \\ge %lld", letter, number);
+            if (!givens || !formula_append(out, &length, bound, open, open)) return givens ? long_text : PROSE;
+            since = 1;
+        } else if (close - first > 2 && isalpha((unsigned char)first[0]) && first[1] == '_' && memchr(first, '=', (size_t)(close - first))) {
+            if (!formula_append(out, &length, givens++ ? ", " : "", open, close)) return long_text;
+        } else {
+            *unread = 1;
+        }
+    }
+    if (!closed) return PROSE;
+
+    /* 21c. Le tesi. */
+    for (;;) {
+        const char *q = p;
+        while (q < end && (isspace((unsigned char)*q) || *q == ',')) q++;
+        const char *word = q;
+        while (q < end && isalpha((unsigned char)*q)) q++;
+        if (q > word && !(claims && word_in(word, q, joining_words, sizeof joining_words / sizeof *joining_words))) break;
+        while (q < end && isspace((unsigned char)*q)) q++;
+        const char *close = q < end && *q == '$' ? memchr(q + 1, '$', (size_t)(end - q - 1)) : NULL;
+        if (!close) break;
+        if (!formula_append(out, &length, claims++ ? " \\land " : " \\implies ", q + 1, close)) return long_text;
+        p = close + 1;
+    }
+    *tail = p;
+    return claims ? NULL : PROSE;
+}
+
 /* Estrae in *out l'enunciato contenuto nel testo [item, end) di un \item.
  * Ritorna NULL se riesce; altrimenti ritorna il motivo, in italiano, per cui
  * il testo non è un enunciato utilizzabile. */
 static const char *read_item(const char *item, const char *end, Item *out) {
-    const char *prose = "enunciato in prosa: serve una formula sola in evidenza";
     while (item < end && isspace((unsigned char)*item)) item++;
 
-    /* Individua la formula: \[ ... \] oppure $\displaystyle ... $. */
-    const char *start, *stop;
+    /* Individua la formula: \[ ... \] oppure $\displaystyle ... $. Un \item
+     * che comincia con una parola può definire una successione (vedi
+     * read_sequence_item()), e allora la formula la compone il lettore. */
+    const char *start = NULL, *stop = NULL, *tail = NULL;
     size_t closing = 1;  /* lunghezza del delimitatore che chiude la formula */
+    int given_unread = 0;
     if (end - item >= 2 && strncmp(item, "\\[", 2) == 0) {
         start = item + 2;
         stop = strstr(start, "\\]");
         closing = 2;
     } else if (item < end && *item == '$') {
+        /* In linea, la formula è l'enunciato solo se lo dice \displaystyle,
+         * oppure se comincia con il segno di derivata, che non può essere
+         * altro che l'inizio di un enunciato. */
         start = item + 1;
         while (start < end && isspace((unsigned char)*start)) start++;
-        if (strncmp(start, "\\displaystyle", 13) != 0) return prose;
+        if (strncmp(start, "\\displaystyle", 13) != 0 && !starts_with_derivative(start)) return PROSE;
         stop = strchr(start, '$');
     } else {
-        return prose;
+        const char *problem = read_sequence_item(item, end, out, &tail, &given_unread);
+        if (problem) return problem;
     }
-    if (!stop || stop > end) return prose;
 
     /* Copia la formula in una stringa a sé. */
-    size_t length = (size_t)(stop - start);
-    if (length >= sizeof out->formula) return "enunciato troppo lungo";
-    memcpy(out->formula, start, length);
-    out->formula[length] = 0;
+    if (!tail) {
+        if (!stop || stop > end) return PROSE;
+        size_t length = (size_t)(stop - start);
+        if (length >= sizeof out->formula) return "enunciato troppo lungo";
+        memcpy(out->formula, start, length);
+        out->formula[length] = 0;
+        tail = stop + closing;
+    }
 
     /* Variabile di induzione e caso base, se indicati dopo la formula, e ciò
      * che del testo non è stato letto. Una seconda uguaglianza può essere
@@ -1848,8 +3993,8 @@ static const char *read_item(const char *item, const char *end, Item *out) {
     int unread;
     out->variable = 'n';
     out->base = 0;
-    out->has_base = read_conditions(stop + closing, end, &out->variable, &out->base, &unread, &out->remark);
-    out->conditional = unread == 1;
+    out->has_base = read_conditions(tail, end, &out->variable, &out->base, &unread, &out->remark);
+    out->conditional = unread == 1 || given_unread;
     if (unread == 2) return "dopo la formula ce n'è un'altra con un segno =: un \\item deve contenere un solo enunciato";
     return NULL;
 }

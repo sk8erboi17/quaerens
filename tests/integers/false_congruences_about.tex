@@ -1,0 +1,35 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_congruences.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_congruences.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_integers.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 36 false statements made of congruences and divisibility conditions. It is an anti-regression test: the engine must never report any of them as proved.
+
+\item \textbf{What the statements are.} Most are the true statements of \texttt{congruences.tex} with the solutions wrong by little, as the rule on solving asks: a remainder next to the right one ($x \equiv 15$ in place of $16$ modulo 36), a modulus that is too small or too large (the solutions of $24x \equiv 42 \pmod{15}$ are a class modulo 5, not modulo 15), a class forgotten or one too many among the invertible ones. Others are true for the first numbers and false later: $41 \nmid n^{2} + n + 41$ holds for every $n$ from 1 to 39 and fails at 40. One has a hypothesis dropped (only one of the two numbers is odd), one mixes a congruence with an equality, one has a letter that is a rational number.
+
+\item \textbf{How the statements are written.} $a \mid b$ says that $b$ is $a$ times an integer, and $a \equiv b \pmod{m}$ that $m \mid a - b$.
+
+\item \textbf{Adding statements.} Any new statement must be false.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_integers \
+    tests/integers/test_integers.c && /tmp/test_integers
+\end{verbatim}
+
+\item \textbf{Expected result.} The line \texttt{PASS: 36 of 36 false statements rejected}. Today the engine also proves the negation of all of them, and for those that begin with ``for every it prints the numbers that show it.
+\end{enumerate}
+\end{document}

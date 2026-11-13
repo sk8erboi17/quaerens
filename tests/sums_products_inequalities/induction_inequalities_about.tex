@@ -1,0 +1,38 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{induction\_inequalities.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{induction\_inequalities.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_induction\_inequalities.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 42 true inequalities in the integer $n$. The engine must prove every one of them by induction (chapter 25 of \texttt{main.c}) and write the proof.
+
+\item \textbf{What they cover.} A sum against a bound, with square roots ($\sum 1/\sqrt{k} \ge \sqrt{n}$) and without ($\sum 1/k^{2} \le 2 - 1/n$); a product against a root; powers, factorials and central binomial coefficients against polynomials and against each other; Bernoulli's inequality with a number in place of the letter; inequalities in $n$ alone, where the inductive hypothesis is not needed. Some are strict, some start from $n = 0$, $2$, $4$, $5$, $7$ or $10$, one sums up to $2n$.
+
+\item \textbf{Statements that need more than the first step.} For $3^{n} \ge n^{3}$ the inductive step holds only from $n = 3$, so the cases $n = 1, 2, 3$ are computed one by one. For $3^{n} \ge 2n^{2} + 1$ from $n = 0$, and for $(n - 3)(n - 4) \ge 0$, the inequality of the step is false at some real number that is not an integer: the engine has to start the step later.
+
+\item \textbf{How truth was checked.} Each statement was computed with sixty decimal digits for the first 150 values of $n$ and for $n = 400$ and $n = 1000$, by a script that does not use the engine. The statement $\sum k \cdot k! < (n + 1)!$ is exact: the sum is $(n + 1)! - 1$.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_induction_inequalities \
+    tests/sums_products_inequalities/test_induction_inequalities.c \
+    && /tmp/test_induction_inequalities
+\end{verbatim}
+
+\item \textbf{Expected result.} The line \texttt{PASS: 42 of 42 statements proved, each with a written proof}. Every verdict says that there is no certificate, because the inductive step is decided by the sign table.
+
+\item \textbf{Adding statements.} A new statement must be true for every $n$ from its starting value, and its inductive step must be of the kind the engine treats: after removing one sum, product or power, what is left is an expression in $n$ with at most square roots, possibly times a positive product or power. An inequality whose right-hand side does not grow with $n$, such as $\sum 1/k^{2} < 2$, is true but is not proved this way.
+\end{enumerate}
+\end{document}

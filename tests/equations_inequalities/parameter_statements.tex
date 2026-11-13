@@ -1,0 +1,41 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Statements in two real variables: a parameter and $x$ (21)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Every statement below is true. They were written by hand, each with its reason in mind, to cover what the textbook exercises of \texttt{book\_inequalities\_with\_parameter.tex} do not: the two quantifiers in every order, a negation in front, quantified statements on $x$ joined by connectives, a coefficient of first degree that vanishes, a quotient, degree four, irrational values of the parameter, and comparisons in the parameter alone with a square root or an absolute value.
+
+\begin{enumerate}
+\item $\displaystyle \forall a \in \mathbb{R}\ \forall x \in \mathbb{R}\ (x^{2} + a^{2} \ge 2ax)$
+\item $\displaystyle \forall a \in \mathbb{R}\ \exists x \in \mathbb{R}\ (x > a)$
+\item $\displaystyle \exists a \in \mathbb{R}\ \forall x \in \mathbb{R}\ (x^{2} + ax + 1 > 0)$
+\item $\displaystyle \lnot \exists a \in \mathbb{R}\ \forall x \in \mathbb{R}\ (x^{2} + ax < 1)$
+\item $\displaystyle \forall a \in \mathbb{R}\ \left( \left(\exists x \in \mathbb{R}\ (x^{2} = a)\right) \iff a \ge 0 \right)$
+\item $\displaystyle \forall a \in \mathbb{R}\ \left( \left(\forall x \in \mathbb{R}\ (x^{2} + a > 0)\right) \iff a > 0 \right)$
+\item $\displaystyle \forall a \in \mathbb{R}\ \forall x \in \mathbb{R}\ \left(x \neq a \implies \frac{x^{2} - a^{2}}{x - a} = x + a\right)$
+\item $\displaystyle \forall a \in \mathbb{R}\ \left( \left(\forall x \in \mathbb{R}\ (x^{2} \ge a)\right) \iff \sqrt{a^{2}} = -a \right)$
+\item $\displaystyle \forall m \in \mathbb{R}\ \forall x \in \mathbb{R}\ \left( mx > 1 \iff \left( (m < 0 \land x < \frac{1}{m}) \lor (m > 0 \land x > \frac{1}{m}) \right) \right)$
+\item $\displaystyle \forall a \in \mathbb{R}\ \forall x \in \mathbb{R}\ \left( \frac{1}{x - a} > 1 \iff a < x < a + 1 \right)$
+\item $\displaystyle \forall k \in \mathbb{R}\ \left( \left(\exists x \in \mathbb{R}\ (x^{2} + kx + 1 = 0)\right) \iff \left|k\right| \ge 2 \right)$
+\item $\displaystyle \forall k \in \mathbb{R}\ \left( \left(\forall x \in \mathbb{R}\ (x^{2} + kx + 2 > 0)\right) \iff -2\sqrt{2} < k < 2\sqrt{2} \right)$
+\item $\displaystyle \forall a \in \mathbb{R}\ \left( \left(\forall x \in \mathbb{R}\ (x^{4} + ax^{2} + 1 > 0)\right) \iff a > -2 \right)$
+\item $\displaystyle \forall a \in \mathbb{R}\ \forall x \in \mathbb{R}\ \left( x^{2} - a^{2} \le 0 \iff \left( (a < 0 \land a \le x \le -a) \lor (a \ge 0 \land -a \le x \le a) \right) \right)$
+\item $\displaystyle \forall a \in \mathbb{R}\ \exists x \in \mathbb{R}\ (ax = 1 \lor a = 0)$
+\item $\displaystyle \exists a \in \mathbb{R}\ \exists x \in \mathbb{R}\ (x^{2} + a^{2} = 2 \land x = a)$
+\item $\displaystyle \forall a \in \mathbb{R}\ \left( \left(\exists x \in \mathbb{R}\ (ax^{2} + x + 1 = 0)\right) \iff a \le \frac{1}{4} \right)$
+\item $\displaystyle \forall a \in \mathbb{R}\ \left( \left(\forall x \in \mathbb{R}\ (ax^{2} + 2x + a < 0)\right) \iff a < -1 \right)$
+\item $\displaystyle \forall a \in \mathbb{R}\ \left( \left(\exists x \in \mathbb{R}\ (x^{2} = a)\right) \lor \left(\exists y \in \mathbb{R}\ (y^{2} = -a)\right) \right)$
+\item $\displaystyle \forall t \in \mathbb{R}\ \forall x \in \mathbb{R}\ \left( x^{2} + 2tx - 3t = 0 \implies t \le -3 \lor t \ge 0 \right)$
+\item $\displaystyle \forall k \in \mathbb{R}\ \forall x \in \mathbb{R}\ \left( (x + k + 1)(x - 3k - 3) \neq 0 \land x \ge -1 \iff \left( (k < -\frac{4}{3} \land x \ge -1 \land x \neq -k - 1) \lor (-\frac{4}{3} \le k \le 0 \land x \ge -1 \land x \neq -k - 1 \land x \neq 3k + 3) \lor (k > 0 \land x \ge -1 \land x \neq 3k + 3) \right) \right)$
+\end{enumerate}
+\end{document}

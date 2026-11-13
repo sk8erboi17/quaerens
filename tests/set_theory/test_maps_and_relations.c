@@ -6,9 +6,12 @@
  * insiemi finiti e infiniti. Gli enunciati sono dati: il motore non ne conosce
  * nessuno in anticipo.
  *
- * Oggi il motore dimostra una parte di maps.tex, le applicazioni tra insiemi
- * di numeri date da una sola formula, e nulla degli altri file: il test
- * fallisce, e indica il lavoro ancora da fare. Ciò che deve restare vero da
+ * Oggi il motore dimostra una parte di maps.tex (le applicazioni tra insiemi
+ * di numeri date da una sola formula), nove enunciati di correspondences.tex
+ * (le sei corrispondenze tra insiemi di numeri e tre enunciati su una
+ * relazione qualsiasi) e cinque di equivalence_relations.tex (relazioni date
+ * da una regola, un esempio, una relazione qualsiasi), e nulla degli altri
+ * file: il test fallisce, e indica il lavoro ancora da fare. Ciò che deve restare vero da
  * subito ha un test a parte, test_set_theory.c: lì stanno gli enunciati sugli
  * insiemi già dimostrati e gli enunciati falsi, anche quelli sulle
  * applicazioni. Il file to_determine.tex non è tra i controllati: contiene

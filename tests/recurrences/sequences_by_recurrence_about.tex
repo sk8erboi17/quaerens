@@ -1,0 +1,41 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{sequences\_by\_recurrence.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{sequences\_by\_recurrence.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_recurrences.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 26 true statements about a sequence that the statement itself defines by a recurrence. The engine must prove every one of them (chapter 26 of \texttt{main.c}) and write the proof.
+
+\item \textbf{How a statement is written.} In words, as in the exercise books: ``Sia $a_0 = 0$ e $a_{n+1} = \sqrt{6 + a_n}$. Allora $a_n < 3$ e $a_n < a_{n+1}$ per ogni $n \ge 0$'', or the same with \emph{Let \ldots\ and \ldots. Then \ldots\ and \ldots\ for every integer}. The reader (chapter 21 of \texttt{parser.c}) turns it into one formula, hypotheses before $\implies$ and claims after, joined by $\land$; items 15 and 19 are written directly in that form.
+
+\item \textbf{Two kinds of claim.}
+\begin{itemize}
+\item A formula for the $n$-th term (items 1 to 15). It is right if it has the first values of the sequence and satisfies its rule: with sines and cosines, with powers, with Fibonacci and harmonic numbers, with a rule of order two, with a rule in which $n$ appears.
+\item Bounds on the terms (items 16 to 26): ``below $3$ and increasing'' and the like. They are proved with an invariant, a condition that the first term satisfies and that the rule preserves; the engine has to find it (for item 23 it is ``$a^2 \ge 2$ and $a > 0$'') and the sign table decides that it is preserved.
+\end{itemize}
+
+\item \textbf{How truth was checked.} For the parameter-free formulas a script that does not use the engine computed sixty terms from the rule with exact fractions and compared them with the formula; for the bounds, 150 terms with 120 decimal digits. Items 1 to 4 are classical identities (Chebyshev recurrences, duplication formulas), checked in floating point at one value of $x$.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_recurrences \
+    tests/recurrences/test_recurrences.c && /tmp/test_recurrences
+\end{verbatim}
+
+\item \textbf{Expected result.} The line \texttt{PASS: 26 of 26 statements proved, each with a written proof}. No verdict has a certificate: each says why.
+
+\item \textbf{Adding statements.} A new statement must be true and must give as many first values as the rule uses previous terms, with consecutive indices. A bound is proved only for a rule $a_{n+1} = f(a_n)$ without $n$ and without parameters.
+\end{enumerate}
+\end{document}

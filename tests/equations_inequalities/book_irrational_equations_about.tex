@@ -1,0 +1,34 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{book\_irrational\_equations.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{book\_irrational\_equations.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_irrational\_equations.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 10 true statements. Each says that an equation with the unknown under one or more square roots holds exactly for the values printed as its result in a school textbook, for example $\sqrt{x} - 3 = \sqrt{3} - \sqrt{12 - x} \iff x = 3 \lor x = 9$.
+
+\item \textbf{What it exercises.} The sign table with square roots (rule 18p-7): each root is a letter $s$ with $s^{2}$ equal to its radicand, the sign of $P + Qs$ comes from the signs of $P$, $Q$ and $P^{2} - Q^{2}R$, and a comparison has a value only where every radicand is not negative. Two and three roots in the same equation, and roots that are multiples of one another.
+
+\item \textbf{Variety.} One, two and three square roots, radicands of first and second degree, a root in a denominator, equations whose squared form has a root that does not satisfy the original one (it must not appear among the solutions).
+
+\item \textbf{Expected result.} The line \texttt{PASS: 10 of 10 statements proved, each with a written proof}.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_irrational_equations \
+    tests/equations_inequalities/test_irrational_equations.c \
+    && /tmp/test_irrational_equations
+\end{verbatim}
+\end{enumerate}
+\end{document}

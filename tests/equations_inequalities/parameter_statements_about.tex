@@ -1,0 +1,34 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{parameter\_statements.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{parameter\_statements.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_equations\_inequalities.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 21 true statements in two real variables, written by hand. The engine must prove every one of them.
+
+\item \textbf{What it exercises.} The cases on the parameter (rule 18t) outside the shape of the textbook exercises: a quantifier on the parameter whose body is a combination of comparisons in the parameter alone and of quantified statements on $x$.
+
+\item \textbf{Variety.} $\forall\forall$, $\forall\exists$, $\exists\forall$, $\exists\exists$ and a negation in front; two quantified statements on different letters joined by $\lor$; an implication; $mx > 1$, where the coefficient of $x$ vanishes; a quotient with $x - a$ below; $x^{4} + ax^{2} + 1$, whose discriminant in the parameter has degree six; the critical values $\pm 2\sqrt{2}$, which are substituted with the quadratic formula; $\left|k\right| \ge 2$ and $\sqrt{a^{2}} = -a$ as conditions on the parameter; and a condition made of two comparisons, whose cases are separated by values of the parameter at which nothing happens to one of them.
+
+\item \textbf{Expected result.} The line \texttt{PASS: 21 of 21 statements proved, each with a written proof}.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_equations_inequalities \
+    tests/equations_inequalities/test_equations_inequalities.c \
+    && /tmp/test_equations_inequalities
+\end{verbatim}
+\end{enumerate}
+\end{document}

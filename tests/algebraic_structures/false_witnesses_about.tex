@@ -1,0 +1,34 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_witnesses.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_witnesses.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_algebraic\_structures.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 22 false statements that must never be reported as proved. It is the anti-regression test of rule 18u: naming the witness of a hypothesis and searching the value of the thesis among polynomials must not make the engine accept a statement that does not follow.
+
+\item \textbf{What the statements are.} Each one is a statement of \texttt{witnesses.tex} wrong by little: the sum in place of the difference, a wrong modulus ($n + 1$, $2n$), a hypothesis dropped (the B\'ezout identity, the second congruence), an implication reversed ($a^{2} \equiv b^{2}$ gives $a \equiv b$), a cancellation by a number that can be zero.
+
+\item \textbf{Adding statements.} Any new statement must be false.
+
+\item \textbf{Expected result.} The line \texttt{PASS: 22 of 22 false statements rejected}. Today most of them are also refuted with a counterexample; five are only left undecided.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_algebraic_structures \
+    tests/algebraic_structures/test_algebraic_structures.c \
+    && /tmp/test_algebraic_structures
+\end{verbatim}
+\end{enumerate}
+\end{document}

@@ -1,0 +1,33 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{solution\_sets\_trigonometry.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{solution\_sets\_trigonometry.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_trigonometry.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 87 requests of the form $\{x \in \mathbb{R} \mid \ldots\}$ with goniometric conditions: nothing is claimed, the engine must find the solutions and write them as a textbook does, for example $x = \frac{\pi}{6} + 2k\pi \lor x = \frac{5}{6}\pi + 2k\pi$.
+
+\item \textbf{What it exercises.} Going back from the rows of the table in $t$ to the values of $x$ (rule 18p-12): arcs of the circle, the exact recognition of the angles that are rational multiples of $\pi$, the smallest period, the grouping of the solutions into families with their own period, and the finite list of intervals when the condition is restricted to an interval (rule 18p-14).
+
+\item \textbf{Variety.} The same exercises as \texttt{book\_trigonometry.tex}. The expected solutions, written in the test, are the textbook results: the engine's text must be the same, or a different writing of the same set that the engine proves equivalent (the textbook writes $-\frac{\pi}{3} + k\pi$ where the engine writes $\frac{2}{3}\pi + k\pi$). Three requests are beyond the engine today and may stay unanswered.
+
+\item \textbf{Expected result.} The line \texttt{PASS: 84 of 87 solution sets found and equal to the expected ones (3 not answered, as allowed)}.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_trigonometry \
+    tests/trigonometry/test_trigonometry.c && /tmp/test_trigonometry
+\end{verbatim}
+\end{enumerate}
+\end{document}

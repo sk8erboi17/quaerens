@@ -1,0 +1,34 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{book\_exponentials\_logarithms\_beyond.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{book\_exponentials\_logarithms\_beyond.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_exponentials\_logarithms.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 6 true statements of the same kind as \texttt{book\_exponentials\_logarithms.tex} that the engine does not decide yet.
+
+\item \textbf{What it exercises.} Honesty about the limits: the engine may answer that it cannot decide, but must never call a true statement false. When one of these becomes provable it should move to \texttt{book\_exponentials\_logarithms.tex}.
+
+\item \textbf{Variety.} An exponent that is not of first degree ($4^{\sqrt{x+2}}$, $e^{6/(\log_2(3+x) - 2)}$), the variable in the index of a root or in base and exponent together, and three domains where the independent check with numbers cannot confirm a row of the table (a nested logarithm, or numbers too large, at a point where a radicand is exactly zero).
+
+\item \textbf{Expected result.} The line \texttt{PASS: 0 of 6 statements \ldots are PROVED (at least 0 wanted), 0 are REFUTED (none allowed)}.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_exponentials_logarithms \
+    tests/exponentials_logarithms/test_exponentials_logarithms.c \
+    && /tmp/test_exponentials_logarithms
+\end{verbatim}
+\end{enumerate}
+\end{document}

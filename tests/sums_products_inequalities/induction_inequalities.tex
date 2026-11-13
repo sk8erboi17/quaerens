@@ -1,0 +1,62 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Inequalities proved by induction (42)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Each statement is an inequality in the integer $n$, to be proved by induction for every $n$ from the stated value on ($n \ge 1$ when nothing is said). All of them are true. The inductive step compares what the two sides gain from $n$ to $n + 1$: the new term of a sum with the growth of the bound, the new factor of a product or of a power with the ratio of the bounds.
+
+\begin{enumerate}
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{\sqrt{k}} \ge \sqrt{n}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{\sqrt{k}} \le 2\sqrt{n} - 1$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{\sqrt{k}} > 2\left(\sqrt{n + 1} - 1\right)$
+\item $\displaystyle \sum_{k=1}^{n} \sqrt{k} \ge \frac{2n\sqrt{n}}{3}$
+\item $\displaystyle \sum_{k=1}^{2n} \frac{1}{\sqrt{k}} \ge \sqrt{2n}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{k^{2}} \le 2 - \frac{1}{n}$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{k^{2}} \le \frac{7}{4} - \frac{1}{n}$ for every integer $n\ge 2$.
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{k^{2}} \le \frac{5}{3} - \frac{1}{n}$ for every integer $n\ge 5$.
+\item $\displaystyle \sum_{k=2}^{n} \frac{1}{k^{2}} \le 1 - \frac{1}{n}$ for every integer $n\ge 2$.
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{k^{3}} \le \frac{3}{2} - \frac{1}{2n^{2}}$
+\item $\displaystyle \sum_{k=1}^{n} k^{2} \ge \frac{n^{3}}{3}$
+\item $\displaystyle \sum_{k=1}^{n} k^{3} \le n^{4}$
+\item $\displaystyle \sum_{k=1}^{n} k \cdot k! < \left(n + 1\right)!$
+\item $\displaystyle \sum_{k=1}^{n} k! \le 2 \cdot n!$
+\item $\displaystyle \sum_{k=0}^{n} \frac{1}{2^{k}} \le 2 - \frac{1}{2^{n}}$ for every integer $n\ge 0$.
+\item $\displaystyle H_{n} \le n$
+\item $\displaystyle H_{n} \ge \frac{2n}{n + 1}$
+\item $\displaystyle \prod_{k=1}^{n} \frac{2k - 1}{2k} \ge \frac{1}{2\sqrt{n}}$
+\item $\displaystyle \prod_{k=1}^{n} \frac{2k - 1}{2k} \le \frac{1}{\sqrt{3n + 1}}$
+\item $\displaystyle \prod_{k=1}^{n} \frac{2k - 1}{2k} < \frac{1}{\sqrt{2n + 1}}$
+\item $\displaystyle 2^{n} \ge n + 1$ for every integer $n\ge 0$.
+\item $\displaystyle 2^{n} > n^{2}$ for every integer $n\ge 5$.
+\item $\displaystyle 2^{n} \ge n^{3}$ for every integer $n\ge 10$.
+\item $\displaystyle 3^{n} \ge n^{3}$
+\item $\displaystyle 3^{n} \ge 2n^{2} + 1$ for every integer $n\ge 0$.
+\item $\displaystyle 2^{n} + n \ge n^{2}$
+\item $\displaystyle \left(\frac{3}{2}\right)^{n} \ge 1 + \frac{n}{2}$ for every integer $n\ge 0$.
+\item $\displaystyle \left(1 + \frac{1}{3}\right)^{n} \ge 1 + \frac{n}{3}$
+\item $\displaystyle 5^{n} \ge 2 \cdot 3^{n}$ for every integer $n\ge 2$.
+\item $\displaystyle n! \ge 2^{n - 1}$
+\item $\displaystyle n! > 2^{n}$ for every integer $n\ge 4$.
+\item $\displaystyle n! \ge 3^{n}$ for every integer $n\ge 7$.
+\item $\displaystyle \left(2n\right)! \ge 2^{n} n!$
+\item $\displaystyle \binom{2n}{n} \le 4^{n}$
+\item $\displaystyle \binom{2n}{n} \ge \frac{4^{n}}{2n}$
+\item $\displaystyle \binom{2n}{n} \ge \frac{4^{n}}{2n + 1}$ for every integer $n\ge 0$.
+\item $\displaystyle \binom{2n}{n} \le \frac{4^{n}}{\sqrt{3n + 1}}$
+\item $\displaystyle n^{2} \ge 2n - 1$
+\item $\displaystyle n^{3} + 2 \ge 3n$
+\item $\displaystyle \sqrt{n + 1} - \sqrt{n} \le \frac{1}{2\sqrt{n}}$
+\item $\displaystyle \sqrt{n + 1} - \sqrt{n} > \frac{1}{2\sqrt{n + 1}}$
+\item $\displaystyle \left(n - 3\right)\left(n - 4\right) \ge 0$
+\end{enumerate}
+\end{document}

@@ -1,0 +1,107 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Goniometric equations, inequalities and systems to solve (87)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Each item asks for the set of the real numbers that satisfy a goniometric condition. Nothing is claimed: the engine must find the solutions. The expected solutions are in \texttt{test\_trigonometry.c}.
+
+\begin{enumerate}
+\item $\displaystyle \{x \in \mathbb{R} \mid \sin^{2} x + 4\sqrt{3}\sin x \cos x + \cos^{2} x + 2 = 0\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid (\sqrt{2} - 1)\cos^{2} x + (\sqrt{2} - 2)\sin x \cos x - \sin^{2} x = 0\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid 2\cos^{2} x + 1 + \sqrt{3} = 2(2 + \sqrt{3})\sin x \cos x\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \sin^{2} x + \sin x \cos x = 0\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid 2\cos^{2} x - \sin x \cos x = 0\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid 2\sin^{2} x - \cos^{2} x - \sin x \cos x = 0\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \sin^{4} x - \cos^{2} x \sin^{2} x = 0\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid 2\sin^{4} x + \sin^{2} x \cos^{2} x - 3\cos^{4} x = 0\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \sin^{4} x + 4\cos^{4} x - 5\sin^{2} x \cos^{2} x = 0\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid 5\cos^{4} x + 2\sin^{2} x \cos^{2} x - 3\sin^{4} x + 1 = 0\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \cos^{3} x = -5\sin^{2} x \cos x + 4\sin x \cos^{2} x + 2\sin^{3} x\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \sin\left(5x\right)\cos\left(7x\right) = \sin\left(4x\right)\cos\left(8x\right)\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \frac{\tan x}{\cot\left(\frac{x}{2}\right)} = 1\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \frac{\cos x}{1 + \sin x} + \tan x = \frac{1}{\cos x}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \frac{\sin\left(x + \frac{5}{3}\pi\right)}{1 - \cos x} - \frac{\cos\left(x + 2\pi\right) + 1}{\sin\left(-x\right)} = 0\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \frac{1 + \cos\left(2x\right)}{\cos x} - \frac{\sin\left(2x\right)}{2 - 2\cos^{2} x} = 0\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid 2\cos x \sin\left(x - \frac{7}{6}\pi\right) - \sin x(\sqrt{3}\cos x + \sin x) = 1\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \sin^{2}\left(x + \frac{\pi}{4}\right) - \sin\left(x - \frac{\pi}{4}\right)\cos\left(x - \frac{3}{4}\pi\right) = 0\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \sin\left(6x\right) + \sin\left(2x\right) = 2\cos^{2} x - 1\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid 2\sin^{2} x + 2\cos\left(2x\right) + \sin\left(2x\right) = 0\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid 2\sin x \cot x + \cot x - 2\sin x - 1 = 0\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid 2\cos\left(x - \frac{\pi}{6}\right) - \tan\left(\frac{x}{2}\right) = \sqrt{3}\cos x\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid 2\sin^{2}\left(3x\right) - 3\sin\left(\pi - 3x\right) - 2 = 0\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \frac{\sin\left(4x\right) - \sin\left(6x\right)}{\cos\left(3x\right) + \cos\left(7x\right)} = 1\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \cos x + \cos\left(3x\right) = 2\sin\left(6x\right)\cos x\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \sin\left(6x\right) + \cos\left(4x\right) + \sin\left(4x\right) + \cos\left(6x\right) = 0\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \cos\left(x - \frac{\pi}{6}\right) - \cos\left(x + \frac{\pi}{6}\right) - 2\sin^{3} x = 0\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \cot^{2} x = \frac{2 + 3\cos x}{1 - \cos x}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \frac{\sin x + 1}{\sin x} + \cot^{2} x = 2\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \cos\left(\frac{x}{2}\right) - 2\cos x - 2 = 0\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \sin\left(x - \frac{\pi}{4}\right)\cos\left(x - \frac{\pi}{4}\right) - \sin\left(2x\right) = \cos^{2} x + \frac{1}{2}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \cos\left(x - \frac{\pi}{6}\right) + \cos\left(x - \frac{\pi}{3}\right) + \cos\left(2x\right) = 0\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \sin x \sin\left(x + \frac{4}{3}\pi\right) = \cos x \cos\left(\frac{5}{3}\pi + x\right) + \frac{\sqrt{3} - 1}{2}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid 2\sin x \sin\left(4x\right)\sin\left(6x\right) + \sin\left(2x\right)\cos\left(9x\right) = 0\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \sin\left(16x\right) = \sqrt{2}\cos\left(8x\right)\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \frac{\cos\left(2x\right) - \cos x}{\sin x} = 2\tan\left(x + \frac{\pi}{2}\right)\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \cos\left(\frac{x}{2}\right) + \cos x + \cos\left(\frac{3}{2}x\right) = 0\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \frac{\sqrt{3}\cos x + 2\sin x}{\cot x} = \frac{1 + \sin^{2} x - \cos\left(2x\right)}{\cos x}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \sin\left(2x\right)\tan x + 4 = 6\cos\left(\frac{3}{2}\pi + x\right)\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \left|1 - \cos x\right| = \sin x\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \left|\sin x\right| = \cos x + 1\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \left|\tan x - 1\right| = 2\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \left|\cos x + 1\right| = 2\left|\cos x\right|\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \left|\sin x\right| = \left|\cos x\right|\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \left|\cos x\right| = \left|\cos\left(2x\right) + 1\right|\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \begin{cases} 2\sin x \le 1 \\ 2\cos x < \sqrt{3} \end{cases}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \begin{cases} 2\sin^{2} x - 1 \le 0 \\ 2\cos x + 1 \ge 0 \end{cases}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \begin{cases} 1 - 2\sin x \ge 0 \\ 2\cos x - \sqrt{2} \le 0 \end{cases}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \begin{cases} \tan^{2} x - 3 \ge 0 \\ 2\cos^{2} x - 1 \ge 0 \end{cases}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \begin{cases} 3\tan^{2} x - 1 \le 0 \\ 3\cot^{2} x - 1 \ge 0 \end{cases}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid 0 \le x \le 2\pi \land \begin{cases} 2\sin^{2} x - \sin x \ge 0 \\ 2\cos x - 1 \ge 0 \\ \cos^{2} x + \cos x \ge 0 \end{cases}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \begin{cases} \sin x - \sqrt{3}\cos x \le 0 \\ \cos x(2\sin x + 1) \ge 0 \end{cases}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid 0 \le x \le 2\pi \land \begin{cases} \sin x(2\cos x + 1) \le 0 \\ \cos x(\tan x + 1) \ge 0 \end{cases}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \begin{cases} \sqrt{3}\sin x + \cos x \ge 0 \\ 4\sin^{2} x - 3 \le 0 \\ 2\cos x + 1 \ge 0 \end{cases}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \begin{cases} (2\sin x - 1)(2\cos x + 3) \ge 0 \\ \tan x \cdot (\cot x - \sqrt{3}) \le 0 \end{cases}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \begin{cases} \sin x(\cos^{2} x + 2\cos x) \ge 0 \\ \frac{\cos x + 1}{\tan x - 1} \le 0 \end{cases}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \begin{cases} \sin x + \cos x - 1 \ge 0 \\ \frac{4\sin^{2} x - 3}{\cos^{2} x} \ge 0 \end{cases}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \begin{cases} \cot x - \sqrt{3} \le 0 \\ 2\cos^{2} x - 1 \le 0 \\ \sin^{2} x + 2\sin x + 1 \le 0 \end{cases}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \begin{cases} (2\sin^{2} x - 1)(\cos^{2} x + \cos x) \le 0 \\ \cot x + 1 \le 0 \end{cases}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \begin{cases} 4\sin^{2} x - 1 > 0 \\ \left|\tan x\right| \ge 1 \end{cases}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \begin{cases} \tan^{2} x + (1 - \sqrt{3})\tan x - \sqrt{3} < 0 \\ \frac{\cos x + \sin x}{\sin\left(\frac{\pi}{4} - x\right)} \ge 0 \end{cases}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \begin{cases} \frac{1 - \sin x}{\cos x} > \sqrt{3} \\ \sin\left(2x\right) + \sin x \ge 0 \end{cases}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \begin{cases} \sqrt{3}\sin x > \sin\left(2x\right) \\ \left|\tan\left(\frac{x}{2}\right)\right| < 1 \end{cases}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \begin{cases} 2\left|\sin\left(\pi - x\right)\right| < \sqrt{3} \\ \sqrt{3\cot^{2} x - 1} < \sqrt{3}\cot x \end{cases}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \begin{cases} \cot\left(\frac{x}{2}\right)(1 + \cos x) < \sin x \\ \frac{2}{\sin\left(2x\right)} < \sqrt{2} \end{cases}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid 0 \le x \le 2\pi \land \begin{cases} \sqrt{\sin\left(\frac{x}{2}\right) - \cos x} > 0 \\ 3\sin x - 1 - \cos\left(-2x\right) < 0 \end{cases}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \begin{cases} \frac{\cos^{2} x + 3}{\cos\left(2x\right) + 2} - \frac{\cos\left(2x\right)}{3 - \cos^{2} x} \ge \frac{5}{6} \\ \left|\cos x - \sin x\right| < \sqrt{2} \end{cases}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \begin{cases} \sin x \le \frac{\sqrt{3}}{2} \\ \tan x > 0 \end{cases}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid (\sin x + 1)^{2} + 2\sin x < \sin x(2 + \sin x)\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid 0 \le x \le 2\pi \land 2\sin^{2} x + 3\sqrt{2}\sin x < 4\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid 0 \le x \le 2\pi \land \frac{2\cos x - 1}{\tan x - \sqrt{3}} \le 0\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \tan x(1 - \cos^{2} x) \ge 0\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \left|\frac{1}{\cot x}\right| > \sqrt{3}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \sqrt{3}\cot x - 4\cos^{2} x \ge 0\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid 0 \le x \le 2\pi \land (2\sin^{2} x - 1)(1 - 2\cos x) \ge 0\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \frac{\sin x \cos x}{\tan^{2} x - 1} \le 0\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid (\tan x - \sqrt{3})(1 + \cot x) \le 0\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid 0 \le x \le 2\pi \land \frac{\sin\left(2x\right)}{\sin x - \sqrt{3}\cos x} \le 0\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid 0 \le x \le 2\pi \land \frac{\tan x - \tan^{2} x}{2\sin x - 1} \ge 0\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \frac{2\left|\cos x\right| - 1}{2\tan x} > 0\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \left|\cos\left(2x + \frac{\pi}{4}\right)\right| < \frac{\sqrt{2}}{2}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \begin{cases} \sin x > 0 \\ \tan x \le 1 \end{cases}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \begin{cases} \cos x + \frac{1}{2} < 0 \\ 2\sin x \le \sqrt{3} \end{cases}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \begin{cases} \sin^{2} x - 1 \le 0 \\ \sin^{2} x - \sin x \ge 0 \end{cases}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \begin{cases} 4\cos^{2} x - 3 \le 0 \\ \cot^{2} x - 1 < 0 \end{cases}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \begin{cases} 2\cos^{2} x + \cos x - 1 \ge 0 \\ 2\sin x + 1 \ge 0 \end{cases}\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \begin{cases} 2\sin^{2} x - \sin x - 1 \le 0 \\ \sqrt{3}\cot^{2} x - 3\cot x \le 0 \end{cases}\}$
+\end{enumerate}
+\end{document}

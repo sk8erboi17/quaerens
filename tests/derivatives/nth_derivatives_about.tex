@@ -1,0 +1,33 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{nth\_derivatives.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{nth\_derivatives.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_derivatives.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 30 true statements on derivatives. The engine must prove every one of them (chapter 27 of \texttt{main.c}) and write the proof.
+
+\item \textbf{What they cover.} Items 1 to 23 are derivatives of order $n$, written as the exercise books write them, with the Leibniz sign at the start of the item: sines and cosines, exponentials, logarithms, reciprocals, products with $x$. They are proved by induction on $n$: the derivative of the formula for $n$ must be the formula for $n + 1$. Items 24 to 30 have a fixed order and need no induction.
+
+\item \textbf{How truth was checked.} Items 1 to 12 are statements 176 to 179, 182 to 186 and 190 to 192 of \texttt{tests/logs\_trig\_powers\_roots/logs\_trig\_powers\_roots\_inductions.tex}; the others are standard formulas. They were not checked by a separate script: no fuzz script with an independent oracle exists yet for derivatives.
+
+\item \textbf{Expected result.} The line \texttt{PASS: 30 of 30 statements proved, each with a written proof}. No verdict has a certificate.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_derivatives \
+    tests/derivatives/test_derivatives.c && /tmp/test_derivatives
+\end{verbatim}
+\end{enumerate}
+\end{document}

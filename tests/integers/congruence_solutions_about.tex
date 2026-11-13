@@ -1,0 +1,35 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{congruence\_solutions.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{congruence\_solutions.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_integers.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 18 requests of the form $\{x \in \mathbb{Z} \mid c\}$, where $c$ is made of congruences with numbers as moduli: each asks for which integers the condition holds. The engine must answer with the solutions written as in a textbook, $x \equiv 16 \pmod{36}$, and the test compares them with the expected ones, which are written in \texttt{test\_integers.c} and were worked out by hand.
+
+\item \textbf{What is being tested.} That the solutions are found by the general method, trying every remainder, and written with the smallest period: the invertible numbers modulo 12 are the two classes $1$ and $5$ modulo 6. That ``no integer'' and ``every integer'' are said as such. That the written solutions are read again by the reader of the program and computed on the integers of one period, as any other condition: an answer that does not pass this check is not given.
+
+\item \textbf{Where the requests come from.} The first eleven are exercises of a textbook: ten linear congruences and a system of three. The others ask for the invertible numbers modulo 12 and 7, for a congruence without solutions, for one that always holds, for a set of natural numbers, and for two conditions joined together.
+
+\item \textbf{Adding requests.} Add the expected solutions to \texttt{expected\_solutions[]} in the test, in the same place, and work them out by another route than running the program.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_integers \
+    tests/integers/test_integers.c && /tmp/test_integers
+\end{verbatim}
+
+\item \textbf{Expected result.} The line \texttt{PASS: 18 of 18 solution sets found and equal to the expected ones}.
+\end{enumerate}
+\end{document}

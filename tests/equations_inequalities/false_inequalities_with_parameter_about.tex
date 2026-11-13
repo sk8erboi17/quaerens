@@ -1,0 +1,34 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_inequalities\_with\_parameter.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_inequalities\_with\_parameter.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_equations\_inequalities.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 71 false statements in two real variables. It is the anti-regression of the cases on the parameter: none of them may ever be proved, and each must be refuted, whatever is changed in the engine.
+
+\item \textbf{What it exercises.} The ways a result with a parameter can be wrong by little. A case forgotten (the one value of the parameter at which the leading coefficient vanishes, or the two roots coincide); the roots written in the same order on both sides of that value; an endpoint included that is not a solution; a statement that fails only where an expression has no value ($x = a$ in a quotient, $m = 0$ in $\frac{1}{m}$).
+
+\item \textbf{Variety.} The first 52 are the altered results of the textbook exercises, with the witness written beside each in the data they come from; the other 19 were written by hand: the two quantifiers in every order, a statement that fails only at $k = 2\sqrt{2}$, one of degree four, and two whose cases are separated at the wrong value of the parameter.
+
+\item \textbf{Expected result.} The lines \texttt{PASS: 71 of 71 false statements rejected} and \texttt{PASS: 71 of 71 false statements refuted}.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_equations_inequalities \
+    tests/equations_inequalities/test_equations_inequalities.c \
+    && /tmp/test_equations_inequalities
+\end{verbatim}
+\end{enumerate}
+\end{document}
