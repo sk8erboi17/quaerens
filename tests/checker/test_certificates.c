@@ -28,7 +28,21 @@
  *
  *          l'ultima riga con la verità rovesciata;
  *          l'affermazione rovesciata, o le soluzioni "nessuna" ("tutte");
- *          il primo punto tolto, con l'intervallo che lo segue.
+ *          il primo punto tolto, con l'intervallo che lo segue;
+ *
+ *   7. le derivate, le primitive e gli integrali definiti (27m e 30cert di
+ *      main.c): nei file delle derivate e degli integrali ogni verdetto
+ *      DIMOSTRATO o RISOLTO ha il certificato, almeno quanti se ne contano
+ *      oggi, oppure dice perché manca; ogni certificato riletto è accettato,
+ *      e nessuna delle sue alterazioni lo è:
+ *
+ *          la derivata affermata, o la funzione integranda, più 1;
+ *          la funzione, o la primitiva, più e^x;
+ *          il valore di un integrale più 1;
+ *          l'ordine di una derivata più 1.
+ *
+ *      Il numero di alterazioni respinte, e non solo non controllabili, si
+ *      riferisce; e alcune righe di verdetto sono fissate.
  *
  * I certificati sbagliati non si tolgono e non si indeboliscono per far
  * passare una modifica: se uno viene accettato, si corregge il verificatore.
@@ -308,6 +322,102 @@ static int check_sign_tables(const char *path, int expected) {
     return check_result(wrong_accepted == 0, summary) && passed;
 }
 
+/* Scrive in out (di size byte) il certificato di una derivata, di una
+ * primitiva o di un integrale (27m e 30cert di main.c) alterato:
+ *
+ *   kind 0: alla derivata affermata, o alla funzione integranda, si aggiunge 1;
+ *   kind 1: alla funzione, o alla primitiva, si aggiunge e^x, che cambia ogni
+ *           sua derivata;
+ *   kind 2: al valore di un integrale si aggiunge 1;
+ *   kind 3: l'ordine di una derivata di ordine fisso sale di uno.
+ *
+ * Ritorna 0 se il certificato non ha la voce da alterare. */
+static int alter_calculus(const char *certificate, int kind, char *out, size_t size) {
+    static const char *const markers[][2] = {{"\nderivative ", "\nintegrand "}, {"\nfunction ", "\nprimitive "}, {"\nvalue ", "\nvalue "}, {"\norder ", "\norder "}};
+    const char *variable = strstr(certificate, "\nvariable "), *from = strstr(certificate, markers[kind][0]);
+    if (!from) from = strstr(certificate, markers[kind][1]);
+    if (!variable || !from) return 0;
+    from = strchr(from + 1, ' ') + 1;
+    const char *to = expression_end(from);
+    char added[64];
+    int written;
+    if (kind == 3) {
+        long long order;
+        if (sscanf(from, "%lld", &order) != 1 || to - from > 6 || !isdigit((unsigned char)*from)) return 0;
+        written = snprintf(out, size, "%.*s%lld%s", (int)(from - certificate), certificate, order + 1, to);
+    } else {
+        if (kind == 1) snprintf(added, sizeof added, "(exp %c)", variable[10]);
+        else strcpy(added, "1");
+        written = snprintf(out, size, "%.*s(+ %.*s %s)%s", (int)(from - certificate), certificate, (int)(to - from), from, added, to);
+    }
+    return written > 0 && (size_t)written < size;
+}
+
+/* Controllo 7 sul file path: ogni verdetto DIMOSTRATO o RISOLTO dei capitoli
+ * 27 e 30 ha un certificato che, riletto, è accettato, oppure il motivo per
+ * cui manca; i certificati sono almeno `expected`, e nessuna delle loro
+ * alterazioni (alter_calculus()) è accettata. Quante sono respinte, e non
+ * solo non controllabili, si riferisce. */
+static int check_calculus(const char *path, int expected) {
+    static char altered[2 * CERTIFICATE_BYTES];
+    char summary[512];
+    char *text = read_file(path);
+    if (!text) {
+        snprintf(summary, sizeof summary, "cannot read %s", path);
+        return check_result(0, summary);
+    }
+
+    const char *position = text, *item, *end;
+    int verdicts = 0, certified = 0, silent = 0, wrong = 0, rejected = 0, wrong_accepted = 0;
+    while (next_item(&position, &item, &end)) {
+        Verdict verdict = prove_item(item, end);
+        if (verdict.outcome != PROVED && verdict.outcome != SOLVED) continue;
+        verdicts++;
+        if (!verdict.certificate) {
+            if (!verdict.reason || !verdict.reason[0]) {
+                printf("  statement %d: no certificate, and no reason\n", verdicts);
+                silent++;
+            }
+            continue;
+        }
+        if (strncmp(verdict.certificate, "certificate derivative", 22) != 0 && strncmp(verdict.certificate, "certificate antiderivative", 26) != 0 &&
+            strncmp(verdict.certificate, "certificate integral", 20) != 0) {
+            printf("  statement %d: a certificate of another kind\n", verdicts);
+            silent++;
+            continue;
+        }
+
+        /* Il testo consegnato è quello che il verificatore accetta. */
+        const char *why, *reread = verdict.certificate;
+        if (ck_check(&reread, &why) != CK_ACCEPTED) {
+            printf("  statement %d: its certificate is not accepted when read again (%s)\n", verdicts, why);
+            silent++;
+            continue;
+        }
+        certified++;
+
+        /* Le alterazioni che il certificato ha. */
+        for (int kind = 0; kind < 4; kind++) {
+            if (!alter_calculus(verdict.certificate, kind, altered, sizeof altered)) continue;
+            const char *cursor = altered;
+            wrong++;
+            CkAnswer answer = ck_check(&cursor, &why);
+            rejected += answer == CK_REJECTED;
+            if (answer != CK_ACCEPTED) continue;
+            wrong_accepted++;
+            printf("  statement %d: altered certificate %d is accepted:\n%s", verdicts, kind, altered);
+        }
+    }
+    free(text);
+
+    snprintf(summary, sizeof summary, "%d of %d derivative and integral verdicts carry a certificate the checker accepts (at least %d expected), the others say why not, in %s",
+             certified, verdicts, expected, path);
+    int passed = check_result(verdicts > 0 && silent == 0 && certified >= expected, summary);
+    snprintf(summary, sizeof summary, "%d of %d altered derivative and integral certificates not accepted (%d rejected, the others not controllable) for %s",
+             wrong - wrong_accepted, wrong, rejected, path);
+    return check_result(wrong_accepted == 0, summary) && passed;
+}
+
 int main(void) {
     engine_init();
     int passed = 1;
@@ -402,6 +512,53 @@ int main(void) {
             fclose(memory);
         }
         passed &= check_result(strcmp(line, lines[i][1]) == 0, lines[i][1]);
+    }
+
+    /* 7. Le derivate, le primitive e gli integrali definiti. */
+    passed &= check_calculus("tests/derivatives/book_derivatives.tex", 44);
+    passed &= check_calculus("tests/derivatives/nth_derivatives.tex", 44);
+    passed &= check_calculus("tests/derivatives/derivative_sign_reading.tex", 9);
+    passed &= check_calculus("tests/derivatives/derivative_requests.tex", 11);
+    passed &= check_calculus("tests/integrals/book_integrals.tex", 59);
+    passed &= check_calculus("tests/integrals/integral_conventions.tex", 16);
+    passed &= check_calculus("tests/integrals/integral_requests.tex", 55);
+
+    /* Il testo di un certificato di derivata, fissato, e le righe dei
+     * verdetti: il certificato c'è, oppure manca e si dice perché. */
+    Verdict derivative = prove("\\frac{d}{dx}\\left( x^{2} e^{x} \\right) = e^{x}\\left(x^{2} + 2x\\right)", 'n', 0, 0);
+    passed &= check_result(derivative.certificate &&
+                           strcmp(derivative.certificate, "certificate derivative\nvariable x\norder 1\nfunction (* (^ x 2) (exp x))\n"
+                                                          "derivative (* (exp x) (+ (^ x 2) (* 2 x)))\nend\n") == 0,
+                           "the certificate of the derivative of x^2 e^x has the expected text");
+    static const char *const calculus[][2] = {
+        {"\\frac{d}{dx}\\left( \\ln x \\right) = \\frac{1}{x}", "DIMOSTRATO con le regole di derivazione; certificato verificato"},
+        {"\\frac{d^{n}}{dx^{n}} e^{-2x} = (-1)^{n} 2^{n} e^{-2x}", "DIMOSTRATO per induzione su n >= 0; certificato verificato: uguali dove sono definiti"},
+        {"\\frac{d}{dx}\\left( \\sqrt{x} \\right)",
+         "RISOLTO con le regole di derivazione, certificato verificato: \\frac{\\sqrt{x}}{2x} (dove la funzione e la derivata sono "
+         "definite; il certificato non copre i punti in cui la base di una radice o di una potenza con l'esponente non intero, o l'argomento "
+         "di un valore assoluto, vale zero)"},
+        {"\\frac{d}{dx}\\left( \\arcsin x \\right) = \\frac{1}{\\sqrt{1 - x^{2}}}",
+         "DIMOSTRATO con le regole di derivazione; senza certificato (la notazione dei certificati delle derivate non ha arcoseno, arcocoseno e "
+         "le successioni, o il testo è troppo lungo)"},
+        {"\\int \\frac{1}{x} \\, dx = \\ln|x| + c",
+         "DIMOSTRATO con le regole di derivazione, su ogni intervallo in cui primitiva e funzione integranda sono definite; certificato verificato"},
+        {"\\int_{0}^{1} x^{2} \\, dx", "RISOLTO con il teorema fondamentale del calcolo, certificato verificato: \\frac{1}{3}"},
+        {"\\int_{0}^{3} |x - 1| \\, dx",
+         "RISOLTO con il teorema fondamentale del calcolo, senza certificato (il certificato di un integrale ha una primitiva sola, e qui un "
+         "valore assoluto divide l'intervallo in parti): \\frac{5}{2}"},
+    };
+    for (size_t i = 0; i < sizeof calculus / sizeof *calculus; i++) {
+        char line[768] = "";
+        Verdict verdict = prove(calculus[i][0], 'n', 0, 0);
+        FILE *memory = tmpfile();
+        if (memory) {
+            verdict_print(memory, &verdict);
+            rewind(memory);
+            line[fread(line, 1, sizeof line - 1, memory)] = 0;
+            fclose(memory);
+        }
+        if (strcmp(line, calculus[i][1]) != 0) printf("  got: %s\n", line);
+        passed &= check_result(strcmp(line, calculus[i][1]) == 0, calculus[i][1]);
     }
 
     passed &= check_result(unjustified_steps == 0, "no certificate was rejected and every proof step passed its independent check");

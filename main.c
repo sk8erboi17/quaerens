@@ -353,7 +353,12 @@
  * ricava da capo i polinomi, ne riconta le radici con Sturm, ricalcola la
  * verità di ogni riga e rilegge le soluzioni scritte; DIMOSTRATO, FALSO e
  * RISOLTO vogliono che lo accetti, e se non sa controllarlo il verdetto resta
- * e dice perché il certificato manca.
+ * e dice perché il certificato manca. Per una derivata, una primitiva o un
+ * integrale definito (27m, 30cert) il certificato porta le espressioni, e il
+ * verificatore deriva da sé, con regole sue, e decide con la sua algebra se
+ * la differenza è zero; per un integrale ricontrolla anche, con Sturm, che le
+ * funzioni siano definite su tutto l'intervallo, e il valore F(b) - F(a).
+ * Anche lì un rifiuto rende il verdetto NON DIMOSTRATO.
  *
  * Il certificato dimostra una cosa precisa, enunciata in testa a checker.c,
  * e non di più. La sua parte principale dice che per ogni n dal caso base in
@@ -368,7 +373,8 @@
  *
  * Il verdetto dice sempre che cosa il certificato copre: "definiti e uguali
  * per ogni n", "uguali dove sono definiti", oppure "senza certificato", con
- * il motivo quando è un'induzione o una tabella dei segni.
+ * il motivo quando è un'induzione, una tabella dei segni, una derivata o un
+ * integrale.
  *
  * COMPILAZIONE
  *
@@ -6220,6 +6226,14 @@ static char certificate_problem[256];
  * certificato manca, e il verdetto dice perché. */
 static int cert_signs;
 
+/* Diverso da zero mentre si scrive il certificato di una derivata, di una
+ * primitiva o di un integrale (27m, 30cert): è il nome della variabile reale, e
+ * allora hanno una parola le funzioni che il verificatore conosce nel suo
+ * capitolo 13: (exp a) per e^a, (sin a), (cos a), (atan a), (root m a),
+ * (pi). La lettera e, se non è la variabile, è il numero di Nepero, (exp 1),
+ * come nel capitolo 27. */
+static int cert_real;
+
 /* Aggiunge un pezzo al certificato, con la sintassi di printf. */
 static void cert_add(const char *format, ...) {
     va_list arguments;
@@ -6294,7 +6308,9 @@ static void cert_node(const Node *n) {
         cert_add("%lld", n->value);
         return;
     case N_VAR:
-        cert_letter(n->name);
+        if (cert_real && n->name == VAR_PI) cert_add("(pi)");
+        else if (cert_real && n->name == 'e' && cert_real != 'e') cert_add("(exp 1)");
+        else cert_letter(n->name);
         return;
     case N_SEQ:
         for (int i = 0; i < LIBRARY_COUNT; i++)
@@ -6312,10 +6328,31 @@ static void cert_node(const Node *n) {
             cert_call("fact", n->a, NULL);
         } else if (n->op == FN_BINOM) {
             cert_call("binom", n->a, n->b);
-        } else if (cert_signs && n->op == FN_ABS) {
+        } else if ((cert_signs || cert_real) && n->op == FN_ABS) {
+            /* Nel capitolo 13 di checker.c il valore assoluto si calcola solo
+             * dentro l'argomento di un logaritmo. */
             cert_call("abs", n->a, NULL);
         } else if (cert_signs && n->op == FN_ROOT && n->b->kind == N_NUM && n->b->value == 2) {
             cert_call("sqrt", n->a, NULL);
+        } else if (cert_real && n->op == FN_ROOT && n->b->kind == N_NUM && n->b->value >= 2) {
+            cert_add("(root %lld ", n->b->value);
+            cert_node(n->a);
+            cert_add(")");
+        } else if (cert_real && (n->op == FN_SIN || n->op == FN_COS || n->op == FN_ARCTAN)) {
+            cert_call(n->op == FN_SIN ? "sin" : n->op == FN_COS ? "cos" : "atan", n->a, NULL);
+        } else if (cert_real && (n->op == FN_TAN || n->op == FN_COT)) {
+            /* tan u = sin u / cos u, cot u = cos u / sin u: definite dove lo
+             * sono loro, dove il denominatore non è zero. */
+            cert_add("(/ ");
+            cert_call(n->op == FN_TAN ? "sin" : "cos", n->a, NULL);
+            cert_add(" ");
+            cert_call(n->op == FN_TAN ? "cos" : "sin", n->a, NULL);
+            cert_add(")");
+        } else if (cert_real && n->op == FN_ARCCOT) {
+            /* L'arcocotangente a valori in (0, pi) è pi/2 - arctan u. */
+            cert_add("(- (/ (pi) 2) ");
+            cert_call("atan", n->a, NULL);
+            cert_add(")");
         } else if (n->op == FN_LN || (n->op == FN_LOG && n->b)) {
             /* Il logaritmo di un valore assoluto ha una parola sua, perché
              * è definito anche dove l'argomento è negativo (vedi
@@ -6336,7 +6373,8 @@ static void cert_node(const Node *n) {
         certificate_broken = 1;
         return;
     default:
-        cert_call(binary[n->kind], n->a, n->b);
+        if (cert_real && n->kind == N_POW && n->a->kind == N_VAR && n->a->name == 'e' && cert_real != 'e') cert_call("exp", n->b, NULL);
+        else cert_call(binary[n->kind], n->a, n->b);
     }
 }
 
@@ -21679,6 +21717,9 @@ static Verdict prove_sequence(const char *formula, int variable, int has_base, l
  *   27l. negli studi, i punti in cui la funzione è definita ma le regole
  *        non ne danno la derivata.
  *
+ * E il certificato, 27m, che le derivate dimostrate o calcolate portano a
+ * checker.c, e che il capitolo 30 usa per le primitive e gli integrali.
+ *
  * IL TEOREMA
  *
  * Sia n0 >= 0. Se
@@ -21782,8 +21823,17 @@ static Verdict prove_sequence(const char *formula, int variable, int has_base, l
  * per questo che vi devono concordare anche le regole): in quel punto, con
  * quei valori delle altre lettere, la derivata vera non è la formula.
  *
- * Non c'è un certificato: il verificatore non ha le derivate, e nemmeno
- * seni, radici e logaritmi di una variabile reale.
+ * IL CERTIFICATO (27m)
+ *
+ * Il verdetto DIMOSTRATO, o RISOLTO per una richiesta, porta un certificato
+ * per checker.c (capitolo 13), che deriva la funzione da sé, con regole sue
+ * scritte un'altra volta, e decide con la sua algebra esatta che la
+ * differenza dalla formula è zero. Il verificatore conosce funzioni
+ * razionali, esponenziali, logaritmi, seni, coseni, arcotangenti, radici e
+ * valori assoluti, non arcoseno e arcocoseno: dove non arriva il verdetto
+ * dice perché il certificato manca. Gli studi di funzione (27j), decisi con
+ * la tabella dei segni, non hanno ancora un certificato: servirebbe insieme
+ * quello della tabella e quello di ogni derivata espansa.
  */
 
 /* Il motivo con cui prove_derivative() rifiuta ciò che non è scritto come una
@@ -22687,6 +22737,145 @@ static int node_has_tower(const Node *tree, int x) {
     return node_has_tower(tree->a, x) || node_has_tower(tree->b, x) || node_has_tower(tree->c, x);
 }
 
+/* 27m. IL CERTIFICATO DI UNA DERIVATA (E DI UNA PRIMITIVA)
+ *
+ * A che cosa serve. Le regole di derivazione sono scritte una volta sola, in
+ * derive(), e i controlli di 27h e 27i sono con i numeri, in pochi punti. Il
+ * certificato porta a checker.c (capitolo 13) la funzione e la derivata
+ * affermata, e il verificatore deriva da sé, con regole sue, e decide con la
+ * sua algebra esatta se la differenza è zero. Lo stesso per una primitiva
+ * (la sua derivata deve essere la funzione integranda) e per un integrale
+ * definito (capitolo 30, 30cert). Sta qui, prima di 27k, perché 27k e
+ * prove_derivative() lo usano.
+ *
+ * Che cosa si scrive. Il tipo, la variabile, l'ordine ("order 2", oppure
+ * "order n base 1" per una derivata n-esima), le espressioni come sono negli
+ * alberi dell'enunciato (o della risposta riletta dal testo, per una
+ * richiesta), con le parole di cert_real; per un integrale anche gli estremi
+ * e il valore. Poi, come suggerimenti, i fattori in cui il motore ha
+ * scomposto gli argomenti dei logaritmi (le basi degli atomi LN dell'ultimo
+ * conto), quelli che la notazione sa scrivere: un suggerimento sbagliato non
+ * divide nulla e non ha effetto.
+ *
+ * Che cosa non si scrive: arcoseno e arcocoseno e le successioni del
+ * vocabolario. Allora il certificato manca, e il verdetto dice perché.
+ *
+ * Le risposte. Accettato: il verdetto porta il certificato, che dimostra il
+ * teorema in testa al capitolo 13 di checker.c: la derivata vale dove la
+ * funzione è regolare (definita, con i radicandi e gli argomenti dei valori
+ * assoluti diversi da zero) e la formula è definita. Se la funzione ha radici, potenze con un esponente
+ * non intero o valori assoluti, il verdetto lo dice in una nota: nei punti in
+ * cui un radicando, o l'argomento di un valore assoluto, vale zero il
+ * certificato non dice nulla. Respinto: il motore e il
+ * verificatore non sono d'accordo, quindi nel dubbio non è dimostrato, e il
+ * passo conta tra quelli che non hanno superato il controllo. Non
+ * controllabile: il verdetto resta, e dice perché il certificato manca. */
+
+/* Ritorna 1 se in tree compare una radice, una potenza con l'esponente senza
+ * x che non è un intero scritto, o un valore assoluto che non è tutto
+ * l'argomento di un logaritmo: nei punti in cui la loro base, o il loro
+ * argomento, vale zero il certificato non dice nulla (vedi sopra). */
+static int node_has_root(const Node *tree, int x) {
+    if (!tree) return 0;
+    if (tree->kind == N_CALL && (tree->op == FN_ROOT || tree->op == FN_ABS)) return 1;
+    if (tree->kind == N_CALL && (tree->op == FN_LN || tree->op == FN_LOG) && tree->a->kind == N_CALL && tree->a->op == FN_ABS)
+        return node_has_root(tree->a->a, x) || node_has_root(tree->b, x);
+    if (tree->kind == N_POW && !node_has_variable(tree->b, x) && tree->b->kind != N_NUM && !(tree->b->kind == N_NEG && tree->b->a->kind == N_NUM)) return 1;
+    return node_has_root(tree->a, x) || node_has_root(tree->b, x) || node_has_root(tree->c, x);
+}
+
+/* Scrive in certificate_text il certificato di tipo kind ("derivative",
+ * "antiderivative" o "integral") nella variabile x: order è il testo della
+ * voce order (solo per una derivata, altrimenti NULL), function la funzione
+ * da derivare o la primitiva, claim la derivata affermata o la funzione
+ * integranda, lower, upper e value gli estremi e il valore di un integrale
+ * (NULL altrimenti). Ritorna NULL, oppure il motivo per cui il certificato
+ * non c'è. */
+static const char *calculus_certificate(const char *kind, int x, const char *order, const Node *function, const Node *claim,
+                                        const Node *lower, const Node *upper, const Node *value) {
+    certificate_length = 0;
+    certificate_broken = 0;
+    certificate_sequences = 0;
+    if (x >= 128 || !isalpha(x)) return "la variabile non è una lettera";
+    cert_real = x;
+    cert_add("certificate %s\nvariable %c", kind, x);
+    if (order) cert_add("\norder %s", order);
+    if (lower) {
+        cert_add("\nlower ");
+        cert_node(lower);
+        cert_add("\nupper ");
+        cert_node(upper);
+    }
+    cert_add(order ? "\nfunction " : "\nintegrand ");
+    cert_node(order ? function : claim);
+    cert_add(order ? "\nderivative " : "\nprimitive ");
+    cert_node(order ? claim : function);
+    if (value) {
+        cert_add("\nvalue ");
+        cert_node(value);
+    }
+    const char *why = certificate_broken || certificate_sequences
+                          ? "la notazione dei certificati delle derivate non ha arcoseno, arcocoseno e le successioni, o il testo è troppo lungo"
+                          : NULL;
+
+    /* I suggerimenti per i logaritmi: un fattore che non si sa scrivere si
+     * toglie, e con lui il guasto che ha segnato. */
+    for (int i = 0, written = 0; i < atom_count && written < MAX_BRICKS && !why; i++) {
+        size_t before = certificate_length;
+        if (atoms[i].kind != ATOM_LN || atoms[i].base == BASE_PRIME) continue;
+        cert_add("\nbrick ");
+        cert_base(&atoms[i]);
+        if (certificate_broken) {
+            certificate_length = before;
+            certificate_text[before] = '\0';
+            certificate_broken = 0;
+        } else {
+            written++;
+        }
+    }
+    cert_add("\nend\n");
+    cert_real = 0;
+    if (!why && certificate_broken) why = "il certificato è troppo lungo";
+    return why;
+}
+
+/* Fa ricontrollare a checker.c il certificato appena scritto da
+ * calculus_certificate(), che ha risposto why, e aggiorna *verdict, un
+ * verdetto DIMOSTRATO o RISOLTO: vedi le risposte in testa a 27m. Se il
+ * certificato è accettato e la funzione function (nella variabile x) ha
+ * radici o valori assoluti, la nota del verdetto lo dice, dopo quella che
+ * c'era già. Nel motivo i
+ * due punti diventano virgole: in una riga RISOLTO dopo il primo ": " viene
+ * la risposta, e gli script di tools/fuzz/ la cercano lì. */
+static void calculus_certify(Verdict *verdict, const char *why, const Node *function, int x) {
+    static char problem[512], note[512];
+    const char *text = certificate_text;
+    if (!why) {
+        CkAnswer answer = ck_check(&text, &why);
+        if (answer == CK_ACCEPTED) {
+            verdict->certificate = certificate_text;
+            verdict->reason = NULL;
+            if (node_has_root(function, x)) {
+                snprintf(note, sizeof note, "%s%sil certificato non copre i punti in cui la base di una radice o di una potenza con l'esponente non "
+                         "intero, o l'argomento di un valore assoluto, vale zero", verdict->note ? verdict->note : "", verdict->note ? "; " : "");
+                verdict->note = note;
+            }
+            return;
+        }
+        if (answer == CK_REJECTED) {
+            unjustified_steps++;
+            snprintf(problem, sizeof problem, "il verificatore indipendente ha respinto il certificato, %s", why);
+            *verdict = (Verdict){NOT_PROVED, 0, 0, 0, problem, NULL, NULL, NULL, NULL, NULL};
+            return;
+        }
+        snprintf(problem, sizeof problem, "il verificatore non sa controllarlo, %s", why);
+    } else {
+        snprintf(problem, sizeof problem, "%s", why);
+    }
+    for (char *colon = problem; (colon = strchr(colon, ':')) != NULL;) *colon = ',';
+    verdict->reason = problem;
+}
+
 /* 27k. CALCOLARE UNA DERIVATA
  *
  * \frac{d}{dx}\left( x^{2} \tan x \right), senza il segno di uguale, chiede
@@ -22898,6 +23087,11 @@ static Verdict solve_derivative(Node *f, int x, int order, Verdict verdict) {
     verdict.detail = answer;
     verdict.note = note;
     verdict.proof = proof_text;
+
+    /* 27m. Il certificato dice ciò che dice il testo scritto, riletto. */
+    char order_text[24];
+    snprintf(order_text, sizeof order_text, "%d", order);
+    calculus_certify(&verdict, calculus_certificate("derivative", x, order_text, f, reread, NULL, NULL, NULL), f, x);
     return verdict;
 }
 
@@ -22909,9 +23103,10 @@ static Verdict solve_derivative(Node *f, int x, int order, Verdict verdict) {
  * di induzione. Se formula non è scritta come una derivata il verdetto è
  * NON SUPPORTATO con il motivo NOT_A_DERIVATIVE.
  *
- * Il verdetto DIMOSTRATO è senza certificato, e dice perché in reason.
- * Svuota l'arena e la tabella degli atomi: i risultati di chiamate
- * precedenti non sono più validi. */
+ * Il verdetto DIMOSTRATO porta il certificato di 27m, se il verificatore lo
+ * accetta; altrimenti dice perché manca, in reason, e se il verificatore lo
+ * respinge il verdetto è NON DIMOSTRATO. Svuota l'arena e la tabella degli
+ * atomi: i risultati di chiamate precedenti non sono più validi. */
 static Verdict prove_derivative(const char *formula, int variable, int has_base, long long base) {
     static char text[320];
     Verdict verdict = {UNSUPPORTED, variable, has_base ? base : 0, 0, NULL, NULL, NULL, NULL, NULL, NULL};
@@ -23103,10 +23298,15 @@ static Verdict prove_derivative(const char *formula, int variable, int has_base,
     }
     if (proof_length >= PROOF_BYTES - 1) { verdict.reason = "la dimostrazione è troppo lunga per essere scritta per intero"; return verdict; }
     verdict.outcome = PROVED;
-    verdict.reason = node_has_tower(f, x) ? "le derivate non hanno una notazione nei certificati; u^v con la variabile nella base e nell'esponente "
-                                            "è inteso come e^{v ln u}, dove u > 0"
-                                          : "le derivate non hanno una notazione nei certificati";
+    verdict.note = node_has_tower(f, x) ? "u^v con la variabile nella base e nell'esponente è inteso come e^{v ln u}, dove u > 0" : NULL;
     verdict.proof = proof_text;
+
+    /* 27m. Il certificato: l'ordine è un numero, o la lettera dell'induzione
+     * con il suo caso base. */
+    char order_text[48];
+    if (fixed) snprintf(order_text, sizeof order_text, "%lld", base);
+    else snprintf(order_text, sizeof order_text, "%c base %lld", variable, base);
+    calculus_certify(&verdict, calculus_certificate("derivative", x, order_text, f, g, NULL, NULL, NULL), f, x);
     return verdict;
 }
 
@@ -27941,6 +28141,17 @@ static LeadingTerm limit_leading(const char *formula) {
  * termine principale della funzione (29m). Anche un integrale definito che
  * 30i non vede continuo su [a, b], come \sqrt[5]{x} su [-1, 0], passa da qui.
  *
+ * IL CERTIFICATO (30cert)
+ *
+ * Una primitiva verificata, o trovata, e un integrale definito portano un
+ * certificato per checker.c (capitolo 13), scritto con le funzioni di 27m:
+ * il verificatore deriva la primitiva da sé e controlla che la sua derivata
+ * sia la funzione integranda; per un integrale anche che la funzione e la
+ * primitiva siano definite su tutto [a, b], con Sturm, e che il valore sia
+ * F(b) - F(a). Un rifiuto rende il verdetto NON DIMOSTRATO. Gli integrali
+ * impropri (30k, 30l) restano senza certificato: il verificatore non sa
+ * calcolare limiti di primitive.
+ *
  * COSA NON C'È ANCORA
  *
  *   - Le aree, e negli integrali impropri le oscillazioni
@@ -27960,7 +28171,12 @@ static LeadingTerm limit_leading(const char *formula) {
  *     che chiederebbe t = \sqrt{2 - x^2} con x^2 = 2 - t^2.
  *   - ln(e) = 1 nei conti esatti: un estremo come e^{3/2} non si calcola.
  *   - Lettere oltre alla variabile, a e pi greco (i parametri).
- *   - Il certificato: checker.c non ha né le derivate né gli integrali.
+ *   - Il certificato (30cert, con le funzioni di 27m) di un integrale diviso
+ *     in parti da un valore assoluto (30i-2), e di uno con una condizione di
+ *     esistenza che non è un polinomio in x (una tangente, un denominatore
+ *     con e^x), o con un estremo diverso da c_0 + c_1 pi + c_2 e: checker.c
+ *     li dice non controllabili, e il verdetto dice perché il certificato
+ *     manca.
  */
 
 /* 30a. Ritorna una copia di tree in cui ogni logaritmo di un valore assoluto,
@@ -30173,6 +30389,7 @@ static Verdict prove_definite(const Node *f, const Node *lower, const Node *uppe
 
     /* Il valore: da confrontare con quello scritto, o da scrivere. */
     const char *value_text = NULL;
+    const Node *value = claim;
     if (claim) {
         env_count = 0;
         Rat gap = rat_add(exact, eval(claim), 1);
@@ -30200,6 +30417,7 @@ static Verdict prove_definite(const Node *f, const Node *lower, const Node *uppe
             return verdict;
         }
         value_text = answer;
+        value = back;
     }
 
     /* La dimostrazione: le parti, se sono più d'una, poi ogni primitiva. */
@@ -30230,7 +30448,7 @@ static Verdict prove_definite(const Node *f, const Node *lower, const Node *uppe
     put_range(integral);
     proof_add("$, and the sum lies there. $\\Box$");
     verdict.proof = proof_text;
-    verdict.reason = "gli integrali non hanno una notazione nei certificati";
+    verdict.reason = NULL;
     if (value_text) {
         verdict.outcome = SOLVED;
         verdict.method = "con il teorema fondamentale del calcolo";
@@ -30239,6 +30457,12 @@ static Verdict prove_definite(const Node *f, const Node *lower, const Node *uppe
         verdict.outcome = PROVED;
         verdict.method = "con il teorema fondamentale del calcolo, e l'involucro di Riemann come controllo";
     }
+
+    /* 30cert. Il certificato di un integrale ha una primitiva sola: con le
+     * parti di un valore assoluto (30i-2) manca. Il verificatore ricontrolla
+     * F' = f, che f e F siano definite su tutto l'intervallo, e il valore. */
+    if (pieces == 1) calculus_certify(&verdict, calculus_certificate("integral", x, NULL, F[0], f, lower, upper, value), NULL, x);
+    else verdict.reason = "il certificato di un integrale ha una primitiva sola, e qui un valore assoluto divide l'intervallo in parti";
     return verdict;
 }
 
@@ -31070,8 +31294,9 @@ static Verdict prove_integral(const char *formula) {
         verdict.method = check.outside ? "con le regole di derivazione, su ogni intervallo in cui primitiva e funzione integranda sono definite "
                                          "(la primitiva non lo è dappertutto dove lo è la funzione)"
                                        : "con le regole di derivazione, su ogni intervallo in cui primitiva e funzione integranda sono definite";
-        verdict.reason = "gli integrali non hanno una notazione nei certificati";
+        verdict.reason = NULL;
         verdict.proof = proof_text;
+        calculus_certify(&verdict, calculus_certificate("antiderivative", x, NULL, claim, f, NULL, NULL, NULL), claim, x);
         return verdict;
     }
 
@@ -31093,10 +31318,12 @@ static Verdict prove_integral(const char *formula) {
     proof_add("$\\Box$");
     snprintf(answer, sizeof answer, "%s + c", primitive);
     verdict.outcome = SOLVED;
+    verdict.reason = NULL;
     verdict.method = primitive_method ? primitive_method : "";
     verdict.detail = answer;
     verdict.note = check.outside ? "c costante su ogni intervallo; la primitiva non è definita dappertutto dove lo è la funzione" : "c costante su ogni intervallo";
     verdict.proof = proof_text;
+    calculus_certify(&verdict, calculus_certificate("antiderivative", x, NULL, F, f, NULL, NULL, NULL), F, x);
     return verdict;
 }
 

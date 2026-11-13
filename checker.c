@@ -15,7 +15,10 @@
  * cui si controlla che portino a una contraddizione (capitolo 11). Per una
  * disequazione, un'equazione o un insieme di soluzioni in una variabile
  * reale il certificato è la tabella dei segni, di cui si ricontrolla ogni
- * riga (capitolo 12). Il resto di questo commento riguarda le induzioni; i
+ * riga (capitolo 12). Per una derivata, una primitiva o un integrale
+ * definito il certificato porta le espressioni, e questo programma deriva da
+ * sé, con regole sue (capitolo 13). Il resto di questo commento riguarda le
+ * induzioni; i
  * teoremi degli altri tipi sono più sotto. Questo programma legge il
  * certificato e risponde:
  *
@@ -159,6 +162,15 @@
  *     reali o i razionali, secondo ciò che il certificato afferma; oppure
  *     "per ogni x reale, C(x) vale se e solo se valgono le soluzioni scritte
  *     W(x)". Il teorema esatto è in testa al capitolo 12.
+ *   - "certificate derivative" (capitolo 13): per ogni valore dei parametri,
+ *     in ogni x in cui la funzione F è regolare (definita, con i radicandi
+ *     diversi da zero) e G è definita, F è derivabile k volte e
+ *     F^(k)(x) = G(x); per una derivata n-esima, per ogni intero n >= n0,
+ *     dove F e G(n0, x), ..., G(n, x) sono regolari.
+ *   - "certificate antiderivative": su ogni intervallo aperto in cui la
+ *     primitiva F è regolare e f è definita, le primitive di f sono le F + c.
+ *   - "certificate integral": f è continua su [a, b] e il suo integrale da
+ *     a a b vale V. I teoremi esatti sono in testa al capitolo 13.
  *
  * COMPILAZIONE
  *
@@ -181,8 +193,9 @@
  *   10. Enunciati sugli insiemi
  *   11. Insiemi qualsiasi: modelli finiti e dimostrazioni per assurdo
  *   12. Tabelle dei segni
- *   13. Controllo di un certificato
- *   14. main
+ *   13. Derivate e primitive
+ *   14. Controllo di un certificato
+ *   15. main
  */
 
 /* =============================================================================
@@ -576,6 +589,10 @@ static int ck_numeric;     /* 1: vale il numero ck_point; 0: vale n + ck_shift *
 static long long ck_point;
 static long long ck_shift;
 
+/* 1 mentre si calcola un certificato del capitolo 13, in cui c'è anche una
+ * variabile reale (e ck_variable, se c'è, è l'ordine di una derivata). */
+static int ck_real;
+
 /* Ritorna la frazione che vale il polinomio p. */
 static CkRat ck_rat_poly(CkPoly p) { return (CkRat){p, ck_poly_number(ck_num_int(1))}; }
 
@@ -598,9 +615,10 @@ static CkRat ck_rat_mul(CkRat a, CkRat b) { return (CkRat){ck_poly_mul(a.num, b.
  * contiene il numeratore di b, cioè il divisore. */
 static CkRat ck_rat_div(CkRat a, CkRat b) {
     if (b.num.count == 0) {
-        ck_reject(ck_recording ? "con i valori dati ai parametri l'enunciato divide per zero"
-                  : ck_numeric ? "nel caso base l'enunciato divide per zero"
-                  : "l'enunciato divide per un'espressione che vale sempre zero");
+        ck_reject(ck_real        ? "il certificato divide per un'espressione che vale zero"
+                  : ck_recording ? "con i valori dati ai parametri l'enunciato divide per zero"
+                  : ck_numeric   ? "nel caso base l'enunciato divide per zero"
+                                 : "l'enunciato divide per un'espressione che vale sempre zero");
         return ck_rat_int(0);
     }
     ck_record(b.num);
@@ -646,6 +664,11 @@ static CkRat ck_rat_power(CkRat a, long long e) {
  *
  *     (< a b)  (<= a b)  (abs a)  (sqrt a)
  *
+ * Le derivate e le primitive (capitolo 13) le funzioni di una variabile
+ * reale:
+ *
+ *     (exp a)  (sin a)  (cos a)  (atan a)  (root m a)  (pi)
+ *
  * Un intero può avere il segno meno davanti. Una lettera è un solo
  * carattere: la variabile di induzione, un parametro, o un indice di somma.
  * Gli enunciati su insiemi qualsiasi (capitolo 11) hanno nomi più lunghi e
@@ -661,7 +684,9 @@ typedef enum {
     /* Enunciati su insiemi qualsiasi (capitolo 11). */
     CK_TRUE, CK_FORALL, CK_EXISTS, CK_APP, CK_VAR, CK_ATOM,
     /* Tabelle dei segni (capitolo 12). */
-    CK_LESS, CK_LESS_EQ, CK_ABS, CK_SQRT
+    CK_LESS, CK_LESS_EQ, CK_ABS, CK_SQRT,
+    /* Derivate e primitive (capitolo 13). */
+    CK_EXP, CK_SIN, CK_COS, CK_ATAN, CK_RADICAL, CK_PI
 } CkKind;
 
 /* Un nodo dell'albero di un'espressione. I nodi stanno nell'arena.
@@ -680,7 +705,11 @@ typedef enum {
  *   ATOM: value è una condizione elementare (11e), in uno scheletro.
  * Nel capitolo 12:
  *   LESS, LESS_EQ: a < b, a <= b, come EQ e NEQ i due membri a e b.
- *   ABS, SQRT: il valore assoluto, la radice quadrata di a. */
+ *   ABS, SQRT: il valore assoluto, la radice quadrata di a.
+ * Nel capitolo 13:
+ *   EXP, SIN, COS, ATAN: e^a, sin a, cos a, arctan a.
+ *   RADICAL: la radice di indice a (un intero scritto) di b.
+ *   PI: pi greco, senza operandi. */
 typedef struct CkNode CkNode;
 struct CkNode {
     CkKind kind;
@@ -749,6 +778,7 @@ static const CkNode *ck_read(void) {
         {"=", CK_EQ, 2}, {"subset", CK_SUBSET, 2}, {"neq", CK_NEQ, 2},
         {"and", CK_AND, 2}, {"or", CK_OR, 2}, {"implies", CK_IMPLIES, 2}, {"iff", CK_IFF, 2}, {"not", CK_NOT, 1},
         {"<", CK_LESS, 2}, {"<=", CK_LESS_EQ, 2}, {"abs", CK_ABS, 1}, {"sqrt", CK_SQRT, 1},
+        {"exp", CK_EXP, 1}, {"sin", CK_SIN, 1}, {"cos", CK_COS, 1}, {"atan", CK_ATAN, 1}, {"root", CK_RADICAL, 2}, {"pi", CK_PI, 0},
     };
     long long value;
     CkNode *node = ck_node(CK_NUMBER);
@@ -828,6 +858,10 @@ static int ck_same(const CkNode *p, const CkNode *q) {
  *   7e. SEQ: un termine X(a n + c + j) di una successione per ricorrenza,
  *       per j da 0 all'ordine meno uno.
  *   7f. LN: il logaritmo ln|B| di un numero primo o di un polinomio B.
+ *   7g. Nel capitolo 13, le funzioni di una variabile reale: E = e^u,
+ *       S = sin u e C = cos u (sempre in coppia), A = arctan u, R = la radice
+ *       m-esima di u, e pi greco. u è una frazione di polinomi nelle lettere
+ *       già create.
  *
  * Il riferimento. Per ogni somma serve l'estremo più basso con cui compare,
  * così ogni altra occorrenza si ottiene aggiungendo termini e mai
@@ -837,7 +871,11 @@ static int ck_same(const CkNode *p, const CkNode *q) {
  * seconda fa i conti veri, e non deve più trovarne uno da abbassare.
  */
 
-typedef enum { CK_VAR_LETTER, CK_VAR_BIG, CK_VAR_EXP, CK_VAR_SIGN, CK_VAR_SEQ, CK_VAR_LN } CkVarKind;
+typedef enum {
+    CK_VAR_LETTER, CK_VAR_BIG, CK_VAR_EXP, CK_VAR_SIGN, CK_VAR_SEQ, CK_VAR_LN,
+    /* 7g. */
+    CK_VAR_E, CK_VAR_SIN, CK_VAR_COS, CK_VAR_ATAN, CK_VAR_ROOT, CK_VAR_PI
+} CkVarKind;
 
 /* Un'indeterminata. I campi usati dipendono da kind:
  *   LETTER: name.
@@ -847,15 +885,22 @@ typedef enum { CK_VAR_LETTER, CK_VAR_BIG, CK_VAR_EXP, CK_VAR_SIGN, CK_VAR_SEQ, C
  *           base è il polinomio `base`, nell'arena.
  *   SEQ:    name è la successione, dilation e offset come per BIG, position
  *           è il j di X(dilation * n + offset + j).
+ *   E, SIN, COS, ATAN, ROOT: l'argomento è la frazione base / below, e per
+ *           ROOT prime è l'indice m della radice. La COS di una coppia sta
+ *           subito dopo la sua SIN.
+ *   PI:     nessun campo.
  * stated vale 1 per una somma o un prodotto che compare nell'enunciato
- * calcolato con i parametri fissati (capitolo 9), e non solo nel fattore. */
+ * calcolato con i parametri fissati (capitolo 9), e non solo nel fattore.
+ *
+ * Warning: se aggiungi un tipo, decidi che cosa ne fanno ck_ln_poly() (8g),
+ * ck_var_derivative() e ck_certainly_nonzero() (capitolo 13). */
 typedef struct {
     CkVarKind kind;
     char name;
     const CkNode *node;
     long long dilation, offset, lower;
     long long prime;
-    CkPoly base;
+    CkPoly base, below;
     int position;
     int stated;
 } CkVar;
@@ -975,6 +1020,12 @@ static CkFixed ck_fixed[CK_MAX_POINT];
 static int ck_fixed_count;
 static int ck_fixing;
 
+/* Con ck_real a 1 (capitolo 13) ck_eval() passa a ck_real_eval() le parole
+ * delle funzioni di una variabile reale (exp, sin, cos, atan, root, pi), i
+ * logaritmi, di cui annota le condizioni di esistenza, e le potenze, che
+ * possono avere un esponente non intero. Il prototipo è in avanti perché
+ * quelle regole sono del capitolo 13, che le presenta; qui basta il nome. */
+static CkRat ck_real_eval(const CkNode *node);
 
 static CkRat ck_eval(const CkNode *node);
 
@@ -1092,7 +1143,10 @@ static CkRat ck_eval_power(CkRat base, long long p, long long q) {
     if (base.num.count == 0) { ck_unsupported("zero elevato a un esponente che dipende da n"); return result; }
     ck_record(base.num);
     for (int v = 0; v < ck_var_count; v++) {
-        int parameter = ck_vars[v].kind == CK_VAR_LETTER && ck_vars[v].name != ck_variable;
+        /* Nel capitolo 13 fanno da parametri anche i numeri pi greco e
+         * ln p: non dipendono da n, come (ln 3)^n. */
+        CkVarKind kind = ck_vars[v].kind;
+        int parameter = (kind == CK_VAR_LETTER && ck_vars[v].name != ck_variable) || (ck_real && (kind == CK_VAR_PI || (kind == CK_VAR_LN && ck_vars[v].prime)));
         if (!parameter && (ck_poly_uses(base.num, v) || ck_poly_uses(base.den, v))) {
             ck_unsupported("potenza con esponente che dipende da n e base che non è fatta di soli parametri");
             return result;
@@ -1160,7 +1214,8 @@ static CkPoly ck_poly_monic(CkPoly p, CkNum *lead) {
  *         fattori primi, ln|c| = somma degli e ln p;
  *       - una lettera x comune a tutti i termini, con esponente e, dà
  *         e ln|x|. Se la lettera è p^n dà e n ln p, se è B^n dà e n ln|B|,
- *         se è s = (-1)^n non dà nulla, perché |s| = 1;
+ *         se è s = (-1)^n non dà nulla, perché |s| = 1; se è e^{m/Q} (7g,
+ *         con Q un numero) dà e m / Q, perché ln e^u = u per ogni u reale;
  *       - i fattori che il certificato suggerisce con le voci "brick" si
  *         provano uno per uno, con la divisione esatta;
  *       - ciò che resta, se non è 1, è un fattore anche lui.
@@ -1172,7 +1227,7 @@ static CkPoly ck_poly_monic(CkPoly p, CkNum *lead) {
  *     la dimostrazione. depth conta le basi una dentro l'altra. */
 static CkPoly ck_ln_poly(CkPoly p, int depth) {
     const CkPoly none = {0, NULL};
-    CkPoly result = ck_poly_number(ck_num_int(0)), n = ck_poly_variable(ck_var_letter(ck_variable));
+    CkPoly result = ck_poly_number(ck_num_int(0));
     CkNum lead;
     if (p.count == 0) { ck_reject("l'enunciato contiene il logaritmo di un'espressione che vale zero"); return result; }
     if (depth > CK_MAX_ENV) { ck_unsupported("logaritmo che il verificatore non tratta"); return result; }
@@ -1203,12 +1258,18 @@ static CkPoly ck_ln_poly(CkPoly p, int depth) {
         for (int i = 0; i < p.count; i++) t[i].e[v] = (signed char)(t[i].e[v] - low);
         p.term = t;
 
-        /* ln|lettera|, secondo il tipo. */
+        /* ln|lettera|, secondo il tipo. La lettera n si crea solo se serve:
+         * nel capitolo 13 può non esserci una variabile di induzione. */
         CkPoly one;
         if (x->kind == CK_VAR_SIGN) continue;
-        if (x->kind == CK_VAR_EXP && x->prime) one = ck_poly_mul(n, ck_poly_variable(ck_var_of_base(CK_VAR_LN, x->prime, none)));
-        else if (x->kind == CK_VAR_EXP) one = ck_poly_mul(n, ck_ln_poly(x->base, depth + 1));
-        else one = ck_poly_variable(ck_var_of_base(CK_VAR_LN, 0, ck_poly_variable(v)));
+        if (x->kind == CK_VAR_EXP) {
+            CkPoly n = ck_poly_variable(ck_var_letter(ck_variable));
+            one = ck_poly_mul(n, x->prime ? ck_poly_variable(ck_var_of_base(CK_VAR_LN, x->prime, none)) : ck_ln_poly(x->base, depth + 1));
+        } else if (x->kind == CK_VAR_E && ck_poly_is_constant(x->below)) {
+            one = ck_poly_mul(x->base, ck_poly_number(ck_num_inv(x->below.term[0].coef)));
+        } else {
+            one = ck_poly_variable(ck_var_of_base(CK_VAR_LN, 0, ck_poly_variable(v)));
+        }
         result = ck_poly_add(result, ck_poly_mul(ck_poly_number(ck_num_int(low)), one), 0);
     }
 
@@ -1230,10 +1291,13 @@ static CkPoly ck_ln_poly(CkPoly p, int depth) {
 
 /* Ritorna ln|node|, per un argomento diverso da zero.
  *
- * Finché l'argomento è scritto come un prodotto, un quoziente, un opposto o
- * una potenza a esponente intero si applicano le regole di 8g a com'è
- * scritto, senza svolgere i conti: di (n + 1)^3 si prende 3 ln|n + 1|,
- * invece di sviluppare il cubo e doverlo poi scomporre di nuovo. Il resto si
+ * Finché l'argomento è scritto come un prodotto, un quoziente, un opposto, un
+ * valore assoluto, una potenza a esponente intero o una radice si applicano
+ * le regole di 8g a com'è scritto, con ln|u| = ln|-u| = ln||u|| e
+ * ln|u^{1/m}| = (1/m) ln|u|, senza svolgere i conti: di (n + 1)^3 si prende
+ * 3 ln|n + 1|, invece di sviluppare il cubo e doverlo poi scomporre di
+ * nuovo. Il valore assoluto e la radice compaiono solo nel capitolo 13, ed è
+ * l'unico modo in cui lì un valore assoluto si calcola. Il resto si
  * calcola, e va a ck_ln_poly(): numeratore meno denominatore. Per "è
  * definito per ogni n" (capitolo 9) ogni pezzo calcolato conta come un
  * divisore: non deve annullarsi. */
@@ -1241,7 +1305,9 @@ static CkPoly ck_ln_node(const CkNode *node) {
     long long a, c;
     if (ck_status != CK_ACCEPTED) return ck_poly_number(ck_num_int(0));
     if (node->kind == CK_MUL || node->kind == CK_DIV) return ck_poly_add(ck_ln_node(node->a), ck_ln_node(node->b), node->kind == CK_DIV);
-    if (node->kind == CK_NEG) return ck_ln_node(node->a);
+    if (node->kind == CK_NEG || (ck_real && node->kind == CK_ABS)) return ck_ln_node(node->a);
+    if (ck_real && node->kind == CK_RADICAL && node->a->kind == CK_NUMBER && node->a->value > 0)
+        return ck_poly_mul(ck_poly_number(ck_num_make(1, node->a->value)), ck_ln_node(node->b));
     if (node->kind == CK_POW && ck_affine(ck_eval(node->b), &a, &c) && a == 0)
         return ck_poly_mul(ck_poly_number(ck_num_int(c)), ck_ln_node(node->a));
     CkRat x = ck_eval(node);
@@ -1327,6 +1393,8 @@ static CkRat ck_eval_factorial(const CkNode *node) {
 static CkRat ck_eval(const CkNode *node) {
     long long a, c;
     if (ck_status != CK_ACCEPTED) return ck_rat_int(0);
+    if (ck_real && (node->kind == CK_POW || node->kind == CK_LN || node->kind == CK_LNABS || node->kind == CK_ABS || (node->kind >= CK_EXP && node->kind <= CK_PI)))
+        return ck_real_eval(node);
     switch (node->kind) {
     case CK_NUMBER:
         return ck_rat_int(node->value);
@@ -1383,6 +1451,12 @@ static CkRat ck_eval(const CkNode *node) {
         gap->b = node->b;
         return ck_rat_div(ck_eval_factorial(node->a), ck_rat_mul(ck_eval_factorial(node->b), ck_eval_factorial(gap)));
     }
+    case CK_EXP: case CK_SIN: case CK_COS: case CK_ATAN: case CK_RADICAL: case CK_PI:
+        ck_unsupported("il certificato di induzione usa un operatore delle funzioni di una variabile reale, che lì il verificatore non conosce");
+        break;
+    case CK_ABS:
+        ck_unsupported("il valore assoluto non si calcola in un certificato di induzione");
+        break;
     default:
         ck_unsupported("una parola degli enunciati sugli insiemi in un certificato di induzione");
     }
@@ -3609,7 +3683,1126 @@ static void ck_check_signs(void) {
 }
 
 /* =============================================================================
- * 13. CONTROLLO DI UN CERTIFICATO
+ * 13. DERIVATE E PRIMITIVE
+ * ============================================================================
+ *
+ * Gli enunciati dei capitoli 27 e 30 di mathresearcher: "la derivata di F è
+ * G", "le primitive di f sono F + c", "l'integrale di f da a a b vale V". Il
+ * certificato porta le espressioni, e il verificatore deriva F da sé, con
+ * regole sue, poi decide con l'algebra esatta se la differenza è zero:
+ *
+ *     certificate derivative            certificate antiderivative
+ *     variable x                        variable x
+ *     order 2                           integrand (/ 1 x)
+ *     function (* x (exp x))            primitive (lnabs x)
+ *     derivative (* (+ x 2) (exp x))    end
+ *     end
+ *
+ *     certificate integral
+ *     variable x
+ *     lower 0
+ *     upper 1
+ *     integrand (^ x 2)
+ *     primitive (/ (^ x 3) 3)
+ *     value (/ 1 3)
+ *     end
+ *
+ * Una derivata n-esima ha "order n base n0", con n una lettera: allora G
+ * può contenere n, F no. Dopo le voci, come nel capitolo 8, possono venire
+ * delle voci "brick", fattori in cui provare a scomporre gli argomenti dei
+ * logaritmi: un suggerimento non può far accettare il falso.
+ *
+ * LE PAROLE. Quelle del capitolo 8 (le somme, i prodotti e i fattoriali solo
+ * se non dipendono da x), più (exp a), (sin a), (cos a), (atan a), (pi) e
+ * (root m a), la radice di indice m, un intero scritto da 2 a CK_MAX_ROOT: per
+ * m dispari la radice reale, che ha il segno di a, per m pari quella non
+ * negativa di a >= 0, e (abs a), il valore assoluto (in un integrale
+ * definito solo dentro l'argomento di un logaritmo). Una potenza (^ a b) con
+ * b intero è quella del capitolo 8; con b un razionale p/q non intero è
+ * (root q a)^p, con b non costante è e^{b ln a}: in tutti e due i casi vuole
+ * a > 0. Le altre lettere oltre x (e n) sono parametri.
+ *
+ * DEFINITA E REGOLARE. Un'espressione è definita in x se nel suo calcolo
+ * nessuna divisione ha il divisore nullo (un esponente intero negativo è una
+ * divisione), l'argomento di ln è positivo e quello di lnabs non è zero, la
+ * base di una potenza con l'esponente non intero è positiva, il radicando di
+ * una radice di indice pari non è negativo. È regolare in x se in più ogni
+ * radicando, e ogni argomento di un valore assoluto, è diverso da zero: lì
+ * la funzione può non essere derivabile (la radice di x, o |x|, in 0). Senza
+ * radici e valori assoluti le due parole coincidono.
+ *
+ * I TEOREMI. Per ogni valore dei parametri:
+ *
+ *   - derivative, ordine k: in ogni x in cui F è regolare e G è definita,
+ *     F è derivabile k volte e F^(k)(x) = G(x);
+ *   - derivative, ordine n da n0: per ogni intero n >= n0, in ogni x in cui
+ *     F e G(n0, x), ..., G(n, x) sono regolari, F è derivabile n volte e
+ *     F^(n)(x) = G(n, x);
+ *   - antiderivative: su ogni intervallo aperto I in cui F è regolare e f è
+ *     definita, le primitive di f sono esattamente le F + c, con c una
+ *     costante;
+ *   - integral: f è continua su [a, b] (o [b, a]), F è derivabile in un
+ *     intervallo aperto che lo contiene con F' = f, e l'integrale di f da a
+ *     a b vale V.
+ *
+ * COME LO SI CONTROLLA
+ *
+ *   13a. Le lettere delle funzioni (7g), e l'unità di angoli ed esponenti.
+ *   13b. Il calcolo delle parole: un'espressione diventa una frazione di
+ *        polinomi in x e in quelle lettere, e se ne annotano le condizioni
+ *        di esistenza.
+ *   13c. La derivata, una regola per ogni lettera, e la regola della catena
+ *        sui polinomi: è un conto che finisce, senza nessuna ricerca.
+ *   13d. Le relazioni tra le lettere (sin^2 + cos^2 = 1, R^m = u) e la
+ *        prova dello zero, con le sue tre risposte.
+ *   13e. L'intervallo [a, b]: le condizioni di esistenza, con Sturm, e il
+ *        valore F(b) - F(a).
+ *   13f. La lettura del certificato, e i conti di ognuno dei tre tipi.
+ */
+
+#define CK_MAX_UNIT 720720  /* l'unità più grande di angoli ed esponenti (13a) */
+#define CK_MAX_ROOT 12      /* l'indice più grande di una radice */
+#define CK_MAX_TURNS 64     /* il multiplo più grande di un angolo, o di un esponente, in unità */
+#define CK_MAX_DERIVATIVE 8 /* l'ordine più grande di una derivata, o il caso base di una derivata n-esima */
+
+/* 13a. LE LETTERE DELLE FUNZIONI, E L'UNITÀ
+ *
+ * Ogni lettera di 7g sta per una funzione di x; due espressioni che si
+ * scrivono con le stesse lettere in modi diversi devono diventare lo stesso
+ * polinomio, almeno nei casi dei libri: e^{2x} = (e^x)^2, sin 2x = 2 sin x
+ * cos x. Per questo un esponente, o un angolo, che è un polinomio si divide
+ * nei suoi monomi, u = c_1 m_1 + ... + c_k m_k, e
+ *
+ *     e^u = (e^{m_1/Q})^{c_1 Q} ... (e^{m_k/Q})^{c_k Q},
+ *
+ * con Q, l'unità, un intero per cui ogni c_i Q è intero: la lettera è
+ * e^{m/Q}, e le potenze intere si fanno con i prodotti. Per seno e coseno
+ * le formule di addizione, sin(a + b) = sin a cos b + cos a sin b e
+ * cos(a + b) = cos a cos b - sin a sin b, ripetute, danno sin(c m) e
+ * cos(c m) come polinomi nella coppia di lettere sin(m/Q), cos(m/Q). Q si
+ * trova nella prima valutazione del certificato, di prova, allargandolo
+ * ogni volta che serve (il minimo comune multiplo dei denominatori); le
+ * valutazioni dopo lo usano così com'è.
+ *
+ * Un argomento che non è un polinomio, u = N/M, si tratta allo stesso modo:
+ * i monomi sono quelli di N, e la lettera è e^{m/(Q M)}, con M scritto con il
+ * coefficiente direttivo 1; così sin(2/x) = 2 sin(1/x) cos(1/x). E un angolo
+ * k pi/2 ha il seno e il coseno esatti, 0 e 1 o -1; ogni altro multiplo di pi
+ * greco, come pi/6, ha una coppia di lettere sua.
+ *
+ * Perché non può far accettare il falso. Ogni scrittura è un'uguaglianza
+ * vera: due lettere che stanno per quantità legate (sin x e sin(x/3), se Q
+ * fosse diverso) sarebbero solo trattate come indipendenti, e
+ * un'uguaglianza tra polinomi in lettere qualsiasi vale in particolare per
+ * i loro valori veri. Può soltanto non riconoscere uguali due quantità
+ * uguali. */
+
+/* L'unità del certificato in corso, e 1 se la si può ancora allargare. */
+static long long ck_unit;
+static int ck_learning;
+
+/* Il nome della variabile reale del certificato in corso, che è sempre
+ * l'indeterminata 0: le catene di Sturm del capitolo 12 la cercano lì. */
+static char ck_dx;
+
+/* Ritorna l'indeterminata di tipo kind (7g) con argomento base / below e,
+ * per una ROOT, indice index (0 per gli altri tipi), creandola se manca. Una
+ * SIN si crea insieme alla sua COS, che le sta subito dopo. */
+static int ck_var_real(CkVarKind kind, CkPoly base, CkPoly below, long long index) {
+    for (int i = 0; i < ck_var_count; i++)
+        if (ck_vars[i].kind == kind && ck_vars[i].prime == index && ck_poly_equal(ck_vars[i].base, base) && ck_poly_equal(ck_vars[i].below, below)) return i;
+    int v = ck_var_new((CkVar){.kind = kind, .prime = index, .base = base, .below = below});
+    if (kind == CK_VAR_SIN) ck_var_new((CkVar){.kind = CK_VAR_COS, .base = base, .below = below});
+    return v;
+}
+
+/* Ritorna r con il denominatore 1, se il denominatore è un numero: così due
+ * argomenti uguali hanno la stessa scrittura, e un polinomio si riconosce. */
+static CkRat ck_rat_plain(CkRat r) {
+    if (!ck_poly_is_constant(r.den) || r.den.count == 0) return r;
+    return (CkRat){ck_poly_mul(r.num, ck_poly_number(ck_num_inv(r.den.term[0].coef))), ck_poly_number(ck_num_int(1))};
+}
+
+/* Ritorna p^e, per e intero non negativo. */
+static CkPoly ck_poly_power(CkPoly p, long long e) {
+    CkPoly result = ck_poly_number(ck_num_int(1));
+    for (long long i = 0; i < e && ck_status == CK_ACCEPTED; i++) result = ck_poly_mul(result, p);
+    return result;
+}
+
+/* Ritorna la frazione v^k, con v un'indeterminata che non vale mai zero dove
+ * compare (una potenza di e, una radice dove è regolare) e k intero. Il
+ * denominatore di v^-k non è una condizione da annotare. */
+static CkRat ck_rat_raise(int v, long long k) {
+    CkPoly power = ck_poly_power(ck_poly_variable(v), k < 0 ? -k : k), one = ck_poly_number(ck_num_int(1));
+    return k < 0 ? (CkRat){one, power} : (CkRat){power, one};
+}
+
+/* Ritorna il monomio del termine t, con il coefficiente 1. */
+static CkPoly ck_monomial(const CkTerm *t) {
+    CkPoly m = ck_poly_number(ck_num_int(1));
+    memcpy(m.term[0].e, t->e, CK_MAX_VARS);
+    return m;
+}
+
+/* Mette in *k il numero intero coef Q, allargando prima l'unità se si può;
+ * ritorna 0, con il certificato non controllabile, se non ci si riesce. */
+static int ck_turns(CkNum coef, long long *k) {
+    if (ck_unit % coef.den != 0) {
+        __int128 wider = ck_unit / ck_gcd(ck_unit, coef.den) * coef.den;
+        if (!ck_learning || wider > CK_MAX_UNIT) { ck_unsupported("angoli o esponenti con denominatori che il verificatore non tratta"); return 0; }
+        ck_unit = (long long)wider;
+    }
+    __int128 turns = coef.num * (ck_unit / coef.den);
+    if (turns > CK_MAX_TURNS || turns < -CK_MAX_TURNS) { ck_unsupported("un angolo o un esponente troppo grande per il verificatore"); return 0; }
+    *k = (long long)turns;
+    return 1;
+}
+
+/* 13b. IL CALCOLO DELLE PAROLE
+ *
+ * ck_real_eval() calcola, quando ck_real è 1, le parole delle funzioni e le
+ * potenze, che ck_eval() le passa; tutto il resto lo fa ck_eval(). Annota le
+ * condizioni di esistenza: con ck_recording a 1 i divisori vanno, come nel
+ * capitolo 9, in ck_divisors[] (e lì vanno anche gli argomenti di lnabs);
+ * le altre in ck_conditions[]. Servono solo agli integrali definiti
+ * (13e). */
+
+/* Una condizione di esistenza: il polinomio p deve essere positivo (positive
+ * = 1) o diverso da zero. certain è 0 per le condizioni di regolarità delle
+ * radici, che sono più severe del necessario per la funzione integranda: se
+ * non valgono, il certificato non è sbagliato, solo non controllabile. */
+typedef struct {
+    CkPoly p;
+    int positive, certain;
+} CkCondition;
+
+static CkCondition ck_conditions[CK_MAX_DIVISORS];
+static int ck_condition_count;
+
+/* La scelta dei segni dei valori assoluti in corso: il bit i è 1 se
+ * l'argomento di ck_abs[i] (12c) è preso negativo (13f). */
+static unsigned ck_abs_pattern;
+
+/* Annota che la frazione r deve essere positiva (positive = 1) o diversa da
+ * zero. r = N / M è positiva esattamente quando lo è N M, perché M non è
+ * zero (il suo divisore è già annotato). Un numero si decide subito: una
+ * condizione falsa ovunque vuol dire che l'espressione non è definita in
+ * nessun punto dell'intervallo. */
+static void ck_condition(CkRat r, int positive, int certain) {
+    CkPoly p = positive ? ck_poly_mul(r.num, r.den) : r.num;
+    if (!ck_recording) return;
+    if (ck_poly_is_constant(p)) {
+        int holds = p.count > 0 && (!positive || p.term[0].coef.num > 0);
+        if (!holds && certain) ck_reject("la funzione non è definita in nessun punto dell'intervallo");
+        else if (!holds) ck_unsupported("non so stabilire che la funzione integranda e la primitiva sono definite su tutto l'intervallo");
+        return;
+    }
+    if (ck_condition_count == CK_MAX_DIVISORS) { ck_unsupported("troppe condizioni di esistenza per il verificatore"); return; }
+    ck_conditions[ck_condition_count++] = (CkCondition){p, positive, certain};
+}
+
+/* Scrive u = N/M con M monico, il coefficiente del termine direttivo 1: così
+ * due argomenti uguali hanno la stessa scrittura, e 2/x e 4/(2x) diventano
+ * entrambi 2 per il monomio 1 su x (13a). */
+static CkRat ck_rat_monic(CkRat u) {
+    CkNum lead;
+    CkPoly below = ck_poly_monic(u.den, &lead);
+    return (CkRat){ck_poly_mul(u.num, ck_poly_number(ck_num_inv(lead))), below};
+}
+
+/* Ritorna e^u: vedi 13a. Con u = N/M, ogni monomio m di N dà la lettera
+ * e^{m/(Q M)}, alla potenza intera c Q. */
+static CkRat ck_real_exp(CkRat u) {
+    CkRat result = ck_rat_int(1);
+    u = ck_rat_monic(u);
+    for (int i = 0; i < u.num.count && ck_status == CK_ACCEPTED; i++) {
+        long long k;
+        if (!ck_turns(u.num.term[i].coef, &k)) break;
+        CkPoly below = ck_poly_mul(u.den, ck_poly_number(ck_num_int(ck_unit)));
+        result = ck_rat_mul(result, ck_rat_raise(ck_var_real(CK_VAR_E, ck_monomial(&u.num.term[i]), below, 0), k));
+    }
+    return result;
+}
+
+static CkPoly ck_reduce(CkPoly p, int final);
+
+/* Ritorna sin u (cosine = 0) o cos u (cosine = 1), come polinomio nelle
+ * lettere di 13a. Le formule di addizione danno, dalla coppia (s, c) di un
+ * angolo e (S, C) di un altro, quella della loro somma, (s C + c S,
+ * c C - s S): ripetute k volte con lo stesso (S, C), danno l'angolo k
+ * volte, e con S cambiato di segno l'angolo -k volte. */
+static CkPoly ck_real_trig(CkRat u, int cosine) {
+    CkPoly s = ck_poly_number(ck_num_int(0)), c = ck_poly_number(ck_num_int(1));
+    int pi = -1;
+    u = ck_rat_monic(u);
+    for (int v = 0; v < ck_var_count && ck_poly_is_constant(u.den); v++)
+        if (ck_vars[v].kind == CK_VAR_PI) pi = v;
+    for (int i = 0; i < u.num.count && ck_status == CK_ACCEPTED; i++) {
+        const CkTerm *t = &u.num.term[i];
+        CkPoly ts = ck_poly_number(ck_num_int(0)), tc = ck_poly_number(ck_num_int(1)), m = ck_monomial(t);
+        CkNum half = ck_num_mul(t->coef, ck_num_int(2));
+        long long k;
+
+        /* Un multiplo di pi greco: k pi/2 con i valori esatti, ogni altro con
+         * la sua coppia di lettere. */
+        if (pi >= 0 && ck_poly_equal(m, ck_poly_variable(pi))) {
+            if (half.den == 1) {
+                int quarter = (int)(((half.num % 4) + 4) % 4);
+                ts = ck_poly_number(ck_num_int(quarter == 1 ? 1 : quarter == 3 ? -1 : 0));
+                tc = ck_poly_number(ck_num_int(quarter == 0 ? 1 : quarter == 2 ? -1 : 0));
+            } else {
+                int v = ck_var_real(CK_VAR_SIN, ck_poly_mul(m, ck_poly_number(t->coef)), ck_poly_number(ck_num_int(1)), 0);
+                ts = ck_poly_variable(v);
+                tc = ck_poly_variable(v + 1);
+            }
+        } else {
+            /* Ogni altro monomio: l'angolo m/(Q M), k volte. */
+            if (!ck_turns(t->coef, &k)) break;
+            int v = ck_var_real(CK_VAR_SIN, m, ck_poly_mul(u.den, ck_poly_number(ck_num_int(ck_unit))), 0);
+            CkPoly S = ck_poly_variable(v), C = ck_poly_variable(v + 1);
+            if (k < 0) S = ck_poly_mul(S, ck_poly_number(ck_num_int(-1)));
+            for (long long j = 0; j < (k < 0 ? -k : k) && ck_status == CK_ACCEPTED; j++) {
+                CkPoly next = ck_poly_add(ck_poly_mul(ts, C), ck_poly_mul(tc, S), 0);
+                tc = ck_reduce(ck_poly_add(ck_poly_mul(tc, C), ck_poly_mul(ts, S), 1), 0);
+                ts = ck_reduce(next, 0);
+            }
+        }
+
+        /* La somma degli angoli. */
+        CkPoly next = ck_poly_add(ck_poly_mul(s, tc), ck_poly_mul(c, ts), 0);
+        c = ck_reduce(ck_poly_add(ck_poly_mul(c, tc), ck_poly_mul(s, ts), 1), 0);
+        s = ck_reduce(next, 0);
+    }
+    return cosine ? c : s;
+}
+
+/* Ritorna arctan u. Con u un numero: arctan 0 = 0 e arctan(1) = pi/4
+ * (arctan(-1) = -pi/4), perché tan(pi/4) = 1; ogni altro ha la sua
+ * lettera. */
+static CkRat ck_real_atan(CkRat u) {
+    u = ck_rat_plain(u);
+    if (ck_poly_is_constant(u.num) && ck_poly_is_constant(u.den)) {
+        CkNum value = u.num.count ? u.num.term[0].coef : ck_num_int(0);
+        if (value.num == 0) return ck_rat_int(0);
+        if (value.den == 1 && (value.num == 1 || value.num == -1)) {
+            CkPoly pi = ck_poly_variable(ck_var_real(CK_VAR_PI, (CkPoly){0, NULL}, (CkPoly){0, NULL}, 0));
+            return ck_rat_poly(ck_poly_mul(pi, ck_poly_number(ck_num_make(value.num, 4))));
+        }
+    }
+    return ck_rat_poly(ck_poly_variable(ck_var_real(CK_VAR_ATAN, u.num, u.den, 0)));
+}
+
+/* Ritorna 1 e mette in *root l'intero r >= 0 con r^m = n, se c'è; n >= 0.
+ * Per bisezione: r^m cresce con r. */
+static int ck_exact_root(__int128 n, long long m, __int128 *root) {
+    __int128 low = 0, high = 1;
+    for (;;) {
+        /* high^m, fermandosi appena supera n. */
+        __int128 power = 1;
+        for (long long i = 0; i < m && power <= n; i++) power *= high;
+        if (power > n) break;
+        high *= 2;
+    }
+    while (high - low > 1) {
+        __int128 middle = low + (high - low) / 2, power = 1;
+        for (long long i = 0; i < m && power <= n; i++) power *= middle;
+        if (power <= n) low = middle; else high = middle;
+    }
+    __int128 power = 1;
+    for (long long i = 0; i < m; i++) power *= low;
+    *root = low;
+    return power == n;
+}
+
+/* Le radici di uno stesso radicando con indici diversi, come la radice
+ * quadrata, la cubica e la sesta di x, si scrivono con una lettera sola:
+ * con L il minimo comune multiplo degli indici, la radice m-esima di u è
+ * R^{L/m}, con R la radice L-esima di u. Per L dispari vale per ogni u reale
+ * (la radice dispari reale rispetta le potenze: (R^{L/m})^m = R^L = u, e
+ * t -> t^m è crescente). Per L pari vuole u >= 0, e c'è: L è pari solo se
+ * tra quelle radici ce n'è una di indice pari, che è definita solo dove
+ * u >= 0, e le espressioni del certificato si confrontano solo dove sono
+ * definite tutte. Per questo il radicando si riconosce dall'albero com'è
+ * scritto (ck_same()), che resta lo stesso nelle tre valutazioni, e L si
+ * trova nella prima, come l'unità. Le voci brick, che sono solo
+ * suggerimenti, non possono contenere radici: una di indice pari lì
+ * renderebbe pari L senza che le espressioni vere lo chiedano. */
+typedef struct {
+    const CkNode *tree;  /* il radicando, com'è scritto nel certificato */
+    long long unit;      /* L */
+} CkRootUnit;
+
+static CkRootUnit ck_root_units[CK_MAX_BRICKS];
+static int ck_root_unit_count;
+static int ck_hinting;  /* 1 mentre si calcolano le voci brick */
+
+/* Ritorna (radice m-esima di u)^power, con u il valore del radicando tree.
+ * La radice di un numero razionale che è una potenza m-esima è esatta, con
+ * il segno per m dispari; quella di indice pari di un numero negativo non
+ * esiste. Ogni altra è una potenza di una lettera R, con R^L = u (13d), che
+ * non vale zero dove l'espressione è regolare: la potenza negativa non è una
+ * condizione da annotare. */
+static CkRat ck_real_root(CkRat u, long long m, const CkNode *tree, long long power) {
+    if (ck_hinting) { ck_unsupported("una voce brick contiene una radice"); return ck_rat_int(0); }
+    u = ck_rat_plain(u);
+    if (ck_poly_is_constant(u.num) && ck_poly_is_constant(u.den)) {
+        CkNum value = u.num.count ? u.num.term[0].coef : ck_num_int(0);
+        __int128 top, bottom, size = value.num < 0 ? -value.num : value.num;
+        if (value.num < 0 && m % 2 == 0) { ck_reject("il certificato contiene la radice di indice pari di un numero negativo"); return ck_rat_int(0); }
+        if (ck_exact_root(size, m, &top) && ck_exact_root(value.den, m, &bottom)) {
+            if (top == 0 && power < 0) { ck_reject("il certificato divide per zero"); return ck_rat_int(0); }
+            return ck_rat_power(ck_rat_poly(ck_poly_number(ck_num_make(value.num < 0 ? -top : top, bottom))), power);
+        }
+    }
+
+    /* L: dalla tabella, che solo la prima valutazione allarga. */
+    int i = 0;
+    while (i < ck_root_unit_count && !ck_same(ck_root_units[i].tree, tree)) i++;
+    if (i == ck_root_unit_count) {
+        if (!ck_learning || i == CK_MAX_BRICKS) { ck_unsupported("radici che il verificatore non sa ricondurre a una sola"); return ck_rat_int(0); }
+        ck_root_units[ck_root_unit_count++] = (CkRootUnit){tree, m};
+    }
+    long long unit = ck_root_units[i].unit;
+    if (unit % m != 0) {
+        if (!ck_learning || unit / ck_gcd(unit, m) * m > CK_MAX_UNIT) { ck_unsupported("radici che il verificatore non sa ricondurre a una sola"); return ck_rat_int(0); }
+        unit = ck_root_units[i].unit = unit / (long long)ck_gcd(unit, m) * m;
+    }
+    return ck_rat_raise(ck_var_real(CK_VAR_ROOT, u.num, u.den, unit), unit / m * power);
+}
+
+/* Il valore di node, che è una parola delle funzioni, un logaritmo o una
+ * potenza, quando ck_real è 1: vedi in testa al capitolo. */
+static CkRat ck_real_eval(const CkNode *node) {
+    long long a, c;
+    CkRat base, exponent;
+    switch (node->kind) {
+    case CK_PI:
+        return ck_rat_poly(ck_poly_variable(ck_var_real(CK_VAR_PI, (CkPoly){0, NULL}, (CkPoly){0, NULL}, 0)));
+    case CK_ABS: {
+        /* La scelta dei segni in corso (ck_calculus_pass()). */
+        int i = 0;
+        while (i < ck_abs_count && !ck_same(ck_abs[i], node)) i++;
+        if (i == ck_abs_count) { ck_unsupported("il valore assoluto in un integrale definito si calcola solo dentro l'argomento di un logaritmo"); return ck_rat_int(0); }
+        base = ck_eval(node->a);
+        return ck_abs_pattern >> i & 1 ? ck_rat_add(ck_rat_int(0), base, 1) : base;
+    }
+    case CK_EXP:
+        return ck_real_exp(ck_eval(node->a));
+    case CK_SIN: case CK_COS:
+        return ck_rat_poly(ck_real_trig(ck_eval(node->a), node->kind == CK_COS));
+    case CK_ATAN:
+        return ck_real_atan(ck_eval(node->a));
+    case CK_RADICAL: {
+        /* La radice m-esima di B^k è la potenza k-esima di quella di B, per
+         * m dispari (vedi sopra ck_real_root()) e per k dispari: allora
+         * B^k >= 0 esattamente dove B >= 0, e lì le radici rispettano le
+         * potenze. Le condizioni si annotano su B, che vale zero, o è
+         * negativo, esattamente dove lo è B^k. */
+        long long m = node->a->value, k = 1;
+        const CkNode *radicand = node->b;
+        if (node->a->kind != CK_NUMBER || m < 2 || m > CK_MAX_ROOT) { ck_unsupported("radice con un indice che il verificatore non tratta"); return ck_rat_int(0); }
+        if (radicand->kind == CK_POW && radicand->b->kind == CK_NUMBER && radicand->b->value >= 1 && radicand->b->value <= CK_MAX_TURNS && (m % 2 || radicand->b->value % 2)) {
+            k = radicand->b->value;
+            radicand = radicand->a;
+        }
+        base = ck_eval(radicand);
+        ck_condition(base, m % 2 == 0, 0);
+        return ck_real_root(base, m, radicand, k);
+    }
+    case CK_LN: case CK_LNABS: {
+        /* La condizione sull'argomento intero, se si annotano; poi
+         * ck_ln_node() ne calcola i pezzi, e le loro condizioni sono già in
+         * quella. Così un valore assoluto dentro l'argomento, che si calcola
+         * solo così (8g), non chiede di essere calcolato altrove. */
+        int recording = ck_recording;
+        if (recording) {
+            base = ck_eval(node->a);
+            if (node->kind == CK_LN) ck_condition(base, 1, 1);
+            else ck_record(base.num);
+        }
+        ck_recording = 0;
+        CkPoly value = ck_ln_node(node->a);
+        ck_recording = recording;
+        return ck_rat_poly(value);
+    }
+    default: {
+        /* Una potenza. Esponente a n + c: il capitolo 8. Altrimenti la base
+         * deve essere positiva, e la potenza è una radice o e^{b ln a}. */
+        base = ck_eval(node->a);
+        exponent = ck_eval(node->b);
+        if (ck_affine(exponent, &a, &c)) return a == 0 ? ck_rat_power(base, c) : ck_eval_power(base, a, c);
+        ck_condition(base, 1, 1);
+        exponent = ck_rat_plain(exponent);
+        if (ck_poly_is_constant(exponent.num) && ck_poly_is_constant(exponent.den)) {
+            CkNum q = exponent.num.term[0].coef;
+            if (q.den > CK_MAX_ROOT || q.num > CK_MAX_TURNS || q.num < -CK_MAX_TURNS) { ck_unsupported("una potenza che il verificatore non tratta"); return ck_rat_int(0); }
+            return ck_real_root(base, (long long)q.den, node->a, (long long)q.num);
+        }
+        int recording = ck_recording;
+        ck_recording = 0;
+        CkPoly logarithm = ck_ln_node(node->a);
+        ck_recording = recording;
+        return ck_real_exp(ck_rat_mul(exponent, ck_rat_poly(logarithm)));
+    }
+    }
+}
+
+/* 13c. LA DERIVATA
+ *
+ * Un'espressione calcolata è una frazione N/M di polinomi nelle lettere, e
+ * ogni lettera è una funzione di x. La derivata di un polinomio p nelle
+ * lettere v_1, ..., v_k è, per la regola della catena per le funzioni di più
+ * variabili,
+ *
+ *     p' = (dp/dv_1) v_1' + ... + (dp/dv_k) v_k',
+ *
+ * dove dp/dv è la derivata di p come polinomio nella sola v (ogni termine
+ * c v^e ... diventa c e v^(e-1) ...); per una frazione vale la regola del
+ * quoziente, (N/M)' = (N' M - N M') / M^2. Le derivate delle lettere:
+ *
+ *     x' = 1;  un parametro, n, (-1)^n, p^n, n!, pi greco: 0;
+ *     (B^n)' = n B^n B'/B, per n intero, dove B non è zero;
+ *     (ln|B|)' = B'/B, dove B non è zero (per B < 0, ln|B| = ln(-B), e
+ *       (ln(-B))' = -B'/(-B));
+ *     (e^u)' = e^u u';  (sin u)' = cos(u) u';  (cos u)' = -sin(u) u';
+ *     (arctan u)' = u' / (1 + u^2);
+ *     R = la radice m-esima di u: da R^m = u, m R^(m-1) R' = u', e quindi
+ *       R' = u' / (m R^(m-1)) = R u' / (m u), dove u non è zero.
+ *
+ * Perché il risultato è la derivata di F dove F è regolare. Il calcolo di F
+ * dà N/M con N/M = F dove F è definita (capitoli 5 e 8), e ogni lettera di
+ * N/M viene da un pezzo di F: dove F è regolare il pezzo è definito, e la
+ * lettera è derivabile, perché B, u, l'argomento di un logaritmo e il
+ * radicando non sono zero lì (B divide l'argomento del suo logaritmo, che è
+ * diverso da zero). L'insieme in cui F è regolare è aperto (ogni condizione
+ * è stretta, su funzioni continue), quindi N/M = F in un intorno di ogni
+ * suo punto, e là la derivata di F è quella di N/M, calcolata con le regole
+ * qui sopra. I denominatori di quella derivata sono M^2 e quelli delle
+ * lettere, B, u, m u, 1 + u^2, tutti diversi da zero lì. Le lettere della
+ * derivata sono ancora quelle di F: si può derivare di nuovo, e per
+ * induzione la derivata k-esima di F è quella calcolata k volte, in ogni
+ * punto in cui F è regolare. */
+
+/* Le derivate delle lettere: il bit v di ck_derived dice se ck_dvar[v] è
+ * già calcolata. Si ricalcolano a ogni valutazione del certificato. */
+static CkRat ck_dvar[CK_MAX_VARS];
+static unsigned ck_derived;
+_Static_assert(CK_MAX_VARS <= 32, "ck_derived ha un bit per ogni indeterminata");
+
+/* Il prototipo è in avanti perché la derivata di una lettera chiede quella
+ * del suo argomento, e quella di un polinomio le derivate delle lettere. */
+static CkRat ck_var_derivative(int v);
+
+/* Ritorna la derivata del polinomio p, con la regola della catena. */
+static CkRat ck_poly_derivative(CkPoly p) {
+    CkRat total = ck_rat_int(0);
+    for (int v = 0; v < ck_var_count && ck_status == CK_ACCEPTED; v++) {
+        if (!ck_poly_uses(p, v)) continue;
+        CkRat slope = ck_var_derivative(v);
+        if (slope.num.count == 0) continue;
+
+        /* dp/dv. */
+        CkTerm *t = ck_alloc(sizeof *t * (size_t)(p.count + 1));
+        int count = 0;
+        if (ck_status != CK_ACCEPTED) break;
+        for (int i = 0; i < p.count; i++) {
+            if (!p.term[i].e[v]) continue;
+            t[count] = p.term[i];
+            t[count].coef = ck_num_mul(t[count].coef, ck_num_int(p.term[i].e[v]));
+            t[count++].e[v]--;
+        }
+        total = ck_rat_add(total, ck_rat_mul(ck_rat_poly(ck_poly_build(t, count)), slope), 0);
+    }
+    return total;
+}
+
+/* Ritorna la derivata della frazione r, con la regola del quoziente. */
+static CkRat ck_rat_derivative(CkRat r) {
+    CkRat top = ck_poly_derivative(r.num);
+    if (ck_poly_is_constant(r.den)) return (CkRat){top.num, ck_poly_mul(top.den, r.den)};
+    top = ck_rat_add(ck_rat_mul(top, ck_rat_poly(r.den)), ck_rat_mul(ck_rat_poly(r.num), ck_poly_derivative(r.den)), 1);
+    return (CkRat){top.num, ck_poly_mul(top.den, ck_poly_mul(r.den, r.den))};
+}
+
+/* Ritorna la derivata della lettera v, con le regole in testa a 13c. */
+static CkRat ck_var_derivative(int v) {
+    if (ck_derived >> v & 1) return ck_dvar[v];
+    const CkVar x = ck_vars[v];
+    CkPoly self = ck_poly_variable(v);
+    CkRat d = ck_rat_int(0), slope = d;
+    if (x.kind == CK_VAR_E || x.kind == CK_VAR_SIN || x.kind == CK_VAR_COS || x.kind == CK_VAR_ATAN || x.kind == CK_VAR_ROOT)
+        slope = ck_rat_derivative((CkRat){x.base, x.below});
+    switch (x.kind) {
+    case CK_VAR_LETTER:
+        d = ck_rat_int(x.name == ck_dx);
+        break;
+    case CK_VAR_BIG:
+        if (ck_mentions(x.node->c, ck_dx)) ck_unsupported("la derivata di una somma o di un prodotto il cui termine dipende dalla variabile");
+        break;
+    case CK_VAR_EXP: case CK_VAR_LN:
+        if (x.prime) break;
+        slope = ck_poly_derivative(x.base);
+        if (x.kind == CK_VAR_EXP) slope.num = ck_poly_mul(slope.num, ck_poly_mul(self, ck_poly_variable(ck_var_letter(ck_variable))));
+        d = (CkRat){slope.num, ck_poly_mul(slope.den, x.base)};
+        break;
+    case CK_VAR_E:
+        d = (CkRat){ck_poly_mul(self, slope.num), slope.den};
+        break;
+    case CK_VAR_SIN: case CK_VAR_COS: {
+        CkPoly other = ck_poly_variable(x.kind == CK_VAR_SIN ? v + 1 : v - 1);
+        if (x.kind == CK_VAR_COS) other = ck_poly_mul(other, ck_poly_number(ck_num_int(-1)));
+        d = (CkRat){ck_poly_mul(other, slope.num), slope.den};
+        break;
+    }
+    case CK_VAR_ATAN: {
+        /* u = N/M: u' / (1 + u^2) = u' M^2 / (M^2 + N^2). */
+        CkPoly square = ck_poly_mul(x.below, x.below);
+        d = (CkRat){ck_poly_mul(slope.num, square), ck_poly_mul(slope.den, ck_poly_add(square, ck_poly_mul(x.base, x.base), 0))};
+        break;
+    }
+    case CK_VAR_ROOT:
+        /* u = N/M: R u' / (m u) = R u' M / (m N). */
+        d = (CkRat){ck_poly_mul(ck_poly_mul(self, slope.num), x.below), ck_poly_mul(ck_poly_mul(slope.den, x.base), ck_poly_number(ck_num_int(x.prime)))};
+        break;
+    default:
+        break;
+    }
+    ck_dvar[v] = d;
+    ck_derived |= 1u << v;
+    return d;
+}
+
+/* 13d. LE RELAZIONI E LA PROVA DELLO ZERO
+ *
+ * Una differenza calcolata vale zero dove le due espressioni sono definite
+ * se lo vale il suo numeratore, che è un polinomio nelle lettere. Un
+ * polinomio nullo vale zero comunque si scelgano i valori delle lettere,
+ * quindi in particolare per quelli veri. Ma le lettere non sono
+ * indipendenti, e due relazioni servono a riconoscere zero ciò che lo è:
+ *
+ *   - sin^2 u + cos^2 u = 1: si sostituisce cos^2 u con 1 - sin^2 u, finché
+ *     il coseno ha esponente 0 o 1;
+ *   - R^m = u per la radice m-esima R di u = N/M: con M un numero R^m
+ *     diventa N/M; altrimenti, alla fine, si moltiplica il polinomio per M,
+ *     che dove u è definita non è zero (il numeratore resta zero o no
+ *     insieme a lui), e M R^m diventa N.
+ *
+ * Ogni sostituzione rimpiazza una quantità con una uguale dove le
+ * espressioni sono definite: il valore del polinomio, in quei punti, non
+ * cambia, oppure è moltiplicato per un numero diverso da zero. Le lettere si
+ * trattano dall'ultima alla prima: l'argomento di una lettera contiene solo
+ * lettere create prima di lei, e ciò che una sostituzione introduce si
+ * tratta dopo.
+ *
+ * Le tre risposte. Un numeratore che si riduce a zero: la differenza è
+ * zero. Uno che non si riduce a zero, se contiene solo lettere algebriche
+ * (x, i parametri, n e le quantità dell'induzione), è un polinomio non
+ * nullo: le due espressioni sono diverse, e il certificato è respinto. Lo
+ * stesso in alcuni casi con una sola funzione trascendente, come e^x o
+ * sin x, o un solo numero trascendente, come pi greco o ln 2
+ * (ck_certainly_nonzero()). Negli altri un numeratore non nullo può ancora
+ * valere zero per una relazione che qui non si conosce, come la radice di
+ * x^2 che è |x|, o ln(x^2) che è 2 ln|x|: allora il certificato non è
+ * controllabile, e non è un sì. */
+
+/* Ritorna p con le relazioni applicate, come in testa a 13d. Con final = 0
+ * solo quelle che non cambiano il valore (tutte tranne R^m = N/M con M non
+ * costante): servono a tenere piccoli i polinomi durante i conti. */
+static CkPoly ck_reduce(CkPoly p, int final) {
+    for (int v = ck_var_count - 1; v >= 0 && ck_status == CK_ACCEPTED; v--) {
+        const CkVar *x = &ck_vars[v];
+        if (x->kind != CK_VAR_COS && x->kind != CK_VAR_ROOT) continue;
+        CkPoly value, multiplier = ck_poly_number(ck_num_int(1));
+        long long m = x->kind == CK_VAR_COS ? 2 : x->prime;
+        if (x->kind == CK_VAR_COS) {
+            value = ck_poly_add(multiplier, ck_poly_mul(ck_poly_variable(v - 1), ck_poly_variable(v - 1)), 1);
+        } else if (ck_poly_is_constant(x->below)) {
+            value = ck_poly_mul(x->base, ck_poly_number(ck_num_inv(x->below.term[0].coef)));
+        } else {
+            if (!final) continue;
+            value = x->base;
+            multiplier = x->below;
+        }
+
+        /* p = A v^m + B, con A e B i termini che hanno e quelli che non
+         * hanno v^m: p diventa A value + B multiplier. Il più alto
+         * esponente di v scende di m a ogni giro. */
+        for (int round = 0; round <= CK_MAX_EXPONENT && ck_status == CK_ACCEPTED; round++) {
+            CkTerm *high = ck_alloc(sizeof *high * (size_t)(p.count + 1)), *low = ck_alloc(sizeof *low * (size_t)(p.count + 1));
+            int highs = 0, lows = 0;
+            if (ck_status != CK_ACCEPTED) break;
+            for (int i = 0; i < p.count; i++) {
+                if (p.term[i].e[v] >= m) { high[highs] = p.term[i]; high[highs++].e[v] -= (signed char)m; }
+                else low[lows++] = p.term[i];
+            }
+            if (highs == 0) break;
+            p = ck_poly_add(ck_poly_mul(ck_poly_build(high, highs), value), ck_poly_mul(ck_poly_build(low, lows), multiplier), 0);
+        }
+    }
+    return p;
+}
+
+/* Ritorna 1 se il polinomio p, che non è il polinomio nullo, è di sicuro
+ * diverso da zero nei valori veri delle sue lettere, per qualche valore dei
+ * parametri, in qualche punto di ogni intervallo aperto di x: vedi in testa
+ * a 13d. Le lettere algebriche sono x, i parametri, n e le quantità
+ * dell'induzione ((-1)^n, p^n, B^n, le somme, le successioni), che il
+ * capitolo 8 tratta da indipendenti e per la stessa ragione respinge. I casi:
+ *
+ *   13d-1. Solo lettere algebriche: un polinomio non nullo in valori
+ *          qualsiasi. Come funzione di x vale zero solo in un numero finito
+ *          di punti.
+ *   13d-2. In più un solo numero trascendente t: pi greco (Lindemann, 1882),
+ *          e^r con r razionale non nullo (Hermite-Lindemann), ln p con p
+ *          primo (se fosse algebrico, e^{ln p} = p non sarebbe un intero).
+ *          p è un polinomio nelle lettere algebriche, con coefficienti
+ *          polinomi in t a coefficienti razionali, non tutti nulli; un
+ *          numero trascendente non è radice di nessun polinomio non nullo a
+ *          coefficienti razionali, quindi qualche coefficiente non è zero,
+ *          ed è 13d-1.
+ *   13d-3. In più una sola lettera E = e^{x^d/Q}, con d >= 1. Come funzione
+ *          di x p(x, E) è analitica su tutta la retta: se valesse zero su un
+ *          intervallo varrebbe zero ovunque (principio di identità). Ma
+ *          p = c_0(x) + c_1(x) E + ... + c_k(x) E^k, con c_k non nullo, e per
+ *          x -> +infinito E = e^{x^d/Q} cresce più di ogni polinomio: il
+ *          termine c_k(x) E^k vince su tutti gli altri, e p non è zero.
+ *   13d-4. In più la sola coppia S = sin(x^d/Q), C = cos(x^d/Q), d >= 1, con
+ *          C di grado 0 o 1 (13d): p = A(x, S) + C B(x, S). Analitica anche
+ *          lei; se fosse zero ovunque, A^2 = C^2 B^2 = (1 - S^2) B^2 per ogni
+ *          x. Un polinomio Q(x, S) che vale zero per ogni x è il polinomio
+ *          nullo: per ogni y0 in (-1, 1) sin(x^d/Q) = y0 in infiniti x, e
+ *          Q(x, y0), polinomio in x con infinite radici, è zero; allora lo
+ *          sono i coefficienti di ogni potenza di S. Quindi A^2 = (1 - S^2) B^2
+ *          come polinomi, e il fattore S - 1, che divide il secondo membro una
+ *          volta più di un quadrato, divide il primo un numero pari di volte:
+ *          A = B = 0, e p sarebbe nullo.
+ *   13d-5. Solo logaritmi di primi, ognuno con esponente 1 e nessun
+ *          prodotto tra loro: c_1 ln p_1 + ... + c_k ln p_k + c_0, a
+ *          coefficienti razionali non tutti nulli. Se valesse zero,
+ *          moltiplicando per un denominatore comune d si avrebbe
+ *          p_1^{d c_1} ... p_k^{d c_k} = e^{-d c_0}: razionale a sinistra,
+ *          trascendente a destra se c_0 non è zero (13d-2); e con c_0 = 0 la
+ *          scomposizione in primi è unica, quindi tutti i c_i sono zero. */
+static int ck_certainly_nonzero(CkPoly p) {
+    int other = -1, kinds = 0, logarithms = 1;
+    for (int v = 0; v < ck_var_count; v++) {
+        if (!ck_poly_uses(p, v)) continue;
+        const CkVar *x = &ck_vars[v];
+        if (!(x->kind == CK_VAR_LN && x->prime)) logarithms = 0;
+        if (x->kind == CK_VAR_LETTER || x->kind == CK_VAR_SIGN || x->kind == CK_VAR_BIG || x->kind == CK_VAR_SEQ || x->kind == CK_VAR_EXP) continue;
+
+        /* La lettera non algebrica: una sola, o la coppia sin, cos. */
+        int pair = (x->kind == CK_VAR_COS && other == v - 1);
+        if (!pair) kinds++;
+        other = v;
+        int number = x->kind == CK_VAR_PI || (x->kind == CK_VAR_LN && x->prime) || (x->kind == CK_VAR_E && ck_poly_is_constant(x->base) && ck_poly_is_constant(x->below));
+        int power = 0;
+        for (int w = 1; w < CK_MAX_VARS && (x->kind == CK_VAR_E || x->kind == CK_VAR_SIN || x->kind == CK_VAR_COS); w++)
+            if (x->base.count == 1 && x->base.term[0].e[w]) power = -1;
+        if (power == 0 && x->base.count == 1) power = x->base.term[0].e[0];
+        int function = (x->kind == CK_VAR_E || x->kind == CK_VAR_SIN || x->kind == CK_VAR_COS) && ck_poly_is_constant(x->below) && power >= 1;
+        if (!number && !function) kinds = 2;
+    }
+    for (int i = 0; i < p.count && logarithms; i++) {
+        int degree = 0;
+        for (int v = 0; v < ck_var_count; v++) degree += p.term[i].e[v];
+        if (degree > 1) logarithms = 0;
+    }
+    return kinds <= 1 || logarithms;
+}
+
+/* Controlla che la frazione difference valga zero dove è definita: se non
+ * è così il certificato è respinto con il motivo wrong, oppure, quando non
+ * si sa dire, non controllabile (vedi in testa a 13d).
+ *
+ * Con dei valori assoluti la differenza è quella di una scelta dei segni
+ * (13f), e la scelta può non capitare in nessun punto in cui le espressioni
+ * sono definite: per |x| / sqrt(x) la scelta |x| = -x vorrebbe x < 0, dove
+ * la radice non c'è. Lì una differenza non nulla non dice che il
+ * certificato è sbagliato, e non lo si respinge. */
+static void ck_calculus_zero(CkRat difference, const char *wrong) {
+    CkPoly top = ck_reduce(difference.num, 1);
+    if (ck_status != CK_ACCEPTED || top.count == 0) return;
+    if (ck_abs_count == 0 && ck_certainly_nonzero(top)) ck_reject(wrong);
+    else if (ck_abs_count) ck_unsupported("non so stabilire che la differenza è zero: una scelta dei segni dei valori assoluti, che può non capitare in nessun punto, non la annulla");
+    else ck_unsupported("non so stabilire che la differenza è zero: le funzioni trascendenti e le radici possono avere relazioni che il verificatore non conosce");
+}
+
+/* 13e. L'INTERVALLO [a, b]
+ *
+ * Il teorema fondamentale del calcolo integrale: se F è derivabile in un
+ * intervallo aperto che contiene [a, b], con F' = f, e f è continua su
+ * [a, b], allora l'integrale di f da a a b è F(b) - F(a) (anche con b < a,
+ * per la convenzione che lo scambio degli estremi cambia il segno). Basta
+ * che F sia regolare e f definita in ogni punto di [a, b]: lì F' = f
+ * (13c), le espressioni sono continue dove sono definite, e l'insieme dei
+ * punti in cui F è regolare e f definita è aperto, quindi contiene un
+ * intervallo aperto attorno a [a, b] (un compatto dentro un aperto ne è
+ * lontano di una distanza positiva).
+ *
+ * Le condizioni di esistenza annotate calcolando F e f (13b) sono polinomi:
+ * "p diverso da zero" vale su [a, b] se p non vale zero in a né in b e,
+ * per il teorema di Sturm (12a), non ha radici tra i due; "p positivo" se
+ * in più p(a) > 0, perché un polinomio che non si annulla su un intervallo
+ * vi ha sempre lo stesso segno. Si sa fare solo con i polinomi nella sola
+ * x: con le altre lettere il certificato non è controllabile.
+ *
+ * Gli estremi sono numeri razionali, oppure c_0 + c_1 pi + c_2 e con i c_j
+ * razionali. Allora si controlla un intervallo razionale [l, h] che contiene
+ * [a, b], con 333/106 < pi < 355/113 (pi = 3.14159265..., 333/106 =
+ * 3.14150943..., 355/113 = 3.14159292...) e 2.718 < e < 2.719 (e =
+ * 2.71828182...): una condizione che vale su [l, h] vale anche su [a, b]. Se non vale e gli estremi sono razionali, la
+ * funzione non è definita in un punto di [a, b], e il certificato è
+ * respinto; con pi o e negli estremi, o per una condizione di regolarità di
+ * una radice, non è controllabile.
+ *
+ * Il valore F(b) - F(a) si calcola con x legata al valore esatto di b e di
+ * a, come l'indice di una somma (capitolo 8), e si confronta con V con la
+ * prova dello zero di 13d.
+ *
+ * Prima, però, V e gli estremi devono essere numeri reali: un logaritmo con
+ * l'argomento positivo, un divisore e l'argomento di un |.| diversi da zero,
+ * una radice di indice pari con il radicando non negativo, una potenza con
+ * un esponente che non è un intero con la base positiva (ck_real_number()).
+ * L'algebra del verificatore non lo vede da sola: per lei ln(-e) e ln(e)
+ * hanno la stessa scrittura, perché il logaritmo di un prodotto si spezza
+ * nei fattori, e così il certificato di \int_1^e dx/x = ln(-e) veniva
+ * accettato (lo ha trovato tools/fuzz/fuzz_calculus_certificates.py). Il
+ * segno di ognuno di quegli argomenti, che è un numero, si legge
+ * nell'intervallo razionale di ck_endpoint(): se è certo e sbagliato il
+ * certificato è respinto, se non è certo non è controllabile. */
+
+/* Mette in [*low, *high] un intervallo razionale che contiene il valore value
+ * di un estremo, c_0 + c_1 pi + c_2 e; ritorna 1 se l'estremo è razionale (e
+ * allora *low = *high è lui), 0 se no. Un estremo di un'altra forma rende il
+ * certificato non controllabile. e è la lettera e^{1/Q} (13a) alla Q. */
+static int ck_endpoint(CkRat value, CkNum *low, CkNum *high) {
+    static const long long bounds[3][4] = {{1, 1, 1, 1}, {333, 106, 355, 113}, {2718, 1000, 2719, 1000}};
+    CkNum c[3] = {ck_num_int(0), ck_num_int(0), ck_num_int(0)};
+    value = ck_rat_plain(value);
+    if (!ck_poly_is_constant(value.den)) { ck_unsupported("un estremo che il verificatore non sa confrontare"); return 0; }
+    for (int i = 0; i < value.num.count; i++) {
+        /* Quale dei tre: nessuna lettera, pi greco, o e. */
+        const CkTerm *t = &value.num.term[i];
+        int which = 0;
+        for (int v = 0; v < ck_var_count; v++) {
+            const CkVar *x = &ck_vars[v];
+            if (!t->e[v]) continue;
+            int euler = x->kind == CK_VAR_E && ck_poly_is_constant(x->base) && ck_poly_is_constant(x->below) && x->base.count && x->base.term[0].coef.num == 1 &&
+                        x->base.term[0].coef.den == 1 && t->e[v] == x->below.term[0].coef.num;
+            if (which || !(euler || (x->kind == CK_VAR_PI && t->e[v] == 1))) { ck_unsupported("un estremo che il verificatore non sa confrontare"); return 0; }
+            which = euler ? 2 : 1;
+        }
+        c[which] = t->coef;
+    }
+
+    /* 333/106 < pi < 355/113 e 2718/1000 < e < 2719/1000: ognuno dei due
+     * addendi c_j t sta tra c_j per i due estremi di t, nell'ordine che dà il
+     * segno di c_j. */
+    *low = *high = c[0];
+    for (int j = 1; j < 3; j++) {
+        CkNum first = ck_num_mul(c[j], ck_num_make(bounds[j][0], bounds[j][1])), second = ck_num_mul(c[j], ck_num_make(bounds[j][2], bounds[j][3]));
+        int order = ck_num_cmp(first, second) <= 0;
+        *low = ck_num_add(*low, order ? first : second);
+        *high = ck_num_add(*high, order ? second : first);
+    }
+    return c[1].num == 0 && c[2].num == 0;
+}
+
+/* Controlla che il numero scritto da node (il valore V o un estremo, senza
+ * la variabile) sia un numero reale: vedi la testa di 13e. Annota il rifiuto
+ * se un argomento ha di sicuro il segno sbagliato, la non controllabilità se
+ * il suo segno non si sa. */
+static void ck_real_number(const CkNode *node) {
+    if (!node || ck_status != CK_ACCEPTED) return;
+    ck_real_number(node->a);
+    ck_real_number(node->b);
+
+    /* Che cosa chiede node del suo argomento: 1 positivo, 2 diverso da zero,
+     * 3 non negativo. strict è 0 quando la richiesta è più severa del
+     * necessario (una potenza il cui esponente potrebbe valere un intero
+     * anche se non è scritto come tale): lì un no vuol dire "non so". */
+    int need = 0, strict = 1;
+    const CkNode *argument = NULL;
+    switch (node->kind) {
+    case CK_LN: need = 1; argument = node->a; break;
+    case CK_LNABS: need = 2; argument = node->a; break;
+    case CK_DIV: need = 2; argument = node->b; break;
+    case CK_RADICAL:
+        if (node->a->kind != CK_NUMBER || node->a->value % 2 == 0) need = 3;
+        argument = node->b;
+        break;
+    case CK_POW:
+        if (node->b->kind == CK_NUMBER) { if (node->b->value < 0) need = 2; }
+        else { need = 1; strict = 0; }
+        argument = node->a;
+        break;
+    default:
+        break;
+    }
+    if (!need) return;
+    CkNum low, high;
+    ck_endpoint(ck_eval(argument), &low, &high);
+    if (ck_status != CK_ACCEPTED) return;
+    int positive = low.num > 0, negative = high.num < 0, zero = low.num == 0 && high.num == 0;
+    int holds = need == 1 ? positive : need == 2 ? positive || negative : positive || zero;
+    int fails = need == 1 ? negative || zero : need == 2 ? zero : negative;
+    if (holds) return;
+    if (fails && strict) ck_reject("il valore o un estremo dell'integrale non è un numero reale");
+    else ck_unsupported("non so stabilire che il valore o un estremo dell'integrale è un numero reale");
+}
+
+/* Controlla che ogni condizione annotata valga su [low, high], come in
+ * testa a 13e; exact è 1 se l'intervallo è proprio [a, b]. */
+static void ck_check_interval(CkNum low, CkNum high, int exact) {
+    for (int i = 0; i < ck_divisor_count + ck_condition_count && ck_status == CK_ACCEPTED; i++) {
+        CkCondition c = i < ck_divisor_count ? (CkCondition){ck_divisors[i].value, 0, 1} : ck_conditions[i - ck_divisor_count];
+        CkUni u;
+        int plain = 1;
+        for (int v = 1; v < ck_var_count; v++)
+            if (ck_poly_uses(c.p, v)) plain = 0;
+        if (!plain) { ck_unsupported("non so stabilire che la funzione è definita su tutto l'intervallo: una condizione di esistenza non è un polinomio in x"); return; }
+        ck_uni_of(c.p, &u);
+        if (ck_status != CK_ACCEPTED) return;
+        int at_low = ck_num_sign(ck_uni_at(&u, low)), at_high = ck_num_sign(ck_uni_at(&u, high));
+        int holds = at_low != 0 && at_high != 0 && (ck_num_cmp(low, high) == 0 || ck_roots(&u, &low, &high) == 0) && (!c.positive || at_low > 0);
+        if (ck_status != CK_ACCEPTED || holds) continue;
+        if (exact && c.certain) ck_reject("la funzione integranda o la primitiva non è definita in un punto dell'intervallo di integrazione");
+        else ck_unsupported("non so stabilire che la funzione integranda e la primitiva sono definite su tutto l'intervallo");
+    }
+}
+
+/* 13f. LA LETTURA E I CONTI
+ *
+ * Il certificato si calcola tre volte, come quelli di induzione (capitolo
+ * 7) ma con una volta in più: la prima trova l'unità (13a); la seconda, da
+ * capo con l'unità trovata, i riferimenti delle somme, se ci sono (n! in
+ * una derivata n-esima); la terza fa i conti veri, e le prove. */
+
+/* Un certificato del capitolo 13, come è stato letto. */
+typedef struct {
+    int kind;               /* 0 derivative, 1 antiderivative, 2 integral */
+    char order_letter;      /* derivative: la lettera n dell'ordine, o 0 */
+    long long order;        /* derivative: l'ordine k, o il caso base n0 */
+    const CkNode *function; /* F: la funzione da derivare, o la primitiva */
+    const CkNode *claim;    /* G: la derivata affermata, o la funzione integranda */
+    const CkNode *lower, *upper, *value;  /* integral: a, b e V */
+    const CkNode *brick[CK_MAX_BRICKS];
+    int bricks;
+} CkCalculus;
+
+/* Ritorna la k-esima derivata di r, con le relazioni che non cambiano il
+ * valore applicate a ogni passo (13d). */
+static CkRat ck_derivative_times(CkRat r, long long k) {
+    for (long long i = 0; i < k && ck_status == CK_ACCEPTED; i++) {
+        r = ck_rat_derivative(r);
+        r = (CkRat){ck_reduce(r.num, 0), ck_reduce(r.den, 0)};
+    }
+    return r;
+}
+
+/* Ritorna il valore di node con la variabile legata al numero value. */
+static CkRat ck_eval_at(const CkNode *node, CkRat value) {
+    ck_env[0] = (CkBinding){ck_dx, value};
+    ck_env_count = 1;
+    CkRat result = ck_eval(node);
+    ck_env_count = 0;
+    return result;
+}
+
+/* Le identità di un certificato: F^(k) - G = 0, oppure, per una derivata
+ * n-esima, il caso base e il passo da n a n + 1 sulla formula, che è
+ * un'identità in n e in x. Con final = 0 si calcola soltanto. Per un
+ * integrale si annotano anche le condizioni di esistenza di F e di f, in
+ * ogni valutazione: si controllano prima di calcolare F negli estremi, dove
+ * altrimenti un polo darebbe un motivo meno chiaro. */
+static void ck_calculus_identity(const CkCalculus *cert, int final) {
+    if (cert->kind == 0 && cert->order_letter) {
+        ck_numeric = 1;
+        ck_point = cert->order;
+        CkRat start = ck_derivative_times(ck_eval(cert->function), cert->order), formula = ck_eval(cert->claim);
+        if (final) ck_calculus_zero(ck_rat_add(start, formula, 1), "nel caso base la derivata calcolata dal verificatore non è la formula");
+        ck_numeric = 0;
+        CkRat slope = ck_derivative_times(ck_eval(cert->claim), 1);
+        ck_shift = 1;
+        CkRat next = ck_eval(cert->claim);
+        ck_shift = 0;
+        if (final) ck_calculus_zero(ck_rat_add(slope, next, 1), "la derivata della formula per n non è la formula per n + 1");
+        return;
+    }
+    ck_recording = cert->kind == 2;
+    CkRat function = ck_eval(cert->function), claim = ck_eval(cert->claim);
+    ck_recording = 0;
+    CkRat derivative = ck_derivative_times(function, cert->kind == 0 ? cert->order : 1);
+    if (final) ck_calculus_zero(ck_rat_add(derivative, claim, 1), cert->kind == 0 ? "la derivata calcolata dal verificatore non è quella del certificato"
+                                                                                   : "la derivata della primitiva non è la funzione integranda");
+}
+
+/* Fa i conti del certificato cert; con final = 0 è una valutazione di prova,
+ * di cui contano solo l'unità e i riferimenti.
+ *
+ * I valori assoluti, in una derivata o in una primitiva, come nel capitolo
+ * 12: |u| vale u dove u > 0 e -u dove u < 0, e si fanno i conti per ogni
+ * scelta dei segni (ck_abs_pattern). Fissata una scelta, nell'insieme aperto
+ * dei punti in cui ogni argomento ha proprio quel segno le espressioni
+ * coincidono con quelle senza valore assoluto, che si possono derivare: lì
+ * l'identità vale se vale per quella scelta. Ogni punto in cui gli argomenti
+ * dei valori assoluti di F non sono zero sta in uno di quegli insiemi (in
+ * quelli di G può anche essere zero: lì u = -u, e le due scelte danno lo
+ * stesso valore). Per questo F, per essere regolare, vuole anche gli
+ * argomenti dei suoi valori assoluti diversi da zero. Si provano anche le
+ * scelte che non capitano in nessun punto: si chiede di più, mai di meno; e
+ * per questo, con dei valori assoluti, una differenza non nulla rende il
+ * certificato non controllabile, non sbagliato (ck_calculus_zero()).
+ * Un integrale con un valore assoluto non è controllabile: lì F e f devono
+ * essere definite su tutto [a, b], anche dove un argomento vale zero. */
+static void ck_calculus_pass(const CkCalculus *cert, int final) {
+    ck_real = 1;
+    ck_numeric = 0;
+    ck_shift = 0;
+    ck_env_count = 0;
+    ck_derived = 0;
+    ck_divisor_count = ck_condition_count = 0;
+
+    /* I fattori suggeriti per i logaritmi (8g), senza radici (vedi
+     * ck_real_root()). */
+    ck_brick_count = 0;
+    ck_hinting = 1;
+    for (int i = 0; i < cert->bricks && ck_status == CK_ACCEPTED; i++) {
+        CkRat brick = ck_eval(cert->brick[i]);
+        CkNum lead;
+        if (!ck_poly_is_constant(brick.den) || ck_poly_is_constant(brick.num)) { ck_reject("una voce brick non è un polinomio non costante"); return; }
+        ck_bricks[ck_brick_count++] = ck_poly_monic(brick.num, &lead);
+    }
+    ck_hinting = 0;
+
+    /* Le identità, per ogni scelta dei segni dei valori assoluti. */
+    ck_abs_count = 0;
+    if (cert->kind != 2) {
+        ck_collect_abs(cert->function);
+        ck_collect_abs(cert->claim);
+    }
+    for (ck_abs_pattern = 0; ck_abs_pattern < 1u << ck_abs_count && ck_status == CK_ACCEPTED; ck_abs_pattern++) {
+        ck_derived = 0;
+        ck_calculus_identity(cert, final);
+    }
+    ck_abs_pattern = 0;
+    if (cert->kind != 2 || ck_status != CK_ACCEPTED) return;
+
+    /* 13e. Gli estremi, le condizioni su [a, b], il valore. */
+    CkRat lower = ck_eval(cert->lower), upper = ck_eval(cert->upper);
+    CkNum low[2], high[2];
+    int exact = ck_endpoint(lower, &low[0], &high[0]);
+    exact = ck_endpoint(upper, &low[1], &high[1]) && exact;
+    if (ck_status != CK_ACCEPTED) return;
+    int order = ck_num_cmp(low[0], low[1]) <= 0;
+    ck_check_interval(order ? low[0] : low[1], ck_num_cmp(high[0], high[1]) >= 0 ? high[0] : high[1], exact);
+    if (ck_status != CK_ACCEPTED) return;
+    /* Il valore e gli estremi devono essere numeri reali (testa di 13e):
+     * prima del confronto, che non lo vede. */
+    ck_real_number(cert->lower);
+    ck_real_number(cert->upper);
+    ck_real_number(cert->value);
+    CkRat gap = ck_rat_add(ck_eval_at(cert->function, upper), ck_eval_at(cert->function, lower), 1);
+    if (final && ck_status == CK_ACCEPTED) ck_calculus_zero(ck_rat_add(ck_eval(cert->value), gap, 1), "il valore dell'integrale non è F(b) - F(a)");
+}
+
+/* Legge la voce word, seguita da un'espressione, e ne ritorna l'albero. */
+static const CkNode *ck_read_voice(const char *word) {
+    ck_next_line();
+    if (!ck_word(word)) { ck_reject("certificato scritto male: una voce manca o è fuori posto"); return NULL; }
+    return ck_read();
+}
+
+/* Legge e controlla un certificato del capitolo 13 di tipo kind (0
+ * derivative, 1 antiderivative, 2 integral), dalla riga dopo l'intestazione
+ * fino a "end" compreso. */
+static void ck_check_calculus(int kind) {
+    CkCalculus cert;
+    memset(&cert, 0, sizeof cert);
+    cert.kind = kind;
+    cert.order = 1;
+
+    /* La variabile, e per una derivata l'ordine. */
+    ck_next_line();
+    int named = ck_word("variable");
+    ck_skip();
+    if (!named || !isalpha((unsigned char)*ck_cursor) || isalnum((unsigned char)ck_cursor[1])) { ck_reject("certificato scritto male: manca la variabile"); return; }
+    ck_dx = *ck_cursor++;
+    if (kind == 0) {
+        ck_next_line();
+        if (!ck_word("order")) { ck_reject("certificato scritto male: manca l'ordine"); return; }
+        ck_skip();
+        if (isalpha((unsigned char)*ck_cursor) && !isalnum((unsigned char)ck_cursor[1])) {
+            cert.order_letter = *ck_cursor++;
+            ck_skip();
+            if (cert.order_letter == ck_dx || !ck_word("base") || !ck_read_integer(&cert.order)) { ck_reject("certificato scritto male: order n base n0"); return; }
+        } else if (!ck_read_integer(&cert.order)) {
+            ck_reject("certificato scritto male: l'ordine è un intero o una lettera");
+            return;
+        }
+        if (cert.order < 0 || cert.order > CK_MAX_DERIVATIVE) { ck_unsupported("ordine di derivazione che il verificatore non tratta"); return; }
+    }
+
+    /* Le espressioni, nell'ordine. */
+    if (kind == 2) {
+        cert.lower = ck_read_voice("lower");
+        cert.upper = ck_read_voice("upper");
+    }
+    if (kind == 0) {
+        cert.function = ck_read_voice("function");
+        cert.claim = ck_read_voice("derivative");
+    } else {
+        cert.claim = ck_read_voice("integrand");
+        cert.function = ck_read_voice("primitive");
+    }
+    if (kind == 2) cert.value = ck_read_voice("value");
+    for (ck_next_line(); ck_status == CK_ACCEPTED && ck_word("brick"); ck_next_line()) {
+        if (cert.bricks == CK_MAX_BRICKS) { ck_unsupported("troppe voci brick"); return; }
+        cert.brick[cert.bricks++] = ck_read();
+    }
+    if (ck_status != CK_ACCEPTED) return;
+    if (!ck_word("end")) { ck_reject("certificato scritto male: voce sconosciuta o \"end\" mancante"); return; }
+
+    /* La funzione da derivare non dipende dall'ordine; estremi e valore non
+     * dipendono dalla variabile. */
+    if (cert.order_letter && ck_mentions(cert.function, cert.order_letter)) { ck_reject("la funzione da derivare contiene la lettera dell'ordine"); return; }
+    if (kind == 2 && (ck_mentions(cert.lower, ck_dx) || ck_mentions(cert.upper, ck_dx) || ck_mentions(cert.value, ck_dx))) {
+        ck_reject("gli estremi o il valore di un integrale contengono la variabile");
+        return;
+    }
+
+    /* Le tre valutazioni (in testa a 13f). La prima e la seconda partono da
+     * capo, la terza usa le lettere della seconda: la x è sempre la 0. Le
+     * unità della prima restano: quella delle radici si riferisce agli
+     * alberi letti, che stanno prima di mark. */
+    size_t mark = ck_used;
+    ck_unit = 1;
+    ck_root_unit_count = 0;
+    for (int pass = 0; pass < 3 && ck_status == CK_ACCEPTED; pass++) {
+        ck_trial = pass < 2;
+        ck_learning = pass == 0;
+        if (pass < 2) {
+            ck_used = mark;
+            ck_var_count = 0;
+            ck_sign_var = -1;
+            ck_var_letter(ck_dx);
+        }
+        ck_variable = cert.order_letter;
+        ck_calculus_pass(&cert, pass == 2);
+    }
+    ck_real = ck_hinting = 0;
+
+    /* Come nel capitolo 8: una somma o un prodotto fino a a n + r sta per una
+     * quantità vera solo se esiste dal caso base in su. */
+    for (int v = 0; v < ck_var_count && cert.order_letter && ck_status == CK_ACCEPTED; v++)
+        if (ck_vars[v].kind == CK_VAR_BIG && ck_vars[v].dilation * cert.order + ck_vars[v].offset < ck_vars[v].lower - 1)
+            ck_unsupported("una somma o un prodotto comincia dopo il suo ultimo termine, nel caso base");
+}
+
+/* =============================================================================
+ * 14. CONTROLLO DI UN CERTIFICATO
  * ============================================================================
  *
  * I tre controlli descritti in testa al file, più le condizioni che rendono
@@ -3652,6 +4845,15 @@ static void ck_read_certificate(CkCertificate *cert) {
         ck_check_signs();
         return;
     }
+
+    /* Una derivata, una primitiva, un integrale (capitolo 13). */
+    static const char *const calculus[] = {"derivative", "antiderivative", "integral"};
+    for (int kind = 0; kind < 3; kind++)
+        if (ck_word(calculus[kind])) {
+            cert->checked = 1;
+            ck_check_calculus(kind);
+            return;
+        }
     if (!ck_word("induction")) { ck_reject("certificato scritto male: manca l'intestazione"); return; }
     while (ck_status == CK_ACCEPTED && !ended) {
         while (isspace((unsigned char)*ck_cursor)) ck_cursor++;
@@ -3860,6 +5062,7 @@ static CkAnswer ck_check(const char **text, const char **why) {
     ck_env_count = 0;
     ck_depth = 0;
     ck_fixed_count = ck_fixing = ck_recording = ck_divisor_count = 0;
+    ck_real = 0;
     ck_cursor = *text;
     ck_read_certificate(&cert);
     *text = ck_cursor;
@@ -3885,7 +5088,7 @@ static CkAnswer ck_check(const char **text, const char **why) {
 }
 
 /* =============================================================================
- * 14. MAIN
+ * 15. MAIN
  * ============================================================================
  *
  * Il verificatore come programma a sé: legge un file di certificati, uno
