@@ -374,7 +374,10 @@
  *
  * La numerazione è una sola per i tre file che formano il programma. I
  * capitoli segnati con un nome di file stanno in quel file, incluso da qui
- * nel punto in cui compaiono nell'elenco.
+ * nel punto in cui compaiono nell'elenco. Il capitolo 18, il più lungo, è
+ * diviso in capitoli numerati 18.1, 18.2, ...: le sue regole si citano come
+ * 18a, 18p, 18t-h, e con la sottonumerazione restano tutte nel capitolo che
+ * dà loro il nome.
  *
  *    1. Include e limiti
  *    2. Errori e memoria
@@ -396,6 +399,25 @@
  *   16. Insiemi: verifica indipendente e dimostrazione scritta
  *   24. Intervalli: numeri reali con l'errore garantito
  *   18. Quantificatori: regole di dimostrazione
+ *       18.1   Lo stato della dimostrazione e la scrittura dei polinomi
+ *       18.2   Polinomi nelle variabili generiche: zeri, segni, interi
+ *       18.3   Confronti e disgiunzioni di confronti
+ *       18.4   "Per ogni" ed "esiste": induzione, casi sul resto, equazioni
+ *       18.5   Le ipotesi "esiste", con il loro testimone
+ *       18.6   establish(): la dimostrazione per struttura
+ *       18.7   Sole congruenze: tutti i resti
+ *       18.8   La tabella dei segni: numeri e polinomi esatti, i punti
+ *       18.9   Le lettere della tabella: esponenziali, logaritmi, seni
+ *       18.10  L'albero dei segni
+ *       18.11  I confronti preparati, e la loro verità in una riga
+ *       18.12  Il controllo con i numeri
+ *       18.13  Le righe della tabella e le soluzioni
+ *       18.14  Le soluzioni di una condizione periodica
+ *       18.15  Il grafico della tabella dei segni
+ *       18.16  Il verdetto della tabella e il suo certificato
+ *       18.17  Un parametro: la proiezione e le celle
+ *       18.18  Un parametro: le celle decise e scritte
+ *       18.19  Un parametro: i controlli e il verdetto
  *   19. Quantificatori: verifica indipendente e verdetto
  *   25. Induzione su una disuguaglianza
  *   26. Successioni definite per ricorrenza
@@ -3143,8 +3165,8 @@ static Rat surd_inside[MAX_SURDS], surd_value[MAX_SURDS];
 static int surd_count;
 
 /* Il segno di un numero che può contenere radici quadrate di interi. È
- * definita nel capitolo 18 (18p), dopo il test di annullamento che le serve;
- * qui la usa il valore assoluto di un numero. */
+ * definita nel capitolo 18.12 (18p), dopo il test di annullamento che le
+ * serve; qui la usa il valore assoluto di un numero. */
 static int number_sign(Rat r, int *side);
 
 /* Gli esponenziali e i logaritmi nella tabella dei segni (18p-8): mentre la
@@ -3152,7 +3174,7 @@ static int number_sign(Rat r, int *side);
  * un logaritmo con la variabile nell'argomento diventano lettere, e sono
  * queste due funzioni a dirlo. Ritornano 1 e mettono in *out ciò che prende
  * il posto del nodo, oppure 0 se il nodo va calcolato come sempre. Sono
- * definite nel capitolo 18, con il resto della tabella. */
+ * definite nel capitolo 18.9, con le altre lettere della tabella. */
 static int exp_letters(const Node *node, Rat *out);
 static int log_letter(const Node *node, Rat *out);
 
@@ -3166,7 +3188,7 @@ static int exp_root(Rat r, long long index, Rat *out);
  * tangente e cotangente di a x + b pi diventano frazioni nella lettera
  * t = tan(g x / 2). trig_value() ritorna 1 e mette in *out ciò che prende
  * il posto del nodo, il cui argomento vale argument; 0 se il nodo va
- * calcolato come sempre. È definita nel capitolo 18. */
+ * calcolato come sempre. È definita nel capitolo 18.9. */
 static int trig_value(const Node *node, Rat argument, Rat *out);
 
 /* Valuta una chiamata di funzione. */
@@ -9042,7 +9064,7 @@ static Range poly_range(Poly p) {
  * Un confronto tra due espressioni diventa così una frazione di polinomi
  * nelle sole variabili generiche, e tutto si riduce a tre domande su un
  * polinomio: è il polinomio nullo? Si annulla da qualche parte, negli insiemi
- * dati? Che segno ha? Le regole, nell'ordine in cui compaiono:
+ * dati? Che segno ha? Le regole sono queste:
  *
  *   18a. Una costante non nulla non si annulla.
  *   18b. Un polinomio in una variabile si annulla solo nelle sue radici, e
@@ -9078,12 +9100,11 @@ static Range poly_range(Poly p) {
  *        soluzioni; le altre regole non li vedono.
  *   18q. Il grafico di ciò che la tabella dei segni ha deciso.
  *   18s. Più ipotesi insieme: la tesi è una combinazione delle ipotesi, con
- *        dei polinomi per moltiplicatori. Nel file sta accanto a 18h, che
- *        tratta il caso di un'ipotesi sola di cui la tesi è un fattore.
+ *        dei polinomi per moltiplicatori. È il seguito di 18h, che tratta il
+ *        caso di un'ipotesi sola di cui la tesi è un fattore.
  *   18r. Un enunciato fatto solo di congruenze tra interi, con moduli che
  *        sono numeri: si provano tutti i resti. Come la tabella dei segni
- *        decide da sola, vero o falso, e trova gli insiemi di soluzioni; nel
- *        file sta prima di 18p.
+ *        decide da sola, vero o falso, e trova gli insiemi di soluzioni.
  *   18t. Due variabili reali, un parametro e una variabile: la retta del
  *        parametro si divide in casi, e in ognuno decide la tabella dei
  *        segni. Anche questa è una regola a parte, e risolve: i valori del
@@ -9093,7 +9114,39 @@ static Range poly_range(Poly p) {
  *        nome, appartenenze e divisibilità si svolgono nella loro
  *        definizione, e il valore di un "esiste" della tesi si cerca tra i
  *        polinomi nelle variabili generiche, con il sistema lineare di 18s.
- *        Nel file sta dopo 18i, di cui è il seguito.
+ *        È il seguito di 18i.
+ *
+ * I capitoli che seguono, numerati da 18.1 a 18.19, raccolgono queste regole
+ * per argomento, nell'ordine in cui un lettore ne ha bisogno: ognuno usa solo
+ * ciò che sta nei capitoli prima di lui. Le etichette delle regole restano
+ * quelle dell'elenco qui sopra, perché le citano commenti, test e README.
+ *
+ *   18.1   Lo stato della dimostrazione e la scrittura dei polinomi
+ *   18.2   Polinomi nelle variabili generiche              18a-18f
+ *   18.3   Confronti e disgiunzioni di confronti           18g, 18h, 18s
+ *   18.4   "Per ogni" ed "esiste": induzione, resti,       18n, 18o, 18i
+ *          equazioni
+ *   18.5   Le ipotesi "esiste", con il loro testimone      18u
+ *   18.6   establish(): la dimostrazione per struttura     18e, 18k, 18l, 18m
+ *   18.7   Sole congruenze: tutti i resti                  18r
+ *   18.8   La tabella dei segni: numeri e polinomi         18p-1 ... 18p-6
+ *          esatti, i punti
+ *   18.9   Le lettere della tabella: esponenziali,         18p-8, 18p-11,
+ *          logaritmi, funzioni goniometriche, famiglie     18p-13
+ *   18.10  L'albero dei segni                              18p-7, 18p-9, 18p-10
+ *   18.11  I confronti preparati, e la loro verità         18p-14, 18p-8, 18p-13
+ *          in una riga
+ *   18.12  Il controllo con i numeri                       18p-2
+ *   18.13  Le righe della tabella e le soluzioni           18p-2
+ *   18.14  Le soluzioni di una condizione periodica        18p-12, 18p-14
+ *   18.15  Il grafico                                      18q
+ *   18.16  Il verdetto della tabella e il certificato      18p, 18p-15
+ *   18.17  Un parametro: la proiezione e le celle          18t-a, 18t-b
+ *   18.18  Un parametro: le celle decise e scritte         18t-c, 18t-d, 18t-e
+ *   18.19  Un parametro: i controlli e il verdetto         18t-f, 18t-g, 18t-h
+ *
+ * Il verdetto di un enunciato con quantificatori, e la verifica indipendente
+ * di ciò che queste regole hanno dimostrato, sono nel capitolo 19.
  *
  * Le espressioni possono contenere anche somme, potenze e funzioni, come
  * nel capitolo 9. Le regole da 18a a 18h lavorano sui polinomi, e davanti a
@@ -9118,6 +9171,19 @@ static Range poly_range(Poly p) {
  * equivale a esiste x per cui non vale P), e così congiunzione e
  * disgiunzione. Per questo le funzioni prendono, oltre alla condizione, il
  * parametro `negated`.
+ */
+
+/* =============================================================================
+ * 18.1 LO STATO DELLA DIMOSTRAZIONE E LA SCRITTURA DEI POLINOMI
+ * ============================================================================
+ *
+ * Ciò che tutte le regole condividono. Lo stato della prova in corso: le
+ * variabili generiche, i valori scelti per gli "esiste", i tentativi che
+ * restano, e il punto (Mark) a cui tornare quando un tentativo fallisce,
+ * cancellando il testo e le scelte fatte dopo. Poi il modo di scrivere nella
+ * dimostrazione un polinomio nelle variabili dell'enunciato, e di ottenerlo
+ * da una frazione negli atomi (rat_polynomials()): le regole che seguono
+ * lavorano tutte su polinomi così.
  */
 
 /* Le variabili generiche della dimostrazione in corso, dalla più esterna. */
@@ -9169,7 +9235,7 @@ static void choose(int name, Frac value) {
 
 /* Ciò che la regola 18u lascia da ricontrollare alla verifica del capitolo
  * 19: quanti valori trovati da 18u-3 sono annotati in witness_records[] (vedi
- * WitnessRecord, nel paragrafo di 18u), e quante ipotesi "esiste" 18u-1 ha
+ * WitnessRecord, nel capitolo 18.5), e quante ipotesi "esiste" 18u-1 ha
  * preso con il loro testimone. Come le scelte, tornano indietro con un
  * tentativo abbandonato: di quel tentativo non resta nulla da ricontrollare. */
 static int record_count, hypotheses_named;
@@ -9323,6 +9389,19 @@ static int rat_polynomials(Rat r, Poly *num, Poly *den) {
     }
     return !failure;
 }
+
+/* =============================================================================
+ * 18.2 POLINOMI NELLE VARIABILI GENERICHE: ZERI, SEGNI, INTERI, APPARTENENZA
+ * ============================================================================
+ *
+ * Le regole da 18a a 18f: dato un polinomio "vero" nelle variabili generiche
+ * (rat_polynomials()), stabilire per ogni loro valore che non si annulla, che
+ * ha un segno, che è un intero, che sta in un insieme numerico; e che ogni
+ * divisore di un'espressione è diverso da zero. Ognuna scrive il proprio
+ * ragionamento, e ricontrolla prima ciò che il testo sta per affermare: le
+ * radici sostituendole (roots_confirmed()), le semirette guardando dove
+ * cadono i primi elementi dell'insieme, la sostituzione tornando indietro.
+ */
 
 /* Controllo di un passo: ciò che la dimostrazione sta per dire delle radici
  * del polinomio p, nella variabile di atomo x che varia in set. Ritorna 1 se
@@ -9728,6 +9807,20 @@ static int term_defined(const Node *node) {
     return zero_only_where(num, NULL);
 }
 
+/* =============================================================================
+ * 18.3 CONFRONTI E DISGIUNZIONI DI CONFRONTI
+ * ============================================================================
+ *
+ * Le regole 18g, 18h e 18s, che dimostrano "per ogni valore delle variabili
+ * generiche vale almeno uno di questi confronti". Ogni confronto diventa un
+ * Literal: il numeratore della differenza dei due membri, calcolato dopo
+ * aver controllato i divisori (18f), con ciò che si chiede (uguali o
+ * diversi) tenuto conto delle negazioni. Un confronto tra espressioni che
+ * non sono razionali si decide solo tra numeri (closed_gap()). Qui stanno
+ * anche le leggi di De Morgan (junction()), che servono a ogni regola sui
+ * connettivi.
+ */
+
 /* Un confronto dentro una disgiunzione da dimostrare. */
 typedef struct {
     Formula *source;  /* il confronto com'è scritto nell'enunciato */
@@ -9786,15 +9879,6 @@ static int closed_gap(const Formula *source) {
     if (failure) answer = -1;
     failure = NULL;
     return answer;
-}
-
-/* Ritorna 1 se il numero u divide il numero v, cioè se v è u per un numero
- * intero (17n): zero divide solo zero, e un altro numero divide v quando il
- * quoziente è intero. Vale per i razionali come è scritta: 1/2 divide 3. */
-static int number_divides(Num u, Num v) {
-    if (u.im.num != 0 || v.im.num != 0) return 0;
-    if (u.re.num == 0) return v.re.num == 0;
-    return frac_div(v.re, u.re).den == 1;
 }
 
 /* Come si legge un connettivo tenuto conto della negazione: una congiunzione
@@ -10270,8 +10354,20 @@ static int prove_clause(Literal *literal, int count) {
     return 1;
 }
 
-/* Prototipo in avanti inevitabile: establish(), solve_with() e
- * by_remainders() si chiamano a vicenda. */
+/* =============================================================================
+ * 18.4 "PER OGNI" ED "ESISTE": INDUZIONE, CASI SUL RESTO, EQUAZIONI
+ * ============================================================================
+ *
+ * Le regole che dimostrano un quantificatore con un metodo proprio, quando
+ * introdurre una variabile generica (18k) non basta: "per ogni n" di
+ * un'uguaglianza per induzione (18n), "per ogni x" intero per casi sul resto
+ * in una divisione (18o), "esiste x" risolvendo un'equazione in x (18i). Ognuna
+ * dimostra ciò che resta chiamando establish() (18.6), con la variabile
+ * legata al valore scelto o al caso in esame.
+ */
+
+/* Prototipo in avanti inevitabile: establish() (18.6) e le regole 18i, 18o e
+ * 18u (18.4, 18.5) si chiamano a vicenda. */
 static int establish(Formula *f, int negated);
 
 /* Ritorna 1 se la lettera name compare nel sotto-albero node, come variabile,
@@ -10517,13 +10613,13 @@ static int solve_by_roots(Formula *f, int negated, const Formula *equation, Poly
  * Scrive il ragionamento e ritorna 1 se ci riesce; se ritorna 0 il testo
  * scritto va cancellato da chi chiama.
  *
- * Se l'uguaglianza, tolti i denominatori, è di grado più alto in x, la si passa a solve_by_roots(). Se è di primo grado,
- * cioè alpha x + beta = 0 con alpha e beta senza x, l'unico valore possibile
- * è x = -beta/alpha. Va controllato tutto ciò che questo
- * sottintende: che alpha non si annulli mai, che il valore stia in A, e
- * infine che con quel valore la condizione valga davvero. Quest'ultimo
- * controllo ricalcola tutto da capo, quindi non si fida dei passaggi fatti
- * per ricavare x. */
+ * Se l'uguaglianza, tolti i denominatori, è di grado più alto in x, la si
+ * passa a solve_by_roots(). Se è di primo grado, cioè alpha x + beta = 0 con
+ * alpha e beta senza x, l'unico valore possibile è x = -beta/alpha. Va
+ * controllato tutto ciò che questo sottintende: che alpha non si annulli
+ * mai, che il valore stia in A, e infine che con quel valore la condizione
+ * valga davvero. Quest'ultimo controllo ricalcola tutto da capo, quindi non
+ * si fida dei passaggi fatti per ricavare x. */
 static int solve_with(Formula *f, int negated, const Formula *equation) {
     int x = atom_var(f->variable);
     Poly num, den, part[2], shown_num, shown_den;
@@ -10596,7 +10692,9 @@ static int solve_for(Formula *f, int negated) {
     return 0;
 }
 
-/* 18u. LE IPOTESI "ESISTE", CON IL LORO TESTIMONE
+/* =============================================================================
+ * 18.5 LE IPOTESI "ESISTE", CON IL LORO TESTIMONE (18u)
+ * ============================================================================
  *
  * A che cosa serve. "Se x - y è un intero e y - z è un intero, allora x - z
  * è un intero" si scrive
@@ -11227,6 +11325,28 @@ static int name_witnesses(Formula *f, int negated) {
     return 0;
 }
 
+/* =============================================================================
+ * 18.6 ESTABLISH(): LA DIMOSTRAZIONE PER STRUTTURA
+ * ============================================================================
+ *
+ * establish() mette insieme le regole dei capitoli precedenti seguendo la
+ * forma della condizione: un'appartenenza (18e) o una divisibilità, un
+ * confronto o una disgiunzione di confronti (18g, 18h, 18s), i connettivi
+ * (18l, 18u), i quantificatori (18k, 18n, 18o, 18i, 18j). Qui stanno anche
+ * ciò che si dimostra di un'applicazione prima di usarla (18m) e la
+ * divisione della tesi nelle sue affermazioni (prove_claims()), che sono i
+ * punti di ingresso del capitolo 19.
+ */
+
+/* Ritorna 1 se il numero u divide il numero v, cioè se v è u per un numero
+ * intero (17n): zero divide solo zero, e un altro numero divide v quando il
+ * quoziente è intero. Vale per i razionali come è scritta: 1/2 divide 3. */
+static int number_divides(Num u, Num v) {
+    if (u.im.num != 0 || v.im.num != 0) return 0;
+    if (u.re.num == 0) return v.re.num == 0;
+    return frac_div(v.re, u.re).den == 1;
+}
+
 /* Dimostra la condizione f, o la sua negazione se negated, per ogni valore
  * delle variabili generiche e con i valori dati alle altre. Scrive il
  * ragionamento come una serie di \item e ritorna 1 se ci riesce; se ritorna 0
@@ -11541,7 +11661,9 @@ static int prove_claims(Formula *f) {
     return holds;
 }
 
-/* 18r. SOLE CONGRUENZE: TUTTI I RESTI
+/* =============================================================================
+ * 18.7 SOLE CONGRUENZE: TUTTI I RESTI (18r)
+ * ============================================================================
  *
  * "5x è congruo a 8 modulo 36 se e solo se x è congruo a 16 modulo 36" parla
  * di tutti gli interi, ma che un intero x soddisfi una congruenza dipende
@@ -11590,7 +11712,9 @@ static int prove_claims(Formula *f) {
  *
  * La verifica indipendente è nel capitolo 19: lo stesso enunciato viene
  * ricalcolato sugli interi veri di un periodo, con i conti esatti del
- * capitolo 11 al posto dell'aritmetica dei resti.
+ * capitolo 11 al posto dell'aritmetica dei resti. Lì stanno anche il
+ * verdetto e le soluzioni (decide_by_residues(), solve_by_residues()), che
+ * di quella verifica hanno bisogno.
  */
 
 /* Una condizione "modulus divide dividend" di un enunciato deciso sui resti. */
@@ -11751,7 +11875,19 @@ static int residue_holds(const Formula *f) {
     return holds;
 }
 
-/* 18p. UNA SOLA VARIABILE: LA TABELLA DEI SEGNI
+/* =============================================================================
+ * 18.8 LA TABELLA DEI SEGNI (18p): NUMERI E POLINOMI ESATTI, I PUNTI
+ * ============================================================================
+ *
+ * Questo capitolo e i seguenti, fino al 18.16, sono la regola 18p. Qui il
+ * metodo e la sua parte esatta: i razionali a 128 bit, i polinomi in una
+ * variabile, le catene di Sturm, la base e i punti della tabella. Le lettere
+ * per esponenziali, logaritmi e funzioni goniometriche sono nel capitolo 18.9,
+ * l'albero dei segni nel 18.10, i confronti preparati nel 18.11, i controlli
+ * con i numeri nel 18.12, le righe e le soluzioni nei 18.13 e 18.14, il
+ * grafico nel 18.15, il verdetto e il certificato nel 18.16.
+ *
+ * 18p. UNA SOLA VARIABILE: LA TABELLA DEI SEGNI
  *
  * Gli enunciati di questa regola hanno una variabile sola, che varia nei
  * numeri reali o nei razionali, e confrontano espressioni razionali con =,
@@ -12174,6 +12310,39 @@ static void text_add(char *text, size_t size, const char *format, ...) {
 static void wide_latex(Wide v, char *text, size_t size) {
     if (v.den == 1) text_add(text, size, "%lld", (long long)v.num);
     else text_add(text, size, "%s\\frac{%lld}{%lld}", v.num < 0 ? "-" : "", (long long)(v.num < 0 ? -v.num : v.num), (long long)v.den);
+}
+
+/* Scrive nella dimostrazione il razionale v. */
+static void put_wide(Wide v) {
+    if (v.den == 1) proof_add("%lld", (long long)v.num);
+    else proof_add("%s\\frac{%lld}{%lld}", v.num < 0 ? "-" : "", (long long)(v.num < 0 ? -v.num : v.num), (long long)v.den);
+}
+
+/* Scrive in text, di size byte, il razionale v come testo semplice: 3, -5/2. */
+static void wide_text(Wide v, char *text, size_t size) {
+    if (v.den == 1) snprintf(text, size, "%lld", (long long)v.num);
+    else snprintf(text, size, "%lld/%lld", (long long)v.num, (long long)v.den);
+}
+
+/* Aggiunge a text, di size byte, il polinomio p nella lettera name, in LaTeX. */
+static void uni_latex(const Uni *p, int name, char *text, size_t size) {
+    if (p->degree < 0) text_add(text, size, "0");
+    for (int i = p->degree, first = 1; i >= 0; i--) {
+        __int128 c = p->c[i], magnitude = c < 0 ? -c : c;
+        if (c == 0) continue;
+        text_add(text, size, "%s", first ? (c < 0 ? "-" : "") : (c < 0 ? " - " : " + "));
+        if (magnitude != 1 || i == 0) text_add(text, size, "%lld", (long long)magnitude);
+        if (i > 0) text_add(text, size, "%c", name);
+        if (i > 1) text_add(text, size, "^{%d}", i);
+        first = 0;
+    }
+}
+
+/* Scrive nella dimostrazione il polinomio p nella lettera name. */
+static void put_uni(const Uni *p, int name) {
+    char text[512] = "";
+    uni_latex(p, name, text, sizeof text);
+    proof_add("%s", text);
 }
 
 /* Aggiunge a text, di size byte, una radice del polinomio di secondo grado
@@ -12618,7 +12787,20 @@ static void sign_points(int where) {
     if (!failure) qsort(sign_point, (size_t)sign_points_count, sizeof *sign_point, point_order);
 }
 
-/* 18p-8. ESPONENZIALI E LOGARITMI
+/* =============================================================================
+ * 18.9 LE LETTERE DELLA TABELLA: ESPONENZIALI, LOGARITMI, FUNZIONI
+ *      GONIOMETRICHE, FAMIGLIE
+ * ============================================================================
+ *
+ * Ciò che non è una frazione di polinomi nella variabile lo diventa in
+ * un'altra lettera: un esponenziale o un logaritmo (18p-8) è la lettera di
+ * uno "spazio", una funzione goniometrica è una frazione in t = tan(u / 2)
+ * (18p-11), una famiglia di soluzioni x = a + k T è un angolo (18p-13). Qui
+ * si riconoscono queste forme e si registrano le lettere; eval() le usa
+ * attraverso gli agganci dichiarati prima di eval_call() (capitolo 11). I
+ * segni nelle lettere li calcola l'albero dei segni, nel capitolo 18.10.
+ *
+ * 18p-8. ESPONENZIALI E LOGARITMI
  *
  * 5^(x+2) - 4 * 5^(1-x) - 30 non è un polinomio in x, ma lo è nella lettera
  * t = 5^x: 25 t - 20 / t - 30. E il segno di un polinomio in t dipende solo
@@ -13342,7 +13524,21 @@ static int trig_value(const Node *node, Rat argument, Rat *out) {
     return !failure;
 }
 
-/* 18p-7. LE RADICI QUADRATE
+/* =============================================================================
+ * 18.10 L'ALBERO DEI SEGNI
+ * ============================================================================
+ *
+ * Il segno di un confronto in un punto, calcolato dai segni dei polinomi
+ * della tabella. La differenza dei due membri diventa un albero (SignNode):
+ * foglie che sono frazioni di polinomi in una lettera, la variabile o quella
+ * di uno spazio, e nodi per il prodotto, il quoziente e a + b sqrt(r). Lo
+ * costruiscono sign_build() per le radici quadrate (18p-7), sign_ground()
+ * per le lettere degli spazi (18p-8), sign_number_linear() per i confronti
+ * con un numero come ln 6 (18p-10), powers_difference() per due monomi di
+ * potenze (18p-9); sign_fraction() fa il conto e annota le condizioni di
+ * esistenza, e sign_value() legge il segno in una riga.
+ *
+ * 18p-7. LE RADICI QUADRATE
  *
  * Un confronto può contenere radici quadrate, di numeri e di espressioni
  * nella variabile: x < 1 - \sqrt{2}, \sqrt{x + 3} = \sqrt{x + 12} - \sqrt{3 - x}.
@@ -13559,6 +13755,9 @@ static void surd_relate(void) {
             }
 }
 
+/* Prototipo in avanti inevitabile: sign_build() costruisce i suoi alberi con
+ * sign_ground() e sign_surd(), che per i pezzi chiedono a loro volta un
+ * albero a sign_build(), anche attraverso sign_constant(). */
 static const SignNode *sign_build(Rat e, int level, int x);
 
 /* Ritorna quale lettera di spazio compare nel polinomio p: -1 se nessuna,
@@ -13812,6 +14011,9 @@ static int sign_log_linear(Poly p, int x, const SignNode **out) {
     return 1;
 }
 
+/* Prototipo in avanti inevitabile: sign_ground() passa a sign_one_ratio() i
+ * polinomi in un rapporto di esponenziali, e sign_one_ratio() le ridà i
+ * fattori di due termini. */
 static const SignNode *sign_ground(Poly p, int x);
 
 /* 18p-8, regola e di sign_ground(). Se i termini di p sono tutti un numero
@@ -14095,6 +14297,11 @@ static const SignNode *sign_build(Rat e, int level, int x) {
     return node;
 }
 
+/* Prototipo in avanti inevitabile: il tratto in cui sta la lettera di uno
+ * spazio (space_row()) si legge dai confronti dei suoi gradini, cioè da
+ * sign_compare(), che a sua volta legge i segni delle foglie negli spazi
+ * attraverso space_row(). sign_compare() sta nel capitolo 18.11, con i
+ * confronti preparati. */
 static int sign_compare(const Formula *f, const int *sign, int *defined);
 
 /* Ritorna in quale tratto del suo spazio sta la lettera dello spazio s,
@@ -14382,7 +14589,18 @@ static void sign_fraction(const Node *left, const Node *right, unsigned pattern,
         if (seen >> s & 1) sign_require(out, eval(space[s].argument), surd_count, 2, x);
 }
 
-static void family_prepare(const Formula *owner, const Formula *d, void *context);
+/* =============================================================================
+ * 18.11 I CONFRONTI PREPARATI, E LA LORO VERITÀ IN UNA RIGA
+ * ============================================================================
+ *
+ * sign_prepare() percorre l'enunciato e prepara ogni confronto per la
+ * tabella (SignAtom): un albero dei segni per ogni scelta dei segni dei
+ * valori assoluti, una finestra in un enunciato periodico (18p-14), una
+ * famiglia di soluzioni sotto un "esiste k" (18p-13). Poi i gradini di ogni
+ * spazio diventano confronti nella variabile (18p-8, space_process()).
+ * Preparato tutto, sign_truth() dice se l'enunciato vale in una riga della
+ * tabella, cioè dati i segni di tutti i polinomi.
+ */
 
 /* Mette tra le radici in corso quelle di 2 e di 3, con le loro lettere: i
  * seni e i coseni degli angoli costanti di un enunciato periodico si
@@ -14395,6 +14613,136 @@ static void trig_roots_open(void) {
         surd_value[i] = rat_atom(surd_letter[i]);
         surd_inside[i] = eval(surd_node[i]->a);
     }
+}
+
+/* I segni del seno e del coseno di un angolo, come alberi dei segni: dicono
+ * in quale quarto di giro sta l'angolo, e se è un multiplo di 2 pi. */
+typedef struct {
+    SignCase sine, cosine;
+} FamilyAngle;
+
+/* Una famiglia preparata per la tabella (18p-13): gli angoli che dicono se
+ * la variabile sta in uno dei suoi punti o intervalli. below è l'angolo
+ * A = 2 pi (x - low) / T, above è B = 2 pi (high - x) / T (non usato per un
+ * punto), hole[i] è 2 pi (x - hole[i]) / T. wide dice che l'intervallo è più
+ * lungo di mezzo periodo, full che è lungo proprio un periodo (allora copre
+ * tutto, tranne al più il punto in cui comincia e finisce); hole_counts[i]
+ * che quel punto tolto sta nell'intervallo dello stesso k, il solo caso in
+ * cui toglie qualcosa. */
+typedef struct {
+    const Formula *owner;  /* il quantificatore di cui la famiglia è un pezzo */
+    Family family;
+    FamilyAngle below, above, hole[MAX_LATTICE_HOLES];
+    int wide, full;
+    int hole_counts[MAX_LATTICE_HOLES];
+} FamilyLeaf;
+
+static FamilyLeaf family_leaf[MAX_LATTICE];
+static int family_leaves;
+
+/* Prepara in *out i segni del seno e del coseno di
+ * direction 2 pi (x - e) / T, dove e = alpha + k T è un'espressione della
+ * famiglia e direction è 1 o -1.
+ *
+ * L'angolo è n u + psi con u = g x l'angolo dell'enunciato, n intero e
+ * psi = -direction 2 pi alpha / T un angolo costante. Di psi serve la
+ * direzione (cos psi, sin psi) a meno di un fattore positivo: la parte che
+ * è un multiplo di pi la dà trig_constant(); ogni arcotangente di un
+ * razionale m, con coefficiente intero p, la ruota di (1 + i m)^p, perché
+ * cos(arctan m) + i sin(arctan m) è 1 + i m diviso per un numero positivo. */
+static void family_angle(const Node *e, int k, int direction, int x, FamilyAngle *out) {
+    Frac tau, turn = frac_int(0);
+    Rat alpha, real = rat_int(1), imaginary = rat_int(0), cb, sb, cn, sn;
+    int pi = atom_var(VAR_PI);
+    out->sine.first = out->cosine.first = sign_needs;
+    out->sine.needs = out->cosine.needs = 0;
+    if (!family_period(e, k, &tau, &alpha)) { if (!failure) fail(SIGN_SHAPE); return; }
+    if (tau.num < 0) tau.num = -tau.num;
+    Frac multiple = frac_div(frac_div(frac_int(2 * direction), tau), trig_scale), scale = frac_div(frac_int(-2 * direction), tau);
+    if (multiple.den != 1) { fail(SIGN_SHAPE); return; }
+
+    /* psi, un termine di alpha alla volta. */
+    Frac den = alpha.den.term[0].coef.re;
+    for (int i = 0; i < alpha.num.count && !failure; i++) {
+        const Term *t = &alpha.num.term[i];
+        const Atom *atom = t->mono.count == 1 ? &atoms[t->mono.factor[0].atom] : NULL;
+        Frac weight = frac_mul(frac_div(t->coef.re, den), scale);
+        Num slope;
+        if (!atom || t->coef.im.num != 0 || frac_cmp(t->mono.factor[0].exp, frac_int(1)) != 0) { fail(SIGN_SHAPE); return; }
+        if (t->mono.factor[0].atom == pi) { turn = frac_add(turn, weight); continue; }
+        if (atom->kind != ATOM_ATAN || weight.den != 1 || !rat_number(atan_args[atom->id], &slope) || slope.im.num != 0) { fail(SIGN_SHAPE); return; }
+        Rat m = rat_frac(weight.num < 0 ? frac_neg(slope.re) : slope.re);
+        for (long long step = 0; step < (weight.num < 0 ? -weight.num : weight.num); step++) {
+            Rat was = real;
+            real = rat_add(real, rat_mul(imaginary, m), 1);
+            imaginary = rat_add(imaginary, rat_mul(was, m), 0);
+        }
+    }
+    if (failure || !trig_constant(turn, &cb, &sb)) { if (!failure) fail("una famiglia di soluzioni con un angolo che non è un multiplo di 15 gradi"); return; }
+
+    /* sin(n u + psi) e cos(n u + psi), con le formule di addizione. */
+    Rat cosine = rat_add(rat_mul(cb, real), rat_mul(sb, imaginary), 1), sine = rat_add(rat_mul(sb, real), rat_mul(cb, imaginary), 0);
+    trig_multiple(multiple.num, &cn, &sn);
+    out->sine.value = sign_build(rat_add(rat_mul(sn, cosine), rat_mul(cn, sine), 0), surd_count, x);
+    out->cosine.value = sign_build(rat_add(rat_mul(cn, cosine), rat_mul(sn, sine), 1), surd_count, x);
+}
+
+/* Per sign_prepare: prepara il pezzo d del quantificatore owner. context
+ * punta all'atomo della lettera della tabella. La lunghezza dell'intervallo
+ * rispetto al periodo, e se un punto tolto sta nell'intervallo dello stesso
+ * k, si decidono con i numeri, per k = 0 e k = 1: dove non è certo, il pezzo
+ * non è trattato. */
+static void family_prepare(const Formula *owner, const Formula *d, void *context) {
+    int x = *(const int *)context, none = 0, side = 0;
+    Range zero = {0, 0}, one = {1, 1};
+    if (failure) return;
+    if (family_leaves == MAX_LATTICE) { fail("troppe famiglie di soluzioni in un enunciato"); return; }
+    FamilyLeaf *leaf = &family_leaf[family_leaves++];
+    const Family *family = &leaf->family;
+    leaf->owner = owner;
+    if (!family_read(d, sign_name, owner->variable, owner->kind == F_FORALL, &leaf->family)) { fail(SIGN_SHAPE); return; }
+
+    /* Le radici di 2 e di 3 servono ai seni e ai coseni degli angoli
+     * costanti, come in ogni confronto di un enunciato periodico. */
+    trig_roots_open();
+    trig_live = 1;
+    family_angle(family->low, family->k, 1, x, &leaf->below);
+    if (!family->single && !failure) {
+        /* L'intervallo deve stare in un periodo; wide se supera la metà. Un
+         * intervallo lungo proprio mezzo periodo va bene in tutti e due i
+         * modi (i due seni sono uguali), e uno lungo proprio un periodo è
+         * un caso a sé (full); ma con i numeri un'uguaglianza non la si
+         * vede mai: lì decide il conto esatto, quando gli estremi sono
+         * multipli di pi. */
+        Frac tau, slope, turns = frac_int(0);
+        Rat low_part, high_part;
+        Range low = node_range(family->low, family->k, zero, &none), width = range_sub(node_range(family->high, family->k, zero, &none), low);
+        Range period = range_sub(node_range(family->low, family->k, one, &none), low);
+        if (range_side(period, &side) && side < 0) period = range_neg(period);
+        int positive = range_side(width, &side) && side > 0, inside = range_side(range_sub(period, width), &side) && side > 0;
+        int exact = family_period(family->low, family->k, &tau, &low_part) && family_period(family->high, family->k, &tau, &high_part) &&
+                    trig_affine(rat_add(high_part, low_part, 1), &slope, &turns) && slope.num == 0;
+        if (tau.num < 0) tau.num = -tau.num;
+        int half = exact && frac_cmp(frac_add(turns, turns), tau) == 0;
+        leaf->full = exact && frac_cmp(turns, tau) == 0;
+        leaf->wide = 0;
+        if (!leaf->full && !half) {
+            if (!positive || !inside) fail("un intervallo di una famiglia di soluzioni non può essere più lungo del periodo");
+            else if (!range_side(range_sub(range_add(width, width), period), &side)) fail("non so dire se un intervallo di una famiglia di soluzioni supera mezzo periodo");
+            else leaf->wide = side > 0;
+        }
+        family_angle(family->high, family->k, -1, x, &leaf->above);
+    }
+    for (int i = 0; i < family->holes && !failure; i++) {
+        Range hole = node_range(family->hole[i], family->k, zero, &none);
+        int after = range_side(range_sub(hole, node_range(family->low, family->k, zero, &none)), &side) ? side : 0;
+        int before = range_side(range_sub(node_range(family->high, family->k, zero, &none), hole), &side) ? side : 0;
+        if (after == 0 || before == 0) { fail("un punto tolto proprio sull'estremo di un intervallo: non so dire se conta"); break; }
+        leaf->hole_counts[i] = after > 0 && before > 0;
+        family_angle(family->hole[i], family->k, 1, x, &leaf->hole[i]);
+    }
+    trig_live = 0;
+    surd_count = 0;
 }
 
 /* Ritorna 1 se in node compare una funzione goniometrica della variabile. */
@@ -14710,136 +15058,6 @@ static int sign_of_case(const SignCase *c, const int *sign, int *defined) {
     return sign_value(c->value, sign, defined);
 }
 
-/* I segni del seno e del coseno di un angolo, come alberi dei segni: dicono
- * in quale quarto di giro sta l'angolo, e se è un multiplo di 2 pi. */
-typedef struct {
-    SignCase sine, cosine;
-} FamilyAngle;
-
-/* Una famiglia preparata per la tabella (18p-13): gli angoli che dicono se
- * la variabile sta in uno dei suoi punti o intervalli. below è l'angolo
- * A = 2 pi (x - low) / T, above è B = 2 pi (high - x) / T (non usato per un
- * punto), hole[i] è 2 pi (x - hole[i]) / T. wide dice che l'intervallo è più
- * lungo di mezzo periodo, full che è lungo proprio un periodo (allora copre
- * tutto, tranne al più il punto in cui comincia e finisce); hole_counts[i]
- * che quel punto tolto sta nell'intervallo dello stesso k, il solo caso in
- * cui toglie qualcosa. */
-typedef struct {
-    const Formula *owner;  /* il quantificatore di cui la famiglia è un pezzo */
-    Family family;
-    FamilyAngle below, above, hole[MAX_LATTICE_HOLES];
-    int wide, full;
-    int hole_counts[MAX_LATTICE_HOLES];
-} FamilyLeaf;
-
-static FamilyLeaf family_leaf[MAX_LATTICE];
-static int family_leaves;
-
-/* Prepara in *out i segni del seno e del coseno di
- * direction 2 pi (x - e) / T, dove e = alpha + k T è un'espressione della
- * famiglia e direction è 1 o -1.
- *
- * L'angolo è n u + psi con u = g x l'angolo dell'enunciato, n intero e
- * psi = -direction 2 pi alpha / T un angolo costante. Di psi serve la
- * direzione (cos psi, sin psi) a meno di un fattore positivo: la parte che
- * è un multiplo di pi la dà trig_constant(); ogni arcotangente di un
- * razionale m, con coefficiente intero p, la ruota di (1 + i m)^p, perché
- * cos(arctan m) + i sin(arctan m) è 1 + i m diviso per un numero positivo. */
-static void family_angle(const Node *e, int k, int direction, int x, FamilyAngle *out) {
-    Frac tau, turn = frac_int(0);
-    Rat alpha, real = rat_int(1), imaginary = rat_int(0), cb, sb, cn, sn;
-    int pi = atom_var(VAR_PI);
-    out->sine.first = out->cosine.first = sign_needs;
-    out->sine.needs = out->cosine.needs = 0;
-    if (!family_period(e, k, &tau, &alpha)) { if (!failure) fail(SIGN_SHAPE); return; }
-    if (tau.num < 0) tau.num = -tau.num;
-    Frac multiple = frac_div(frac_div(frac_int(2 * direction), tau), trig_scale), scale = frac_div(frac_int(-2 * direction), tau);
-    if (multiple.den != 1) { fail(SIGN_SHAPE); return; }
-
-    /* psi, un termine di alpha alla volta. */
-    Frac den = alpha.den.term[0].coef.re;
-    for (int i = 0; i < alpha.num.count && !failure; i++) {
-        const Term *t = &alpha.num.term[i];
-        const Atom *atom = t->mono.count == 1 ? &atoms[t->mono.factor[0].atom] : NULL;
-        Frac weight = frac_mul(frac_div(t->coef.re, den), scale);
-        Num slope;
-        if (!atom || t->coef.im.num != 0 || frac_cmp(t->mono.factor[0].exp, frac_int(1)) != 0) { fail(SIGN_SHAPE); return; }
-        if (t->mono.factor[0].atom == pi) { turn = frac_add(turn, weight); continue; }
-        if (atom->kind != ATOM_ATAN || weight.den != 1 || !rat_number(atan_args[atom->id], &slope) || slope.im.num != 0) { fail(SIGN_SHAPE); return; }
-        Rat m = rat_frac(weight.num < 0 ? frac_neg(slope.re) : slope.re);
-        for (long long step = 0; step < (weight.num < 0 ? -weight.num : weight.num); step++) {
-            Rat was = real;
-            real = rat_add(real, rat_mul(imaginary, m), 1);
-            imaginary = rat_add(imaginary, rat_mul(was, m), 0);
-        }
-    }
-    if (failure || !trig_constant(turn, &cb, &sb)) { if (!failure) fail("una famiglia di soluzioni con un angolo che non è un multiplo di 15 gradi"); return; }
-
-    /* sin(n u + psi) e cos(n u + psi), con le formule di addizione. */
-    Rat cosine = rat_add(rat_mul(cb, real), rat_mul(sb, imaginary), 1), sine = rat_add(rat_mul(sb, real), rat_mul(cb, imaginary), 0);
-    trig_multiple(multiple.num, &cn, &sn);
-    out->sine.value = sign_build(rat_add(rat_mul(sn, cosine), rat_mul(cn, sine), 0), surd_count, x);
-    out->cosine.value = sign_build(rat_add(rat_mul(cn, cosine), rat_mul(sn, sine), 1), surd_count, x);
-}
-
-/* Per sign_prepare: prepara il pezzo d del quantificatore owner. context
- * punta all'atomo della lettera della tabella. La lunghezza dell'intervallo
- * rispetto al periodo, e se un punto tolto sta nell'intervallo dello stesso
- * k, si decidono con i numeri, per k = 0 e k = 1: dove non è certo, il pezzo
- * non è trattato. */
-static void family_prepare(const Formula *owner, const Formula *d, void *context) {
-    int x = *(const int *)context, none = 0, side = 0;
-    Range zero = {0, 0}, one = {1, 1};
-    if (failure) return;
-    if (family_leaves == MAX_LATTICE) { fail("troppe famiglie di soluzioni in un enunciato"); return; }
-    FamilyLeaf *leaf = &family_leaf[family_leaves++];
-    const Family *family = &leaf->family;
-    leaf->owner = owner;
-    if (!family_read(d, sign_name, owner->variable, owner->kind == F_FORALL, &leaf->family)) { fail(SIGN_SHAPE); return; }
-
-    /* Le radici di 2 e di 3 servono ai seni e ai coseni degli angoli
-     * costanti, come in ogni confronto di un enunciato periodico. */
-    trig_roots_open();
-    trig_live = 1;
-    family_angle(family->low, family->k, 1, x, &leaf->below);
-    if (!family->single && !failure) {
-        /* L'intervallo deve stare in un periodo; wide se supera la metà. Un
-         * intervallo lungo proprio mezzo periodo va bene in tutti e due i
-         * modi (i due seni sono uguali), e uno lungo proprio un periodo è
-         * un caso a sé (full); ma con i numeri un'uguaglianza non la si
-         * vede mai: lì decide il conto esatto, quando gli estremi sono
-         * multipli di pi. */
-        Frac tau, slope, turns = frac_int(0);
-        Rat low_part, high_part;
-        Range low = node_range(family->low, family->k, zero, &none), width = range_sub(node_range(family->high, family->k, zero, &none), low);
-        Range period = range_sub(node_range(family->low, family->k, one, &none), low);
-        if (range_side(period, &side) && side < 0) period = range_neg(period);
-        int positive = range_side(width, &side) && side > 0, inside = range_side(range_sub(period, width), &side) && side > 0;
-        int exact = family_period(family->low, family->k, &tau, &low_part) && family_period(family->high, family->k, &tau, &high_part) &&
-                    trig_affine(rat_add(high_part, low_part, 1), &slope, &turns) && slope.num == 0;
-        if (tau.num < 0) tau.num = -tau.num;
-        int half = exact && frac_cmp(frac_add(turns, turns), tau) == 0;
-        leaf->full = exact && frac_cmp(turns, tau) == 0;
-        leaf->wide = 0;
-        if (!leaf->full && !half) {
-            if (!positive || !inside) fail("un intervallo di una famiglia di soluzioni non può essere più lungo del periodo");
-            else if (!range_side(range_sub(range_add(width, width), period), &side)) fail("non so dire se un intervallo di una famiglia di soluzioni supera mezzo periodo");
-            else leaf->wide = side > 0;
-        }
-        family_angle(family->high, family->k, -1, x, &leaf->above);
-    }
-    for (int i = 0; i < family->holes && !failure; i++) {
-        Range hole = node_range(family->hole[i], family->k, zero, &none);
-        int after = range_side(range_sub(hole, node_range(family->low, family->k, zero, &none)), &side) ? side : 0;
-        int before = range_side(range_sub(node_range(family->high, family->k, zero, &none), hole), &side) ? side : 0;
-        if (after == 0 || before == 0) { fail("un punto tolto proprio sull'estremo di un intervallo: non so dire se conta"); break; }
-        leaf->hole_counts[i] = after > 0 && before > 0;
-        family_angle(family->hole[i], family->k, 1, x, &leaf->hole[i]);
-    }
-    trig_live = 0;
-    surd_count = 0;
-}
-
 /* Ritorna 1 se l'angolo angle è un multiplo di 2 pi dove i polinomi hanno i
  * segni di sign[]: il seno è zero e il coseno positivo. */
 static int family_at_zero(const FamilyAngle *angle, const int *sign) {
@@ -14919,38 +15137,21 @@ static int sign_truth(const Formula *f, const int *sign) {
     }
 }
 
-/* Scrive in text, di size byte, il razionale v come testo semplice: 3, -5/2. */
-static void wide_text(Wide v, char *text, size_t size) {
-    if (v.den == 1) snprintf(text, size, "%lld", (long long)v.num);
-    else snprintf(text, size, "%lld/%lld", (long long)v.num, (long long)v.den);
-}
-
-/* Scrive nella dimostrazione il razionale v. */
-static void put_wide(Wide v) {
-    if (v.den == 1) proof_add("%lld", (long long)v.num);
-    else proof_add("%s\\frac{%lld}{%lld}", v.num < 0 ? "-" : "", (long long)(v.num < 0 ? -v.num : v.num), (long long)v.den);
-}
-
-/* Aggiunge a text, di size byte, il polinomio p nella lettera name, in LaTeX. */
-static void uni_latex(const Uni *p, int name, char *text, size_t size) {
-    if (p->degree < 0) text_add(text, size, "0");
-    for (int i = p->degree, first = 1; i >= 0; i--) {
-        __int128 c = p->c[i], magnitude = c < 0 ? -c : c;
-        if (c == 0) continue;
-        text_add(text, size, "%s", first ? (c < 0 ? "-" : "") : (c < 0 ? " - " : " + "));
-        if (magnitude != 1 || i == 0) text_add(text, size, "%lld", (long long)magnitude);
-        if (i > 0) text_add(text, size, "%c", name);
-        if (i > 1) text_add(text, size, "^{%d}", i);
-        first = 0;
-    }
-}
-
-/* Scrive nella dimostrazione il polinomio p nella lettera name. */
-static void put_uni(const Uni *p, int name) {
-    char text[512] = "";
-    uni_latex(p, name, text, sizeof text);
-    proof_add("%s", text);
-}
+/* =============================================================================
+ * 18.12 IL CONTROLLO CON I NUMERI
+ * ============================================================================
+ *
+ * Il controllo indipendente delle righe della tabella (18p-2), fatto senza
+ * polinomi in una variabile e senza radici: il valore di una riga si
+ * sostituisce nell'enunciato e si calcola, con il conto esatto quando è
+ * razionale (sign_holds_at()), con gli intervalli del capitolo 24 quando non
+ * lo è o l'enunciato è periodico (range_truth()). Ciò che dicono i due conti
+ * è solo "vale", "non vale" o "non so": il segno di un numero con radici si
+ * stringe tra due razionali (number_sign()), un'uguaglianza vista con gli
+ * intervalli si può solo trovare compatibile, a meno che i due membri siano
+ * la stessa funzione (formula_identity()). Chi ricontrolla usa
+ * table_agrees().
+ */
 
 /* Mette in *low e *high due razionali tra cui sta il valore di p, che deve
  * essere un numero fatto di razionali e di radici quadrate di interi: una
@@ -15107,31 +15308,6 @@ static int sign_holds_at(const Formula *f, int name, Frac value) {
     }
     if (!known) return 0;
     return f->kind == F_EQUAL ? side == 0 : f->kind == F_DISTINCT ? side != 0 : f->kind == F_LESS ? side < 0 : side <= 0;
-}
-
-/* Ritorna 1 se nell'enunciato f compare una relazione d'ordine o un
- * quantificatore sui numeri reali, o se f chiede un insieme di soluzioni:
- * ciò che solo la tabella dei segni tratta. */
-static int formula_needs_signs(const Formula *f) {
-    if (!f) return 0;
-    if (f->kind == F_LESS || f->kind == F_LESS_EQ || f->kind == F_SOLVE) return 1;
-    if ((f->kind == F_FORALL || f->kind == F_EXISTS) && f->numbers.reals) return 1;
-    return formula_needs_signs(f->a) || formula_needs_signs(f->b);
-}
-
-/* Ritorna 1 se in f compare un quantificatore. */
-static int formula_has_quantifier(const Formula *f) {
-    if (!f) return 0;
-    return f->kind == F_FORALL || f->kind == F_EXISTS || formula_has_quantifier(f->a) || formula_has_quantifier(f->b);
-}
-
-/* Ritorna 1 se in f compare un quantificatore che la tabella dei segni non
- * tratta: ogni quantificatore tranne quelli su un intero, senza altri
- * quantificatori dentro, che descrivono famiglie di soluzioni (18p-13). */
-static int formula_bad_quantifier(const Formula *f) {
-    if (!f) return 0;
-    if (family_owner(f)) return formula_has_quantifier(f->a);
-    return f->kind == F_FORALL || f->kind == F_EXISTS || formula_bad_quantifier(f->a) || formula_bad_quantifier(f->b);
 }
 
 /* Ritorna 1 se i due membri del confronto f sono la stessa funzione: se la
@@ -15314,6 +15490,19 @@ static int table_agrees(const Formula *body, int name, Wide at, const Critical *
     int seen = range_truth(body, name, value, point != NULL || trig_on);
     return seen < 0 ? -1 : seen == truth;
 }
+
+/* =============================================================================
+ * 18.13 LE RIGHE DELLA TABELLA E LE SOLUZIONI
+ * ============================================================================
+ *
+ * Con i punti in ordine (18.8) e i confronti preparati (18.11), la tabella:
+ * una riga per ogni punto e per ogni intervallo tra due punti, con i segni
+ * di tutti i polinomi in un valore della riga, ricontrollata con i numeri
+ * (18.12) prima di essere creduta (sign_table()). Poi ciò che se ne legge e
+ * si scrive: le righe nella dimostrazione (put_row()), e le soluzioni di una
+ * condizione, i tratti di righe consecutive in cui vale (sign_solution()),
+ * rilette dal testo prima di essere consegnate (solution_reread()).
+ */
 
 /* Una riga della tabella dei segni (18p-2): un punto, oppure l'intervallo tra
  * due punti consecutivi. La riga 2 i è l'intervallo prima del punto i, la
@@ -15585,7 +15774,42 @@ static int sign_solution(const Formula *f, int name) {
     return plain && !solution_note[0];
 }
 
-/* 18p-12. LE SOLUZIONI DI UNA CONDIZIONE PERIODICA
+/* Rilegge le soluzioni scritte in solution_text e controlla che dicano ciò
+ * che dice la tabella: in ogni riga razionale la condizione riletta, con il
+ * valore della riga al posto della variabile name, deve valere esattamente
+ * quando vale f. È il controllo di ciò che si consegna, cioè del testo: un
+ * < scritto al posto di un \le, o un estremo con il segno sbagliato, qui si
+ * vede. Ritorna 1 se tutte le righe concordano. */
+static int solution_reread(const Formula *f, int name) {
+    syntax_error = NULL;
+    cursor = solution_text;
+    next_token();
+    const Formula *written = logic_formula();
+    if (syntax_error || token.kind != T_END) { syntax_error = NULL; return 0; }
+    for (int row = 0; row < sign_rows; row++) {
+        const SignRow *r = &sign_row[row];
+        Wide at[9];
+        if (!r->inside || !r->rational) continue;
+
+        /* Il valore della riga, che deve riuscire; e per un intervallo gli
+         * altri suoi punti, dove un estremo scritto male si vede anche se
+         * il valore scelto sta dalla parte giusta di tutti e due. */
+        int count = row % 2 ? 0 : row_points(row, at + 1);
+        at[0] = r->sample;
+        for (int i = 0; i <= count; i++) {
+            if (at[i].num >= COEF_LIMIT || at[i].num <= -COEF_LIMIT || at[i].den >= COEF_LIMIT) { if (i == 0) return 0; continue; }
+            failure = NULL;
+            int direct = sign_holds_at(written, name, (Frac){(long long)at[i].num, (long long)at[i].den});
+            if (failure && i > 0) { failure = NULL; continue; }
+            if (failure || direct != sign_truth(f, r->sign)) { failure = NULL; return 0; }
+        }
+    }
+    return 1;
+}
+
+/* =============================================================================
+ * 18.14 LE SOLUZIONI DI UNA CONDIZIONE PERIODICA (18p-12, 18p-14)
+ * ============================================================================
  *
  * La tabella di un enunciato periodico è nella lettera t = tan(u / 2), con
  * u = g x. Per scrivere le soluzioni in x bisogna tornare indietro:
@@ -16033,40 +16257,9 @@ static Range angle_range(Angle a) {
     return range_div(value, range_ratio(trig_scale.num, trig_scale.den));
 }
 
-/* Rilegge le soluzioni scritte in solution_text e controlla che dicano ciò
- * che dice la tabella: in ogni riga razionale la condizione riletta, con il
- * valore della riga al posto della variabile name, deve valere esattamente
- * quando vale f. È il controllo di ciò che si consegna, cioè del testo: un
- * < scritto al posto di un \le, o un estremo con il segno sbagliato, qui si
- * vede. Ritorna 1 se tutte le righe concordano. */
-static int solution_reread(const Formula *f, int name) {
-    syntax_error = NULL;
-    cursor = solution_text;
-    next_token();
-    const Formula *written = logic_formula();
-    if (syntax_error || token.kind != T_END) { syntax_error = NULL; return 0; }
-    for (int row = 0; row < sign_rows; row++) {
-        const SignRow *r = &sign_row[row];
-        Wide at[9];
-        if (!r->inside || !r->rational) continue;
-
-        /* Il valore della riga, che deve riuscire; e per un intervallo gli
-         * altri suoi punti, dove un estremo scritto male si vede anche se
-         * il valore scelto sta dalla parte giusta di tutti e due. */
-        int count = row % 2 ? 0 : row_points(row, at + 1);
-        at[0] = r->sample;
-        for (int i = 0; i <= count; i++) {
-            if (at[i].num >= COEF_LIMIT || at[i].num <= -COEF_LIMIT || at[i].den >= COEF_LIMIT) { if (i == 0) return 0; continue; }
-            failure = NULL;
-            int direct = sign_holds_at(written, name, (Frac){(long long)at[i].num, (long long)at[i].den});
-            if (failure && i > 0) { failure = NULL; continue; }
-            if (failure || direct != sign_truth(f, r->sign)) { failure = NULL; return 0; }
-        }
-    }
-    return 1;
-}
-
-/* 18q. IL GRAFICO DELLA TABELLA DEI SEGNI
+/* =============================================================================
+ * 18.15 IL GRAFICO DELLA TABELLA DEI SEGNI (18q)
+ * ============================================================================
  *
  * Di un enunciato deciso con la tabella dei segni si può fare il disegno: è
  * la figura che sui libri accompagna la soluzione di una disequazione. Qui
@@ -16374,6 +16567,44 @@ static void sign_figure(const Formula *f, int name) {
         snprintf(title, sizeof title, panels > 1 ? "comparison %d (green: where it holds)" : "green: where the comparison holds", k + 1);
         figure_panel(axes, panel[k], name, low, high, title);
     }
+}
+
+/* =============================================================================
+ * 18.16 IL VERDETTO DELLA TABELLA E IL SUO CERTIFICATO (18p, 18p-15)
+ * ============================================================================
+ *
+ * Il punto di ingresso della regola 18p. Quali enunciati le spettano
+ * (formula_needs_signs(), che usa il capitolo 19 per scegliere la regola) e
+ * quali sa trattare; poi decide_by_signs(), che mette in fila i capitoli
+ * precedenti: prepara i confronti, trova i punti, riempie e ricontrolla la
+ * tabella, scrive la dimostrazione una riga alla volta, e ne trae il
+ * verdetto o le soluzioni. Infine la tabella diventa un certificato, che
+ * checker.c ricontrolla per conto suo (sign_certify()).
+ */
+
+/* Ritorna 1 se nell'enunciato f compare una relazione d'ordine o un
+ * quantificatore sui numeri reali, o se f chiede un insieme di soluzioni:
+ * ciò che solo la tabella dei segni tratta. */
+static int formula_needs_signs(const Formula *f) {
+    if (!f) return 0;
+    if (f->kind == F_LESS || f->kind == F_LESS_EQ || f->kind == F_SOLVE) return 1;
+    if ((f->kind == F_FORALL || f->kind == F_EXISTS) && f->numbers.reals) return 1;
+    return formula_needs_signs(f->a) || formula_needs_signs(f->b);
+}
+
+/* Ritorna 1 se in f compare un quantificatore. */
+static int formula_has_quantifier(const Formula *f) {
+    if (!f) return 0;
+    return f->kind == F_FORALL || f->kind == F_EXISTS || formula_has_quantifier(f->a) || formula_has_quantifier(f->b);
+}
+
+/* Ritorna 1 se in f compare un quantificatore che la tabella dei segni non
+ * tratta: ogni quantificatore tranne quelli su un intero, senza altri
+ * quantificatori dentro, che descrivono famiglie di soluzioni (18p-13). */
+static int formula_bad_quantifier(const Formula *f) {
+    if (!f) return 0;
+    if (family_owner(f)) return formula_has_quantifier(f->a);
+    return f->kind == F_FORALL || f->kind == F_EXISTS || formula_bad_quantifier(f->a) || formula_bad_quantifier(f->b);
 }
 
 /* 18p. Decide con la tabella dei segni l'enunciato thesis, che deve avere la
@@ -16975,7 +17206,17 @@ static void sign_certify(const Formula *thesis, Verdict *verdict) {
     verdict->reason = problem;
 }
 
-/* 18t. DUE VARIABILI REALI: UN PARAMETRO
+/* =============================================================================
+ * 18.17 UN PARAMETRO (18t): LA PROIEZIONE E LE CELLE
+ * ============================================================================
+ *
+ * Questo capitolo e i due che seguono sono la regola 18t. Qui il metodo e la
+ * sua prima metà: i polinomi nelle due lettere, la proiezione (18t-a) e le
+ * celle della retta del parametro (18t-b). Il capitolo 18.18 decide ogni
+ * cella e ne scrive le soluzioni (18t-c, 18t-d, 18t-e), il 18.19 ricontrolla
+ * ciò che si consegna (18t-f, 18t-g, 18t-h) e dà il verdetto.
+ *
+ * 18t. DUE VARIABILI REALI: UN PARAMETRO
  *
  * A che cosa serve. Sono gli esercizi "con il parametro" dei libri di scuola:
  *
@@ -17159,11 +17400,11 @@ static void sign_certify(const Formula *thesis, Verdict *verdict) {
  * grado in x. Un enunciato con il parametro non ha grafico: il disegno di
  * 18q è quello di una variabile sola.
  *
- * Il primo di questi limiti vale anche per una radice o un valore assoluto
- * del solo parametro, quando sta in un confronto con la variabile: la regola
- * scrive soluzioni come 2 - \sqrt{4 - k^{2}} < x, e sa rileggerle un valore
- * del parametro alla volta, ma lo stesso testo dentro un enunciato da
- * verificare non lo tratta. Per trattarlo la proiezione dovrebbe ricevere,
+ * Il limite su radici e valori assoluti vale anche per una radice o un valore
+ * assoluto del solo parametro, quando sta in un confronto con la variabile:
+ * la regola scrive soluzioni come 2 - \sqrt{4 - k^{2}} < x, e sa rileggerle
+ * un valore del parametro alla volta, ma lo stesso testo dentro un enunciato
+ * da verificare non lo tratta. Per trattarlo la proiezione dovrebbe ricevere,
  * di ogni confronto P + Q \sqrt{R} con R nel solo parametro, i polinomi P, Q
  * e P^2 - Q^2 R, come 18p-7 fa in una variabile, e R tra le colonne del
  * parametro; e di un valore assoluto i due polinomi che nascono dai due
@@ -17587,6 +17828,18 @@ static Wide cell_beside(int c, int right) {
     if (right) return after ? wide_between(sample, after->at.low) : wide_add(sample, (Wide){1, 1});
     return before ? wide_between(before->at.high, sample) : wide_add(sample, (Wide){-1, 1});
 }
+
+/* =============================================================================
+ * 18.18 UN PARAMETRO: LE CELLE DECISE E SCRITTE
+ * ============================================================================
+ *
+ * Una cella alla volta: con il suo valore al posto del parametro l'enunciato
+ * ha una variabile sola, e lo decide la tabella dei segni (18t-c,
+ * table_truth(), closed_truth()). Poi ciò che si scrive: le condizioni sul
+ * parametro che dicono "in queste celle" (18t-d), e le soluzioni in x con
+ * gli estremi in funzione del parametro, riconosciuti tra i candidati che
+ * danno le formule di primo e di secondo grado (18t-e).
+ */
 
 /* Il controesempio dell'ultimo enunciato che table_truth() ha trovato falso,
  * com'è scritto da decide_by_signs(); vuoto se non ne ha dato uno. */
@@ -18208,6 +18461,17 @@ static int param_values(int name, char *text, size_t size) {
     if (!pieces) text_add(text, size, "\\nexists %c \\in \\mathbb{R}", name);
     return pieces > 0;
 }
+
+/* =============================================================================
+ * 18.19 UN PARAMETRO: I CONTROLLI E IL VERDETTO
+ * ============================================================================
+ *
+ * I tre controlli indipendenti descritti in testa al capitolo 18.17: le
+ * soluzioni rilette e riprovate in ogni cella (18t-f), la griglia di valori
+ * del parametro scelti senza guardare le celle (18t-g), la proiezione
+ * ricalcolata con un altro algoritmo (18t-h). Poi il punto di ingresso della
+ * regola, param_decide(), che mette tutto in fila.
+ */
 
 /* 18t-f. Controlla che la condizione written dica, del parametro di nome
  * name, ciò che dicono le celle: nel valore di ogni cella, e in altri due
