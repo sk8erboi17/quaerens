@@ -23,6 +23,12 @@
  * ogni pagina con \includegraphics. Il PDF dei grafici si apre al primo
  * grafico, così un documento senza grafici non lascia un file vuoto accanto.
  *
+ * L'unica cosa che qui si sceglie è la disposizione delle formule: una
+ * troppo larga per stare in una riga (una derivata non semplificata, un
+ * intervallo con estremi di sedici cifre) va in evidenza, e \fitmath la
+ * rimpicciolisce se ancora non ci sta (put_proof()). Il testo della formula
+ * resta quello del motore.
+ *
  * PERCHÉ IL PDF FINALE PASSA DA LATEX
  *
  * I grafici sono linee e poche scritte, e plot.c li scrive in PDF da solo.
@@ -76,6 +82,84 @@ static void put_escaped(FILE *out, const char *text) {
         else if (*text == '~') fputs("\\~{}", out);
         else if (strchr("{}_$%&#", *text)) fprintf(out, "\\%c", *text);
         else fputc(*text, out);
+    }
+}
+
+/* Oltre quanti caratteri di sorgente una formula in linea di una
+ * dimostrazione va in evidenza (put_proof()). È una stima della larghezza:
+ * una formula più corta sta quasi sempre in una riga, una più lunga quasi
+ * mai, e in evidenza \fitmath la stringe se ancora non ci sta. */
+#define LONG_INLINE_FORMULA 120
+
+/* Scrive su out il testo LaTeX di una formula, già in modo matematico, in
+ * evidenza e stretta alla larghezza della riga se serve (vedi \fitmath nel
+ * preambolo, document_open()). Il segno di punteggiatura che la seguiva nel
+ * testo, se c'è (punctuation diverso da 0), va dentro la formula, come nei
+ * libri: altrimenti comincerebbe la riga dopo. */
+static void put_display(FILE *out, const char *formula, size_t length, char punctuation) {
+    /* La punteggiatura sta dentro la scatola di \fitmath: fuori, una formula
+     * già stretta alla riga la supererebbe proprio di quel segno. */
+    fprintf(out, "\n\\[ \\fitmath{%.*s", (int)length, formula);
+    if (punctuation) fprintf(out, "\\,%c", punctuation);
+    fprintf(out, "} \\]\n");
+}
+
+/* Ritorna 1 se la formula, di length caratteri di sorgente, è troppo larga
+ * per stare in linea: più lunga di LONG_INLINE_FORMULA, oppure non corta e
+ * con un numero di almeno 10 cifre, come gli estremi decimali degli
+ * intervalli dei controlli con i numeri, che LaTeX non sa spezzare. */
+static int long_formula(const char *formula, size_t length) {
+    if (length > LONG_INLINE_FORMULA) return 1;
+    int run = 0;
+    for (size_t i = 0; i < length && length > LONG_INLINE_FORMULA / 2; i++) {
+        run = isdigit((unsigned char)formula[i]) ? run + 1 : 0;
+        if (run >= 10) return 1;
+    }
+    return 0;
+}
+
+/* Scrive su out la dimostrazione proof, così com'è tranne la disposizione
+ * delle formule. Le derivate scritte dai capitoli 27 e 30 e gli sviluppi del
+ * capitolo 29 sono formule lunghe, che in linea uscirebbero dal margine:
+ * dentro \left( ... \right) e \frac LaTeX non sa andare a capo. Una formula
+ * in linea, $...$, troppo larga (long_formula()) va quindi in
+ * evidenza, e ogni formula in evidenza, \[ ... \], passa da \fitmath, che la
+ * rimpicciolisce solo se è più larga della riga. Il contenuto delle formule
+ * non cambia: qui si decide solo dove stanno.
+ *
+ * Un dollaro preceduto da una barra (\$) non apre una formula. Una formula
+ * non chiusa, che il motore non scrive mai, viene copiata com'è. */
+static void put_proof(FILE *out, const char *proof) {
+    const char *p = proof;
+    while (*p) {
+        const char *open = NULL, *close = NULL;
+        int display = 0;
+        /* \[ apre una formula in evidenza; \\[2pt], un a capo con uno spazio
+         * dentro un allineamento, no. */
+        if (p[0] == '\\' && p[1] == '[' && (p == proof || p[-1] != '\\')) {
+            open = p + 2;
+            close = strstr(open, "\\]");
+            display = 1;
+        } else if (p[0] == '$' && (p == proof || p[-1] != '\\') && p[1] != '$') {
+            open = p + 1;
+            for (close = open; *close && !(*close == '$' && close[-1] != '\\'); close++) {}
+            if (!*close) close = NULL;
+        }
+        if (!open || !close) {
+            /* Testo, o una barra che non apre una formula. */
+            fputc(*p++, out);
+            if (open && !close) { fputs(p, out); return; }
+            continue;
+        }
+        size_t length = (size_t)(close - open);
+        p = close + (display ? 2 : 1);
+        if (display || long_formula(open, length)) {
+            char punctuation = strchr(",.;:", *p) && *p ? *p : 0;
+            put_display(out, open, length, punctuation);
+            if (punctuation) p++;
+        } else {
+            fprintf(out, "$%.*s$", (int)length, open);
+        }
     }
 }
 
@@ -146,7 +230,14 @@ static const char *document_open(Document *document, const char *path) {
                            "\\usepackage[utf8]{inputenc}\n\\usepackage[english]{babel}\n"
                            "\\usepackage{amsmath,amssymb}\n\\usepackage{graphicx}\n\\usepackage[margin=2cm]{geometry}\n"
                            "\\setlength{\\parindent}{0pt}\n\\setlength{\\emergencystretch}{3em}\n"
-                           "\\allowdisplaybreaks\n\n\\title{Proofs}\n\\author{}\n\\date{}\n"
+                           "\\allowdisplaybreaks\n\n"
+                           /* \fitmath{f}: la formula f in una scatola, rimpicciolita
+                            * alla larghezza della riga solo se ne è più larga
+                            * (put_proof()). Usa solo graphicx, già caricato. */
+                           "\\newsavebox{\\fitbox}\n"
+                           "\\newcommand{\\fitmath}[1]{\\sbox{\\fitbox}{$\\displaystyle #1$}%%\n"
+                           "  \\ifdim\\wd\\fitbox>\\linewidth\\resizebox{\\linewidth}{!}{\\usebox{\\fitbox}}\\else\\usebox{\\fitbox}\\fi}\n\n"
+                           "\\title{Proofs}\n\\author{}\n\\date{}\n"
                            "\\begin{document}\n\\maketitle\n");
     return NULL;
 }
@@ -155,7 +246,14 @@ static const char *document_open(Document *document, const char *path) {
  * che sta per essere letto. */
 static void document_section(Document *document, const char *title) {
     fprintf(document->tex, "\n\\section*{");
-    put_escaped(document->tex, title);
+
+    /* Il titolo è un percorso, una parola sola per LaTeX: dopo ogni / e ogni
+     * _ gli si permette di andare a capo, o uscirebbe dal margine. */
+    for (const char *c = title; *c; c++) {
+        char one[2] = {*c, 0};
+        put_escaped(document->tex, one);
+        if (*c == '/' || *c == '_') fputs("\\allowbreak{}", document->tex);
+    }
     fprintf(document->tex, "}\n");
 }
 
@@ -178,10 +276,13 @@ static void document_item(Document *document, const char *formula, const Verdict
     fprintf(tex, "\\item ");
 
     /* La formula letta da "$\displaystyle ...$" comincia già con quel
-     * comando: non lo si scrive due volte. */
-    if (formula) fprintf(tex, strncmp(formula, "\\displaystyle", 13) == 0 ? "$%s$\n\n" : "$\\displaystyle %s$\n\n", formula);
+     * comando: non lo si scrive due volte. Una troppo larga per la riga va in
+     * evidenza, stretta se serve, come nelle dimostrazioni (put_proof()). */
+    if (formula && long_formula(formula, strlen(formula))) put_display(tex, formula, strlen(formula), 0);
+    else if (formula) fprintf(tex, strncmp(formula, "\\displaystyle", 13) == 0 ? "$%s$\n\n" : "$\\displaystyle %s$\n\n", formula);
     if (verdict->proof) {
-        fprintf(tex, "%s\n\n", verdict->proof);
+        put_proof(tex, verdict->proof);
+        fprintf(tex, "\n\n");
     } else {
         fprintf(tex, "\\textbf{No proof.} ");
         put_plain_text(tex, verdict);

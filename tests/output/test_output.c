@@ -12,7 +12,10 @@
  *   4. senza un documento i grafici non vengano costruiti, e un documento
  *      senza grafici non lasci accanto a sé un PDF vuoto;
  *   5. i nomi dei file siano quelli promessi, e un nome non valido sia
- *      respinto.
+ *      respinto;
+ *   6. le formule troppo larghe per la riga vadano in evidenza dentro
+ *      \fitmath, con la punteggiatura che le segue, e le altre restino al
+ *      loro posto; un titolo fatto di un percorso possa andare a capo.
  *
  * I file vengono scritti nella cartella indicata da TMPDIR, o in /tmp: mai
  * nel repository. Il test non compila il documento in PDF: quello richiede
@@ -124,6 +127,42 @@ int main(void) {
     document.want_pdf = 0;
     check(document_close(&document) == NULL, "and it is closed without problems");
     check(document_open(&document, "x") != NULL, "a name too short to have an extension is refused");
+
+    /* 6. Le formule troppo larghe per la riga: put_proof() le mette in
+     * evidenza dentro \fitmath, con la punteggiatura che le segue; le altre
+     * restano dove sono. */
+    char *laid = NULL;
+    FILE *memory = tmpfile();
+    if (memory) {
+        put_proof(memory,"Short $x^{2} = 2x$ stays; long $\\frac{d}{dx}\\left(\\frac{1}{2} \\cdot \\left(\\frac{x \\cdot \\sin(2x)}{2} + \\frac{\\cos(2x)}{4} + \\frac{x^{2}}{2}\\right)\\right) = \\frac{1}{2} \\cdot \\left(\\frac{1 \\cdot \\sin(2x)}{2}\\right)$, then text; "
+                          "digits $[p, q] \\subseteq \\left[-0.9998779296875018, -0.000122070312499999\\right]$; "
+                          "a display \\[ a = b \\] here; a price \\$5 and $y$; \\begin{aligned} a &= b \\\\[2pt] c &= d \\end{aligned}");
+
+        /* Il testo scritto, riletto dal file temporaneo. */
+        long size = ftell(memory);
+        laid = size >= 0 ? malloc((size_t)size + 1) : NULL;
+        rewind(memory);
+        if (laid) laid[fread(laid, 1, (size_t)size, memory)] = 0;
+        fclose(memory);
+    }
+    check(laid && strstr(laid, "Short $x^{2} = 2x$ stays") != NULL, "a short formula stays in the line");
+    check(laid && strstr(laid, "\\[ \\fitmath{\\frac{d}{dx}") != NULL && strstr(laid, "\\right)\\,,} \\]\n then text") != NULL,
+          "a long formula goes on its own line inside \\fitmath, with the comma that followed it");
+    check(laid && strstr(laid, "\\[ \\fitmath{[p, q] \\subseteq") != NULL, "a formula with a number of many digits goes on its own line");
+    check(laid && strstr(laid, "\\[ \\fitmath{ a = b } \\]") != NULL, "a display is passed through \\fitmath");
+    check(laid && strstr(laid, "a price \\$5 and $y$") != NULL, "an escaped dollar does not open a formula");
+    check(laid && strstr(laid, "a &= b \\\\[2pt] c &= d") != NULL, "a line break with a space is not a display");
+    free(laid);
+    snprintf(wanted, sizeof wanted, "%s/mathresearcher_test_output_e.tex", folder);
+    if (document_open(&document, wanted) == NULL) {
+        document_section(&document, "tests/equations_inequalities/parameter_statements_beyond_grid.tex");
+        check(document_close(&document) == NULL, "a document with a long section title is written");
+        char *titled = read_file(wanted);
+        check(titled && strstr(titled, "equations\\_\\allowbreak{}inequalities/\\allowbreak{}parameter") != NULL,
+              "a long file name in a title may break after / and _");
+        check(titled && strstr(titled, "\\newcommand{\\fitmath}") != NULL, "the preamble defines \\fitmath");
+        free(titled);
+    }
 
     printf("%s: %d of %d output checks passed\n", failures ? "FAIL" : "PASS", checks - failures, checks);
     return failures ? 1 : 0;
