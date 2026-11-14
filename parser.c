@@ -464,6 +464,16 @@ static void syntax(const char *message) {
     token.kind = T_END;
 }
 
+/* Conta un livello d'albero che la lettura non ha pagato con la pila: un
+ * anello di una catena a pettine, o un quantificatore di un elenco di
+ * lettere (capitolo 2, la pila di lavoro). Se il budget è finito lo annota
+ * come errore subito, e non al token successivo: l'ultimo nodo di un
+ * enunciato non è seguito da nessun token. */
+static void chain_link(void) {
+    stack_chain_levels++;
+    if (!stack_room()) syntax(STACK_EXHAUSTED);
+}
+
 /* 9j, il lettore di token. Mentre si legge un integrale (vedi
  * parse_integral_statement()) vale una convenzione che altrove non vale,
  * e questo interruttore la accende: dentro la funzione integranda la
@@ -496,6 +506,11 @@ static int lex_differential(void) {
  * (spazi come \, e \!, \displaystyle) vengono saltati. */
 static void next_token(void) {
     static const char *const ignored[] = {"displaystyle", "textstyle", "quad", "qquad", "limits"};
+
+    /* Ogni discesa ricorsiva passa di qui a ogni livello: è il solo punto
+     * in cui serve chiedere se c'è ancora pila (capitolo 2). Finita quella,
+     * il testo finisce qui per ogni lettore, e l'errore lo dice. */
+    if (!stack_room()) { syntax(STACK_EXHAUSTED); return; }
 
     /* Il token che si sta lasciando finisce dove il cursore è adesso: chi ha
      * appena letto un pezzo di enunciato sa così dove quel pezzo termina, e
@@ -4228,7 +4243,14 @@ static void unfolding_reset(const char *text) {
     for (next_token();token.kind!=T_END;next_token()) if (token.kind==T_LETTER) {
         int letter=token.ch;
         letter_taken[letter&127]=1;
-        if (!fresh_reserve_name(letter,0)) break;
+
+        /* 17p. Una lettera può stare per una coppia, x \in S \times T, e
+         * allora le sue componenti si chiamano x_{1} e x_{2} (pair_make())
+         * anche se il testo non le scrive: sono nomi dell'enunciato come gli
+         * altri. Senza riservarli, un nome sintetico d_{1} nato dentro
+         * \forall d \in S \times S prendeva il posto della prima componente
+         * nel certificato, che allora parlava di un altro enunciato. */
+        if (!fresh_reserve_name(letter,0) || !fresh_reserve_name(letter,1) || !fresh_reserve_name(letter,2)) break;
         ParserState look=parser_save();const char *kept=consumed;
         next_token();
         if (is_char('_')) {
@@ -6016,7 +6038,13 @@ static int abstract_sort(void) {
 static Elem *elem_new(int symbol, int slot, Elem *a, Elem *b) {
     static Elem spare;
     Elem *e = arena_alloc(sizeof(Elem));
-    if (!e) e = &spare;
+
+    /* Il nodo di riserva è uno solo: non può essere argomento di sé
+     * stesso, o chi lo visita non finisce più. */
+    if (!e) {
+        e = &spare;
+        if (a == e || b == e) a = b = NULL;
+    }
     *e = (Elem){symbol, slot, {a, b}};
     return e;
 }
@@ -6037,7 +6065,18 @@ static void elem_expect(const Elem *e, int sort) {
 static Sentence *sentence_new(SentenceKind kind, Sentence *a, Sentence *b, const char *start) {
     static Sentence spare;
     Sentence *s = arena_alloc(sizeof(Sentence));
-    if (!s) s = &spare;
+
+    /* Ad arena piena il nodo di riserva è uno solo: non può essere una
+     * componente di sé stesso. Una congiunzione del nodo di riserva con sé
+     * stesso era un albero senza fine (un milione di congiunzioni, o 22
+     * \exists! uno dentro l'altro, fermavano il programma in chi lo
+     * visitava): allora diventa la condizione vera, senza componenti, che
+     * ogni visita sa attraversare. L'errore è in `failure`, e chi ha letto
+     * lo controlla prima di usare l'albero. */
+    if (!s) {
+        s = &spare;
+        if (a == s || b == s) { kind = S_TRUE; a = b = NULL; }
+    }
     memset(s, 0, sizeof *s);
     s->kind = kind;
     s->a = a;
@@ -6469,6 +6508,7 @@ typedef struct {
     ParserState state;
     const char *consumed;
     int slots, sorts, visibles, symbols, templates;
+    size_t chain_levels;  /* Anelli di catene contati fino a qui (capitolo 2). */
     SlotState first[8];
     const SlotState *tail;
 } ReaderMark;
@@ -6481,6 +6521,7 @@ static ReaderMark reader_mark(void) {
     mark.slots = slot_count; mark.sorts = sort_count;
     mark.visibles = visible_count; mark.symbols = symbol_count;
     mark.templates = part_template_count;
+    mark.chain_levels = stack_chain_levels;
     size_t first = slot_count < 8 ? (size_t)slot_count : 8;
     if (first) memcpy(mark.first, slot_data, first * sizeof *slot_data);
     if (slot_count > 8) {
@@ -6499,6 +6540,11 @@ static void reader_back(const ReaderMark *mark) {
     slot_count = mark->slots; sort_count = mark->sorts;
     visible_count = mark->visibles; symbol_count = mark->symbols;
     part_template_count = mark->templates;
+
+    /* Ciò che si rilegge dopo essere tornati indietro non va contato due
+     * volte: con 15 parentesi una dentro l'altra, ognuna letta in tre
+     * modi, 1100 unioni sembravano troppe. */
+    stack_chain_levels = mark->chain_levels;
     size_t first = slot_count < 8 ? (size_t)slot_count : 8;
     if (first) memcpy(slot_data, mark->first, first * sizeof *slot_data);
     if (slot_count > 8) {
@@ -7323,6 +7369,7 @@ static SetTerm *abstract_range_term(int *sort) {
 static SetTerm *abstract_set_inter(void) {
     SetTerm *t = abstract_set_factor();
     while (is_command("cap") && !syntax_error) {
+        chain_link();
         next_token();
         SetTerm *node = set_term_new(ST_INTER);
         node->a = t;
@@ -7344,6 +7391,7 @@ static SetTerm *abstract_set_term(void) {
         else if (is_command("triangle")) kind = ST_SYMDIFF;
         else return t;
         if (syntax_error) return t;
+        chain_link();
         next_token();
         SetTerm *node = set_term_new(kind);
         node->a = t;
@@ -7745,6 +7793,7 @@ static Sentence *abstract_part_quantifier(SentenceKind kind, const QuantifierNam
     abstract_positive = positive;
     for (int i = 0; i < bound; i++) symbol_bound[part[i]] = PART_HIDDEN;
     for (int i = bound - 1; i >= 0 && !syntax_error; i--) {
+        chain_link();
         node = sentence_new(kind == S_FORALL ? S_FORALL_PART : S_EXISTS_PART, node, NULL, start);
         node->part = part[i];
     }
@@ -7899,10 +7948,17 @@ static Sentence *abstract_quantifier(const char *start) {
     /* \in X, con X una parte, o (17v) un insieme scritto come nei libri:
      * la forma svolta. Poi un nodo per lettera, dall'ultima alla prima; per
      * una coppia due, la prima componente fuori. */
-    for (int i = letters - 1; i >= 0 && (part >= 0 || range); i--)
+    for (int i = letters - 1; i >= 0 && (part >= 0 || range); i--) {
+        chain_link();
         node = sentence_new(kind == S_FORALL ? S_IMPLIES : S_AND, range_member(slot[i], part, range, start), node, start);
+    }
     for (int i = letters - 1; i >= 0; i--) {
+        /* Un livello per lettera, due per una coppia: 60.000 lettere dopo
+         * un solo \forall davano un albero che la pila non reggeva, senza
+         * che la lettura fosse scesa di un livello. */
+        chain_link();
         if (slot_data[slot[i]].pair >= 0) {
+            chain_link();
             node = sentence_new(kind, node, NULL, start);
             node->slot = slot_data[slot[i]].pair;
         }
@@ -8156,29 +8212,69 @@ static Sentence *abstract_unary(void) {
     return sentence_new(S_TRUE, NULL, NULL, start);
 }
 
-/* conjunction := unary { \land unary } */
-static Sentence *abstract_conjunction(void) {
-    const char *start = token.start;
-    Sentence *node = abstract_unary();
-    while (is_command("land") || is_command("wedge")) {
-        next_token();
-        Sentence *right = abstract_unary();
-        node = sentence_new(S_AND, node, right, start);
-    }
-    return node;
+/* Gli operandi delle catene di \land e di \lor che si stanno leggendo, una
+ * dentro l'altra: una pila. Ogni catena usa il tratto da dove l'ha trovata
+ * fino a chain_count, e la rimette com'era prima di ritornare. Il vettore è
+ * posseduto qui e si riusa tra gli enunciati; nessuno ne conserva indirizzi,
+ * perché una crescita può spostarlo. */
+static Sentence **chain_items;
+static size_t chain_count, chain_capacity;
+
+/* Ritorna l'albero degli operandi di posto [from, to), con to > from, uniti
+ * a due a due dal connettivo kind: la prima metà (la più lunga, se sono
+ * dispari) con la seconda. start è dove comincia la catena nel testo.
+ *
+ * Perché a metà. \land e \lor sono associativi: comunque si mettano le
+ * parentesi la condizione è la stessa. Unendo ogni operando al precedente
+ * ("a pettine") n ipotesi danno un albero di n livelli, e ogni funzione
+ * ricorsiva che lo visita usa n livelli di pila: con decine di migliaia di
+ * ipotesi il programma si fermava (capitolo 2, la pila di lavoro), e il
+ * verificatore rifiutava già oltre 4000. A metà i livelli sono il
+ * logaritmo di n. */
+static Sentence *chain_tree(SentenceKind kind, size_t from, size_t to, const char *start) {
+    if (to - from == 1) return chain_items[from];
+    size_t middle = from + (to - from + 1) / 2;
+    Sentence *a = chain_tree(kind, from, middle, start), *b = chain_tree(kind, middle, to, start);
+    return sentence_new(kind, a, b, start);
 }
 
-/* disjunction := conjunction { \lor conjunction } */
-static Sentence *abstract_disjunction(void) {
+/* chain := operand { (word | other) operand }
+ *
+ * Legge una catena di condizioni unite dal connettivo kind, scritto con il
+ * comando word o con other, e ne ritorna l'albero. Ogni condizione è letta
+ * da operand.
+ *
+ * In un enunciato corto l'albero è a pettine, ogni operando unito ai
+ * precedenti, com'è sempre stato: la forma dell'albero decide l'ordine in
+ * cui la ricerca prova le cose, e cambiarla sposta, in pochi casi, che
+ * cosa si riesce a dimostrare (su 11.200 enunciati generati, 10 dimostrati
+ * in più e 4 in meno). In un enunciato lungo (stack_guard, capitolo 2), il
+ * solo in cui una catena può avere migliaia di anelli, è a metà
+ * (chain_tree()). */
+static Sentence *abstract_chain(SentenceKind kind, Sentence *(*operand)(void), const char *word, const char *other) {
     const char *start = token.start;
-    Sentence *node = abstract_conjunction();
-    while (is_command("lor") || is_command("vee")) {
+    size_t base = chain_count;
+    for (;;) {
+        /* L'operando va letto prima di fargli posto: dentro può esserci
+         * un'altra catena, che usa e rilascia la stessa pila. */
+        Sentence *node = operand();
+        if (!work_reserve((void **)&chain_items, &chain_capacity, chain_count + 1, sizeof *chain_items)) { chain_count = base; return node; }
+        chain_items[chain_count++] = node;
+        if (!is_command(word) && !is_command(other)) break;
         next_token();
-        Sentence *right = abstract_conjunction();
-        node = sentence_new(S_OR, node, right, start);
     }
-    return node;
+    Sentence *tree = chain_items[base];
+    if (stack_guard) tree = chain_tree(kind, base, chain_count, start);
+    else for (size_t i = base + 1; i < chain_count; i++) tree = sentence_new(kind, tree, chain_items[i], start);
+    chain_count = base;
+    return tree;
 }
+
+/* conjunction := unary { \land unary } */
+static Sentence *abstract_conjunction(void) { return abstract_chain(S_AND, abstract_unary, "land", "wedge"); }
+
+/* disjunction := conjunction { \lor conjunction } */
+static Sentence *abstract_disjunction(void) { return abstract_chain(S_OR, abstract_conjunction, "lor", "vee"); }
 
 /* implication := disjunction [ \implies implication ]
  *
@@ -8206,6 +8302,7 @@ static Sentence *abstract_formula(void) {
     int before = map_quantifiers;
     Sentence *node = abstract_implication();
     while (is_command("iff") || is_command("Leftrightarrow") || is_command("Longleftrightarrow")) {
+        chain_link();
         next_token();
         Sentence *right = abstract_implication();
         node = sentence_new(S_IFF, node, right, start);
@@ -8251,13 +8348,15 @@ static Sentence *abstract_statement(void) {
     if (!work_reserve((void **)&sort_data,&sort_capacity,1,sizeof *sort_data))
         return sentence_new(S_TRUE,NULL,NULL,token.start);
     describe_count = describe_allowed = part_template_count = 0;
+    stack_chain_levels = 0;  /* le catene a pettine si contano enunciato per enunciato (capitolo 2) */
     if (symbol_bound_capacity) memset(symbol_bound, 0, symbol_bound_capacity * sizeof *symbol_bound);
     abstract_positive = 1;
     abstract_example = map_quantifiers = 0;
     family_slot = -1;
 
-    /* Le lettere che il testo usa: lo svolgimento (17q) dà alle variabili
-     * che crea lettere che non compaiono, prese con fresh_letter(). */
+    /* I nomi che il testo usa: lo svolgimento (17q) dà alle variabili che
+     * crea nomi che non compaiono, presi con fresh_name(): una lettera
+     * libera, o, finite quelle, una lettera con un pedice non scritto. */
     unfolding_reset(token.start);
 
     /* In testa, gli "esiste" di un esempio: insiemi, parti e relazioni,
@@ -8267,7 +8366,7 @@ static Sentence *abstract_statement(void) {
         ParserState before = parser_save();
         const char *kept = consumed;
         Symbol shape = {0, 0, 1, {0, 0}, TRUTH, 0, 0};
-        int count = 0, operation = 0, sets = 1, sorts_before = sort_count;
+        int count = 0, operation = 0, sets = 1, sorts_before = sort_count, symbols_before = symbol_count;
         do {
             if (!work_reserve((void **)&names, &name_capacity, (size_t)count + 1, sizeof *names)) {
                 free(names); return sentence_new(S_TRUE, NULL, NULL, kept);
@@ -8324,9 +8423,15 @@ static Sentence *abstract_statement(void) {
             }
         }
         if (!parts && !map && !(sets && count > 0)) {
+            /* Si torna indietro del tutto: anche i simboli. Leggendo
+             * \mathcal{P}(S) dopo \exists x \in nasce, con l'insieme delle
+             * parti, il suo simbolo di struttura; rimesso il solo numero
+             * degli insiemi, quel simbolo restava con un insieme che non
+             * c'è più, e i modelli leggevano oltre le loro coordinate. */
             parser_restore(before);
             consumed = kept;
             sort_count = sorts_before;
+            symbol_count = symbols_before;
             break;
         }
         abstract_example = 1;
@@ -8390,6 +8495,7 @@ static Sentence *abstract_statement(void) {
         equal->left = equal->right = x;
         Sentence *exists = sentence_new(S_EXISTS, equal, NULL, root->start);
         exists->slot = slot;
+        chain_link();  /* un livello per ogni insieme non vuoto dell'elenco */
         root = sentence_new(S_AND, exists, root, root->start);
     }
     if (token.kind != T_END) syntax("testo inatteso dopo l'enunciato");
@@ -8399,11 +8505,14 @@ static Sentence *abstract_statement(void) {
     /* 17u. Dove un "per ogni parte" vale quanto una dichiarazione. Nella
      * condizione di un esempio no: lì ciò che è dichiarato è cercato, e
      * "per ogni" diventerebbe "esiste". */
-    if (!abstract_example && !syntax_error) root = parts_declare(root);
+    if (!abstract_example && !syntax_error && !failure) root = parts_declare(root);
 
     /* Nella condizione di un esempio una definizione (17p), R = \{...\}, sta
      * tra le congiunzioni più esterne, come tra le ipotesi: dà un nome a un
      * insieme fatto di ciò che l'esempio cerca. */
+    /* Ad arena piena l'albero è incompleto: non si visita, e chi chiama
+     * trova l'errore in `failure`. */
+    if (failure) return root;
     int misplaced = root->kind == S_IMPLIES && !abstract_example ? declaration_misplaced(root->a, 1) || declaration_misplaced(root->b, 0)
                                                                   : declaration_misplaced(root, abstract_example);
     if (misplaced) syntax("un'applicazione, un'operazione, una parte, un elemento o un insieme si dichiarano o si definiscono solo tra le ipotesi, in cima all'enunciato");
@@ -8442,8 +8551,10 @@ static Sentence *abstract_statement(void) {
  * un'immagine): due copie non condividono mai un posto, nemmeno una dentro
  * l'altra. Restano le lettere, che servono a scrivere la dimostrazione e il
  * certificato, e lì una cattura sarebbe possibile: per questo ogni posto
- * nuovo riceve una lettera che l'enunciato non usa (fresh_letter(), la stessa
- * di 17j), diversa da quelle di tutte le variabili nuove. I quantificatori
+ * nuovo riceve un nome che l'enunciato non usa (fresh_name(): una lettera
+ * libera o, finite quelle, una lettera con un pedice che il testo non scrive
+ * e che non è la componente di una coppia), diverso da quelli di tutte le
+ * variabili nuove. I quantificatori
  * scritti nell'enunciato, fuori da ogni insieme, tengono il loro posto e la
  * loro lettera: la dimostrazione li cita come sono scritti.
  *

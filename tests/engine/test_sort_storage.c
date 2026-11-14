@@ -139,6 +139,88 @@ static int derived_certificate_names(void) {
     return check_result(ok,"different derived-sort trees have unambiguous names in an independently accepted certificate");
 }
 
+/* Le componenti di una coppia, d_{1} e d_{2}, non sono scritte nel testo:
+ * un nome sintetico non deve prenderne il posto. Qui tutte le lettere sono
+ * usate, così i nomi nuovi hanno un pedice. Il primo enunciato è vero (un
+ * insieme è contenuto in sé stesso), il secondo falso (E può essere vuoto):
+ * prima il certificato del vero era respinto, e quello del falso legava due
+ * volte d_{1}, cioè parlava di un altro enunciato. */
+static int pair_component_names(void) {
+    const char *head="(f \\colon S \\times S \\to S \\land E \\subseteq S) \\implies "
+        "(\\forall a, b, c, g, h, j, k, m, n, p, q, r, s, t, u, v, w, x, y, z \\in S\\ (a = a) \\land "
+        "\\forall A, B, C, D, F, G, H, J, K, L, M, N, P, Q, R, T, U, V, W, X, Y, Z \\in S\\ (A = A) \\land "
+        "\\forall d \\in S \\times S\\ ";
+    char text[1024];
+    snprintf(text,sizeof text,"%s(\\{f(d)\\} \\subseteq \\{f(d)\\}))",head);
+    int before=unjustified_steps;
+    Verdict v=prove(text,'n',0,0);
+    int passed=check_result(v.outcome==PROVED && v.certificate && unjustified_steps==before,
+                            "a true statement about a pair is proved with an accepted certificate when every letter is in use");
+    snprintf(text,sizeof text,"%s(\\{f(d)\\} \\subseteq E))",head);
+    v=prove(text,'n',0,0);
+    /* Dopo i due quantificatori delle componenti, nessun altro le lega. */
+    const char *binders="(forall d1 S (forall d2 S ";
+    const char *bound=v.certificate?strstr(v.certificate,binders):NULL,*inside=bound?bound+strlen(binders):NULL;
+    return check_result(v.outcome==REFUTED && inside && strstr(inside,"(f d1 d2)") && !strstr(inside,"(forall d1 ") && !strstr(inside,"(forall d2 "),
+                        "no synthetic variable rebinds a pair component inside its scope in the certificate") && passed;
+}
+
+/* \exists x \in \mathcal{P}(S) non e una dichiarazione in testa: il lettore
+ * torna indietro, e con l'insieme delle parti deve dimenticare anche il suo
+ * simbolo di struttura. Altrimenti i modelli leggevano un insieme che non
+ * c'era piu (lo vedono i sanitizer). Gli oracoli: nessuna parte e diversa
+ * da se stessa, la parte vuota esiste sempre, e l'insieme vuoto ha una
+ * parte ma nessun elemento. */
+static int rolled_back_parts(void) {
+    Verdict v=prove("\\exists x \\in \\mathcal{P}(S)\\ (x \\neq x)",'n',0,0);
+    int passed=check_result(v.outcome==REFUTED && v.certificate,
+                            "no part differs from itself: refuted with a certificate after the header rollback");
+    v=prove("\\exists x \\in \\mathcal{P}(S)\\ (x = x)",'n',0,0);
+    passed=check_result(v.outcome==PROVED && v.certificate,"some part equals itself: proved with a certificate") && passed;
+    v=prove("(\\exists x \\in \\mathcal{P}(S)\\ (x = x)) \\implies \\exists y \\in S\\ (y = y)",'n',0,0);
+    passed=check_result(v.outcome==REFUTED && v.certificate && strstr(v.certificate,"sort S 0\n"),
+                        "the empty set has a part and no element: certified counterexample") && passed;
+    char text[512];size_t used=(size_t)snprintf(text,sizeof text,"\\exists ");
+    for (int i=1;i<=16;i++) used+=(size_t)snprintf(text+used,sizeof text-used,"%sS_{%d}",i==1?"":",",i);
+    snprintf(text+used,sizeof text-used,"\\ \\exists x \\in \\mathcal{P}(S_{1})\\ (x = x)");
+    v=prove(text,'n',0,0);
+    return check_result(v.outcome==PROVED && v.certificate && sort_count==16 && strstr(v.certificate,"(existspart x S1 "),
+                        "after the rollback sixteen sorts remain, and the quantifier over parts is read as such") && passed;
+}
+
+/* Il controesempio in una riga non si tronca: con 130 insiemi supera i
+ * 2048 caratteri di una volta, e deve arrivare all'ultimo insieme con le
+ * formule chiuse. */
+static int whole_counterexample_text(void) {
+    char text[8192];size_t used=(size_t)snprintf(text,sizeof text,"(");
+    for (int i=1;i<=130;i++)
+        used+=(size_t)snprintf(text+used,sizeof text-used,"%sc_{%d} \\in S_{%d}",i==1?"":" \\land ",i,i);
+    snprintf(text+used,sizeof text-used," \\land d_{130} \\in S_{130}) \\implies c_{130}=d_{130}");
+    Verdict v=prove(text,'n',0,0);
+    size_t length=v.detail?strlen(v.detail):0,dollars=0;
+    for (size_t i=0;i<length;i++) dollars+=v.detail[i]=='$';
+    return check_result(v.outcome==REFUTED && length>2048 && strstr(v.detail,"S_{130} = ") && strstr(v.detail,"d_{130} = ") &&
+                        dollars%2==0 && v.detail[length-1]=='$',
+                        "the one-line counterexample with 130 sorts is complete, with every formula closed");
+}
+
+/* Un numero scritto come elemento e una variabile n_{1} hanno nel
+ * certificato due nomi diversi. Prima erano entrambi "n1": sotto
+ * \forall n_{1} il numero 1 della condizione diventava la variabile, e il
+ * certificato accettato era di un altro enunciato. Gli oracoli: la prima
+ * relazione contiene (1, 2) ma non (2, 1), la seconda entrambe. */
+static int numeral_names(void) {
+    Verdict v=prove("G_{1} = \\{(1, 1), (2, 2), (3, 3), (1, 2)\\} \\implies "
+                    "(\\forall n_{1}, y\\ ((n_{1}, y) \\in G_{1} \\implies (y, n_{1}) \\in G_{1}))",'n',0,0);
+    int passed=check_result(v.outcome==REFUTED && v.certificate && strstr(v.certificate,"sort Num numbers num1 num2 num3\n") &&
+                            strstr(v.certificate,"(= n1 num1)") && !strstr(v.certificate,"(= n1 n1)"),
+                            "a variable named n_1 and the numeral 1 keep distinct names in a refuted statement's certificate");
+    v=prove("G_{1} = \\{(1, 1), (2, 2), (3, 3), (1, 2), (2, 1)\\} \\implies "
+            "(\\forall n_{1}, y\\ ((n_{1}, y) \\in G_{1} \\implies (y, n_{1}) \\in G_{1}))",'n',0,0);
+    return check_result(v.outcome==PROVED && v.certificate && strstr(v.certificate,"(= n1 num2)") && !strstr(v.certificate,"(= n1 n1)"),
+                        "the same holds in the certificate of the true statement") && passed;
+}
+
 /* I casi sono dati del test; il motore non conosce numeri o nomi di questa
  * famiglia. Le due varianti false non possono diventare dimostrate. */
 int main(void) {
@@ -148,5 +230,9 @@ int main(void) {
     passed=compositions() && passed;
     passed=structural_names() && passed;
     passed=derived_certificate_names() && passed;
+    passed=pair_component_names() && passed;
+    passed=rolled_back_parts() && passed;
+    passed=whole_counterexample_text() && passed;
+    passed=numeral_names() && passed;
     return passed?0:1;
 }

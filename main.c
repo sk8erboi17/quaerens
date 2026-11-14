@@ -647,14 +647,14 @@ typedef struct {
 #define MAX_TEMPLATES 8      /* insiemi scritti dall'enunciato come parti, usati per le comprensioni (17v, 28n) */
 #define MAX_LISTED_TUPLES 32 /* coppie in un elenco scritto tra graffe, \{(1, 1), (1, 2)\} (17v) */
 #define RELATION_NAMES 3500  /* "nomi" delle relazioni scritte con un comando, come \le (17v): non sono
-                                caratteri, e stanno tra le lettere greche e i simboli di struttura */
+                                caratteri, e stanno tra le lettere greche e i numeri (NUMERAL_NAMES); i
+                                simboli di struttura hanno nomi negativi */
 #define LETTER_INDEX (-2)    /* un pedice letterale, \le_{S}, vale LETTER_INDEX meno la lettera (17v) */
 #define NUMERAL_NAMES 5000   /* "nomi" dei numeri scritti come elementi (17v): il numero v è NUMERAL_NAMES + v */
 #define MAX_NUMERAL 1000     /* il più grande numero scritto come elemento, più uno (17v) */
 #define ZERO_INDEX (-1)      /* il pedice 0, x_{0}: zero resta "senza pedice", i numeri positivi restano distinti */
 #define MAX_MODELS 400000    /* tabelle provate per una scelta delle grandezze degli insiemi */
 #define MAX_MODEL_WORK 3000000  /* tabelle provate in tutto per un enunciato */
-#define MAX_MODEL_STEPS 40000000  /* elementi provati dai quantificatori, in tutto, nel calcolare un enunciato sui modelli */
 /* Budget di ricerca, modificabili dalla riga di comando: non cardinalita
  * massime. Anche i depositi SAT crescono entro la memoria richiesta. */
 static size_t model_memory_limit = 128u * 1024u * 1024u;
@@ -663,6 +663,12 @@ static size_t model_memory_limit = 128u * 1024u * 1024u;
 static unsigned long long saturation_work_limit = 2000000;
 static size_t saturation_memory_limit = 128u * 1024u * 1024u;
 static unsigned long long model_work_limit = 20000000ULL;
+/* Elementi provati dai quantificatori, in tutto, nel calcolare un enunciato
+ * sui modelli (--model-steps). E un budget di lavoro come gli altri: era una
+ * costante, e allora nessun --model-work faceva confermare un controesempio
+ * di 83 elementi sotto quattro quantificatori. Resta sotto LLONG_MAX, perche
+ * model_steps lo supera di uno per dire "conto interrotto". */
+static long long model_step_limit = 40000000LL;
 static unsigned long long verification_work_limit = 20000000ULL;
 #define MAX_GROUND 2048      /* elementi nominati in una dimostrazione su insiemi qualsiasi (28b) */
 #define MAX_KNOWN 2048       /* condizioni note in un ramo di quella dimostrazione */
@@ -736,6 +742,10 @@ static unsigned long long verification_work_limit = 20000000ULL;
  * cui si prende spazio in fila e che si svuota tutta insieme tra un enunciato
  * e il successivo. Non c'è free(): i valori intermedi sono tanti e piccoli, e
  * la loro vita finisce comunque con l'enunciato.
+ *
+ * Pila. Le funzioni che visitano un albero sono ricorsive, e la pila non
+ * cresce: un enunciato lungo, che può avere alberi profondi, si legge
+ * tenendo il conto di quanta ne chiederà (in fondo al capitolo).
  */
 
 /* Motivo del primo errore del conto in corso, in italiano; NULL se va bene. */
@@ -813,6 +823,88 @@ static void *work_arena_array(size_t count, size_t unit) {
     void *data = arena_alloc(count * unit);
     if (!data) work_allocation_failed = 1;
     return data;
+}
+
+/* LA PILA DI LAVORO
+ *
+ * Quasi ogni funzione che visita un albero è ricorsiva: scende di un livello
+ * di pila per ogni livello dell'albero. A differenza dell'arena e dei vettori
+ * di lavoro la pila non cresce, e oltre il suo fondo il programma non dà un
+ * esito: si ferma. Finché un enunciato stava in MAX_FORMULA caratteri i suoi
+ * alberi non potevano essere abbastanza profondi; da quando il linguaggio
+ * degli insiemi qualsiasi (17o-17w) legge enunciati di lunghezza qualsiasi
+ * (gli altri linguaggi no: prove_core()) possono esserlo, e 20.000 negazioni
+ * una dentro l'altra fermavano il programma. Ora la lettura di un enunciato
+ * lungo tiene il conto della pila che i suoi alberi chiederanno, e si ferma
+ * prima, con l'esito "pila di lavoro esaurita".
+ *
+ * Due cose rendono profondo un albero.
+ *
+ *   - L'annidamento vero: parentesi, negazioni, f(f(f(x))). Lo legge una
+ *     discesa ricorsiva, che usa lei stessa la pila: quanta, lo dice la
+ *     distanza tra l'indirizzo di una variabile locale e quello preso
+ *     all'avvio (stack_used()). Si misura, e non si contano i livelli, perché
+ *     il costo di un livello cambia di venti volte tra una compilazione
+ *     ottimizzata e una con i sanitizer.
+ *   - Le catene e gli elenchi: "a \iff b \iff c", o le lettere di
+ *     "\forall x, y, z", si leggono con un ciclo, che non usa pila, ma danno
+ *     un albero a pettine, con un livello per anello o per lettera. Chi li
+ *     legge conta i livelli in stack_chain_levels (chain_link() in
+ *     parser.c), e ognuno vale CHAIN_LEVEL_BYTES. Le catene di \land e di
+ *     \lor, le sole che in un enunciato possono essere lunghe quanto si
+ *     vuole (le ipotesi), in un enunciato lungo non sono a pettine: il
+ *     lettore le unisce a metà (abstract_chain() in parser.c).
+ *
+ * La lettura conta il doppio: chi visiterà l'albero può usare, per livello,
+ * più pila di chi lo ha letto. Sono misure fatte (novembre 2026, pila di
+ * 8 MB, compilazione ottimizzata): la lettura usa da 600 a 1400 byte per
+ * livello di annidamento e le visite meno; un anello di catena costa alle
+ * visite da 140 a 210 byte. stack_budget, di default, è metà di quella pila.
+ *
+ * Non è un tetto alla grandezza dei modelli né al numero delle ipotesi: è
+ * il budget di una risorsa che il programma non può allargare, e chi lo
+ * esaurisce riceve un NON DIMOSTRATO che lo dice, come per la memoria. */
+#define CHAIN_LEVEL_BYTES 256  /* byte di pila che un anello di una catena a pettine costa a chi la visita */
+
+/* Byte di pila concessi agli alberi di un enunciato lungo (--stack-budget):
+ * la metà di una pila di 8 MB, quella consueta. Chi lavora con una pila più
+ * piccola (ulimit -s) deve abbassarlo, perché in C standard il programma non
+ * può sapere quanta ne ha: con 2 MB di pila e il budget di default 2000
+ * parentesi annidate lo fermano ancora. */
+static size_t stack_budget = (size_t)4 << 20;
+
+/* L'esito di chi esaurisce il budget della pila. Ha un nome perché prove()
+ * lo mette nel verdetto al posto di ciò che i lettori, fermati a metà,
+ * hanno detto. */
+static const char *const STACK_EXHAUSTED = "pila di lavoro esaurita: l'enunciato è troppo annidato";
+
+static uintptr_t stack_origin;     /* Indirizzo di una variabile locale di engine_init(): il punto da cui si misura. */
+static size_t stack_chain_levels;  /* Anelli delle catene a pettine lette nell'enunciato in corso. */
+static int stack_guard;            /* 1 mentre si lavora a un enunciato lungo: solo allora si misura. */
+/* 1 se il budget è finito lavorando all'enunciato in corso. Come
+ * work_allocation_failed, non lo cancella un tentativo successivo: lo
+ * azzera e lo legge solo prove(). */
+static int stack_exhausted;
+
+/* Ritorna i byte di pila tra il punto di avvio e chi chiama. La differenza
+ * si fa tra interi e in valore assoluto, perché il verso in cui la pila
+ * cresce dipende dalla macchina. */
+static size_t stack_used(void) {
+    char here;
+    uintptr_t now = (uintptr_t)(void *)&here;
+    return (size_t)(now > stack_origin ? now - stack_origin : stack_origin - now);
+}
+
+/* Ritorna 1 se gli alberi dell'enunciato in corso stanno ancora nel budget
+ * della pila: il doppio di quella in uso, più quella delle catene lette.
+ * Altrimenti annota stack_exhausted e ritorna 0, e così a ogni chiamata
+ * successiva: nessun lettore deve proseguire. Per un enunciato corto
+ * ritorna sempre 1, senza misurare. */
+static int stack_room(void) {
+    if (!stack_guard) return 1;
+    size_t reading = 2 * stack_used();
+    if (reading > stack_budget || stack_chain_levels > (stack_budget - reading) / CHAIN_LEVEL_BYTES) stack_exhausted = 1;
+    return !stack_exhausted;
 }
 
 /* Una parola del bitset, zero oltre la sua fine. L'indice i corrisponde
@@ -1844,6 +1936,10 @@ static size_t arena_keep;
 /* Prepara il motore: analizza le definizioni del vocabolario. Va chiamata una
  * volta prima di ogni altra funzione dei capitoli successivi. */
 static void engine_init(void) {
+    /* Il punto da cui si misura la pila (stack_used()): chi chiama questa
+     * funzione è in cima al programma, o quasi. */
+    char here;
+    stack_origin = (uintptr_t)(void *)&here;
     arena_used = 0;
     for (int i = 0; i < LIBRARY_COUNT; i++)
         if (library[i].definition) library[i].tree = parse_expression(library[i].definition);
@@ -27402,28 +27498,28 @@ static const char *derivative_doubt(const Formula *thesis) {
 
 /* 28a. I MODELLI FINITI */
 
+/* Una coordinata della ricerca dei modelli: la grandezza di un insieme.
+ * Si contano elementi; minimum non è mai una grandezza massima. */
+typedef struct {
+    size_t size;     /* Quanti elementi ha l'insieme nel modello in corso. */
+    size_t minimum;  /* Quanti ne deve avere almeno, per la formula e per i tipi (model_minimums()). */
+    size_t extra;    /* Stato dell'enumeratore: size = minimum + extra, dove è indirizzabile. */
+} ModelDimension;
+
 /* Un'interpretazione finita dell'enunciato in corso: quanti elementi ha
  * ogni insieme, e la tabella di ogni simbolo dichiarato. Gli elementi
- * dell'insieme di posto i sono i numeri da 0 a size[i] - 1.
+ * dell'insieme di posto i sono i numeri da 0 a dimension[i].size - 1.
  *
  * La tabella di un simbolo dà il suo valore per ogni scelta degli
  * argomenti: alla cella a + b * (elementi del primo insieme) c'è il valore
  * in (a, b), che è un elemento del codominio, oppure 0 o 1 per una parte o
  * una relazione. Un elemento con un nome ha la sola cella 0. Le tabelle dei
  * simboli di struttura degli insiemi di parti e di applicazioni non si
- * scelgono: le fissa model_structure() (28m). */
-/* Una coordinata della ricerca dei modelli: size e la cardinalita
- * corrente, minimum un limite inferiore dedotto dalla formula e dai tipi.
- * Entrambi contano elementi; minimum non e mai una dimensione massima. */
-typedef struct {
-    size_t size;
-    size_t minimum;
-    size_t extra;   /* Stato dell'enumeratore: size=minimum+extra dove indirizzabile. */
-} ModelDimension;
-
-/* Un modello finito possiede coordinate e tabelle. Gli indici di insieme
- * e simbolo si riferiscono al problema corrente; la pulizia usa soltanto
- * le capacita e le lunghezze possedute, non i contatori del parser. */
+ * scelgono: le fissa model_structure() (28m).
+ *
+ * Il modello possiede coordinate e tabelle. Gli indici di insieme e di
+ * simbolo sono quelli del problema corrente; la pulizia usa soltanto le
+ * capacità e le lunghezze possedute, non i contatori del parser. */
 typedef struct {
     ModelDimension *dimension;      /* Coordinate possedute, indicizzate per insieme. */
     size_t dimension_capacity;      /* Celle allocate nel vettore dimension. */
@@ -27513,9 +27609,21 @@ static size_t model_element(const Model *m, const Elem *e, const size_t *value) 
 /* Quanti elementi i quantificatori hanno provato da quando model_search()
  * ha cominciato. Con molti quantificatori uno dentro l'altro il conto su un
  * solo modello cresce come una potenza: venti "per ogni" su tre elementi
- * sono miliardi di prove. Oltre MAX_MODEL_STEPS model_holds() smette di
+ * sono miliardi di prove. Oltre model_step_limit model_holds() smette di
  * calcolare, e chi la chiama deve buttare via la sua risposta. */
 static long long model_steps;
+
+/* Ritorna 1 se il conto sui modelli in corso è arrivato in fondo. Dopo un
+ * conto interrotto il valore ritornato da model_holds() o da book_holds()
+ * non vuol dire nulla, nemmeno quando è "vero": una negazione rovescia lo
+ * zero di un quantificatore interrotto. Chi usa quel valore lo chiede qui. */
+static int model_steps_complete(void) { return model_steps <= model_step_limit; }
+
+/* Il motivo, se la ricerca SAT ha trovato un modello che poi non si è
+ * potuto ricalcolare entro model_step_limit; altrimenti NULL. Un modello
+ * così non è un controesempio, ma il verdetto deve dire che cosa è mancato:
+ * non la ricerca, il budget del ricalcolo. Lo azzera prove_abstract(). */
+static const char *model_unconfirmed;
 
 /* 28i. Il calcolo di una condizione in un modello: model_holds() per le
  * condizioni svolte, book_holds() (28h) per quelle scritte come nei libri. */
@@ -27530,12 +27638,12 @@ typedef int (*ModelHolds)(const Model *m, const Sentence *s, size_t *value);
 static int model_part_quantifier(const Model *m, const Sentence *s, size_t *value, ModelHolds holds) {
     int every = s->kind == S_FORALL_PART, result = every;
     size_t n = m->dimension[symbols[s->part].domain[0]].size;
-    if (n > model_memory_limit) { model_steps = MAX_MODEL_STEPS + 1LL; return 0; }
+    if (n > model_memory_limit) { model_steps = model_step_limit + 1LL; return 0; }
     unsigned char *saved = m->part[s->part], *bits = calloc(n ? n : 1, 1);
-    if (!bits) { model_steps = MAX_MODEL_STEPS + 1LL; return 0; }
+    if (!bits) { model_steps = model_step_limit + 1LL; return 0; }
     m->part[s->part] = bits;
     for (;;) {
-        if (++model_steps > MAX_MODEL_STEPS) break;
+        if (++model_steps > model_step_limit) break;
         if (holds(m, s->a, value) != every) { result = !every; break; }
         size_t bit = 0;
         while (bit < n && bits[bit]) bits[bit++] = 0;
@@ -27563,7 +27671,7 @@ static int model_equipotent(const Model *m, const Sentence *s) {
     for (int k = 0; k < 2; k++)
         for (int i = 0; i < s->sides[k]; i++)
             if (!model_product(size[k], m->dimension[slot_data[s->side_slot[k][i]].sort].size, &size[k])) {
-                model_steps = MAX_MODEL_STEPS + 1LL;
+                model_steps = model_step_limit + 1LL;
                 return 0;
             }
     return size[0] == size[1];
@@ -27572,7 +27680,7 @@ static int model_equipotent(const Model *m, const Sentence *s) {
 /* Ritorna 1 se la condizione s vale nel modello m, con le variabili libere
  * ai valori di value[]. È un conto finito e completo: ogni quantificatore
  * prova tutti gli elementi del suo insieme. value[] viene usato anche per
- * le variabili che s lega. Se model_steps supera MAX_MODEL_STEPS la
+ * le variabili che s lega. Se model_steps supera model_step_limit la
  * risposta non vuol dire nulla. */
 static int model_holds(const Model *m, const Sentence *s, size_t *value) {
     switch (s->kind) {
@@ -27605,7 +27713,7 @@ static int model_holds(const Model *m, const Sentence *s, size_t *value) {
     }
     int every = s->kind == S_FORALL;
     for (size_t x = 0; x < m->dimension[slot_data[s->slot].sort].size; x++) {
-        if (++model_steps > MAX_MODEL_STEPS) return 0;
+        if (++model_steps > model_step_limit) return 0;
         value[s->slot] = x;
         if (model_holds(m, s->a, value) != every) return !every;
     }
@@ -27848,7 +27956,7 @@ static size_t *model_variables(void) {
  *
  * Non sempre li prova tutti: una scelta delle grandezze con più di
  * MAX_MODELS tabelle viene saltata, e dopo MAX_MODEL_WORK tabelle in tutto,
- * o MAX_MODEL_STEPS elementi provati dai quantificatori, la ricerca si
+ * o model_step_limit elementi provati dai quantificatori, la ricerca si
  * ferma. In *tried mette quante tabelle ha provato, e in
  * *bound il più grande k per cui ha provato tutti i modelli con insiemi di
  * al più k elementi: è ciò che il verdetto può dire di aver controllato. */
@@ -27895,7 +28003,7 @@ static int model_search(const Sentence *root, int wanted, Model *m, long long *t
                 /* Una risposta ottenuta a conto interrotto non conta, e la
                  * ricerca finisce lì: *tried è già oltre il suo limite. */
                 int holds = model_holds(m, root, value);
-                if (model_steps > MAX_MODEL_STEPS) { *tried = MAX_MODEL_WORK; break; }
+                if (!model_steps_complete()) { *tried = MAX_MODEL_WORK; break; }
                 ++*tried;
                 if (holds == wanted) return 1;
                 more = 0;
@@ -28415,7 +28523,7 @@ static SatLiteral sat_sentence(SatState *s, const Model *m, const Sentence *f) {
     case S_TRUE: return 1;
     case S_EQUIPOTENT: {
         int equal = model_equipotent(m, f);
-        if (model_steps > MAX_MODEL_STEPS) s->broken = 1;
+        if (!model_steps_complete()) s->broken = 1;
         return equal ? 1 : -1;
     }
     case S_EQUAL: {
@@ -28545,11 +28653,17 @@ static int model_sat(const Sentence *root, int wanted, Model *m, unsigned long l
         size_t *value = s.slots;
         model_steps = 0;
         int confirmed = found && model_holds(m, root, value) == wanted;
-        if (!confirmed && model_steps <= MAX_MODEL_STEPS) unjustified_steps++;
-        found = confirmed && model_steps <= MAX_MODEL_STEPS;
+        if (!confirmed && model_steps_complete()) unjustified_steps++;
+        if (found && !model_steps_complete())
+            model_unconfirmed = "trovato un modello candidato, ma ricalcolarvi l'enunciato supera il budget dei passi (--model-steps): non conta come controesempio";
+        found = confirmed && model_steps_complete();
     }
     *work += s.work;
-    if (s.memory_limited) *work = model_work_limit;
+
+    /* Anche un modello che non si riesce a ricalcolare ferma la ricerca: i
+     * modelli più grandi costerebbero di più, e il budget che manca è
+     * quello dei passi, non quello della ricerca. */
+    if (s.memory_limited || (!found && model_unconfirmed)) *work = model_work_limit;
     sat_clear(&s);
     return found;
 }
@@ -28780,7 +28894,7 @@ static void put_model(const Model *m) {
  * I modelli sono quelli di 28a: per ogni scelta delle grandezze degli
  * insiemi, dalla più piccola, tutte le tabelle se sono poche, altrimenti un
  * campione preso a caso con un seme fisso, fino a MAX_CHECK_MODELS modelli o
- * al limite di MAX_MODEL_STEPS. Non dimostra che le due strade coincidano
+ * al limite di model_step_limit. Non dimostra che le due strade coincidano
  * sempre, e non serve: è il controllo contro gli errori dello svolgimento,
  * e un errore di sostituzione cambia l'enunciato quasi sempre già in un
  * modello di due o tre elementi.
@@ -28817,7 +28931,7 @@ static int book_member(const Model *m, const size_t *t, const SetTerm *set, size
             possible = possible && m->dimension[slot_data[set->bound[i]].sort].size != 0;
         }
         for (int more = possible; more && !found; ) {
-            if (++model_steps > MAX_MODEL_STEPS) break;
+            if (++model_steps > model_step_limit) break;
             int same = 1;
             for (int i = 0; i < set->arity && same; i++) same = value[set->item[i]->slot] == t[i];
             found = same && book_holds(m, set->condition, value);
@@ -28862,7 +28976,7 @@ static int book_member(const Model *m, const size_t *t, const SetTerm *set, size
             possible = possible && m->dimension[slot_data[set->bound[i]].sort].size != 0;
         }
         for (int more = possible; more && !found; ) {
-            if (++model_steps > MAX_MODEL_STEPS) break;
+            if (++model_steps > model_step_limit) break;
             if (book_holds(m, set->condition, value)) {
                 if (set->items) {
                     found = model_element(m, set->item[0], value) == t[0];
@@ -28934,7 +29048,7 @@ static int book_compare(const Model *m, const SetTerm *set, const SetTerm *other
     size_t t[MAX_ARITY] = {0};
     for (int i = 0; i < set->arity; i++) if (!m->dimension[set->sort[i]].size) return how != 2;
     for (;;) {
-        if (++model_steps > MAX_MODEL_STEPS) return 0;
+        if (++model_steps > model_step_limit) return 0;
         int in_set = book_member(m, t, set, value), in_other = book_member(m, t, other, value);
         if (how == 0 && in_set && !in_other) return 0;
         if (how == 1 && in_set != in_other) return 0;
@@ -28951,7 +29065,7 @@ static int book_compare(const Model *m, const SetTerm *set, const SetTerm *other
 /* Ritorna 1 se la condizione s, scritta come nei libri (17p), vale nel
  * modello m, con le variabili libere ai valori di value[]. È model_holds()
  * per le condizioni di 17o, con in più i nodi di 17p calcolati dalla loro
- * definizione. Se model_steps supera MAX_MODEL_STEPS la risposta non vuol
+ * definizione. Se model_steps supera model_step_limit la risposta non vuol
  * dire nulla. */
 static int book_holds(const Model *m, const Sentence *s, size_t *value) {
     size_t t[MAX_ARITY];
@@ -28978,7 +29092,7 @@ static int book_holds(const Model *m, const Sentence *s, size_t *value) {
     case S_UNIQUE:
         /* Si contano gli elementi per cui vale. */
         for (size_t x = 0; x < m->dimension[slot_data[s->slot].sort].size && count < 2; x++) {
-            if (++model_steps > MAX_MODEL_STEPS) return 0;
+            if (++model_steps > model_step_limit) return 0;
             value[s->slot] = x;
             count += book_holds(m, s->a, value);
         }
@@ -28988,7 +29102,7 @@ static int book_holds(const Model *m, const Sentence *s, size_t *value) {
     }
     every = s->kind == S_FORALL;
     for (size_t x = 0; x < m->dimension[slot_data[s->slot].sort].size; x++) {
-        if (++model_steps > MAX_MODEL_STEPS) return 0;
+        if (++model_steps > model_step_limit) return 0;
         value[s->slot] = x;
         if (book_holds(m, s->a, value) != every) return !every;
     }
@@ -29049,7 +29163,7 @@ static long long book_check(const Sentence *written, const Sentence *unfolded) {
             for (int tried=0,more=1;more;tried++) {
                 if (count>256) book_random_tables(&m,&state);
                 int book=book_holds(&m,written,value),plain=model_holds(&m,unfolded,value);
-                if (model_steps>MAX_MODEL_STEPS) goto finished;
+                if (!model_steps_complete()) goto finished;
                 if (book!=plain) { model_clear(&m);return -1; }
                 if (++compared>=MAX_CHECK_MODELS) goto finished;
                 more=0;
@@ -32109,7 +32223,14 @@ static void cert_symbol(int symbol) {
         cert_sort(symbol_structure(symbol));
         return;
     }
-    if (s->name >= NUMERAL_NAMES) { cert_add("n%d", s->name - NUMERAL_NAMES); return; }
+    /* 17v. Un numero scritto come elemento si chiama num seguito dal numero.
+     * Si chiamava n1, come nel certificato si scrive la variabile n_{1}: con
+     * \forall n_{1} in vista, "n1" nella condizione diventava la variabile,
+     * e il certificato parlava di un altro enunciato. Nessun altro nome
+     * comincia per "num": una lettera sola, o un comando (lettere greche,
+     * operazioni, relazioni), poi un pedice.
+     * Warning: se aggiungi un comando che si chiama num, cambia questo nome. */
+    if (s->name >= NUMERAL_NAMES) { cert_add("num%d", s->name - NUMERAL_NAMES); return; }
     if (symbol >= declared_symbols && s->name >= GREEK_NAMES) { cert_add("%s_%d", greek_letters[s->name - GREEK_NAMES], name_serial[symbol]); return; }  /* 28q */
     if (symbol >= declared_symbols) { cert_add("%c_%d", s->name, name_serial[symbol]); return; }
     if (s->name >= RELATION_NAMES) cert_add("%s", relation_commands[s->name - RELATION_NAMES]);
@@ -33421,8 +33542,10 @@ static int conjuncts(const Sentence *s, const Sentence **list, int count, int ma
     return count;
 }
 
-/* Il testo di un modello, per il verdetto in una riga. */
-static char model_text[2048];
+/* Il testo di un modello, per il verdetto in una riga: una copia posseduta
+ * qui, riusata tra gli enunciati e valida fino al modello successivo. */
+static char *model_text;
+static size_t model_text_capacity;  /* Byte posseduti in model_text. */
 
 /* Consegna un modello gia trovato: ricalcola ipotesi, tesi e notazione
  * scritta, poi scrive il documento e il certificato indipendente. La stessa
@@ -33442,6 +33565,15 @@ static Verdict abstract_model_result(Verdict verdict, const Sentence *written, c
                   : root->kind == S_IMPLIES ? model_holds(model, root->a, value) && !model_holds(model, root->b, value)
                   : !model_holds(model, root, value);
     if (written != root) confirmed = confirmed && book_holds(model, written, value) == abstract_example;
+
+    /* Un conto interrotto non conferma nulla, nemmeno quando il suo valore
+     * è quello atteso: per un controesempio "non vale" è anche ciò che
+     * ritorna un quantificatore fermato a metà. */
+    if (!model_steps_complete()) {
+        verdict.outcome = NOT_PROVED;
+        verdict.reason = "il modello trovato non si è potuto ricalcolare entro il budget dei passi (--model-steps)";
+        return verdict;
+    }
     if (!confirmed) {
         unjustified_steps++;
         verdict.outcome = NOT_PROVED;
@@ -33453,7 +33585,16 @@ static Verdict abstract_model_result(Verdict verdict, const Sentence *written, c
     size_t from = proof_length;
     put_model(model);
     if (proof_broken) { verdict.outcome = NOT_PROVED; verdict.reason = "memoria esaurita scrivendo il modello"; return verdict; }
-    snprintf(model_text, sizeof model_text, "%s", proof_text + from);
+    /* Una copia intera: il testo di un modello cresce con i suoi insiemi,
+     * e troncato a metà di una formula non si legge più (con 130 insiemi la
+     * riga del verdetto finiva in "$S_{120} = \{"). La dimostrazione scritta
+     * continua a crescere e può spostarsi: non si può puntare lì dentro. */
+    size_t model_length = proof_length - from;
+    if (!work_reserve((void **)&model_text, &model_text_capacity, model_length + 1, 1)) {
+        verdict.outcome = NOT_PROVED; verdict.reason = OUT_OF_MEMORY; return verdict;
+    }
+    memcpy(model_text, proof_text + from, model_length);
+    model_text[model_length] = 0;
     proof_add(abstract_example ? ". Computing with these tables, the condition holds." : ". Computing with these tables, the hypotheses hold and the conclusion fails.");
     put_unfolding_note(compared);
     if (abstract_example) proof_add(" $\\Box$");
@@ -36028,6 +36169,7 @@ static Verdict prove_abstract(const char *formula) {
 
     /* Ripartenza da zero e parsing. Il modello precedente non serve piu. */
     model_clear(&model);
+    model_unconfirmed = NULL;
     proof_reset();
     arena_used = arena_keep;
     failure = NULL;
@@ -36050,7 +36192,11 @@ static Verdict prove_abstract(const char *formula) {
     long long compared = 0;
     if (sentence_has_book_notation(written)) {
         root = abstract_unfold(written);
-        if (syntax_error) { verdict.reason = syntax_error; return verdict; }
+
+        /* Anche l'arena piena: lo svolgimento raddoppia l'enunciato a ogni
+         * \exists!, e con 22 uno dentro l'altro la riempie. L'albero
+         * incompleto non va calcolato sui modelli. */
+        if (syntax_error || failure) { verdict.reason = syntax_error ? syntax_error : failure; return verdict; }
         compared = book_check(written, root);
         if (compared < 0) {
             unjustified_steps++;
@@ -36093,7 +36239,12 @@ static Verdict prove_abstract(const char *formula) {
         size_t *value = model_variables();
         if (work_allocation_failed) { verdict.reason = OUT_OF_MEMORY; return verdict; }
         model_steps = 0;
-        if (!model_holds(&model, root, value) || (written != root && !book_holds(&model, written, value))) {
+        int holds = model_holds(&model, root, value) && (written == root || book_holds(&model, written, value));
+        if (!model_steps_complete()) {
+            verdict.reason = "il conto sui numeri dell'enunciato supera il budget dei passi (--model-steps)";
+            return verdict;
+        }
+        if (!holds) {
             unjustified_steps++;
             verdict.reason = "la verifica indipendente non conferma il conto sui numeri dell'enunciato";
             return verdict;
@@ -36111,7 +36262,7 @@ static Verdict prove_abstract(const char *formula) {
         return abstract_certified(verdict);
     }
     if (abstract_example) {
-        verdict.reason = "nessun esempio trovato entro il budget di ricerca dei modelli: può essercene uno";
+        verdict.reason = model_unconfirmed ? model_unconfirmed : "nessun esempio trovato entro il budget di ricerca dei modelli: può essercene uno";
         return verdict;
     }
 
@@ -36133,7 +36284,7 @@ static Verdict prove_abstract(const char *formula) {
         symbol_count = model_symbols;
         if (model_sat_slice(root, 0, &model, &tried, bound, remaining_work))
             return abstract_model_result(verdict, written, root, &model, compared);
-        verdict.reason = "i modelli con pochi elementi sono troppi per provarli: manca il controllo indipendente";
+        verdict.reason = model_unconfirmed ? model_unconfirmed : "i modelli con pochi elementi sono troppi per provarli: manca il controllo indipendente";
         return verdict;
     }
 
@@ -36182,7 +36333,8 @@ static Verdict prove_abstract(const char *formula) {
         return verdict;
     }
     if (!proved) {
-        verdict.reason = exhausted || part_interrupted ? "la ricerca è stata interrotta: troppi elementi o troppe istanze senza arrivare a una dimostrazione"
+        verdict.reason = model_unconfirmed ? model_unconfirmed
+                       : exhausted || part_interrupted ? "la ricerca è stata interrotta: troppi elementi o troppe istanze senza arrivare a una dimostrazione"
                                    : "nessun controesempio trovato entro il budget dei modelli; le istanze provate non bastano a dimostrarlo";
         return verdict;
     }
@@ -42279,8 +42431,17 @@ static Verdict prove_core(const char *formula, int variable, int has_base, long 
     /* Il grafico dell'enunciato precedente non vale più. */
     if (figure) { pl_close(figure); figure = NULL; }
 
+    /* Un enunciato lungo lo legge solo il linguaggio degli insiemi
+     * qualsiasi (capitolo 28), che cresce con il problema e sorveglia la
+     * pila (capitolo 2). Gli altri linguaggi contano su MAX_FORMULA, nei
+     * loro depositi e nella profondità dei loro alberi: lo rifiutano, come
+     * facevano quando era il lettore degli \item a fermarsi lì. Senza
+     * questo rifiuto 6000 radici una dentro l'altra fermavano il programma. */
+    const Verdict too_long = {UNSUPPORTED, variable, 0, 0, "enunciato troppo lungo", NULL, NULL, NULL, NULL, NULL};
+    stack_guard = strlen(formula) >= MAX_FORMULA;
+
     /* \int in testa: un integrale (capitolo 30), qualunque cosa segua. */
-    if (starts_with_integral(formula)) return prove_integral(formula);
+    if (starts_with_integral(formula)) return stack_guard ? too_long : prove_integral(formula);
 
     /* Il numero di elementi di un insieme: nessun metodo del programma lo
      * tratta, e il verdetto lo dice (uses_cardinality()). L'equipotenza sì,
@@ -42299,7 +42460,18 @@ static Verdict prove_core(const char *formula, int variable, int has_base, long 
         if (verdict.outcome == UNSUPPORTED && bad_exponent) verdict.reason = equipotence_exponent_reason;
         return verdict;
     }
-    if (strstr(formula, "\\mathbb")) return prove_quantified(formula);
+    if (strstr(formula, "\\mathbb")) return stack_guard ? too_long : prove_quantified(formula);
+
+    /* Un enunciato lungo, da qui in poi, è del capitolo 28 o di nessuno.
+     * Uno sulle relazioni tra parti che il capitolo 28 non legge sarebbe
+     * del capitolo 15 (17r), che gli enunciati lunghi non li legge: il
+     * motivo è quello, non l'errore di un lettore a cui non era destinato. */
+    if (stack_guard) {
+        int parts = uses_parts_relations(formula);
+        if (!parts && !uses_elements(formula)) return too_long;
+        Verdict verdict = prove_abstract(formula);
+        return parts && verdict.outcome == UNSUPPORTED ? too_long : verdict;
+    }
 
     /* Il segno di derivata in testa: l'enunciato è del capitolo 27, anche
      * quando il capitolo 27 non lo sa leggere. Non prosegue come algebra,
@@ -42402,11 +42574,19 @@ static void verdict_print(FILE *out, const Verdict *verdict) {
  * ha cancellato failure per provarne un'altra. Ogni chiamata riparte dai
  * contatori inizializzati dai metodi; le capacita allocate si riusano. */
 static Verdict prove(const char *formula, int variable, int has_base, long long base) {
-    work_allocation_failed = 0;
+    /* Anche il conto delle catene riparte: prima che il lettore lo azzeri
+     * da sé, i primi token dell'enunciato sono già passati per la guardia,
+     * e il conto dell'enunciato precedente lo faceva rifiutare. */
+    work_allocation_failed = stack_exhausted = 0;
+    stack_chain_levels = 0;
     Verdict verdict = prove_core(formula, variable, has_base, base);
-    if (work_allocation_failed) {
+    stack_guard = 0;
+
+    /* La pila finita (capitolo 2) viene dopo la memoria: è la causa più
+     * precisa, e i lettori fermati a metà possono aver detto altro. */
+    if (work_allocation_failed || stack_exhausted) {
         verdict.outcome = NOT_PROVED;
-        verdict.reason = OUT_OF_MEMORY;
+        verdict.reason = stack_exhausted ? STACK_EXHAUSTED : OUT_OF_MEMORY;
         verdict.proof = verdict.certificate = verdict.detail = NULL;
     }
     return verdict;
@@ -42460,6 +42640,12 @@ static Verdict prove_item(const char *item, const char *end) {
  *
  * --model-work N e --model-memory BYTES regolano i budget della ricerca SAT
  * (20.000.000 operazioni e 128 MiB di default), non un massimo di elementi.
+ * --model-steps N regola gli elementi che i quantificatori provano
+ * ricalcolando un enunciato sui modelli (40.000.000 di default): un modello
+ * che non si riesce a ricalcolare non è un controesempio, e il verdetto lo dice.
+ * --stack-budget BYTES regola la pila concessa agli alberi di un enunciato
+ * lungo (4 MiB di default, per una pila di 8 MB): oltre, l'esito è "pila di
+ * lavoro esaurita".
  * --verification-work N regola le visite del verificatore numerico
  * (20.000.000 di default): una verifica interrotta non conferma nulla.
  * --saturation-work N e --saturation-memory BYTES regolano le visite e la
@@ -42583,16 +42769,20 @@ int main(int argc, char **argv) {
     int first = 1, documented = 0;
     for (; first + 1 < argc && strncmp(argv[first], "--", 2) == 0; first += 2) {
         if (strcmp(argv[first], "--model-work") == 0 || strcmp(argv[first], "--model-memory") == 0 ||
-            strcmp(argv[first], "--verification-work") == 0 || strcmp(argv[first], "--saturation-work") == 0 ||
+            strcmp(argv[first], "--stack-budget") == 0 || strcmp(argv[first], "--model-steps") == 0 || strcmp(argv[first], "--verification-work") == 0 || strcmp(argv[first], "--saturation-work") == 0 ||
             strcmp(argv[first], "--saturation-memory") == 0) {
             unsigned long long budget;
-            int memory = strcmp(argv[first], "--model-memory") == 0 || strcmp(argv[first], "--saturation-memory") == 0;
-            if (!read_model_budget(argv[first + 1], &budget) || (memory && budget > (size_t)-1)) {
+            int stack = strcmp(argv[first], "--stack-budget") == 0;
+            int memory = stack || strcmp(argv[first], "--model-memory") == 0 || strcmp(argv[first], "--saturation-memory") == 0;
+            int steps = strcmp(argv[first], "--model-steps") == 0;
+            if (!read_model_budget(argv[first + 1], &budget) || (memory && budget > (size_t)-1) || (steps && budget >= LLONG_MAX)) {
                 printf("ERRORE: budget positivo non rappresentabile: %s\n", argv[first + 1]); return 1;
             }
-            if (strcmp(argv[first], "--saturation-memory") == 0) saturation_memory_limit = (size_t)budget;
+            if (stack) stack_budget = (size_t)budget;
+            else if (strcmp(argv[first], "--saturation-memory") == 0) saturation_memory_limit = (size_t)budget;
             else if (strcmp(argv[first], "--saturation-work") == 0) saturation_work_limit = budget;
             else if (memory) model_memory_limit = (size_t)budget;
+            else if (steps) model_step_limit = (long long)budget;
             else if (strcmp(argv[first], "--verification-work") == 0) verification_work_limit = budget;
             else model_work_limit = budget;
             continue;

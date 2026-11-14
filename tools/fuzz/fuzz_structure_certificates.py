@@ -29,7 +29,7 @@ dice che t vi sta. Le alterazioni scambiano anche forallpart ed existspart.
 
 Gli insiemi di parti e di applicazioni (11h), sort P parts S in e sort M maps
 S T ap, sono quelli veri: l'oracolo ne calcola da sé la grandezza e la
-tabella. L'insieme dei numeri scritti (11i), sort Num numbers n1 n2, ha nei
+tabella. L'insieme dei numeri scritti (11i), sort Num numbers num1 num2, ha nei
 modelli un elemento per numero, tutti diversi; nelle dimostrazioni è un
 insieme qualsiasi con quei nomi, come per il verificatore.
 
@@ -129,7 +129,7 @@ def read(text):
             sorts[parts[0]] = None
             symbols[symbol] = ([parts[0], base], target) if maps else ([base, parts[0]], "bool")
         elif word == "sort" and len(parts) > 1 and parts[1] == "numbers":
-            # 11i: sort Num numbers n1 n2, i numeri scritti, tutti diversi.
+            # 11i: sort Num numbers num1 num2, i numeri scritti, tutti diversi.
             NUMBERS[parts[0]] = parts[2:]
             sorts[parts[0]] = len(parts[2:])
             for name in parts[2:]:
