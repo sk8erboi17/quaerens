@@ -65,13 +65,12 @@ static int has_value(const Frac *value, int count, long long n) {
 
 /* 1. I valori da provare. */
 static void test_candidates(void) {
-    const Formula *outer[MAX_BOUND];
     Wanted wanted[MAX_EQUATIONS];
     Frac value[SAMPLE_SIZE];
 
     /* Un'ipotesi con il suo testimone: si sceglie k e si calcola x. */
     Formula *square = read_condition("\\exists k \\in \\mathbb{Z}\\ (x = k^{2} + 7)");
-    int count = square ? sample_equations(square, 0, outer, 0, wanted, 0) : 0;
+    int count = square ? sample_equations(square, 0, NULL, wanted, 0) : 0;
     check(count == 1 && wanted[0].witness == 'k', "the equality under an \"exists k\" is kept, with k as its witness");
     int values = count ? sample_candidates('x', &all_integers, wanted, count, SAMPLE_SIZE, NULL, 0, value) : 0;
     check(values >= 4 && has_value(value, values, 7) && has_value(value, values, 8) && has_value(value, values, 11) &&
@@ -80,13 +79,13 @@ static void test_candidates(void) {
 
     /* La stessa condizione da rendere falsa (è un'ipotesi negata, cioè un
      * "per ogni k"): non dà valori. */
-    count = square ? sample_equations(square, 1, outer, 0, wanted, 0) : -1;
+    count = square ? sample_equations(square, 1, NULL, wanted, 0) : -1;
     check(count == 0, "an equality that has to fail gives no value to try");
 
     /* Una divisibilità, letta con la sua definizione: b = a - q n. La
      * lettura riparte dall'arena vuota, quindi `square` non vale più. */
     Formula *divides = read_condition("n \\mid a - b");
-    count = divides ? sample_equations(divides, 0, outer, 0, wanted, 0) : 0;
+    count = divides ? sample_equations(divides, 0, NULL, wanted, 0) : 0;
     check(count == 1 && wanted[0].set == &all_integers, "a divisibility is read as an equality with an integer quotient");
     env_push('n', rat_int(3));
     env_push('a', rat_int(5));
@@ -95,6 +94,18 @@ static void test_candidates(void) {
     check(has_value(value, values, 5) && has_value(value, values, 2) && has_value(value, values, 8) && has_value(value, values, 20),
           "3 | 5 - b gives b = 5, 2, 8, ..., 20");
     check(!has_value(value, values, 4), "3 | 5 - b does not give b = 4");
+
+    /* Il verificatore deve attraversare anche un gruppo con piu di dodici
+     * testimoni. Solo m compare nell'equazione: gli altri non cambiano
+     * l'insieme dei valori, perche gli interi sono non vuoti. */
+    Formula *deep = read_condition("\\exists a,b,c,d,e,f,g,h,i,j,k,l,m \\in \\mathbb{Z}\\ (x = m^{2} + 7)");
+    count = deep ? sample_equations(deep, 0, NULL, wanted, 0) : 0;
+    check(count == 1 && wanted[0].witness == 'm', "the independent verifier keeps a witness beyond twelve binders");
+    values = count ? sample_candidates('x', &all_integers, wanted, count, SAMPLE_SIZE, NULL, 0, value) : 0;
+    check(has_value(value, values, 7) && has_value(value, values, 8), "the deep witness still proposes exact square-plus-seven values");
+    deep = read_condition("\\exists a,b,c,d,e,f,g,h,i,j,k,l,m \\in \\mathbb{Z}\\ (x = m^{2} + l^{2} + 7)");
+    count = deep ? sample_equations(deep, 0, NULL, wanted, 0) : -1;
+    check(count == 0, "a deep condition with two witnesses is not misread as one with a single witness");
 }
 
 /* 2. Il valore scelto da 18u-3, ricontrollato con i numeri. */

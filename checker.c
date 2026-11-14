@@ -151,6 +151,8 @@
  *     vale quindi per ogni scelta degli insiemi e dei simboli.
  *   - "certificate example" (11b): esistono degli insiemi, con il numero di
  *     elementi indicato, e dei simboli per cui l'enunciato vale.
+ *     I contesti dei quantificatori e le tabelle sono dinamici; memoria o
+ *     lavoro insufficienti danno la terza risposta, non un'accettazione.
  *   - "certificate structure" (11c): l'enunciato vale per ogni scelta degli
  *     insiemi, finiti o infiniti, anche vuoti, e di un'interpretazione dei
  *     simboli dichiarati (un elemento per un elemento con un nome, una
@@ -160,6 +162,10 @@
  *     sottoinsieme qualsiasi dell'insieme, vuoto e insieme intero compresi;
  *     e (equipotent A B) (11j) "c'è una biiezione da A a B", senza che una
  *     voce usi l'assioma della scelta.
+ *   - "certificate saturation" (11m): lo stesso teorema di structure,
+ *     attraverso clausificazione ricostruita e passi espliciti di
+ *     risoluzione, superposizione e fattorizzazione fino alla clausola vuota.
+ *     Il controllo non cerca genitori, sostituzioni o unificatori.
  *   - "certificate signs" (capitolo 12): con C la condizione nella variabile
  *     x, e un confronto che vale in x solo dove i suoi due membri sono
  *     definiti, "per ogni x in D vale C", "esiste x in D in cui C non vale",
@@ -216,6 +222,7 @@
  */
 
 #include <ctype.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -243,13 +250,10 @@
 #define CK_MAX_NAME 16       /* caratteri di un nome nel capitolo 11, compreso lo zero finale */
 #define CK_MAX_SORTS 6       /* insiemi di un enunciato su insiemi qualsiasi: i casi vuoti sono 2^6 */
 #define CK_MAX_SYMBOLS 256   /* simboli dichiarati, più i nomi delle voci witness di un caso */
-#define CK_MAX_SIZE 8        /* elementi di un insieme in un modello */
-#define CK_MAX_BOUND 64      /* variabili legate una dentro l'altra */
 #define CK_MAX_EVAL 100000000LL  /* elementi provati dai quantificatori calcolando su un modello */
 #define CK_MAX_GROUND 4096   /* termini chiusi di un caso */
 #define CK_MAX_ATOMS 2048    /* condizioni elementari di un caso */
 #define CK_MAX_FORMULAS 2048 /* condizioni supposte vere in un caso */
-#define CK_MAX_CASES 64      /* voci case di un certificato */
 #define CK_MAX_AXIOMS 32     /* voci axiom di un certificato (11h) */
 #define CK_MAX_PAIRS 32      /* voci witness di un'equipotenza in un caso (11j): una per bit di un unsigned */
 #define CK_MAX_SEARCH 200000 /* scelte parziali provate cercando un'assegnazione coerente, per certificato */
@@ -314,6 +318,28 @@ static void *ck_alloc(size_t bytes) {
     void *block = ck_arena + ck_used;
     ck_used += bytes;
     return block;
+}
+
+/* Allarga un vettore posseduto dal verificatore, conservando i dati e
+ * azzerando il suffisso nuovo. capacity conta elementi di unit byte.
+ * Nessun puntatore interno sopravvive a questa chiamata. Overflow e
+ * memoria insufficiente danno NON CONTROLLABILE, mai accettazione. */
+static int ck_reserve(void **data, size_t *capacity, size_t need, size_t unit) {
+    if (ck_status != CK_ACCEPTED) return 0;
+    if (need <= *capacity) return 1;
+    size_t count = *capacity ? *capacity : 16;
+    while (count < need) {
+        if (count > (size_t)-1 / 2) { count = need; break; }
+        count *= 2;
+    }
+    if (!unit || count > (size_t)-1 / unit) {
+        ck_unsupported("memoria disponibile insufficiente per il certificato"); return 0;
+    }
+    void *next = realloc(*data, count * unit);
+    if (!next) { ck_unsupported("memoria disponibile insufficiente per il certificato"); return 0; }
+    memset((unsigned char *)next + *capacity * unit, 0, (count - *capacity) * unit);
+    *data = next; *capacity = count;
+    return 1;
 }
 
 /* =============================================================================
@@ -2017,12 +2043,14 @@ static void ck_check_sets(const CkNode *statement) {
  * anche infiniti, anche nessuno; a ogni simbolo un elemento, una funzione o
  * un sottoinsieme, come dice la dichiarazione. Un quantificatore su parti
  * prova tutti i sottoinsiemi di S, compresi il vuoto e S. I certificati
- * sono di tre tipi, e ognuno dimostra un teorema diverso.
+ * hanno quattro forme; le ultime due dimostrano lo stesso teorema.
  *
  *   11a. "certificate counterexample", con una voce "table" per simbolo:
  *        un'interpretazione finita in cui l'enunciato è falso. TEOREMA: non
  *        è vero che l'enunciato vale per ogni scelta degli insiemi e dei
  *        simboli.
+ *   11m. "certificate saturation": come 11c, con clausole e deduzioni
+ *        esplicite invece di casi e istanze scelti dal verificatore.
  *   11b. "certificate example", con le stesse voci: un'interpretazione in
  *        cui l'enunciato è vero. TEOREMA: esistono degli insiemi, con il
  *        numero di elementi indicato, e dei simboli per cui vale.
@@ -2207,7 +2235,7 @@ static void ck_check_sets(const CkNode *statement) {
  * (11h) l'insieme delle parti di un altro o delle applicazioni tra due. */
 typedef struct {
     char name[CK_MAX_NAME];
-    int size;     /* 11a, 11b: i suoi elementi sono 0, ..., size - 1; 11c: -1 */
+    size_t size;  /* 11a, 11b: elementi 0, ..., size-1; nelle prove (size_t)-1. */
     int kind;     /* 0 un insieme qualsiasi, 1 le parti di base, 2 le applicazioni da base a target,
                      3 (11i) i numeri scritti, ognuno con il suo nome */
     int base, target;  /* posti in ck_sorts[]; -1 dove non servono */
@@ -2231,7 +2259,7 @@ typedef struct {
                         define quelli della sua definizione; 0 per gli altri */
     unsigned pairs;  /* 11j: le coppie di lati di ck_pairs[] (bit k: la coppia k) che devono essere vuoti
                         insieme, o non vuoti insieme, perché il nome indichi qualcosa */
-    int *table;   /* 11a, 11b: il valore di ogni cella, nell'arena; NULL finché manca la sua voce table */
+    size_t *table; /* 11a, 11b: valori delle celle sullo heap del modello; NULL se manca. */
 } CkSymbol;
 
 static CkSort ck_sorts[CK_MAX_SORTS];
@@ -2240,11 +2268,73 @@ static CkSymbol ck_symbols[CK_MAX_SYMBOLS];
 static int ck_symbol_count;
 static int ck_declared;  /* i simboli dichiarati: i primi ck_declared di ck_symbols[] */
 
-/* Le variabili legate visibili mentre si legge, dalla più esterna, con i
- * loro insiemi; ck_bound_part[i] è 1 se la variabile è una parte di quel
- * insieme, legata da forallpart o existspart (11g). */
-static char ck_bound[CK_MAX_BOUND][CK_MAX_NAME];
-static int ck_bound_sort[CK_MAX_BOUND], ck_bound_part[CK_MAX_BOUND];
+/* Un blocco posseduto dal modello verificato: data e la tabella allocata,
+ * next il blocco successivo. Le tabelle non occupano l'arena fissa usata
+ * per l'algebra: la loro grandezza dipende dal certificato e dalla memoria
+ * disponibile, senza un limite sulla cardinalita degli insiemi. */
+typedef struct CkModelBlock CkModelBlock;
+struct CkModelBlock { void *data; CkModelBlock *next; };
+static CkModelBlock *ck_model_blocks;
+
+/* Libera le tabelle del certificato precedente, prima di leggerne un altro. */
+static void ck_model_clear(void) {
+    while (ck_model_blocks) {
+        CkModelBlock *b = ck_model_blocks;
+        ck_model_blocks = b->next;
+        free(b->data); free(b);
+    }
+}
+
+/* Il prodotto per dimensionare una tabella. Un trabocco indica che il
+ * modello non entra nello spazio di indirizzi, non una cardinalita vietata. */
+static int ck_model_product(size_t a, size_t b, size_t *out) {
+    if (a && b > (size_t)-1 / a) { ck_unsupported("memoria non indirizzabile per il modello"); return 0; }
+    *out = a * b;
+    return 1;
+}
+
+/* Legge un indice o una cardinalita nell'intero spazio indirizzabile,
+ * senza passare da un intero con segno piu piccolo. Un overflow non e un
+ * certificato falso: e un numero che questa macchina non rappresenta. */
+static int ck_model_size(size_t *value) {
+    ck_skip();
+    if (!isdigit((unsigned char)*ck_cursor)) return 0;
+    size_t n = 0;
+    while (isdigit((unsigned char)*ck_cursor)) {
+        unsigned digit = (unsigned)(*ck_cursor++ - '0');
+        if (n > ((size_t)-1 - digit) / 10) { ck_unsupported("indice del modello non indirizzabile"); return 0; }
+        n = 10 * n + digit;
+    }
+    *value = n;
+    return 1;
+}
+
+/* Alloca count valori del modello e ne registra la proprieta; anche una
+ * tabella vuota ha un puntatore, per distinguerla da una tabella mancante. */
+static size_t *ck_model_table(size_t count) {
+    size_t bytes;
+    if (!ck_model_product(count, sizeof(size_t), &bytes)) return NULL;
+    CkModelBlock *b = malloc(sizeof *b);
+    void *data = b ? malloc(bytes ? bytes : 1) : NULL;
+    if (!data) { free(b); ck_unsupported("memoria disponibile insufficiente per il modello"); return NULL; }
+    b->data = data; b->next = ck_model_blocks; ck_model_blocks = b;
+    return data;
+}
+
+/* Un livello dei quantificatori del certificato. Durante la lettura name
+ * e il nome, sort l'insieme e part distingue una parte da un elemento.
+ * Durante il controllo del modello value e l'elemento legato, bits il
+ * vettore della parte, posseduto dal quantificatore attivo e NULL fuori
+ * dalla valutazione. Le celle sono possedute dal vettore ck_bound; tutti
+ * gli accessi usano indici, perche il vettore puo spostarsi. */
+typedef struct {
+    char name[CK_MAX_NAME];
+    int sort, part;
+    size_t value;
+    unsigned char *bits;
+} CkBound;
+static CkBound *ck_bound;
+static size_t ck_bound_capacity;
 static int ck_bound_count;
 
 /* 11h, 11j. Ritorna un nodo nuovo di tipo kind, con valore value e operandi
@@ -2347,15 +2437,15 @@ static const CkNode *ck_read_term(int *sort) {
      * parentesi, una parte legata applicata a un termine (11g). Una parte
      * legata non è un elemento: scritta senza parentesi è un errore. */
     for (int i = ck_bound_count - 1; i >= 0; i--) {
-        if (strcmp(ck_bound[i], name) != 0) continue;
-        if (ck_bound_part[i] != open) {
+        if (strcmp(ck_bound[i].name, name) != 0) continue;
+        if (ck_bound[i].part != open) {
             if (!open) { ck_reject("una parte legata è scritta dove serve un elemento"); return node; }
             break;
         }
         node->value = ck_bound_count - 1 - i;
         if (!open) {
             node->kind = CK_VAR;
-            *sort = ck_bound_sort[i];
+            *sort = ck_bound[i].sort;
             return node;
         }
         int got;
@@ -2364,7 +2454,7 @@ static const CkNode *ck_read_term(int *sort) {
         ck_depth++;
         node->a = ck_read_term(&got);
         ck_depth--;
-        if (got != ck_bound_sort[i]) ck_reject("un argomento non sta nell'insieme che il simbolo chiede");
+        if (got != ck_bound[i].sort) ck_reject("un argomento non sta nell'insieme che il simbolo chiede");
         *sort = CK_BOOL;
         ck_skip();
         if (*ck_cursor != ')') ck_reject("certificato scritto male: parentesi chiusa attesa");
@@ -2447,13 +2537,14 @@ static const CkNode *ck_read_condition(void) {
             /* (forall x S c): la variabile e il suo insieme restano in vista
              * mentre si legge c. Lo stesso per una parte (11g). */
             char set[CK_MAX_NAME];
-            if (ck_bound_count == CK_MAX_BOUND) { ck_unsupported("troppe variabili legate una dentro l'altra"); return node; }
-            if (!ck_name(ck_bound[ck_bound_count]) || !ck_name(set) || (node->value = ck_sort_of(set)) < 0) {
+            if (ck_bound_count == INT_MAX) { ck_unsupported("memoria disponibile insufficiente per i quantificatori"); return node; }
+            if (!ck_reserve((void **)&ck_bound, &ck_bound_capacity, (size_t)ck_bound_count + 1, sizeof *ck_bound)) return node;
+            if (!ck_name(ck_bound[ck_bound_count].name) || !ck_name(set) || (node->value = ck_sort_of(set)) < 0) {
                 ck_reject("certificato scritto male: dopo forall ed exists servono una variabile e un insieme dichiarato");
                 return node;
             }
-            ck_bound_part[ck_bound_count] = node->kind == CK_FORALLPART || node->kind == CK_EXISTSPART;
-            ck_bound_sort[ck_bound_count++] = (int)node->value;
+            ck_bound[ck_bound_count].part = node->kind == CK_FORALLPART || node->kind == CK_EXISTSPART;
+            ck_bound[ck_bound_count++].sort = (int)node->value;
             node->a = ck_read_condition();
             ck_bound_count--;
         } else {
@@ -2468,20 +2559,15 @@ static const CkNode *ck_read_condition(void) {
     return node;
 }
 
-/* 11a, 11b. I valori delle variabili legate, dalla più esterna, e quanti
- * elementi i quantificatori hanno provato. Il valore di una parte legata
- * (11g) è un numero di bit: il bit x acceso se l'elemento x sta nella parte;
- * gli elementi sono al più CK_MAX_SIZE, quindi i bit bastano. */
-static int ck_values[CK_MAX_BOUND];
 static long long ck_tried;
 
 /* Ritorna il valore del termine t nel modello, con depth variabili legate;
  * per una parte legata applicata, 1 se l'argomento sta nella parte. */
-static int ck_value(const CkNode *t, int depth) {
-    if (t->kind == CK_VAR) return ck_values[depth - 1 - t->value];
-    if (t->kind == CK_PARTVAR) return ck_values[depth - 1 - t->value] >> ck_value(t->a, depth) & 1;
+static size_t ck_value(const CkNode *t, int depth) {
+    if (t->kind == CK_VAR) return ck_bound[depth - 1 - t->value].value;
+    if (t->kind == CK_PARTVAR) return ck_bound[depth - 1 - t->value].bits[ck_value(t->a, depth)];
     const CkSymbol *s = &ck_symbols[t->value];
-    int cell = s->arity > 0 ? ck_value(t->a, depth) : 0;
+    size_t cell = s->arity > 0 ? ck_value(t->a, depth) : 0;
     if (s->arity > 1) cell += ck_value(t->b, depth) * ck_sorts[s->arg[0]].size;
     return s->table[cell];
 }
@@ -2490,6 +2576,7 @@ static int ck_value(const CkNode *t, int depth) {
  * Un quantificatore prova ogni elemento del suo insieme: oltre CK_MAX_EVAL
  * prove il certificato non è controllabile. */
 static int ck_holds(const CkNode *c, int depth) {
+    if (ck_status != CK_ACCEPTED) return 0;
     switch (c->kind) {
     case CK_TRUE:    return 1;
     case CK_EQ:      return c->b ? ck_value(c->a, depth) == ck_value(c->b, depth) : ck_value(c->a, depth);
@@ -2500,21 +2587,42 @@ static int ck_holds(const CkNode *c, int depth) {
     case CK_IFF:     return ck_holds(c->a, depth) == ck_holds(c->b, depth);
     case CK_EQUIPOTENT: {
         /* 11j. Lo stesso numero di elementi (vedi la testa del capitolo). */
-        long long size[2] = {1, 1};
+        size_t size[2] = {1, 1};
         for (int k = 0; k < 2; k++)
-            for (int i = 0; i < ck_side_count(c->value, k); i++) size[k] *= ck_sorts[ck_side_sort(c->value, k, i)].size;
+            for (int i = 0; i < ck_side_count(c->value, k); i++)
+                if (!ck_model_product(size[k], ck_sorts[ck_side_sort(c->value, k, i)].size, &size[k])) return 0;
         return size[0] == size[1];
     }
     default:         break;
     }
 
-    /* Un quantificatore prova ogni elemento; uno su parti (11g) ogni
-     * sottoinsieme, come numero di bit, da 0 (il vuoto) a 2^n - 1 (tutto). */
+    /* Un quantificatore su parti aumenta un vettore binario dalla parte
+     * vuota alla piena. Non calcola 2^n in un intero e puo fermarsi anche
+     * sulla prima parte, quando basta, indipendentemente dalla grandezza. */
     int every = c->kind == CK_FORALL || c->kind == CK_FORALLPART, parts = c->kind == CK_FORALLPART || c->kind == CK_EXISTSPART;
-    int values = parts ? 1 << ck_sorts[c->value].size : ck_sorts[c->value].size;
-    for (int x = 0; x < values && ck_status == CK_ACCEPTED; x++) {
+    size_t values = ck_sorts[c->value].size;
+    if (!ck_reserve((void **)&ck_bound, &ck_bound_capacity, (size_t)depth + 1, sizeof *ck_bound)) return 0;
+    if (parts) {
+        unsigned char *bits = calloc(values ? values : 1, 1);
+        if (!bits) { ck_unsupported("memoria disponibile insufficiente per una parte del modello"); return 0; }
+        ck_bound[depth].bits = bits;
+        int result = every;
+        for (;;) {
+            if (++ck_tried > CK_MAX_EVAL) { ck_unsupported("lavoro di verifica del modello esaurito"); break; }
+            if (ck_holds(c->a, depth + 1) != every) { result = !every; break; }
+            if (ck_status != CK_ACCEPTED) break;
+            size_t bit = 0;
+            while (bit < values && bits[bit]) bits[bit++] = 0;
+            if (bit == values) break;
+            bits[bit] = 1;
+        }
+        ck_bound[depth].bits = NULL;
+        free(bits);
+        return result;
+    }
+    for (size_t x = 0; x < values && ck_status == CK_ACCEPTED; x++) {
         if (++ck_tried > CK_MAX_EVAL) { ck_unsupported("il modello è troppo grande per calcolarvi l'enunciato"); return 0; }
-        ck_values[depth] = x;
+        ck_bound[depth].value = x;
         if (ck_holds(c->a, depth + 1) != every) return !every;
     }
     return every;
@@ -2991,10 +3099,11 @@ static void ck_part(void) {
     CkSymbol *d = &ck_symbols[ck_symbol_count];
     memset(d, 0, sizeof *d);
     if (!ck_name(d->name) || ck_symbol_of(d->name) >= 0) { ck_reject("part: serve un nome che nel caso non c'è ancora"); return; }
-    int sort = !ck_name(ck_bound[0]) || !ck_name(set) ? -1 : ck_sort_of(set);
+    if (!ck_reserve((void **)&ck_bound, &ck_bound_capacity, 1, sizeof *ck_bound)) return;
+    int sort = !ck_name(ck_bound[0].name) || !ck_name(set) ? -1 : ck_sort_of(set);
     if (sort < 0) { ck_reject("certificato scritto male: dopo part servono il nome, una variabile e un insieme dichiarato"); return; }
-    ck_bound_sort[0] = sort;
-    ck_bound_part[0] = 0;
+    ck_bound[0].sort = sort;
+    ck_bound[0].part = 0;
     ck_bound_count = 1;
     const CkNode *rule = ck_read_condition();
     ck_bound_count = 0;
@@ -3220,17 +3329,19 @@ static void ck_derived_sort(int i, int kind, int models) {
     if (!models) { sort->size = -1; return; }
 
     /* La grandezza: 2^n per le parti, m^n per le applicazioni. */
-    int n = ck_sorts[sort->base].size, values = kind == 1 ? 2 : ck_sorts[sort->target].size;
-    long long size = 1;
-    for (int j = 0; j < n && size <= CK_MAX_SIZE; j++) size *= values;
-    if (size > CK_MAX_SIZE) { ck_unsupported("modello troppo grande per il verificatore"); return; }
-    sort->size = (int)size;
+    size_t n = ck_sorts[sort->base].size, values = kind == 1 ? 2 : ck_sorts[sort->target].size, size = 1;
+    for (size_t power = n, factor = values; power; power /= 2) {
+        if ((power & 1) && !ck_model_product(size, factor, &size)) return;
+        if (power > 1 && !ck_model_product(factor, factor, &factor)) return;
+    }
+    sort->size = size;
 
     /* La tabella. Parti: la cella di (a, x) è il bit a di x. Applicazioni:
      * quella di (x, a) è la cifra a di x in base m. */
-    y->table = ck_alloc(sizeof(int) * (size_t)(n * sort->size));
-    for (int x = 0; x < sort->size; x++)
-        for (int a = 0, rest = x; a < n; a++) {
+    size_t cells;
+    if (!ck_model_product(n, size, &cells) || !(y->table = ck_model_table(cells))) return;
+    for (size_t x = 0; x < sort->size; x++)
+        for (size_t a = 0, rest = x; a < n; a++) {
             if (kind == 1) { y->table[a + x * n] = x >> a & 1; continue; }
             y->table[x + a * sort->size] = rest % values;
             rest /= values;
@@ -3325,14 +3436,14 @@ static void ck_numbers_sort(int i, int models) {
         if (!ck_name(y->name) || ck_symbol_of(y->name) >= 0) { ck_reject("certificato scritto male: un numero senza nome, o con il nome di un altro simbolo"); return; }
         y->result = i;
         if (models) {
-            y->table = ck_alloc(sizeof(int));
+            y->table = ck_model_table(1);
+            if (!y->table) return;
             y->table[0] = sort->size;
         }
         sort->size++;
         ck_symbol_count++;
     }
     if (!sort->size) { ck_reject("certificato scritto male: un insieme di numeri senza numeri"); return; }
-    if (sort->size > CK_MAX_SIZE && models) { ck_unsupported("modello troppo grande per il verificatore"); return; }
     if (!models) sort->size = -1;
 }
 
@@ -3373,18 +3484,494 @@ static void ck_check_case(void) {
     }
 }
 
+/* 11m. SATURAZIONE: IL CONTROLLO DI CLAUSOLE E PASSI ESPLICITI
+ *
+ * Il certificato refuta la negazione dell'enunciato. Per ammettere anche
+ * insiemi vuoti, D_S(x) esprime l'appartenenza a S: forall x:S P diventa
+ * forall x (non D_S(x) o P), exists x:S P diventa exists x (D_S(x) e P).
+ * Le sole funzioni dichiarate hanno assiomi di chiusura sui domini. Per
+ * Skolem il vincolo di dominio resta nella formula: renderlo incondizionato
+ * inventerebbe elementi di insiemi forse vuoti. Ogni modello originale si
+ * immerge in un dominio comune, con elementi estranei aggiuntivi; una
+ * contraddizione della traduzione esclude dunque ogni controesempio.
+ *
+ * La negazione normale, Skolem e i nomi di Tseitin sono conti sintattici
+ * finiti. Le nuove funzioni dipendono dagli universali in vista; i nuovi
+ * predicati da tutte le variabili libere della sottoformula. Ogni passo
+ * successivo porta genitori, letterali, sostituzione e risultato. Qui si
+ * applica la sostituzione simultanea e si ricostruisce la deduzione, senza
+ * cercare o unificare. L'ultima clausola deve essere vuota. L'ordinamento
+ * guida solo il motore: accettare una deduzione valida non lo richiede.
+ * Riferimenti: Kovacs e Voronkov (2013), First-Order Theorem Proving and
+ * Vampire; Bachmair e Ganzinger (1994), Rewrite-based Equational Theorem
+ * Proving with Selection and Simplification.
+ */
+
+#define CK_R_TERMS 65536    /* termini, con posto zero riservato */
+#define CK_R_ARGS 262144   /* argomenti dei termini in tutto */
+#define CK_R_SYMBOLS 2048  /* simboli dichiarati, domini e nomi nuovi */
+#define CK_R_ARITY 32      /* argomenti di un simbolo introdotto */
+#define CK_R_VARS 64       /* variabili di una clausola normalizzata */
+#define CK_R_CLAUSES 8192  /* clausole iniziali e passi del certificato */
+#define CK_R_LITERALS 32   /* letterali di una clausola */
+
+/* Un termine: symbol e il simbolo, first/count ne individuano gli argomenti
+ * nel deposito. Un riferimento positivo indica un termine; -1-v indica la
+ * variabile v; zero e l'assenza di un termine. */
+typedef struct { int symbol, first, count; } CkRTerm;
+
+/* Un letterale: left/right sono i membri dell'uguaglianza; con right=0,
+ * left e un predicato applicato. left=right=0 significa vero. negative
+ * nega l'atomo, compresa questa costante. */
+typedef struct { int left, right, negative; } CkRLiteral;
+
+/* La disgiunzione dei count letterali, universalmente quantificati. Il loro
+ * ordine viene conservato per identificarli nei passi successivi. */
+typedef struct { int count; CkRLiteral literal[CK_R_LITERALS]; } CkRClause;
+
+/* Stato posseduto da un solo controllo, senza memoria condivisa col motore.
+ * terms/args/symbols/clauses contano le voci dei rispettivi depositi;
+ * arity descrive i simboli, term/argument i termini e clause le deduzioni.
+ * binding sono i termini dei quantificatori visibili, universals le variabili
+ * da cui dipende Skolem; bound/universal ne sono le lunghezze. variable
+ * conta gli universali introdotti, started distingue le dichiarazioni dalla
+ * traduzione gia eseguita. Tutti i vettori appartengono a questa struttura. */
+typedef struct {
+    int terms, args, symbols, clauses, variable, bound, universal, started;
+    int arity[CK_R_SYMBOLS], argument[CK_R_ARGS];
+    unsigned char predicate[CK_R_SYMBOLS]; /* 1 per un predicato, 0 per una funzione. */
+    CkRTerm term[CK_R_TERMS];
+    CkRClause clause[CK_R_CLAUSES];
+    int binding[CK_R_VARS], universals[CK_R_VARS];
+} CkRState;
+static CkRState ck_r;
+
+/* Registra un simbolo fresco di arita count, oppure segnala il limite. */
+static int ck_r_symbol(int count, int predicate) {
+    if (ck_r.symbols == CK_R_SYMBOLS || count > CK_R_ARITY) {
+        ck_unsupported("troppi simboli o argomenti nella clausificazione"); return 0;
+    }
+    int id = ck_r.symbols++;
+    ck_r.arity[id] = count;
+    ck_r.predicate[id] = (unsigned char)predicate;
+    return id;
+}
+
+/* Registra symbol(args), condividendo i termini uguali per costruzione.
+ * Il confronto strutturale non unifica e non cerca dimostrazioni. */
+static int ck_r_term(int symbol, const int *args) {
+    if (ck_status != CK_ACCEPTED) return 0;
+    if (symbol < 0 || symbol >= ck_r.symbols) { ck_reject("simbolo di clausola non dichiarato"); return 0; }
+    int n = ck_r.arity[symbol];
+    for (int i = 1; i <= ck_r.terms; i++) {
+        const CkRTerm *t = &ck_r.term[i];
+        if (t->symbol == symbol && (!n || memcmp(ck_r.argument + t->first, args, (size_t)n * sizeof *args) == 0)) return i;
+    }
+    if (ck_r.terms + 1 == CK_R_TERMS || n > CK_R_ARGS - ck_r.args) {
+        ck_unsupported("troppi termini nelle clausole del certificato"); return 0;
+    }
+    int id = ++ck_r.terms;
+    ck_r.term[id] = (CkRTerm){symbol, ck_r.args, n};
+    if (n) memcpy(ck_r.argument + ck_r.args, args, (size_t)n * sizeof *args);
+    ck_r.args += n;
+    return id;
+}
+
+/* La negazione del letterale l. */
+static CkRLiteral ck_r_not(CkRLiteral l) { l.negative = !l.negative; return l; }
+
+/* Rinomina le variabili per prima occorrenza. Il contesto contiene le
+ * variabili di due genitori distinti, al piu CK_R_VARS per genitore. */
+static int ck_r_rename(int term, int *names, int *used) {
+    if (ck_status != CK_ACCEPTED || !term) return 0;
+    if (term < 0) {
+        int v = -term - 1;
+        if (v >= 2 * CK_R_VARS) { ck_unsupported("troppe variabili in una clausola"); return 0; }
+        if (!names[v]) {
+            if (*used == CK_R_VARS) { ck_unsupported("troppe variabili in una clausola"); return 0; }
+            names[v] = -1 - (*used)++;
+        }
+        return names[v];
+    }
+    const CkRTerm t = ck_r.term[term];
+    int args[CK_R_ARITY];
+    for (int i = 0; i < t.count; i++) args[i] = ck_r_rename(ck_r.argument[t.first + i], names, used);
+    return ck_r_term(t.symbol, args);
+}
+
+/* Toglie falso e duplicati identici e rinomina le variabili. Non usa fatti
+ * trovati da altre clausole; non cancella clausole tautologiche. */
+static CkRClause ck_r_normal(CkRClause c) {
+    int names[2 * CK_R_VARS] = {0}, used = 0, kept = 0;
+    for (int i = 0; i < c.count && ck_status == CK_ACCEPTED; i++) {
+        CkRLiteral l = c.literal[i];
+        if (!l.left && l.negative) continue;
+        l.left = ck_r_rename(l.left, names, &used);
+        l.right = ck_r_rename(l.right, names, &used);
+        int duplicate = 0;
+        for (int j = 0; j < kept; j++)
+            duplicate |= c.literal[j].left == l.left && c.literal[j].right == l.right && c.literal[j].negative == l.negative;
+        if (!duplicate) c.literal[kept++] = l;
+    }
+    c.count = kept;
+    return c;
+}
+
+/* Conserva una clausola, con un indice indipendente dalle semplificazioni
+ * che il motore sceglie durante la ricerca. */
+static void ck_r_add(CkRClause c) {
+    if (ck_status != CK_ACCEPTED) return;
+    if (ck_r.clauses == CK_R_CLAUSES) { ck_unsupported("troppi passi nel certificato di saturazione"); return; }
+    ck_r.clause[ck_r.clauses++] = ck_r_normal(c);
+}
+
+/* Conserva una clausola di fino a tre letterali, nella clausificazione. */
+static void ck_r_emit(CkRLiteral a, CkRLiteral b, CkRLiteral c, int count) {
+    CkRClause clause = {0};
+    clause.count = count;
+    clause.literal[0] = a; clause.literal[1] = b; clause.literal[2] = c;
+    ck_r_add(clause);
+}
+
+/* Registra le variabili libere di term in seen. */
+static void ck_r_free(int term, unsigned char *seen) {
+    if (ck_status != CK_ACCEPTED || !term) return;
+    if (term < 0) {
+        if (-term > 2 * CK_R_VARS) ck_unsupported("troppe variabili nella traduzione");
+        else seen[-term - 1] = 1;
+        return;
+    }
+    const CkRTerm t = ck_r.term[term];
+    for (int i = 0; i < t.count; i++) ck_r_free(ck_r.argument[t.first + i], seen);
+}
+
+/* Un nome equivalente ad a AND b oppure a OR b, con tutte le variabili
+ * libere come argomenti. Prima si riducono le costanti vere e false. */
+static CkRLiteral ck_r_connect(CkRLiteral a, CkRLiteral b, int conjunction) {
+    if (!a.left) return a.negative == conjunction ? a : b;
+    if (!b.left) return b.negative == conjunction ? b : a;
+    unsigned char seen[2 * CK_R_VARS] = {0};
+    ck_r_free(a.left, seen); ck_r_free(a.right, seen);
+    ck_r_free(b.left, seen); ck_r_free(b.right, seen);
+    int args[CK_R_ARITY], count = 0;
+    for (int v = 0; v < 2 * CK_R_VARS; v++) if (seen[v]) {
+        if (count == CK_R_ARITY) { ck_unsupported("troppi parametri di un nome di Tseitin"); return a; }
+        args[count++] = -v - 1;
+    }
+    CkRLiteral q = {ck_r_term(ck_r_symbol(count, 1), args), 0, 0};
+    if (conjunction) {
+        ck_r_emit(ck_r_not(q), a, a, 2);
+        ck_r_emit(ck_r_not(q), b, b, 2);
+        ck_r_emit(q, ck_r_not(a), ck_r_not(b), 3);
+    } else {
+        ck_r_emit(q, ck_r_not(a), a, 2);
+        ck_r_emit(q, ck_r_not(b), b, 2);
+        ck_r_emit(ck_r_not(q), a, b, 3);
+    }
+    return q;
+}
+
+/* Traduce un termine dell'enunciato con i quantificatori visibili. */
+static int ck_r_input_term(const CkNode *n) {
+    if (ck_status != CK_ACCEPTED) return 0;
+    if (n->kind == CK_VAR) {
+        if (n->value < 0 || n->value >= ck_r.bound) { ck_reject("variabile libera nell'enunciato"); return 0; }
+        return ck_r.binding[ck_r.bound - 1 - (int)n->value];
+    }
+    if (n->kind != CK_APP || n->value < 0 || n->value >= ck_declared) {
+        ck_unsupported("termine fuori dal primo ordine nella saturazione"); return 0;
+    }
+    int args[2], id = (int)n->value;
+    if (ck_symbols[id].arity) args[0] = ck_r_input_term(n->a);
+    if (ck_symbols[id].arity == 2) args[1] = ck_r_input_term(n->b);
+    return ck_r_term(id, args);
+}
+
+/* Negazione normale e Skolem, con positive che indica la polarita cercata.
+ * I quantificatori tipati mantengono esplicitamente i propri domini. */
+static CkRLiteral ck_r_formula(const CkNode *n, int positive) {
+    CkRLiteral zero = {0, 0, !positive}, a, b;
+    if (ck_status != CK_ACCEPTED) return zero;
+    switch (n->kind) {
+    case CK_TRUE: return zero;
+    case CK_EQ:
+        a = (CkRLiteral){ck_r_input_term(n->a), n->b ? ck_r_input_term(n->b) : 0, !positive};
+        return a;
+    case CK_NOT: return ck_r_formula(n->a, !positive);
+    case CK_AND: case CK_OR: case CK_IMPLIES:
+        a = ck_r_formula(n->a, n->kind == CK_IMPLIES ? !positive : positive);
+        b = ck_r_formula(n->b, positive);
+        return ck_r_connect(a, b, (n->kind == CK_AND) == positive);
+    case CK_IFF:
+        a = ck_r_formula(n->a, 0); b = ck_r_formula(n->b, positive);
+        a = ck_r_connect(a, b, 0);
+        b = ck_r_formula(n->a, 1);
+        b = ck_r_connect(b, ck_r_formula(n->b, !positive), 0);
+        return ck_r_connect(a, b, 1);
+    case CK_FORALL: case CK_EXISTS: {
+        if (ck_r.bound == CK_R_VARS || ck_r.universal == CK_R_VARS || ck_r.variable == 2 * CK_R_VARS) {
+            ck_unsupported("troppe variabili nella clausificazione"); return zero;
+        }
+        int every = (n->kind == CK_FORALL) == positive;
+        int value = every ? -1 - ck_r.variable++ : ck_r_term(ck_r_symbol(ck_r.universal, 0), ck_r.universals);
+        ck_r.binding[ck_r.bound++] = value;
+        if (every) ck_r.universals[ck_r.universal++] = value;
+        a = (CkRLiteral){ck_r_term(ck_declared + (int)n->value, &value), 0, every};
+        b = ck_r_formula(n->a, positive);
+        ck_r.bound--;
+        if (every) ck_r.universal--;
+        return ck_r_connect(a, b, !every);
+    }
+    default:
+        ck_unsupported("la saturazione tratta il primo ordine, non quantificatori su parti o equipotenze");
+        return zero;
+    }
+}
+
+/* Ricostruisce le clausole iniziali: chiusura delle funzioni dichiarate,
+ * negazione della tesi e leggi delle parti gia validate da 11h. */
+static void ck_r_prepare(const CkNode *statement, const CkNode *const *laws, int count) {
+    memset(&ck_r, 0, sizeof ck_r);
+    ck_r.started = 1;
+    for (int i = 0; i < ck_declared; i++) ck_r_symbol(ck_symbols[i].arity, ck_symbols[i].result == CK_BOOL);
+    for (int i = 0; i < ck_sort_count; i++) ck_r_symbol(1, 1);
+    for (int f = 0; f < ck_declared && ck_status == CK_ACCEPTED; f++) {
+        const CkSymbol *s = &ck_symbols[f];
+        if (s->result == CK_BOOL) continue;
+        int args[2] = {-1, -2}, value = ck_r_term(f, args);
+        CkRClause c = {0};
+        c.literal[c.count++] = (CkRLiteral){ck_r_term(ck_declared + s->result, &value), 0, 0};
+        for (int j = 0; j < s->arity; j++) c.literal[c.count++] = (CkRLiteral){ck_r_term(ck_declared + s->arg[j], &args[j]), 0, 1};
+        ck_r_add(c);
+    }
+    CkRLiteral root = ck_r_formula(statement, 0);
+    ck_r_emit(root, root, root, 1);
+    for (int i = 0; i < count && ck_status == CK_ACCEPTED; i++) {
+        root = ck_r_formula(laws[i], 1);
+        ck_r_emit(root, root, root, 1);
+    }
+}
+
+/* Legge un indice fino a limit-1, oppure respinge il certificato. */
+static int ck_r_index(int limit) {
+    long long v = -1;
+    if (!ck_read_integer(&v) || v < 0 || v >= limit) { ck_reject("indice di clausola, letterale o simbolo fuori limite"); return 0; }
+    return (int)v;
+}
+
+/* Una parola del linguaggio dei passi puo finire davanti a una parentesi,
+ * come in (subst); le voci esterne del certificato restano quelle di ck_word. */
+static int ck_r_word(const char *word) {
+    ck_skip();
+    size_t n = strlen(word);
+    if (strncmp(ck_cursor, word, n) != 0 || (ck_cursor[n] && !isspace((unsigned char)ck_cursor[n]) && ck_cursor[n] != ')' && ck_cursor[n] != '(')) return 0;
+    ck_cursor += n;
+    return 1;
+}
+
+/* Consuma una parentesi richiesta dal linguaggio dei passi. */
+static void ck_r_delimiter(int ch) {
+    ck_skip();
+    if (*ck_cursor != ch) ck_reject("parentesi attesa nel passo di saturazione");
+    else ck_cursor++;
+}
+
+/* Legge (v indice) o (f simbolo argomenti...). Un predicato puo comparire
+ * soltanto come atomo, mai come termine dentro una sostituzione. */
+static int ck_r_read_term(int depth, int predicate) {
+    if (ck_status != CK_ACCEPTED) return 0;
+    if (depth == 128) { ck_unsupported("termine di saturazione troppo profondo"); return 0; }
+    ck_r_delimiter('(');
+    int result = 0;
+    if (ck_r_word("v")) {
+        result = -1 - ck_r_index(2 * CK_R_VARS);
+        if (predicate) ck_reject("un atomo non puo essere una variabile");
+    } else if (ck_r_word("f")) {
+        int id = ck_r_index(ck_r.symbols), args[CK_R_ARITY];
+        if (ck_r.predicate[id] != predicate) ck_reject("predicato e funzione usati nel posto sbagliato");
+        for (int i = 0; i < ck_r.arity[id] && ck_status == CK_ACCEPTED; i++) args[i] = ck_r_read_term(depth + 1, 0);
+        result = ck_r_term(id, args);
+    } else ck_reject("termine atteso nel passo di saturazione");
+    ck_r_delimiter(')');
+    return result;
+}
+
+/* Legge (clause letterali...), con (eq a b), (ne a b), (pos p), (neg p),
+ * (true) e (false). I segni fanno parte del risultato da ricontrollare. */
+static CkRClause ck_r_read_clause(void) {
+    CkRClause c = {0};
+    ck_r_delimiter('(');
+    if (!ck_r_word("clause")) ck_reject("clausola risultante attesa");
+    for (ck_skip(); *ck_cursor != ')' && ck_status == CK_ACCEPTED; ck_skip()) {
+        if (c.count == CK_R_LITERALS) { ck_unsupported("clausola con troppi letterali"); break; }
+        ck_r_delimiter('(');
+        CkRLiteral l = {0};
+        int eq = ck_r_word("eq"), ne = !eq && ck_r_word("ne");
+        if (eq || ne) {
+            l.negative = ne;
+            l.left = ck_r_read_term(0, 0); l.right = ck_r_read_term(0, 0);
+        } else {
+            int pos = ck_r_word("pos"), neg = !pos && ck_r_word("neg");
+            if (pos || neg) { l.negative = neg; l.left = ck_r_read_term(0, 1); }
+            else if (!ck_r_word("true")) {
+                if (ck_r_word("false")) l.negative = 1;
+                else ck_reject("letterale atteso nella clausola");
+            }
+        }
+        c.literal[c.count++] = l;
+        ck_r_delimiter(')');
+    }
+    ck_r_delimiter(')');
+    return c;
+}
+
+/* Applica una sostituzione simultanea; le variabili del secondo genitore
+ * sono traslate di CK_R_VARS. Non si risostituiscono i termini sostituenti:
+ * x->f(x) e una sostituzione finita, non un invito a una ricorsione infinita. */
+static int ck_r_instance(int t, int offset, const int *sub) {
+    if (ck_status != CK_ACCEPTED || !t) return 0;
+    if (t < 0) {
+        int v = -t - 1 + offset;
+        if (v >= 2 * CK_R_VARS) { ck_reject("variabile di genitore fuori limite"); return 0; }
+        return sub[v] ? sub[v] : -v - 1;
+    }
+    const CkRTerm n = ck_r.term[t];
+    int args[CK_R_ARITY];
+    for (int i = 0; i < n.count; i++) args[i] = ck_r_instance(ck_r.argument[n.first + i], offset, sub);
+    return ck_r_term(n.symbol, args);
+}
+
+/* Un genitore interamente istanziato, con i segni dei letterali invariati. */
+static CkRClause ck_r_instances(int parent, int offset, const int *sub) {
+    CkRClause c = ck_r.clause[parent];
+    for (int i = 0; i < c.count; i++) {
+        c.literal[i].left = ck_r_instance(c.literal[i].left, offset, sub);
+        c.literal[i].right = ck_r_instance(c.literal[i].right, offset, sub);
+    }
+    return c;
+}
+
+/* Uguaglianza strutturale di atomi, con simmetria della sola uguaglianza. */
+static int ck_r_same_atom(CkRLiteral a, CkRLiteral b) {
+    return (a.left == b.left && a.right == b.right) ||
+           (a.right && b.right && a.left == b.right && a.right == b.left);
+}
+
+/* Aggiunge un letterale al risultato, segnalando il limite di grandezza. */
+static void ck_r_push(CkRClause *c, CkRLiteral l) {
+    if (c->count == CK_R_LITERALS) ck_unsupported("risultato con troppi letterali");
+    else c->literal[c->count++] = l;
+}
+
+/* Sostituisce il sotto-termine di posto preorder con replacement, solo se
+ * coincide con expected e non e una variabile. cursor conta i posti visitati
+ * e found distingue un posto assente da una sostituzione senza effetto. */
+static int ck_r_replace(int t, int position, int *cursor, int expected, int replacement, int *found) {
+    if (ck_status != CK_ACCEPTED) return t;
+    if ((*cursor)++ == position) {
+        if (t <= 0 || t != expected) ck_reject("la superposizione non coincide col sotto-termine indicato");
+        else *found = 1;
+        return replacement;
+    }
+    if (t <= 0) return t;
+    const CkRTerm n = ck_r.term[t];
+    int args[CK_R_ARITY];
+    for (int i = 0; i < n.count; i++) args[i] = ck_r_replace(ck_r.argument[n.first + i], position, cursor, expected, replacement, found);
+    return ck_r_term(n.symbol, args);
+}
+
+/* Controlla un passo, senza cercare genitori o sostituzioni. I due genitori
+ * sono standardizzati separatamente prima di applicare la sostituzione:
+ * le loro variabili non possono essere identificate soltanto per nome. */
+static void ck_r_step(void) {
+    int kind = ck_r_word("resolve") ? 0 : ck_r_word("reflex") ? 1 : ck_r_word("factor") ? 2 : ck_r_word("super") ? 3 : ck_r_word("equalfactor") ? 4 : -1;
+    if (kind < 0) { ck_reject("regola di saturazione sconosciuta"); return; }
+    int p = ck_r_index(ck_r.clauses), lp = ck_r_index(ck_r.clause[p].count), q = p, lq = lp, flip = 0, otherflip = 0, side = 0, position = 0;
+    if (kind == 0 || kind == 3) {
+        if (kind == 3) flip = ck_r_index(2);
+        q = ck_r_index(ck_r.clauses); lq = ck_r_index(ck_r.clause[q].count);
+        if (kind == 3) { side = ck_r_index(2); position = ck_r_index(CK_R_TERMS); }
+    } else if (kind == 2 || kind == 4) {
+        if (kind == 4) flip = ck_r_index(2);
+        lq = ck_r_index(ck_r.clause[p].count);
+        if (kind == 4) otherflip = ck_r_index(2);
+        if (lp == lq) ck_reject("la fattorizzazione richiede due letterali distinti");
+    }
+    int sub[2 * CK_R_VARS] = {0};
+    ck_r_delimiter('(');
+    if (!ck_r_word("subst")) ck_reject("sostituzione esplicita attesa");
+    for (ck_skip(); *ck_cursor != ')' && ck_status == CK_ACCEPTED; ck_skip()) {
+        ck_r_delimiter('(');
+        int v = ck_r_index(2 * CK_R_VARS);
+        if (sub[v]) ck_reject("variabile sostituita due volte");
+        sub[v] = ck_r_read_term(0, 0);
+        ck_r_delimiter(')');
+    }
+    ck_r_delimiter(')');
+    CkRClause given = ck_r_read_clause(), result = {0};
+    if (ck_status != CK_ACCEPTED) return;
+    CkRClause a = ck_r_instances(p, 0, sub), b = ck_r_instances(q, kind == 0 || kind == 3 ? CK_R_VARS : 0, sub);
+    CkRLiteral x = a.literal[lp], y = b.literal[lq];
+    if (kind == 0) {
+        if (x.negative == y.negative || !ck_r_same_atom(x, y)) ck_reject("i letterali risolti non sono complementari");
+        for (int i = 0; i < a.count; i++) if (i != lp) ck_r_push(&result, a.literal[i]);
+        for (int i = 0; i < b.count; i++) if (i != lq) ck_r_push(&result, b.literal[i]);
+    } else if (kind == 1 || kind == 2) {
+        if (kind == 1 && (!x.negative || !x.right || x.left != x.right)) ck_reject("l'ineguaglianza rimossa non e riflessiva");
+        if (kind == 2 && (x.negative != y.negative || !ck_r_same_atom(x, y))) ck_reject("i letterali fattorizzati non coincidono");
+        for (int i = 0; i < a.count; i++) if (i != lp) ck_r_push(&result, a.literal[i]);
+    } else if (kind == 3) {
+        if (x.negative || !x.right || (side && !y.right) || (!y.right && position == 0)) ck_reject("uguaglianza o posizione non ammessa nella superposizione");
+        int lhs = flip ? x.right : x.left, rhs = flip ? x.left : x.right, cursor = 0, found = 0;
+        int target = side ? y.right : y.left;
+        target = ck_r_replace(target, position, &cursor, lhs, rhs, &found);
+        if (!found) ck_reject("posizione della superposizione assente");
+        if (side) y.right = target; else y.left = target;
+        for (int i = 0; i < a.count; i++) if (i != lp) ck_r_push(&result, a.literal[i]);
+        for (int i = 0; i < b.count; i++) ck_r_push(&result, i == lq ? y : b.literal[i]);
+    } else {
+        if (x.negative || y.negative || !x.right || !y.right) ck_reject("la fattorizzazione equazionale richiede uguaglianze positive");
+        int xl = flip ? x.right : x.left, xr = flip ? x.left : x.right;
+        int yl = otherflip ? y.right : y.left, yr = otherflip ? y.left : y.right;
+        if (xl != yl) ck_reject("i membri fattorizzati non coincidono");
+        for (int i = 0; i < a.count; i++) if (i != lp) ck_r_push(&result, a.literal[i]);
+        ck_r_push(&result, (CkRLiteral){xr, yr, 1});
+    }
+    result = ck_r_normal(result);
+    if (result.count != given.count) ck_reject("la clausola scritta non e il risultato del passo");
+    for (int i = 0; i < result.count && ck_status == CK_ACCEPTED; i++)
+        if (result.literal[i].left != given.literal[i].left || result.literal[i].right != given.literal[i].right || result.literal[i].negative != given.literal[i].negative)
+            ck_reject("un letterale scritto non segue dal passo dichiarato");
+    ck_r_add(result);
+}
+
+/* Condizioni assunte nei rami del certificato structure. Il vettore
+ * possiede le celle; i nodi puntati appartengono all'arena del certificato.
+ * L'assenza di un limite ai rami non cambia la regola di copertura 11d. */
+static const CkNode **ck_assumed;
+static size_t ck_assumed_capacity;
+
+/* Libera i soli vettori dei contesti e dei rami, a ogni ingresso/uscita del
+ * verificatore. Le parti del modello sono gia liberate dai quantificatori. */
+static void ck_structure_clear(void) {
+    free(ck_bound); ck_bound = NULL; ck_bound_capacity = 0;
+    free(ck_assumed); ck_assumed = NULL; ck_assumed_capacity = 0;
+    ck_bound_count = 0;
+}
+
 /* Legge e controlla un certificato su insiemi qualsiasi, dalla riga dopo
  * l'intestazione fino a "end" compreso. kind è 0 per counterexample (11a),
- * 1 per example (11b), 2 per structure (11c). */
+ * 1 per example (11b), 2 per structure (11c), 3 per saturation (11m). */
 static void ck_check_structure(int kind) {
-    static const CkNode *assumed[CK_MAX_CASES], *laws[CK_MAX_AXIOMS];
+    const CkNode *laws[CK_MAX_AXIOMS];
     const CkNode *statement = NULL;
     int cases = 0, axioms = 0;
     ck_sort_count = ck_symbol_count = ck_declared = ck_bound_count = 0;
     ck_nodes = 0;
+    if (kind == 3) ck_r.started = 0;
     for (int ended = 0; !ended && ck_status == CK_ACCEPTED;) {
         char name[CK_MAX_NAME];
-        long long size = -1;
+        size_t size = (size_t)-1;
         while (isspace((unsigned char)*ck_cursor)) ck_cursor++;
         if (ck_word("end")) {
             ended = 1;
@@ -3407,9 +3994,8 @@ static void ck_check_structure(int kind) {
                 ck_numbers_sort(ck_sort_count++, kind < 2);
                 continue;
             }
-            if ((kind < 2) != ck_read_integer(&size) || (kind < 2 && size < 0)) { ck_reject("certificato scritto male: il numero di elementi c'è nei soli modelli"); return; }
-            if (size > CK_MAX_SIZE) { ck_unsupported("modello troppo grande per il verificatore"); return; }
-            ck_sorts[ck_sort_count++].size = (int)size;
+            if ((kind < 2) != ck_model_size(&size)) { ck_reject("certificato scritto male: il numero di elementi c'è nei soli modelli"); return; }
+            ck_sorts[ck_sort_count++].size = size;
         } else if (!statement && ck_word("symbol")) {
             /* Un simbolo: gli insiemi degli argomenti, poi quello del valore. */
             int sort[3], count = 0;
@@ -3437,34 +4023,39 @@ static void ck_check_structure(int kind) {
             int s = ck_name(name) ? ck_symbol_of(name) : -1;
             if (s < 0 || ck_symbols[s].table) { ck_reject("table di un simbolo non dichiarato, o due volte"); return; }
             CkSymbol *y = &ck_symbols[s];
-            int cells = 1, values = y->result == CK_BOOL ? 2 : ck_sorts[y->result].size;
-            for (int i = 0; i < y->arity; i++) cells *= ck_sorts[y->arg[i]].size;
-            y->table = ck_alloc(sizeof(int) * (size_t)cells);
-            for (int c = 0; c < cells && ck_status == CK_ACCEPTED; c++) {
-                long long v;
-                if (!ck_read_integer(&v) || v < 0 || v >= values) { ck_reject("una tabella ha meno valori delle sue celle, o un valore fuori dal suo insieme"); return; }
-                y->table[c] = (int)v;
+            size_t cells = 1, values = y->result == CK_BOOL ? 2 : ck_sorts[y->result].size;
+            for (int i = 0; i < y->arity; i++) if (!ck_model_product(cells, ck_sorts[y->arg[i]].size, &cells)) return;
+            if (!(y->table = ck_model_table(cells))) return;
+            for (size_t c = 0; c < cells && ck_status == CK_ACCEPTED; c++) {
+                size_t v;
+                if (!ck_model_size(&v) || v >= values) { ck_reject("una tabella ha meno valori delle sue celle, o un valore fuori dal suo insieme"); return; }
+                y->table[c] = v;
             }
             ck_skip();
             if (*ck_cursor && *ck_cursor != '\n') { ck_reject("una tabella ha più valori delle sue celle"); return; }
-        } else if (kind == 2 && statement && !cases && ck_word("axiom")) {
+        } else if (kind >= 2 && statement && !cases && (kind != 3 || !ck_r.started) && ck_word("axiom")) {
             /* 11h. Una legge delle parti o delle applicazioni: vale solo se
              * ha la forma di una legge. */
             if (axioms == CK_MAX_AXIOMS) { ck_unsupported("troppe leggi per il verificatore"); return; }
             laws[axioms] = ck_read_condition();
             if (ck_status == CK_ACCEPTED && !ck_axiom_valid(laws[axioms])) { ck_reject("una voce axiom non è una legge delle parti o delle applicazioni"); return; }
             axioms++;
+        } else if (kind == 3 && statement && !ck_r.started && ck_word("clausify")) {
+            ck_r_prepare(statement, laws, axioms);
+        } else if (kind == 3 && ck_r.started && ck_word("step")) {
+            ck_r_step();
         } else if (kind == 2 && statement && ck_word("case")) {
             /* Un caso nuovo: si suppongono "E falso", le leggi (11h) e A. */
             if (cases) ck_check_case();
-            if (cases == CK_MAX_CASES) { ck_unsupported("troppi casi per il verificatore"); return; }
+            if (cases == INT_MAX) { ck_unsupported("memoria disponibile insufficiente per i casi"); return; }
+            if (!ck_reserve((void **)&ck_assumed, &ck_assumed_capacity, (size_t)cases + 1, sizeof *ck_assumed)) return;
             CkNode *denied = ck_node(CK_NOT);
             denied->a = statement;
             ck_case_start();
             ck_suppose(denied, 0);
             for (int i = 0; i < axioms; i++) ck_suppose(laws[i], 0);
-            assumed[cases] = ck_read_condition();
-            ck_suppose(assumed[cases++], 0);
+            ck_assumed[cases] = ck_read_condition();
+            ck_suppose(ck_assumed[cases++], 0);
         } else if (kind == 2 && cases && ck_word("instance")) {
             ck_instance();
         } else if (kind == 2 && cases && ck_word("witness")) {
@@ -3479,6 +4070,11 @@ static void ck_check_structure(int kind) {
     }
     if (ck_status != CK_ACCEPTED) return;
     if (!statement) { ck_reject("certificato incompleto: manca l'enunciato"); return; }
+    if (kind == 3) {
+        if (!ck_r.started || !ck_r.clauses || ck_r.clause[ck_r.clauses - 1].count)
+            ck_reject("la refutazione non termina con la clausola vuota");
+        return;
+    }
 
     /* 11a, 11b: il conto sul modello. */
     if (kind < 2) {
@@ -3501,7 +4097,7 @@ static void ck_check_structure(int kind) {
     for (int i = 0; i < axioms; i++) ck_suppose(laws[i], 0);
     for (int i = 0; i < cases; i++) {
         CkNode *other = ck_node(CK_NOT);
-        other->a = assumed[i];
+        other->a = ck_assumed[i];
         ck_suppose(other, 0);
     }
     if (ck_status == CK_ACCEPTED && ck_consistent(0)) ck_reject("i casi non coprono tutti i modi in cui l'enunciato potrebbe essere falso");
@@ -7432,8 +8028,8 @@ static void ck_read_certificate(CkCertificate *cert) {
 
     /* Un enunciato su insiemi qualsiasi: lo si controlla mentre lo si legge
      * (capitolo 11). */
-    static const char *const structures[] = {"counterexample", "example", "structure"};
-    for (int kind = 0; kind < 3; kind++)
+    static const char *const structures[] = {"counterexample", "example", "structure", "saturation"};
+    for (int kind = 0; kind < 4; kind++)
         if (ck_word(structures[kind])) {
             cert->checked = 1;
             ck_check_structure(kind);
@@ -7664,6 +8260,8 @@ static void ck_verify(const CkCertificate *cert) {
  * chiamare. */
 static CkAnswer ck_check(const char **text, const char **why) {
     CkCertificate cert;
+    ck_model_clear();
+    ck_structure_clear();
     ck_status = CK_ACCEPTED;
     ck_reason = "";
     ck_used = 0;
@@ -7693,6 +8291,8 @@ static CkAnswer ck_check(const char **text, const char **why) {
         ck_verify(&cert);
     }
     *why = ck_reason;
+    ck_model_clear();
+    ck_structure_clear();
     return ck_status;
 }
 

@@ -30,7 +30,22 @@ int main(void) {
     int passed = 1;
     engine_init();
     for (size_t i = 0; i < sizeof cases / sizeof *cases; i++) {
-        Verdict v = prove(cases[i], 'n', 0, 0);
+        /* I cicli primi obbligano cardinalita oltre il vecchio tetto di otto.
+     * L'oracolo e un ciclo di lunghezza p, non una risposta del SAT. */
+    for (int p = 11; p <= 13; p += 2) {
+        char iterate[128] = "x", next[128], formula[1024];
+        for (int i = 0; i < p; i++) {
+            snprintf(next, sizeof next, "f(%s)", iterate);
+            strcpy(iterate, next);
+        }
+        snprintf(formula, sizeof formula, "\\exists S \\neq \\emptyset\\ \\exists f \\colon S \\to S\\ "
+                 "(\\forall x \\in S\\ (%s = x \\land f(x) \\neq x))", iterate);
+        Verdict large = prove(formula, 'n', 0, 0);
+        char size[32]; snprintf(size, sizeof size, "sort S %d\n", p);
+        passed = check_result(large.outcome == PROVED && large.certificate && strstr(large.certificate, size),
+                              "a certified prime cycle is found beyond eight elements") && passed;
+    }
+    Verdict v = prove(cases[i], 'n', 0, 0);
         int decided = v.outcome == (i ? PROVED : REFUTED);
         if (!decided) { verdict_print(stdout, &v); putchar('\n'); }
         passed = check_result(decided, i ? "a fixed-point-free permutation of prime order has a certified finite example"

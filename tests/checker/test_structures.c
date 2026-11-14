@@ -356,7 +356,11 @@ static const Case cases[] = {
      "axiom (exists z PS (forall t S (iff (inPS t z) (forall w PS (inPS t z)))))\n" PARTS_CASES},
     {"a counterexample computed on the true set of parts", CK_ACCEPTED, "", PARTS_MODEL("1", "")},
     {"a table for the membership, which the checker computes", CK_REJECTED, "due volte", PARTS_MODEL("1", "table inPS 0 1\n")},
-    {"the parts of a set of four elements are too many for a model", CK_UNSUPPORTED, "troppo grande", PARTS_MODEL("4", "")},
+    {"a larger powerset still requires a complete function table", CK_REJECTED, "meno valori", PARTS_MODEL("4", "")},
+    {"all sixteen subsets of a four-element set are checked", CK_ACCEPTED, "",
+     "certificate counterexample\nsort S 4\nsort PS parts S inPS\nsymbol f S PS\n"
+     "statement (implies (and (exists s S (= s s)) (forall x S (forall a S (iff (inPS a (f x)) (not (= a x)))))) "
+     "(forall y PS (exists x S (= (f x) y))))\ntable f 14 13 11 7\nend\n"},
     {"a set of parts over a set that is not declared", CK_REJECTED, "non dichiarato",
      "certificate structure\nsort PS parts S inPS\nstatement true\nend\n"},
 
@@ -590,7 +594,7 @@ static const Case cases[] = {
      "certificate structure\n" NEUTRAL_HEAD NEUTRAL "case (not (= u v))\ninstance " LEFT " v\ninstance " RIGHT " u\n"},
 
     /* Certificati che il verificatore non sa controllare. */
-    {"a set larger than the checker handles", CK_UNSUPPORTED, "troppo grande",
+    {"a larger set does not make a false counterexample valid", CK_REJECTED, "nel modello",
      "certificate counterexample\nsort S 9\nsymbol u S\nstatement (= u u)\ntable u 0\nend\n"},
     {"more sets than the checker handles", CK_UNSUPPORTED, "troppi insiemi",
      "certificate structure\nsort A\nsort B\nsort C\nsort D\nsort E\nsort F\nsort G\nstatement true\nend\n"},

@@ -110,7 +110,7 @@ int main(void) {
 
     /* 9. I certificati del capitolo 28. */
     passed = check_structure_certificates("tests/algebraic_structures/abstract_structures.tex", 24) && passed;
-    passed = check_structure_certificates("tests/algebraic_structures/false_abstract_structures.tex", 16) && passed;
+    passed = check_structure_certificates("tests/algebraic_structures/false_abstract_structures.tex", 19) && passed;
     passed = check_structure_certificates("tests/algebraic_structures/book_structures.tex", 15) && passed;
 
     /* 10. Due testi fissati: una dimostrazione, con un caso e due istanze;
@@ -141,7 +141,9 @@ int main(void) {
                           "the verdict line of a certified counterexample says so") && passed;
 
     /* 11. I controesempi nel file dei certificati. */
-    passed = check_counterexamples_written("tests/algebraic_structures/false_abstract_structures.tex", 16) && passed;
+    /* Tre controesempi in piu usano domini vuoti; tutti vengono scritti
+     * e riletti, senza aumentare il numero degli enunciati dimostrati. */
+    passed = check_counterexamples_written("tests/algebraic_structures/false_abstract_structures.tex", 19) && passed;
 
     /* Ogni fatto scritto in una dimostrazione viene ricontrollato dal
      * programma con un metodo indipendente: nessuno deve essere stato

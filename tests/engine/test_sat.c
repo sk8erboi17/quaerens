@@ -19,7 +19,7 @@
 typedef struct {
     int count;
     int length[48];
-    int literal[48][3];
+    SatLiteral literal[48][3];
 } SatCase;
 
 /* Decide la formula con la tabella di verita, senza usare il risolutore. */
@@ -29,7 +29,8 @@ static int exhaustive(const SatCase *c, int variables) {
         for (int i = 0; i < c->count && holds; i++) {
             int any = 0;
             for (int j = 0; j < c->length[i]; j++) {
-                int l = c->literal[i][j], value = bits >> (abs(l) - 2) & 1;
+                SatLiteral l = c->literal[i][j];
+                int value = bits >> (sat_index(l) - 2) & 1;
                 any |= l > 0 ? value : !value;
             }
             holds = any;
@@ -42,7 +43,7 @@ static int exhaustive(const SatCase *c, int variables) {
 /* Confronta il risolutore con l'oracolo e controlla l'assegnazione estratta.
  * Lo stato viene azzerato per ogni caso, come per una nuova ricerca. */
 static int agrees(SatState *s, const SatCase *c, int variables) {
-    memset(s, 0, sizeof *s);
+    sat_clear(s);
     for (int i = 0; i <= variables; i++) sat_variable(s);
     sat_assign(s, 1, 0);
     for (int i = 0; i < c->count; i++) sat_clause(s, c->literal[i], c->length[i]);
@@ -52,7 +53,8 @@ static int agrees(SatState *s, const SatCase *c, int variables) {
     for (int i = 0; i < c->count; i++) {
         int any = 0;
         for (int j = 0; j < c->length[i]; j++) {
-            int l = c->literal[i][j], value = s->value[abs(l)];
+            SatLiteral l = c->literal[i][j];
+            int value = s->var[sat_index(l)].value;
             any |= l > 0 ? value == 1 : value == -1;
         }
         if (!any) return 0;
@@ -68,7 +70,7 @@ static unsigned next_random(unsigned *state) {
 
 int main(void) {
     static const int choices[8][2] = {{2, 0}, {-2, 0}, {3, 0}, {-3, 0}, {2, 3}, {2, -3}, {-2, 3}, {-2, -3}};
-    SatState *s = malloc(sizeof *s);
+    SatState *s = calloc(1, sizeof *s);
     int passed = check_result(s != NULL, "the SAT test state can be allocated");
     if (!s) return 1;
     int all = 1;
@@ -103,12 +105,27 @@ int main(void) {
     passed = check_result(all, "600 larger clause sets agree with exhaustive enumeration and every returned assignment satisfies the original clauses") && passed;
 
     /* Un limite e una clausola vuota hanno risposte diverse. */
-    memset(s, 0, sizeof *s);
+    sat_clear(s);
     s->broken = 1;
     passed = check_result(sat_solve(s) == 0, "a resource limit is unknown, not UNSAT or SAT") && passed;
-    memset(s, 0, sizeof *s);
+    sat_clear(s);
     sat_clause(s, NULL, 0);
     passed = check_result(sat_solve(s) == -1, "an empty clause is UNSAT") && passed;
+
+    /* Oltrepassa tutti i vecchi depositi fissi. Le clausole sono dati
+     * soddisfacibili da v2=true; non serve cercare 70.000 decisioni. */
+    sat_clear(s);
+    for (size_t i = 0; i < 70000 && !s->broken; i++) sat_variable(s);
+    SatLiteral long_clause[] = {2, 3, 4, 5, 6, 7, 8, 9};
+    for (size_t i = 0; i < 270000 && !s->broken; i++) sat_clause(s, long_clause, 8);
+    for (size_t i = 0; i < 33000 && !s->broken; i++) sat_constant(s, 33000, i);
+    passed = check_result(!s->broken && s->variables == 70000 && s->clauses == 270000 &&
+                          s->literals == 2160000 && s->terms == 33000,
+                          "variables, clauses, literals and cached terms grow beyond every old fixed capacity") && passed;
+    size_t repeated = sat_constant(s, 33000, 32999);
+    passed = check_result(sat_at(s, repeated, 32999) == 1 && sat_at(s, repeated, 256) == -1,
+                          "large constants remain exact after repeated hash and vector growth") && passed;
+    sat_clear(s);
     free(s);
     return passed ? 0 : 1;
 }

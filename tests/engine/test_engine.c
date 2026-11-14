@@ -656,13 +656,13 @@ static const Case cases[] = {
      "\\forall f \\in S^{S}\\ ((\\forall a, b \\in S\\ (f(a) = f(b) \\implies a = b)) \\implies \\forall y \\in S\\ \\exists x \\in S\\ (f(x) = y))", NOT_PROVED},
     {"a one-sided inverse is two-sided only on finite sets",
      "\\forall f, g \\in S^{S}\\ ((\\forall x \\in S\\ (f(g(x)) = x)) \\implies \\forall x \\in S\\ (g(f(x)) = x))", NOT_PROVED},
-    {"an element exists only if the set is not empty", "\\forall f \\in S^{S}\\ \\exists x \\in S\\ (f(x) = f(x))", NOT_PROVED},
+    {"an empty set refutes the existence of an element", "\\forall f \\in S^{S}\\ \\exists x \\in S\\ (f(x) = f(x))", REFUTED},
     {"a non-empty set gives the element",
      "(T \\neq \\emptyset \\land \\pi \\colon S \\times T \\to S \\land \\forall x \\in S\\ \\forall y \\in T\\ (\\pi(x, y) = x)) "
      "\\implies \\forall z \\in S\\ \\exists x \\in S\\ \\exists y \\in T\\ (\\pi(x, y) = z)", PROVED},
-    {"without it the projection is not proved surjective",
+    {"an empty factor refutes surjectivity of the projection",
      "(\\pi \\colon S \\times T \\to S \\land \\forall x \\in S\\ \\forall y \\in T\\ (\\pi(x, y) = x)) "
-     "\\implies \\forall z \\in S\\ \\exists x \\in S\\ \\exists y \\in T\\ (\\pi(x, y) = z)", NOT_PROVED},
+     "\\implies \\forall z \\in S\\ \\exists x \\in S\\ \\exists y \\in T\\ (\\pi(x, y) = z)", REFUTED},
     {"symmetric and transitive: related elements are related to themselves",
      "R \\subseteq S \\times S \\implies ((\\forall x, y \\in S\\ ((x, y) \\in R \\implies (y, x) \\in R) \\land \\forall x, y, z \\in S\\ "
      "(((x, y) \\in R \\land (y, z) \\in R) \\implies (x, z) \\in R)) \\implies \\forall x, y \\in S\\ ((x, y) \\in R \\implies (x, x) \\in R))", PROVED},
@@ -686,7 +686,7 @@ static const Case cases[] = {
      "\\exists S\\ \\exists R \\subseteq S \\times S\\ ((\\forall x \\in S\\ ((x, x) \\in R)) \\land \\exists x \\in S\\ ((x, x) \\notin R))", NOT_PROVED},
     {"twenty-four quantifiers: the models with three elements are too many to try, and the search stops",
      "\\forall a, b, c, d, e, g, h, i \\in S\\ \\forall j, k, l, m, n, o, p, q \\in S\\ \\forall r, s, t, u, v, w, x, y \\in S\\ (a = a)", PROVED},
-    {"one quantifier more than the reader keeps (128 variables, MAX_SLOTS)",
+    {"129 quantifiers are read but the current proof search exhausts its resources",
      "\\forall a_{1}, a_{2}, a_{3}, a_{4}, a_{5}, a_{6}, a_{7}, a_{8} \\in S\\ \\forall b_{1}, b_{2}, b_{3}, b_{4}, b_{5}, b_{6}, b_{7}, b_{8} \\in S\\ "
      "\\forall c_{1}, c_{2}, c_{3}, c_{4}, c_{5}, c_{6}, c_{7}, c_{8} \\in S\\ \\forall d_{1}, d_{2}, d_{3}, d_{4}, d_{5}, d_{6}, d_{7}, d_{8} \\in S\\ "
      "\\forall g_{1}, g_{2}, g_{3}, g_{4}, g_{5}, g_{6}, g_{7}, g_{8} \\in S\\ \\forall h_{1}, h_{2}, h_{3}, h_{4}, h_{5}, h_{6}, h_{7}, h_{8} \\in S\\ "
@@ -695,7 +695,7 @@ static const Case cases[] = {
      "\\forall q_{1}, q_{2}, q_{3}, q_{4}, q_{5}, q_{6}, q_{7}, q_{8} \\in S\\ \\forall r_{1}, r_{2}, r_{3}, r_{4}, r_{5}, r_{6}, r_{7}, r_{8} \\in S\\ "
      "\\forall s_{1}, s_{2}, s_{3}, s_{4}, s_{5}, s_{6}, s_{7}, s_{8} \\in S\\ \\forall t_{1}, t_{2}, t_{3}, t_{4}, t_{5}, t_{6}, t_{7}, t_{8} \\in S\\ "
      "\\forall u_{1}, u_{2}, u_{3}, u_{4}, u_{5}, u_{6}, u_{7}, u_{8} \\in S\\ \\forall v_{1}, v_{2}, v_{3}, v_{4}, v_{5}, v_{6}, v_{7}, v_{8} \\in S\\ "
-     "\\forall z \\in S\\ (a_{1} = a_{1})", UNSUPPORTED},
+     "\\forall z \\in S\\ (a_{1} = a_{1})", NOT_PROVED},
     {"a map quantified among the hypotheses is not a declaration",
      "(\\forall f \\in S^{S}\\ \\forall x \\in S\\ (f(x) = x)) \\implies \\forall a, b \\in S\\ (a = b)", UNSUPPORTED},
     {"a declaration outside the hypotheses", "\\forall x \\in S\\ (x = x) \\implies f \\colon S \\to S", UNSUPPORTED},

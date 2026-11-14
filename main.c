@@ -61,6 +61,8 @@
  *     (17o in parser.c, capitolo 28);
  *     le istanze si scelgono dalla forma, e dove non basta con un modello
  *     candidato fatto degli elementi di cui si parla (28r).
+ *     Le cardinalita dei modelli crescono entro budget di lavoro e memoria;
+ *     variabili, sostituzioni e insiemi di variabili hanno depositi dinamici.
  *     Vi si scrive anche come nei libri: immagini f(X) e controimmagini
  *     f^{-1}(Y) di parti, relazioni come insiemi di coppie \{(x, y) \mid
  *     ...\}, le loro inverse e composizioni, uguaglianze e inclusioni tra
@@ -505,6 +507,8 @@
 #include <string.h>
 #include <ctype.h>
 #include <limits.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <float.h>
 #include <stdarg.h>
 
@@ -529,7 +533,6 @@
 #define ARENA_BYTES ((size_t)256 << 20)  /* memoria di lavoro per un enunciato */
 #define MAX_ATOMS 256        /* atomi distinti in un enunciato */
 #define MAX_FACTORS 8        /* atomi distinti in un monomio */
-#define MAX_ENV 16           /* variabili legate contemporaneamente */
 #define MAX_ORDER 4          /* ordine massimo di una ricorrenza del vocabolario */
 #define MAX_GIVEN (MAX_ORDER + 1)  /* ipotesi su una successione dichiarata: i valori iniziali e la ricorrenza */
 #define MAX_CLAIMS 3         /* tesi su una successione dichiarata */
@@ -544,8 +547,8 @@
                                 prima che lo svolgimento le riduca a MAX_SET_VARS */
 #define MAX_PART_RULES 4     /* relazioni e applicazioni tra parti date da una regola, in un enunciato (17r) */
 #define MAX_CONFIGS 16       /* configurazioni elencate in una dimostrazione */
-#define PROOF_BYTES 1048576  /* lunghezza massima di una dimostrazione scritta: quelle di 28r, con molti casi, arrivano a qualche centinaio di migliaia di caratteri */
-#define CERTIFICATE_BYTES 262144 /* lunghezza massima di un certificato */
+#define PROOF_BYTES 1048576  /* deposito iniziale del testo; i modelli crescono sullo heap (28t) */
+#define CERTIFICATE_BYTES 262144 /* deposito iniziale dei certificati, poi crescita dinamica */
 #define MAX_BRICKS 32        /* fattori suggeriti in un certificato: di più il verificatore non ne legge */
 #define MAX_MAPS 4           /* applicazioni dichiarate in un enunciato */
 #define MAX_PARAMETERS 4     /* parametri dichiarati tra le ipotesi con "k \in A" (17s) */
@@ -557,7 +560,7 @@
 #define MAX_REGION_DEPTH 4   /* distinzioni di casi su una variabile, una dentro l'altra (18v-2) */
 #define MAX_REGION_POINTS 8  /* numeri elencati uno per uno quando una distinzione lascia un pezzo finito (18v-2) */
 #define MAX_HOLES 4          /* punti tolti da un insieme numerico con \setminus */
-#define MAX_BOUND 12         /* quantificatori uno dentro l'altro, e variabili generiche (17t-2: una coppia ne conta due) */
+#define MAX_BOUND 12         /* ampiezza dei gruppi nella ricerca per istanze di 28; parser e calcolo numerico sono dinamici */
 #define MAX_LITERALS 8       /* confronti in una disgiunzione (18z ne sostituisce fino a due: quattro ipotesi e la tesi) */
 #define SAMPLE_SIZE 12       /* elementi di un insieme numerico provati uno a uno */
 #define MAX_CHECKS 4096      /* combinazioni di valori provate dalla verifica sul campione */
@@ -607,15 +610,22 @@
                                 di applicazioni (17v): sei per T_{1}^{S_{1}} \sim T_{2}^{S_{2}} (17w). Non più di
                                 CK_MAX_SORTS */
 #define MAX_SYMBOLS 64       /* simboli di un enunciato su insiemi qualsiasi, compresi gli elementi a cui la dimostrazione dà un nome */
-#define MAX_SLOTS 128        /* variabili quantificate in un enunciato su insiemi qualsiasi, comprese quelle
-                                che nascono svolgendo le definizioni (17q) e le leggi delle parti (28n). Non
-                                più di 128: il capitolo 28 le tiene anche come bit di un SlotSet (Rule.all,
-                                elem_slots(), set_term_free()). Le famiglie di parti (17v) ne chiedono più di 64 */
 
-/* Un insieme di variabili quantificate, il bit i per quella di posto i: vedi
- * MAX_SLOTS. */
-typedef unsigned __int128 SlotSet;
-#define SLOT_BIT(i) ((SlotSet)1 << (i))
+/* Un insieme finito di indici di variabili. low conserva le prime due
+ * parole senza allocazioni, per non rallentare i problemi gia trattati;
+ * extra conta le parole successive, high ne e la coda immutabile,
+ * posseduta dall'arena della prova. Fuori da queste parole ogni bit e zero.
+ * Copiare la struttura conserva il valore: nessuno modifica una coda gia
+ * condivisa, e la sua durata e quella dell'arena da cui proviene. */
+typedef struct {
+    unsigned long long low[2];
+    size_t extra;
+    const unsigned long long *high;
+} SlotSet;
+
+/* L'insieme vuoto non richiede memoria e puo inizializzare ogni contesto. */
+#define SLOT_EMPTY ((SlotSet){0})
+#define SLOT_WORD_BITS (sizeof(unsigned long long) * CHAR_BIT)
 #define MAX_ARITY 4          /* componenti di un membro di un insieme scritto come nei libri: 4 per una
                                 relazione tra coppie (17p) */
 #define MAX_LISTED 4         /* elementi scritti tra graffe, \{a, b\} (17p) */
@@ -624,10 +634,10 @@ typedef unsigned __int128 SlotSet;
 #define GREEK_NAMES 3000     /* "nomi" delle lettere greche usate come applicazioni (17o): non sono caratteri */
 #define PAIR_NAMES 4000      /* "nomi" delle seconde componenti delle applicazioni a valori in coppie (17s):
                                 PAIR_NAMES più la lettera dell'applicazione */
-#define MAX_MODEL_SIZE 4     /* elementi di un insieme in un modello finito (28a) */
+#define MAX_MODEL_SIZE 4     /* prefisso esaustivo di 28a; 28t prosegue senza tetto di cardinalita */
 #define MAX_MODEL_CODES 4096 /* scelte delle grandezze degli insiemi di un modello: MAX_MODEL_SIZE alla MAX_SORTS (28a) */
 #define MAX_MODEL_OBJECTS 8  /* elementi di un insieme di parti o di applicazioni in un modello finito (28m):
-                                le parti di un insieme di 3 elementi. Non più di CK_MAX_SIZE */
+                                le parti di un insieme di 3 elementi, nel solo prefisso esaustivo */
 #define MAX_MODEL_CELLS 64   /* celle della tabella di un simbolo in un modello finito (28a, 28m) */
 #define MAX_AXIOMS 16        /* leggi delle parti e delle applicazioni aggiunte alle ipotesi (28n) */
 #define MAX_CASE_LEAVES 512  /* rami chiusi e scritti per un'affermazione, di cui si controlla la copertura (28p) */
@@ -647,13 +657,11 @@ typedef unsigned __int128 SlotSet;
 #define MAX_MODELS 400000    /* tabelle provate per una scelta delle grandezze degli insiemi */
 #define MAX_MODEL_WORK 3000000  /* tabelle provate in tutto per un enunciato */
 #define MAX_MODEL_STEPS 40000000  /* elementi provati dai quantificatori, in tutto, nel calcolare un enunciato sui modelli */
-#define MAX_SAT_SIZE 8        /* elementi di un insieme nei modelli SAT (28t), non piu di CK_MAX_SIZE */
-#define MAX_SAT_ATTEMPTS 12   /* scelte delle grandezze provate con SAT dopo la ricerca esaustiva */
-#define MAX_SAT_VARS 65536    /* variabili proposizionali di una traduzione finita (28t) */
-#define MAX_SAT_CLAUSES 262144 /* clausole, comprese quelle imparate dal risolutore */
-#define MAX_SAT_LITERALS 2097152 /* letterali nelle clausole, in tutto */
-#define MAX_SAT_TERMS 32768   /* vettori che rappresentano valori di termini finiti */
-#define MAX_SAT_WORK 5000000 /* operazioni di traduzione e propagazione, per grandezza */
+/* Budget di ricerca, modificabili dalla riga di comando: non cardinalita
+ * massime. Anche i depositi SAT crescono entro la memoria richiesta. */
+static size_t model_memory_limit = 128u * 1024u * 1024u;
+static unsigned long long model_work_limit = 20000000ULL;
+static unsigned long long verification_work_limit = 20000000ULL;
 #define MAX_GROUND 2048      /* elementi nominati in una dimostrazione su insiemi qualsiasi (28b) */
 #define MAX_KNOWN 2048       /* condizioni note in un ramo di quella dimostrazione */
 #define MAX_DIFFERENT 256    /* fatti "diversi" noti in un ramo */
@@ -730,6 +738,9 @@ typedef unsigned __int128 SlotSet;
 
 /* Motivo del primo errore del conto in corso, in italiano; NULL se va bene. */
 static const char *failure;
+/* Una crescita fallita delle strutture dinamiche non puo essere cancellata
+ * da un tentativo euristico: il punto d'ingresso scarta comunque l'esito. */
+static int work_allocation_failed;
 
 /* Annota reason come causa del fallimento, se è la prima. */
 static void fail(const char *reason) { if (!failure) failure = reason; }
@@ -767,6 +778,105 @@ static void *arena_alloc(size_t bytes) {
     void *block = arena + arena_used;
     arena_used += bytes;
     return block;
+}
+
+/* Allarga un vettore di lavoro posseduto dal chiamante. capacity conta
+ * elementi di unit byte; i dati esistenti restano validi per indice, ma
+ * gli indirizzi possono cambiare. Le celle nuove sono azzerate. Overflow
+ * e memoria esaurita annotano failure e lasciano intatto il vecchio blocco. */
+static int work_reserve(void **data, size_t *capacity, size_t need, size_t unit) {
+    if (need <= *capacity) return 1;
+    size_t cap = *capacity ? *capacity : 16;
+    while (cap < need) {
+        if (cap > (size_t)-1 / 2) { cap = need; break; }
+        cap *= 2;
+    }
+    if (unit && cap > (size_t)-1 / unit) { work_allocation_failed = 1; fail(OUT_OF_MEMORY); return 0; }
+    void *next = realloc(*data, cap * unit);
+    if (!next) { work_allocation_failed = 1; fail(OUT_OF_MEMORY); return 0; }
+    memset((unsigned char *)next + *capacity * unit, 0, (cap - *capacity) * unit);
+    *data = next; *capacity = cap;
+    return 1;
+}
+
+/* Alloca metadati nell'arena, controllando dimensione e fallimento. Per
+ * questi dati un ripiego non puo cancellare l'errore: maschere o snapshot
+ * incompleti cambierebbero il significato di una deduzione. Zero elementi
+ * non richiedono un blocco; unit deve essere positivo. */
+static void *work_arena_array(size_t count, size_t unit) {
+    if (!count) return NULL;
+    if (!unit || count > ARENA_BYTES / unit) {
+        work_allocation_failed = 1; fail(OUT_OF_MEMORY); return NULL;
+    }
+    void *data = arena_alloc(count * unit);
+    if (!data) work_allocation_failed = 1;
+    return data;
+}
+
+/* Una parola del bitset, zero oltre la sua fine. L'indice i corrisponde
+ * alla parola i/W e al bit i%W: nessuno shift puo raggiungere W. */
+static inline unsigned long long slot_set_word(SlotSet set, size_t word) {
+    if (word < 2) return set.low[word];
+    return word - 2 < set.extra ? set.high[word - 2] : 0;
+}
+
+/* Ritorna 1 se la variabile slot appartiene all'insieme. */
+static inline int slot_set_contains(SlotSet set, int slot) {
+    size_t i = (size_t)slot;
+    return (int)(slot_set_word(set, i / SLOT_WORD_BITS) >> (i % SLOT_WORD_BITS) & 1);
+}
+
+/* Aggiunge slot (non negativo). Le due parole comuni si copiano nel
+ * valore; la coda cresce nell'arena senza cambiare i valori condivisi. */
+static inline SlotSet slot_set_with(SlotSet set, int slot) {
+    size_t i = (size_t)slot, word = i / SLOT_WORD_BITS;
+    unsigned long long bit = 1ULL << (i % SLOT_WORD_BITS);
+    if (slot_set_word(set, word) & bit) return set;
+    if (word < 2) { set.low[word] |= bit; return set; }
+    size_t count = word - 1 > set.extra ? word - 1 : set.extra;
+    unsigned long long *tail = work_arena_array(count, sizeof *tail);
+    if (!tail) return SLOT_EMPTY;
+    if (set.extra) memcpy(tail, set.high, set.extra * sizeof *tail);
+    memset(tail + set.extra, 0, (count - set.extra) * sizeof *tail);
+    tail[word - 2] |= bit;
+    set.high = tail; set.extra = count;
+    return set;
+}
+
+/* L'insieme contenente soltanto slot, con la stessa regola di crescita. */
+static inline SlotSet slot_set_single(int slot) { return slot_set_with(SLOT_EMPTY, slot); }
+
+/* Unione: OR di ogni parola. Si riusa una coda gia immutabile quando
+ * l'altro insieme non ne ha una, o quando entrambe sono la stessa. */
+static inline SlotSet slot_set_union(SlotSet a, SlotSet b) {
+    SlotSet result = a;
+    result.low[0] |= b.low[0]; result.low[1] |= b.low[1];
+    if (!b.extra) return result;
+    if (!a.extra || (a.high == b.high && a.extra == b.extra)) {
+        result.high = b.high; result.extra = b.extra; return result;
+    }
+    size_t count = a.extra > b.extra ? a.extra : b.extra;
+    unsigned long long *tail = work_arena_array(count, sizeof *tail);
+    if (!tail) return SLOT_EMPTY;
+    for (size_t i = 0; i < count; i++) tail[i] = slot_set_word(a, i + 2) | slot_set_word(b, i + 2);
+    result.high = tail; result.extra = count;
+    return result;
+}
+
+/* Ritorna 1 se set contiene tutti i bit di wanted, anche oltre le prime
+ * due parole. Un bit mancante basta a smentire l'inclusione. */
+static inline int slot_set_includes(SlotSet set, SlotSet wanted) {
+    for (size_t i = 0; i < 2 + wanted.extra; i++)
+        if (slot_set_word(wanted, i) & ~slot_set_word(set, i)) return 0;
+    return 1;
+}
+
+/* Ritorna 1 se i due insiemi condividono almeno una variabile. */
+static inline int slot_set_intersects(SlotSet a, SlotSet b) {
+    size_t count = a.extra < b.extra ? a.extra : b.extra;
+    for (size_t i = 0; i < 2 + count; i++)
+        if (slot_set_word(a, i) & slot_set_word(b, i)) return 1;
+    return 0;
 }
 
 /* =============================================================================
@@ -1765,7 +1875,9 @@ static void engine_init(void) {
  * quei punti, e solo lì, sono certi.
  */
 
-/* Una variabile legata e il suo valore. */
+/* Un legame numerico: name e il nome della variabile, value la frazione
+ * negli atomi che la sostituisce. I polinomi di value sono posseduti
+ * dall'arena della valutazione; la cella del legame non li libera. */
 typedef struct {
     int name;
     Rat value;
@@ -1773,8 +1885,18 @@ typedef struct {
 
 /* Le variabili legate in questo momento: l'ultima aggiunta nasconde le
  * precedenti con lo stesso nome. */
-static Binding env[MAX_ENV];
+/* I blocchi mantengono stabili gli indirizzi restituiti da env_lookup(),
+ * anche se una valutazione ricorsiva aggiunge altri legami. 64 e soltanto
+ * la granularita di allocazione, non un massimo: cresce l'indice di blocchi. */
+#define ENV_BLOCK_BINDINGS 64
+static Binding **env_block;
+static size_t env_block_capacity, env_blocks;
 static int env_count;
+
+/* La cella del legame index, gia allocata: nessuna ricerca o allocazione. */
+static Binding *env_at(int index) {
+    return &env_block[(size_t)index / ENV_BLOCK_BINDINGS][(size_t)index % ENV_BLOCK_BINDINGS];
+}
 
 /* Più di zero mentre si valuta una definizione del vocabolario. */
 static int library_depth;
@@ -1811,10 +1933,19 @@ static Poly domain_fact[MAX_DOMAIN_FACTS];
 static int domain_fact_count;
 static int domain_on;
 
-/* Lega name a value. */
-static void env_push(int name, Rat value) {
-    if (env_count == MAX_ENV) { fail("troppe variabili legate annidate"); return; }
-    env[env_count++] = (Binding){name, value};
+/* Lega name a value, senza spostare le celle gia visibili. Un fallimento
+ * annota anche work_allocation_failed: eventuali tentativi che ripuliscono
+ * failure non possono consegnare un risultato basato su una pila incompleta. */
+static int env_push(int name, Rat value) {
+    size_t block = (size_t)env_count / ENV_BLOCK_BINDINGS;
+    if (!work_reserve((void **)&env_block, &env_block_capacity, block + 1, sizeof *env_block)) return 0;
+    if (block == env_blocks) {
+        env_block[block] = calloc(ENV_BLOCK_BINDINGS, sizeof **env_block);
+        if (!env_block[block]) { work_allocation_failed = 1; fail(OUT_OF_MEMORY); return 0; }
+        env_blocks++;
+    }
+    *env_at(env_count++) = (Binding){name, value};
+    return 1;
 }
 
 /* Scioglie l'ultima variabile legata. */
@@ -1823,7 +1954,7 @@ static void env_pop(void) { if (env_count > 0) env_count--; }
 /* Ritorna il valore legato a name, o NULL se name è un parametro libero. */
 static const Rat *env_lookup(int name) {
     for (int i = env_count - 1; i >= 0; i--)
-        if (env[i].name == name) return &env[i].value;
+        if (env_at(i)->name == name) return &env_at(i)->value;
     return NULL;
 }
 
@@ -1832,33 +1963,38 @@ static const Rat *env_lookup(int name) {
  * valore sono legati anche loro, ma a una costante, e non contano. */
 static int env_varies(int name) {
     for (int i = env_count - 1; i >= point_count; i--)
-        if (env[i].name == name) return 1;
+        if (env_at(i)->name == name) return 1;
     return 0;
 }
 
 static Rat eval(const Node *node);
 
+/* Un indice che nasconde una variabile dell'ambiente dentro una somma.
+ * name e il nome locale, outer il contesto esterno preso in prestito.
+ * La cella vive nel frame ricorsivo che la possiede: una cella per indice,
+ * senza copiare un vettore sempre piu lungo a ogni livello. */
+typedef struct NameScope NameScope;
+struct NameScope { int name; const NameScope *outer; };
+
+/* Ritorna 1 se name e nascosto da uno degli indici interni attivi. */
+static int name_shadowed(const NameScope *scope, int name) {
+    for (; scope; scope = scope->outer) if (scope->name == name) return 1;
+    return 0;
+}
+
 /* Ritorna 1 se nel sotto-albero node compare, libera, una variabile che in
- * questo momento è legata a un valore che cambia (vedi env_varies()). shadow elenca i `shadows` indici di somme interne
- * già incontrati: sono legati dalla loro somma, non dall'ambiente. */
-static int uses_bound_variable(const Node *node, const int *shadow, int shadows) {
+ * questo momento è legata a un valore che cambia (vedi env_varies()). shadow collega gli indici di somme interne
+ * gia incontrati: sono legati dalla loro somma, non dall'ambiente. */
+static int uses_bound_variable(const Node *node, const NameScope *shadow) {
     if (!node) return 0;
-    if (node->kind == N_VAR) {
-        for (int i = 0; i < shadows; i++)
-            if (shadow[i] == node->name) return 0;
-        return env_varies(node->name);
-    }
+    if (node->kind == N_VAR) return !name_shadowed(shadow, node->name) && env_varies(node->name);
     if (node->kind == N_BIGOP) {
-        if (uses_bound_variable(node->a, shadow, shadows) || uses_bound_variable(node->b, shadow, shadows))
-            return 1;
-        int inner[MAX_ENV + 1];
-        if (shadows >= MAX_ENV) return 1;
-        memcpy(inner, shadow, (size_t)shadows * sizeof(int));
-        inner[shadows] = node->name;
-        return uses_bound_variable(node->c, inner, shadows + 1);
+        if (uses_bound_variable(node->a, shadow) || uses_bound_variable(node->b, shadow)) return 1;
+        NameScope inner = {node->name, shadow};
+        return uses_bound_variable(node->c, &inner);
     }
-    return uses_bound_variable(node->a, shadow, shadows) || uses_bound_variable(node->b, shadow, shadows) ||
-           uses_bound_variable(node->c, shadow, shadows);
+    return uses_bound_variable(node->a, shadow) || uses_bound_variable(node->b, shadow) ||
+           uses_bound_variable(node->c, shadow);
 }
 
 /* Valuta il corpo della somma o prodotto node con l'indice legato a index. */
@@ -2020,7 +2156,8 @@ static Rat eval_bigop(const Node *node) {
 
     /* 11b. Estremo che dipende da n: atomo più termini di differenza. */
     if (a < 0) { fail("estremo superiore decrescente in n"); return rat_int(0); }
-    if (uses_bound_variable(node->a, NULL, 0) || uses_bound_variable(node->c, &node->name, 1)) {
+    NameScope index_scope = {node->name, NULL};
+    if (uses_bound_variable(node->a, NULL) || uses_bound_variable(node->c, &index_scope)) {
         /* 11n. */
         Rat closed;
         if (!product && binomial_ok && binomial_sum(node, lower, upper, &closed)) {
@@ -4148,9 +4285,29 @@ typedef struct {
 /* Il testo della dimostrazione dell'enunciato in corso: LaTeX, in inglese come
  * gli altri testi destinati a un documento. proof_reset() lo svuota,
  * proof_add() vi aggiunge un pezzo con la sintassi di printf. Un testo più
- * lungo di PROOF_BYTES viene troncato. */
-static char proof_text[PROOF_BYTES];
-static size_t proof_length;
+ * lungo di PROOF_BYTES viene rifiutato, salvo i modelli che crescono sullo heap. */
+static char proof_initial[PROOF_BYTES];
+static char *proof_text = proof_initial;
+static size_t proof_length, proof_capacity = PROOF_BYTES;
+static int proof_growable, proof_broken;
+
+/* Allarga un testo sullo heap entro il budget richiesto. Il deposito
+ * iniziale resta statico per i domini che usano testi di lunghezza nota;
+ * nessun puntatore al testo va conservato durante una crescita. */
+static int text_reserve(char **text, size_t *capacity, char *initial, size_t need) {
+    if (need <= *capacity) return 1;
+    size_t cap = *capacity;
+    while (cap < need) {
+        if (cap > (size_t)-1 / 2) { cap = need; break; }
+        cap *= 2;
+    }
+    if (cap > model_memory_limit) return 0;
+    char *p = *text == initial ? malloc(cap) : realloc(*text, cap);
+    if (!p) return 0;
+    if (*text == initial) memcpy(p, initial, *capacity);
+    *text = p; *capacity = cap;
+    return 1;
+}
 
 /* Quanti passi di una dimostrazione scritta non hanno superato il controllo
  * indipendente, dall'avvio del programma. Le dimostrazioni sugli insiemi e
@@ -4165,18 +4322,37 @@ static size_t proof_length;
  * sbagliato, e i test lo controllano. */
 static int unjustified_steps;
 
+/* Svuota il documento e restituisce il deposito iniziale; i risultati
+ * della chiamata precedente, come per l'arena, non sono piu validi. */
 static void proof_reset(void) {
-    proof_length = 0;
+    if (proof_text != proof_initial) free(proof_text);
+    proof_text = proof_initial; proof_capacity = PROOF_BYTES;
+    proof_length = 0; proof_growable = proof_broken = 0;
     proof_text[0] = 0;
 }
 
+/* Aggiunge LaTeX. Solo la stampa di un modello abilita la crescita: gli
+ * altri domini conservano i propri controlli di lunghezza. Un testo che
+ * non entra resta marcato come incompleto, mai consegnato come modello. */
 static void proof_add(const char *format, ...) {
+    if (proof_broken) return;
     va_list arguments;
     va_start(arguments, format);
-    int written = vsnprintf(proof_text + proof_length, PROOF_BYTES - proof_length, format, arguments);
+    va_list retry; va_copy(retry, arguments);
+    int written = vsnprintf(proof_text + proof_length, proof_capacity - proof_length, format, arguments);
+    if (written < 0 || (size_t)written > (size_t)-1 - proof_length - 1) proof_broken = 1;
+    else {
+        size_t need = proof_length + (size_t)written + 1;
+        if (need > proof_capacity) {
+            if (!proof_growable || !text_reserve(&proof_text, &proof_capacity, proof_initial, need)) {
+                /* I vecchi chiamanti riconoscono il troncamento dalla lunghezza. */
+                proof_length = proof_capacity - 1; proof_broken = 1;
+            } else vsnprintf(proof_text + proof_length, proof_capacity - proof_length, format, retry);
+        }
+        if (!proof_broken) proof_length += (size_t)written;
+    }
+    va_end(retry);
     va_end(arguments);
-    if (written > 0) proof_length += (size_t)written;
-    if (proof_length >= PROOF_BYTES) proof_length = PROOF_BYTES - 1;
 }
 
 /* Passo induttivo (13b): d è D(n), d1 è D(n+1), scritte con gli stessi atomi.
@@ -5119,22 +5295,16 @@ static int is_far(long long name) {
 /* Ritorna 1 se nel sotto-albero node compare, libero, uno di quei parametri.
  * shadow elenca gli indici di somma che nascondono una lettera con lo stesso
  * nome, come in uses_bound_variable(). */
-static int node_has_parameter(const Node *node, const int *shadow, int shadows) {
+static int node_has_parameter(const Node *node, const NameScope *shadow) {
     if (!node) return 0;
-    if (node->kind == N_VAR) {
-        for (int i = 0; i < shadows; i++)
-            if (shadow[i] == node->name) return 0;
-        return is_far(node->name);
-    }
+    if (node->kind == N_VAR) return !name_shadowed(shadow, node->name) && is_far(node->name);
     if (node->kind == N_BIGOP) {
-        int inner[MAX_ENV + 1];
-        if (shadows >= MAX_ENV || node_has_parameter(node->a, shadow, shadows) || node_has_parameter(node->b, shadow, shadows)) return 1;
-        memcpy(inner, shadow, (size_t)shadows * sizeof(int));
-        inner[shadows] = node->name;
-        return node_has_parameter(node->c, inner, shadows + 1);
+        if (node_has_parameter(node->a, shadow) || node_has_parameter(node->b, shadow)) return 1;
+        NameScope inner = {node->name, shadow};
+        return node_has_parameter(node->c, &inner);
     }
-    return node_has_parameter(node->a, shadow, shadows) || node_has_parameter(node->b, shadow, shadows) ||
-           node_has_parameter(node->c, shadow, shadows);
+    return node_has_parameter(node->a, shadow) || node_has_parameter(node->b, shadow) ||
+           node_has_parameter(node->c, shadow);
 }
 
 static int poly_has_parameter(Poly p);
@@ -5146,7 +5316,7 @@ static int atom_has_parameter(int atom) {
     const Atom *a = &atoms[atom];
     if (a->kind == ATOM_VAR) return is_far(a->id);
     if (a->kind == ATOM_REC) return 0;
-    if (a->kind == ATOM_BIGOP) return bigop_library(atom) < 0 && node_has_parameter(a->node, NULL, 0);
+    if (a->kind == ATOM_BIGOP) return bigop_library(atom) < 0 && node_has_parameter(a->node, NULL);
     if (a->kind == ATOM_ATAN) return poly_has_parameter(atan_args[a->id].num) || poly_has_parameter(atan_args[a->id].den);
     for (int f = 0; f < a->exponent.count; f++)
         if (atom_has_parameter(a->exponent.factor[f].atom)) return 1;
@@ -6492,11 +6662,12 @@ static void put_induction_proof(const Statement *statement, long long base, Rat 
  */
 
 /* Il certificato dell'enunciato in corso, nella notazione di checker.c. */
-static char certificate_text[CERTIFICATE_BYTES];
-static size_t certificate_length;
+static char certificate_initial[CERTIFICATE_BYTES];
+static char *certificate_text = certificate_initial;
+static size_t certificate_length, certificate_capacity = CERTIFICATE_BYTES;
 
 /* Diventa 1 quando il certificato in corso non si può scrivere: una quantità
- * che la notazione non ha, o un testo più lungo di CERTIFICATE_BYTES. */
+ * che la notazione non ha, o memoria insufficiente per il testo dinamico. */
 static int certificate_broken;
 
 /* Le successioni del vocabolario nominate nel certificato in corso: il bit i
@@ -6525,12 +6696,22 @@ static int cert_real;
 
 /* Aggiunge un pezzo al certificato, con la sintassi di printf. */
 static void cert_add(const char *format, ...) {
+    if (certificate_broken) return;
     va_list arguments;
     va_start(arguments, format);
-    int written = vsnprintf(certificate_text + certificate_length, CERTIFICATE_BYTES - certificate_length, format, arguments);
+    va_list retry; va_copy(retry, arguments);
+    int written = vsnprintf(certificate_text + certificate_length, certificate_capacity - certificate_length, format, arguments);
+    if (written < 0 || (size_t)written > (size_t)-1 - certificate_length - 1) certificate_broken = 1;
+    else {
+        size_t need = certificate_length + (size_t)written + 1;
+        if (need > certificate_capacity) {
+            if (!text_reserve(&certificate_text, &certificate_capacity, certificate_initial, need)) certificate_broken = 1;
+            else vsnprintf(certificate_text + certificate_length, certificate_capacity - certificate_length, format, retry);
+        }
+        if (!certificate_broken) certificate_length += (size_t)written;
+    }
+    va_end(retry);
     va_end(arguments);
-    if (written < 0 || (size_t)written >= CERTIFICATE_BYTES - certificate_length) certificate_broken = 1;
-    else certificate_length += (size_t)written;
 }
 
 /* Scrive una lettera dell'enunciato. \pi e la lettera ausiliaria di
@@ -9574,8 +9755,26 @@ static Range poly_range(Poly p) {
  */
 
 /* Le variabili generiche della dimostrazione in corso, dalla più esterna. */
-static Bound universal[MAX_BOUND];
+static Bound *universal;
+static size_t universal_capacity;
 static int universal_count;
+
+/* Una cella per variabile, invece di una maschera a 32 bit: 1 se e stata
+ * nominata da un'ipotesi esistenziale. Il vettore segue quello dei legami. */
+static unsigned char *universal_named;
+static size_t universal_named_capacity;
+
+/* Introduce una variabile generica, azzerandone la qualifica di testimone.
+ * 0 e failure quando uno dei depositi non puo crescere. Gli insiemi restano
+ * posseduti dagli alberi, quindi il loro indirizzo non cambia con realloc. */
+static int universal_push(Bound bound) {
+    size_t need = (size_t)universal_count + 1;
+    if (!work_reserve((void **)&universal, &universal_capacity, need, sizeof *universal) ||
+        !work_reserve((void **)&universal_named, &universal_named_capacity, need, sizeof *universal_named)) return 0;
+    universal_named[universal_count] = 0;
+    universal[universal_count++] = bound;
+    return 1;
+}
 
 /* La dimostrazione per casi sul resto in corso (regola 18o): il modulo m, o 0
  * se non ce n'è una, e il resto r del caso che si sta trattando. split_case
@@ -9622,7 +9821,8 @@ typedef struct {
 
 /* I numeri scelti finora, dal quantificatore più esterno. Quando la
  * dimostrazione smentisce l'enunciato, sono il controesempio da riportare. */
-static Choice chosen[MAX_BOUND];
+static Choice *chosen;
+static size_t chosen_capacity;
 static int chosen_count;
 
 /* 1 se una scelta è stata fatta dentro un caso sul resto (18o), o dentro una
@@ -9644,13 +9844,15 @@ typedef struct {
     Poly value;   /* w: un polinomio nelle variabili generiche */
 } Exclusion;
 
-static Exclusion excluded[MAX_BOUND];
+static Exclusion *excluded;
+static size_t excluded_capacity;
 static int excluded_count;
 
 /* Annota che alla variabile name è stato dato il valore value. */
 static void choose(int name, Frac value) {
     if (split_modulus || region_depth) chosen_by_cases = 1;
-    if (chosen_count < MAX_BOUND) chosen[chosen_count++] = (Choice){name, value};
+    if (work_reserve((void **)&chosen, &chosen_capacity, (size_t)chosen_count + 1, sizeof *chosen))
+        chosen[chosen_count++] = (Choice){name, value};
 }
 
 /* Annota nel quantificatore "esiste" f il valore value con cui la sua
@@ -9962,7 +10164,8 @@ typedef struct {
 
 /* La semiretta in esame per ogni variabile generica, nella stessa posizione
  * di universal[]. Vale durante una chiamata a signs(). */
-static Ray ray[MAX_BOUND];
+static Ray *ray;
+static size_t ray_capacity;
 
 /* Che cosa signs() deve stabilire di un polinomio. */
 typedef enum {
@@ -10006,7 +10209,7 @@ static int mono_divides(const Mono *a, const Mono *b) {
  * guard. È ciò che serve per a + b con a, b >= 0: è zero solo per
  * a = b = 0, dove a - b è zero. */
 static int signs(Poly shown, Poly p, const Poly *guard, int index, SignGoal goal) {
-    if (failure) return 0;
+    if (failure || !work_reserve((void **)&ray, &ray_capacity, (size_t)universal_count, sizeof *ray)) return 0;
 
     /* 18c-1. Una variabile alla volta: le semirette che coprono il suo
      * insieme. Dopo la sostituzione x = origin + direction * x la lettera x
@@ -10049,7 +10252,8 @@ static int signs(Poly shown, Poly p, const Poly *guard, int index, SignGoal goal
      * coefficienti. `certain` dice se c'è un termine sicuramente diverso da
      * zero; forced[i] se un termine è potenza della sola variabile i. */
     int negative = 0, positive = 0, certain = 0, constant = 0, multiples = 0;
-    char forced[MAX_BOUND] = {0};
+    char forced[universal_count ? universal_count : 1];
+    memset(forced, 0, sizeof forced);
     for (int i = 0; i < p.count; i++) {
         const Term *t = &p.term[i];
         int all_strict = 1;
@@ -10687,23 +10891,20 @@ typedef struct {
 /* Ritorna 1 se ogni variabile dell'espressione node ha in questo momento un
  * numero per valore, cioè se l'espressione si può calcolare. shadow elenca
  * gli indici di somma che nascondono una variabile con lo stesso nome. */
-static int term_is_closed(const Node *node, const int *shadow, int shadows) {
+static int term_is_closed(const Node *node, const NameScope *shadow) {
     Num value;
     if (!node) return 1;
     if (node->kind == N_VAR) {
-        for (int i = 0; i < shadows; i++)
-            if (shadow[i] == node->name) return 1;
+        if (name_shadowed(shadow, node->name)) return 1;
         const Rat *bound = env_lookup(node->name);
         return node->name == VAR_PI || (bound && rat_number(*bound, &value));
     }
     if (node->kind == N_BIGOP) {
-        int inner[MAX_ENV + 1];
-        if (shadows >= MAX_ENV || !term_is_closed(node->a, shadow, shadows) || !term_is_closed(node->b, shadow, shadows)) return 0;
-        memcpy(inner, shadow, (size_t)shadows * sizeof(int));
-        inner[shadows] = node->name;
-        return term_is_closed(node->c, inner, shadows + 1);
+        if (!term_is_closed(node->a, shadow) || !term_is_closed(node->b, shadow)) return 0;
+        NameScope inner = {node->name, shadow};
+        return term_is_closed(node->c, &inner);
     }
-    return term_is_closed(node->a, shadow, shadows) && term_is_closed(node->b, shadow, shadows) && term_is_closed(node->c, shadow, shadows);
+    return term_is_closed(node->a, shadow) && term_is_closed(node->b, shadow) && term_is_closed(node->c, shadow);
 }
 
 /* 18g, per le espressioni che non sono razionali. Calcola i due membri del
@@ -10719,7 +10920,7 @@ static int term_is_closed(const Node *node, const int *shadow, int shadows) {
  * non è zero. Un errore di calcolo vuol dire solo che non si sa. */
 static int closed_gap(const Formula *source) {
     long long where;
-    if (failure || !term_is_closed(source->left, NULL, 0) || !term_is_closed(source->right, NULL, 0)) return -1;
+    if (failure || !term_is_closed(source->left, NULL) || !term_is_closed(source->right, NULL)) return -1;
     condition_count = conditions_lost = 0;
     conditions_on = 1;
     Rat gap = rat_add(eval(source->left), eval(source->right), 1);
@@ -11030,7 +11231,19 @@ enum { LETTER_REAL, LETTER_RATIONAL, LETTER_INTEGER };
  * polinomi in esame. letter_kind[i] dice che cosa vale sempre la lettera i:
  * una potenza è razionale ma non intera, perché 2^{-n} non lo è, e una
  * variabile reale (18y) solo reale. Le riempie combination(). */
-static int multiplier_letter[MAX_BOUND + MAX_FACTORS], letter_kind[MAX_BOUND + MAX_FACTORS], multiplier_letters;
+static int *multiplier_letter, *letter_kind, multiplier_letters;
+static size_t multiplier_capacity, letter_kind_capacity;
+
+/* Aggiunge una lettera con il suo dominio numerico; entrambi i vettori
+ * sono posseduti dal calcolo della combinazione, e riusati tra chiamate. */
+static int multiplier_push(int atom, int kind) {
+    size_t need = (size_t)multiplier_letters + 1;
+    if (!work_reserve((void **)&multiplier_letter, &multiplier_capacity, need, sizeof *multiplier_letter) ||
+        !work_reserve((void **)&letter_kind, &letter_kind_capacity, need, sizeof *letter_kind)) return 0;
+    letter_kind[multiplier_letters] = kind;
+    multiplier_letter[multiplier_letters++] = atom;
+    return 1;
+}
 
 /* 18x. Aggiunge a multiplier_letter[] le potenze che fanno da lettere nel
  * polinomio p, ognuna una volta, finché c'è posto. */
@@ -11040,9 +11253,7 @@ static void power_letters_add(Poly p) {
             int atom = p.term[i].mono.factor[k].atom, seen = 0;
             if (!power_letter(atom)) continue;
             for (int j = 0; j < multiplier_letters && !seen; j++) seen = multiplier_letter[j] == atom;
-            if (seen || multiplier_letters == MAX_BOUND + MAX_FACTORS) continue;
-            letter_kind[multiplier_letters] = LETTER_RATIONAL;
-            multiplier_letter[multiplier_letters++] = atom;
+            if (!seen && !multiplier_push(atom, LETTER_RATIONAL)) return;
         }
 }
 
@@ -11106,8 +11317,7 @@ static int combination(Poly thesis, const Poly *hypothesis, int count, Poly *mul
         int x = atom_var(universal[v].name), used = poly_uses(thesis, x);
         for (int i = 0; i < count && !used; i++) used = poly_uses(hypothesis[i], x);
         if (!used) continue;
-        letter_kind[multiplier_letters] = set->integers ? LETTER_INTEGER : set->reals ? LETTER_REAL : LETTER_RATIONAL;
-        multiplier_letter[multiplier_letters++] = atom_var(universal[v].name);
+        if (!multiplier_push(atom_var(universal[v].name), set->integers ? LETTER_INTEGER : set->reals ? LETTER_REAL : LETTER_RATIONAL)) return 0;
     }
     power_letters_add(thesis);
     for (int i = 0; i < count; i++) power_letters_add(hypothesis[i]);
@@ -11595,7 +11805,7 @@ static int by_remainders(Formula *f, int negated) {
     static char written[48];
     const NumberSet *set = &f->numbers;
     int quotient = 0;
-    if (!set->integers || set->holes || split_modulus || failure || universal_count == MAX_BOUND) return 0;
+    if (!set->integers || set->holes || split_modulus || failure) return 0;
 
     /* Una lettera per il quoziente che l'enunciato non usa. */
     for (const char *letter = "tsuvwpqhgedcba"; *letter && !quotient; letter++) {
@@ -11634,7 +11844,7 @@ static int by_remainders(Formula *f, int negated) {
 
             /* x legata a m t + r, e t generica. */
             split_case = r;
-            universal[universal_count++] = (Bound){quotient, &part};
+            if (!universal_push((Bound){quotient, &part})) return 0;
             env_push(f->variable, rat_add(rat_mul(rat_int(m), rat_atom(atom_var(quotient))), rat_int(r), 0));
             holds = establish(f->a, negated);
             env_pop();
@@ -12486,7 +12696,8 @@ static int in_regions(RegionGoal prove, void *data, const Formula *body, int fro
         const Region *r = &region[k];
         Bound kept = universal[index];
         region_heading(name, &wanted, r, k);
-        if (r->kind == REGION_EXCLUDED && excluded_count == MAX_BOUND) { holds = 0; break; }
+        if (r->kind == REGION_EXCLUDED &&
+            !work_reserve((void **)&excluded, &excluded_capacity, (size_t)excluded_count + 1, sizeof *excluded)) { holds = 0; break; }
         if (r->kind == REGION_SET) universal[index].numbers = r->set;
         if (r->kind == REGION_VALUE || r->kind == REGION_POINT) env_push(name, r->value);
         if (r->kind == REGION_VALUE) universal[index] = (Bound){r->letter, r->set};
@@ -12905,8 +13116,7 @@ static int solve_for(Formula *f, int negated) {
  * numeri fusi per errore danno una tesi che lì fallisce (x = 0, y = 2).
  *
  * Che cosa non fa. Non si applica dentro una dimostrazione per casi sul
- * resto (18o), e nemmeno quando le variabili generiche diventerebbero più
- * di MAX_BOUND. E il valore cercato è solo un polinomio: un'ipotesi "per
+ * resto (18o). Il valore cercato e solo un polinomio: un'ipotesi "per
  * ogni" non viene mai usata su un valore particolare.
  *
  * La verifica indipendente. I valori trovati qui sono espressioni nelle
@@ -12946,11 +13156,13 @@ typedef struct {
  * alberi della dimostrazione in corso: valgono finché questa non riparte. */
 typedef struct {
     int generics;                    /* variabili generiche, in generic[] */
-    Bound generic[MAX_BOUND];        /* nell'ordine in cui la verifica dà loro un valore: prima
-                                        i testimoni a cui 18u-1 ha dato un nome, poi le altre */
+    Bound *generic;        /* nell'ordine in cui la verifica dà loro un valore: prima
+                                        i testimoni a cui 18u-1 ha dato un nome, poi le altre;
+                                        il vettore e posseduto dall'arena della dimostrazione */
     int bindings;                    /* variabili legate a un valore, in binding[] */
-    Binding binding[MAX_ENV];        /* quelle di env in quel momento: il valore è
-                                        un'espressione nelle variabili generiche */
+    Binding *binding;        /* quelle di env in quel momento: il valore è
+                                        un'espressione nelle variabili generiche;
+                                        il vettore e posseduto dall'arena */
     int leaves;                      /* parti della disgiunzione, in leaf[] */
     Leaf leaf[MAX_LEAVES];           /* tutte tranne quella dell'"esiste" */
     int names;                       /* "esiste" a cui è stato dato un valore, da 1 a MAX_NAMED */
@@ -12964,11 +13176,8 @@ typedef struct {
  * record_count (vedi Mark). */
 static WitnessRecord witness_records[MAX_RECORDS];
 
-/* Le variabili generiche che 18u-1 ha introdotto dando un nome a ciò che
- * un'ipotesi dice esistere: il bit i per universal[i]. La verifica dà loro un
- * valore per prime, e ne ricava le altre risolvendo le ipotesi: x = k^2 si
- * soddisfa scegliendo k e calcolando x, quasi mai scegliendo x. */
-static unsigned universal_named;
+/* universal_named e dichiarato con la pila dei legami: la verifica da un
+ * valore prima ai testimoni delle ipotesi, poi alle altre variabili. */
 
 /* Prototipo in avanti inevitabile: forget_choices() sta nel capitolo 19, con
  * la verifica a cui serve, e 18u deve chiamarla quando riesce. */
@@ -13217,14 +13426,18 @@ static int formula_renamed(const Formula *a, const Formula *b, const int *from, 
  * condizione con le lettere cambiate (formula_renamed()) è un passo non
  * giustificato, e non si usa. */
 static Formula *quantifier_renamed(const Formula *q, const Leaf *leaf, int count, int own) {
-    static char fresh[MAX_BOUND][2];
-    const char *to[MAX_BOUND], *before = syntax_error;
-    int from[MAX_BOUND], letters[MAX_BOUND], changes = 0;
+    size_t binders = 0;
+    for (const Formula *g = q; g->kind == q->kind && g->start == q->start && g->end == q->end; g = g->a) binders++;
+    if (!binders) return NULL;
+    char (*fresh)[2] = arena_alloc(binders * sizeof *fresh);
+    const char **to = arena_alloc(binders * sizeof *to), *before = syntax_error;
+    int *from = arena_alloc(binders * sizeof *from), *letters = arena_alloc(binders * sizeof *letters), changes = 0;
+    if (!fresh || !to || !from || !letters) return NULL;
 
     /* Le lettere scritte dopo il quantificatore: i nodi con lo stesso
      * testo. Si cambiano quelle usate altrove, purché non siano già
      * variabili in vista: allora il nome nuovo non basterebbe. */
-    for (const Formula *g = q; g->kind == q->kind && g->start == q->start && g->end == q->end && changes < MAX_BOUND; g = g->a) {
+    for (const Formula *g = q; g->kind == q->kind && g->start == q->start && g->end == q->end; g = g->a) {
         int taken = 0, letter = 0;
         for (int i = 0; i < count; i++) taken = taken || (i != own && formula_uses_letter(leaf[i].source, g->variable));
         if (!taken) continue;
@@ -13236,6 +13449,7 @@ static Formula *quantifier_renamed(const Formula *q, const Leaf *leaf, int count
         if (!letter || !letter_is_free(leaf, 0, -1, g->variable)) return NULL;
         from[changes] = g->variable;
         fresh[changes][0] = (char)letter;
+        fresh[changes][1] = 0;  /* Il deposito non e statico: la parola va terminata. */
         to[changes] = fresh[changes];
         letters[changes] = letter;
         changes++;
@@ -13385,11 +13599,15 @@ static int record_witnesses(const Leaf *leaf, int count, int own, Formula **quan
     if (record_count == MAX_RECORDS) return 0;
     WitnessRecord *r = &witness_records[record_count++];
     r->generics = 0;
+    r->generic = arena_alloc(((size_t)universal_count + 1) * sizeof *r->generic);
+    if (!r->generic) { record_count--; return 0; }
     for (int named = 1; named >= 0; named--)
         for (int i = 0; i < universal_count; i++)
-            if ((int)(universal_named >> i & 1) == named) r->generic[r->generics++] = universal[i];
+            if ((int)universal_named[i] == named) r->generic[r->generics++] = universal[i];
     r->bindings = env_count;
-    memcpy(r->binding, env, sizeof(Binding) * (size_t)env_count);
+    r->binding = arena_alloc(((size_t)env_count + 1) * sizeof *r->binding);
+    if (!r->binding) { record_count--; return 0; }
+    for (int i = 0; i < env_count; i++) r->binding[i] = *env_at(i);
     r->leaves = 0;
     for (int i = 0; i < count; i++)
         if (i != own) r->leaf[r->leaves++] = leaf[i];
@@ -13631,7 +13849,6 @@ static int name_witnesses(Formula *f, int negated) {
     for (int i = 0; i < count; i++) {
         Formula *q = leaf[i].source;
         if ((q->kind != F_FORALL && q->kind != F_EXISTS) || (q->kind == F_FORALL) == leaf[i].negated) continue;
-        if (universal_count == MAX_BOUND) continue;
 
         /* La lettera è usata anche da un'altra parte: prima la si cambia,
          * e il passo successivo darà il nome alla copia. */
@@ -13670,11 +13887,11 @@ static int name_witnesses(Formula *f, int negated) {
             proof_add("$.\n");
         }
         int hypothesis = q->kind == F_EXISTS;
-        universal_named |= (unsigned)hypothesis << universal_count;
-        universal[universal_count++] = (Bound){q->variable, named};
+        if (!universal_push((Bound){q->variable, named})) return 0;
+        universal_named[universal_count - 1] = (unsigned char)hypothesis;
         int holds = establish(leaf_replaced(f, q, q->a), negated);
         universal_count--;
-        universal_named &= ~(1u << universal_count);
+        universal_named[universal_count] = 0;
 
         /* I valori annotati dentro f possono contenere v, che fuori da qui
          * non esiste: la verifica ricalcolerà f com'è scritta, e quelli
@@ -14078,18 +14295,14 @@ static int establish_rules(Formula *f, int negated) {
         int outer = universal_count;
         f->modulus = 0;
 
-        /* Il posto per le variabili generiche basta sempre a quelle dei
-         * quantificatori annidati, che sono al più MAX_BOUND; ma la regola
-         * 18u ne aggiunge altre, i testimoni a cui dà un nome, e con loro
-         * l'elenco può riempirsi. Allora questa regola non si applica:
-         * prima di questo controllo si scriveva oltre la fine dell'elenco. */
-        if (universal_count == MAX_BOUND) return 0;
+        /* I legami crescono con la dimostrazione, inclusi i testimoni delle
+         * ipotesi; non si assume che basti la profondita del testo letto. */
         proof_add("\\item Let $%c", f->variable);
-        universal[universal_count++] = (Bound){f->variable, &f->numbers};
-        while (universal_count < MAX_BOUND && last->a->kind == f->kind && numbers_equal(&last->a->numbers, &f->numbers)) {
+        if (!universal_push((Bound){f->variable, &f->numbers})) return 0;
+        while (last->a->kind == f->kind && numbers_equal(&last->a->numbers, &f->numbers)) {
             last = last->a;
             proof_add(", %c", last->variable);
-            universal[universal_count++] = (Bound){last->variable, &last->numbers};
+            if (!universal_push((Bound){last->variable, &last->numbers})) { universal_count = outer; return 0; }
         }
         proof_add(" \\in ");
         put_numbers(&f->numbers);
@@ -14317,8 +14530,7 @@ static int cases_define(const Map *map) {
     proof_add("$.} Let $%c \\in ", map->parameter);
     put_numbers(&map->domain);
     proof_add("$.\n\\begin{itemize}\n");
-    if (universal_count == MAX_BOUND) return 0;
-    universal[universal_count++] = (Bound){map->parameter, &map->domain};
+    if (!universal_push((Bound){map->parameter, &map->domain})) return 0;
     int defined = in_regions(cases_hold_here, (void *)map, NULL, outer, 0);
     universal_count = outer;
     proof_add("\\end{itemize}\n");
@@ -14350,9 +14562,8 @@ static int map_defined(const Map *map) {
     /* Le variabili della regola sono generiche nel dominio, dopo i
      * parametri dell'enunciato (17s). */
     int outer = universal_count;
-    if (universal_count + 2 > MAX_BOUND) return 0;
-    universal[universal_count++] = (Bound){map->parameter, &map->domain};
-    if (map->binary) universal[universal_count++] = (Bound){map->parameter2, &map->second};
+    if (!universal_push((Bound){map->parameter, &map->domain})) return 0;
+    if (map->binary && !universal_push((Bound){map->parameter2, &map->second})) { universal_count = outer; return 0; }
     int defined = term_defined(map->body);
     Rat value = eval(map->body);
     if (defined && rat_polynomials(value, &num, &den)) {
@@ -14453,8 +14664,9 @@ static long long residue_period;
 
 /* Le variabili intere visibili nel punto dell'enunciato che si sta
  * esaminando, dalla più esterna, e il resto dato a ciascuna. */
-static int residue_name[MAX_BOUND];
-static long long residue_value[MAX_BOUND];
+static int *residue_name;
+static long long *residue_value;
+static size_t residue_name_capacity, residue_value_capacity;
 static int residue_count;
 
 /* Ritorna 1 se f è un'uguaglianza o una disgiunzione di uguaglianze. */
@@ -14532,7 +14744,9 @@ static int congruences_read(const Formula *f, int *deepest) {
         return f->numbers.integers && !f->numbers.bounded && !f->numbers.holes && congruence_add(f, eval(f->left));
     case F_FORALL: case F_EXISTS: case F_SOLVE: {
         if (names_a_multiple(f)) return multiples_read(f->a, f->variable);
-        if (!f->numbers.integers || residue_count == MAX_BOUND) return 0;
+        if (!f->numbers.integers ||
+            !work_reserve((void **)&residue_name, &residue_name_capacity, (size_t)residue_count + 1, sizeof *residue_name) ||
+            !work_reserve((void **)&residue_value, &residue_value_capacity, (size_t)residue_count + 1, sizeof *residue_value)) return 0;
         residue_name[residue_count++] = f->variable;
         if (residue_count > *deepest) *deepest = residue_count;
         int known = congruences_read(f->a, deepest);
@@ -22039,9 +22253,9 @@ static void decide_with_parameter(const Formula *thesis, Verdict *verdict) {
 static int substituted(Rat r, Rat *out) {
     for (int i = 0; i < env_count && !failure; i++) {
         Poly num, den;
-        int x = atom_var(env[i].name);
+        int x = atom_var(env_at(i)->name);
         if (!rat_polynomials(r, &num, &den)) return 0;
-        r = rat_div(poly_substitute(num, x, env[i].value), poly_substitute(den, x, env[i].value));
+        r = rat_div(poly_substitute(num, x, env_at(i)->value), poly_substitute(den, x, env_at(i)->value));
     }
     *out = r;
     return !failure;
@@ -22118,10 +22332,16 @@ typedef struct {
 /* Gli interi: l'insieme del quoziente di una divisibilità. */
 static const NumberSet all_integers = {.integers = 1};
 
+/* Un quantificatore gia visitato dal verificatore numerico: formula e il
+ * nodo originale, outer il contesto esterno preso in prestito. Ogni cella
+ * vive nel proprio frame ricorsivo; i risultati conservano solo Formula*. */
+typedef struct SampleBinder SampleBinder;
+struct SampleBinder { const Formula *formula; const SampleBinder *outer; };
+
 /* Elenca in list[], dal posto count, le condizioni da rendere vere perché
  * valga f, negata se negated, e ritorna il nuovo numero, al più
- * MAX_EQUATIONS. outer[0..binders) sono gli "esiste" più esterni in cui si è
- * scesi: le loro lettere sono testimoni.
+ * MAX_EQUATIONS. outer collega gli "esiste" esterni gia incontrati:
+ * le loro lettere sono testimoni, senza limite sulla profondita della pila.
  *
  * Fa per la verifica ciò che find_equations() fa per la dimostrazione, ed è
  * scritta a parte perché chi controlla non usi il codice di chi cerca. In una
@@ -22133,32 +22353,33 @@ static const NumberSet all_integers = {.integers = 1};
  * "esiste k" di 18u, che si soddisfano scegliendo k. Un'uguaglianza con due
  * testimoni si salta, e così una divisibilità o un'appartenenza che ne usa
  * già uno: i valori da scegliere sarebbero due. */
-static int sample_equations(const Formula *f, int negated, const Formula **outer, int binders, Wanted *list, int count) {
+static int sample_equations(const Formula *f, int negated, const SampleBinder *outer, Wanted *list, int count) {
     if (count == MAX_EQUATIONS) return count;
     switch (f->kind) {
     case F_NOT:
-        return sample_equations(f->a, !negated, outer, binders, list, count);
+        return sample_equations(f->a, !negated, outer, list, count);
     case F_EQUAL: case F_DISTINCT: case F_DIVIDES: case F_IN: {
         /* I testimoni che vi compaiono, e da che parte va letta. */
         const Formula *binder = NULL;
         int witnesses = 0, plain = f->kind == F_EQUAL || f->kind == F_DISTINCT;
-        for (int i = 0; i < binders; i++)
-            if (formula_uses_letter(f, outer[i]->variable)) { binder = outer[i]; witnesses++; }
+        for (const SampleBinder *p = outer; p; p = p->outer)
+            if (formula_uses_letter(f, p->formula->variable)) { binder = p->formula; witnesses++; }
         if (plain ? (f->kind == F_EQUAL) == negated || witnesses > 1 : f->swapped != negated || witnesses) return count;
         if (plain) list[count] = binder ? (Wanted){f, binder->variable, &binder->numbers} : (Wanted){f, 0, NULL};
         else list[count] = (Wanted){f, 0, f->kind == F_IN ? &f->numbers : &all_integers};
         return count + 1;
     }
-    case F_FORALL: case F_EXISTS:
-        if ((f->kind == F_EXISTS) == negated || binders == MAX_BOUND) return count;
-        outer[binders] = f;
-        return sample_equations(f->a, negated, outer, binders + 1, list, count);
+    case F_FORALL: case F_EXISTS: {
+        if ((f->kind == F_EXISTS) == negated) return count;
+        SampleBinder inner = {f, outer};
+        return sample_equations(f->a, negated, &inner, list, count);
+    }
     case F_AND: case F_OR:
-        count = sample_equations(f->a, negated, outer, binders, list, count);
-        return sample_equations(f->b, negated, outer, binders, list, count);
+        count = sample_equations(f->a, negated, outer, list, count);
+        return sample_equations(f->b, negated, outer, list, count);
     case F_IMPLIES:
-        count = sample_equations(f->a, !negated, outer, binders, list, count);
-        return sample_equations(f->b, negated, outer, binders, list, count);
+        count = sample_equations(f->a, !negated, outer, list, count);
+        return sample_equations(f->b, negated, outer, list, count);
     default:
         return count;
     }
@@ -22178,7 +22399,7 @@ static int sample_equations(const Formula *f, int negated, const Formula **outer
  * m solo i primi interi, e non trovava m = -7 per a = 1, c = 128. */
 static int sample_exponent(int name, const Wanted *w, Frac q, Frac *value) {
     const Formula *f = w->source;
-    if (!formula_uses_letter(f, name) || env_count + 2 > MAX_ENV) return 0;
+    if (!formula_uses_letter(f, name)) return 0;
     for (int i = 0; i <= 2 * EXPONENT_SCAN; i++) {
         long long m = i % 2 ? (i + 1) / 2 : -(i / 2);
         size_t mark = arena_used;
@@ -22228,7 +22449,6 @@ static int sample_solution(int name, const Wanted *w, Frac q, int piece, int *pi
     Num zero;
     int x = atom_var(name), forced = 0;
     *pieces = 0;
-    if (w->witness && env_count == MAX_ENV) return 0;
     Rat gap = sample_gap(w, q);
     if (failure == CASE_UNDECIDED && poly_uses(undecided_argument.num, x)) {
         const Map *map = undecided_map;
@@ -22288,6 +22508,23 @@ static int sample_candidates(int name, const NumberSet *set, const Wanted *list,
     return count;
 }
 
+/* Il campione puo avere molti quantificatori: la larghezza suggerita
+ * limita le combinazioni usuali, ma due valori per 40 lettere sono gia
+ * oltre un trilione. Ogni visita reale ha quindi un budget separato,
+ * configurabile; esaurirlo e mancata verifica, mai conferma parziale. */
+static unsigned long long verification_left;
+static int verification_limited;
+static const char verification_problem[] = "budget di lavoro della verifica indipendente esaurito";
+
+/* Conta una visita del verificatore numerico, senza traboccare il contatore. */
+static int verification_step(void) {
+    if (verification_limited || !verification_left) {
+        verification_limited = 1; fail(verification_problem); return 0;
+    }
+    verification_left--;
+    return 1;
+}
+
 /* Prototipo in avanti inevitabile: sample_holds() e sample_at() si chiamano
  * a vicenda. */
 static int sample_holds(const Formula *f, int negated);
@@ -22322,6 +22559,7 @@ static int sample_at(const Formula *f, int negated, Frac value) {
  * Senza questo passo, le migliaia di confronti di un enunciato con molte
  * variabili riempivano l'arena, e un enunciato vero restava non confermato. */
 static int sample_holds(const Formula *f, int negated) {
+    if (!verification_step()) return 0;
     Frac sample[SAMPLE_SIZE + 1], value;
     Num left, right;
     size_t mark = arena_used;
@@ -22419,10 +22657,9 @@ static int sample_holds(const Formula *f, int negated) {
      * = 7 non è tra i primi interi; e x = k^2 + 7 non era vera per nessuno
      * dei primi x. Un'implicazione con l'ipotesi falsa conferma qualsiasi
      * dimostrazione. */
-    const Formula *outer[MAX_BOUND];
     Wanted wanted[MAX_EQUATIONS];
     Frac candidate[SAMPLE_SIZE];
-    int conditions = sample_equations(f->a, every ? !negated : negated, outer, 0, wanted, 0);
+    int conditions = sample_equations(f->a, every ? !negated : negated, NULL, wanted, 0);
     int candidates = sample_candidates(f->variable, &f->numbers, wanted, conditions, sample_width, sample, samples, candidate);
     for (int i = 0; i < candidates; i++) {
         int holds = sample_at(f, negated, candidate[i]);
@@ -22450,7 +22687,10 @@ static int width_for(int depth) {
     int width = SAMPLE_SIZE;
     for (;;) {
         long long combinations = 1;
-        for (int i = 0; i < depth; i++) combinations *= width;
+        for (int i = 0; i < depth && combinations <= MAX_CHECKS; i++) {
+            if (combinations > MAX_CHECKS / width) { combinations = MAX_CHECKS + 1; break; }
+            combinations *= width;
+        }
         if (combinations <= MAX_CHECKS || width == 2) return width;
         width--;
     }
@@ -22462,14 +22702,14 @@ static int width_for(int depth) {
  * ancora legate. Ritorna quante ne ha legate, o -1, senza legarne nessuna,
  * se un conto non riesce o se env non ha abbastanza posti. */
 static int bindings_push(const WitnessRecord *r) {
-    if (env_count + r->bindings > MAX_ENV) return -1;
+    int saved = env_count;
     for (int i = 0; i < r->bindings; i++) {
         Rat value;
         if (!substituted(r->binding[i].value, &value)) {
             while (i-- > 0) env_pop();
             return -1;
         }
-        env_push(r->binding[i].name, value);
+        if (!env_push(r->binding[i].name, value)) { env_count = saved; return -1; }
     }
     return r->bindings;
 }
@@ -22485,6 +22725,7 @@ static int bindings_push(const WitnessRecord *r) {
  * ipotesi, nei valori scelti o nella condizione, vuol dire che ciò che r
  * afferma non è confermato. */
 static int record_holds(const WitnessRecord *r, int level, int width, long *satisfied) {
+    if (!verification_step()) return 0;
     size_t mark = arena_used;
     if (failure) return 0;
     int pushed = bindings_push(r);
@@ -22517,12 +22758,11 @@ static int record_holds(const WitnessRecord *r, int level, int width, long *sati
     /* La variabile di questo livello: i valori che le ipotesi le impongono,
      * calcolati con le variabili già legate, o quelli di check_sample(). */
     const Bound *g = &r->generic[level];
-    const Formula *outer[MAX_BOUND];
     Wanted wanted[MAX_EQUATIONS];
     Frac value[SAMPLE_SIZE + 1];
     int conditions = 0;
     for (int i = 0; i < r->leaves; i++)
-        conditions = sample_equations(r->leaf[i].source, !r->leaf[i].negated, outer, 0, wanted, conditions);
+        conditions = sample_equations(r->leaf[i].source, !r->leaf[i].negated, NULL, wanted, conditions);
     int values = sample_candidates(g->name, g->numbers, wanted, conditions, width, NULL, 0, value);
     while (pushed-- > 0) env_pop();
     arena_used = mark;
@@ -22545,8 +22785,10 @@ static const char *records_doubt(void) {
     for (int k = 0; k < record_count; k++) {
         const WitnessRecord *r = &witness_records[k];
         long satisfied = 0;
+        verification_left = verification_work_limit; verification_limited = 0;
         int holds = record_holds(r, 0, width_for(r->generics), &satisfied);
         failure = NULL;
+        if (verification_limited) return verification_problem;
         if (!holds) return "la verifica indipendente, sui numeri, non conferma un valore scelto dalla dimostrazione per un \"esiste\"";
         if (satisfied < MIN_SATISFIED)
             return "la verifica indipendente non ha trovato valori che soddisfano le ipotesi con cui ricontrollare un valore scelto dalla dimostrazione";
@@ -22667,13 +22909,19 @@ static int sample_with_parameters(const Formula *thesis, int negated, int level)
 }
 
 /* Il testo delle scelte fatte, per esempio "a = 0, b = 3". */
-static char choice_text[256];
+static char *choice_text;
+static size_t choice_capacity;
 
 /* Scrive in choice_text i numeri scelti dalla dimostrazione e ne ritorna
  * l'indirizzo, oppure NULL se non ce ne sono. */
 static const char *describe_choices(void) {
     size_t length = 0;
     if (!chosen_count || chosen_by_cases) return NULL;
+    /* 128 byte per numero bastano a segni, due interi a 64 bit e notazione
+     * di coppie/complessi. Il numero dei legami decide la memoria, non un
+     * testo fisso che potrebbe omettere parte del controesempio. */
+    if ((size_t)chosen_count > ((size_t)-1 - 1) / 128 ||
+        !work_reserve((void **)&choice_text, &choice_capacity, (size_t)chosen_count * 128 + 1, 1)) return NULL;
     for (int i = 0; i < chosen_count; i++) {
         /* 17t-2. Le due componenti di una coppia, scelte una dopo l'altra, si
          * scrivono come la coppia: x = (0, 1), o x = 0 + 1i per un numero
@@ -22684,20 +22932,20 @@ static const char *describe_choices(void) {
                 pair = pairs_seen[k].letter;
                 complex = pairs_seen[k].complex;
             }
-        if (length < sizeof choice_text && pair)
-            length += (size_t)snprintf(choice_text + length, sizeof choice_text - length, complex ? "%s%c = " : "%s%c = (", i ? ", " : "", pair);
+        if (length < choice_capacity && pair)
+            length += (size_t)snprintf(choice_text + length, choice_capacity - length, complex ? "%s%c = " : "%s%c = (", i ? ", " : "", pair);
         for (int j = i; j <= i + (pair != 0); j++) {
             Frac v = chosen[j].value;
             const char *between = j == i ? "" : complex ? (v.num < 0 ? " - " : " + ") : ", ";
             if (complex && j > i && v.num < 0) v.num = -v.num;
-            if (length < sizeof choice_text && !pair)
-                length += (size_t)snprintf(choice_text + length, sizeof choice_text - length, "%s%c = ", i ? ", " : "", chosen[j].name);
-            if (length < sizeof choice_text)
-                length += (size_t)snprintf(choice_text + length, sizeof choice_text - length, "%s%lld", between, v.num);
-            if (v.den != 1 && length < sizeof choice_text)
-                length += (size_t)snprintf(choice_text + length, sizeof choice_text - length, "/%lld", v.den);
+            if (length < choice_capacity && !pair)
+                length += (size_t)snprintf(choice_text + length, choice_capacity - length, "%s%c = ", i ? ", " : "", chosen[j].name);
+            if (length < choice_capacity)
+                length += (size_t)snprintf(choice_text + length, choice_capacity - length, "%s%lld", between, v.num);
+            if (v.den != 1 && length < choice_capacity)
+                length += (size_t)snprintf(choice_text + length, choice_capacity - length, "/%lld", v.den);
         }
-        if (length < sizeof choice_text && pair) length += (size_t)snprintf(choice_text + length, sizeof choice_text - length, complex ? "i" : ")");
+        if (length < choice_capacity && pair) length += (size_t)snprintf(choice_text + length, choice_capacity - length, complex ? "i" : ")");
         if (pair) i++;
     }
     return choice_text;
@@ -23148,14 +23396,15 @@ static Verdict decide_quantified(const char *formula) {
         chosen_count = 0;
         chosen_by_cases = 0;
         record_count = hypotheses_named = 0;
-        universal_named = 0;
+        if (universal_named) memset(universal_named, 0, universal_named_capacity);
         excluded_count = case_choice_count = region_depth = split_pending = 0;
 
         /* I parametri (17s) sono variabili generiche dall'inizio, oppure, in
          * uno degli ultimi tentativi, numeri. */
         env_count = 0;
-        for (int i = 0; i < statement_parameter_count; i++) universal[i] = statement_parameters[i];
-        universal_count = instance < 0 ? statement_parameter_count : 0;
+        universal_count = 0;
+        if (instance < 0)
+            for (int i = 0; i < statement_parameter_count; i++) if (!universal_push(statement_parameters[i])) break;
         split_modulus = split_case = 0;
         search_left = MAX_SEARCH;
         proof_add("\\textbf{%s}\n\\begin{itemize}\n", negated ? "The statement is false." : "Proof.");
@@ -23219,9 +23468,11 @@ static Verdict decide_quantified(const char *formula) {
          * testa del capitolo 19). Come sopra, un errore di calcolo qui è una
          * mancata conferma. */
         sample_theses = 0;
+        verification_left = verification_work_limit; verification_limited = 0;
         int confirmed = sample_with_parameters(thesis, negated, 0);
         const char *doubt = NULL;
-        if (failure || !confirmed) doubt = "la verifica indipendente, su un campione di numeri, non conferma la dimostrazione";
+        if (verification_limited) doubt = verification_problem;
+        else if (failure || !confirmed) doubt = "la verifica indipendente, su un campione di numeri, non conferma la dimostrazione";
         else if (hypotheses_named && sample_theses < MIN_SATISFIED)
             doubt = "la verifica indipendente non ha trovato valori del campione che soddisfano le ipotesi, e quindi non ha controllato la tesi";
         else doubt = records_doubt();
@@ -26918,8 +27169,9 @@ static const char *derivative_doubt(const Formula *thesis) {
  * FALSO, con le tabelle stampate.
  * Quando le tabelle da enumerare sono troppe, 28t traduce la frase in
  * clausole proposizionali e cerca con un piccolo risolutore SAT scritto
- * qui. Prova grandezze fino a otto elementi, nei limiti del verificatore,
- * e ricontrolla ogni tabella estratta senza usare la traduzione SAT.
+ * qui. Le cardinalita crescono senza tetto compilato nel programma, entro
+ * budget espliciti di lavoro e memoria. Ogni tabella estratta viene
+ * ricalcolata senza usare la traduzione SAT e verificata dal checker.
  *
  * Non trovarne non dimostra nulla. "Ogni applicazione iniettiva di un
  * insieme in sé è suriettiva" vale in ogni insieme finito, e quindi in ogni
@@ -26931,8 +27183,9 @@ static const char *derivative_doubt(const Formula *thesis) {
  * piccolo lo contraddice, e il verificatore indipendente ne accetta il
  * certificato (28f).
  *
- * Gli insiemi provati non sono mai vuoti. Per smentire non importa: un
- * controesempio non vuoto è un controesempio. Per dimostrare, vedi sotto.
+ * Il prefisso esaustivo di 28a usa insiemi non vuoti; 28t include anche gli
+ * insiemi vuoti. Il verificatore delle dimostrazioni controlla da se tutti
+ * i possibili insiemi vuoti, come spiegato sotto.
  *
  * Fa eccezione l'enunciato che chiede un esempio, \exists S\ \exists R
  * \subseteq S \times S\ (...): lì un modello in cui la condizione vale è
@@ -27158,9 +27411,24 @@ static const char *derivative_doubt(const Formula *thesis) {
  * simboli di struttura degli insiemi di parti e di applicazioni non si
  * scelgono: le fissa model_structure() (28m). */
 typedef struct {
-    int size[MAX_SORTS];
-    unsigned char table[MAX_SYMBOLS][MAX_MODEL_CELLS];
+    size_t size[MAX_SORTS];          /* Cardinalita; gli elementi sono indici size_t. */
+    size_t *table[MAX_SYMBOLS];      /* Tabelle possedute dal modello, NULL prima dell'allocazione. */
+    size_t bytes;                    /* Byte delle tabelle allocate, entro model_memory_limit. */
+    int limited;                     /* Ultima allocazione interrotta per risorse, non per dominio vuoto. */
 } Model;
+
+/* Libera le tabelle possedute; le cardinalita restano disponibili. */
+static void model_clear(Model *m) {
+    for (int i = 0; i < MAX_SYMBOLS; i++) { free(m->table[i]); m->table[i] = NULL; }
+    m->bytes = 0;
+}
+
+/* Moltiplica dimensioni solo se il risultato e indirizzabile. */
+static int model_product(size_t a, size_t b, size_t *out) {
+    if (a && b > (size_t)-1 / a) return 0;
+    *out = a * b;
+    return 1;
+}
 
 /* 28i. LE PARTI LEGATE NEI MODELLI
  *
@@ -27169,27 +27437,29 @@ typedef struct {
  *
  * Un quantificatore su parti (17u), "per ogni parte X di S", in un modello
  * finito si calcola come uno su elementi: le parti di un insieme di n
- * elementi sono 2^n, e si provano tutte. Una parte è un numero di n bit, il
- * bit x acceso se l'elemento x sta nella parte. La parte legata non ha una
- * tabella sua (model_cells() le dà un solo valore, così la ricerca dei
- * modelli non la sceglie): il suo valore è in part_bits[], come quello di
+ * elementi sono 2^n, e si provano tutte. Una parte e un vettore di n byte, con
+ * il byte x acceso se l'elemento x sta nella parte. La parte legata non ha una
+ * tabella sua (model_cells() le dà zero celle, così la ricerca dei
+ * modelli non la sceglie): il suo valore è in part_values[], come quello di
  * una variabile in value[]. */
-static unsigned part_bits[MAX_SYMBOLS];
+static unsigned char *part_values[MAX_SYMBOLS];
 
 /* Ritorna il valore della cella (a, b) della tabella del simbolo symbol nel
  * modello m (b conta solo con due argomenti): per una parte legata, 1 se a
- * sta nella parte che le dà part_bits[]. */
-static int model_cell(const Model *m, int symbol, int a, int b) {
-    if (symbol_bound[symbol]) return part_bits[symbol] >> a & 1;
-    return m->table[symbol][a + b * m->size[symbols[symbol].domain[0]]];
+ * sta nella parte che le dà part_values[]. */
+static size_t model_cell(const Model *m, int symbol, size_t a, size_t b) {
+    if (symbol_bound[symbol]) return part_values[symbol][a];
+    size_t cell = symbols[symbol].arity ? a : 0;
+    if (symbols[symbol].arity == 2) cell += b * m->size[symbols[symbol].domain[0]];
+    return m->table[symbol][cell];
 }
 
 /* Ritorna il valore dell'elemento e nel modello m, con ogni variabile al
  * valore che ha in value[]; per una parte o una relazione applicata, 1 se
  * vale. */
-static int model_element(const Model *m, const Elem *e, const int *value) {
+static size_t model_element(const Model *m, const Elem *e, const size_t *value) {
     if (e->symbol < 0) return value[e->slot];
-    int a = e->arg[0] ? model_element(m, e->arg[0], value) : 0, b = e->arg[1] ? model_element(m, e->arg[1], value) : 0;
+    size_t a = e->arg[0] ? model_element(m, e->arg[0], value) : 0, b = e->arg[1] ? model_element(m, e->arg[1], value) : 0;
     return model_cell(m, e->symbol, a, b);
 }
 
@@ -27202,23 +27472,31 @@ static long long model_steps;
 
 /* 28i. Il calcolo di una condizione in un modello: model_holds() per le
  * condizioni svolte, book_holds() (28h) per quelle scritte come nei libri. */
-typedef int (*ModelHolds)(const Model *m, const Sentence *s, int *value);
+typedef int (*ModelHolds)(const Model *m, const Sentence *s, size_t *value);
 
 /* 28i. Ritorna 1 se il quantificatore su parti s (S_FORALL_PART o
  * S_EXISTS_PART) vale nel modello m, con le variabili ai valori di value[],
  * calcolando la sua condizione con holds. Prova le parti dalla vuota,
- * contandole in model_steps, e rimette part_bits[] com'era. Lo stesso
+ * contandole in model_steps, e rimette part_values[] com'era. Lo stesso
  * simbolo può essere legato da due quantificatori uno dentro l'altro (le
  * copie di 17q): per questo il valore di fuori si salva e si rimette. */
-static int model_part_quantifier(const Model *m, const Sentence *s, int *value, ModelHolds holds) {
+static int model_part_quantifier(const Model *m, const Sentence *s, size_t *value, ModelHolds holds) {
     int every = s->kind == S_FORALL_PART, result = every;
-    unsigned saved = part_bits[s->part], parts = 1u << m->size[symbols[s->part].domain[0]];
-    for (unsigned bits = 0; bits < parts && result == every; bits++) {
+    size_t n = m->size[symbols[s->part].domain[0]];
+    if (n > model_memory_limit) { model_steps = MAX_MODEL_STEPS + 1LL; return 0; }
+    unsigned char *saved = part_values[s->part], *bits = calloc(n ? n : 1, 1);
+    if (!bits) { model_steps = MAX_MODEL_STEPS + 1LL; return 0; }
+    part_values[s->part] = bits;
+    for (;;) {
         if (++model_steps > MAX_MODEL_STEPS) break;
-        part_bits[s->part] = bits;
-        if (holds(m, s->a, value) != every) result = !every;
+        if (holds(m, s->a, value) != every) { result = !every; break; }
+        size_t bit = 0;
+        while (bit < n && bits[bit]) bits[bit++] = 0;
+        if (bit == n) break;
+        bits[bit] = 1;
     }
-    part_bits[s->part] = saved;
+    part_values[s->part] = saved;
+    free(bits);
     return result;
 }
 
@@ -27234,9 +27512,13 @@ static int model_part_quantifier(const Model *m, const Sentence *s, int *value, 
  * dei cassetti, letto nei due versi). È un fatto sugli insiemi finiti dei
  * modelli: le dimostrazioni non lo usano mai (28q). */
 static int model_equipotent(const Model *m, const Sentence *s) {
-    long long size[2] = {1, 1};
+    size_t size[2] = {1, 1};
     for (int k = 0; k < 2; k++)
-        for (int i = 0; i < s->sides[k]; i++) size[k] *= m->size[slot_sort[s->side_slot[k][i]]];
+        for (int i = 0; i < s->sides[k]; i++)
+            if (!model_product(size[k], m->size[slot_data[s->side_slot[k][i]].sort], &size[k])) {
+                model_steps = MAX_MODEL_STEPS + 1LL;
+                return 0;
+            }
     return size[0] == size[1];
 }
 
@@ -27245,7 +27527,7 @@ static int model_equipotent(const Model *m, const Sentence *s) {
  * prova tutti gli elementi del suo insieme. value[] viene usato anche per
  * le variabili che s lega. Se model_steps supera MAX_MODEL_STEPS la
  * risposta non vuol dire nulla. */
-static int model_holds(const Model *m, const Sentence *s, int *value) {
+static int model_holds(const Model *m, const Sentence *s, size_t *value) {
     switch (s->kind) {
     case S_TRUE:
         return 1;
@@ -27275,7 +27557,7 @@ static int model_holds(const Model *m, const Sentence *s, int *value) {
         return 0;
     }
     int every = s->kind == S_FORALL;
-    for (int x = 0; x < m->size[slot_sort[s->slot]]; x++) {
+    for (size_t x = 0; x < m->size[slot_data[s->slot].sort]; x++) {
         if (++model_steps > MAX_MODEL_STEPS) return 0;
         value[s->slot] = x;
         if (model_holds(m, s->a, value) != every) return !every;
@@ -27285,14 +27567,33 @@ static int model_holds(const Model *m, const Sentence *s, int *value) {
 
 /* Ritorna quanti valori può prendere una cella della tabella del simbolo
  * symbol nel modello m, e mette in *cells quante celle ha la tabella. Una
- * parte legata (28i) ne ha uno solo, che non si usa: così nessuno la
- * sceglie. */
-static int model_cells(const Model *m, int symbol, int *cells) {
+ * parte legata (28i) ha zero celle: nessuno ne sceglie la tabella. */
+static size_t model_cells(const Model *m, int symbol, size_t *cells) {
     const Symbol *s = &symbols[symbol];
     *cells = 1;
-    for (int i = 0; i < s->arity; i++) *cells *= m->size[s->domain[i]];
-    if (symbol_bound[symbol]) return 1;
+    for (int i = 0; i < s->arity; i++)
+        if (!model_product(*cells, m->size[s->domain[i]], cells)) { *cells = (size_t)-1; return 0; }
+    if (symbol_bound[symbol]) { *cells = 0; return 1; }
     return s->range == TRUTH ? 2 : m->size[s->range];
+}
+
+/* Alloca tabelle azzerate delle cardinalita correnti. Celle e valori non
+ * hanno un tetto prefissato; overflow, budget o malloc fallita danno 0.
+ * Una funzione con dominio non vuoto e codominio vuoto non esiste. */
+static int model_allocate(Model *m) {
+    model_clear(m);
+    m->limited = 0;
+    for (int s = 0; s < symbol_count; s++) {
+        size_t cells, bytes, values = model_cells(m, s, &cells);
+        if (cells && !values && cells != (size_t)-1) { model_clear(m); return 0; }
+        if (!model_product(cells, sizeof(size_t), &bytes) || bytes > model_memory_limit - m->bytes) {
+            m->limited = 1; model_clear(m); return 0;
+        }
+        m->table[s] = calloc(bytes ? bytes : 1, 1);
+        if (!m->table[s]) { m->limited = 1; model_clear(m); return 0; }
+        m->bytes += bytes;
+    }
+    return 1;
 }
 
 /* 28m. GLI INSIEMI DI PARTI E DI APPLICAZIONI NEI MODELLI
@@ -27316,10 +27617,9 @@ static int model_cells(const Model *m, int symbol, int *cells) {
  *
  * È la stessa numerazione del verificatore (ck_derived_sort() in
  * checker.c), che la rifà da sé: le tabelle degli altri simboli nominano gli
- * elementi con quei numeri. Gli insiemi qualsiasi restano da 1 a
- * MAX_MODEL_SIZE elementi; una scelta che darebbe a un insieme di parti o di
- * applicazioni più di MAX_MODEL_OBJECTS elementi, o a un simbolo più di
- * MAX_MODEL_CELLS celle, non si prova. */
+ * elementi con quei numeri. Il prefisso esaustivo usa MAX_MODEL_SIZE,
+ * MAX_MODEL_OBJECTS e MAX_MODEL_CELLS per restare breve; la ricerca SAT
+ * successiva non li usa. Entrambe hanno le stesse tabelle dinamiche. */
 
 /* Ritorna 1 se la tabella del simbolo di posto s è fissata dalla struttura
  * di un insieme, e non va scelta: il simbolo di struttura di un insieme di
@@ -27336,32 +27636,44 @@ static int numeral_position(int sort, int s) {
     return position;
 }
 
-/* Dà agli insiemi di m le grandezze lette nel numero code, una cifra in
- * base base per insieme: la cifra c dà c + 1 elementi a un insieme
- * qualsiasi, e deve essere 0 per un insieme di parti o di applicazioni, la
- * cui grandezza si calcola. Ritorna il numero di elementi degli insiemi
- * qualsiasi, in tutto; -1 se code ha una cifra non 0 dove non serve, -2 se
- * un insieme o una tabella diventerebbero troppo grandi. */
+/* Completa le cardinalita degli insiemi derivati. Le potenze sono quelle
+ * della definizione: si fermano se non sono indirizzabili, senza enumerare
+ * una potenza enorme. model_allocate controlla poi il budget di memoria. */
+static int model_derived_sizes(Model *m) {
+    for (int i = 0; i < sort_count; i++) {
+        if (sort_kind[i] == SORT_PLAIN) continue;
+        if (sort_kind[i] == SORT_NUMBERS) {
+            m->size[i] = 0;
+            for (int s = 0; s < symbol_count; s++) m->size[i] += symbols[s].name >= NUMERAL_NAMES && symbols[s].range == i;
+            continue;
+        }
+        size_t values = sort_kind[i] == SORT_PARTS ? 2 : m->size[sort_target[i]], size = 1;
+        size_t power = m->size[sort_base[i]];
+        /* L'esponenziazione binaria evita un ciclo lungo anche per 0^n e 1^n. */
+        for (; power; power /= 2) {
+            if ((power & 1) && !model_product(size, values, &size)) return 0;
+            if (power > 1 && !model_product(values, values, &values)) return 0;
+        }
+        m->size[i] = size;
+    }
+    return 1;
+}
+
+/* Le cifre in base base scelgono solo le grandezze del prefisso esaustivo.
+ * Ritorna la somma, -1 per un codice ridondante, -2 fuori dal prefisso.
+ * I limiti qui riguardano questa strategia breve, non il successivo SAT. */
 static int model_sizes_at(Model *m, int code, int base) {
     int sum = 0;
     for (int i = 0; i < sort_count; i++, code /= base) {
-        int digit = code % base, size = 1;
-        if (sort_kind[i] == SORT_PLAIN) { sum += m->size[i] = 1 + digit; continue; }
-        if (digit) return -1;
-        if (sort_kind[i] == SORT_NUMBERS) {
-            /* 17v. Tanti elementi quanti sono i numeri scritti. */
-            m->size[i] = 0;
-            for (int s = 0; s < symbol_count; s++) m->size[i] += symbols[s].name >= NUMERAL_NAMES && symbols[s].range == i;
-            if (m->size[i] > MAX_MODEL_OBJECTS) return -2;
-            continue;
-        }
-        int values = sort_kind[i] == SORT_PARTS ? 2 : m->size[sort_target[i]];
-        for (int j = 0; j < m->size[sort_base[i]] && size <= MAX_MODEL_OBJECTS; j++) size *= values;
-        if (size > MAX_MODEL_OBJECTS) return -2;
-        m->size[i] = size;
+        int digit = code % base;
+        if (sort_kind[i] == SORT_PLAIN) sum += (int)(m->size[i] = 1 + digit);
+        else if (digit) return -1;
     }
+    if (!model_derived_sizes(m)) return -2;
+    for (int i = 0; i < sort_count; i++)
+        if (sort_kind[i] != SORT_PLAIN && m->size[i] > MAX_MODEL_OBJECTS) return -2;
     for (int s = 0; s < symbol_count; s++) {
-        int cells;
+        size_t cells;
         model_cells(m, s, &cells);
         if (cells > MAX_MODEL_CELLS) return -2;
     }
@@ -27369,8 +27681,7 @@ static int model_sizes_at(Model *m, int code, int base) {
 }
 
 /* Le grandezze della ricerca esaustiva (28a), nella sua base usuale. La
- * ricerca SAT usa model_sizes_at() con una base maggiore, senza cambiare
- * gli insiemi derivati o la numerazione dei loro elementi. */
+ * ricerca SAT sceglie direttamente le cardinalita, senza una base fissa. */
 static int model_sizes(Model *m, int code) {
     return model_sizes_at(m, code, MAX_MODEL_SIZE);
 }
@@ -27381,17 +27692,17 @@ static int model_sizes(Model *m, int code) {
 static void model_structure(Model *m) {
     /* 17v. Ogni numero scritto è un elemento diverso del suo insieme. */
     for (int s = 0; s < symbol_count; s++)
-        if (symbols[s].name >= NUMERAL_NAMES) m->table[s][0] = (unsigned char)numeral_position(symbols[s].range, s);
+        if (symbols[s].name >= NUMERAL_NAMES) m->table[s][0] = (size_t)numeral_position(symbols[s].range, s);
     for (int i = 0; i < sort_count; i++) {
         if (sort_kind[i] == SORT_PLAIN || sort_kind[i] == SORT_NUMBERS) continue;
-        unsigned char *cell = m->table[sort_symbol[i]];
-        int base = m->size[sort_base[i]];
-        for (int x = 0; x < m->size[i]; x++)
-            for (int a = 0, rest = x; a < base; a++) {
+        size_t *cell = m->table[sort_symbol[i]];
+        size_t base = m->size[sort_base[i]];
+        for (size_t x = 0; x < m->size[i]; x++)
+            for (size_t a = 0, rest = x; a < base; a++) {
                 /* Le parti: la cella di (a, x) dice se a sta nella parte x.
                  * Le applicazioni: quella di (x, a) è il valore di x in a. */
-                if (sort_kind[i] == SORT_PARTS) { cell[a + x * base] = (unsigned char)(x >> a & 1); continue; }
-                cell[x + a * m->size[i]] = (unsigned char)(rest % m->size[sort_target[i]]);
+                if (sort_kind[i] == SORT_PARTS) { cell[a + x * base] = (size_t)(x >> a & 1); continue; }
+                cell[x + a * m->size[i]] = (rest % m->size[sort_target[i]]);
                 rest /= m->size[sort_target[i]];
             }
     }
@@ -27405,6 +27716,21 @@ static int plain_sorts(void) {
     return count;
 }
 
+/* Ambiente riutilizzabile dei valutatori finiti. Il vettore possiede le
+ * celle e cresce con gli slot della formula, non con la cardinalita degli
+ * insiemi. Le valutazioni sono sequenziali e non creano slot: il puntatore
+ * resta valido fino alla prossima chiamata a model_variables(). */
+static size_t *model_values;
+static size_t model_values_capacity;
+
+/* Prepara valori iniziali zero per tutti gli slot correnti. Un errore di
+ * allocazione non puo essere ignorato da una strategia successiva. */
+static size_t *model_variables(void) {
+    if (!work_reserve((void **)&model_values, &model_values_capacity, (size_t)slot_count, sizeof *model_values)) return NULL;
+    if (slot_count) memset(model_values, 0, (size_t)slot_count * sizeof *model_values);
+    return model_values;
+}
+
 /* Cerca un modello in cui la condizione root vale (wanted = 1) o non vale
  * (wanted = 0), tra quelli in cui ogni insieme ha da 1 a MAX_MODEL_SIZE
  * elementi, dai più piccoli. Se lo trova lo lascia in *m e ritorna 1.
@@ -27416,9 +27742,11 @@ static int plain_sorts(void) {
  * *bound il più grande k per cui ha provato tutti i modelli con insiemi di
  * al più k elementi: è ciò che il verdetto può dire di aver controllato. */
 static int model_search(const Sentence *root, int wanted, Model *m, long long *tried, int *bound) {
-    int value[MAX_SLOTS], codes = 1, complete[MAX_MODEL_CODES] = {0}, plain = plain_sorts();
+    size_t *value = model_variables();
+    int codes = 1, complete[MAX_MODEL_CODES] = {0}, plain = plain_sorts();
     *tried = 0;
     *bound = 0;
+    if (work_allocation_failed) return 0;
     model_steps = 0;
     for (int i = 0; i < sort_count; i++) codes *= MAX_MODEL_SIZE;
 
@@ -27434,8 +27762,8 @@ static int model_search(const Sentence *root, int wanted, Model *m, long long *t
              * possibili. */
             double count = 1;
             for (int s = 0; s < symbol_count && count <= MAX_MODELS; s++) {
-                int cells, values = model_cells(m, s, &cells);
-                for (int c = 0; c < cells && count <= MAX_MODELS && !symbol_fixed(s); c++) count *= values;
+                size_t cells, values = model_cells(m, s, &cells);
+                for (size_t c = 0; c < cells && count <= MAX_MODELS && !symbol_fixed(s); c++) count *= values;
             }
             if (count > MAX_MODELS) continue;
 
@@ -27443,7 +27771,7 @@ static int model_search(const Sentence *root, int wanted, Model *m, long long *t
              * le celle a zero e si aumenta la prima che può crescere,
              * azzerando quelle prima di lei. Quelle fissate dalla struttura
              * non cambiano. */
-            memset(m->table, 0, sizeof m->table);
+            if (!model_allocate(m)) continue;
             model_structure(m);
             for (int more = 1; more && *tried < MAX_MODEL_WORK; ) {
                 /* Una risposta ottenuta a conto interrotto non conta, e la
@@ -27455,8 +27783,8 @@ static int model_search(const Sentence *root, int wanted, Model *m, long long *t
                 more = 0;
                 for (int s = 0; s < symbol_count && !more; s++) {
                     if (symbol_fixed(s)) continue;
-                    int cells, values = model_cells(m, s, &cells);
-                    for (int c = 0; c < cells && !more; c++) {
+                    size_t cells, values = model_cells(m, s, &cells);
+                    for (size_t c = 0; c < cells && !more; c++) {
                         if (++m->table[s][c] < values) more = 1; else m->table[s][c] = 0;
                     }
                 }
@@ -27504,148 +27832,212 @@ static int model_search(const Sentence *root, int wanted, Model *m, long long *t
  * SAT cerca soltanto. Anche una risposta sbagliata del risolutore non e una
  * dimostrazione: si estraggono le tabelle, model_holds() ricalcola la frase,
  * e 28f consegna il modello al verificatore indipendente. UNSAT e i limiti
- * di risorse non dimostrano mai un enunciato universale. La ricerca esaustiva
- * resta prima di questa, con i suoi limiti completi invariati.
+ * di risorse non dimostrano mai un enunciato universale. Dopo il prefisso
+ * esaustivo, le cardinalita crescono senza tetto; depositi, tabelle e testo
+ * crescono sullo heap entro budget espliciti. Anche il checker usa indici
+ * size_t e tabelle dinamiche, non un limite equivalente nascosto.
  */
 
-/* Una clausola proposizionale: first/count individuano i letterali nel
- * deposito del risolutore; next collega i due letterali osservati alle
- * rispettive liste. I letterali osservati occupano i primi due posti. */
+/* Un letterale SAT e un indice con segno; la memoria necessaria per una
+ * variabile esaurisce lo spazio indirizzabile prima dell'indice stesso. */
+typedef ptrdiff_t SatLiteral;
+
+/* Una clausola: first/count individuano i letterali nel deposito; next
+ * collega i due osservatori nelle liste watch. Zero termina ogni lista. */
 typedef struct {
-    int first, count;
-    int next[2];
+    size_t first, count, next[2];
 } SatClause;
 
-/* Un valore finito di un termine: literal[v] significa "vale v"; size e
- * la grandezza del codominio, known e il valore se fissato, altrimenti -1.
- * symbol/arg identificano un'applicazione gia tradotta; next la collega
- * nella tabella hash. Gli altri vettori non appartengono alla tabella. */
+/* Una variabile proposizionale: value e phase valgono -1,0,1; depth e il
+ * livello di assegnazione, reason la clausola+1 (zero per una decisione).
+ * seen serve all'analisi del conflitto, activity guida soltanto la ricerca. */
 typedef struct {
-    int size, known;
-    int literal[MAX_SAT_SIZE];
-    int symbol, arg[2], next;
+    signed char value, phase;
+    unsigned char seen;
+    size_t depth, reason;
+    unsigned long long activity;
+} SatVariable;
+
+/* Un valore finito: literal[v] significa "vale v". known=(size_t)-1
+ * indica un vettore variabile, altrimenti il valore costante, rappresentato
+ * senza allocare un vettore. symbol/arg/next condividono applicazioni e
+ * costanti nella hash; symbol=-1 esclude una voce dalla condivisione.
+ * literal e posseduto dalla voce, gli argomenti sono indici di altre voci. */
+typedef struct {
+    size_t size, known, arg[2], next;
+    int symbol;
+    SatLiteral *literal;
 } SatTerm;
 
-/* Lo stato posseduto da una sola ricerca SAT, allocato e liberato insieme.
- * variables/clauses/literals/terms contano le voci valide dei rispettivi
- * depositi; level e il livello corrente, assigned la lunghezza di trail.
- * I letterali sono interi con segno, le variabili da 1 a variables; 1 e
- * sempre vero. Le liste watch contengono 2*clausola+osservatore+1, con zero
- * come fine. value vale -1,0,1; reason e zero per una decisione, altrimenti
- * clausola+1; depth[v] e il livello che ha assegnato v. trail e la pila
- * delle assegnazioni, limit[d] il suo inizio
- * prima della decisione di livello d. qhead indica quelle gia propagate.
- * activity/phase guidano soltanto la ricerca, seen e learned la risoluzione.
- * I vettori da 1 a terms hanno la memoria qui; table associa ogni casella
- * del modello al suo vettore, constant condivide i valori gia fissati e
- * hash condivide i termini composti. slots contiene i valori dei legami
- * durante l'espansione finita. broken/inconsistent distinguono un limite
- * da una contraddizione proposizionale, work conta le operazioni eseguite. */
+/* Una ricerca possiede tutti i depositi, ognuno con capacita dinamica.
+ * I contatori indicano le voci valide; i suffissi _cap le celle allocate.
+ * var e term partono da 1; la variabile 1 e vera. trail contiene le
+ * assegnazioni, limit[d] l'inizio del livello d, qhead la prima da propagare.
+ * watch contiene 2*clausola+osservatore+1; hash contiene indici di term.
+ * table associa ogni cella del modello al suo vettore; slots tiene gli
+ * elementi legati. broken significa risorse finite, inconsistent conflitto.
+ * bytes comprende le tabelle del modello e tutte le allocazioni SAT;
+ * budget/work limitano il lavoro, mai la cardinalita di un insieme. */
 typedef struct {
-    int variables, clauses, literals, level, assigned, qhead, terms;
-    int broken, inconsistent;
-    long long work;
-    SatClause clause[MAX_SAT_CLAUSES];
-    int literal[MAX_SAT_LITERALS], watch[2 * MAX_SAT_VARS];
-    signed char value[MAX_SAT_VARS + 1], phase[MAX_SAT_VARS + 1];
-    int reason[MAX_SAT_VARS + 1], depth[MAX_SAT_VARS + 1];
-    int trail[MAX_SAT_VARS + 1], limit[MAX_SAT_VARS + 1];
-    unsigned long long activity[MAX_SAT_VARS + 1];
-    unsigned char seen[MAX_SAT_VARS + 1];
-    int learned[MAX_SAT_VARS + 1];
-    SatTerm term[MAX_SAT_TERMS];
-    int hash[MAX_SAT_TERMS], constant[MAX_SAT_SIZE + 1][MAX_SAT_SIZE];
-    int table[MAX_SYMBOLS][MAX_MODEL_CELLS], slots[MAX_SLOTS];
+    size_t variables, clauses, literals, terms, level, assigned, qhead;
+    int broken, inconsistent, memory_limited;
+    unsigned long long work, budget;
+    size_t bytes;
+    SatVariable *var;
+    SatClause *clause;
+    SatLiteral *literal, *trail, *learned;
+    size_t *watch, *limit, *hash;
+    SatTerm *term;
+    size_t var_cap, clause_cap, literal_cap, trail_cap, learned_cap;
+    size_t watch_cap, limit_cap, term_cap, hash_cap;
+    size_t *table[MAX_SYMBOLS], *slots;
+    size_t slots_cap;
 } SatState;
 
-/* Il posto della lista osservata del letterale non nullo l. */
-static int sat_watch_index(int l) { return 2 * (abs(l) - 1) + (l < 0); }
-
-/* Il valore del letterale l: 1 vero, -1 falso, 0 non assegnato. */
-static int sat_value(const SatState *s, int l) { return l > 0 ? s->value[l] : -s->value[-l]; }
-
-/* Crea una variabile, inizialmente non assegnata, o segnala il limite. */
-static int sat_variable(SatState *s) {
-    if (s->variables == MAX_SAT_VARS) { s->broken = 1; return 1; }
-    int v = ++s->variables;
-    s->phase[v] = -1;
-    return v;
+/* Registra lavoro prima di eseguirlo; un budget esaurito non e UNSAT. */
+static int sat_spend(SatState *s, unsigned long long count) {
+    unsigned long long budget = s->budget ? s->budget : model_work_limit;
+    if (s->broken || count > budget - s->work) { s->broken = 1; return 0; }
+    s->work += count;
+    return 1;
 }
 
-/* Assegna l al livello corrente, con la ragione data (zero: decisione).
- * Ritorna 0 se l era gia falso; un valore gia vero non cambia la pila. */
-static int sat_assign(SatState *s, int l, int reason) {
+/* Riserva un deposito geometrico, conservando dati e proprieta anche se
+ * realloc fallisce. Le celle nuove sono azzerate; nessuna capacita massima
+ * e compilata nel programma. bytes contabilizza solo allocazioni riuscite. */
+static int sat_reserve(SatState *s, void **data, size_t *capacity, size_t need, size_t unit) {
+    if (s->broken) return 0;
+    if (need <= *capacity) return 1;
+    size_t cap = *capacity ? *capacity : 16, bytes, old;
+    while (cap < need) {
+        if (cap > (size_t)-1 / 2) { cap = need; break; }
+        cap *= 2;
+    }
+    if (!model_product(cap, unit, &bytes) || !model_product(*capacity, unit, &old) ||
+        s->bytes > model_memory_limit || bytes - old > model_memory_limit - s->bytes) {
+        s->broken = s->memory_limited = 1; return 0;
+    }
+    void *p = realloc(*data, bytes);
+    if (!p) { s->broken = s->memory_limited = 1; return 0; }
+    memset((unsigned char *)p + old, 0, bytes - old);
+    *data = p; *capacity = cap; s->bytes += bytes - old;
+    return 1;
+}
+
+/* Libera ogni deposito della ricerca, comprese le tabelle di indici e i
+ * vettori di valori posseduti dai termini. Puo seguire una crescita fallita. */
+static void sat_clear(SatState *s) {
+    for (size_t i = 1; i <= s->terms; i++) free(s->term[i].literal);
+    for (int i = 0; i < MAX_SYMBOLS; i++) free(s->table[i]);
+    free(s->var); free(s->clause); free(s->literal); free(s->trail);
+    free(s->learned); free(s->watch); free(s->limit); free(s->hash); free(s->term); free(s->slots);
+    memset(s, 0, sizeof *s);
+}
+
+/* Valore assoluto di un letterale prodotto dal risolutore, mai PTRDIFF_MIN. */
+static size_t sat_index(SatLiteral l) { return (size_t)(l > 0 ? l : -l); }
+
+/* Il posto nella lista osservata del letterale non nullo l. */
+static size_t sat_watch_index(SatLiteral l) { return 2 * (sat_index(l) - 1) + (l < 0); }
+
+/* Il valore del letterale l: 1 vero, -1 falso, 0 non assegnato. */
+static int sat_value(const SatState *s, SatLiteral l) { return l > 0 ? s->var[l].value : -s->var[-l].value; }
+
+/* Crea una variabile e riserva insieme i depositi indicizzati da essa.
+ * In caso di risorse finite ritorna la costante vera e pone broken: nessun
+ * chiamante puo usare quel valore come un modello accettato. */
+static SatLiteral sat_variable(SatState *s) {
+    size_t v = s->variables + 1;
+    if (!sat_spend(s, 1) || v > (size_t)PTRDIFF_MAX || v > ((size_t)-1 - 2) / 2 ||
+        !sat_reserve(s, (void **)&s->var, &s->var_cap, v + 2, sizeof *s->var) ||
+        !sat_reserve(s, (void **)&s->watch, &s->watch_cap, 2 * v, sizeof *s->watch) ||
+        !sat_reserve(s, (void **)&s->trail, &s->trail_cap, v + 2, sizeof *s->trail) ||
+        !sat_reserve(s, (void **)&s->learned, &s->learned_cap, v + 2, sizeof *s->learned) ||
+        !sat_reserve(s, (void **)&s->limit, &s->limit_cap, v + 2, sizeof *s->limit)) {
+        s->broken = 1; return 1;
+    }
+    s->variables = v;
+    s->var[v].phase = -1;
+    return (SatLiteral)v;
+}
+
+/* Assegna l con la ragione data (zero: decisione), se non era gia falso.
+ * Non alloca memoria: propagazione e analisi possono conservare puntatori. */
+static int sat_assign(SatState *s, SatLiteral l, size_t reason) {
+    if (s->broken) return 0;
     if (sat_value(s, l)) return sat_value(s, l) > 0;
-    int v = abs(l);
-    s->value[v] = s->phase[v] = l > 0 ? 1 : -1;
-    s->depth[v] = s->level;
-    s->reason[v] = reason;
+    size_t v = sat_index(l);
+    s->var[v].value = s->var[v].phase = l > 0 ? 1 : -1;
+    s->var[v].depth = s->level;
+    s->var[v].reason = reason;
     s->trail[s->assigned++] = l;
     return 1;
 }
 
-/* Aggiunge una clausola, togliendo i duplicati e la costante falsa; una
- * tautologia non serve. Ritorna clausola+1, o zero se non scrive nulla.
- * Una clausola vuota pone inconsistent; un limite pone broken. Una clausola
- * unitaria viene assegnata subito, le altre osservano i primi due posti. */
-static int sat_clause(SatState *s, const int *literal, int count) {
+/* Aggiunge una clausola togliendo duplicati e falso; una tautologia non
+ * serve. Ritorna clausola+1, o zero se non scrive. Le unitarie si assegnano
+ * subito; le altre osservano i primi due posti. Il deposito dei letterali
+ * puo spostarsi, quindi l'input non deve puntarvi dentro. */
+static size_t sat_clause(SatState *s, const SatLiteral *literal, size_t count) {
     if (s->broken || s->inconsistent) return 0;
-    if (s->clauses == MAX_SAT_CLAUSES || count > MAX_SAT_LITERALS - s->literals) { s->broken = 1; return 0; }
-    int first = s->literals, used = 0;
-    for (int i = 0; i < count; i++) {
-        int l = literal[i], repeated = 0;
+    if (!sat_spend(s, count + 1)) return 0;
+    if (!count) { s->inconsistent = 1; return 0; }
+    if (count > (size_t)-1 - s->literals || s->clauses > ((size_t)-1 - 2) / 2 ||
+        !sat_reserve(s, (void **)&s->literal, &s->literal_cap, s->literals + count, sizeof *s->literal) ||
+        !sat_reserve(s, (void **)&s->clause, &s->clause_cap, s->clauses + 1, sizeof *s->clause)) {
+        s->broken = 1; return 0;
+    }
+    size_t first = s->literals, used = 0;
+    for (size_t i = 0; i < count; i++) {
+        SatLiteral l = literal[i];
+        int repeated = 0;
         if (l == 1) return 0;
         if (l == -1) continue;
-        for (int j = 0; j < used; j++) {
+        for (size_t j = 0; j < used; j++) {
+            if (!sat_spend(s, 1)) return 0;
             if (s->literal[first + j] == -l) return 0;
             repeated |= s->literal[first + j] == l;
         }
         if (!repeated) s->literal[first + used++] = l;
     }
     if (!used) { s->inconsistent = 1; return 0; }
-    int c = s->clauses++;
+    size_t c = s->clauses++;
     s->clause[c] = (SatClause){first, used, {0, 0}};
     s->literals += used;
-    for (int i = 0; i < used; i++) s->activity[abs(s->literal[first + i])]++;
+    for (size_t i = 0; i < used; i++) s->var[sat_index(s->literal[first + i])].activity++;
     if (used == 1) {
         if (!sat_assign(s, s->literal[first], c + 1)) s->inconsistent = 1;
-    } else {
-        for (int w = 0; w < 2; w++) {
-            int at = sat_watch_index(s->literal[first + w]);
-            s->clause[c].next[w] = s->watch[at];
-            s->watch[at] = 2 * c + w + 1;
-        }
+    } else for (size_t w = 0; w < 2; w++) {
+        size_t at = sat_watch_index(s->literal[first + w]);
+        s->clause[c].next[w] = s->watch[at];
+        s->watch[at] = 2 * c + w + 1;
     }
     return c + 1;
 }
 
-/* Propaga le assegnazioni nuove. Di una clausola si guarda il resto solo
- * quando un letterale osservato diventa falso: se un altro puo sostituirlo,
- * si sposta l'osservatore; altrimenti l'altro osservato deve essere vero.
- * Ritorna clausola+1 per un conflitto, zero se non ce ne sono. Un limite
- * rende broken vero e non puo essere scambiato per un esito SAT. */
-static int sat_propagate(SatState *s) {
+/* Propaga solo gli osservatori diventati falsi: un sostituto evita di
+ * esaminare la clausola alle altre assegnazioni. Senza sostituto, l'altro
+ * osservato e obbligato. Ritorna clausola+1 per un conflitto, zero altrimenti. */
+static size_t sat_propagate(SatState *s) {
     while (s->qhead < s->assigned && !s->broken) {
-        int false_literal = -s->trail[s->qhead++];
-        int *link = &s->watch[sat_watch_index(false_literal)];
+        SatLiteral false_literal = -s->trail[s->qhead++];
+        size_t *link = &s->watch[sat_watch_index(false_literal)];
         while (*link) {
-            if (++s->work > MAX_SAT_WORK) { s->broken = 1; return 0; }
-            int edge = *link - 1, c = edge / 2, w = edge % 2;
+            if (!sat_spend(s, 1)) return 0;
+            size_t edge = *link - 1, c = edge / 2, w = edge % 2;
             SatClause *clause = &s->clause[c];
-            int *v = s->literal + clause->first, other = v[1 - w];
+            SatLiteral *v = s->literal + clause->first, other = v[1 - w];
             if (sat_value(s, other) > 0) { link = &clause->next[w]; continue; }
-            int k = 2;
+            size_t k = 2;
             while (k < clause->count && sat_value(s, v[k]) < 0) {
-                if (++s->work > MAX_SAT_WORK) { s->broken = 1; return 0; }
+                if (!sat_spend(s, 1)) return 0;
                 k++;
             }
             if (k < clause->count) {
-                int replacement = v[k], at = sat_watch_index(replacement);
-                v[k] = v[w];
-                v[w] = replacement;
-                *link = clause->next[w];
-                clause->next[w] = s->watch[at];
-                s->watch[at] = edge + 1;
+                SatLiteral replacement = v[k];
+                size_t at = sat_watch_index(replacement);
+                v[k] = v[w]; v[w] = replacement;
+                *link = clause->next[w]; clause->next[w] = s->watch[at]; s->watch[at] = edge + 1;
                 continue;
             }
             if (!sat_assign(s, other, c + 1)) return c + 1;
@@ -27655,330 +28047,425 @@ static int sat_propagate(SatState *s) {
     return 0;
 }
 
-/* Torna al livello indicato, conservando tutte le assegnazioni precedenti
- * alla decisione successiva. La loro propagazione resta valida anche senza
- * le assegnazioni cancellate; le fasi si conservano come preferenze. */
-static void sat_backtrack(SatState *s, int level) {
-    int keep = s->limit[level + 1];
-    while (s->assigned > keep) s->value[abs(s->trail[--s->assigned])] = 0;
-    s->qhead = s->assigned;
-    s->level = level;
+/* Cancella le assegnazioni dopo il livello indicato; conserva fasi e
+ * propagazioni precedenti, che non dipendono dalle decisioni cancellate. */
+static void sat_backtrack(SatState *s, size_t level) {
+    size_t keep = s->limit[level + 1];
+    while (s->assigned > keep) s->var[sat_index(s->trail[--s->assigned])].value = 0;
+    s->qhead = s->assigned; s->level = level;
 }
 
-/* Risolve le clausole: 1 SAT, -1 UNSAT, 0 risorse finite. Il conflitto si
- * risolve all'indietro lungo trail con la clausola reason di ogni valore,
- * fino a un solo letterale del livello corrente. Negandolo si ottiene una
- * clausola che diventa unitaria al piu alto livello degli altri letterali;
- * si torna li e si propaga quel valore, senza ripetere il conflitto. */
+/* Decide la CNF: 1 SAT, -1 UNSAT, 0 risorse finite. Risolve un conflitto
+ * all'indietro con le sue ragioni fino al primo punto di implicazione unico
+ * (un solo letterale al livello corrente). La clausola cosi ottenuta segue
+ * dalle precedenti e diventa unitaria al livello degli altri letterali. */
 static int sat_solve(SatState *s) {
-    unsigned long long bump = 32;
-    int conflicts = 0;
+    unsigned long long bump = 32, conflicts = 0;
     if (s->broken) return 0;
     if (s->inconsistent) return -1;
     for (;;) {
-        int conflict = sat_propagate(s);
+        size_t conflict = sat_propagate(s);
         if (s->broken) return 0;
         if (conflict) {
             if (!s->level) return -1;
-            int count = 1, pending = 0, at = s->assigned, pivot = 0;
+            size_t count = 1, pending = 0, at = s->assigned;
+            SatLiteral pivot = 0;
             do {
                 SatClause *clause = &s->clause[conflict - 1];
-                for (int i = 0; i < clause->count; i++) {
-                    int l = s->literal[clause->first + i], v = abs(l);
-                    if (v == abs(pivot) || s->seen[v] || !s->depth[v]) continue;
-                    s->seen[v] = 1;
-                    s->activity[v] += bump;
-                    if (s->depth[v] == s->level) pending++;
+                for (size_t i = 0; i < clause->count; i++) {
+                    if (!sat_spend(s, 1)) return 0;
+                    SatLiteral l = s->literal[clause->first + i];
+                    size_t v = sat_index(l);
+                    if (v == sat_index(pivot) || s->var[v].seen || !s->var[v].depth) continue;
+                    s->var[v].seen = 1; s->var[v].activity += bump;
+                    if (s->var[v].depth == s->level) pending++;
                     else s->learned[count++] = l;
                 }
-                do { pivot = s->trail[--at]; } while (!s->seen[abs(pivot)]);
-                s->seen[abs(pivot)] = 0;
-                pending--;
-                conflict = s->reason[abs(pivot)];
+                do { pivot = s->trail[--at]; } while (!s->var[sat_index(pivot)].seen);
+                s->var[sat_index(pivot)].seen = 0; pending--;
+                conflict = s->var[sat_index(pivot)].reason;
             } while (pending && conflict);
             if (pending) { s->broken = 1; return 0; }
             s->learned[0] = -pivot;
-            int level = 0;
-            for (int i = 1; i < count; i++) {
-                int v = abs(s->learned[i]);
-                s->seen[v] = 0;
-                if (s->depth[v] > level) level = s->depth[v];
+            size_t level = 0;
+            for (size_t i = 1; i < count; i++) {
+                size_t v = sat_index(s->learned[i]);
+                s->var[v].seen = 0;
+                if (s->var[v].depth > level) level = s->var[v].depth;
             }
             sat_backtrack(s, level);
-            int reason = sat_clause(s, s->learned, count);
+            size_t reason = sat_clause(s, s->learned, count);
             if (s->broken) return 0;
             if (s->inconsistent || !sat_assign(s, s->learned[0], reason)) return -1;
-
-            /* Un intero basta per privilegiare i conflitti recenti: quando
-             * cresce troppo si dividono insieme punteggi e incremento. */
             if (++conflicts % 128 == 0) {
                 bump *= 2;
                 if (bump > (1ULL << 40)) {
-                    for (int v = 2; v <= s->variables; v++) s->activity[v] /= 2;
+                    for (size_t v = 2; v <= s->variables; v++) s->var[v].activity /= 2;
                     bump /= 2;
                 }
             }
             continue;
         }
-        int choose = 0;
-        for (int v = 2; v <= s->variables; v++) {
-            if (++s->work > MAX_SAT_WORK) { s->broken = 1; return 0; }
-            if (!s->value[v] && (!choose || s->activity[v] > s->activity[choose])) choose = v;
+        size_t choose = 0;
+        for (size_t v = 2; v <= s->variables; v++) {
+            if (!sat_spend(s, 1)) return 0;
+            if (!s->var[v].value && (!choose || s->var[v].activity > s->var[choose].activity)) choose = v;
         }
         if (!choose) return 1;
         s->limit[++s->level] = s->assigned;
-        sat_assign(s, s->phase[choose] > 0 ? choose : -choose, 0);
+        sat_assign(s, s->var[choose].phase > 0 ? (SatLiteral)choose : -(SatLiteral)choose, 0);
     }
 }
 
-/* Un nome equivalente alla congiunzione a e b; 1 e -1 sono le costanti.
- * Le tre clausole esprimono q=>a, q=>b e (a e b)=>q. */
-static int sat_and(SatState *s, int a, int b) {
+/* Nome equivalente ad a e b; le clausole sono q=>a, q=>b, (a e b)=>q. */
+static SatLiteral sat_and(SatState *s, SatLiteral a, SatLiteral b) {
+    if (s->broken) return -1;
     if (a == b || b == 1) return a;
     if (a == 1) return b;
     if (a == -1 || b == -1 || a == -b) return -1;
-    int q = sat_variable(s);
-    sat_clause(s, (int[]){-q, a}, 2);
-    sat_clause(s, (int[]){-q, b}, 2);
-    sat_clause(s, (int[]){q, -a, -b}, 3);
+    SatLiteral q = sat_variable(s);
+    sat_clause(s, (SatLiteral[]){-q, a}, 2);
+    sat_clause(s, (SatLiteral[]){-q, b}, 2);
+    sat_clause(s, (SatLiteral[]){q, -a, -b}, 3);
     return q;
 }
 
-/* La disgiunzione, con De Morgan: a o b equivale a non(non a e non b). */
-static int sat_or(SatState *s, int a, int b) { return -sat_and(s, -a, -b); }
+/* La disgiunzione, con De Morgan. */
+static SatLiteral sat_or(SatState *s, SatLiteral a, SatLiteral b) { return -sat_and(s, -a, -b); }
 
-/* Crea un vettore one-hot di size valori e ne ritorna il posto; zero se
- * non c'e spazio. Per due valori basta una variabile con la sua negazione. */
-static int sat_vector(SatState *s, int size) {
-    if (s->terms + 1 == MAX_SAT_TERMS || size < 1 || size > MAX_SAT_SIZE) { s->broken = 1; return 0; }
-    int id = ++s->terms;
-    SatTerm *t = &s->term[id];
-    t->size = size;
-    t->known = -1;
-    if (size == 1) { t->known = 0; t->literal[0] = 1; return id; }
-    if (size == 2) {
-        t->literal[1] = sat_variable(s);
-        t->literal[0] = -t->literal[1];
-        return id;
+/* Hash di una costante o applicazione: l'overflow unsigned e intenzionale
+ * e cambia soltanto il contenitore, mai l'identita controllata dei termini. */
+static size_t sat_term_hash(int symbol, size_t a, size_t b) {
+    return (size_t)(unsigned)(symbol + 2) * 1009u + a * 9176u + b * 6361u;
+}
+
+/* Aggiunge un termine vuoto e allarga la hash. I puntatori a term possono
+ * spostarsi: chi chiama conserva indici, non indirizzi, durante una crescita. */
+static size_t sat_term(SatState *s, size_t size, size_t known) {
+    if (!sat_spend(s, 1) || !size || s->terms > ((size_t)-1 - 4) / 2 ||
+        !sat_reserve(s, (void **)&s->term, &s->term_cap, s->terms + 2, sizeof *s->term)) {
+        s->broken = 1; return 0;
     }
-    for (int v = 0; v < size; v++) t->literal[v] = sat_variable(s);
-    sat_clause(s, t->literal, size);
-    for (int v = 0; v < size; v++)
-        for (int u = 0; u < v; u++) sat_clause(s, (int[]){-t->literal[u], -t->literal[v]}, 2);
+    size_t old = s->hash_cap;
+    if (!sat_reserve(s, (void **)&s->hash, &s->hash_cap, 2 * (s->terms + 2), sizeof *s->hash)) return 0;
+    if (old != s->hash_cap) {
+        memset(s->hash, 0, s->hash_cap * sizeof *s->hash);
+        for (size_t i = 1; i <= s->terms; i++) if (s->term[i].symbol != -1) {
+            SatTerm *t = &s->term[i];
+            size_t at = sat_term_hash(t->symbol, t->arg[0], t->arg[1]) % s->hash_cap;
+            t->next = s->hash[at]; s->hash[at] = i;
+        }
+    }
+    size_t id = ++s->terms;
+    s->term[id] = (SatTerm){.size=size, .known=known, .symbol=-1};
     return id;
 }
 
-/* Il vettore costante di size valori che vale value, condiviso fra tutte
- * le occorrenze: i numeri sono gli indici degli elementi, non aritmetica. */
-static int sat_constant(SatState *s, int size, int value) {
-    if (s->constant[size][value]) return s->constant[size][value];
-    if (s->terms + 1 == MAX_SAT_TERMS) { s->broken = 1; return 0; }
-    int id = ++s->terms;
-    SatTerm *t = &s->term[id];
-    t->size = size;
-    t->known = value;
-    for (int v = 0; v < size; v++) t->literal[v] = v == value ? 1 : -1;
-    return s->constant[size][value] = id;
+/* Legge un letterale di valore, anche dalle costanti senza vettore. */
+static SatLiteral sat_at(const SatState *s, size_t id, size_t value) {
+    const SatTerm *t = &s->term[id];
+    return t->known != (size_t)-1 ? (t->known == value ? 1 : -1) : t->literal[value];
 }
 
-/* Il vettore della verita booleana literal, senza introdurre variabili. */
-static int sat_boolean(SatState *s, int literal) {
+/* Crea un vettore one-hot. Il vincolo "al piu uno" usa una catena di
+ * prefissi: p_i significa che un valore precedente e vero; p_i e v_i non
+ * possono essere veri insieme. Costo lineare, senza le coppie quadratiche.
+ * L'ultima clausola impone almeno un valore; due valori usano un solo bit. */
+static size_t sat_vector(SatState *s, size_t size) {
+    size_t id = sat_term(s, size, size == 1 ? 0 : (size_t)-1);
+    if (!id || size == 1) return id;
+    size_t cap = 0;
+    if (!sat_reserve(s, (void **)&s->term[id].literal, &cap, size, sizeof(SatLiteral))) return id;
+    SatLiteral *literal = s->term[id].literal;
+    if (size == 2) { literal[1] = sat_variable(s); literal[0] = -literal[1]; return id; }
+    for (size_t v = 0; v < size && !s->broken; v++) literal[v] = sat_variable(s);
+    sat_clause(s, literal, size);
+    SatLiteral prefix = literal[0];
+    for (size_t v = 1; v < size && !s->broken; v++) {
+        sat_clause(s, (SatLiteral[]){-prefix, -literal[v]}, 2);
+        if (v + 1 < size) prefix = sat_or(s, prefix, literal[v]);
+    }
+    return id;
+}
+
+/* Condivide il valore costante (size,value), senza allocare size letterali. */
+static size_t sat_constant(SatState *s, size_t size, size_t value) {
+    if (s->broken) return 0;
+    if (!size || value >= size) { s->broken = 1; return 0; }
+    if (s->hash_cap) {
+        size_t at = sat_term_hash(-2, size, value) % s->hash_cap;
+        for (size_t i = s->hash[at]; i; i = s->term[i].next)
+            if (s->term[i].symbol == -2 && s->term[i].arg[0] == size && s->term[i].arg[1] == value) return i;
+    }
+    size_t id = sat_term(s, size, value);
+    if (!id) return 0;
+    SatTerm *t = &s->term[id]; t->symbol = -2; t->arg[0] = size; t->arg[1] = value;
+    size_t at = sat_term_hash(-2, size, value) % s->hash_cap;
+    t->next = s->hash[at]; s->hash[at] = id;
+    return id;
+}
+
+/* Il vettore booleano equivalente al letterale, senza nuove variabili. */
+static size_t sat_boolean(SatState *s, SatLiteral literal) {
     if (literal == 1 || literal == -1) return sat_constant(s, 2, literal == 1);
-    if (s->terms + 1 == MAX_SAT_TERMS) { s->broken = 1; return 0; }
-    int id = ++s->terms;
-    s->term[id].size = 2;
-    s->term[id].known = -1;
-    s->term[id].literal[0] = -literal;
-    s->term[id].literal[1] = literal;
+    size_t id = sat_term(s, 2, (size_t)-1), cap = 0;
+    if (!id || !sat_reserve(s, (void **)&s->term[id].literal, &cap, 2, sizeof(SatLiteral))) return 0;
+    s->term[id].literal[0] = -literal; s->term[id].literal[1] = literal;
     return id;
 }
 
-/* Il vettore del simbolo applicato ai vettori a,b (zero per un argomento
- * assente). Con argomenti fissati e una casella della tabella; altrimenti
- * si condivide il termine composto e lo si collega a tutte le caselle.
- * Le parti legate si leggono da part_bits, non da una tabella scelta. */
-static int sat_application(SatState *s, const Model *m, int symbol, int a, int b) {
+/* Traduce un'applicazione. Argomenti fissati selezionano una cella;
+ * altrimenti ogni combinazione implica il valore di quella cella. La hash
+ * condivide i termini composti. Le parti legate hanno vettori separati. */
+static size_t sat_application(SatState *s, const Model *m, int symbol, size_t a, size_t b) {
+    if (s->broken) return 0;
     const Symbol *f = &symbols[symbol];
     if (symbol_bound[symbol]) {
-        int truth = -1;
-        for (int v = 0; v < m->size[f->domain[0]]; v++)
-            if (part_bits[symbol] >> v & 1) truth = sat_or(s, truth, s->term[a].literal[v]);
+        SatLiteral truth = -1;
+        for (size_t v = 0; v < m->size[f->domain[0]] && !s->broken; v++)
+            if (part_values[symbol][v]) truth = sat_or(s, truth, sat_at(s, a, v));
         return sat_boolean(s, truth);
     }
-    int av = a ? s->term[a].known : 0, bv = b ? s->term[b].known : 0;
-    if (av >= 0 && bv >= 0) return s->table[symbol][av + bv * (a ? m->size[f->domain[0]] : 1)];
-    unsigned hash = ((unsigned)symbol * 1009u + (unsigned)a * 9176u + (unsigned)b * 6361u) % MAX_SAT_TERMS;
-    for (int i = s->hash[hash]; i; i = s->term[i].next)
+    size_t av = a ? s->term[a].known : 0, bv = b ? s->term[b].known : 0;
+    if (av != (size_t)-1 && bv != (size_t)-1) return s->table[symbol][av + bv * (a ? m->size[f->domain[0]] : 1)];
+    size_t at = sat_term_hash(symbol, a, b) % s->hash_cap;
+    for (size_t i = s->hash[at]; i; i = s->term[i].next)
         if (s->term[i].symbol == symbol && s->term[i].arg[0] == a && s->term[i].arg[1] == b) return i;
-    int size = f->range == TRUTH ? 2 : m->size[f->range];
-    int id = sat_vector(s, size);
+    size_t size = f->range == TRUTH ? 2 : m->size[f->range], id = sat_vector(s, size);
+    if (s->broken) return 0;
+    /* sat_vector puo aver spostato sia term sia hash. */
     SatTerm *out = &s->term[id];
-    out->symbol = symbol;
-    out->arg[0] = a;
-    out->arg[1] = b;
-    out->next = s->hash[hash];
-    s->hash[hash] = id;
-    int na = a ? m->size[f->domain[0]] : 1, nb = b ? m->size[f->domain[1]] : 1;
-    for (int y = 0; y < nb && !s->broken; y++)
-        for (int x = 0; x < na && !s->broken; x++) {
-            int la = a ? s->term[a].literal[x] : 1, lb = b ? s->term[b].literal[y] : 1;
+    at = sat_term_hash(symbol, a, b) % s->hash_cap;
+    out->symbol = symbol; out->arg[0] = a; out->arg[1] = b; out->next = s->hash[at]; s->hash[at] = id;
+    size_t na = a ? m->size[f->domain[0]] : 1, nb = b ? m->size[f->domain[1]] : 1;
+    for (size_t y = 0; y < nb && !s->broken; y++)
+        for (size_t x = 0; x < na && !s->broken; x++) {
+            SatLiteral la = a ? sat_at(s, a, x) : 1, lb = b ? sat_at(s, b, y) : 1;
             if (la == -1 || lb == -1) continue;
-            const SatTerm *cell = &s->term[s->table[symbol][x + y * na]];
-            for (int v = 0; v < size; v++) sat_clause(s, (int[]){-la, -lb, -cell->literal[v], out->literal[v]}, 4);
+            size_t cell = s->table[symbol][x + y * na];
+            for (size_t v = 0; v < size && !s->broken; v++)
+                sat_clause(s, (SatLiteral[]){-la, -lb, -sat_at(s, cell, v), sat_at(s, id, v)}, 4);
         }
     return id;
 }
 
-/* Il vettore dell'elemento e con i legami finiti correnti. I termini
- * uguali dopo la sostituzione condividono il vettore nell'applicazione. */
-static int sat_element(SatState *s, const Model *m, const Elem *e) {
+/* Il vettore di un termine con i legami correnti. */
+static size_t sat_element(SatState *s, const Model *m, const Elem *e) {
     if (s->broken) return 0;
-    if (e->symbol < 0) return sat_constant(s, m->size[slot_sort[e->slot]], s->slots[e->slot]);
-    int a = e->arg[0] ? sat_element(s, m, e->arg[0]) : 0;
-    int b = e->arg[1] ? sat_element(s, m, e->arg[1]) : 0;
+    if (e->symbol < 0) return sat_constant(s, m->size[slot_data[e->slot].sort], s->slots[e->slot]);
+    size_t a = e->arg[0] ? sat_element(s, m, e->arg[0]) : 0;
+    size_t b = e->arg[1] ? sat_element(s, m, e->arg[1]) : 0;
     return sat_application(s, m, e->symbol, a, b);
 }
 
-/* Un letterale equivalente all'uguaglianza dei vettori a e b. Essendo
- * entrambi one-hot, coincidono se e solo se hanno un valore vero comune.
- * Con un lato costante basta il letterale dell'altro per quel valore. */
-static int sat_equal(SatState *s, int a, int b) {
+/* Due vettori one-hot sono uguali se hanno lo stesso valore. Con un lato
+ * costante basta un letterale; altrimenti ogni valore impone l'equivalenza. */
+static SatLiteral sat_equal(SatState *s, size_t a, size_t b) {
+    if (s->broken) return -1;
     if (a == b) return 1;
-    const SatTerm *x = &s->term[a], *y = &s->term[b];
-    if (x->known >= 0) return y->literal[x->known];
-    if (y->known >= 0) return x->literal[y->known];
-    int q = sat_variable(s);
-    for (int v = 0; v < x->size; v++) {
-        sat_clause(s, (int[]){-q, -x->literal[v], y->literal[v]}, 3);
-        sat_clause(s, (int[]){q, -x->literal[v], -y->literal[v]}, 3);
+    size_t x = s->term[a].known, y = s->term[b].known;
+    if (x != (size_t)-1) return sat_at(s, b, x);
+    if (y != (size_t)-1) return sat_at(s, a, y);
+    SatLiteral q = sat_variable(s);
+    for (size_t v = 0; v < s->term[a].size && !s->broken; v++) {
+        sat_clause(s, (SatLiteral[]){-q, -sat_at(s, a, v), sat_at(s, b, v)}, 3);
+        sat_clause(s, (SatLiteral[]){q, -sat_at(s, a, v), -sat_at(s, b, v)}, 3);
     }
     return q;
 }
 
-/* Traduce la frase f in un letterale equivalente nel modello di grandezze
- * m. I quantificatori sugli elementi provano tutti gli indici, quelli sulle
- * parti tutte le maschere. Un limite o un nodo non svolto pone broken. */
-static int sat_sentence(SatState *s, const Model *m, const Sentence *f) {
-    if (s->broken || ++s->work > MAX_SAT_WORK) { s->broken = 1; return -1; }
-    int a, b;
+/* Traduce i connettivi con Tseitin e i quantificatori con congiunzioni o
+ * disgiunzioni finite. Gli insiemi vuoti danno le identita vere/falso; le
+ * parti si enumerano con un vettore binario, senza shift di lunghezza n. */
+static SatLiteral sat_sentence(SatState *s, const Model *m, const Sentence *f) {
+    if (!sat_spend(s, 1)) return -1;
+    SatLiteral a, b;
     switch (f->kind) {
     case S_TRUE: return 1;
-    case S_EQUIPOTENT: return model_equipotent(m, f) ? 1 : -1;
-    case S_EQUAL:
-        a = sat_element(s, m, f->left);
-        b = sat_element(s, m, f->right);
-        return sat_equal(s, a, b);
-    case S_HOLDS: return s->term[sat_element(s, m, f->left)].literal[1];
+    case S_EQUIPOTENT: {
+        int equal = model_equipotent(m, f);
+        if (model_steps > MAX_MODEL_STEPS) s->broken = 1;
+        return equal ? 1 : -1;
+    }
+    case S_EQUAL: {
+        size_t left = sat_element(s, m, f->left), right = sat_element(s, m, f->right);
+        return sat_equal(s, left, right);
+    }
+    case S_HOLDS: {
+        size_t id = sat_element(s, m, f->left);
+        return s->broken ? -1 : sat_at(s, id, 1);
+    }
     case S_NOT: return -sat_sentence(s, m, f->a);
     case S_AND: case S_OR: case S_IMPLIES: case S_IFF:
-        a = sat_sentence(s, m, f->a);
-        b = sat_sentence(s, m, f->b);
+        a = sat_sentence(s, m, f->a); b = sat_sentence(s, m, f->b);
         if (f->kind == S_AND) return sat_and(s, a, b);
         if (f->kind == S_OR) return sat_or(s, a, b);
         if (f->kind == S_IMPLIES) return sat_or(s, -a, b);
         return sat_or(s, sat_and(s, a, b), sat_and(s, -a, -b));
     case S_FORALL: case S_EXISTS: {
-        int every = f->kind == S_FORALL, result = every ? 1 : -1, saved = s->slots[f->slot];
-        for (int x = 0; x < m->size[slot_sort[f->slot]] && !s->broken; x++) {
-            s->slots[f->slot] = x;
-            a = sat_sentence(s, m, f->a);
+        int every = f->kind == S_FORALL;
+        SatLiteral result = every ? 1 : -1;
+        size_t saved = s->slots[f->slot];
+        for (size_t x = 0; x < m->size[slot_data[f->slot].sort] && !s->broken; x++) {
+            s->slots[f->slot] = x; a = sat_sentence(s, m, f->a);
             result = every ? sat_and(s, result, a) : sat_or(s, result, a);
         }
         s->slots[f->slot] = saved;
         return result;
     }
     case S_FORALL_PART: case S_EXISTS_PART: {
-        int every = f->kind == S_FORALL_PART, result = every ? 1 : -1;
-        unsigned saved = part_bits[f->part], parts = 1u << m->size[symbols[f->part].domain[0]];
-        for (unsigned bits = 0; bits < parts && !s->broken; bits++) {
-            part_bits[f->part] = bits;
+        int every = f->kind == S_FORALL_PART;
+        SatLiteral result = every ? 1 : -1;
+        size_t n = m->size[symbols[f->part].domain[0]], cap = 0;
+        unsigned char *saved = part_values[f->part], *bits = NULL;
+        if (!sat_reserve(s, (void **)&bits, &cap, n ? n : 1, 1)) return -1;
+        part_values[f->part] = bits;
+        for (;;) {
             a = sat_sentence(s, m, f->a);
             result = every ? sat_and(s, result, a) : sat_or(s, result, a);
+            if (s->broken || result == (every ? -1 : 1)) break;
+            size_t bit = 0;
+            while (bit < n && bits[bit]) bits[bit++] = 0;
+            if (bit == n) break;
+            bits[bit] = 1;
         }
-        part_bits[f->part] = saved;
+        part_values[f->part] = saved; free(bits); s->bytes -= cap;
         return result;
     }
     case S_MEMBER: case S_INCLUDED: case S_SAME: case S_UNIQUE:
-        s->broken = 1;
-        return -1;
+        s->broken = 1; return -1;
     }
-    s->broken = 1;
-    return -1;
+    s->broken = 1; return -1;
 }
 
-/* Cerca con SAT un modello delle grandezze gia scritte in m. Un esito
- * positivo viene ricalcolato per intero, con model_holds(), prima di
- * ritornare 1; altrimenti ritorna 0, anche per limiti e memoria esaurita.
- * Tutta la memoria del risolutore viene liberata prima di ritornare. */
-static int model_sat(const Sentence *root, int wanted, Model *m) {
-    SatState *s = calloc(1, sizeof *s);
-    if (!s) return 0;
-    sat_variable(s);
-    sat_assign(s, 1, 0);
-    memset(m->table, 0, sizeof m->table);
+/* Cerca un modello delle dimensioni correnti, spendendo il budget rimasto.
+ * I dati estratti sono ricalcolati per intero, prima del successivo controllo
+ * indipendente nel certificato. UNSAT e risorse finite ritornano entrambi 0. */
+static int model_sat(const Sentence *root, int wanted, Model *m, unsigned long long *work) {
+    if (*work >= model_work_limit) return 0;
+    ++*work;
+    if (!model_allocate(m)) { if (m->limited) *work = model_work_limit; return 0; }
+    SatState s = {.bytes=m->bytes, .budget=model_work_limit - *work};
+    if (!s.budget) return 0;
+    sat_reserve(&s, (void **)&s.slots, &s.slots_cap, (size_t)slot_count, sizeof *s.slots);
+    sat_variable(&s); sat_assign(&s, 1, 0);
+    model_steps = 0;
     model_structure(m);
-    unsigned fixed_sort = 0;
-    for (int f = 0; f < symbol_count && !s->broken; f++) {
-        if (symbol_bound[f]) continue;
-        int cells, values = model_cells(m, f, &cells);
-        for (int c = 0; c < cells && !s->broken; c++) {
-            int id = symbol_fixed(f) ? sat_constant(s, values, m->table[f][c]) : sat_vector(s, values);
-            s->table[f][c] = id;
-            for (int v = 0; v < values; v++) s->phase[abs(s->term[id].literal[v])] = 1;
-        }
-        /* In un insieme qualsiasi si puo rinominare come 0 il primo
-         * elemento con un nome. Non lo si fa per gli insiemi derivati o
-         * numerici, la cui numerazione e fissata dalla struttura. */
+    size_t named[MAX_SORTS] = {0}, seen[MAX_SORTS] = {0};
+    int ordered_map[MAX_SORTS];
+    for (int i = 0; i < MAX_SORTS; i++) ordered_map[i] = -1;
+    for (int f = 0; f < symbol_count; f++) {
         int sort = symbols[f].range;
-        if (!symbols[f].arity && sort >= 0 && sort_kind[sort] == SORT_PLAIN && !(fixed_sort >> sort & 1)) {
-            sat_clause(s, &s->term[s->table[f][0]].literal[0], 1);
-            fixed_sort |= 1u << sort;
-        }
+        if (sort < 0 || sort >= sort_count || sort_kind[sort] != SORT_PLAIN || symbol_fixed(f) || symbol_bound[f]) continue;
+        if (!symbols[f].arity) named[sort]++;
+        if (symbols[f].arity == 1 && symbols[f].domain[0] == sort && ordered_map[sort] < 0) ordered_map[sort] = f;
     }
-    int truth = sat_sentence(s, m, root);
-    sat_clause(s, (int[]){wanted ? truth : -truth}, 1);
-    int found = sat_solve(s) == 1;
-    if (found) {
-        for (int f = 0; f < symbol_count; f++) {
-            if (symbol_fixed(f) || symbol_bound[f]) continue;
-            int cells;
-            model_cells(m, f, &cells);
-            for (int c = 0; c < cells; c++) {
-                const SatTerm *t = &s->term[s->table[f][c]];
-                int value = 0;
-                while (value < t->size && sat_value(s, t->literal[value]) <= 0) value++;
-                if (value == t->size) { found = 0; break; }
-                m->table[f][c] = (unsigned char)value;
+    for (int f = 0; f < symbol_count && !s.broken; f++) {
+        if (symbol_bound[f]) continue;
+        size_t cells, values = model_cells(m, f, &cells), cap = 0;
+        if (!sat_reserve(&s, (void **)&s.table[f], &cap, cells ? cells : 1, sizeof(size_t))) break;
+        for (size_t c = 0; c < cells && !s.broken; c++) {
+            size_t id = symbol_fixed(f) ? sat_constant(&s, values, m->table[f][c]) : sat_vector(&s, values);
+            if (s.broken) break;
+            s.table[f][c] = id;
+            if (s.term[id].known == (size_t)-1)
+                for (size_t v = 0; v < values; v++) s.var[sat_index(sat_at(&s, id, v))].phase = 1;
+        }
+        /* Rottura generale delle simmetrie. Numera prima gli elementi con
+         * un nome, nell'ordine in cui appaiono: il j-esimo nome vale al piu
+         * j, anche se due nomi coincidono. Poi visita una sola mappa S->S,
+         * in ordine di argomento, dando a ogni elemento nuovo il prossimo
+         * numero libero. Dopo i nomi e i argomenti, f(i) vale al piu k+i,
+         * con k=max(1,numero dei nomi). Se non ci sono nomi si parte da un
+         * elemento arbitrario. Ogni modello ammette questa rinumerazione;
+         * non si ordina una seconda mappa, che potrebbe contraddirla. */
+        int sort = symbols[f].range;
+        if (!s.broken && sort >= 0 && sort < sort_count && sort_kind[sort] == SORT_PLAIN) {
+            if (!symbols[f].arity) {
+                size_t last = seen[sort]++;
+                for (size_t v = last + 1; v < values && !s.broken; v++) {
+                    SatLiteral excluded = -sat_at(&s, s.table[f][0], v);
+                    sat_clause(&s, &excluded, 1);
+                }
+            } else if (ordered_map[sort] == f) {
+                size_t seed = named[sort] ? named[sort] : 1;
+                for (size_t c = 0; c < cells && c < values && seed < values - c && !s.broken; c++)
+                    for (size_t v = seed + c + 1; v < values && !s.broken; v++) {
+                        SatLiteral excluded = -sat_at(&s, s.table[f][c], v);
+                        sat_clause(&s, &excluded, 1);
+                    }
             }
         }
-        int value[MAX_SLOTS] = {0};
+    }
+    SatLiteral truth = sat_sentence(&s, m, root);
+    sat_clause(&s, (SatLiteral[]){wanted ? truth : -truth}, 1);
+    int found = sat_solve(&s) == 1;
+    if (found) {
+        for (int f = 0; f < symbol_count && found; f++) {
+            if (symbol_fixed(f) || symbol_bound[f]) continue;
+            size_t cells; model_cells(m, f, &cells);
+            for (size_t c = 0; c < cells; c++) {
+                size_t id = s.table[f][c], value = 0;
+                while (value < s.term[id].size && sat_value(&s, sat_at(&s, id, value)) <= 0) value++;
+                if (value == s.term[id].size) { found = 0; break; }
+                m->table[f][c] = value;
+            }
+        }
+        size_t *value = s.slots;
         model_steps = 0;
         int confirmed = found && model_holds(m, root, value) == wanted;
         if (!confirmed && model_steps <= MAX_MODEL_STEPS) unjustified_steps++;
         found = confirmed && model_steps <= MAX_MODEL_STEPS;
     }
-    free(s);
+    *work += s.work;
+    if (s.memory_limited) *work = model_work_limit;
+    sat_clear(&s);
     return found;
 }
 
-/* Dopo 28a prova grandezze fino a MAX_SAT_SIZE, per numero totale di
- * elementi, saltando quelle gia esaurite per intero. Non cambia bound:
- * UNSAT non e usato come prova. tried conta soltanto un modello estratto
- * e confermato, non le assegnazioni proposizionali o le grandezze tentate. */
+/* Enumera le composizioni di total nelle cardinalita degli insiemi
+ * qualsiasi, includendo zero. Per ogni totale sono finitissime: crescendo
+ * total ogni vettore finito viene raggiunto se le risorse bastano. Il
+ * prefisso esaustivo gia completato viene saltato solo per insiemi non vuoti. */
+static int model_sat_dimensions(const Sentence *root, int wanted, Model *m, int sort, size_t total,
+                                unsigned long long *work, int bound) {
+    if (*work >= model_work_limit) return 0;
+    ++*work;
+    while (sort < sort_count && sort_kind[sort] != SORT_PLAIN) sort++;
+    if (sort == sort_count) {
+        if (total || *work >= model_work_limit) return 0;
+        int small = bound > 0;
+        for (int i = 0; i < sort_count; i++)
+            if (sort_kind[i] == SORT_PLAIN && (!m->size[i] || m->size[i] > (size_t)bound)) small = 0;
+        if (small || !model_derived_sizes(m)) return 0;
+        return model_sat(root, wanted, m, work);
+    }
+    /* L'ultima coordinata e determinata dalla somma: provarne tutti i
+     * valori intermedi non produce nuovi vettori e costerebbe un fattore
+     * total fuori dal budget SAT. Anche le visite senza traduzione contano. */
+    int next = sort + 1;
+    while (next < sort_count && sort_kind[next] != SORT_PLAIN) next++;
+    if (next == sort_count) {
+        m->size[sort] = total;
+        return model_sat_dimensions(root, wanted, m, next, 0, work, bound);
+    }
+    for (size_t n = 0; n <= total && *work < model_work_limit; n++) {
+        m->size[sort] = n;
+        if (model_sat_dimensions(root, wanted, m, sort + 1, total - n, work, bound)) return 1;
+        if (n == total) break;
+    }
+    return 0;
+}
+
+/* Prosegue dopo il prefisso esaustivo, senza una cardinalita o un numero
+ * di tentativi massimi. Il budget totale di lavoro/memoria e esplicito e
+ * configurabile; esaurirlo non autorizza un verdetto matematico positivo. */
 static int model_sat_search(const Sentence *root, int wanted, Model *m, long long *tried, int bound) {
-    int plain = plain_sorts(), codes = 1, attempts = 0;
-    if (!plain) return 0;
-    for (int i = 0; i < sort_count; i++) codes *= MAX_SAT_SIZE;
-    for (int total = plain; total <= plain * MAX_SAT_SIZE; total++)
-        for (int code = 0; code < codes; code++) {
-            if (model_sizes_at(m, code, MAX_SAT_SIZE) != total) continue;
-            int small = 1;
-            for (int i = 0; i < sort_count; i++)
-                if (sort_kind[i] == SORT_PLAIN && m->size[i] > bound) small = 0;
-            if (small) continue;
-            if (attempts++ == MAX_SAT_ATTEMPTS) return 0;
-            if (model_sat(root, wanted, m)) { ++*tried; return 1; }
-        }
+    unsigned long long work = 0;
+    for (size_t total = 0; work < model_work_limit; total++) {
+        if (model_sat_dimensions(root, wanted, m, 0, total, &work, bound)) { ++*tried; return 1; }
+        if (!plain_sorts() || total == (size_t)-1) break;
+    }
     return 0;
 }
 
@@ -28029,17 +28516,17 @@ static void put_sort(int sort) {
  * insieme di parti si scrive come la parte che è, \{s_{0}, s_{2}\}; uno di
  * un insieme di applicazioni con i suoi valori, (s_{0} \mapsto t_{1}, ...),
  * con la numerazione di 28m. */
-static void put_model_element(const Model *m, int sort, int x) {
-    if (sort_kind[sort] == SORT_PLAIN && sort_sub[sort]) { proof_add("%c_{%d,%d}", tolower(sort_name[sort]), sort_sub[sort], x); return; }  /* 17w */
-    if (sort_kind[sort] == SORT_PLAIN) { proof_add("%c_{%d}", tolower(sort_name[sort]), x); return; }
+static void put_model_element(const Model *m, int sort, size_t x) {
+    if (sort_kind[sort] == SORT_PLAIN && sort_sub[sort]) { proof_add("%c_{%d,%zu}", tolower(sort_name[sort]), sort_sub[sort], x); return; }  /* 17w */
+    if (sort_kind[sort] == SORT_PLAIN) { proof_add("%c_{%zu}", tolower(sort_name[sort]), x); return; }
     if (sort_kind[sort] == SORT_NUMBERS) {
         /* 17v. Il numero che l'elemento x rappresenta. */
         for (int s = 0; s < symbol_count; s++)
-            if (symbols[s].name >= NUMERAL_NAMES && symbols[s].range == sort && numeral_position(sort, s) == x) put_symbol(s);
+            if (symbols[s].name >= NUMERAL_NAMES && symbols[s].range == sort && (size_t)numeral_position(sort, s) == x) put_symbol(s);
         return;
     }
     proof_add(sort_kind[sort] == SORT_PARTS ? "\\{" : "(");
-    for (int a = 0, written = 0, rest = x; a < m->size[sort_base[sort]]; a++) {
+    for (size_t a = 0, written = 0, rest = x; a < m->size[sort_base[sort]]; a++) {
         if (sort_kind[sort] == SORT_PARTS && !(x >> a & 1)) continue;
         if (written++) proof_add(", ");
         put_model_element(m, sort_base[sort], a);
@@ -28064,18 +28551,21 @@ static void put_model(const Model *m) {
         proof_add("%s$", written++ ? ", " : "");
         put_sort(i);
         proof_add(" = \\{");
-        for (int x = 0; x < m->size[i]; x++) { if (x) proof_add(", "); put_model_element(m, i, x); }
+        for (size_t x = 0; x < m->size[i]; x++) { if (x) proof_add(", "); put_model_element(m, i, x); }
         proof_add("\\}$");
     }
     for (int s = 0; s < symbol_count; s++) {
         if (symbol_fixed(s)) continue;
         const Symbol *symbol = &symbols[s];
-        int cells, first = m->size[symbol->arity ? symbol->domain[0] : 0], written = 0;
+        size_t cells, first = m->size[symbol->arity ? symbol->domain[0] : 0], written = 0;
         if (symbol_bound[s]) continue;  /* una parte legata (28i) non ha tabella */
         model_cells(m, s, &cells);
         proof_add("; $");
+        /* Una funzione con dominio vuoto e il grafico vuoto: la sua
+         * dichiarazione va mostrata anche quando non ci sono celle. */
+        if (!cells && symbol->range != TRUTH) { put_symbol(s); proof_add(" = \\emptyset$"); continue; }
         if (symbol->range == TRUTH) { put_symbol(s); proof_add(" = \\{"); }
-        for (int c = 0; c < cells; c++) {
+        for (size_t c = 0; c < cells; c++) {
             if (symbol->range == TRUTH && !m->table[s][c]) continue;
             if (written++) proof_add(", ");
 
@@ -28127,15 +28617,16 @@ static void put_model(const Model *m) {
  * modello di due o tre elementi.
  */
 
-static int book_holds(const Model *m, const Sentence *s, int *value);
+static int book_holds(const Model *m, const Sentence *s, size_t *value);
 
 /* Ritorna 1 se il membro t[], di set->arity componenti già calcolate, sta
  * nell'insieme set del modello m, con le variabili libere ai valori di
  * value[]. Calcola dalla definizione, senza sostituire nulla (vedi la testa
  * del paragrafo); value[] viene usato anche per le lettere che set lega, e
  * rimesso com'era. */
-static int book_member(const Model *m, const int *t, const SetTerm *set, int *value) {
-    int found = 0, saved[MAX_ARITY], arg;
+static int book_member(const Model *m, const size_t *t, const SetTerm *set, size_t *value) {
+    int found = 0;
+    size_t saved[MAX_ARITY], arg;
     switch (set->kind) {
     case ST_SYMBOL:
         return model_cell(m, set->symbol, t[0], set->arity == 2 ? t[1] : 0);
@@ -28151,15 +28642,19 @@ static int book_member(const Model *m, const int *t, const SetTerm *set, int *va
     case ST_BUILDER: {
         /* Ogni valore delle lettere dello schema, come un contachilometri:
          * t sta nell'insieme se uno di loro dà t e rende vera la condizione. */
-        for (int i = 0; i < set->bounds; i++) { saved[i] = value[set->bound[i]]; value[set->bound[i]] = 0; }
-        for (int more = 1; more && !found; ) {
+        int possible = 1;
+        for (int i = 0; i < set->bounds; i++) {
+            saved[i] = value[set->bound[i]]; value[set->bound[i]] = 0;
+            possible = possible && m->size[slot_data[set->bound[i]].sort] != 0;
+        }
+        for (int more = possible; more && !found; ) {
             if (++model_steps > MAX_MODEL_STEPS) break;
             int same = 1;
             for (int i = 0; i < set->arity && same; i++) same = value[set->item[i]->slot] == t[i];
             found = same && book_holds(m, set->condition, value);
             more = 0;
             for (int i = 0; i < set->bounds && !more; i++) {
-                if (++value[set->bound[i]] < m->size[slot_sort[set->bound[i]]]) more = 1; else value[set->bound[i]] = 0;
+                if (++value[set->bound[i]] < m->size[slot_data[set->bound[i]].sort]) more = 1; else value[set->bound[i]] = 0;
             }
         }
         for (int i = 0; i < set->bounds; i++) value[set->bound[i]] = saved[i];
@@ -28168,7 +28663,8 @@ static int book_member(const Model *m, const int *t, const SetTerm *set, int *va
     case ST_IMAGE: case ST_PREIMAGE: {
         /* f(x) è la cella di x; per un elemento di T^{S} (17v), la cella di
          * (f, x) del simbolo di struttura. */
-        int map = set->items ? model_element(m, set->item[0], value) : -1, sort = symbols[set->symbol].domain[set->items];
+        size_t map = set->items ? model_element(m, set->item[0], value) : 0;
+        int sort = symbols[set->symbol].domain[set->items];
         if (set->kind == ST_PREIMAGE) {
             arg = set->items ? model_cell(m, set->symbol, map, t[0]) : model_cell(m, set->symbol, t[0], 0);
             return book_member(m, &arg, set->a, value);
@@ -28191,8 +28687,12 @@ static int book_member(const Model *m, const int *t, const SetTerm *set, int *va
         /* 17v. Ogni valore delle lettere nuove, come un contachilometri: t
          * sta nell'insieme se uno di loro rende vera la condizione e dà t,
          * come elemento o come la parte con gli stessi elementi di a. */
-        for (int i = 0; i < set->bounds; i++) { saved[i] = value[set->bound[i]]; value[set->bound[i]] = 0; }
-        for (int more = 1; more && !found; ) {
+        int possible = 1;
+        for (int i = 0; i < set->bounds; i++) {
+            saved[i] = value[set->bound[i]]; value[set->bound[i]] = 0;
+            possible = possible && m->size[slot_data[set->bound[i]].sort] != 0;
+        }
+        for (int more = possible; more && !found; ) {
             if (++model_steps > MAX_MODEL_STEPS) break;
             if (book_holds(m, set->condition, value)) {
                 if (set->items) {
@@ -28200,12 +28700,12 @@ static int book_member(const Model *m, const int *t, const SetTerm *set, int *va
                 } else {
                     found = 1;
                     for (arg = 0; arg < m->size[sort_base[set->sort[0]]] && found; arg++)
-                        found = model_cell(m, set->symbol, arg, t[0]) == book_member(m, &arg, set->a, value);
+                        found = (int)model_cell(m, set->symbol, arg, t[0]) == book_member(m, &arg, set->a, value);
                 }
             }
             more = 0;
             for (int i = 0; i < set->bounds && !more; i++) {
-                if (++value[set->bound[i]] < m->size[slot_sort[set->bound[i]]]) more = 1; else value[set->bound[i]] = 0;
+                if (++value[set->bound[i]] < m->size[slot_data[set->bound[i]].sort]) more = 1; else value[set->bound[i]] = 0;
             }
         }
         for (int i = 0; i < set->bounds; i++) value[set->bound[i]] = saved[i];
@@ -28214,12 +28714,12 @@ static int book_member(const Model *m, const int *t, const SetTerm *set, int *va
     case ST_DESCRIBE: {
         /* 17v. Ogni parte Z con gli stessi elementi dell'insieme a (nei
          * modelli ce n'è una sola, 28m) dà t \in b. */
-        int z = set->bound[0], sort = slot_sort[z], result = 1;
+        int z = set->bound[0], sort = slot_data[z].sort, result = 1;
         saved[0] = value[z];
-        for (int x = 0; x < m->size[sort] && result; x++) {
+        for (size_t x = 0; x < m->size[sort] && result; x++) {
             int same = 1;
             for (arg = 0; arg < m->size[sort_base[sort]] && same; arg++)
-                same = model_cell(m, sort_symbol[sort], arg, x) == book_member(m, &arg, set->a, value);
+                same = (int)model_cell(m, sort_symbol[sort], arg, x) == book_member(m, &arg, set->a, value);
             if (!same) continue;
             value[z] = x;
             result = book_member(m, t, set->b, value);
@@ -28244,7 +28744,7 @@ static int book_member(const Model *m, const int *t, const SetTerm *set, int *va
         /* Ogni valore dell'indice, nel suo insieme o nella sua parte. */
         int index = set->bound[0], every = set->kind == ST_BIG_INTER, result = every;
         saved[0] = value[index];
-        for (int i = 0; i < m->size[slot_sort[index]] && result == every; i++) {
+        for (size_t i = 0; i < m->size[slot_data[index].sort] && result == every; i++) {
             if (set->symbol >= 0 && !model_cell(m, set->symbol, i, 0)) continue;
             if (set->b && !book_member(m, &i, set->b, value)) continue;
             value[index] = i;
@@ -28261,8 +28761,9 @@ static int book_member(const Model *m, const int *t, const SetTerm *set, int *va
  * nei loro insiemi), "t sta in set" e "t sta in other" valgono come chiede
  * how: 0 per "il primo implica il secondo", 1 per "hanno lo stesso valore".
  * Con how = 2 ritorna 1 se c'è un t che sta in other e non in set. */
-static int book_compare(const Model *m, const SetTerm *set, const SetTerm *other, int how, int *value) {
-    int t[MAX_ARITY] = {0};
+static int book_compare(const Model *m, const SetTerm *set, const SetTerm *other, int how, size_t *value) {
+    size_t t[MAX_ARITY] = {0};
+    for (int i = 0; i < set->arity; i++) if (!m->size[set->sort[i]]) return how != 2;
     for (;;) {
         if (++model_steps > MAX_MODEL_STEPS) return 0;
         int in_set = book_member(m, t, set, value), in_other = book_member(m, t, other, value);
@@ -28283,8 +28784,9 @@ static int book_compare(const Model *m, const SetTerm *set, const SetTerm *other
  * per le condizioni di 17o, con in più i nodi di 17p calcolati dalla loro
  * definizione. Se model_steps supera MAX_MODEL_STEPS la risposta non vuol
  * dire nulla. */
-static int book_holds(const Model *m, const Sentence *s, int *value) {
-    int t[MAX_ARITY], count = 0, every;
+static int book_holds(const Model *m, const Sentence *s, size_t *value) {
+    size_t t[MAX_ARITY];
+    int count = 0, every;
     switch (s->kind) {
     case S_TRUE:    return 1;
     case S_EQUIPOTENT: return model_equipotent(m, s);
@@ -28306,7 +28808,7 @@ static int book_holds(const Model *m, const Sentence *s, int *value) {
         return model_part_quantifier(m, s, value, book_holds);
     case S_UNIQUE:
         /* Si contano gli elementi per cui vale. */
-        for (int x = 0; x < m->size[slot_sort[s->slot]] && count < 2; x++) {
+        for (size_t x = 0; x < m->size[slot_data[s->slot].sort] && count < 2; x++) {
             if (++model_steps > MAX_MODEL_STEPS) return 0;
             value[s->slot] = x;
             count += book_holds(m, s->a, value);
@@ -28316,7 +28818,7 @@ static int book_holds(const Model *m, const Sentence *s, int *value) {
         break;
     }
     every = s->kind == S_FORALL;
-    for (int x = 0; x < m->size[slot_sort[s->slot]]; x++) {
+    for (size_t x = 0; x < m->size[slot_data[s->slot].sort]; x++) {
         if (++model_steps > MAX_MODEL_STEPS) return 0;
         value[s->slot] = x;
         if (book_holds(m, s->a, value) != every) return !every;
@@ -28329,12 +28831,12 @@ static int book_holds(const Model *m, const Sentence *s, int *value) {
 static void book_random_tables(Model *m, unsigned *state) {
     for (int s = 0; s < symbol_count; s++) {
         if (symbol_fixed(s)) continue;
-        int cells, values = model_cells(m, s, &cells);
-        for (int c = 0; c < cells; c++) {
+        size_t cells, values = model_cells(m, s, &cells);
+        for (size_t c = 0; c < cells; c++) {
             *state ^= *state << 13;
             *state ^= *state >> 17;
             *state ^= *state << 5;
-            m->table[s][c] = (unsigned char)(*state % (unsigned)values);
+            m->table[s][c] = (*state % values);
         }
     }
 }
@@ -28344,8 +28846,10 @@ static void book_random_tables(Model *m, unsigned *state) {
  * descritti in testa al paragrafo. Ritorna quanti modelli ha confrontato, o
  * -1 se in uno i due valori sono diversi. */
 static long long book_check(const Sentence *written, const Sentence *unfolded) {
-    static Model m;
-    int value[MAX_SLOTS] = {0}, codes = 1;
+    Model m = {0};
+    size_t *value = model_variables();
+    if (work_allocation_failed) return 0;
+    int codes = 1;
     unsigned state = 2463534242u;
     long long compared = 0;
     model_steps = 0;
@@ -28358,31 +28862,32 @@ static long long book_check(const Sentence *written, const Sentence *unfolded) {
              * Quelle fissate dalla struttura (28m) non si scelgono. */
             double count = 1;
             for (int s = 0; s < symbol_count && count <= 256; s++) {
-                int cells, values = model_cells(&m, s, &cells);
-                for (int c = 0; c < cells && count <= 256 && !symbol_fixed(s); c++) count *= values;
+                size_t cells, values = model_cells(&m, s, &cells);
+                for (size_t c = 0; c < cells && count <= 256 && !symbol_fixed(s); c++) count *= values;
             }
-            memset(m.table, 0, sizeof m.table);
+            if (!model_allocate(&m)) continue;
             model_structure(&m);
             for (int tried = 0, more = 1; more; tried++) {
                 if (count > 256) book_random_tables(&m, &state);
                 int book = book_holds(&m, written, value), plain = model_holds(&m, unfolded, value);
-                if (model_steps > MAX_MODEL_STEPS) return compared;
-                if (book != plain) return -1;
-                if (++compared >= MAX_CHECK_MODELS) return compared;
+                if (model_steps > MAX_MODEL_STEPS) { model_clear(&m); return compared; }
+                if (book != plain) { model_clear(&m); return -1; }
+                if (++compared >= MAX_CHECK_MODELS) { model_clear(&m); return compared; }
 
                 /* La tabella successiva, come in model_search(). */
                 more = 0;
                 if (count > 256) { more = tried + 1 < 256; continue; }
                 for (int s = 0; s < symbol_count && !more; s++) {
                     if (symbol_fixed(s)) continue;
-                    int cells, values = model_cells(&m, s, &cells);
-                    for (int c = 0; c < cells && !more; c++) {
+                    size_t cells, values = model_cells(&m, s, &cells);
+                    for (size_t c = 0; c < cells && !more; c++) {
                         if (++m.table[s][c] < values) more = 1; else m.table[s][c] = 0;
                     }
                 }
             }
         }
     }
+    model_clear(&m);
     return compared;
 }
 
@@ -28414,6 +28919,46 @@ typedef struct {
  * ramo ne usa i primi now->grounds posti, e chi torna a un ramo precedente
  * riusa i posti dopo. */
 static Ground ground[MAX_GROUND];
+
+/* Una sostituzione finita delle variabili astratte con elementi presenti.
+ * count e il numero di celle possedute nell'arena, data i valori (indici
+ * di ground, oppure -1 per una variabile non sostituita). Le celle oltre
+ * count valgono sempre -1: gli assiomi possono creare slot dopo una copia.
+ * I Known conservano copie immutabili; solo i vettori temporanei di una
+ * ricerca vengono modificati. La durata e quella dell'arena della prova. */
+typedef struct { int count; short *data; } SlotValues;
+
+/* La sostituzione vuota vale per qualsiasi numero di variabili. */
+#define SLOT_VALUES_EMPTY ((SlotValues){0})
+
+/* Legge una sostituzione, compresi i posti creati dopo il suo snapshot. */
+static inline int slot_values_get(SlotValues values, int slot) {
+    return slot >= 0 && slot < values.count ? values.data[slot] : -1;
+}
+
+/* Copia source in un vettore temporaneo gia dimensionato per tutti gli
+ * slot correnti. Il suffisso non presente nello snapshot resta non legato;
+ * nessuna cella del Known da cui proviene la copia viene modificata. */
+static void slot_values_load(SlotValues target, SlotValues source) {
+    if (target.count < source.count) {
+        work_allocation_failed = 1; fail(OUT_OF_MEMORY); return;
+    }
+    if (source.count) memcpy(target.data, source.data, (size_t)source.count * sizeof *source.data);
+    for (int i = source.count; i < target.count; i++) target.data[i] = -1;
+}
+
+/* Crea una copia indipendente con spazio per tutti gli slot correnti.
+ * La copia vuota non alloca. Ogni chiamante controlla il fallimento prima
+ * di scrivere: un vettore parziale non puo diventare una deduzione. */
+static SlotValues slot_values_copy(SlotValues source) {
+    int count = slot_count > source.count ? slot_count : source.count;
+    if (!count) return SLOT_VALUES_EMPTY;
+    short *data = work_arena_array((size_t)count, sizeof *data);
+    if (!data) return SLOT_VALUES_EMPTY;
+    SlotValues copy = {count, data};
+    slot_values_load(copy, source);
+    return copy;
+}
 
 /* Ciò che si sa in un ramo: una condizione dell'enunciato, con il segno con
  * cui è vera e con un elemento al posto di ogni variabile libera. Come ci
@@ -28455,8 +29000,7 @@ typedef struct {
     short parent;            /* da quale condizione viene; -1 se da nessuna */
     short left, right;       /* fatto: i due elementi; -1 altrimenti */
     int stamp;               /* numero d'ordine: vedi Branch.clock */
-    short value[MAX_SLOTS];  /* l'elemento al posto di ogni variabile; -1 per
-                                le variabili non ancora sostituite */
+    SlotValues value;       /* snapshot immutabile delle sostituzioni */
     short part[MAX_BOUND];   /* 28j: per un'istanza di un "per ogni parte", la
                                 parte al posto di ogni parte legata, dalla più
                                 esterna; per un nome dato a una parte (K_NAMED)
@@ -28578,9 +29122,9 @@ static void ground_reindex(void) {
  * l'elemento di value[]; -1 se manca dalla tabella, -2 se e contiene una
  * variabile non ancora sostituita. mode è G_EXACT o G_CREATE, come in
  * ground_lookup(). */
-static int elem_ground(const Elem *e, const short *value, Lookup mode) {
+static int elem_ground(const Elem *e, SlotValues value, Lookup mode) {
     int arg[2] = {-1, -1};
-    if (e->symbol < 0) return value[e->slot] >= 0 ? value[e->slot] : -2;
+    if (e->symbol < 0) return slot_values_get(value, e->slot) >= 0 ? slot_values_get(value, e->slot) : -2;
     for (int i = 0; i < 2 && e->arg[i]; i++) {
         arg[i] = elem_ground(e->arg[i], value, mode);
         if (arg[i] < 0) return arg[i];
@@ -28624,15 +29168,15 @@ static void put_ground(int id, int tight) {
 /* Scrive il nome della variabile di posto slot: la lettera, con il pedice se
  * c'è. */
 static void put_slot(int slot) {
-    proof_add("%c", slot_letter[slot]);
-    if (slot_index[slot]) proof_add("_{%d}", index_digits(slot_index[slot]));
+    proof_add("%c", slot_data[slot].letter);
+    if (slot_data[slot].index) proof_add("_{%d}", index_digits(slot_data[slot].index));
 }
 
 /* Scrive l'elemento e, con gli elementi di value[] al posto delle variabili
  * sostituite e la lettera per le altre. */
-static void put_elem(const Elem *e, const short *value, int tight) {
+static void put_elem(const Elem *e, SlotValues value, int tight) {
     if (e->symbol < 0) {
-        if (value[e->slot] >= 0) put_ground(value[e->slot], tight); else put_slot(e->slot);
+        if (slot_values_get(value, e->slot) >= 0) put_ground(slot_values_get(value, e->slot), tight); else put_slot(e->slot);
         return;
     }
     int name = symbols[e->symbol].name;
@@ -28667,14 +29211,14 @@ static void put_elem(const Elem *e, const short *value, int tight) {
 static void put_equipotent_side(const Sentence *s, int k) {
     for (int i = 0; i < s->sides[k]; i++) {
         if (i) proof_add(" \\times ");
-        put_sort(slot_sort[s->side_slot[k][i]]);
+        put_sort(slot_data[s->side_slot[k][i]].sort);
     }
 }
 
 /* Scrive la condizione s, negata se negated, con gli elementi di value[] al
  * posto delle variabili sostituite. tight chiede le parentesi intorno a ciò
  * che non è un confronto. */
-static void put_sentence(const Sentence *s, int negated, const short *value, int tight) {
+static void put_sentence(const Sentence *s, int negated, SlotValues value, int tight) {
     static const char *const connective[] = {[S_AND] = "\\land", [S_OR] = "\\lor", [S_IMPLIES] = "\\implies", [S_IFF] = "\\iff"};
     switch (s->kind) {
     case S_TRUE:
@@ -28741,7 +29285,7 @@ static void put_sentence(const Sentence *s, int negated, const short *value, int
         proof_add("%s\\%s ", negated ? "\\lnot " : "", s->kind == S_FORALL ? "forall" : "exists");
         put_slot(s->slot);
         proof_add(" \\in ");
-        put_sort(slot_sort[s->slot]);
+        put_sort(slot_data[s->slot].sort);
         proof_add("\\ (");
         put_sentence(s->a, 0, value, 0);
         proof_add(")");
@@ -28929,7 +29473,8 @@ static int chain_between(Chain *c, int a, int b, int stamp) {
  * negated e con gli elementi di value[] al posto delle variabili, arrivata
  * da parent nel modo origin. Ritorna il suo posto, o -1 se l'elenco è
  * pieno. Le negazioni in testa passano nel segno. */
-static int known_add(const Sentence *source, int negated, const short *value, Origin origin, int parent) {
+static int known_add(const Sentence *source, int negated, SlotValues value, Origin origin, int parent) {
+    if (work_allocation_failed) { exhausted = 1; return -1; }
     while (source->kind == S_NOT) { source = source->a; negated = !negated; }
     if (now->knowns == MAX_KNOWN) { exhausted = 1; return -1; }
     Known *k = &now->known[now->knowns];
@@ -28940,7 +29485,8 @@ static int known_add(const Sentence *source, int negated, const short *value, Or
     k->parent = (short)parent;
     k->left = k->right = -1;
     k->stamp = now->clock++;
-    memcpy(k->value, value, sizeof k->value);
+    k->value = slot_values_copy(value);
+    if (work_allocation_failed) { exhausted = 1; return -1; }
     memset(k->part, -1, sizeof k->part);
     return now->knowns++;
 }
@@ -28965,7 +29511,7 @@ static int sentence_parts(const Sentence *s, int negated, Parts *p) {
 /* Mette in tabella gli elementi nominati dai confronti di s che non stanno
  * sotto un quantificatore: così truth() li trova, e la chiusura per
  * congruenza li confronta con gli altri. */
-static void sentence_ground(const Sentence *s, const short *value) {
+static void sentence_ground(const Sentence *s, SlotValues value) {
     if (s->kind == S_FORALL || s->kind == S_EXISTS || s->kind == S_FORALL_PART || s->kind == S_EXISTS_PART || s->kind == S_TRUE ||
         s->kind == S_EQUIPOTENT)
         return;
@@ -28984,7 +29530,7 @@ static void sentence_ground(const Sentence *s, const short *value) {
  * classe, falso se si sa che sono diversi; i connettivi seguono le tavole
  * di verità, dove "non si sa" resta tale a meno che l'altra parte decida;
  * di un quantificatore non si sa mai nulla. Va chiamata dopo closure(). */
-static int truth(const Sentence *s, int negated, const short *value) {
+static int truth(const Sentence *s, int negated, SlotValues value) {
     int a, b, known = -1;
     switch (s->kind) {
     case S_TRUE:
@@ -29051,8 +29597,8 @@ static int ground_generation(int id) {
  * 1 se k viene, attraverso le sue parti, da un'istanza; al più 255. */
 static int known_generation(const Known *k) {
     int generation = 0, instance = 0;
-    for (int v = 0; v < MAX_SLOTS; v++) {
-        int inner = k->value[v] > 0 ? ground_generation(k->value[v]) : 0;
+    for (int v = 0; v < k->value.count; v++) {
+        int inner = slot_values_get(k->value, v) > 0 ? ground_generation(slot_values_get(k->value, v)) : 0;
         if (inner > generation) generation = inner;
     }
     for (const Known *p = k; !instance && p; p = p->parent >= 0 ? &now->known[p->parent] : NULL) instance = p->origin == K_INSTANCE;
@@ -29332,7 +29878,7 @@ static Elem *map_apply(int symbol, Elem *const *arg, int count) {
 }
 
 /* 28q. Ritorna l'insieme della componente i del lato k dell'equipotenza e. */
-static int side_sort(const Sentence *e, int k, int i) { return slot_sort[e->side_slot[k][i]]; }
+static int side_sort(const Sentence *e, int k, int i) { return slot_data[e->side_slot[k][i]].sort; }
 
 /* 28q. Ritorna il nome interno della lettera greca word (greek_letters[],
  * 17o). */
@@ -29475,8 +30021,8 @@ static void known_open(int i) {
 
     /* 28-2. Un nome nuovo: la lettera della variabile, con il primo pedice
      * che non sia già di un altro simbolo. */
-    Symbol name = {slot_letter[s->slot], 0, 0, {0, 0}, slot_sort[s->slot], 0, 0};
-    short value[MAX_SLOTS];
+    Symbol name = {slot_data[s->slot].letter, 0, 0, {0, 0}, slot_data[s->slot].sort, 0, 0};
+    SlotValues value = SLOT_VALUES_EMPTY;
     while (symbol_find(name.name, name.index) >= 0) name.index++;
     if (symbol_count == MAX_SYMBOLS) { exhausted = 1; return; }
     symbols[symbol_count] = name;
@@ -29484,9 +30030,10 @@ static void known_open(int i) {
     symbol_generation[symbol_count] = (unsigned char)known_generation(k);
     name_serial[symbol_count] = ++names_given;
     name_known[symbol_count] = -1;
-    memcpy(value, k->value, sizeof value);
-    value[s->slot] = (short)ground_lookup(symbol_count, -1, -1, G_CREATE);
-    if (value[s->slot] >= 0) name_known[symbol_count] = known_add(s->a, k->negated, value, K_NAMED, i);
+    value = slot_values_copy(k->value);
+    if (work_allocation_failed) { exhausted = 1; return; }
+    value.data[s->slot] = (short)ground_lookup(symbol_count, -1, -1, G_CREATE);
+    if (slot_values_get(value, s->slot) >= 0) name_known[symbol_count] = known_add(s->a, k->negated, value, K_NAMED, i);
     symbol_count++;
 }
 
@@ -29575,11 +30122,17 @@ typedef struct {
 /* Aggiunge all'elenco l'istanza di rule con gli elementi di value[] al
  * posto delle sue variabili, se non c'è già: due istanze su elementi uguali
  * per ciò che si sa sono la stessa. Ritorna 1 se l'ha aggiunta. */
-static int instance_add(const Rule *rule, const short *value) {
+static int instance_add(const Rule *rule, SlotValues value) {
+    if (work_allocation_failed) return 0;
+    for (int j = 0; j < rule->slots; j++)
+        if (slot_values_get(value, rule->slot[j]) < 0) return 0;
     for (int i = rule->known + 1; i < now->knowns; i++) {
         const Known *k = &now->known[i];
         int same = k->parent == rule->known && k->origin == K_INSTANCE;
-        for (int j = 0; j < rule->slots && same; j++) same = now->rep[k->value[rule->slot[j]]] == now->rep[value[rule->slot[j]]];
+        for (int j = 0; j < rule->slots && same; j++) {
+            int a = slot_values_get(k->value, rule->slot[j]), b = slot_values_get(value, rule->slot[j]);
+            same = a >= 0 && now->rep[a] == now->rep[b];
+        }
         if (same) return 0;
     }
     return known_add(rule->body, rule->negated, value, K_INSTANCE, rule->known) >= 0;
@@ -29587,8 +30140,9 @@ static int instance_add(const Rule *rule, const short *value) {
 
 /* Ritorna le variabili che compaiono nell'elemento e, come bit. */
 static SlotSet elem_slots(const Elem *e) {
-    if (e->symbol < 0) return SLOT_BIT(e->slot);
-    return (e->arg[0] ? elem_slots(e->arg[0]) : 0) | (e->arg[1] ? elem_slots(e->arg[1]) : 0);
+    if (!e) return SLOT_EMPTY;
+    if (e->symbol < 0) return slot_set_single(e->slot);
+    return slot_set_union(elem_slots(e->arg[0]), elem_slots(e->arg[1]));
 }
 
 /* Confronto di uno schema con gli elementi presenti. Cerca ogni modo di
@@ -29604,16 +30158,16 @@ static SlotSet elem_slots(const Elem *e) {
  * ciò che ha di fronte, un elemento con lo stesso simbolo: ce ne possono
  * essere più d'uno, e si provano tutti. È così che (x \perp y) \perp z
  * trova e \perp c quando si sa che e = b \perp a: x = b, y = a, z = c. */
-static int instance_match(const Rule *rule, const Elem **pattern, short *target, int count, short *value) {
+static int instance_match(const Rule *rule, const Elem **pattern, short *target, int count, SlotValues value) {
     if (count == 0) return instance_add(rule, value);
     const Elem *p = pattern[count - 1];
     int facing = target[count - 1], made = 0;
     if (p->symbol < 0) {
-        int fixed = value[p->slot];
+        int fixed = slot_values_get(value, p->slot);
         if (fixed >= 0) return now->rep[fixed] == now->rep[facing] ? instance_match(rule, pattern, target, count - 1, value) : 0;
-        value[p->slot] = (short)facing;
+        value.data[p->slot] = (short)facing;
         made = instance_match(rule, pattern, target, count - 1, value);
-        value[p->slot] = -1;
+        value.data[p->slot] = -1;
         return made;
     }
     for (int id = 1; id < now->grounds && !exhausted && count < MAX_PATTERN; id++) {
@@ -29634,15 +30188,18 @@ static int instance_match(const Rule *rule, const Elem **pattern, short *target,
  * Ritorna quante ne ha aggiunte. */
 static int instance_rewrite_elem(const Rule *rule, const Elem *e) {
     const Elem *pattern[MAX_PATTERN];
-    short target[MAX_PATTERN], value[MAX_SLOTS];
+    short target[MAX_PATTERN];
+    SlotValues value = SLOT_VALUES_EMPTY;
     int made = 0;
     if (e->symbol < 0) return 0;
     for (int i = 0; i < 2 && e->arg[i]; i++) made += instance_rewrite_elem(rule, e->arg[i]);
-    if (!e->arg[0] || symbols[e->symbol].range == TRUTH || (elem_slots(e) & rule->all) != rule->all) return made;
+    if (!e->arg[0] || symbols[e->symbol].range == TRUTH || !slot_set_includes(elem_slots(e), rule->all)) return made;
+    value = slot_values_copy(now->known[rule->known].value);
+    if (work_allocation_failed) return 0;
     for (int id = 1, last = now->grounds; id < last && !exhausted; id++) {
         if (ground[id].symbol != e->symbol) continue;
         int count = 0;
-        memcpy(value, now->known[rule->known].value, sizeof value);
+        slot_values_load(value, now->known[rule->known].value);
         for (int i = 0; i < 2 && e->arg[i]; i++) { pattern[count] = e->arg[i]; target[count++] = ground[id].arg[i]; }
         made += instance_match(rule, pattern, target, count, value);
     }
@@ -29661,9 +30218,9 @@ static int instance_rewrite(const Rule *rule, const Sentence *s) {
  * posto di un elemento uguale a lui per ciò che si sa, o un numero negativo
  * se non c'è; annota in *missing se l'istanza introdurrebbe un elemento
  * nuovo. Un elemento con un nome c'è sempre: l'enunciato lo dà. */
-static int instance_elem(const Elem *e, const short *value, int *missing) {
+static int instance_elem(const Elem *e, SlotValues value, int *missing) {
     int arg[2] = {-1, -1};
-    if (e->symbol < 0) return value[e->slot] >= 0 ? value[e->slot] : -2;
+    if (e->symbol < 0) return slot_values_get(value, e->slot) >= 0 ? slot_values_get(value, e->slot) : -2;
     for (int i = 0; i < 2 && e->arg[i]; i++) {
         arg[i] = instance_elem(e->arg[i], value, missing);
         if (arg[i] < 0) return arg[i];
@@ -29676,7 +30233,7 @@ static int instance_elem(const Elem *e, const short *value, int *missing) {
 /* Come instance_elem(), per tutti i confronti della condizione s che non
  * stanno sotto un quantificatore; annota in più in *decided se di uno di
  * quei confronti si sa già se è vero o falso. */
-static void instance_survey(const Sentence *s, const short *value, int *missing, int *decided) {
+static void instance_survey(const Sentence *s, SlotValues value, int *missing, int *decided) {
     if (s->kind == S_FORALL || s->kind == S_EXISTS || part_quantifier(s) || s->kind == S_TRUE || s->kind == S_EQUIPOTENT) return;
     if (s->kind == S_EQUAL || s->kind == S_HOLDS) {
         int a = instance_elem(s->left, value, missing), b = s->kind == S_EQUAL ? instance_elem(s->right, value, missing) : 0;
@@ -29695,7 +30252,7 @@ static void instance_survey(const Sentence *s, const short *value, int *missing,
  * le altre aspettano che se ne sappia di più. Ritorna 1 se l'istanza di
  * rule con gli elementi di value[] è da tenere. */
 static int split_lookahead;
-static int instance_guarded(const Rule *rule, const short *value) {
+static int instance_guarded(const Rule *rule, SlotValues value) {
     int unknown = 0;
     if (rule->negated) return 1;
     for (const Sentence *s = rule->body; s->kind == S_IMPLIES; s = s->b) {
@@ -29719,7 +30276,7 @@ static int instance_choices(const Rule *rule, int named) {
     for (int j = 0; j < rule->slots && choices <= MAX_TUPLES; j++) {
         candidates[j] = 0;
         for (int id = 1; id < now->grounds; id++) {
-            if (symbols[ground[id].symbol].range != slot_sort[rule->slot[j]] || (named && ground[id].arg[0] >= 0)) continue;
+            if (symbols[ground[id].symbol].range != slot_data[rule->slot[j]].sort || (named && ground[id].arg[0] >= 0)) continue;
             if (law == LAW_COMPREHENSION && symbol_law[ground[id].symbol]) continue;
             int fresh = 1;
             for (int c = 0; c < candidates[j] && fresh; c++) fresh = now->rep[candidate[j][c]] != now->rep[id];
@@ -29729,12 +30286,15 @@ static int instance_choices(const Rule *rule, int named) {
     }
     if (choices == 0 || choices > (named ? MAX_FREE_TUPLES : MAX_TUPLES)) return 0;
 
+    SlotValues value;
+    value = slot_values_copy(now->known[rule->known].value);
+    if (work_allocation_failed) return 0;
+
     /* Ogni scelta, come un contachilometri. */
     for (int more = 1; more && !exhausted; ) {
-        short value[MAX_SLOTS];
         int missing = 0, decided = 0;
-        memcpy(value, now->known[rule->known].value, sizeof value);
-        for (int j = 0; j < rule->slots; j++) value[rule->slot[j]] = candidate[j][pick[j]];
+        slot_values_load(value, now->known[rule->known].value);
+        for (int j = 0; j < rule->slots; j++) value.data[rule->slot[j]] = candidate[j][pick[j]];
         if (!named) instance_survey(rule->body, value, &missing, &decided);
         int kept = !split_lookahead || rule->slots < 2 || instance_guarded(rule, value);
         if (kept && (named || (!missing && decided))) made += instance_add(rule, value);
@@ -29804,12 +30364,13 @@ static int instance_trigger(const Rule *rule, const Sentence *s, int *budget) {
     if (s->kind != S_EQUAL) return made;
     for (int side = 0; side < 2; side++) {
         const Elem *bare = side ? s->right : s->left, *pattern = side ? s->left : s->right;
-        if (bare->symbol >= 0 || bare->slot != slot || pattern->symbol < 0 || (elem_slots(pattern) & rule->all)) continue;
+        if (bare->symbol >= 0 || bare->slot != slot || pattern->symbol < 0 || slot_set_intersects(elem_slots(pattern), rule->all)) continue;
+        SlotValues value = slot_values_copy(now->known[rule->known].value);
+        if (work_allocation_failed) return made;
         for (int id = 1, last = now->grounds; id < last && *budget > 0 && !exhausted; id++) {
             if (!ground_fits(id, pattern)) continue;
-            short value[MAX_SLOTS];
-            memcpy(value, now->known[rule->known].value, sizeof value);
-            value[slot] = (short)id;
+            slot_values_load(value, now->known[rule->known].value);
+            value.data[slot] = (short)id;
             if (instance_add(rule, value)) { made++; --*budget; }
         }
     }
@@ -29825,11 +30386,13 @@ static int instance_trigger(const Rule *rule, const Sentence *s, int *budget) {
  * per prime. Ritorna quante istanze ha aggiunto. */
 static int instance_definition(const Rule *rule) {
     int part = now->known[rule->known].part[0], made = 0;
+    SlotValues value;
+    value = slot_values_copy(now->known[rule->known].value);
+    if (work_allocation_failed) return 0;
     for (int id = 1, last = now->grounds; id < last && !exhausted; id++) {
         if (ground[id].symbol != part) continue;
-        short value[MAX_SLOTS];
-        memcpy(value, now->known[rule->known].value, sizeof value);
-        value[rule->slot[0]] = ground[id].arg[0];
+        slot_values_load(value, now->known[rule->known].value);
+        value.data[rule->slot[0]] = ground[id].arg[0];
         made += instance_add(rule, value);
     }
     return made;
@@ -29993,8 +30556,8 @@ static Elem *bij_apply(int t, Elem *x, int back) {
 /* 28q. Aggiunge al ramo la definizione spec dell'applicazione nuova map
  * (K_MAPDEF), e ritorna 0 se non c'è posto. */
 static int mapdef_add(Sentence *spec, int map) {
-    short nothing[MAX_SLOTS];
-    memset(nothing, -1, sizeof nothing);
+    SlotValues nothing = SLOT_VALUES_EMPTY;
+
     int i = known_add(spec, 0, nothing, K_MAPDEF, -1);
     if (i < 0) return 0;
     now->known[i].part[0] = (short)map;
@@ -30115,12 +30678,15 @@ static int bijection_witness(int r) {
  * l'applicazione compare. Ritorna quante istanze ha aggiunto. */
 static int instance_mapdef(const Rule *rule) {
     const Elem *shape = rule->body->kind == S_IFF ? rule->body->a->left : rule->body->left, *pattern[MAX_PATTERN];
-    short target[MAX_PATTERN], value[MAX_SLOTS];
+    short target[MAX_PATTERN];
+    SlotValues value = SLOT_VALUES_EMPTY;
     int made = 0;
+    value = slot_values_copy(now->known[rule->known].value);
+    if (work_allocation_failed) return 0;
     for (int id = 1, last = now->grounds; id < last && !exhausted; id++) {
         if (ground[id].symbol != shape->symbol) continue;
         int count = 0;
-        memcpy(value, now->known[rule->known].value, sizeof value);
+        slot_values_load(value, now->known[rule->known].value);
         for (int i = 0; i < 2 && shape->arg[i]; i++) { pattern[count] = shape->arg[i]; target[count++] = ground[id].arg[i]; }
         made += instance_match(rule, pattern, target, count, value);
     }
@@ -30247,9 +30813,9 @@ static long long candidate_steps;
  * perché non lo è un suo argomento). Una parte o una relazione applicata
  * vale la classe di "vero" quando si sa che vale. Va chiamata dopo
  * closure(), come ground_lookup() con G_CLASS. */
-static int candidate_term(const Elem *e, const short *value) {
+static int candidate_term(const Elem *e, SlotValues value) {
     int arg[2] = {-1, -1};
-    if (e->symbol < 0) return value[e->slot] >= 0 ? now->rep[value[e->slot]] : CANDIDATE_ELSE;
+    if (e->symbol < 0) return slot_values_get(value, e->slot) >= 0 ? now->rep[slot_values_get(value, e->slot)] : CANDIDATE_ELSE;
     for (int i = 0; i < 2 && e->arg[i]; i++) {
         arg[i] = candidate_term(e->arg[i], value);
         if (arg[i] == CANDIDATE_ELSE) return CANDIDATE_ELSE;
@@ -30264,7 +30830,7 @@ static int candidate_term(const Elem *e, const short *value) {
  * le sceglie 28k), né nulla oltre MAX_CANDIDATE_STEPS passi; un connettivo
  * con una parte che non si calcola vale -1, a meno che l'altra lo decida.
  * value[] viene usato anche per le variabili che s lega, e rimesso com'era. */
-static int candidate_holds(const Sentence *s, short *value) {
+static int candidate_holds(const Sentence *s, SlotValues value) {
     int a, b = -1;
     if (++candidate_steps > MAX_CANDIDATE_STEPS) return -1;
     switch (s->kind) {
@@ -30293,15 +30859,15 @@ static int candidate_holds(const Sentence *s, short *value) {
         return a < 0 || b < 0 ? -1 : a == b;
     case S_FORALL: case S_EXISTS: {
         /* Ogni elemento del modello, finché uno decide. */
-        int sort = slot_sort[s->slot], every = s->kind == S_FORALL, result = every;
-        short saved = value[s->slot];
+        int sort = slot_data[s->slot].sort, every = s->kind == S_FORALL, result = every;
+        short saved = slot_values_get(value, s->slot);
         for (int i = 0; i < candidate_size[sort] && result != !every; i++) {
-            value[s->slot] = candidate_domain[sort][i];
+            value.data[s->slot] = candidate_domain[sort][i];
             int v = candidate_holds(s->a, value);
             if (v < 0) result = -1;
             else if (v != every) result = !every;
         }
-        value[s->slot] = saved;
+        value.data[s->slot] = saved;
         return result;
     }
     case S_FORALL_PART: case S_EXISTS_PART: case S_EQUIPOTENT:
@@ -30352,18 +30918,19 @@ static int candidate_complete(void) {
 static int instance_model(const Rule *rule) {
     int pick[MAX_BOUND] = {0};
     long long tuples = 1;
-    short value[MAX_SLOTS];
-    for (int j = 0; j < rule->slots; j++) tuples *= candidate_size[slot_sort[rule->slot[j]]];
+    SlotValues value = SLOT_VALUES_EMPTY;
+    for (int j = 0; j < rule->slots; j++) tuples *= candidate_size[slot_data[rule->slot[j]].sort];
     if (!tuples || tuples > MAX_TUPLES) return 0;
-    memcpy(value, now->known[rule->known].value, sizeof value);
+    value = slot_values_copy(now->known[rule->known].value);
+    if (work_allocation_failed) return 0;
     for (int more = 1; more && !exhausted && candidate_steps <= MAX_CANDIDATE_STEPS; ) {
-        for (int j = 0; j < rule->slots; j++) value[rule->slot[j]] = candidate_domain[slot_sort[rule->slot[j]]][pick[j]];
+        for (int j = 0; j < rule->slots; j++) value.data[rule->slot[j]] = candidate_domain[slot_data[rule->slot[j]].sort][pick[j]];
 
         /* Falsa: il valore opposto al segno con cui il corpo è noto. */
         if (candidate_holds(rule->body, value) == rule->negated && instance_add(rule, value)) return 1;
         more = 0;
         for (int j = 0; j < rule->slots && !more; j++) {
-            if (++pick[j] < candidate_size[slot_sort[rule->slot[j]]]) more = 1; else pick[j] = 0;
+            if (++pick[j] < candidate_size[slot_data[rule->slot[j]].sort]) more = 1; else pick[j] = 0;
         }
     }
     return 0;
@@ -30390,10 +30957,10 @@ static int instantiate(void) {
          * falsa il suo testimone (28q-2). */
         if (now->known[r].stage != K_RULE || part_quantifier(now->known[r].source)) continue;
         if (now->known[r].source->kind == S_EQUIPOTENT) { made += bijection_witness(r); continue; }
-        Rule rule = {r, {0}, 0, 0, now->known[r].source, now->known[r].negated};
+        Rule rule = {r, {0}, 0, SLOT_EMPTY, now->known[r].source, now->known[r].negated};
         while (rule.slots < MAX_BOUND && (rule.body->kind == S_FORALL || rule.body->kind == S_EXISTS) &&
                (rule.body->kind == S_FORALL) != rule.negated) {
-            rule.all |= SLOT_BIT(rule.body->slot);
+            rule.all = slot_set_with(rule.all, rule.body->slot);
             rule.slot[rule.slots++] = rule.body->slot;
             rule.body = rule.body->a;
         }
@@ -30444,7 +31011,7 @@ typedef struct {
  * elementi di value[] al posto delle variabili, usando solo i fatti con
  * numero d'ordine minore di stamp. Ogni catena trovata è già stata
  * ricontrollata anello per anello (chain_between()). */
-static void literal_reason(const Sentence *s, const short *value, int stamp, Reason *reason) {
+static void literal_reason(const Sentence *s, SlotValues value, int stamp, Reason *reason) {
     int a = elem_ground(s->left, value, G_EXACT), b = s->kind == S_EQUAL ? elem_ground(s->right, value, G_EXACT) : 0;
     reason->value = -1;
     if (a < 0 || b < 0) return;
@@ -30588,7 +31155,7 @@ static void put_reason_labels(const Reason *reason) {
 /* Scrive perché il confronto s ha il valore che reason dice: la catena di
  * uguaglianze, se è un'uguaglianza vera con più di un anello, altrimenti
  * il confronto stesso; poi i fatti usati. */
-static void put_reason(const Sentence *s, const short *value, const Reason *reason) {
+static void put_reason(const Sentence *s, SlotValues value, const Reason *reason) {
     const Chain *c = &reason->chain[0];
     proof_add("$");
     if (reason->value && s->kind == S_EQUAL && c->links > 1) {
@@ -30609,19 +31176,18 @@ static int known_is(const Known *k, const Sentence *written, int negated) {
 }
 
 /* 28j. Ritorna 1 se l'elemento e non ha variabili libere fuori da bound (il
- * bit i per la variabile di posto i). Un SlotSet, e non un intero di 64 bit:
- * le variabili sono fino a MAX_SLOTS, e quelle delle definizioni di 28q
- * nascono per ultime. */
+ * bit i per la variabile di posto i). Il bitset cresce anche per le
+ * variabili nuove introdotte dalle definizioni di 28q. */
 static int elem_closed(const Elem *e, SlotSet bound) {
     if (!e) return 1;
-    if (e->symbol < 0) return bound >> e->slot & 1;
+    if (e->symbol < 0) return slot_set_contains(bound, e->slot);
     return elem_closed(e->arg[0], bound) && elem_closed(e->arg[1], bound);
 }
 
 /* 28j. Ritorna 1 se la condizione s non ha variabili libere fuori da bound. */
 static int sentence_closed(const Sentence *s, SlotSet bound) {
     if (!s) return 1;
-    if (s->kind == S_FORALL || s->kind == S_EXISTS) bound |= SLOT_BIT(s->slot);
+    if (s->kind == S_FORALL || s->kind == S_EXISTS) bound = slot_set_with(bound, s->slot);
     return elem_closed(s->left, bound) && elem_closed(s->right, bound) && sentence_closed(s->a, bound) && sentence_closed(s->b, bound);
 }
 
@@ -30632,9 +31198,9 @@ static int definition_derived(int i) {
     const Known *k = &now->known[i];
     const Sentence *s = k->source;
     int part = k->part[0];
-    if (k->negated || s->kind != S_FORALL || s->a->kind != S_IFF || s->a->a->kind != S_HOLDS || !sentence_closed(s, 0)) return 0;
+    if (k->negated || s->kind != S_FORALL || s->a->kind != S_IFF || s->a->a->kind != S_HOLDS || !sentence_closed(s, SLOT_EMPTY)) return 0;
     const Elem *member = s->a->a->left;
-    if (member->symbol != part || part < declared_symbols || !part_of(part, slot_sort[s->slot]) || member->arg[0]->symbol >= 0 ||
+    if (member->symbol != part || part < declared_symbols || !part_of(part, slot_data[s->slot].sort) || member->arg[0]->symbol >= 0 ||
         member->arg[0]->slot != s->slot || sentence_mentions(s->a->b, part))
         return 0;
     for (int j = 0; j < i; j++)
@@ -30656,8 +31222,8 @@ static int mentioned_before(int i, int symbol) {
     for (int j = 0; j < i; j++) {
         const Known *k = &now->known[j];
         if (sentence_mentions(k->source, symbol)) return 1;
-        for (int v = 0; v < MAX_SLOTS; v++)
-            if (k->value[v] > 0 && ground_mentions(k->value[v], symbol)) return 1;
+        for (int v = 0; v < k->value.count; v++)
+            if (slot_values_get(k->value, v) > 0 && ground_mentions(slot_values_get(k->value, v), symbol)) return 1;
     }
     return 0;
 }
@@ -30672,7 +31238,7 @@ static int is_variable(const Elem *t, int slot) { return t && t->symbol < 0 && t
  * costruisce il motore, e questo è il loro controllo. */
 static int elem_typed(const Elem *e, int sort) {
     if (!e) return 0;
-    if (e->symbol < 0) return slot_sort[e->slot] == sort;
+    if (e->symbol < 0) return slot_data[e->slot].sort == sort;
     const Symbol *s = &symbols[e->symbol];
     if (s->range != sort) return 0;
     for (int a = 0; a < 2; a++)
@@ -30753,12 +31319,12 @@ static int bijection_derived(int i) {
  * d3 è nuova: non è tra quelle di bound. */
 static int spec_defines(const Sentence *spec, Elem *value, int sort, int map, SlotSet bound) {
     if (spec->kind == S_EQUAL) return elem_renamed(spec->left, value, NULL, NULL, 0) && !elem_mentions(spec->right, map);
-    if (spec->kind != S_FORALL || (bound >> spec->slot & 1) || (sort_kind[sort] != SORT_PARTS && sort_kind[sort] != SORT_MAPS) ||
-        slot_sort[spec->slot] != sort_base[sort])
+    if (spec->kind != S_FORALL || slot_set_contains(bound, spec->slot) || (sort_kind[sort] != SORT_PARTS && sort_kind[sort] != SORT_MAPS) ||
+        slot_data[spec->slot].sort != sort_base[sort])
         return 0;
     Elem *y = slot_elem(spec->slot);
     const Sentence *body = spec->a;
-    bound |= SLOT_BIT(spec->slot);
+    bound = slot_set_with(bound, spec->slot);
     if (sort_kind[sort] == SORT_MAPS) return spec_defines(body, elem_new(sort_symbol[sort], 0, value, y), sort_target[sort], map, bound);
     return body->kind == S_IFF && body->a->kind == S_HOLDS && elem_renamed(body->a->left, elem_new(sort_symbol[sort], 0, y, value), NULL, NULL, 0) &&
            !sentence_mentions(body->b, map);
@@ -30772,14 +31338,14 @@ static int mapdef_derived(int i) {
     const Known *k = &now->known[i];
     const Sentence *s = k->source;
     int map = k->part[0];
-    if (k->negated || map < declared_symbols || map >= symbol_count || !sentence_closed(s, 0) || !sentence_typed(s) || mentioned_before(i, map)) return 0;
+    if (k->negated || map < declared_symbols || map >= symbol_count || !sentence_closed(s, SLOT_EMPTY) || !sentence_typed(s) || mentioned_before(i, map)) return 0;
     const Symbol *f = &symbols[map];
     if (f->range == TRUTH || f->family || symbol_bound[map] || f->arity < 1) return 0;
     Elem *arg[2];
-    SlotSet bound = 0;
+    SlotSet bound = SLOT_EMPTY;
     for (int a = 0; a < f->arity; a++, s = s->a) {
-        if (s->kind != S_FORALL || slot_sort[s->slot] != f->domain[a] || (bound >> s->slot & 1)) return 0;
-        bound |= SLOT_BIT(s->slot);
+        if (s->kind != S_FORALL || slot_data[s->slot].sort != f->domain[a] || slot_set_contains(bound, s->slot)) return 0;
+        bound = slot_set_with(bound, s->slot);
         arg[a] = slot_elem(s->slot);
     }
     return spec_defines(s, map_apply(map, arg, f->arity), f->range, map, bound);
@@ -30847,8 +31413,8 @@ static int known_derived(int i) {
         /* Il corpo dei "per ogni" con cui parent comincia, con un elemento
          * del suo insieme al posto di ogni variabile. */
         while ((body->kind == S_FORALL || body->kind == S_EXISTS) && (body->kind == S_FORALL) != p->negated) {
-            int id = k->value[body->slot];
-            if (id < 1 || symbols[ground[id].symbol].range != slot_sort[body->slot] || !ground_sorted(id)) return 0;
+            int id = slot_values_get(k->value, body->slot);
+            if (id < 1 || symbols[ground[id].symbol].range != slot_data[body->slot].sort || !ground_sorted(id)) return 0;
             body = body->a;
         }
         return body != p->source && known_is(k, body, p->negated);
@@ -30857,10 +31423,10 @@ static int known_derived(int i) {
          * prima di questa lo usa. */
         if (part_quantifier(body)) return part_name_derived(i, p);
         if ((body->kind != S_FORALL && body->kind != S_EXISTS) || (body->kind == S_EXISTS) == p->negated) return 0;
-        if (k->value[body->slot] < 1 || ground[k->value[body->slot]].arg[0] >= 0) return 0;
+        if (slot_values_get(k->value, body->slot) < 1 || ground[slot_values_get(k->value, body->slot)].arg[0] >= 0) return 0;
         for (int j = 0; j < i; j++)
-            for (int v = 0; v < MAX_SLOTS; v++)
-                if (now->known[j].value[v] == k->value[body->slot]) return 0;
+            for (int v = 0; v < slot_count; v++)
+                if (slot_values_get(now->known[j].value, v) == slot_values_get(k->value, body->slot)) return 0;
         return known_is(k, body->a, p->negated);
     case K_CASE:
         /* Uno dei due casi di una disgiunzione. Per un "se e solo se" il
@@ -31045,8 +31611,8 @@ static int leaf_write(int leaf) {
         /* 28j. Le parti scelte, e i nomi che la condizione nomina (in una
          * copia o in una definizione), vanno presentati prima di usarli. */
         need_names(k->source);
-        for (int v = 0; v < MAX_SLOTS; v++)
-            if (k->value[v] > 0) need_ground_names(k->value[v]);
+        for (int v = 0; v < slot_count; v++)
+            if (slot_values_get(k->value, v) > 0) need_ground_names(slot_values_get(k->value, v));
         for (int j = 0; j < MAX_BOUND; j++)
             if (k->part[j] >= declared_symbols && name_known[k->part[j]] >= 0) needed[name_known[k->part[j]]] = 1;
         if ((k->origin == K_DEFINED && !definition_derived(i)) || (k->origin == K_MAPDEF && !mapdef_derived(i))) { unjustified_steps++; return 0; }
@@ -31081,7 +31647,7 @@ static int leaf_write(int leaf) {
                 proof_add("%s $", written++ ? "," : "");
                 put_slot(q->slot);
                 proof_add(" := ");
-                put_ground(k->value[q->slot], 0);
+                put_ground(slot_values_get(k->value, q->slot), 0);
                 proof_add("$");
             }
 
@@ -31103,25 +31669,25 @@ static int leaf_write(int leaf) {
             put_label(k->parent);
             if (some) proof_add(" there is such %s of $", part ? "a part" : "an element");
             else proof_add(" some %s of $", part ? "part" : "element");
-            put_sort(part ? symbols[q->part].domain[0] : slot_sort[q->slot]);
+            put_sort(part ? symbols[q->part].domain[0] : slot_data[q->slot].sort);
             proof_add(some ? "$; call it $" : "$ makes it fail; call it $");
-            if (part) put_symbol(k->part[0]); else put_ground(k->value[q->slot], 0);
+            if (part) put_symbol(k->part[0]); else put_ground(slot_values_get(k->value, q->slot), 0);
             proof_add("$. For it");
         } else if (k->origin == K_DEFINED) {
             /* 28j. La parte nuova, con la sua regola. */
             const Sentence *definition = k->source;
-            short nothing[MAX_SLOTS];
-            memset(nothing, -1, sizeof nothing);
+            SlotValues nothing = SLOT_VALUES_EMPTY;
+
             proof_add("Consider the part $");
             put_symbol(k->part[0]);
             proof_add(" = \\{");
             put_slot(definition->slot);
             proof_add(" \\in ");
-            put_sort(slot_sort[definition->slot]);
+            put_sort(slot_data[definition->slot].sort);
             proof_add(" \\mid ");
             put_sentence(definition->a->b, 0, nothing, 0);
             proof_add("\\}$ of $");
-            put_sort(slot_sort[definition->slot]);
+            put_sort(slot_data[definition->slot].sort);
             proof_add("$");
         } else if (k->origin == K_BIJECTION) {
             /* 28q-1: la biiezione con un nome; 28q-2: il testimone. */
@@ -31272,16 +31838,16 @@ static void cert_ground(int id) {
  * un simbolo: il lettore (17o, 17p) non lega mai una lettera che è il nome di
  * un simbolo in vista, e i nomi dati da 28-2 hanno il trattino basso. */
 static void cert_slot(int slot) {
-    cert_add("%c", slot_letter[slot]);
-    if (slot_index[slot]) cert_add("%d", index_digits(slot_index[slot]));
+    cert_add("%c", slot_data[slot].letter);
+    if (slot_data[slot].index) cert_add("%d", index_digits(slot_data[slot].index));
 }
 
 /* Scrive nel certificato l'elemento e, con gli elementi di value[] al posto
  * delle variabili sostituite. Una parte o una relazione applicata, (X a),
  * è nella notazione del verificatore anche la condizione che valga. */
-static void cert_elem(const Elem *e, const short *value) {
+static void cert_elem(const Elem *e, SlotValues value) {
     if (e->symbol < 0) {
-        if (value[e->slot] >= 0) cert_ground(value[e->slot]); else cert_slot(e->slot);
+        if (slot_values_get(value, e->slot) >= 0) cert_ground(slot_values_get(value, e->slot)); else cert_slot(e->slot);
         return;
     }
     if (e->arg[0]) cert_add("(");
@@ -31293,7 +31859,7 @@ static void cert_elem(const Elem *e, const short *value) {
 /* Scrive nel certificato la condizione s, con gli elementi di value[] al
  * posto delle variabili sostituite. Una dichiarazione è "true": i simboli
  * dichiarati sono nelle voci symbol. */
-static void cert_sentence(const Sentence *s, const short *value) {
+static void cert_sentence(const Sentence *s, SlotValues value) {
     static const char *const word[] = {[S_NOT] = "not", [S_AND] = "and", [S_OR] = "or", [S_IMPLIES] = "implies", [S_IFF] = "iff"};
     switch (s->kind) {
     case S_TRUE:
@@ -31304,7 +31870,7 @@ static void cert_sentence(const Sentence *s, const short *value) {
         cert_add("(equipotent");
         for (int k = 0; k < 2; k++) {
             cert_add(s->sides[k] == 2 ? " (" : " ");
-            for (int i = 0; i < s->sides[k]; i++) { if (i) cert_add(" "); cert_sort(slot_sort[s->side_slot[k][i]]); }
+            for (int i = 0; i < s->sides[k]; i++) { if (i) cert_add(" "); cert_sort(slot_data[s->side_slot[k][i]].sort); }
             if (s->sides[k] == 2) cert_add(")");
         }
         cert_add(")");
@@ -31323,7 +31889,7 @@ static void cert_sentence(const Sentence *s, const short *value) {
         cert_add("(%s ", s->kind == S_FORALL ? "forall" : "exists");
         cert_slot(s->slot);
         cert_add(" ");
-        cert_sort(slot_sort[s->slot]);
+        cert_sort(slot_data[s->slot].sort);
         cert_add(" ");
         cert_sentence(s->a, value);
         cert_add(")");
@@ -31357,8 +31923,8 @@ static void cert_sentence(const Sentence *s, const short *value) {
  * insiemi (con il numero di elementi del modello m, se c'è), i simboli
  * dichiarati, l'enunciato. */
 static void cert_abstract_head(const char *kind, const Sentence *root, const Model *m) {
-    short nothing[MAX_SLOTS];
-    memset(nothing, -1, sizeof nothing);
+    SlotValues nothing = SLOT_VALUES_EMPTY;
+
     certificate_length = 0;
     certificate_broken = 0;
     cert_add("certificate %s\n", kind);
@@ -31380,7 +31946,7 @@ static void cert_abstract_head(const char *kind, const Sentence *root, const Mod
             cert_add(" ");
             cert_symbol(sort_symbol[i]);
         } else if (m) {
-            cert_add(" %d", m->size[i]);
+            cert_add(" %zu", m->size[i]);
         }
         cert_add("\n");
     }
@@ -31411,10 +31977,10 @@ static void cert_names_in(int id) {
 /* 28j. Come cert_names_in(), per i nomi che compaiono nell'elemento e: i
  * suoi simboli (una copia o una definizione ne hanno di dati dalla
  * dimostrazione) e gli elementi di value[] al posto delle sue variabili. */
-static void cert_names_in_elem(const Elem *e, const short *value) {
+static void cert_names_in_elem(const Elem *e, SlotValues value) {
     if (!e) return;
     if (e->symbol < 0) {
-        if (value[e->slot] >= 0) cert_names_in(value[e->slot]);
+        if (slot_values_get(value, e->slot) >= 0) cert_names_in(slot_values_get(value, e->slot));
         return;
     }
     if (e->symbol >= declared_symbols) cert_witness(e->symbol);
@@ -31423,7 +31989,7 @@ static void cert_names_in_elem(const Elem *e, const short *value) {
 }
 
 /* 28j. Come cert_names_in_elem(), per tutti gli elementi della condizione s. */
-static void cert_names_in_sentence(const Sentence *s, const short *value) {
+static void cert_names_in_sentence(const Sentence *s, SlotValues value) {
     if (!s) return;
     cert_names_in_elem(s->left, value);
     cert_names_in_elem(s->right, value);
@@ -31479,15 +32045,15 @@ static void cert_witness(int symbol) {
         cert_add(" ");
         cert_slot(definition->slot);
         cert_add(" ");
-        cert_sort(slot_sort[definition->slot]);
+        cert_sort(slot_data[definition->slot].sort);
         cert_add(" ");
         cert_sentence(definition->a->b, named->value);
         cert_add("\n");
         return;
     }
     const Known *p = &now->known[named->parent];
-    for (int v = 0; v < MAX_SLOTS; v++)
-        if (p->value[v] >= 0) cert_names_in(p->value[v]);
+    for (int v = 0; v < slot_count; v++)
+        if (slot_values_get(p->value, v) >= 0) cert_names_in(slot_values_get(p->value, v));
     cert_names_in_sentence(p->source, p->value);
     cert_add("witness ");
     cert_sentence(p->source, p->value);
@@ -31522,19 +32088,19 @@ static void cert_leaf(void) {
         }
         const Known *p = &now->known[k->parent];
         if (k->origin == K_NAMED) {
-            cert_witness(part_quantifier(p->source) ? k->part[0] : ground[k->value[p->source->slot]].symbol);
+            cert_witness(part_quantifier(p->source) ? k->part[0] : ground[slot_values_get(k->value, p->source->slot)].symbol);
             continue;
         }
-        for (int v = 0; v < MAX_SLOTS; v++)
-            if (k->value[v] >= 0) cert_names_in(k->value[v]);
+        for (int v = 0; v < slot_count; v++)
+            if (slot_values_get(k->value, v) >= 0) cert_names_in(slot_values_get(k->value, v));
         cert_names_in_sentence(p->source, p->value);
         for (int j = 0; j < MAX_BOUND; j++)
             if (k->part[j] >= declared_symbols) cert_witness(k->part[j]);
         cert_add("instance ");
         cert_sentence(p->source, p->value);
-        for (const Sentence *q = p->source; (q->kind == S_FORALL || q->kind == S_EXISTS) && k->value[q->slot] >= 0; q = q->a) {
+        for (const Sentence *q = p->source; (q->kind == S_FORALL || q->kind == S_EXISTS) && slot_values_get(k->value, q->slot) >= 0; q = q->a) {
             cert_add(" ");
-            cert_ground(k->value[q->slot]);
+            cert_ground(slot_values_get(k->value, q->slot));
         }
 
         /* 28j. Per un "per ogni parte", i nomi delle parti scelte. */
@@ -31549,11 +32115,11 @@ static void cert_leaf(void) {
 
 /* Dà al verificatore il certificato appena scritto, e ne riporta la
  * risposta in verdict. Accettato: il verdetto porta il certificato.
- * Respinto: è un errore del programma, unjustified_steps lo conta, e il
- * verdetto diventa NON DIMOSTRATO. Non controllabile, o troppo lungo da
- * scrivere: con required il verdetto diventa NON DIMOSTRATO, altrimenti
- * resta, e dice perché il certificato manca. */
-static Verdict abstract_certified(Verdict verdict, int required) {
+ * Respinto: è un errore del programma, unjustified_steps lo conta.
+ * Respinto, non controllabile o incompleto: il verdetto diventa sempre
+ * NON DIMOSTRATO. Questo linguaggio copre l'enunciato: esaurire le risorse
+ * del verificatore non equivale ad averne ottenuto l'accettazione. */
+static Verdict abstract_certified(Verdict verdict) {
     const char *text = certificate_text, *why = "è più lungo di quanto il programma sappia scrivere";
     CkAnswer answer = certificate_broken ? CK_UNSUPPORTED : ck_check(&text, &why);
     if (answer == CK_ACCEPTED) {
@@ -31564,10 +32130,8 @@ static Verdict abstract_certified(Verdict verdict, int required) {
              answer == CK_REJECTED ? "ha respinto" : "non sa controllare", why);
     verdict.reason = certificate_problem;
     if (answer == CK_REJECTED) unjustified_steps++;
-    if (answer == CK_REJECTED || required) {
-        verdict.outcome = NOT_PROVED;
-        verdict.proof = verdict.detail = NULL;
-    }
+    verdict.outcome = NOT_PROVED;
+    verdict.proof = verdict.detail = verdict.certificate = NULL;
     return verdict;
 }
 
@@ -31675,7 +32239,7 @@ static void sentence_free(const Sentence *s, SlotSet bound, SlotSet *free);
  * bound, cioè non legate dentro l'insieme di cui e fa parte. */
 static void elem_free(const Elem *e, SlotSet bound, SlotSet *free) {
     if (!e) return;
-    if (e->symbol < 0) { if (!(bound >> e->slot & 1)) *free |= SLOT_BIT(e->slot); return; }
+    if (e->symbol < 0) { if (!slot_set_contains(bound, e->slot)) *free = slot_set_with(*free, e->slot); return; }
     elem_free(e->arg[0], bound, free);
     elem_free(e->arg[1], bound, free);
 }
@@ -31685,7 +32249,7 @@ static void elem_free(const Elem *e, SlotSet bound, SlotSet *free) {
  * legate dentro di lui. */
 static void set_term_free(const SetTerm *t, SlotSet bound, SlotSet *free) {
     if (!t) return;
-    for (int i = 0; i < t->bounds; i++) bound |= SLOT_BIT(t->bound[i]);
+    for (int i = 0; i < t->bounds; i++) bound = slot_set_with(bound, t->bound[i]);
     for (int i = 0; i < t->items; i++) elem_free(t->item[i], bound, free);
     set_term_free(t->a, bound, free);
     set_term_free(t->b, bound, free);
@@ -31695,7 +32259,7 @@ static void set_term_free(const SetTerm *t, SlotSet bound, SlotSet *free) {
 /* Come elem_free(), per una condizione. */
 static void sentence_free(const Sentence *s, SlotSet bound, SlotSet *free) {
     if (!s) return;
-    if (s->kind == S_FORALL || s->kind == S_EXISTS || s->kind == S_UNIQUE) bound |= SLOT_BIT(s->slot);
+    if (s->kind == S_FORALL || s->kind == S_EXISTS || s->kind == S_UNIQUE) bound = slot_set_with(bound, s->slot);
     elem_free(s->left, bound, free);
     elem_free(s->right, bound, free);
     for (int i = 0; i < s->items; i++) elem_free(s->item[i], bound, free);
@@ -31711,18 +32275,26 @@ static void sentence_free(const Sentence *s, SlotSet bound, SlotSet *free) {
  * t \in e è svolta come in 17q, con lettere nuove al posto di quelle
  * libere, così l'assioma non condivide variabili con l'enunciato. */
 static void axiom_template(const SetTerm *e) {
-    int sort = sort_derived_find(SORT_PARTS, e->sort[0], -1), z, t, slot[MAX_SLOTS], count = 0;
-    SlotSet free = 0;
+    int sort = sort_derived_find(SORT_PARTS, e->sort[0], -1), z, t, count = 0, original_slots = slot_count;
+    SlotSet free = SLOT_EMPTY;
     if (sort < 0) return;
-    set_term_free(e, 0, &free);
-    for (int v = 0; v < MAX_SLOTS; v++)
-        if (free >> v & 1) { unfold_to[v] = axiom_variable(slot_sort[v], &slot[count]); count++; }
+    set_term_free(e, SLOT_EMPTY, &free);
+    int *slot = work_arena_array((size_t)original_slots, sizeof *slot);
+    if (work_allocation_failed) return;
+    for (int v = 0; v < original_slots; v++)
+        if (slot_set_contains(free, v)) {
+            /* Creare la variabile puo riallocare unfold_to; prima il valore,
+             * poi si cerca la cella di destinazione. */
+            Elem *replacement = axiom_variable(slot_data[v].sort, &slot[count]);
+            unfold_to[v] = replacement;
+            count++;
+        }
     Elem *part = axiom_variable(sort, &z), *point = axiom_variable(e->sort[0], &t);
     Sentence *from = axiom_join(S_TRUE, NULL, NULL);
     unfold_copying++;
     Sentence *condition = unfold_member(&point, e, from);
     unfold_copying--;
-    memset(unfold_to, 0, sizeof unfold_to);
+    if (unfold_capacity) memset(unfold_to, 0, unfold_capacity * sizeof *unfold_to);
     Sentence *law = axiom_bind(S_EXISTS, z, axiom_bind(S_FORALL, t, axiom_join(S_IFF, axiom_atom(S_HOLDS, sort_symbol[sort], point, part), condition)));
     while (count > 0) law = axiom_bind(S_FORALL, slot[--count], law);
     axiom_add(law, LAW_COMPREHENSION);
@@ -31800,8 +32372,8 @@ static int axioms_extensional(void) {
 /* Scrive nel certificato una voce axiom per ogni assioma (28f, 11h in
  * checker.c). */
 static void cert_axioms(void) {
-    short nothing[MAX_SLOTS];
-    memset(nothing, -1, sizeof nothing);
+    SlotValues nothing = SLOT_VALUES_EMPTY;
+
     for (int i = 0; i < axiom_count; i++) {
         cert_add("axiom ");
         cert_sentence(axioms[i], nothing);
@@ -32033,7 +32605,7 @@ static Sentence *candidate_rule(const PartCandidate *c, int x) {
  * definizione "per ogni x di S, x sta nella parte se e solo se c(x)"
  * (K_DEFINED, 28j). Ritorna il simbolo, o -1. */
 static int part_define(const PartCandidate *candidate, int letter) {
-    short nothing[MAX_SLOTS];
+    SlotValues nothing = SLOT_VALUES_EMPTY;
     int x = definition_variable(candidate->sort, 0);
     Sentence *rule = x >= 0 ? candidate_rule(candidate, x) : NULL;
     if (!rule || exhausted) return -1;
@@ -32050,7 +32622,7 @@ static int part_define(const PartCandidate *candidate, int letter) {
     member->left = elem_new(part, 0, elem_new(-1, x, NULL, NULL), NULL);
     Sentence *definition = sentence_new(S_FORALL, sentence_new(S_IFF, member, rule, NULL), NULL, NULL);
     definition->slot = x;
-    memset(nothing, -1, sizeof nothing);
+
     int at = known_add(definition, 0, nothing, K_DEFINED, -1);
     if (at < 0) return -1;
     now->known[at].part[0] = (short)part;
@@ -32345,10 +32917,10 @@ static int refute(int depth, int splits, int choices) {
  * non viene provata prima di una distinzione di casi che basterebbe, e la
  * dimostrazione non si porta dietro parti che non servono. */
 static int abstract_claim(const Sentence **hypothesis, int hypotheses, const Sentence *claim) {
-    short nothing[MAX_SLOTS];
+    SlotValues nothing = SLOT_VALUES_EMPTY;
     size_t start = proof_length, certificate_start = certificate_length, arena_start = arena_used;
     int declared = symbol_count, proved = 0, certificate_was_broken = certificate_broken;
-    memset(nothing, -1, sizeof nothing);
+
     for (part_limit = 1; part_limit <= MAX_PART_CHOICES && !proved && !exhausted; part_limit++) {
         proof_cut(start);
         certificate_length = certificate_start;
@@ -32520,6 +33092,76 @@ static int conjuncts(const Sentence *s, const Sentence **list, int count, int ma
 /* Il testo di un modello, per il verdetto in una riga. */
 static char model_text[2048];
 
+/* Consegna un modello gia trovato: ricalcola ipotesi, tesi e notazione
+ * scritta, poi scrive il documento e il certificato indipendente. La stessa
+ * uscita serve alle due quote di ricerca; una ricerca precedente puo aver
+ * lasciato una dimostrazione incompleta, che qui viene svuotata. */
+static Verdict abstract_model_result(Verdict verdict, const Sentence *written, const Sentence *root,
+                                     const Model *model, long long compared) {
+    size_t *value = model_variables();
+    if (work_allocation_failed) { verdict.outcome = NOT_PROVED; verdict.reason = OUT_OF_MEMORY; return verdict; }
+    proof_reset();
+
+    /* Il modello trovato viene ricalcolato pezzo per pezzo: ipotesi
+     * vere e tesi falsa, e non solo "l'implicazione è falsa". Con la
+     * notazione dei libri, anche l'enunciato com'è scritto (28h). */
+    model_steps = 0;
+    int confirmed = abstract_example ? model_holds(model, root, value)
+                  : root->kind == S_IMPLIES ? model_holds(model, root->a, value) && !model_holds(model, root->b, value)
+                  : !model_holds(model, root, value);
+    if (written != root) confirmed = confirmed && book_holds(model, written, value) == abstract_example;
+    if (!confirmed) {
+        unjustified_steps++;
+        verdict.outcome = NOT_PROVED;
+        verdict.reason = "la verifica indipendente non conferma il modello trovato";
+        return verdict;
+    }
+    proof_add(abstract_example ? "\\textbf{Proof.} An example: " : "\\textbf{The statement is false.} A counterexample: ");
+    proof_growable = 1;
+    size_t from = proof_length;
+    put_model(model);
+    if (proof_broken) { verdict.outcome = NOT_PROVED; verdict.reason = "memoria esaurita scrivendo il modello"; return verdict; }
+    snprintf(model_text, sizeof model_text, "%s", proof_text + from);
+    proof_add(abstract_example ? ". Computing with these tables, the condition holds." : ". Computing with these tables, the hypotheses hold and the conclusion fails.");
+    put_unfolding_note(compared);
+    if (abstract_example) proof_add(" $\\Box$");
+    verdict.outcome = abstract_example ? PROVED : REFUTED;
+    verdict.method = "con un esempio";
+    verdict.detail = abstract_example ? NULL : model_text;
+    verdict.proof = proof_text;
+
+    /* Il certificato: il modello, in cui il verificatore ricalcola
+     * l'enunciato con il suo valutatore. Se non lo sa ricalcolare (un
+     * modello troppo grande per lui) il modello resta senza conferma, e
+     * il verdetto non c'è: required = 1. */
+    cert_abstract_head(abstract_example ? "example" : "counterexample", root, model);
+    for (int s = 0; s < symbol_count; s++) {
+        size_t cells;
+        if (symbol_fixed(s) || symbol_bound[s]) continue;  /* fissato (28m), o una parte legata (28i): non ha tabella */
+        model_cells(model, s, &cells);
+        cert_add("table ");
+        cert_symbol(s);
+        for (size_t c = 0; c < cells; c++) cert_add(" %zu", model->table[s][c]);
+        cert_add("\n");
+    }
+    cert_add("end\n");
+    return abstract_certified(verdict);
+
+}
+
+/* Una quota di lavoro del model finding. Il limite di cardinalita resta
+ * assente: cambiare quota modifica soltanto quanta ricerca si esegue prima
+ * di dare tempo alla dimostrazione. Il programma ha uno stato singolo. */
+static int model_sat_slice(const Sentence *root, int wanted, Model *model, long long *tried, int bound,
+                           unsigned long long allowance) {
+    if (!allowance) return 0;
+    unsigned long long saved = model_work_limit;
+    model_work_limit = allowance;
+    int found = model_sat_search(root, wanted, model, tried, bound);
+    model_work_limit = saved;
+    return found;
+}
+
 /* Decide l'enunciato su insiemi qualsiasi scritto in formula e ne ritorna
  * il verdetto, come descritto in testa al capitolo: prima i modelli finiti,
  * che possono smentirlo (o, se chiede un esempio, dimostrarlo); poi la
@@ -32531,11 +33173,12 @@ static Verdict prove_abstract(const char *formula) {
     Verdict verdict = {UNSUPPORTED, 0, 0, 0, NULL, NULL, NULL, "con istanze delle ipotesi e uguali al posto di uguali", NULL, NULL};
     static Model model;
     const Sentence *hypothesis[MAX_KNOWN / 8], *claim[MAX_KNOWN / 8];
-    short nothing[MAX_SLOTS];
+    SlotValues nothing = SLOT_VALUES_EMPTY;
     long long tried;
-    int bound, value[MAX_SLOTS];
+    int bound;
 
-    /* Ripartenza da zero e parsing. */
+    /* Ripartenza da zero e parsing. Il modello precedente non serve piu. */
+    model_clear(&model);
     proof_reset();
     arena_used = arena_keep;
     failure = NULL;
@@ -32544,7 +33187,7 @@ static Verdict prove_abstract(const char *formula) {
     next_token();
     const Sentence *written = abstract_statement();
     if (syntax_error || failure) { verdict.reason = syntax_error ? syntax_error : failure; return verdict; }
-    memset(nothing, -1, sizeof nothing);
+
     declared_symbols = symbol_count;
     memset(symbol_generation, 0, sizeof symbol_generation);
 
@@ -32573,52 +33216,17 @@ static Verdict prove_abstract(const char *formula) {
 
     /* 28a. I modelli finiti. Per chi chiede un esempio, uno in cui la
      * condizione vale; per gli altri, uno in cui non vale. */
+    int model_symbols = symbol_count;
     int found = model_search(root, abstract_example, &model, &tried, &bound);
-    if (!found) found = model_sat_search(root, abstract_example, &model, &tried, bound);
-    if (found) {
-        /* Il modello trovato viene ricalcolato pezzo per pezzo: ipotesi
-         * vere e tesi falsa, e non solo "l'implicazione è falsa". Con la
-         * notazione dei libri, anche l'enunciato com'è scritto (28h). */
-        model_steps = 0;
-        int confirmed = abstract_example ? model_holds(&model, root, value)
-                      : root->kind == S_IMPLIES ? model_holds(&model, root->a, value) && !model_holds(&model, root->b, value)
-                      : !model_holds(&model, root, value);
-        if (written != root) confirmed = confirmed && book_holds(&model, written, value) == abstract_example;
-        if (!confirmed) {
-            unjustified_steps++;
-            verdict.outcome = NOT_PROVED;
-            verdict.reason = "la verifica indipendente non conferma il modello trovato";
-            return verdict;
-        }
-        proof_add(abstract_example ? "\\textbf{Proof.} An example: " : "\\textbf{The statement is false.} A counterexample: ");
-        size_t from = proof_length;
-        put_model(&model);
-        snprintf(model_text, sizeof model_text, "%s", proof_text + from);
-        proof_add(abstract_example ? ". Computing with these tables, the condition holds." : ". Computing with these tables, the hypotheses hold and the conclusion fails.");
-        put_unfolding_note(compared);
-        if (abstract_example) proof_add(" $\\Box$");
-        verdict.outcome = abstract_example ? PROVED : REFUTED;
-        verdict.method = "con un esempio";
-        verdict.detail = abstract_example ? NULL : model_text;
-        verdict.proof = proof_text;
-
-        /* Il certificato: il modello, in cui il verificatore ricalcola
-         * l'enunciato con il suo valutatore. Se non lo sa ricalcolare (un
-         * modello troppo grande per lui) il modello resta senza conferma, e
-         * il verdetto non c'è: required = 1. */
-        cert_abstract_head(abstract_example ? "example" : "counterexample", root, &model);
-        for (int s = 0; s < symbol_count; s++) {
-            int cells;
-            if (symbol_fixed(s) || symbol_bound[s]) continue;  /* fissato (28m), o una parte legata (28i): non ha tabella */
-            model_cells(&model, s, &cells);
-            cert_add("table ");
-            cert_symbol(s);
-            for (int c = 0; c < cells; c++) cert_add(" %d", model.table[s][c]);
-            cert_add("\n");
-        }
-        cert_add("end\n");
-        return abstract_certified(verdict, 1);
-    }
+    /* Prima una quota breve, poi la dimostrazione, infine il budget
+     * rimasto. Un universale vero non consuma tutto il model finding prima
+     * che le sue ipotesi siano usate. Le richieste di esempio usano subito
+     * il budget intero, perche li la ricerca e tutto il procedimento. */
+    unsigned long long first_work = abstract_example ? model_work_limit : model_work_limit / 16;
+    if (!first_work) first_work = 1;
+    unsigned long long remaining_work = model_work_limit - first_work;
+    if (!found) found = model_sat_slice(root, abstract_example, &model, &tried, bound, first_work);
+    if (found) return abstract_model_result(verdict, written, root, &model, compared);
     verdict.outcome = NOT_PROVED;
 
     /* 17v, 28m. Un enunciato che parla solo dei numeri che scrive, con
@@ -32631,6 +33239,8 @@ static Verdict prove_abstract(const char *formula) {
     int concrete = !plain_sorts() && !abstract_example;
     for (int s = 0; s < symbol_count && concrete; s++) concrete = symbol_fixed(s);
     if (concrete && model_search(root, 1, &model, &tried, &bound)) {
+        size_t *value = model_variables();
+        if (work_allocation_failed) { verdict.reason = OUT_OF_MEMORY; return verdict; }
         model_steps = 0;
         if (!model_holds(&model, root, value) || (written != root && !book_holds(&model, written, value))) {
             unjustified_steps++;
@@ -32647,16 +33257,18 @@ static Verdict prove_abstract(const char *formula) {
         verdict.proof = proof_text;
         cert_abstract_head("example", root, &model);
         cert_add("end\n");
-        return abstract_certified(verdict, 1);
+        return abstract_certified(verdict);
     }
     if (abstract_example) {
-        verdict.reason = "nessun esempio tra gli insiemi con pochi elementi: può essercene uno più grande";
+        verdict.reason = "nessun esempio trovato entro il budget di ricerca dei modelli: può essercene uno";
         return verdict;
     }
 
     /* Senza il controllo indipendente non si dimostra: se nemmeno i modelli
      * con un elemento per insieme sono stati provati tutti, ci si ferma. */
     if (bound < 1) {
+        if (model_sat_slice(root, 0, &model, &tried, bound, remaining_work))
+            return abstract_model_result(verdict, written, root, &model, compared);
         verdict.reason = "i modelli con pochi elementi sono troppi per provarli: manca il controllo indipendente";
         return verdict;
     }
@@ -32697,6 +33309,14 @@ static Verdict prove_abstract(const char *formula) {
     int first_pass = given + axioms_extensional();
     for (int i = 0; i < claims && proved && !failure; i++)
         proved = claim_attempts(hypothesis, hypotheses, first_pass, claim[i]) || claim_halves(hypothesis, hypotheses, first_pass, claim[i]);
+    /* Nessuna dimostrazione trovata: la quota residua riprende il model
+     * finding prima di emettere un esito sconosciuto. Anche dopo una ricerca
+     * interrotta, un modello completo resta controllabile da solo. */
+    if (!proved || failure) {
+        symbol_count = model_symbols;
+        if (model_sat_slice(root, 0, &model, &tried, bound, remaining_work))
+            return abstract_model_result(verdict, written, root, &model, compared);
+    }
     if (failure) {
         /* La memoria è finita durante la ricerca (le copie di 28j): ciò che
          * è stato scritto dopo non vale nulla. */
@@ -32705,10 +33325,10 @@ static Verdict prove_abstract(const char *formula) {
     }
     if (!proved) {
         verdict.reason = exhausted || part_interrupted ? "la ricerca è stata interrotta: troppi elementi o troppe istanze senza arrivare a una dimostrazione"
-                                   : "nessun controesempio tra gli insiemi con pochi elementi, ma le istanze provate non bastano a dimostrarlo";
+                                   : "nessun controesempio trovato entro il budget dei modelli; le istanze provate non bastano a dimostrarlo";
         return verdict;
     }
-    proof_add("\\end{itemize}\nIndependent check: no choice of sets with at most $%d$ element%s each, and of tables for what is declared, "
+    proof_add("\\end{itemize}\nIndependent check: no choice of nonempty sets with at most $%d$ element%s each, and of tables for what is declared, "
               "contradicts the statement (%lld were tried).", bound, bound == 1 ? "" : "s", tried);
     put_unfolding_note(compared);
     proof_add(" $\\Box$");
@@ -32727,7 +33347,7 @@ static Verdict prove_abstract(const char *formula) {
     /* Il certificato: i casi scritti da abstract_claim(), con i nomi e le
      * istanze dei rami (28f). */
     cert_add("end\n");
-    return abstract_certified(verdict, 0);
+    return abstract_certified(verdict);
 }
 
 /* =============================================================================
@@ -38793,7 +39413,7 @@ static int has_derivative_sign(const char *text) {
  *
  * I risultati di una chiamata precedente, comprese le stringhe del suo
  * verdetto, non sono più validi dopo questa. */
-static Verdict prove(const char *formula, int variable, int has_base, long long base) {
+static Verdict prove_core(const char *formula, int variable, int has_base, long long base) {
     /* Il grafico dell'enunciato precedente non vale più. */
     if (figure) { pl_close(figure); figure = NULL; }
 
@@ -38915,6 +39535,21 @@ static void verdict_print(FILE *out, const Verdict *verdict) {
     }
 }
 
+/* Punto d'ingresso protetto: una pila o un vettore cresciuti solo in parte
+ * rendono inutilizzabile tutto il tentativo, anche se una strada interna
+ * ha cancellato failure per provarne un'altra. Ogni chiamata riparte dai
+ * contatori inizializzati dai metodi; le capacita allocate si riusano. */
+static Verdict prove(const char *formula, int variable, int has_base, long long base) {
+    work_allocation_failed = 0;
+    Verdict verdict = prove_core(formula, variable, has_base, base);
+    if (work_allocation_failed) {
+        verdict.outcome = NOT_PROVED;
+        verdict.reason = OUT_OF_MEMORY;
+        verdict.proof = verdict.certificate = verdict.detail = NULL;
+    }
+    return verdict;
+}
+
 /* Dimostra l'enunciato contenuto nel testo [item, end) di un \item. */
 static Verdict prove_item(const char *item, const char *end) {
     Item statement;
@@ -38961,7 +39596,11 @@ static Verdict prove_item(const char *item, const char *end) {
  *                                                  da far ricontrollare a checker
  *     mathresearcher                               legge un enunciato da stdin
  *
- * Le due opzioni si possono dare insieme. Il codice di uscita è 0 se tutti
+ * --model-work N e --model-memory BYTES regolano i budget della ricerca SAT
+ * (20.000.000 operazioni e 128 MiB di default), non un massimo di elementi.
+ * --verification-work N regola le visite del verificatore numerico
+ * (20.000.000 di default): una verifica interrotta non conferma nulla.
+ * Tutte le opzioni si possono dare insieme. Il codice di uscita è 0 se tutti
  * gli enunciati sono stati dimostrati o risolti, 1 altrimenti.
  */
 
@@ -39022,6 +39661,18 @@ static int prove_file(const char *path, Report *report, FILE *out, Document *doc
     return 1;
 }
 
+/* Legge un budget decimale positivo senza conversioni con trabocco. */
+static int read_model_budget(const char *text, unsigned long long *value) {
+    unsigned long long n = 0;
+    if (!*text) return 0;
+    for (; *text; text++) {
+        if (*text < '0' || *text > '9' || n > (ULLONG_MAX - (unsigned)(*text - '0')) / 10) return 0;
+        n = 10 * n + (unsigned)(*text - '0');
+    }
+    *value = n;
+    return n != 0;
+}
+
 int main(int argc, char **argv) {
     engine_init();
 
@@ -39047,6 +39698,18 @@ int main(int argc, char **argv) {
     Document document;
     int first = 1, documented = 0;
     for (; first + 1 < argc && strncmp(argv[first], "--", 2) == 0; first += 2) {
+        if (strcmp(argv[first], "--model-work") == 0 || strcmp(argv[first], "--model-memory") == 0 ||
+            strcmp(argv[first], "--verification-work") == 0) {
+            unsigned long long budget;
+            int memory = strcmp(argv[first], "--model-memory") == 0;
+            if (!read_model_budget(argv[first + 1], &budget) || (memory && budget > (size_t)-1)) {
+                printf("ERRORE: budget positivo non rappresentabile: %s\n", argv[first + 1]); return 1;
+            }
+            if (memory) model_memory_limit = (size_t)budget;
+            else if (strcmp(argv[first], "--verification-work") == 0) verification_work_limit = budget;
+            else model_work_limit = budget;
+            continue;
+        }
         if (strcmp(argv[first], "--certificates") == 0 && !certificates) {
             certificates = fopen(argv[first + 1], "w");
             if (!certificates) { printf("ERRORE: impossibile scrivere %s\n", argv[first + 1]); return 1; }
