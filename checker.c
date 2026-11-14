@@ -3507,113 +3507,171 @@ static void ck_check_case(void) {
  * Proving with Selection and Simplification.
  */
 
-#define CK_R_TERMS 65536    /* termini, con posto zero riservato */
-#define CK_R_ARGS 262144   /* argomenti dei termini in tutto */
-#define CK_R_SYMBOLS 2048  /* simboli dichiarati, domini e nomi nuovi */
-#define CK_R_ARITY 32      /* argomenti di un simbolo introdotto */
-#define CK_R_VARS 64       /* variabili di una clausola normalizzata */
-#define CK_R_CLAUSES 8192  /* clausole iniziali e passi del certificato */
-#define CK_R_LITERALS 32   /* letterali di una clausola */
+/* Il controllo limita il lavoro effettivo, non il numero di variabili,
+ * argomenti o clausole. Le visite comprendono i termini condivisi. */
+#define CK_R_WORK 20000000ULL
 
-/* Un termine: symbol e il simbolo, first/count ne individuano gli argomenti
- * nel deposito. Un riferimento positivo indica un termine; -1-v indica la
- * variabile v; zero e l'assenza di un termine. */
+/* Un termine condiviso: symbol e il simbolo, first/count individuano gli
+ * argomenti nel deposito. Un riferimento positivo e un termine; -1-v e la
+ * variabile v; zero indica l'assenza di un termine. */
 typedef struct { int symbol, first, count; } CkRTerm;
+
+/* Un simbolo della traduzione: arity conta gli argomenti, predicate vale
+ * uno per un predicato e zero per una funzione. I simboli dichiarati vengono
+ * prima dei domini, dei simboli di Skolem e dei nomi delle sottoformule. */
+typedef struct { int arity, predicate; } CkRSymbol;
 
 /* Un letterale: left/right sono i membri dell'uguaglianza; con right=0,
  * left e un predicato applicato. left=right=0 significa vero. negative
  * nega l'atomo, compresa questa costante. */
 typedef struct { int left, right, negative; } CkRLiteral;
 
-/* La disgiunzione dei count letterali, universalmente quantificati. Il loro
- * ordine viene conservato per identificarli nei passi successivi. */
-typedef struct { int count; CkRLiteral literal[CK_R_LITERALS]; } CkRClause;
+/* Una disgiunzione, con variabili universali. literal e posseduto dall'arena
+ * del certificato; count/capacity delimitano le celle valide/allocate.
+ * variables e il numero dei nomi normalizzati 0..variables-1. Una clausola
+ * conservata nel deposito non viene piu modificata. */
+typedef struct {
+    int count, variables;
+    size_t capacity;
+    CkRLiteral *literal;
+} CkRClause;
 
-/* Stato posseduto da un solo controllo, senza memoria condivisa col motore.
- * terms/args/symbols/clauses contano le voci dei rispettivi depositi;
- * arity descrive i simboli, term/argument i termini e clause le deduzioni.
- * binding sono i termini dei quantificatori visibili, universals le variabili
- * da cui dipende Skolem; bound/universal ne sono le lunghezze. variable
- * conta gli universali introdotti, started distingue le dichiarazioni dalla
- * traduzione gia eseguita. Tutti i vettori appartengono a questa struttura. */
+/* Stato di un controllo, indipendente dal motore. I contatori delimitano
+ * i depositi term/argument/symbol/clause e le pile binding/universals.
+ * variable numera i nomi prima della normalizzazione; started distingue
+ * le dichiarazioni dalla traduzione eseguita. I suffissi _cap contano le
+ * celle allocate sullo heap; hash condivide termini strutturalmente uguali.
+ * work e il numero di visite eseguite, non una stima della prova. */
 typedef struct {
     int terms, args, symbols, clauses, variable, bound, universal, started;
-    int arity[CK_R_SYMBOLS], argument[CK_R_ARGS];
-    unsigned char predicate[CK_R_SYMBOLS]; /* 1 per un predicato, 0 per una funzione. */
-    CkRTerm term[CK_R_TERMS];
-    CkRClause clause[CK_R_CLAUSES];
-    int binding[CK_R_VARS], universals[CK_R_VARS];
+    CkRSymbol *symbol;
+    int *argument, *binding, *universals, *hash;
+    CkRTerm *term;
+    CkRClause *clause;
+    size_t symbol_cap, argument_cap, binding_cap, universal_cap, hash_cap;
+    size_t term_cap, clause_cap;
+    unsigned long long work;
 } CkRState;
 static CkRState ck_r;
 
+/* Libera i depositi posseduti. I letterali e i temporanei nell'arena
+ * vengono restituiti col resto del certificato, non cella per cella. */
+static void ck_r_clear(void) {
+    free(ck_r.symbol); free(ck_r.argument); free(ck_r.binding);
+    free(ck_r.universals); free(ck_r.hash); free(ck_r.term); free(ck_r.clause);
+    memset(&ck_r, 0, sizeof ck_r);
+}
+
+/* Registra una visita prima di eseguirla. Un controllo incompleto non puo
+ * concludere che la clausola vuota sia stata giustificata. */
+static int ck_r_visit(void) {
+    if (ck_status != CK_ACCEPTED) return 0;
+    if (ck_r.work++ >= CK_R_WORK) { ck_unsupported("lavoro di controllo delle clausole esaurito"); return 0; }
+    return 1;
+}
+
+/* Alloca un vettore temporaneo nell'arena, con controllo prima di ogni
+ * scrittura: il blocco di riserva di ck_alloc non contiene un vettore. */
+static void *ck_r_array(size_t count, size_t unit) {
+    if (!count || ck_status != CK_ACCEPTED) return NULL;
+    if (count > CK_ARENA_BYTES / unit) { ck_unsupported("memoria del verificatore esaurita"); return NULL; }
+    void *data = ck_alloc(count * unit);
+    return ck_status == CK_ACCEPTED ? data : NULL;
+}
+
 /* Registra un simbolo fresco di arita count, oppure segnala il limite. */
 static int ck_r_symbol(int count, int predicate) {
-    if (ck_r.symbols == CK_R_SYMBOLS || count > CK_R_ARITY) {
-        ck_unsupported("troppi simboli o argomenti nella clausificazione"); return 0;
-    }
+    if (ck_r.symbols == INT_MAX || count < 0) { ck_unsupported("troppi simboli nella clausificazione"); return 0; }
+    if (!ck_reserve((void **)&ck_r.symbol, &ck_r.symbol_cap, (size_t)ck_r.symbols + 1, sizeof *ck_r.symbol)) return 0;
     int id = ck_r.symbols++;
-    ck_r.arity[id] = count;
-    ck_r.predicate[id] = (unsigned char)predicate;
+    ck_r.symbol[id] = (CkRSymbol){count, predicate};
     return id;
 }
 
 /* Registra symbol(args), condividendo i termini uguali per costruzione.
  * Il confronto strutturale non unifica e non cerca dimostrazioni. */
 static int ck_r_term(int symbol, const int *args) {
-    if (ck_status != CK_ACCEPTED) return 0;
+    if (!ck_r_visit()) return 0;
     if (symbol < 0 || symbol >= ck_r.symbols) { ck_reject("simbolo di clausola non dichiarato"); return 0; }
-    int n = ck_r.arity[symbol];
-    for (int i = 1; i <= ck_r.terms; i++) {
-        const CkRTerm *t = &ck_r.term[i];
-        if (t->symbol == symbol && (!n || memcmp(ck_r.argument + t->first, args, (size_t)n * sizeof *args) == 0)) return i;
+    int n = ck_r.symbol[symbol].arity;
+    unsigned h = (unsigned)symbol + 1u;
+    for (int i = 0; i < n; i++) h = h * 65599u + (unsigned)args[i];
+    if (!ck_r.hash_cap || (size_t)ck_r.terms + 1 >= ck_r.hash_cap / 2) {
+        size_t before = ck_r.hash_cap;
+        if (before > (size_t)-1 / 2) { ck_unsupported("memoria disponibile insufficiente per i termini"); return 0; }
+        if (!ck_reserve((void **)&ck_r.hash, &ck_r.hash_cap, before ? 2 * before : 32, sizeof *ck_r.hash)) return 0;
+        memset(ck_r.hash, 0, ck_r.hash_cap * sizeof *ck_r.hash);
+        for (int id = 1; id <= ck_r.terms; id++) {
+            CkRTerm t = ck_r.term[id];
+            unsigned code = (unsigned)t.symbol + 1u;
+            for (int i = 0; i < t.count; i++) code = code * 65599u + (unsigned)ck_r.argument[t.first + i];
+            size_t k = code % ck_r.hash_cap;
+            while (ck_r.hash[k]) k = (k + 1) % ck_r.hash_cap;
+            ck_r.hash[k] = id;
+        }
     }
-    if (ck_r.terms + 1 == CK_R_TERMS || n > CK_R_ARGS - ck_r.args) {
-        ck_unsupported("troppi termini nelle clausole del certificato"); return 0;
+    size_t k = h % ck_r.hash_cap;
+    for (; ck_r.hash[k]; k = (k + 1) % ck_r.hash_cap) {
+        if (!ck_r_visit()) return 0;
+        int id = ck_r.hash[k];
+        CkRTerm t = ck_r.term[id];
+        if (t.symbol == symbol && (!n || memcmp(ck_r.argument + t.first, args, (size_t)n * sizeof *args) == 0)) return id;
     }
+    if (ck_r.terms == INT_MAX || n > INT_MAX - ck_r.args) { ck_unsupported("troppi termini nelle clausole del certificato"); return 0; }
+    if (!ck_reserve((void **)&ck_r.term, &ck_r.term_cap, (size_t)ck_r.terms + 2, sizeof *ck_r.term) ||
+        !ck_reserve((void **)&ck_r.argument, &ck_r.argument_cap, (size_t)ck_r.args + (size_t)n, sizeof *ck_r.argument)) return 0;
     int id = ++ck_r.terms;
     ck_r.term[id] = (CkRTerm){symbol, ck_r.args, n};
     if (n) memcpy(ck_r.argument + ck_r.args, args, (size_t)n * sizeof *args);
-    ck_r.args += n;
+    ck_r.args += n; ck_r.hash[k] = id;
     return id;
 }
 
 /* La negazione del letterale l. */
 static CkRLiteral ck_r_not(CkRLiteral l) { l.negative = !l.negative; return l; }
 
-/* Rinomina le variabili per prima occorrenza. Il contesto contiene le
- * variabili di due genitori distinti, al piu CK_R_VARS per genitore. */
-static int ck_r_rename(int term, int *names, int *used) {
-    if (ck_status != CK_ACCEPTED || !term) return 0;
+/* Una voce della rinomina: old e il nome originale, fresh il nuovo nome
+ * negativo. Il vettore temporaneo e posseduto da ck_r_normal. */
+typedef struct { int old, fresh; } CkRName;
+
+/* Rinomina per prima occorrenza, senza attribuire significato ai vecchi
+ * indici. La mappa puo crescere durante la ricorsione: si conservano valori. */
+static int ck_r_rename(int term, CkRName **names, size_t *capacity, int *used) {
+    if (!term || !ck_r_visit()) return 0;
     if (term < 0) {
-        int v = -term - 1;
-        if (v >= 2 * CK_R_VARS) { ck_unsupported("troppe variabili in una clausola"); return 0; }
-        if (!names[v]) {
-            if (*used == CK_R_VARS) { ck_unsupported("troppe variabili in una clausola"); return 0; }
-            names[v] = -1 - (*used)++;
-        }
-        return names[v];
+        for (int i = 0; i < *used; i++) if ((*names)[i].old == term) return (*names)[i].fresh;
+        if (*used == INT_MAX) { ck_unsupported("troppi nomi nella clausola"); return 0; }
+        if (!ck_reserve((void **)names, capacity, (size_t)*used + 1, sizeof **names)) return 0;
+        int fresh = -1 - *used;
+        (*names)[(*used)++] = (CkRName){term, fresh};
+        return fresh;
     }
-    const CkRTerm t = ck_r.term[term];
-    int args[CK_R_ARITY];
-    for (int i = 0; i < t.count; i++) args[i] = ck_r_rename(ck_r.argument[t.first + i], names, used);
+    CkRTerm t = ck_r.term[term];
+    int *args = ck_r_array((size_t)t.count, sizeof *args);
+    if (t.count && !args) return 0;
+    for (int i = 0; i < t.count; i++) args[i] = ck_r_rename(ck_r.argument[t.first + i], names, capacity, used);
     return ck_r_term(t.symbol, args);
 }
 
-/* Toglie falso e duplicati identici e rinomina le variabili. Non usa fatti
- * trovati da altre clausole; non cancella clausole tautologiche. */
-static CkRClause ck_r_normal(CkRClause c) {
-    int names[2 * CK_R_VARS] = {0}, used = 0, kept = 0;
-    for (int i = 0; i < c.count && ck_status == CK_ACCEPTED; i++) {
-        CkRLiteral l = c.literal[i];
+/* Copia una clausola, toglie falso e duplicati e normalizza i nomi.
+ * Non modifica mai un genitore gia conservato nel deposito. */
+static CkRClause ck_r_normal(CkRClause source) {
+    CkRClause c = {0};
+    c.literal = ck_r_array((size_t)source.count, sizeof *c.literal);
+    if (source.count && !c.literal) return c;
+    c.capacity = (size_t)source.count;
+    CkRName *names = NULL; size_t capacity = 0;
+    for (int i = 0; i < source.count && ck_status == CK_ACCEPTED; i++) {
+        CkRLiteral l = source.literal[i];
         if (!l.left && l.negative) continue;
-        l.left = ck_r_rename(l.left, names, &used);
-        l.right = ck_r_rename(l.right, names, &used);
+        l.left = ck_r_rename(l.left, &names, &capacity, &c.variables);
+        l.right = ck_r_rename(l.right, &names, &capacity, &c.variables);
         int duplicate = 0;
-        for (int j = 0; j < kept; j++)
+        for (int j = 0; j < c.count; j++)
             duplicate |= c.literal[j].left == l.left && c.literal[j].right == l.right && c.literal[j].negative == l.negative;
-        if (!duplicate) c.literal[kept++] = l;
+        if (!duplicate) c.literal[c.count++] = l;
     }
-    c.count = kept;
+    free(names);
     return c;
 }
 
@@ -3621,28 +3679,37 @@ static CkRClause ck_r_normal(CkRClause c) {
  * che il motore sceglie durante la ricerca. */
 static void ck_r_add(CkRClause c) {
     if (ck_status != CK_ACCEPTED) return;
-    if (ck_r.clauses == CK_R_CLAUSES) { ck_unsupported("troppi passi nel certificato di saturazione"); return; }
-    ck_r.clause[ck_r.clauses++] = ck_r_normal(c);
+    if (ck_r.clauses == INT_MAX) { ck_unsupported("troppi passi nel certificato"); return; }
+    if (!ck_reserve((void **)&ck_r.clause, &ck_r.clause_cap, (size_t)ck_r.clauses + 1, sizeof *ck_r.clause)) return;
+    CkRClause copy = ck_r_normal(c);
+    if (ck_status == CK_ACCEPTED) ck_r.clause[ck_r.clauses++] = copy;
 }
 
 /* Conserva una clausola di fino a tre letterali, nella clausificazione. */
 static void ck_r_emit(CkRLiteral a, CkRLiteral b, CkRLiteral c, int count) {
-    CkRClause clause = {0};
-    clause.count = count;
-    clause.literal[0] = a; clause.literal[1] = b; clause.literal[2] = c;
-    ck_r_add(clause);
+    CkRLiteral literals[3] = {a, b, c};
+    ck_r_add((CkRClause){.count=count, .literal=literals});
 }
 
 /* Registra le variabili libere di term in seen. */
-static void ck_r_free(int term, unsigned char *seen) {
-    if (ck_status != CK_ACCEPTED || !term) return;
+static void ck_r_free(int term, int **seen, size_t *capacity, int *count) {
+    if (!term || !ck_r_visit()) return;
     if (term < 0) {
-        if (-term > 2 * CK_R_VARS) ck_unsupported("troppe variabili nella traduzione");
-        else seen[-term - 1] = 1;
+        int v = -term - 1;
+        for (int i = 0; i < *count; i++) if ((*seen)[i] == v) return;
+        if (*count == INT_MAX) { ck_unsupported("troppi parametri della sottoformula"); return; }
+        if (!ck_reserve((void **)seen, capacity, (size_t)*count + 1, sizeof **seen)) return;
+        (*seen)[(*count)++] = v;
         return;
     }
-    const CkRTerm t = ck_r.term[term];
-    for (int i = 0; i < t.count; i++) ck_r_free(ck_r.argument[t.first + i], seen);
+    CkRTerm t = ck_r.term[term];
+    for (int i = 0; i < t.count; i++) ck_r_free(ck_r.argument[t.first + i], seen, capacity, count);
+}
+
+/* Ordine crescente dei nomi prima di assegnarli a un predicato nuovo. */
+static int ck_r_name_order(const void *a, const void *b) {
+    int x = *(const int *)a, y = *(const int *)b;
+    return (x > y) - (x < y);
 }
 
 /* Un nome equivalente ad a AND b oppure a OR b, con tutte le variabili
@@ -3650,22 +3717,18 @@ static void ck_r_free(int term, unsigned char *seen) {
 static CkRLiteral ck_r_connect(CkRLiteral a, CkRLiteral b, int conjunction) {
     if (!a.left) return a.negative == conjunction ? a : b;
     if (!b.left) return b.negative == conjunction ? b : a;
-    unsigned char seen[2 * CK_R_VARS] = {0};
-    ck_r_free(a.left, seen); ck_r_free(a.right, seen);
-    ck_r_free(b.left, seen); ck_r_free(b.right, seen);
-    int args[CK_R_ARITY], count = 0;
-    for (int v = 0; v < 2 * CK_R_VARS; v++) if (seen[v]) {
-        if (count == CK_R_ARITY) { ck_unsupported("troppi parametri di un nome di Tseitin"); return a; }
-        args[count++] = -v - 1;
-    }
+    int *args = NULL, count = 0; size_t capacity = 0;
+    ck_r_free(a.left, &args, &capacity, &count); ck_r_free(a.right, &args, &capacity, &count);
+    ck_r_free(b.left, &args, &capacity, &count); ck_r_free(b.right, &args, &capacity, &count);
+    if (count) qsort(args, (size_t)count, sizeof *args, ck_r_name_order);
+    for (int i = 0; i < count; i++) args[i] = -args[i] - 1;
     CkRLiteral q = {ck_r_term(ck_r_symbol(count, 1), args), 0, 0};
+    free(args);
     if (conjunction) {
-        ck_r_emit(ck_r_not(q), a, a, 2);
-        ck_r_emit(ck_r_not(q), b, b, 2);
+        ck_r_emit(ck_r_not(q), a, a, 2); ck_r_emit(ck_r_not(q), b, b, 2);
         ck_r_emit(q, ck_r_not(a), ck_r_not(b), 3);
     } else {
-        ck_r_emit(q, ck_r_not(a), a, 2);
-        ck_r_emit(q, ck_r_not(b), b, 2);
+        ck_r_emit(q, ck_r_not(a), a, 2); ck_r_emit(q, ck_r_not(b), b, 2);
         ck_r_emit(ck_r_not(q), a, b, 3);
     }
     return q;
@@ -3709,9 +3772,9 @@ static CkRLiteral ck_r_formula(const CkNode *n, int positive) {
         b = ck_r_connect(b, ck_r_formula(n->b, !positive), 0);
         return ck_r_connect(a, b, 1);
     case CK_FORALL: case CK_EXISTS: {
-        if (ck_r.bound == CK_R_VARS || ck_r.universal == CK_R_VARS || ck_r.variable == 2 * CK_R_VARS) {
-            ck_unsupported("troppe variabili nella clausificazione"); return zero;
-        }
+        if (ck_r.variable == INT_MAX || ck_r.bound == INT_MAX) { ck_unsupported("troppi quantificatori nel certificato"); return zero; }
+        if (!ck_reserve((void **)&ck_r.binding, &ck_r.binding_cap, (size_t)ck_r.bound + 1, sizeof *ck_r.binding) ||
+            !ck_reserve((void **)&ck_r.universals, &ck_r.universal_cap, (size_t)ck_r.universal + 1, sizeof *ck_r.universals)) return zero;
         int every = (n->kind == CK_FORALL) == positive;
         int value = every ? -1 - ck_r.variable++ : ck_r_term(ck_r_symbol(ck_r.universal, 0), ck_r.universals);
         ck_r.binding[ck_r.bound++] = value;
@@ -3731,7 +3794,7 @@ static CkRLiteral ck_r_formula(const CkNode *n, int positive) {
 /* Ricostruisce le clausole iniziali: chiusura delle funzioni dichiarate,
  * negazione della tesi e leggi delle parti gia validate da 11h. */
 static void ck_r_prepare(const CkNode *statement, const CkNode *const *laws, int count) {
-    memset(&ck_r, 0, sizeof ck_r);
+    ck_r_clear();
     ck_r.started = 1;
     for (int i = 0; i < ck_declared; i++) ck_r_symbol(ck_symbols[i].arity, ck_symbols[i].result == CK_BOOL);
     for (int i = 0; i < ck_sort_count; i++) ck_r_symbol(1, 1);
@@ -3739,7 +3802,8 @@ static void ck_r_prepare(const CkNode *statement, const CkNode *const *laws, int
         const CkSymbol *s = &ck_symbols[f];
         if (s->result == CK_BOOL) continue;
         int args[2] = {-1, -2}, value = ck_r_term(f, args);
-        CkRClause c = {0};
+        CkRLiteral literal[3];
+        CkRClause c = {.literal=literal};
         c.literal[c.count++] = (CkRLiteral){ck_r_term(ck_declared + s->result, &value), 0, 0};
         for (int j = 0; j < s->arity; j++) c.literal[c.count++] = (CkRLiteral){ck_r_term(ck_declared + s->arg[j], &args[j]), 0, 1};
         ck_r_add(c);
@@ -3779,21 +3843,40 @@ static void ck_r_delimiter(int ch) {
 /* Legge (v indice) o (f simbolo argomenti...). Un predicato puo comparire
  * soltanto come atomo, mai come termine dentro una sostituzione. */
 static int ck_r_read_term(int depth, int predicate) {
-    if (ck_status != CK_ACCEPTED) return 0;
-    if (depth == 128) { ck_unsupported("termine di saturazione troppo profondo"); return 0; }
+    if (!ck_r_visit()) return 0;
+    if (depth >= CK_MAX_DEPTH) { ck_unsupported("termine di saturazione troppo profondo"); return 0; }
     ck_r_delimiter('(');
     int result = 0;
     if (ck_r_word("v")) {
-        result = -1 - ck_r_index(2 * CK_R_VARS);
+        result = -1 - ck_r_index(INT_MAX);
         if (predicate) ck_reject("un atomo non puo essere una variabile");
     } else if (ck_r_word("f")) {
-        int id = ck_r_index(ck_r.symbols), args[CK_R_ARITY];
-        if (ck_r.predicate[id] != predicate) ck_reject("predicato e funzione usati nel posto sbagliato");
-        for (int i = 0; i < ck_r.arity[id] && ck_status == CK_ACCEPTED; i++) args[i] = ck_r_read_term(depth + 1, 0);
+        int id = ck_r_index(ck_r.symbols);
+        if (ck_status != CK_ACCEPTED) return 0;
+        CkRSymbol symbol = ck_r.symbol[id];
+        int *args = ck_r_array((size_t)symbol.arity, sizeof *args);
+        if (symbol.arity && !args) return 0;
+        if (symbol.predicate != predicate) ck_reject("predicato e funzione usati nel posto sbagliato");
+        for (int i = 0; i < symbol.arity && ck_status == CK_ACCEPTED; i++) args[i] = ck_r_read_term(depth + 1, 0);
         result = ck_r_term(id, args);
     } else ck_reject("termine atteso nel passo di saturazione");
     ck_r_delimiter(')');
     return result;
+}
+
+/* Aggiunge un letterale a una clausola temporanea. La crescita nell'arena
+ * lascia intatte le copie precedenti; una clausola del deposito e immutabile. */
+static void ck_r_push(CkRClause *c, CkRLiteral l) {
+    if (!ck_r_visit()) return;
+    if (c->count == INT_MAX) { ck_unsupported("clausola troppo grande per la memoria disponibile"); return; }
+    if ((size_t)c->count == c->capacity) {
+        size_t cap = c->capacity ? 2 * c->capacity : 4;
+        CkRLiteral *next = ck_r_array(cap, sizeof *next);
+        if (!next) return;
+        if (c->count) memcpy(next, c->literal, (size_t)c->count * sizeof *next);
+        c->literal = next; c->capacity = cap;
+    }
+    c->literal[c->count++] = l;
 }
 
 /* Legge (clause letterali...), con (eq a b), (ne a b), (pos p), (neg p),
@@ -3803,7 +3886,6 @@ static CkRClause ck_r_read_clause(void) {
     ck_r_delimiter('(');
     if (!ck_r_word("clause")) ck_reject("clausola risultante attesa");
     for (ck_skip(); *ck_cursor != ')' && ck_status == CK_ACCEPTED; ck_skip()) {
-        if (c.count == CK_R_LITERALS) { ck_unsupported("clausola con troppi letterali"); break; }
         ck_r_delimiter('(');
         CkRLiteral l = {0};
         int eq = ck_r_word("eq"), ne = !eq && ck_r_word("ne");
@@ -3818,7 +3900,7 @@ static CkRClause ck_r_read_clause(void) {
                 else ck_reject("letterale atteso nella clausola");
             }
         }
-        c.literal[c.count++] = l;
+        ck_r_push(&c, l);
         ck_r_delimiter(')');
     }
     ck_r_delimiter(')');
@@ -3826,27 +3908,30 @@ static CkRClause ck_r_read_clause(void) {
 }
 
 /* Applica una sostituzione simultanea; le variabili del secondo genitore
- * sono traslate di CK_R_VARS. Non si risostituiscono i termini sostituenti:
+ * sono traslate oltre il contesto del primo, con un prefisso minimo di 64. Non si risostituiscono i termini sostituenti:
  * x->f(x) e una sostituzione finita, non un invito a una ricorsione infinita. */
-static int ck_r_instance(int t, int offset, const int *sub) {
-    if (ck_status != CK_ACCEPTED || !t) return 0;
+static int ck_r_instance(int t, int offset, const int *sub, int count) {
+    if (!t || !ck_r_visit()) return 0;
     if (t < 0) {
-        int v = -t - 1 + offset;
-        if (v >= 2 * CK_R_VARS) { ck_reject("variabile di genitore fuori limite"); return 0; }
-        return sub[v] ? sub[v] : -v - 1;
+        long long v = -1LL - t + offset;
+        if (v >= count) { ck_reject("variabile di genitore fuori limite"); return 0; }
+        return sub[v] ? sub[v] : -(int)v - 1;
     }
-    const CkRTerm n = ck_r.term[t];
-    int args[CK_R_ARITY];
-    for (int i = 0; i < n.count; i++) args[i] = ck_r_instance(ck_r.argument[n.first + i], offset, sub);
+    CkRTerm n = ck_r.term[t];
+    int *args = ck_r_array((size_t)n.count, sizeof *args);
+    if (n.count && !args) return 0;
+    for (int i = 0; i < n.count; i++) args[i] = ck_r_instance(ck_r.argument[n.first + i], offset, sub, count);
     return ck_r_term(n.symbol, args);
 }
 
 /* Un genitore interamente istanziato, con i segni dei letterali invariati. */
-static CkRClause ck_r_instances(int parent, int offset, const int *sub) {
-    CkRClause c = ck_r.clause[parent];
-    for (int i = 0; i < c.count; i++) {
-        c.literal[i].left = ck_r_instance(c.literal[i].left, offset, sub);
-        c.literal[i].right = ck_r_instance(c.literal[i].right, offset, sub);
+static CkRClause ck_r_instances(int parent, int offset, const int *sub, int count) {
+    CkRClause original = ck_r.clause[parent], c = {0};
+    for (int i = 0; i < original.count && ck_status == CK_ACCEPTED; i++) {
+        CkRLiteral l = original.literal[i];
+        l.left = ck_r_instance(l.left, offset, sub, count);
+        l.right = ck_r_instance(l.right, offset, sub, count);
+        ck_r_push(&c, l);
     }
     return c;
 }
@@ -3857,17 +3942,11 @@ static int ck_r_same_atom(CkRLiteral a, CkRLiteral b) {
            (a.right && b.right && a.left == b.right && a.right == b.left);
 }
 
-/* Aggiunge un letterale al risultato, segnalando il limite di grandezza. */
-static void ck_r_push(CkRClause *c, CkRLiteral l) {
-    if (c->count == CK_R_LITERALS) ck_unsupported("risultato con troppi letterali");
-    else c->literal[c->count++] = l;
-}
-
 /* Sostituisce il sotto-termine di posto preorder con replacement, solo se
  * coincide con expected e non e una variabile. cursor conta i posti visitati
  * e found distingue un posto assente da una sostituzione senza effetto. */
 static int ck_r_replace(int t, int position, int *cursor, int expected, int replacement, int *found) {
-    if (ck_status != CK_ACCEPTED) return t;
+    if (!ck_r_visit()) return t;
     if ((*cursor)++ == position) {
         if (t <= 0 || t != expected) ck_reject("la superposizione non coincide col sotto-termine indicato");
         else *found = 1;
@@ -3875,7 +3954,8 @@ static int ck_r_replace(int t, int position, int *cursor, int expected, int repl
     }
     if (t <= 0) return t;
     const CkRTerm n = ck_r.term[t];
-    int args[CK_R_ARITY];
+    int *args = ck_r_array((size_t)n.count, sizeof *args);
+    if (n.count && !args) return t;
     for (int i = 0; i < n.count; i++) args[i] = ck_r_replace(ck_r.argument[n.first + i], position, cursor, expected, replacement, found);
     return ck_r_term(n.symbol, args);
 }
@@ -3886,23 +3966,38 @@ static int ck_r_replace(int t, int position, int *cursor, int expected, int repl
 static void ck_r_step(void) {
     int kind = ck_r_word("resolve") ? 0 : ck_r_word("reflex") ? 1 : ck_r_word("factor") ? 2 : ck_r_word("super") ? 3 : ck_r_word("equalfactor") ? 4 : -1;
     if (kind < 0) { ck_reject("regola di saturazione sconosciuta"); return; }
-    int p = ck_r_index(ck_r.clauses), lp = ck_r_index(ck_r.clause[p].count), q = p, lq = lp, flip = 0, otherflip = 0, side = 0, position = 0;
+    int p = ck_r_index(ck_r.clauses);
+    if (ck_status != CK_ACCEPTED) return;
+    int lp = ck_r_index(ck_r.clause[p].count), q = p, lq = lp, flip = 0, otherflip = 0, side = 0, position = 0;
+    if (ck_status != CK_ACCEPTED) return;
     if (kind == 0 || kind == 3) {
         if (kind == 3) flip = ck_r_index(2);
-        q = ck_r_index(ck_r.clauses); lq = ck_r_index(ck_r.clause[q].count);
-        if (kind == 3) { side = ck_r_index(2); position = ck_r_index(CK_R_TERMS); }
+        q = ck_r_index(ck_r.clauses);
+        if (ck_status != CK_ACCEPTED) return;
+        lq = ck_r_index(ck_r.clause[q].count);
+        if (kind == 3) { side = ck_r_index(2); position = ck_r_index(INT_MAX); }
     } else if (kind == 2 || kind == 4) {
         if (kind == 4) flip = ck_r_index(2);
         lq = ck_r_index(ck_r.clause[p].count);
         if (kind == 4) otherflip = ck_r_index(2);
         if (lp == lq) ck_reject("la fattorizzazione richiede due letterali distinti");
     }
-    int sub[2 * CK_R_VARS] = {0};
+    if (ck_status != CK_ACCEPTED) return;
+    /* Il 64 e solo il prefisso storico dei certificati: oltre 64 nomi il
+     * secondo genitore parte dopo tutti quelli del primo, senza un tetto. */
+    int offset = ck_r.clause[p].variables > 64 ? ck_r.clause[p].variables : 64;
+    int pair = kind == 0 || kind == 3;
+    if (pair && ck_r.clause[q].variables > INT_MAX - offset) { ck_unsupported("troppi nomi nel passo"); return; }
+    int count = pair ? offset + ck_r.clause[q].variables : ck_r.clause[p].variables;
+    int *sub = ck_r_array((size_t)count, sizeof *sub);
+    if (count && !sub) return;
+    if (count) memset(sub, 0, (size_t)count * sizeof *sub);
     ck_r_delimiter('(');
     if (!ck_r_word("subst")) ck_reject("sostituzione esplicita attesa");
     for (ck_skip(); *ck_cursor != ')' && ck_status == CK_ACCEPTED; ck_skip()) {
         ck_r_delimiter('(');
-        int v = ck_r_index(2 * CK_R_VARS);
+        int v = ck_r_index(count);
+        if (ck_status != CK_ACCEPTED) return;
         if (sub[v]) ck_reject("variabile sostituita due volte");
         sub[v] = ck_r_read_term(0, 0);
         ck_r_delimiter(')');
@@ -3910,7 +4005,8 @@ static void ck_r_step(void) {
     ck_r_delimiter(')');
     CkRClause given = ck_r_read_clause(), result = {0};
     if (ck_status != CK_ACCEPTED) return;
-    CkRClause a = ck_r_instances(p, 0, sub), b = ck_r_instances(q, kind == 0 || kind == 3 ? CK_R_VARS : 0, sub);
+    CkRClause a = ck_r_instances(p, 0, sub, count), b = ck_r_instances(q, pair ? offset : 0, sub, count);
+    if (ck_status != CK_ACCEPTED) return;
     CkRLiteral x = a.literal[lp], y = b.literal[lq];
     if (kind == 0) {
         if (x.negative == y.negative || !ck_r_same_atom(x, y)) ck_reject("i letterali risolti non sono complementari");
@@ -8262,6 +8358,7 @@ static CkAnswer ck_check(const char **text, const char **why) {
     CkCertificate cert;
     ck_model_clear();
     ck_structure_clear();
+    ck_r_clear();
     ck_status = CK_ACCEPTED;
     ck_reason = "";
     ck_used = 0;
@@ -8293,6 +8390,7 @@ static CkAnswer ck_check(const char **text, const char **why) {
     *why = ck_reason;
     ck_model_clear();
     ck_structure_clear();
+    ck_r_clear();
     return ck_status;
 }
 

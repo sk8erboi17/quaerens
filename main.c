@@ -57,7 +57,8 @@
  *     o una relazione di cui si sa solo ciò che dicono le ipotesi: "un
  *     elemento neutro a sinistra e uno a destra coincidono". Si smentiscono
  *     con un modello finito, cercato anche con SAT (28t), e si dimostrano
- *     per assurdo, con istanze delle ipotesi e uguali al posto di uguali
+ *     per saturazione di clausole con risoluzione e superposizione (28u),
+ *     oppure per assurdo, con istanze delle ipotesi e uguali al posto di uguali
  *     (17o in parser.c, capitolo 28);
  *     le istanze si scelgono dalla forma, e dove non basta con un modello
  *     candidato fatto degli elementi di cui si parla (28r).
@@ -547,7 +548,7 @@
                                 prima che lo svolgimento le riduca a MAX_SET_VARS */
 #define MAX_PART_RULES 4     /* relazioni e applicazioni tra parti date da una regola, in un enunciato (17r) */
 #define MAX_CONFIGS 16       /* configurazioni elencate in una dimostrazione */
-#define PROOF_BYTES 1048576  /* deposito iniziale del testo; i modelli crescono sullo heap (28t) */
+#define PROOF_BYTES 1048576  /* deposito iniziale; modelli e prove per clausole crescono sullo heap (28t, 28u) */
 #define CERTIFICATE_BYTES 262144 /* deposito iniziale dei certificati, poi crescita dinamica */
 #define MAX_BRICKS 32        /* fattori suggeriti in un certificato: di più il verificatore non ne legge */
 #define MAX_MAPS 4           /* applicazioni dichiarate in un enunciato */
@@ -660,6 +661,10 @@ typedef struct {
 /* Budget di ricerca, modificabili dalla riga di comando: non cardinalita
  * massime. Anche i depositi SAT crescono entro la memoria richiesta. */
 static size_t model_memory_limit = 128u * 1024u * 1024u;
+/* Budget effettivi della saturazione: visite e memoria posseduta, senza
+ * fissare quante variabili, clausole o argomenti puo avere un problema. */
+static unsigned long long saturation_work_limit = 2000000;
+static size_t saturation_memory_limit = 128u * 1024u * 1024u;
 static unsigned long long model_work_limit = 20000000ULL;
 static unsigned long long verification_work_limit = 20000000ULL;
 #define MAX_GROUND 2048      /* elementi nominati in una dimostrazione su insiemi qualsiasi (28b) */
@@ -31950,6 +31955,8 @@ static void cert_abstract_head(const char *kind, const Sentence *root, const Mod
         }
         cert_add("\n");
     }
+    /* Warning: se cambia l'ordine delle dichiarazioni implicite o esplicite,
+     * aggiorna anche la numerazione della clausificazione in sp_prepare(). */
     for (int s = 0; s < declared_symbols; s++) {
         if (symbol_fixed(s) || symbol_bound[s]) continue;  /* fissato da 17v, o una parte legata (17u): non è dichiarato */
         cert_add("symbol ");
@@ -32352,7 +32359,10 @@ static void axiom_map_point(int sort) {
 static void axioms_prepare(void) {
     axiom_count = 0;
     for (int i = 0; i < sort_count; i++)
-        if (sort_kind[i] != SORT_PLAIN) axiom_extensionality(i);
+        /* I numeri elencati non sono insiemi di oggetti con un simbolo
+         * di struttura: non hanno un'appartenenza o un'applicazione da
+         * rendere estensionale. Trattarli come mappe userebbe sort_symbol=-1. */
+        if (sort_kind[i] == SORT_PARTS || sort_kind[i] == SORT_MAPS) axiom_extensionality(i);
     for (int i = 0; i < sort_count; i++)
         for (int kind = 0; kind < 3 && sort_kind[i] == SORT_PARTS; kind++) axiom_part(i, kind);
     for (int i = 0; i < sort_count; i++)
@@ -33162,6 +33172,1239 @@ static int model_sat_slice(const Sentence *root, int wanted, Model *model, long 
     return found;
 }
 
+/* 28u. SATURAZIONE: CLAUSOLE DA FARE E CLAUSOLE GIA ELABORATE
+ *
+ * Si nega l'enunciato e lo si traduce nel primo ordine non tipato, con un
+ * predicato per ogni dominio: gli insiemi possono essere vuoti. Skolem
+ * conserva le dipendenze dagli universali e i nomi di Tseitin conservano
+ * tutte le variabili libere. Il checker ricostruisce la traduzione con un
+ * lettore e strutture indipendenti; nessuna sua funzione cerca per noi.
+ *
+ * Una clausola scelta dalla coda viene combinata con quelle elaborate:
+ * risoluzione, risoluzione dell'uguaglianza, fattorizzazione e superposizione.
+ * I genitori hanno sempre variabili distinte prima dell'unificazione.
+ * L'occurs-check impedisce sostituzioni cicliche: x=f(x) non ha un
+ * unificatore tra termini finiti. Ogni deduzione conserva genitori,
+ * posizioni e sostituzione simultanea completamente risolta.
+ *
+ * KBO con tutti i pesi uguali a uno orienta le riscritture; una clausola
+ * sussunta e ridondante. La scelta alterna peso ed eta: ogni quinto turno
+ * prende la piu vecchia, quindi una clausola persistente non resta esclusa
+ * perche continuano a nascerne di leggere. Esaurire risorse o saturare senza
+ * il vuoto non prova la tesi. Solo il vuoto ricontrollato la dimostra.
+ *
+ * Riferimenti: Kovacs e Voronkov, First-Order Theorem Proving and Vampire
+ * (2013); Sternagel e Thiemann, Formalizing Knuth-Bendix Orders and
+ * Knuth-Bendix Completion (2013). Si implementano le regole, senza codice
+ * o risolutori esterni.
+ */
+
+/* Un blocco stabile di memoria della ricerca. next concatena i blocchi,
+ * used/capacity contano byte del payload allineato. Nessun blocco si sposta.
+ * I temporanei si riusano fra inferenze; le deduzioni vivono fino al termine. */
+typedef struct SpBlock SpBlock;
+struct SpBlock {
+    SpBlock *next;
+    size_t used, capacity;
+    _Alignas(16) unsigned char data[];
+};
+
+/* Un'arena possiede tutti i blocchi a partire da first; current e quello
+ * da cui continuare. Solo l'arena dei temporanei viene azzerata. */
+typedef struct { SpBlock *first, *current; } SpArena;
+
+/* Un simbolo della traduzione: arity conta gli argomenti; predicate
+ * distingue un atomo da una funzione. Il numero e quello nel certificato. */
+typedef struct { int arity, predicate; } SpSymbol;
+
+/* Un termine condiviso, con argomenti contigui in argument. weight e il
+ * numero di occorrenze di simboli e variabili, per KBO e la scelta in coda.
+ * Un riferimento positivo indica un termine; -1-v la variabile v; zero
+ * l'assenza di un termine, usata per i predicati e le costanti logiche. */
+typedef struct { int symbol, first, count; unsigned long long weight; } SpTerm;
+
+/* Un atomo eventualmente negato. right!=0 indica un'uguaglianza; altrimenti
+ * left e un predicato, oppure zero per vero. negative appartiene a {0,1}. */
+typedef struct { int left, right, negative; } SpLiteral;
+
+/* Una sostituzione esplicita nel certificato: variable e il nome prima
+ * della normalizzazione, term la sua immagine gia completamente risolta. */
+typedef struct { int variable, term; } SpBinding;
+
+/* Regole del calcolo; INPUT indica una clausola iniziale ricostruita anche
+ * dal checker. Le altre corrispondono alle cinque voci step del protocollo. */
+typedef enum { SP_INPUT, SP_RESOLVE, SP_REFLEX, SP_FACTOR, SP_SUPER, SP_EQUAL_FACTOR } SpRule;
+
+/* Dati sufficienti a ricontrollare una deduzione. p/q e lp/lq identificano
+ * genitori e letterali; flip/otherflip scelgono i versi delle uguaglianze;
+ * side/position individuano il sotto-termine in visita preorder. binding
+ * ha bindings immagini simultanee, possedute dall'arena della clausola. */
+typedef struct {
+    SpRule rule;
+    int p, lp, q, lq, flip, otherflip, side, position;
+    int bindings;
+    const SpBinding *binding;
+} SpStep;
+
+/* Stato di una clausola nella ricerca. Cancellarla dalla ricerca conserva
+ * la deduzione nel deposito, perche puo essere genitore di una prova. */
+typedef enum { SP_PENDING, SP_ACTIVE, SP_DELETED } SpStage;
+
+/* Una clausola immutabile quanto a letterali e deduzione. count e il numero
+ * di letterali, variables quello dei nomi normalizzati; literal e posseduto
+ * dall'arena. signature filtra solo confronti impossibili di sussunzione,
+ * weight ordina la coda. stage e l'unico campo modificato dalla ricerca. */
+typedef struct {
+    int count, variables;
+    const SpLiteral *literal;
+    SpStep step;
+    SpStage stage;
+    unsigned long long signature, weight;
+} SpClause;
+
+/* Una coppia di termini ancora da unificare o confrontare. Gli elementi
+ * della pila sono valori: una crescita non lascia puntatori pendenti. */
+typedef struct { int a, b; } SpPair;
+
+/* Un bilancio delle occorrenze per la condizione sulle variabili di KBO:
+ * variable e un nome, balance e occorrenze nel primo meno nel secondo. */
+typedef struct { int variable; long long balance; } SpBalance;
+
+/* Stato posseduto da una ricerca. I suffissi _cap sono capacita sullo heap;
+ * i contatori delimitano le celle valide. term/argument/hash condividono i
+ * termini, symbol i simboli, clause le deduzioni; heap sceglie il peso e
+ * age scorre gli indici per eta. input_symbol/original_symbol traducono i
+ * simboli del parser nell'ordine dell'intestazione e viceversa; inputs conta
+ * le dichiarazioni effettivamente emesse. binding e universals servono al parsing
+ * dell'albero, non a interpretare un modello finito.
+ * variables numera gli universali introdotti, universal conta quelli attivi;
+ * initial delimita le clausole iniziali, empty e il posto del vuoto o -1.
+ * unsupported segnala un nodo fuori dal primo ordine. rounds conta le scelte.
+ *
+ * sub e la sostituzione dell'unificazione; match e quella del confronto a
+ * senso unico. todo/occurs sono pile iterative, trail permette di tornare
+ * indietro nella sussunzione. path/path_count descrivono il cammino al punto
+ * di superposizione. sub_count/match_count delimitano le mappe; trails,
+ * todos, occurrences e balances contano le rispettive celle valide.
+ * balance serve solo a KBO. storage possiede
+ * clausole e certificati, scratch i temporanei riusati. bytes/work contano
+ * memoria reale e visite; limited significa soltanto ricerca incompleta. */
+typedef struct {
+    int terms, args, symbols, clauses, variables, universal, heap_count, age;
+    int initial, empty, limited, unsupported, inputs;
+    unsigned long long work, rounds;
+    size_t bytes;
+    SpTerm *term;
+    int *argument, *hash, *binding, *universals, *heap;
+    int *input_symbol, *original_symbol;
+    SpSymbol *symbol;
+    SpClause *clause;
+    int *sub, *match, *trail, *occurs, *path;
+    int path_count;
+    SpPair *todo;
+    SpBalance *balance;
+    size_t term_cap, argument_cap, hash_cap, binding_cap, universal_cap, heap_cap;
+    size_t input_cap, original_cap;
+    size_t symbol_cap, clause_cap, sub_cap, match_cap, trail_cap, occurs_cap, todo_cap, balance_cap, path_cap;
+    int sub_count, match_count, trails, todos, occurrences, balances;
+    SpArena storage, scratch;
+} SpState;
+
+/* Registra lavoro effettivo prima di visitare un nodo o tentare un passo. */
+static int sp_visit(SpState *s) {
+    if (s->limited || s->unsupported) return 0;
+    if (s->work >= saturation_work_limit) { s->limited = 1; return 0; }
+    s->work++;
+    return 1;
+}
+
+/* Cresce un deposito, senza perdere i vecchi dati e contabilizzando i byte
+ * effettivamente allocati. Non usa il fallimento globale delle altre
+ * strategie: una ricerca interrotta puo lasciare spazio a un'altra. */
+static int sp_reserve(SpState *s, void **data, size_t *capacity, size_t need, size_t unit) {
+    if (s->limited || s->unsupported) return 0;
+    if (need <= *capacity) return 1;
+    size_t count = *capacity ? *capacity : 16;
+    while (count < need) {
+        if (count > (size_t)-1 / 2) { count = need; break; }
+        count *= 2;
+    }
+    if (count > (size_t)-1 / unit || s->bytes > saturation_memory_limit ||
+        (count - *capacity) * unit > saturation_memory_limit - s->bytes) { s->limited = 1; return 0; }
+    void *next = realloc(*data, count * unit);
+    if (!next) { s->limited = 1; return 0; }
+    memset((unsigned char *)next + *capacity * unit, 0, (count - *capacity) * unit);
+    s->bytes += (count - *capacity) * unit;
+    *data = next; *capacity = count;
+    return 1;
+}
+
+/* Prende memoria stabile, allineata, da un'arena della ricerca. Il budget
+ * comprende i blocchi interi e i loro metadati, anche se non ancora pieni. */
+static void *sp_allocate(SpState *s, SpArena *a, size_t count, size_t unit) {
+    if (!count || s->limited || s->unsupported) return NULL;
+    if (count > ((size_t)-1 - 15) / unit) { s->limited = 1; return NULL; }
+    size_t need = (count * unit + 15) & ~(size_t)15;
+    SpBlock *b = a->current;
+    while (b && need > b->capacity - b->used) b = b->next;
+    if (!b) {
+        size_t capacity = need > 16384 ? need : 16384;
+        if (capacity > (size_t)-1 - sizeof *b || s->bytes > saturation_memory_limit ||
+            sizeof *b + capacity > saturation_memory_limit - s->bytes) { s->limited = 1; return NULL; }
+        b = malloc(sizeof *b + capacity);
+        if (!b) { s->limited = 1; return NULL; }
+        *b = (SpBlock){.capacity=capacity};
+        if (!a->first) a->first = b;
+        else {
+            SpBlock *last = a->current ? a->current : a->first;
+            while (last->next) last = last->next;
+            last->next = b;
+        }
+        s->bytes += sizeof *b + capacity;
+    }
+    a->current = b;
+    void *data = b->data + b->used; b->used += need;
+    return data;
+}
+
+/* Ricomincia i temporanei tra due inferenze. Nessun termine o clausola
+ * conservato puo possedere un puntatore a quest'arena. */
+static void sp_scratch_reset(SpState *s) {
+    for (SpBlock *b = s->scratch.first; b; b = b->next) b->used = 0;
+    s->scratch.current = s->scratch.first;
+}
+
+/* Libera tutto lo stato, anche dopo un'allocazione incompleta. */
+static void sp_clear(SpState *s) {
+    free(s->term); free(s->argument); free(s->hash); free(s->binding); free(s->universals);
+    free(s->input_symbol); free(s->original_symbol);
+    free(s->heap); free(s->symbol); free(s->clause); free(s->sub); free(s->match);
+    free(s->trail); free(s->occurs); free(s->todo); free(s->balance); free(s->path);
+    SpArena *arenas[2] = {&s->storage, &s->scratch};
+    for (int i = 0; i < 2; i++) for (SpBlock *b = arenas[i]->first; b;) {
+        SpBlock *next = b->next; free(b); b = next;
+    }
+    memset(s, 0, sizeof *s);
+}
+
+/* Introduce un simbolo nel medesimo ordine dichiarativo del protocollo. */
+static int sp_symbol(SpState *s, int arity, int predicate) {
+    if (s->symbols == INT_MAX || !sp_reserve(s, (void **)&s->symbol, &s->symbol_cap, (size_t)s->symbols + 1, sizeof *s->symbol)) {
+        s->limited = 1; return 0;
+    }
+    int id = s->symbols++;
+    s->symbol[id] = (SpSymbol){arity, predicate};
+    return id;
+}
+
+/* Hash dei figli gia condivisi. Una collisione richiede comunque il
+ * confronto esatto del simbolo e dell'intero vettore degli argomenti. */
+static unsigned long long sp_term_hash(int symbol, const int *args, int count) {
+    unsigned long long h = 1469598103934665603ULL ^ (unsigned)symbol;
+    for (int i = 0; i < count; i++) h = (h ^ (unsigned)args[i]) * 1099511628211ULL;
+    return h;
+}
+
+/* Peso di un riferimento: le variabili pesano uno, zero non e un termine. */
+static unsigned long long sp_term_weight(const SpState *s, int t) {
+    return t < 0 ? 1 : t ? s->term[t].weight : 0;
+}
+
+/* Condivide una costruzione finita. Il vettore input non deve puntare
+ * dentro argument, che puo spostarsi; i chiamanti usano frame o scratch. */
+static int sp_term(SpState *s, int symbol, const int *args) {
+    if (!sp_visit(s)) return 0;
+    int count = s->symbol[symbol].arity;
+    if (!s->hash_cap || (size_t)s->terms + 1 >= s->hash_cap / 2) {
+        size_t old = s->hash_cap;
+        if (old > (size_t)-1 / 2 || !sp_reserve(s, (void **)&s->hash, &s->hash_cap, old ? 2 * old : 32, sizeof *s->hash)) {
+            s->limited = 1; return 0;
+        }
+        memset(s->hash, 0, s->hash_cap * sizeof *s->hash);
+        for (int id = 1; id <= s->terms; id++) {
+            SpTerm t = s->term[id];
+            size_t k = sp_term_hash(t.symbol, t.count ? s->argument + t.first : NULL, t.count) % s->hash_cap;
+            while (s->hash[k]) k = (k + 1) % s->hash_cap;
+            s->hash[k] = id;
+        }
+    }
+    size_t h = sp_term_hash(symbol, args, count) % s->hash_cap;
+    for (; s->hash[h]; h = (h + 1) % s->hash_cap) {
+        if (!sp_visit(s)) return 0;
+        int id = s->hash[h]; SpTerm t = s->term[id];
+        if (t.symbol == symbol && (!count || memcmp(s->argument + t.first, args, (size_t)count * sizeof *args) == 0)) return id;
+    }
+    if (s->terms == INT_MAX || count > INT_MAX - s->args) { s->limited = 1; return 0; }
+    if (!sp_reserve(s, (void **)&s->term, &s->term_cap, (size_t)s->terms + 2, sizeof *s->term) ||
+        !sp_reserve(s, (void **)&s->argument, &s->argument_cap, (size_t)s->args + (size_t)count, sizeof *s->argument)) return 0;
+    unsigned long long weight = 1;
+    for (int i = 0; i < count; i++) {
+        unsigned long long w = sp_term_weight(s, args[i]);
+        if (w > ULLONG_MAX - weight) { s->limited = 1; return 0; }
+        weight += w;
+    }
+    int id = ++s->terms;
+    s->term[id] = (SpTerm){symbol, s->args, count, weight};
+    if (count) memcpy(s->argument + s->args, args, (size_t)count * sizeof *args);
+    s->args += count; s->hash[h] = id;
+    return id;
+}
+
+/* Segue le sostituzioni dell'unificazione, che l'occurs-check tiene acicliche. */
+static int sp_deref(const SpState *s, int t) {
+    while (t < 0 && -1 - t < s->sub_count && s->sub[-1 - t]) t = s->sub[-1 - t];
+    return t;
+}
+
+/* Aggiunge un confronto alla pila iterativa condivisa dalle operazioni di
+ * unificazione e matching; il chiamante azzera todos prima di usarla. */
+static int sp_pair_push(SpState *s, int a, int b) {
+    if (s->todos == INT_MAX || !sp_reserve(s, (void **)&s->todo, &s->todo_cap, (size_t)s->todos + 1, sizeof *s->todo)) {
+        s->limited = 1; return 0;
+    }
+    s->todo[s->todos++] = (SpPair){a, b};
+    return 1;
+}
+
+/* Cerca una variabile in un termine dereferenziato, senza usare la pila C.
+ * Se x compare in t, x=t richiederebbe un termine infinito e va rifiutata. */
+static int sp_occurs(SpState *s, int variable, int term) {
+    s->occurrences = 0;
+    if (!sp_reserve(s, (void **)&s->occurs, &s->occurs_cap, 1, sizeof *s->occurs)) return 1;
+    s->occurs[s->occurrences++] = term;
+    while (s->occurrences && sp_visit(s)) {
+        int t = sp_deref(s, s->occurs[--s->occurrences]);
+        if (t == variable) return 1;
+        if (t <= 0) continue;
+        SpTerm n = s->term[t];
+        if (n.count > INT_MAX - s->occurrences ||
+            !sp_reserve(s, (void **)&s->occurs, &s->occurs_cap, (size_t)s->occurrences + (size_t)n.count, sizeof *s->occurs)) {
+            s->limited = 1; return 1;
+        }
+        for (int i = 0; i < n.count; i++) s->occurs[s->occurrences++] = s->argument[n.first + i];
+    }
+    return s->limited;
+}
+
+/* Unificazione di Robinson con occurs-check. Il contesto sub gia presente
+ * si estende; un fallimento lo lascia sporco, e il chiamante lo reinizializza
+ * prima di un altro tentativo. Nessuna equazione sui reali entra qui. */
+static int sp_unify(SpState *s, int left, int right) {
+    s->todos = 0;
+    sp_pair_push(s, left, right);
+    while (s->todos && sp_visit(s)) {
+        SpPair pair = s->todo[--s->todos];
+        int a = sp_deref(s, pair.a), b = sp_deref(s, pair.b);
+        if (a == b) continue;
+        if (a < 0 || b < 0) {
+            if (a >= 0) { int t = a; a = b; b = t; }
+            if (-1 - a >= s->sub_count || sp_occurs(s, a, b)) return 0;
+            s->sub[-1 - a] = b;
+        } else {
+            if (!a || !b || s->term[a].symbol != s->term[b].symbol) return 0;
+            SpTerm x = s->term[a], y = s->term[b];
+            for (int i = 0; i < x.count; i++) sp_pair_push(s, s->argument[x.first + i], s->argument[y.first + i]);
+        }
+    }
+    return !s->limited && !s->unsupported;
+}
+
+/* Inizia un'unificazione con i nomi dei due genitori gia separati. */
+static int sp_unify_start(SpState *s, int count) {
+    s->sub_count = count;
+    if (!sp_reserve(s, (void **)&s->sub, &s->sub_cap, (size_t)count, sizeof *s->sub)) return 0;
+    if (count) memset(s->sub, 0, (size_t)count * sizeof *s->sub);
+    return 1;
+}
+
+/* Applica una sostituzione risolta ai termini del genitore traslato di
+ * offset. Gli zeri della mappa lasciano i nomi liberi; le immagini di sub
+ * sono dereferenziate ricorsivamente solo quando recursive vale uno. */
+static int sp_apply(SpState *s, int t, int offset, const int *sub, int count, int recursive) {
+    if (!t || !sp_visit(s)) return 0;
+    if (t < 0) {
+        long long v = -1LL - t + offset;
+        if (v >= INT_MAX) { s->limited = 1; return 0; }
+        if (v < count && sub[v]) return recursive ? sp_apply(s, sub[v], 0, sub, count, 1) : sub[v];
+        return -(int)v - 1;
+    }
+    SpTerm n = s->term[t];
+    int *args = sp_allocate(s, &s->scratch, (size_t)n.count, sizeof *args);
+    if (n.count && !args) return 0;
+    for (int i = 0; i < n.count; i++) args[i] = sp_apply(s, s->argument[n.first + i], offset, sub, count, recursive);
+    return sp_term(s, n.symbol, args);
+}
+
+/* Confronto a senso unico: solo le variabili dello schema possono cambiare.
+ * I nomi del termine bersaglio sono traslati e quindi non possono essere
+ * scambiati con quelli dello schema. trail conserva i nuovi legami. */
+static int sp_match(SpState *s, int pattern, int target) {
+    s->todos = 0;
+    sp_pair_push(s, pattern, target);
+    while (s->todos && sp_visit(s)) {
+        SpPair p = s->todo[--s->todos];
+        if (p.a == p.b) continue;
+        if (p.a < 0) {
+            int v = -p.a - 1;
+            if (v >= s->match_count) return 0;
+            if (s->match[v]) { if (s->match[v] != p.b) return 0; }
+            else {
+                if (!sp_reserve(s, (void **)&s->trail, &s->trail_cap, (size_t)s->trails + 1, sizeof *s->trail)) return 0;
+                s->match[v] = p.b; s->trail[s->trails++] = v;
+            }
+        } else {
+            if (!p.a || p.b <= 0 || s->term[p.a].symbol != s->term[p.b].symbol) return 0;
+            SpTerm a = s->term[p.a], b = s->term[p.b];
+            for (int i = 0; i < a.count; i++) sp_pair_push(s, s->argument[a.first + i], s->argument[b.first + i]);
+        }
+    }
+    return !s->limited;
+}
+
+/* Ricomincia un confronto di schemi, oppure torna al punto segnato prima
+ * di provare un diverso abbinamento di letterali. */
+static int sp_match_start(SpState *s, int count) {
+    s->match_count = count; s->trails = 0;
+    if (!sp_reserve(s, (void **)&s->match, &s->match_cap, (size_t)count, sizeof *s->match)) return 0;
+    if (count) memset(s->match, 0, (size_t)count * sizeof *s->match);
+    return 1;
+}
+
+/* Cancella soltanto i legami aggiunti dopo mark. */
+static void sp_match_back(SpState *s, int mark) {
+    while (s->trails > mark) s->match[s->trail[--s->trails]] = 0;
+}
+
+/* Accumula il multinsieme delle variabili di t col segno dato. La visita
+ * conta occorrenze, non soli nodi del DAG: f(x,x) contiene x due volte. */
+static void sp_balance(SpState *s, int t, int sign) {
+    if (!t || !sp_visit(s)) return;
+    if (t < 0) {
+        int i = 0;
+        while (i < s->balances && s->balance[i].variable != t) i++;
+        if (i == s->balances) {
+            if (!sp_reserve(s, (void **)&s->balance, &s->balance_cap, (size_t)i + 1, sizeof *s->balance)) return;
+            s->balance[s->balances++] = (SpBalance){t, 0};
+        }
+        if ((sign > 0 && s->balance[i].balance == LLONG_MAX) ||
+            (sign < 0 && s->balance[i].balance == LLONG_MIN)) { s->limited = 1; return; }
+        s->balance[i].balance += sign;
+        return;
+    }
+    SpTerm n = s->term[t];
+    for (int i = 0; i < n.count; i++) sp_balance(s, s->argument[n.first + i], sign);
+}
+
+/* KBO stretto, con peso uno per ogni simbolo e variabile e precedenza
+ * crescente dei simboli. Prima si impone occ_s(x)>=occ_t(x) per ogni x;
+ * poi decide il peso, a parita la precedenza o il primo figlio diverso.
+ * I pesi positivi e la condizione sulle variabili rendono l'ordine ben
+ * fondato e stabile per sostituzioni: riscrivere nel verso maggiore->minore
+ * non puo creare un ciclo. Termini aperti possono restare incomparabili. */
+static int sp_greater(SpState *s, int a, int b) {
+    if (a == b || !a || !b || !sp_visit(s)) return 0;
+    s->balances = 0; sp_balance(s, a, 1); sp_balance(s, b, -1);
+    for (int i = 0; i < s->balances; i++) if (s->balance[i].balance < 0) return 0;
+    unsigned long long x = sp_term_weight(s, a), y = sp_term_weight(s, b);
+    if (x != y) return x > y;
+    if (a < 0 || b < 0) return 0;
+    SpTerm u = s->term[a], v = s->term[b];
+    if (u.symbol != v.symbol) return u.symbol > v.symbol;
+    for (int i = 0; i < u.count; i++) {
+        int l = s->argument[u.first + i], r = s->argument[v.first + i];
+        if (l != r) return sp_greater(s, l, r);
+    }
+    return 0;
+}
+
+/* Mappa temporanea della normalizzazione: old e il riferimento negativo
+ * originale, fresh quello assegnato per prima occorrenza. Le celle sono
+ * nello scratch e nessuna clausola conservata ne possiede il puntatore. */
+typedef struct { int old, fresh; } SpName;
+
+/* Un contesto di rinomina, condiviso solo dalla ricorsione corrente.
+ * count/capacity delimitano i nomi, name puo cambiare indirizzo crescendo. */
+typedef struct { int count; size_t capacity; SpName *name; } SpNames;
+
+/* Rinomina le variabili per prima occorrenza, condividendo nuovamente i
+ * termini costruiti. Non usa il valore numerico dei nomi come capacita. */
+static int sp_rename(SpState *s, int t, SpNames *names) {
+    if (!t || !sp_visit(s)) return 0;
+    if (t < 0) {
+        for (int i = 0; i < names->count; i++) if (names->name[i].old == t) return names->name[i].fresh;
+        if ((size_t)names->count == names->capacity) {
+            size_t cap = names->capacity ? 2 * names->capacity : 16;
+            SpName *next = sp_allocate(s, &s->scratch, cap, sizeof *next);
+            if (!next) return 0;
+            if (names->count) memcpy(next, names->name, (size_t)names->count * sizeof *next);
+            names->name = next; names->capacity = cap;
+        }
+        if (names->count == INT_MAX) { s->limited = 1; return 0; }
+        int fresh = -1 - names->count;
+        names->name[names->count++] = (SpName){t, fresh};
+        return fresh;
+    }
+    SpTerm n = s->term[t];
+    int *args = sp_allocate(s, &s->scratch, (size_t)n.count, sizeof *args);
+    if (n.count && !args) return 0;
+    for (int i = 0; i < n.count; i++) args[i] = sp_rename(s, s->argument[n.first + i], names);
+    return sp_term(s, n.symbol, args);
+}
+
+/* Stesso atomo, ammettendo la simmetria dell'uguaglianza. Il segno viene
+ * confrontato dal chiamante, cosi si riconoscono anche i complementari. */
+static int sp_same_atom(SpLiteral a, SpLiteral b) {
+    return (a.left == b.left && a.right == b.right) ||
+           (a.right && b.right && a.left == b.right && a.right == b.left);
+}
+
+/* Copia e normalizza: falso si elimina, i duplicati identici si contraggono.
+ * L'ordine dei letterali e il verso delle uguaglianze restano quelli della
+ * regola, perche sono dati del certificato. La firma usa solo simboli che
+ * una sostituzione non puo cambiare, quindi non scarta una sussunzione vera. */
+static SpClause sp_normal(SpState *s, const SpLiteral *literal, int count) {
+    SpClause c = {0}; SpNames names = {0};
+    SpLiteral *out = sp_allocate(s, &s->scratch, (size_t)count, sizeof *out);
+    if (count && !out) return c;
+    for (int i = 0; i < count && sp_visit(s); i++) {
+        SpLiteral l = literal[i];
+        if (!l.left && l.negative) continue;
+        l.left = sp_rename(s, l.left, &names); l.right = sp_rename(s, l.right, &names);
+        int repeated = 0;
+        for (int j = 0; j < c.count; j++)
+            repeated |= out[j].left == l.left && out[j].right == l.right && out[j].negative == l.negative;
+        if (repeated) continue;
+        out[c.count++] = l;
+        unsigned key = !l.left ? 0 : l.right ? 2u + (unsigned)l.negative
+                       : 4u + 2u * (unsigned)s->term[l.left].symbol + (unsigned)l.negative;
+        c.signature |= 1ULL << (key % 64);
+        unsigned long long weight = sp_term_weight(s, l.left), right = sp_term_weight(s, l.right);
+        if (right > ULLONG_MAX - weight) { s->limited = 1; return c; }
+        weight += right;
+        if (weight == ULLONG_MAX || weight + 1 > ULLONG_MAX - c.weight) { s->limited = 1; return c; }
+        c.weight += weight + 1;
+    }
+    c.literal = out; c.variables = names.count;
+    return c;
+}
+
+/* Una tautologia e vera per ogni interpretazione: vero, t=t, oppure due
+ * atomi identici con segni opposti. Non basta che siano unificabili. */
+static int sp_tautology(const SpClause *c) {
+    for (int i = 0; i < c->count; i++) {
+        SpLiteral l = c->literal[i];
+        if ((!l.left || (l.right && l.left == l.right)) && !l.negative) return 1;
+        for (int j = 0; j < i; j++)
+            if (l.negative != c->literal[j].negative && sp_same_atom(l, c->literal[j])) return 1;
+    }
+    return 0;
+}
+
+/* Trasla e istanzia i letterali di una clausola, senza modificarla. Le
+ * immagini devono gia essere simultanee, come quelle scritte al checker. */
+static SpLiteral *sp_instance(SpState *s, SpClause c, int offset, const int *sub, int count, int recursive) {
+    SpLiteral *literal = sp_allocate(s, &s->scratch, (size_t)c.count, sizeof *literal);
+    if (c.count && !literal) return NULL;
+    for (int i = 0; i < c.count; i++) {
+        literal[i] = c.literal[i];
+        literal[i].left = sp_apply(s, literal[i].left, offset, sub, count, recursive);
+        literal[i].right = sp_apply(s, literal[i].right, offset, sub, count, recursive);
+    }
+    return literal;
+}
+
+/* Un livello del confronto fra clausole: choice e il prossimo letterale e
+ * verso da provare, mark delimita i legami presenti prima di quel livello. */
+typedef struct { size_t choice; int mark; } SpMatchFrame;
+
+/* C sussume D se esiste una sostituzione theta con C theta contenuta in D.
+ * I nomi di D restano fissi e distinti da quelli di C. Un successo rende D
+ * ridondante: ogni interpretazione che soddisfa C soddisfa anche D. Il
+ * backtracking e iterativo e il budget conta ogni abbinamento tentato. */
+static int sp_subsumes(SpState *s, SpClause c, SpClause d) {
+    if (c.signature & ~d.signature) return 0;
+    if (!c.count) return 1;
+    if (!d.count || !sp_match_start(s, c.variables)) return 0;
+    int offset = c.variables > 64 ? c.variables : 64;
+    SpLiteral *target = sp_instance(s, d, offset, NULL, 0, 0);
+    SpMatchFrame *frame = sp_allocate(s, &s->scratch, (size_t)c.count, sizeof *frame);
+    if (!target || !frame) return 0;
+    int level = 0; frame[0] = (SpMatchFrame){0};
+    while (level >= 0 && sp_visit(s)) {
+        SpMatchFrame *f = &frame[level];
+        sp_match_back(s, f->mark);
+        if (f->choice == 2 * (size_t)d.count) { level--; continue; }
+        size_t choice = f->choice++;
+        SpLiteral a = c.literal[level], b = target[choice / 2];
+        int flip = (int)(choice % 2);
+        if (a.negative != b.negative || !!a.right != !!b.right || (flip && !a.right)) continue;
+        int x = flip ? b.right : b.left, y = flip ? b.left : b.right;
+        if (!sp_match(s, a.left, x) || (a.right && !sp_match(s, a.right, y))) continue;
+        if (++level == c.count) return 1;
+        frame[level] = (SpMatchFrame){.mark=s->trails};
+    }
+    return 0;
+}
+
+/* Ordine della coda per peso, con eta come spareggio deterministico. */
+static int sp_before(const SpState *s, int a, int b) {
+    return s->clause[a].weight < s->clause[b].weight ||
+           (s->clause[a].weight == s->clause[b].weight && a < b);
+}
+
+/* Aggiunge una clausola alla coda a priorita. Le voci cancellate vengono
+ * scartate quando arrivano in testa, senza spostare le altre clausole. */
+static void sp_enqueue(SpState *s, int id) {
+    if (!sp_reserve(s, (void **)&s->heap, &s->heap_cap, (size_t)s->heap_count + 1, sizeof *s->heap)) return;
+    size_t at = (size_t)s->heap_count++;
+    while (at && sp_before(s, id, s->heap[(at - 1) / 2])) {
+        s->heap[at] = s->heap[(at - 1) / 2]; at = (at - 1) / 2;
+    }
+    s->heap[at] = id;
+}
+
+/* Toglie il minimo dall'heap, anche se gia elaborato per eta o cancellato. */
+static int sp_pop(SpState *s) {
+    if (!s->heap_count) return -1;
+    int result = s->heap[0], last = s->heap[--s->heap_count];
+    size_t at = 0, count = (size_t)s->heap_count;
+    while (2 * at + 1 < count) {
+        size_t child = 2 * at + 1;
+        if (child + 1 < count && sp_before(s, s->heap[child + 1], s->heap[child])) child++;
+        if (!sp_before(s, s->heap[child], last)) break;
+        s->heap[at] = s->heap[child]; at = child;
+    }
+    if (count) s->heap[at] = last;
+    return result;
+}
+
+/* Quattro scelte per peso e una per eta. Con risorse illimitate ogni
+ * clausola persistente viene prima o poi scelta, anche con peso crescente. */
+static int sp_select(SpState *s) {
+    if (s->rounds++ % 5 == 4) {
+        while (s->age < s->clauses && s->clause[s->age].stage != SP_PENDING && sp_visit(s)) s->age++;
+        if (s->age < s->clauses) return s->age++;
+    }
+    for (int id; (id = sp_pop(s)) >= 0 && sp_visit(s);)
+        if (s->clause[id].stage == SP_PENDING) return id;
+    return -1;
+}
+
+/* Salva una clausola e, se derivata, la sua sostituzione. I temporanei sono
+ * copiati prima di tornare al chiamante. Le clausole iniziali conservano
+ * sempre il proprio indice, comprese quelle ridondanti; il checker le
+ * ricostruisce senza conoscere le euristiche della ricerca. replaced e il
+ * bersaglio di una riscrittura, oppure -1: non puo sussumere la propria
+ * sostituta per poi essere cancellato senza conservarne nessuna. */
+static int sp_keep(SpState *s, const SpLiteral *literal, int count, SpStep step, int replaced) {
+    SpClause c = sp_normal(s, literal, count);
+    if (s->limited || s->unsupported) return -1;
+    int trivial = sp_tautology(&c), initial = step.rule == SP_INPUT;
+    if (!initial && trivial) return -1;
+    if (!initial) for (int i = 0; i < s->clauses && sp_visit(s); i++)
+        if (i != replaced && s->clause[i].stage != SP_DELETED && sp_subsumes(s, s->clause[i], c)) return -1;
+    if (s->clauses == INT_MAX) { s->limited = 1; return -1; }
+    if (!sp_reserve(s, (void **)&s->clause, &s->clause_cap, (size_t)s->clauses + 1, sizeof *s->clause)) return -1;
+    SpLiteral *saved = sp_allocate(s, &s->storage, (size_t)c.count, sizeof *saved);
+    SpBinding *bindings = sp_allocate(s, &s->storage, (size_t)step.bindings, sizeof *bindings);
+    if ((c.count && !saved) || (step.bindings && !bindings) || s->limited) return -1;
+    if (c.count) memcpy(saved, c.literal, (size_t)c.count * sizeof *saved);
+    if (step.bindings) memcpy(bindings, step.binding, (size_t)step.bindings * sizeof *bindings);
+    c.literal = saved; c.step = step; c.step.binding = bindings;
+    c.stage = trivial ? SP_DELETED : SP_PENDING;
+    int id = s->clauses++;
+    s->clause[id] = c;
+    if (!c.count) s->empty = id;
+    if (!trivial) sp_enqueue(s, id);
+    if (!initial && c.count) for (int i = 0; i < id && sp_visit(s); i++)
+        if (s->clause[i].stage != SP_DELETED && sp_subsumes(s, c, s->clause[i])) s->clause[i].stage = SP_DELETED;
+    return s->limited ? -1 : id;
+}
+
+/* Scrive una delle clausole di Tseitin, di al piu tre letterali. */
+static void sp_emit(SpState *s, SpLiteral a, SpLiteral b, SpLiteral c, int count) {
+    SpLiteral literal[3] = {a, b, c};
+    sp_keep(s, literal, count, (SpStep){.rule=SP_INPUT}, -1);
+}
+
+/* Il complemento di un letterale conserva il suo atomo. */
+static SpLiteral sp_not(SpLiteral l) { l.negative = !l.negative; return l; }
+
+/* Raccoglie nomi distinti in un vettore sparso nello scratch. Anche indici
+ * lontani non richiedono memoria per tutte le posizioni intermedie. */
+static void sp_free_variables(SpState *s, int t, SpNames *names) {
+    if (!t || !sp_visit(s)) return;
+    if (t < 0) { sp_rename(s, t, names); return; }
+    SpTerm n = s->term[t];
+    for (int i = 0; i < n.count; i++) sp_free_variables(s, s->argument[n.first + i], names);
+}
+
+/* Ordine dei nomi liberi, indipendente dall'ordine in cui sono stati letti. */
+static int sp_name_order(const void *a, const void *b) {
+    int x = ((const SpName *)a)->old, y = ((const SpName *)b)->old;
+    return (y > x) - (y < x);
+}
+
+/* Introduce q(vars) equivalente ad a AND b, oppure a OR b. Le tre
+ * implicazioni garantiscono entrambi i versi, anche sotto una negazione.
+ * I parametri sono tutte e sole le variabili libere, in ordine crescente. */
+static SpLiteral sp_connect(SpState *s, SpLiteral a, SpLiteral b, int conjunction) {
+    if (!a.left) return a.negative == conjunction ? a : b;
+    if (!b.left) return b.negative == conjunction ? b : a;
+    SpNames names = {0};
+    sp_free_variables(s, a.left, &names); sp_free_variables(s, a.right, &names);
+    sp_free_variables(s, b.left, &names); sp_free_variables(s, b.right, &names);
+    if (names.count) qsort(names.name, (size_t)names.count, sizeof *names.name, sp_name_order);
+    int *args = sp_allocate(s, &s->scratch, (size_t)names.count, sizeof *args);
+    if (names.count && !args) return (SpLiteral){0};
+    for (int i = 0; i < names.count; i++) args[i] = names.name[i].old;
+    SpLiteral q = {sp_term(s, sp_symbol(s, names.count, 1), args), 0, 0};
+    if (conjunction) {
+        sp_emit(s, sp_not(q), a, a, 2); sp_emit(s, sp_not(q), b, b, 2);
+        sp_emit(s, q, sp_not(a), sp_not(b), 3);
+    } else {
+        sp_emit(s, q, sp_not(a), a, 2); sp_emit(s, q, sp_not(b), b, 2);
+        sp_emit(s, sp_not(q), a, b, 3);
+    }
+    return q;
+}
+
+/* Legge un termine dell'albero originale nell'ambiente dei quantificatori.
+ * Gli elementi legati sono slot, non nomi testuali: non puo esserci cattura. */
+static int sp_input_term(SpState *s, const Elem *e) {
+    if (!sp_visit(s)) return 0;
+    if (e->symbol < 0) {
+        if (e->slot < 0 || e->slot >= slot_count || !s->binding[e->slot]) { s->unsupported = 1; return 0; }
+        return s->binding[e->slot];
+    }
+    if (e->symbol >= declared_symbols || s->input_symbol[e->symbol] < 0) { s->unsupported = 1; return 0; }
+    int args[2];
+    for (int i = 0; i < symbols[e->symbol].arity; i++) args[i] = sp_input_term(s, e->arg[i]);
+    return sp_term(s, s->input_symbol[e->symbol], args);
+}
+
+/* NNF, Skolem e Tseitin sull'albero. positive indica la polarita richiesta.
+ * Un quantificatore su S diventa un quantificatore del dominio comune con
+ * il vincolo D_S: lo Skolem di un esiste non impone mai D_S incondizionatamente.
+ * Le parti quantificate e l'equipotenza richiedono le altre strategie. */
+static SpLiteral sp_formula(SpState *s, const Sentence *n, int positive) {
+    SpLiteral constant = {0, 0, !positive}, a, b;
+    if (!sp_visit(s)) return constant;
+    switch (n->kind) {
+    case S_TRUE: return constant;
+    case S_EQUAL: case S_HOLDS:
+        return (SpLiteral){sp_input_term(s, n->left), n->right ? sp_input_term(s, n->right) : 0, !positive};
+    case S_NOT: return sp_formula(s, n->a, !positive);
+    case S_AND: case S_OR: case S_IMPLIES:
+        a = sp_formula(s, n->a, n->kind == S_IMPLIES ? !positive : positive);
+        b = sp_formula(s, n->b, positive);
+        return sp_connect(s, a, b, (n->kind == S_AND) == positive);
+    case S_IFF:
+        a = sp_formula(s, n->a, 0); b = sp_formula(s, n->b, positive);
+        a = sp_connect(s, a, b, 0);
+        b = sp_formula(s, n->a, 1);
+        return sp_connect(s, a, sp_connect(s, b, sp_formula(s, n->b, !positive), 0), 1);
+    case S_FORALL: case S_EXISTS: {
+        int every = (n->kind == S_FORALL) == positive;
+        if (s->variables == INT_MAX || !sp_reserve(s, (void **)&s->universals, &s->universal_cap, (size_t)s->universal + 1, sizeof *s->universals)) {
+            s->limited = 1; return constant;
+        }
+        int value = every ? -1 - s->variables++ : sp_term(s, sp_symbol(s, s->universal, 0), s->universals);
+        int saved = s->binding[n->slot]; s->binding[n->slot] = value;
+        if (every) s->universals[s->universal++] = value;
+        a = (SpLiteral){sp_term(s, s->inputs + slot_data[n->slot].sort, &value), 0, every};
+        b = sp_formula(s, n->a, positive);
+        if (every) s->universal--;
+        s->binding[n->slot] = saved;
+        return sp_connect(s, a, b, !every);
+    }
+    default: s->unsupported = 1; return constant;
+    }
+}
+
+/* Introduce un simbolo originale nella numerazione del certificato.
+ * input_symbol traduce i posti del parser; original_symbol e la mappa
+ * inversa, usata nelle clausole di chiusura e nel testo della prova. */
+static void sp_input_symbol(SpState *s, int original) {
+    if (original < 0 || original >= declared_symbols) { s->unsupported = 1; return; }
+    if (s->input_symbol[original] >= 0) return;
+    if (!sp_reserve(s, (void **)&s->original_symbol, &s->original_cap, (size_t)s->inputs + 1, sizeof *s->original_symbol)) return;
+    int id = sp_symbol(s, symbols[original].arity, symbols[original].range == TRUTH);
+    if (s->limited) return;
+    s->input_symbol[original] = id; s->original_symbol[s->inputs++] = original;
+}
+
+/* Clausifica la negazione dell'enunciato e le leggi fornite. Le sole
+ * funzioni dichiarate ricevono clausole di chiusura sui domini; per
+ * predicati e simboli di Skolem non si inventano vincoli ulteriori. */
+static int sp_prepare(SpState *s, const Sentence *root, const Sentence *const *laws, int count) {
+    s->empty = -1;
+    if (!sp_reserve(s, (void **)&s->binding, &s->binding_cap, (size_t)slot_count, sizeof *s->binding)) return 0;
+    if (!sp_reserve(s, (void **)&s->input_symbol, &s->input_cap, (size_t)declared_symbols, sizeof *s->input_symbol)) return 0;
+    for (int i = 0; i < declared_symbols; i++) s->input_symbol[i] = -1;
+    /* Warning: questo ordine e quello scritto da cert_abstract_head: prima
+     * i simboli impliciti nelle sort, poi le dichiarazioni esplicite. Il
+     * parser puo aver incontrato una funzione prima di un insieme di parti. */
+    for (int i = 0; i < sort_count; i++) {
+        if (sort_kind[i] == SORT_NUMBERS) {
+            for (int f = 0; f < declared_symbols; f++)
+                if (symbols[f].name >= NUMERAL_NAMES && symbols[f].range == i) sp_input_symbol(s, f);
+        } else if (sort_kind[i] != SORT_PLAIN) sp_input_symbol(s, sort_symbol[i]);
+    }
+    for (int i = 0; i < declared_symbols; i++)
+        if (!symbol_fixed(i) && !symbol_bound[i]) sp_input_symbol(s, i);
+    for (int i = 0; i < sort_count; i++) sp_symbol(s, 1, 1);
+    for (int i = 0; i < s->inputs && sp_visit(s); i++) {
+        const Symbol *f = &symbols[s->original_symbol[i]];
+        if (f->range == TRUTH) continue;
+        int vars[2] = {-1, -2}, value = sp_term(s, i, vars);
+        SpLiteral c[3];
+        c[0] = (SpLiteral){sp_term(s, s->inputs + f->range, &value), 0, 0};
+        for (int j = 0; j < f->arity; j++) c[j + 1] = (SpLiteral){sp_term(s, s->inputs + f->domain[j], &vars[j]), 0, 1};
+        sp_keep(s, c, f->arity + 1, (SpStep){.rule=SP_INPUT}, -1);
+    }
+    SpLiteral l = sp_formula(s, root, 0); sp_emit(s, l, l, l, 1);
+    for (int i = 0; i < count && sp_visit(s); i++) { l = sp_formula(s, laws[i], 1); sp_emit(s, l, l, l, 1); }
+    s->initial = s->clauses;
+    return !s->limited && !s->unsupported;
+}
+
+/* Congela le immagini di una sostituzione. Risolvere qui tutte le catene
+ * permette al checker di applicarla una sola volta, simultaneamente. */
+static SpStep sp_snapshot(SpState *s, SpStep step, const int *sub, int count, int recursive) {
+    int bindings = 0;
+    for (int v = 0; v < count; v++) bindings += sub[v] != 0;
+    SpBinding *saved = sp_allocate(s, &s->scratch, (size_t)bindings, sizeof *saved);
+    if (bindings && !saved) return step;
+    step.binding = saved; step.bindings = 0;
+    for (int v = 0; v < count && sp_visit(s); v++) if (sub[v]) {
+        int term = sp_apply(s, sub[v], 0, sub, count, recursive);
+        if (term != -v - 1) saved[step.bindings++] = (SpBinding){v, term};
+    }
+    return step;
+}
+
+/* Dimensiona il contesto dei genitori separati. Il prefisso storico 64
+ * mantiene leggibili i primi certificati, senza essere un limite. */
+static int sp_context(SpState *s, int p, int q, int *offset) {
+    *offset = s->clause[p].variables > 64 ? s->clause[p].variables : 64;
+    if (s->clause[q].variables > INT_MAX - *offset) { s->limited = 1; return 0; }
+    return *offset + s->clause[q].variables;
+}
+
+/* Conserva il risultato di una risoluzione o fattorizzazione. omit_a e
+ * omit_b sono i letterali cancellati, -1 se nessuno; b puo essere vuota.
+ * extra aggiunge, se richiesto, l'ineguaglianza della fattorizzazione equazionale. */
+static void sp_combination(SpState *s, SpStep step, SpClause a, int omit_a,
+                           SpClause b, int omit_b, int offset, const SpLiteral *extra) {
+    if (b.count > INT_MAX - a.count - 1) { s->limited = 1; return; }
+    int capacity = a.count + b.count + 1, used = 0;
+    SpLiteral *out = sp_allocate(s, &s->scratch, (size_t)capacity, sizeof *out);
+    SpLiteral *x = sp_instance(s, a, 0, s->sub, s->sub_count, 1);
+    SpLiteral *y = sp_instance(s, b, offset, s->sub, s->sub_count, 1);
+    if (!out || (a.count && !x) || (b.count && !y)) return;
+    for (int i = 0; i < a.count; i++) if (i != omit_a) out[used++] = x[i];
+    for (int i = 0; i < b.count; i++) if (i != omit_b) out[used++] = y[i];
+    if (extra) out[used++] = *extra;
+    step = sp_snapshot(s, step, s->sub, s->sub_count, 1);
+    sp_keep(s, out, used, step, -1);
+}
+
+/* Risoluzione binaria: da C o A e D o non B, se A e B si unificano,
+ * segue (C o D) sigma. Per le uguaglianze si provano entrambi i versi.
+ * Non si identificano le variabili dei genitori prima dell'unificazione. */
+static void sp_resolve(SpState *s, int p, int q) {
+    SpClause a = s->clause[p], b = s->clause[q];
+    int offset, count = sp_context(s, p, q, &offset);
+    for (int i = 0; i < a.count && s->empty < 0 && sp_visit(s); i++)
+        for (int j = 0; j < b.count && s->empty < 0 && sp_visit(s); j++) {
+            SpLiteral x = a.literal[i], y = b.literal[j];
+            if (x.negative == y.negative || !!x.right != !!y.right || !x.left || !y.left) continue;
+            for (int flip = 0; flip < (x.right ? 2 : 1) && s->empty < 0 && sp_visit(s); flip++) {
+                sp_scratch_reset(s);
+                if (!sp_unify_start(s, count)) return;
+                int left = sp_apply(s, flip ? y.right : y.left, offset, NULL, 0, 0);
+                int right = sp_apply(s, flip ? y.left : y.right, offset, NULL, 0, 0);
+                if (!sp_unify(s, x.left, left) || (x.right && !sp_unify(s, x.right, right))) continue;
+                sp_combination(s, (SpStep){.rule=SP_RESOLVE, .p=p, .lp=i, .q=q, .lq=j}, a, i, b, j, offset, NULL);
+            }
+        }
+}
+
+/* Inferenze a un genitore. l!=r si cancella quando l e r si unificano.
+ * Due atomi dello stesso segno si contraggono con un unificatore comune.
+ * Dalle uguaglianze l=r o u=v, con l sigma=u sigma, segue invece
+ * (resto o u=v o r!=v) sigma: e la fattorizzazione equazionale. */
+static void sp_unary(SpState *s, int p) {
+    SpClause a = s->clause[p], none = {0};
+    for (int i = 0; i < a.count && s->empty < 0 && sp_visit(s); i++) {
+        SpLiteral x = a.literal[i];
+        if (x.negative && x.right) {
+            sp_scratch_reset(s);
+            if (sp_unify_start(s, a.variables) && sp_unify(s, x.left, x.right))
+                sp_combination(s, (SpStep){.rule=SP_REFLEX, .p=p, .lp=i}, a, i, none, -1, 0, NULL);
+        }
+        for (int j = 0; j < a.count && s->empty < 0 && sp_visit(s); j++) {
+            if (j == i) continue;
+            SpLiteral y = a.literal[j];
+            if (j > i && x.negative == y.negative && !!x.right == !!y.right) {
+                for (int flip = 0; flip < (x.right ? 2 : 1) && s->empty < 0 && sp_visit(s); flip++) {
+                    sp_scratch_reset(s);
+                    if (!sp_unify_start(s, a.variables)) return;
+                    if (!sp_unify(s, x.left, flip ? y.right : y.left) ||
+                        (x.right && !sp_unify(s, x.right, flip ? y.left : y.right))) continue;
+                    sp_combination(s, (SpStep){.rule=SP_FACTOR, .p=p, .lp=i, .lq=j}, a, i, none, -1, 0, NULL);
+                }
+            }
+            /* Per la fattorizzazione equazionale si conserva ciascuna
+             * delle due uguaglianze a turno: i residui non sono lo stesso
+             * insieme sintattico di letterali, a differenza della fattorizzazione. */
+            if (!x.negative && !y.negative && x.right && y.right)
+                for (int flip = 0; flip < 2 && s->empty < 0 && sp_visit(s); flip++)
+                    for (int other = 0; other < 2 && s->empty < 0 && sp_visit(s); other++) {
+                        sp_scratch_reset(s);
+                        if (!sp_unify_start(s, a.variables) ||
+                            !sp_unify(s, flip ? x.right : x.left, other ? y.right : y.left)) continue;
+                        SpLiteral extra = {sp_apply(s, flip ? x.left : x.right, 0, s->sub, s->sub_count, 1),
+                                           sp_apply(s, other ? y.left : y.right, 0, s->sub, s->sub_count, 1), 1};
+                        sp_combination(s, (SpStep){.rule=SP_EQUAL_FACTOR, .p=p, .lp=i, .lq=j, .flip=flip, .otherflip=other},
+                                       a, i, none, -1, 0, &extra);
+                    }
+        }
+    }
+}
+
+/* Trova una posizione preorder del termine originale e ne conserva il
+ * cammino di figli in path. I pesi esatti consentono di saltare sottoalberi
+ * senza visitarli; il cammino resta valido anche se si unificano variabili. */
+static int sp_path(SpState *s, int term, unsigned long long position) {
+    s->path_count = 0;
+    while (position && term > 0 && sp_visit(s)) {
+        SpTerm n = s->term[term]; position--;
+        int found = 0;
+        for (int i = 0; i < n.count; i++) {
+            int child = s->argument[n.first + i]; unsigned long long weight = sp_term_weight(s, child);
+            if (position >= weight) { position -= weight; continue; }
+            if (!sp_reserve(s, (void **)&s->path, &s->path_cap, (size_t)s->path_count + 1, sizeof *s->path)) return 0;
+            s->path[s->path_count++] = i; term = child; found = 1; break;
+        }
+        if (!found) return 0;
+    }
+    return position ? 0 : term;
+}
+
+/* Sostituisce sul cammino scelto e calcola la posizione DOPO sigma. Le
+ * immagini delle variabili che precedono il punto possono avere piu nodi:
+ * usare la vecchia posizione sarebbe un certificato sbagliato. */
+static int sp_rewrite(SpState *s, int term, int depth, int offset, const int *sub, int count, int recursive,
+                      int replacement, unsigned long long before, int *position) {
+    if (!sp_visit(s)) return 0;
+    if (depth == s->path_count) {
+        if (before >= INT_MAX) { s->limited = 1; return 0; }
+        *position = (int)before;
+        return replacement;
+    }
+    if (term <= 0) { s->limited = 1; return 0; }
+    SpTerm n = s->term[term];
+    int *args = sp_allocate(s, &s->scratch, (size_t)n.count, sizeof *args);
+    if (n.count && !args) return 0;
+    before++;
+    for (int i = 0; i < n.count; i++) {
+        int child = s->argument[n.first + i];
+        if (i == s->path[depth]) args[i] = sp_rewrite(s, child, depth + 1, offset, sub, count, recursive, replacement, before, position);
+        else args[i] = sp_apply(s, child, offset, sub, count, recursive);
+        if (i < s->path[depth]) {
+            unsigned long long weight = sp_term_weight(s, args[i]);
+            if (weight > ULLONG_MAX - before) { s->limited = 1; return 0; }
+            before += weight;
+        }
+    }
+    return sp_term(s, n.symbol, args);
+}
+
+/* Costruisce una superposizione valida dopo matching o unificazione. La
+ * posizione originale e descritta da path, la sostituzione dal chiamante.
+ * Il punto non e mai una variabile ne la radice di un predicato. */
+static void sp_super_result(SpState *s, SpStep step, int offset, const int *sub, int count, int recursive) {
+    SpClause a = s->clause[step.p], b = s->clause[step.q];
+    SpLiteral source = a.literal[step.lp], target = b.literal[step.lq];
+    int lhs = sp_apply(s, step.flip ? source.right : source.left, 0, sub, count, recursive);
+    int rhs = sp_apply(s, step.flip ? source.left : source.right, 0, sub, count, recursive);
+    if (lhs == rhs || sp_greater(s, rhs, lhs)) return;
+    int raw = step.side ? target.right : target.left;
+    int other = step.side ? target.left : target.right;
+    int entire = sp_apply(s, raw, offset, sub, count, recursive);
+    if (target.right && sp_greater(s, sp_apply(s, other, offset, sub, count, recursive), entire)) return;
+    int result = sp_rewrite(s, raw, 0, offset, sub, count, recursive, rhs, 0, &step.position);
+    SpLiteral *x = sp_instance(s, a, 0, sub, count, recursive), *y = sp_instance(s, b, offset, sub, count, recursive);
+    if ((a.count && !x) || (b.count && !y) || s->limited) return;
+    if (step.side) y[step.lq].right = result; else y[step.lq].left = result;
+    if (b.count > INT_MAX - a.count) { s->limited = 1; return; }
+    SpLiteral *out = sp_allocate(s, &s->scratch, (size_t)(a.count + b.count), sizeof *out);
+    if (!out) return;
+    int used = 0;
+    for (int i = 0; i < a.count; i++) if (i != step.lp) out[used++] = x[i];
+    for (int i = 0; i < b.count; i++) out[used++] = y[i];
+    step = sp_snapshot(s, step, sub, count, recursive);
+    sp_keep(s, out, used, step, -1);
+}
+
+/* Superposizioni fra due clausole, comprese quelle di una clausola con una
+ * propria copia rinominata. Si esclude il verso strettamente crescente
+ * dopo sigma, ma si conservano i termini incomparabili e tutti i letterali:
+ * il calcolo contiene quindi le inferenze della superposizione ordinata. */
+static void sp_superpose(SpState *s, int p, int q) {
+    SpClause a = s->clause[p], b = s->clause[q];
+    int offset, count = sp_context(s, p, q, &offset);
+    for (int i = 0; i < a.count && s->empty < 0 && sp_visit(s); i++) {
+        SpLiteral source = a.literal[i];
+        if (source.negative || !source.right) continue;
+        for (int flip = 0; flip < 2 && s->empty < 0 && sp_visit(s); flip++) {
+            int lhs = flip ? source.right : source.left;
+            if (lhs < 0) continue;
+            for (int j = 0; j < b.count && s->empty < 0 && sp_visit(s); j++)
+                for (int side = 0; side < (b.literal[j].right ? 2 : 1) && s->empty < 0 && sp_visit(s); side++) {
+                    int raw = side ? b.literal[j].right : b.literal[j].left;
+                    unsigned long long size = sp_term_weight(s, raw), first = b.literal[j].right ? 0 : 1;
+                    for (unsigned long long pos = first; pos < size && s->empty < 0 && sp_visit(s); pos++) {
+                        sp_scratch_reset(s);
+                        int at = sp_path(s, raw, pos);
+                        if (at <= 0 || !sp_unify_start(s, count)) continue;
+                        int target = sp_apply(s, at, offset, NULL, 0, 0);
+                        if (!sp_unify(s, lhs, target)) continue;
+                        sp_super_result(s, (SpStep){.rule=SP_SUPER, .p=p, .lp=i, .q=q, .lq=j, .flip=flip, .side=side},
+                                        offset, s->sub, s->sub_count, 1);
+                    }
+                }
+        }
+    }
+}
+
+/* Riscrive una clausola con una singola uguaglianza universale orientata.
+ * Si usa matching: la clausola bersaglio non viene istanziata. La nuova
+ * clausola e equivalente alla precedente in presenza dell'uguaglianza;
+ * anche se gia sussunta, rende ridondante il vecchio bersaglio. */
+static int sp_demodulate(SpState *s, int p, int q) {
+    SpClause a = s->clause[p], b = s->clause[q];
+    if (p == q || a.count != 1 || a.literal[0].negative || !a.literal[0].right) return 0;
+    SpLiteral l = a.literal[0];
+    int flip;
+    if (sp_greater(s, l.left, l.right)) flip = 0;
+    else if (sp_greater(s, l.right, l.left)) flip = 1;
+    else return 0;
+    int lhs = flip ? l.right : l.left, offset, count = sp_context(s, p, q, &offset);
+    (void)count;
+    for (int j = 0; j < b.count && sp_visit(s); j++)
+        for (int side = 0; side < (b.literal[j].right ? 2 : 1) && sp_visit(s); side++) {
+            int raw = side ? b.literal[j].right : b.literal[j].left;
+            unsigned long long size = sp_term_weight(s, raw), first = b.literal[j].right ? 0 : 1;
+            for (unsigned long long pos = first; pos < size && sp_visit(s); pos++) {
+                sp_scratch_reset(s);
+                int at = sp_path(s, raw, pos);
+                if (at <= 0 || !sp_match_start(s, a.variables)) continue;
+                if (!sp_match(s, lhs, sp_apply(s, at, offset, NULL, 0, 0))) continue;
+                /* La demodulazione puo agire anche nel membro minore di
+                 * un'uguaglianza: e una riscrittura, non una restrizione
+                 * necessaria al calcolo della superposizione. */
+                SpClause original = s->clause[q];
+                SpLiteral *target = sp_instance(s, original, offset, s->match, s->match_count, 0);
+                int rhs = sp_apply(s, flip ? l.left : l.right, 0, s->match, s->match_count, 0), position;
+                int rewritten = sp_rewrite(s, raw, 0, offset, s->match, s->match_count, 0, rhs, 0, &position);
+                if (!target || s->limited) return 0;
+                if (side) target[j].right = rewritten; else target[j].left = rewritten;
+                SpStep step = {.rule=SP_SUPER, .p=p, .lp=0, .q=q, .lq=j, .flip=flip, .side=side, .position=position};
+                step = sp_snapshot(s, step, s->match, s->match_count, 0);
+                sp_keep(s, target, original.count, step, q);
+                if (s->limited) return 0;
+                s->clause[q].stage = SP_DELETED;
+                return 1;
+            }
+        }
+    return 0;
+}
+
+/* Il ciclo given-clause. Le semplificazioni conservano le loro deduzioni;
+ * i genitori elaborati restano indirizzabili anche quando diventano
+ * ridondanti. Una coda vuota senza contraddizione restituisce sconosciuto. */
+static int sp_search(SpState *s) {
+    while (s->empty < 0 && sp_visit(s)) {
+        int given = sp_select(s);
+        if (given < 0) break;
+        int last = s->clauses, redundant = 0;
+        sp_scratch_reset(s);
+        for (int i = 0; i < last && !redundant && sp_visit(s); i++)
+            if (s->clause[i].stage == SP_ACTIVE && sp_subsumes(s, s->clause[i], s->clause[given])) redundant = 1;
+        if (redundant) { s->clause[given].stage = SP_DELETED; continue; }
+        for (int i = 0; i < last && !redundant && sp_visit(s); i++)
+            if (s->clause[i].stage == SP_ACTIVE) redundant = sp_demodulate(s, i, given);
+        if (redundant) continue;
+        s->clause[given].stage = SP_ACTIVE;
+        sp_unary(s, given);
+        for (int i = 0; i < last && s->empty < 0 && s->clause[given].stage == SP_ACTIVE && sp_visit(s); i++) {
+            if (s->clause[i].stage != SP_ACTIVE) continue;
+            sp_resolve(s, given, i);
+            if (s->empty < 0) sp_superpose(s, given, i);
+            if (i != given && s->empty < 0) sp_superpose(s, i, given);
+        }
+        /* Una nuova regola unitaria riscrive anche clausole gia in coda o
+         * elaborate: le versioni nuove torneranno nella coda equa. */
+        for (int i = 0; i < last && s->empty < 0 && sp_visit(s); i++)
+            if (i != given && s->clause[i].stage != SP_DELETED) sp_demodulate(s, given, i);
+    }
+    return s->empty >= 0 && !s->limited && !s->unsupported;
+}
+
+/* Scrive un termine nel protocollo indipendente. I simboli sono numeri
+ * della traduzione, non posti nella tabella di termini del motore. */
+static void sp_cert_term(const SpState *s, int t) {
+    if (t < 0) { cert_add("(v %d)", -t - 1); return; }
+    SpTerm n = s->term[t];
+    cert_add("(f %d", n.symbol);
+    for (int i = 0; i < n.count; i++) { cert_add(" "); sp_cert_term(s, s->argument[n.first + i]); }
+    cert_add(")");
+}
+
+/* Scrive la clausola normalizzata che il checker deve ritrovare esattamente. */
+static void sp_cert_clause(const SpState *s, SpClause c) {
+    cert_add("(clause");
+    for (int i = 0; i < c.count; i++) {
+        SpLiteral l = c.literal[i];
+        if (!l.left) cert_add(l.negative ? " (false)" : " (true)");
+        else {
+            cert_add(" (%s ", l.right ? l.negative ? "ne" : "eq" : l.negative ? "neg" : "pos");
+            sp_cert_term(s, l.left);
+            if (l.right) { cert_add(" "); sp_cert_term(s, l.right); }
+            cert_add(")");
+        }
+    }
+    cert_add(")");
+}
+
+/* Nomi matematici dei simboli introdotti: D per i domini, k per Skolem,
+ * P per le sottoformule. I simboli dichiarati conservano la loro scrittura. */
+static void sp_put_term(const SpState *s, int t) {
+    if (t < 0) { proof_add("x_{%d}", -t - 1); return; }
+    SpTerm n = s->term[t];
+    if (n.symbol < s->inputs) put_symbol(s->original_symbol[n.symbol]);
+    else if (n.symbol < s->inputs + sort_count) proof_add("D_{%d}", n.symbol - s->inputs);
+    else proof_add("%s_{%d}", s->symbol[n.symbol].predicate ? "P" : "k", n.symbol);
+    if (n.count) proof_add("(");
+    for (int i = 0; i < n.count; i++) { if (i) proof_add(","); sp_put_term(s, s->argument[n.first + i]); }
+    if (n.count) proof_add(")");
+}
+
+/* Rende una disgiunzione come formula; la clausola vuota e il falso. */
+static void sp_put_clause(const SpState *s, SpClause c) {
+    if (!c.count) { proof_add("\\bot"); return; }
+    for (int i = 0; i < c.count; i++) {
+        SpLiteral l = c.literal[i];
+        if (i) proof_add(" \\lor ");
+        if (!l.left) proof_add(l.negative ? "\\bot" : "\\top");
+        else {
+            if (!l.right && l.negative) proof_add("\\lnot ");
+            sp_put_term(s, l.left);
+            if (l.right) { proof_add(l.negative ? " \\ne " : " = "); sp_put_term(s, l.right); }
+        }
+    }
+}
+
+/* Scrive soltanto gli antenati del vuoto. Le clausole iniziali mantengono
+ * i loro indici; gli altri passi vengono rinumerati dopo quelle iniziali,
+ * cosi omettere ricerche inutilizzate non cambia un riferimento del checker. */
+static void sp_write(SpState *s, const Sentence *root, const Sentence *const *laws, int law_count, long long compared) {
+    sp_scratch_reset(s);
+    unsigned char *needed = sp_allocate(s, &s->scratch, (size_t)s->clauses, 1);
+    int *number = sp_allocate(s, &s->scratch, (size_t)s->clauses, sizeof *number);
+    if (!needed || !number) return;
+    memset(needed, 0, (size_t)s->clauses);
+    needed[s->empty] = 1;
+    for (int i = s->empty; i >= s->initial; i--) if (needed[i]) {
+        SpStep step = s->clause[i].step;
+        needed[step.p] = 1;
+        if (step.rule == SP_RESOLVE || step.rule == SP_SUPER) needed[step.q] = 1;
+    }
+    int count = s->initial;
+    for (int i = 0; i < s->clauses; i++) number[i] = i < s->initial ? i : needed[i] ? count++ : -1;
+    cert_abstract_head("saturation", root, NULL);
+    for (int i = 0; i < law_count; i++) { cert_add("axiom "); cert_sentence(laws[i], SLOT_VALUES_EMPTY); cert_add("\n"); }
+    cert_add("clausify\n");
+    proof_reset(); proof_growable = 1;
+    proof_add("\\textbf{Proof.} By contradiction and saturation. Each domain predicate $D_i$ denotes membership in its set. "
+              "Negation normal form, Skolem functions with their universal parameters, and predicates for subformulas give clauses; "
+              "all free variables of each clause are universal and are renamed apart before an inference. "
+              "The initial clauses used below and every derived step are:\n\\begin{itemize}\n");
+    static const char *const rule[] = {"input", "resolve", "reflex", "factor", "super", "equalfactor"};
+    static const char *const description[] = {"clausification", "resolution", "equality resolution", "factoring", "superposition", "equality factoring"};
+    for (int i = 0; i < s->clauses; i++) if (needed[i]) {
+        SpClause c = s->clause[i]; SpStep step = c.step;
+        proof_add("\\item $(C_{%d})\\quad ", number[i]); sp_put_clause(s, c); proof_add("$.");
+        if (i < s->initial) { proof_add(" By clausification.\n"); continue; }
+        proof_add(" By %s from $(C_{%d})$", description[step.rule], number[step.p]);
+        if (step.rule == SP_RESOLVE || step.rule == SP_SUPER) proof_add(" and $(C_{%d})$", number[step.q]);
+        if (step.bindings) {
+            proof_add(", with $");
+            for (int j = 0; j < step.bindings; j++) {
+                if (j) proof_add(",\\ ");
+                proof_add("x_{%d}\\mapsto ", step.binding[j].variable); sp_put_term(s, step.binding[j].term);
+            }
+            proof_add("$");
+        }
+        proof_add(".\n");
+        cert_add("step %s %d %d", rule[step.rule], number[step.p], step.lp);
+        if (step.rule == SP_RESOLVE) cert_add(" %d %d", number[step.q], step.lq);
+        else if (step.rule == SP_SUPER) cert_add(" %d %d %d %d %d", step.flip, number[step.q], step.lq, step.side, step.position);
+        else if (step.rule == SP_FACTOR) cert_add(" %d", step.lq);
+        else if (step.rule == SP_EQUAL_FACTOR) cert_add(" %d %d %d", step.flip, step.lq, step.otherflip);
+        cert_add(" (subst");
+        for (int j = 0; j < step.bindings; j++) {
+            cert_add(" (%d ", step.binding[j].variable); sp_cert_term(s, step.binding[j].term); cert_add(")");
+        }
+        cert_add(") "); sp_cert_clause(s, c); cert_add("\n");
+    }
+    cert_add("end\n");
+    proof_add("\\end{itemize}\nThe empty clause is a contradiction. Every inference and the initial clausification "
+              "are checked independently by the certificate verifier.");
+    put_unfolding_note(compared); proof_add(" $\\Box$");
+}
+
+/* La strategia tratta il primo ordine con uguaglianza. Gli altri nodi
+ * conservano le loro strategie dedicate: non si approssima un quantificatore
+ * su tutte le parti con un quantificatore su elementi qualsiasi. */
+static int sp_first_order(const Sentence *root) {
+    switch (root->kind) {
+    case S_TRUE: case S_EQUAL: case S_HOLDS: return 1;
+    case S_NOT: case S_FORALL: case S_EXISTS: return sp_first_order(root->a);
+    case S_AND: case S_OR: case S_IMPLIES: case S_IFF: return sp_first_order(root->a) && sp_first_order(root->b);
+    default: return 0;
+    }
+}
+
+/* Cerca una refutazione e la consegna soltanto attraverso ck_check.
+ * Ritorna uno se e arrivata al controllo di un certificato, compreso un
+ * eventuale rifiuto che deve restare visibile come errore del motore.
+ * Zero significa ricerca incompleta: le altre strategie possono proseguire. */
+static int saturation_attempt(const Sentence *root, const Sentence *const *laws, int law_count,
+                               long long compared, Verdict *verdict) {
+    if (!sp_first_order(root)) return 0;
+    SpState state = {0};
+    if (!sp_prepare(&state, root, laws, law_count) || !sp_search(&state)) { sp_clear(&state); return 0; }
+    /* Se il vuoto e gia nella negazione della tesi, non servono leggi
+     * aggiuntive dopo di esso: si riscrive la sola refutazione della tesi. */
+    if (state.empty < state.initial && state.empty + 1 < state.initial) {
+        sp_clear(&state);
+        if (!sp_prepare(&state, root, NULL, 0) || !sp_search(&state)) { sp_clear(&state); return 0; }
+        law_count = 0;
+    }
+    sp_write(&state, root, laws, law_count, compared);
+    if (state.limited || proof_broken) { sp_clear(&state); return 0; }
+    verdict->outcome = PROVED;
+    verdict->method = "per saturazione di clausole";
+    verdict->proof = proof_text;
+    *verdict = abstract_certified(*verdict);
+    sp_clear(&state);
+    return 1;
+}
+
 /* Decide l'enunciato su insiemi qualsiasi scritto in formula e ne ritorna
  * il verdetto, come descritto in testa al capitolo: prima i modelli finiti,
  * che possono smentirlo (o, se chiede un esempio, dimostrarlo); poi la
@@ -33264,9 +34507,22 @@ static Verdict prove_abstract(const char *formula) {
         return verdict;
     }
 
+    /* 28u. La prova per clausole e controllata senza un campione finito:
+     * puo quindi precedere la cautela che resta per la ricerca per istanze. */
+    /* 28n. Le leggi delle parti e delle applicazioni, dopo le ipotesi:
+     * anche loro sono condizioni vere, e il certificato le porta. Se le
+     * lettere per scriverle non bastano, la ricerca va avanti senza. */
+    const char *before_axioms = syntax_error;
+    axioms_prepare();
+    if (syntax_error != before_axioms) { axiom_count = 0; syntax_error = before_axioms; }
+    bijection_prepare(root);
+    if (saturation_attempt(root, axioms, axiom_count, compared, &verdict)) return verdict;
+    proof_reset();
+
     /* Senza il controllo indipendente non si dimostra: se nemmeno i modelli
      * con un elemento per insieme sono stati provati tutti, ci si ferma. */
     if (bound < 1) {
+        symbol_count = model_symbols;
         if (model_sat_slice(root, 0, &model, &tried, bound, remaining_work))
             return abstract_model_result(verdict, written, root, &model, compared);
         verdict.reason = "i modelli con pochi elementi sono troppi per provarli: manca il controllo indipendente";
@@ -33282,13 +34538,6 @@ static Verdict prove_abstract(const char *formula) {
     memset(definition_slot, -1, sizeof definition_slot);
     cert_abstract_head("structure", root, NULL);
 
-    /* 28n. Le leggi delle parti e delle applicazioni, dopo le ipotesi:
-     * anche loro sono condizioni vere, e il certificato le porta. Se le
-     * lettere per scriverle non bastano, la ricerca va avanti senza. */
-    const char *before_axioms = syntax_error;
-    axioms_prepare();
-    if (syntax_error != before_axioms) { axiom_count = 0; syntax_error = before_axioms; }
-    bijection_prepare(root);
     int given = hypotheses;
     for (int i = 0; i < axiom_count && hypotheses < MAX_KNOWN / 8; i++) hypothesis[hypotheses++] = axioms[i];
     cert_axioms();
@@ -39600,6 +40849,8 @@ static Verdict prove_item(const char *item, const char *end) {
  * (20.000.000 operazioni e 128 MiB di default), non un massimo di elementi.
  * --verification-work N regola le visite del verificatore numerico
  * (20.000.000 di default): una verifica interrotta non conferma nulla.
+ * --saturation-work N e --saturation-memory BYTES regolano le visite e la
+ * memoria della ricerca per clausole (2.000.000 e 128 MiB di default).
  * Tutte le opzioni si possono dare insieme. Il codice di uscita è 0 se tutti
  * gli enunciati sono stati dimostrati o risolti, 1 altrimenti.
  */
@@ -39699,13 +40950,16 @@ int main(int argc, char **argv) {
     int first = 1, documented = 0;
     for (; first + 1 < argc && strncmp(argv[first], "--", 2) == 0; first += 2) {
         if (strcmp(argv[first], "--model-work") == 0 || strcmp(argv[first], "--model-memory") == 0 ||
-            strcmp(argv[first], "--verification-work") == 0) {
+            strcmp(argv[first], "--verification-work") == 0 || strcmp(argv[first], "--saturation-work") == 0 ||
+            strcmp(argv[first], "--saturation-memory") == 0) {
             unsigned long long budget;
-            int memory = strcmp(argv[first], "--model-memory") == 0;
+            int memory = strcmp(argv[first], "--model-memory") == 0 || strcmp(argv[first], "--saturation-memory") == 0;
             if (!read_model_budget(argv[first + 1], &budget) || (memory && budget > (size_t)-1)) {
                 printf("ERRORE: budget positivo non rappresentabile: %s\n", argv[first + 1]); return 1;
             }
-            if (memory) model_memory_limit = (size_t)budget;
+            if (strcmp(argv[first], "--saturation-memory") == 0) saturation_memory_limit = (size_t)budget;
+            else if (strcmp(argv[first], "--saturation-work") == 0) saturation_work_limit = budget;
+            else if (memory) model_memory_limit = (size_t)budget;
             else if (strcmp(argv[first], "--verification-work") == 0) verification_work_limit = budget;
             else model_work_limit = budget;
             continue;

@@ -210,17 +210,19 @@ static inline int check_none_refuted(const char *path) {
     return check_result(total > 0 && refuted == 0, summary);
 }
 
-/* Ritorna 1 se il verdetto viene dal capitolo 28: il metodo è uno dei suoi
- * tre (il terzo, il conto sui numeri scritti, è di 17v). */
+/* Ritorna 1 se il verdetto viene da una delle strategie del capitolo 28,
+ * compreso il conto sui numeri scritti di 17v e la saturazione di 28u. */
 static inline int from_chapter_28(const Verdict *verdict) {
     return (verdict->outcome == PROVED || verdict->outcome == REFUTED) && verdict->method &&
            (strcmp(verdict->method, "con istanze delle ipotesi e uguali al posto di uguali") == 0 ||
-            strcmp(verdict->method, "con un esempio") == 0 || strcmp(verdict->method, "con un conto sui numeri dell'enunciato") == 0);
+            strcmp(verdict->method, "con un esempio") == 0 || strcmp(verdict->method, "con un conto sui numeri dell'enunciato") == 0 ||
+            strcmp(verdict->method, "per saturazione di clausole") == 0);
 }
 
 /* Scrive in out il certificato certificate alterato: una dimostrazione
  * senza le sue righe instance e witness; un modello con il tipo scambiato,
- * counterexample al posto di example o il contrario. Ritorna 0 se il testo
+ * counterexample al posto di example o il contrario; una saturazione senza
+ * la clausificazione indipendente. Ritorna 0 se il testo
  * non ha la forma attesa o se l'alterazione non cambia nulla. */
 static inline int alter_structure(const char *certificate, char *out, size_t size) {
     static const char *const kinds[][2] = {{"certificate counterexample\n", "certificate example\n"},
@@ -229,6 +231,11 @@ static inline int alter_structure(const char *certificate, char *out, size_t siz
         size_t length = strlen(kinds[i][0]);
         if (strncmp(certificate, kinds[i][0], length) != 0) continue;
         return snprintf(out, size, "%s%s", kinds[i][1], certificate + length) < (int)size;
+    }
+    if (strncmp(certificate, "certificate saturation\n", 23) == 0) {
+        const char *where = strstr(certificate, "\nclausify\n");
+        if (!where) return 0;
+        return snprintf(out, size, "%.*s%s", (int)(where - certificate + 1), certificate, where + 10) < (int)size;
     }
     if (strncmp(certificate, "certificate structure\n", 22) != 0) return 0;
 
