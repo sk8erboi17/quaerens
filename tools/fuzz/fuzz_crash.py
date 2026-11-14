@@ -124,7 +124,11 @@ def extremes():
         r"\forall x \in S\ (" + r" \lor ".join(["x = x"] * 100000) + ")",
         "(" + r" \land ".join(r"c_{%d} \in S" % i for i in range(1, 30001)) + r") \implies c_{1} = c_{2}",
         "(" + r" \land ".join(r"c_{%d} \in S_{%d}" % (i, i) for i in range(1, 3001)) + r") \implies c_{1} = c_{1}",
-        r"\forall X \subseteq S\ (" + r" \cup ".join(["X"] * 20000) + " = X)",
+        r"(X \subseteq S \land c \in S) \implies (" + r" \cup ".join(["X"] * 20000) + " = X)",
+        r"\forall " + ", ".join("x_{%d}" % i for i in range(1, 270001)) + r" \in S\ (x_{1} = x_{1})",
+        r"(X \subseteq S \land c \in S) \implies (" + r" \land ".join(["c = c"] * 1300000) + r" \land c \in X \cup X)",
+        r"(f \colon S \to S \land F \subseteq \mathcal{P}(S)) \implies " + "".join(r"\exists! x_{%d} \in S\ " % i for i in range(1, 23))
+        + r"(\{f(Y) \mid Y \in F\} = F)",
         # Elenchi di lettere dopo un quantificatore, e l'arena piena (22 \exists! annidati
         # la riempiono svolgendosi, un milione di congiunzioni leggendosi).
         r"\forall " + ", ".join("x_{%d}" % i for i in range(1, 60001)) + r" \in S\ (x_{1} = x_{1})",

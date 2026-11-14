@@ -802,6 +802,25 @@ static void *arena_alloc(size_t bytes) {
     return block;
 }
 
+/* Come arena_alloc(), per i nodi degli alberi degli enunciati su insiemi
+ * qualsiasi (parser.c): entrando negli ultimi ARENA_RESERVE byte annota già
+ * "memoria di lavoro esaurita", ma continua a dare blocchi finché ce ne
+ * sono.
+ *
+ * Perché una riserva. Annotato l'errore, chi legge e chi svolge si fermano
+ * al primo controllo, ma prima di arrivarci chiedono ancora qualche nodo.
+ * Senza riserva quei nodi erano tutti lo stesso nodo di riserva, riscritto
+ * a ogni richiesta mentre altri lo stavano ancora riempiendo: un albero che
+ * conteneva sé stesso, o un campo azzerato sotto chi lo leggeva, e il
+ * programma si fermava. Con la riserva sono nodi veri, distinti; il nodo
+ * unico resta per quando finisce anche lei. Le altre parti del programma
+ * usano l'arena fino in fondo, come prima. */
+#define ARENA_RESERVE ((size_t)8 << 20)
+static void *arena_node(size_t bytes) {
+    if (ARENA_BYTES - arena_used < ARENA_RESERVE + arena_round(bytes)) fail(OUT_OF_MEMORY);
+    return arena_alloc(bytes);
+}
+
 /* Allarga un vettore di lavoro posseduto dal chiamante. capacity conta
  * elementi di unit byte; i dati esistenti restano validi per indice, ma
  * gli indirizzi possono cambiare. Le celle nuove sono azzerate. Overflow
@@ -36187,6 +36206,12 @@ static Verdict prove_abstract(const char *formula) {
     cursor = formula;
     next_token();
     const Sentence *written = abstract_statement();
+
+    /* L'arena piena viene prima di un errore di sintassi: il lettore,
+     * fermato a metà, può averne annotato uno che non c'è ("manca la
+     * parentesi chiusa"). Ed è una risorsa finita, non un enunciato che non
+     * si sa leggere: NON DIMOSTRATO, come per la pila. */
+    if (failure == OUT_OF_MEMORY) { verdict.outcome = NOT_PROVED; verdict.reason = OUT_OF_MEMORY; return verdict; }
     if (syntax_error || failure) { verdict.reason = syntax_error ? syntax_error : failure; return verdict; }
 
     declared_symbols = symbol_count;
@@ -36206,6 +36231,7 @@ static Verdict prove_abstract(const char *formula) {
         /* Anche l'arena piena: lo svolgimento raddoppia l'enunciato a ogni
          * \exists!, e con 22 uno dentro l'altro la riempie. L'albero
          * incompleto non va calcolato sui modelli. */
+        if (failure == OUT_OF_MEMORY) { verdict.outcome = NOT_PROVED; verdict.reason = OUT_OF_MEMORY; return verdict; }
         if (syntax_error || failure) { verdict.reason = syntax_error ? syntax_error : failure; return verdict; }
         compared = book_check(written, root);
         if (compared < 0) {
@@ -36327,7 +36353,7 @@ static Verdict prove_abstract(const char *formula) {
      * numeri (H1), (H2), ... */
     int first_pass = given + axioms_extensional();
     for (int i = 0; i < claims && proved && !failure; i++)
-        proved = claim_attempts(hypothesis, hypotheses, first_pass, claim[i]) || claim_halves(hypothesis, hypotheses, first_pass, claim[i]);
+        proved = claim_attempts(hypothesis, hypotheses, first_pass, claim[i]) || (!failure && claim_halves(hypothesis, hypotheses, first_pass, claim[i]));
     /* Nessuna dimostrazione trovata: la quota residua riprende il model
      * finding prima di emettere un esito sconosciuto. Anche dopo una ricerca
      * interrotta, un modello completo resta controllabile da solo. */
@@ -42473,14 +42499,21 @@ static Verdict prove_core(const char *formula, int variable, int has_base, long 
     if (strstr(formula, "\\mathbb")) return stack_guard ? too_long : prove_quantified(formula);
 
     /* Un enunciato lungo, da qui in poi, è del capitolo 28 o di nessuno.
-     * Uno sulle relazioni tra parti che il capitolo 28 non legge sarebbe
-     * del capitolo 15 (17r), che gli enunciati lunghi non li legge: il
-     * motivo è quello, non l'errore di un lettore a cui non era destinato. */
+     * Uno sulle relazioni tra parti che il capitolo 28 non legge poteva
+     * essere del capitolo 15 (17r), che gli enunciati lunghi non li legge:
+     * il motivo dice tutte e due le cose, perché l'errore del capitolo 28 da
+     * solo è fuori posto per un enunciato di 17r, e "troppo lungo" da solo
+     * nasconde un errore di scrittura vero. */
     if (stack_guard) {
+        static char both[512];
         int parts = uses_parts_relations(formula);
         if (!parts && !uses_elements(formula)) return too_long;
         Verdict verdict = prove_abstract(formula);
-        return parts && verdict.outcome == UNSUPPORTED ? too_long : verdict;
+        if (parts && verdict.outcome == UNSUPPORTED) {
+            snprintf(both, sizeof both, "enunciato troppo lungo per le relazioni tra parti del capitolo 15; come enunciato su insiemi qualsiasi: %s", verdict.reason);
+            verdict.reason = both;
+        }
+        return verdict;
     }
 
     /* Il segno di derivata in testa: l'enunciato è del capitolo 27, anche
@@ -42584,10 +42617,11 @@ static void verdict_print(FILE *out, const Verdict *verdict) {
  * ha cancellato failure per provarne un'altra. Ogni chiamata riparte dai
  * contatori inizializzati dai metodi; le capacita allocate si riusano. */
 static Verdict prove(const char *formula, int variable, int has_base, long long base) {
-    /* Anche il conto delle catene riparte: prima che il lettore lo azzeri
-     * da sé, i primi token dell'enunciato sono già passati per la guardia,
-     * e il conto dell'enunciato precedente lo faceva rifiutare. */
     work_allocation_failed = stack_exhausted = 0;
+
+    /* Anche il conto delle catene riparte da qui, e non dal lettore: i
+     * primi token dell'enunciato passano per la guardia prima di lui, e il
+     * conto dell'enunciato precedente lo faceva rifiutare. */
     stack_chain_levels = 0;
     Verdict verdict = prove_core(formula, variable, has_base, base);
     stack_guard = 0;

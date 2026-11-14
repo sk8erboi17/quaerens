@@ -112,6 +112,8 @@ static int deep_abstract_statements(void) {
      * la lettura scenda. Non erano contati, e fermavano il programma. */
     passed = check_result(exhausts_stack(numbered("\\forall ", "x_{%d}", ", ", 60000, " \\in S\\ (x_{1} = x_{1})")),
                           "a quantifier over 60000 listed letters is counted against the stack budget") && passed;
+    passed = check_result(exhausts_stack(numbered("\\forall ", "x_{%d}", ", ", 270000, " \\in S\\ (x_{1} = x_{1})")),
+                          "with 270000 listed letters the reader stops building at the budget") && passed;
     passed = check_result(exhausts_stack(numbered("(\\exists ", "X_{%d}", ", ", DEPTH, " \\subseteq S\\ (X_{1} = X_{1})) \\implies \\forall x \\in S\\ (x = x)")),
                           "a quantifier over 100000 listed parts is counted against the stack budget") && passed;
     passed = check_result(exhausts_stack(numbered("\\exists ", "S_{%d}", ", ", 60000, " \\neq \\emptyset\\ \\exists x \\in S_{1}\\ (x = x)")),
@@ -144,8 +146,9 @@ static int long_statements_elsewhere(void) {
     Verdict v = prove(once, 'n', 0, 0);
     int passed = check_result(strlen(once) < MAX_FORMULA && v.outcome == PROVED, "a short statement about a map between parts is proved");
     v = prove(often, 'n', 0, 0);
-    passed = check_result(strlen(often) >= MAX_FORMULA && v.outcome == UNSUPPORTED && v.reason && strcmp(v.reason, "enunciato troppo lungo") == 0,
-                          "the same statement with its claim repeated 60 times is refused as too long") && passed;
+    passed = check_result(strlen(often) >= MAX_FORMULA && v.outcome == UNSUPPORTED && v.reason &&
+                          strstr(v.reason, "enunciato troppo lungo per le relazioni tra parti") && strstr(v.reason, "come enunciato su insiemi qualsiasi: "),
+                          "the same statement with its claim repeated 60 times is refused as too long, with the reader's own reason") && passed;
     free(once);
     free(often);
     for (size_t i = 0; i < sizeof cases / sizeof *cases; i++) {
@@ -198,8 +201,29 @@ static int long_hypothesis_chains(void) {
     v = prove(text, 'n', 0, 0);
     free(unions);
     free(text);
-    return check_result(v.outcome == REFUTED && v.certificate,
-                        "1100 unions inside 15 parentheses are counted once, and the false statement is refuted") && passed;
+    passed = check_result(v.outcome == REFUTED && v.certificate,
+                          "1100 unions inside 15 parentheses are counted once, and the false statement is refuted") && passed;
+
+    /* Lo stesso per un membro tra parentesi, che abstract_tuple() prova a
+     * leggere come coppia e poi rilegge: si guarda il conto dopo la sola
+     * lettura, che con sei parentesi arrivava a sette volte le unioni. */
+    unions = repeated("\\mathcal{P}(", "X", " \\cup ", 700, ")");
+    text = nested("(G \\subseteq \\mathcal{P}(\\mathcal{P}(S)) \\land X \\subseteq S \\land \\forall Z \\in \\mathcal{P}(\\mathcal{P}(S))\\ (Z \\in G)) \\implies ",
+                  "(", 6, unions, ")", " \\in G");
+    proof_reset();
+    arena_used = arena_keep;
+    failure = syntax_error = NULL;
+    stack_chain_levels = 0;
+    stack_guard = 1;
+    cursor = text;
+    next_token();
+    abstract_statement();
+    stack_guard = 0;
+    size_t counted = stack_chain_levels;
+    free(unions);
+    free(text);
+    return check_result(!syntax_error && !failure && counted >= 699 && counted < 1400,
+                        "700 unions in a parenthesised member are counted once while reading") && passed;
 }
 
 /* 4. La guardia riguarda solo gli enunciati lunghi: uno corto e molto
@@ -270,15 +294,67 @@ static int full_arena(void) {
     int fits = strlen(text) < MAX_FORMULA;
     Verdict v = prove(text, 'n', 0, 0);
     free(text);
-    int passed = check_result(fits && v.outcome != PROVED && v.outcome != REFUTED && v.reason == OUT_OF_MEMORY && !v.certificate,
+    int passed = check_result(fits && v.outcome == NOT_PROVED && v.reason == OUT_OF_MEMORY && !v.certificate,
                               "22 nested unique-existence quantifiers end with exhausted memory, not a crash");
+
+    /* Con la notazione dei libri nel corpo lo svolgimento continuava sui
+     * nodi di riserva anche dopo l'errore. */
+    text = numbered("(f \\colon S \\to S \\land F \\subseteq \\mathcal{P}(S)) \\implies ", "\\exists! x_{%d} \\in S\\ ", "", 22,
+                    "(\\{f(Y) \\mid Y \\in F\\} = F)");
+    v = prove(text, 'n', 0, 0);
+    free(text);
+    passed = check_result(v.outcome == NOT_PROVED && v.reason == OUT_OF_MEMORY && !v.certificate,
+                          "the unfolding of book notation stops when the memory is exhausted") && passed;
     text = repeated("\\forall x \\in S\\ (", "x = x", " \\land ", 1000000, ")");
     v = prove(text, 'n', 0, 0);
     free(text);
-    passed = check_result(v.outcome != PROVED && v.outcome != REFUTED && v.reason == OUT_OF_MEMORY && !v.certificate,
+    passed = check_result(v.outcome == NOT_PROVED && v.reason == OUT_OF_MEMORY && !v.certificate,
                           "a million conjunctions end with exhausted memory, not a crash") && passed;
+
+    /* L'arena finisce mentre si costruisce un insieme: il nodo in
+     * costruzione era l'unico nodo di riserva, azzerato dal suo operando.
+     * E il motivo è la memoria, non un errore di sintassi che non c'è. */
+    text = repeated("(X \\subseteq S \\land c \\in S) \\implies (", "c = c", " \\land ", 1300000, " \\land c \\in X \\cup X)");
+    v = prove(text, 'n', 0, 0);
+    free(text);
+    passed = check_result(v.outcome == NOT_PROVED && v.reason == OUT_OF_MEMORY && !v.certificate,
+                          "a union read when the memory is exhausted ends with exhausted memory, not a crash or a syntax error") && passed;
     v = prove("\\forall x \\in S\\ (x = x)", 'n', 0, 0);
     return check_result(v.outcome == PROVED && v.certificate, "the statement after a full arena is proved from a clean state") && passed;
+}
+
+/* Ritorna una copia di text, in memoria da liberare. */
+static char *copied(const char *text) {
+    char *copy = malloc(strlen(text) + 1);
+    if (!copy) { printf("FAIL: out of memory copying a certificate\n"); exit(1); }
+    strcpy(copy, text);
+    return copy;
+}
+
+/* 7. La forma dell'albero dipende dalla catena, non dalla lunghezza
+ * dell'enunciato: lo stesso enunciato, con quattromila spazi in più, ha lo
+ * stesso verdetto e lo stesso certificato. Quando decideva la lunghezza in
+ * byte, questo enunciato era dimostrato corto e non dimostrato lungo. I
+ * dati sono un caso trovato dalla review: una tesi con quattordici
+ * alternative, tra cui a = a. */
+static int spaces_do_not_matter(void) {
+    const char *hypotheses = "(w \\in S \\land E \\subseteq S \\land \\perp \\colon S \\times S \\to S \\land Y \\subseteq S \\land v \\in S \\land "
+        "a \\in S \\land X \\subseteq S \\land (w \\perp w) \\in \\{a\\} \\land a \\in E \\land v \\neq w \\land "
+        "(v = w \\lor a \\in X \\lor v = w \\lor v = w) \\land Y \\cap E \\cap X \\subseteq \\emptyset)";
+    const char *claim = " \\implies (v = w \\lor w = v \\lor v = v \\lor v \\in \\{a\\} \\lor (w \\perp v) \\in \\{w\\} \\lor Y \\neq X \\lor v = a \\lor "
+        "a \\notin X \\lor a \\in E \\lor E \\setminus Y = X \\lor (v \\perp a) \\in X \\cap E \\lor v = a \\lor E \\cap X \\neq X \\lor a = a)";
+    char *text = repeated(hypotheses, " ", NULL, 0, claim), *padded = repeated(hypotheses, " ", NULL, 4000, claim);
+    Verdict v = prove(text, 'n', 0, 0);
+    int proved = v.outcome == PROVED && v.certificate != NULL;
+    char *certificate = copied(v.certificate ? v.certificate : "");
+    v = prove(padded, 'n', 0, 0);
+    int passed = check_result(strlen(text) < MAX_FORMULA && strlen(padded) >= MAX_FORMULA && proved && v.outcome == PROVED && v.certificate &&
+                              strcmp(v.certificate, certificate) == 0,
+                              "a statement padded with 4000 spaces has the same verdict and the same certificate");
+    free(text);
+    free(padded);
+    free(certificate);
+    return passed;
 }
 
 int main(void) {
@@ -292,6 +368,7 @@ int main(void) {
     passed = short_statements_and_recovery() && passed;
     passed = model_step_budget() && passed;
     passed = full_arena() && passed;
+    passed = spaces_do_not_matter() && passed;
     printf(passed ? "All stack and step budget checks passed.\n" : "Some stack or step budget checks FAILED.\n");
     return passed ? 0 : 1;
 }

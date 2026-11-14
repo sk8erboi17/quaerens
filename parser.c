@@ -6037,7 +6037,8 @@ static int abstract_sort(void) {
  * con symbol = -1, la variabile di posto slot. */
 static Elem *elem_new(int symbol, int slot, Elem *a, Elem *b) {
     static Elem spare;
-    Elem *e = arena_alloc(sizeof(Elem));
+    Elem *e = arena_node(sizeof(Elem));
+    if (failure == OUT_OF_MEMORY) syntax(OUT_OF_MEMORY);  /* la lettura finisce qui (sentence_new()) */
 
     /* Il nodo di riserva è uno solo: non può essere argomento di sé
      * stesso, o chi lo visita non finisce più. */
@@ -6064,7 +6065,12 @@ static void elem_expect(const Elem *e, int sort) {
  * da start alla fine dell'ultimo token già letto. */
 static Sentence *sentence_new(SentenceKind kind, Sentence *a, Sentence *b, const char *start) {
     static Sentence spare;
-    Sentence *s = arena_alloc(sizeof(Sentence));
+    Sentence *s = arena_node(sizeof(Sentence));
+
+    /* A memoria finita la lettura finisce qui: il testo non ha altri token,
+     * e chi stava leggendo ritorna chiedendo ancora pochi nodi, che la
+     * riserva dell'arena gli dà (arena_node()). */
+    if (failure == OUT_OF_MEMORY) syntax(OUT_OF_MEMORY);
 
     /* Ad arena piena il nodo di riserva è uno solo: non può essere una
      * componente di sé stesso. Una congiunzione del nodo di riserva con sé
@@ -6256,6 +6262,7 @@ static Elem *abstract_term(void) {
  * \perp c: si prova la coppia e, se dopo il primo membro non c'è la
  * virgola, si torna indietro. */
 static int abstract_tuple(Elem **out, int count) {
+    size_t levels = stack_chain_levels;  /* Il conto delle catene da rimettere, se si torna indietro. */
     if (token.kind == T_OPEN) {
         ParserState before = parser_save();
         const char *kept = consumed;
@@ -6275,6 +6282,7 @@ static int abstract_tuple(Elem **out, int count) {
         }
         parser_restore(before);
         consumed = kept;
+        stack_chain_levels = levels;  /* ciò che si rilegge non si conta due volte (reader_back()) */
     }
 
     /* Una coppia con un nome: la variabile, o l'applicazione f(...) i cui
@@ -6301,6 +6309,7 @@ static int abstract_tuple(Elem **out, int count) {
         }
         parser_restore(before);
         consumed = kept;
+        stack_chain_levels = levels;
     }
     if (count == MAX_ARITY) {
         syntax("un membro ha al più quattro componenti: una coppia di coppie");
@@ -6709,7 +6718,8 @@ static int family_slot;
  * piena ritorna un nodo di riserva. */
 static SetTerm *set_term_new(SetTermKind kind) {
     static SetTerm spare;
-    SetTerm *t = arena_alloc(sizeof(SetTerm));
+    SetTerm *t = arena_node(sizeof(SetTerm));
+    if (failure == OUT_OF_MEMORY) syntax(OUT_OF_MEMORY);  /* la lettura finisce qui (sentence_new()) */
     if (!t) t = &spare;
     memset(t, 0, sizeof *t);
     t->kind = kind;
@@ -7793,7 +7803,6 @@ static Sentence *abstract_part_quantifier(SentenceKind kind, const QuantifierNam
     abstract_positive = positive;
     for (int i = 0; i < bound; i++) symbol_bound[part[i]] = PART_HIDDEN;
     for (int i = bound - 1; i >= 0 && !syntax_error; i--) {
-        chain_link();
         node = sentence_new(kind == S_FORALL ? S_FORALL_PART : S_EXISTS_PART, node, NULL, start);
         node->part = part[i];
     }
@@ -7848,6 +7857,14 @@ static Sentence *abstract_quantifier(const char *start) {
             break;
         }
         names[letters++].letter = read;
+
+        /* Ogni lettera sarà un livello dell'albero, costruito in fondo
+         * senza che la lettura scenda (capitolo 2, la pila di lavoro). Lo
+         * si conta qui, leggendola: finito il budget l'elenco non si legge
+         * oltre. Contato alla fine, 270.000 lettere venivano prima lette
+         * tutte, in mezzo minuto (ogni lettera si confronta con le altre),
+         * per poi essere rifiutate. */
+        chain_link();
     } while (is_char(','));
 
     /* Un'applicazione o un'operazione da cercare: in testa all'enunciato è
@@ -7948,15 +7965,16 @@ static Sentence *abstract_quantifier(const char *start) {
     /* \in X, con X una parte, o (17v) un insieme scritto come nei libri:
      * la forma svolta. Poi un nodo per lettera, dall'ultima alla prima; per
      * una coppia due, la prima componente fuori. */
-    for (int i = letters - 1; i >= 0 && (part >= 0 || range); i--) {
+    for (int i = letters - 1; i >= 0 && (part >= 0 || range) && !syntax_error; i--) {
         chain_link();
         node = sentence_new(kind == S_FORALL ? S_IMPLIES : S_AND, range_member(slot[i], part, range, start), node, start);
     }
-    for (int i = letters - 1; i >= 0; i--) {
-        /* Un livello per lettera, due per una coppia: 60.000 lettere dopo
-         * un solo \forall davano un albero che la pila non reggeva, senza
-         * che la lettura fosse scesa di un livello. */
-        chain_link();
+    for (int i = letters - 1; i >= 0 && !syntax_error; i--) {
+        /* Un livello per lettera, già contato leggendola
+         * (abstract_quantifier()), e uno in più per una coppia: 60.000
+         * lettere dopo un solo \forall davano un albero che la pila non
+         * reggeva, senza che la lettura fosse scesa di un livello. Finito
+         * il budget non si costruisce oltre. */
         if (slot_data[slot[i]].pair >= 0) {
             chain_link();
             node = sentence_new(kind, node, NULL, start);
@@ -8238,19 +8256,26 @@ static Sentence *chain_tree(SentenceKind kind, size_t from, size_t to, const cha
     return sentence_new(kind, a, b, start);
 }
 
+/* Quanti operandi può avere una catena di \land o di \lor che resta a
+ * pettine. Più lunga, è unita a metà (chain_tree()). */
+#define CHAIN_COMB 64
+
 /* chain := operand { (word | other) operand }
  *
  * Legge una catena di condizioni unite dal connettivo kind, scritto con il
  * comando word o con other, e ne ritorna l'albero. Ogni condizione è letta
  * da operand.
  *
- * In un enunciato corto l'albero è a pettine, ogni operando unito ai
+ * Fino a CHAIN_COMB operandi l'albero è a pettine, ogni operando unito ai
  * precedenti, com'è sempre stato: la forma dell'albero decide l'ordine in
  * cui la ricerca prova le cose, e cambiarla sposta, in pochi casi, che
  * cosa si riesce a dimostrare (su 11.200 enunciati generati, 10 dimostrati
- * in più e 4 in meno). In un enunciato lungo (stack_guard, capitolo 2), il
- * solo in cui una catena può avere migliaia di anelli, è a metà
- * (chain_tree()). */
+ * in più e 4 in meno). Oltre, la catena è unita a metà: sono le lunghe
+ * liste di ipotesi, che a pettine costerebbero un livello di pila per
+ * ipotesi. La soglia guarda la catena e non l'enunciato: lo stesso
+ * enunciato, scritto con più spazi, ha lo stesso albero. I livelli che la
+ * catena aggiunge all'albero si contano (chain_link()): quelli del pettine
+ * uno per anello, quelli della metà il loro logaritmo. */
 static Sentence *abstract_chain(SentenceKind kind, Sentence *(*operand)(void), const char *word, const char *other) {
     const char *start = token.start;
     size_t base = chain_count;
@@ -8263,9 +8288,17 @@ static Sentence *abstract_chain(SentenceKind kind, Sentence *(*operand)(void), c
         if (!is_command(word) && !is_command(other)) break;
         next_token();
     }
+    size_t count = chain_count - base;
     Sentence *tree = chain_items[base];
-    if (stack_guard) tree = chain_tree(kind, base, chain_count, start);
-    else for (size_t i = base + 1; i < chain_count; i++) tree = sentence_new(kind, tree, chain_items[i], start);
+    if (count > CHAIN_COMB) {
+        for (size_t half = count; half > 1; half = (half + 1) / 2) chain_link();
+        tree = chain_tree(kind, base, chain_count, start);
+    } else {
+        for (size_t i = base + 1; i < chain_count; i++) {
+            chain_link();
+            tree = sentence_new(kind, tree, chain_items[i], start);
+        }
+    }
     chain_count = base;
     return tree;
 }
@@ -8348,7 +8381,6 @@ static Sentence *abstract_statement(void) {
     if (!work_reserve((void **)&sort_data,&sort_capacity,1,sizeof *sort_data))
         return sentence_new(S_TRUE,NULL,NULL,token.start);
     describe_count = describe_allowed = part_template_count = 0;
-    stack_chain_levels = 0;  /* le catene a pettine si contano enunciato per enunciato (capitolo 2) */
     if (symbol_bound_capacity) memset(symbol_bound, 0, symbol_bound_capacity * sizeof *symbol_bound);
     abstract_positive = 1;
     abstract_example = map_quantifiers = 0;
@@ -8510,9 +8542,9 @@ static Sentence *abstract_statement(void) {
     /* Nella condizione di un esempio una definizione (17p), R = \{...\}, sta
      * tra le congiunzioni più esterne, come tra le ipotesi: dà un nome a un
      * insieme fatto di ciò che l'esempio cerca. */
-    /* Ad arena piena l'albero è incompleto: non si visita, e chi chiama
-     * trova l'errore in `failure`. */
-    if (failure) return root;
+    /* Dopo un errore l'albero è incompleto: non si visita, e chi chiama
+     * trova l'errore in `failure` o in syntax_error. */
+    if (failure || syntax_error) return root;
     int misplaced = root->kind == S_IMPLIES && !abstract_example ? declaration_misplaced(root->a, 1) || declaration_misplaced(root->b, 0)
                                                                   : declaration_misplaced(root, abstract_example);
     if (misplaced) syntax("un'applicazione, un'operazione, una parte, un elemento o un insieme si dichiarano o si definiscono solo tra le ipotesi, in cima all'enunciato");
@@ -8657,6 +8689,7 @@ static Elem *set_term_apply(const SetTerm *set, Elem *x) {
  * svolte; from dà il testo ai nodi nuovi. */
 static Sentence *unfold_member(Elem *const *t, const SetTerm *set, const Sentence *from) {
     Sentence *s, *x, *y;
+    if (failure) return unfold_node(S_TRUE, NULL, NULL, from);  /* vedi unfold_sentence() */
     switch (set->kind) {
     case ST_SYMBOL: case ST_SECTION:
         s = unfold_node(S_HOLDS, NULL, NULL, from);
@@ -8809,6 +8842,7 @@ static Sentence *unfold_member(Elem *const *t, const SetTerm *set, const Sentenc
 static Sentence *unfold_inclusion(const SetTerm *set, const SetTerm *other, int iff, const Sentence *from) {
     int slot[MAX_ARITY];
     Elem *t[MAX_ARITY];
+    if (failure) return unfold_node(S_TRUE, NULL, NULL, from);  /* vedi unfold_sentence() */
     for (int i = 0; i < set->arity; i++) {
         slot[i] = unfold_slot(set->sort[i]);
         t[i] = unfold_variable(slot[i]);
@@ -8828,6 +8862,13 @@ static Sentence *unfold_inclusion(const SetTerm *set, const SetTerm *other, int 
 static Sentence *unfold_sentence(const Sentence *s) {
     Sentence *copy, *x;
     int slot;
+
+    /* Dopo un errore lo svolgimento non prosegue: ciò che ha prodotto non
+     * vale più nulla, e a memoria finita ogni passo in più ne chiederebbe
+     * altra. \exists! raddoppia la condizione a ogni livello: 22 uno dentro
+     * l'altro riempivano l'arena, e lo svolgimento continuava sui nodi di
+     * riserva fino a fermare il programma. */
+    if (failure) return unfold_node(S_TRUE, NULL, NULL, s);
     switch (s->kind) {
     case S_TRUE:
         return unfold_node(S_TRUE, NULL, NULL, s);
