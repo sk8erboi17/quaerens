@@ -123,7 +123,7 @@ static int check_certificates(const char *path) {
 
         /* 1. Il testo consegnato è quello che il verificatore accetta. */
         const char *why, *reread = verdict.certificate;
-        if (ck_check(&reread, &why) != CK_ACCEPTED) {
+        if (ck_check(&reread, &why, 0) != CK_ACCEPTED) {
             printf("  statement %d: its certificate is not accepted when read again (%s)\n", total, why);
             continue;
         }
@@ -139,7 +139,7 @@ static int check_certificates(const char *path) {
             }
             const char *cursor = altered;
             wrong++;
-            if (ck_check(&cursor, &why) != CK_ACCEPTED) continue;
+            if (ck_check(&cursor, &why, 0) != CK_ACCEPTED) continue;
             wrong_accepted++;
             printf("  statement %d: altered certificate %d is accepted:\n%s", total, kind, altered);
         }
@@ -203,7 +203,7 @@ static int check_written(const char *path) {
     int accepted = 0, others = 0;
     for (const char *cursor = written; (cursor = strstr(cursor, "certificate")) != NULL;) {
         const char *why;
-        if (ck_check(&cursor, &why) == CK_ACCEPTED) accepted++; else others++;
+        if (ck_check(&cursor, &why, 0) == CK_ACCEPTED) accepted++; else others++;
     }
     snprintf(summary, sizeof summary, "%d certificates written for %s, %d accepted when read back, %d counted by the report",
              accepted + others, path, accepted, report.certified);
@@ -226,7 +226,7 @@ static int check_sets(const char *path, int expected) {
         const char *why, *reread = verdict.certificate;
         total++;
         if (verdict.outcome != PROVED) broken++;
-        else if (reread && ck_check(&reread, &why) == CK_ACCEPTED) certified++;
+        else if (reread && ck_check(&reread, &why, 0) == CK_ACCEPTED) certified++;
         else if (reread) broken++;
     }
     free(text);
@@ -303,7 +303,7 @@ static int check_sign_tables(const char *path, int expected) {
 
         /* Il testo consegnato è quello che il verificatore accetta. */
         const char *why, *reread = verdict.certificate;
-        if (ck_check(&reread, &why) != CK_ACCEPTED) {
+        if (ck_check(&reread, &why, 0) != CK_ACCEPTED) {
             printf("  statement %d: its certificate is not accepted when read again (%s)\n", verdicts, why);
             silent++;
             continue;
@@ -320,7 +320,7 @@ static int check_sign_tables(const char *path, int expected) {
             }
             const char *cursor = altered;
             wrong++;
-            if (ck_check(&cursor, &why) != CK_ACCEPTED) continue;
+            if (ck_check(&cursor, &why, 0) != CK_ACCEPTED) continue;
             wrong_accepted++;
             printf("  statement %d: altered certificate %d is accepted:\n%s", verdicts, kind, altered);
         }
@@ -401,7 +401,7 @@ static int check_calculus(const char *path, int expected) {
 
         /* Il testo consegnato è quello che il verificatore accetta. */
         const char *why, *reread = verdict.certificate;
-        if (ck_check(&reread, &why) != CK_ACCEPTED) {
+        if (ck_check(&reread, &why, 0) != CK_ACCEPTED) {
             printf("  statement %d: its certificate is not accepted when read again (%s)\n", verdicts, why);
             silent++;
             continue;
@@ -413,7 +413,7 @@ static int check_calculus(const char *path, int expected) {
             if (!alter_calculus(verdict.certificate, kind, altered, sizeof altered)) continue;
             const char *cursor = altered;
             wrong++;
-            CkAnswer answer = ck_check(&cursor, &why);
+            CkAnswer answer = ck_check(&cursor, &why, 0);
             rejected += answer == CK_REJECTED;
             if (answer != CK_ACCEPTED) continue;
             wrong_accepted++;
@@ -505,7 +505,7 @@ static int check_limits(const char *path, int expected) {
 
         /* Il testo consegnato è quello che il verificatore accetta. */
         const char *why, *reread = verdict.certificate;
-        if (ck_check(&reread, &why) != CK_ACCEPTED) {
+        if (ck_check(&reread, &why, 0) != CK_ACCEPTED) {
             printf("  statement %d: its certificate is not accepted when read again (%s)\n", verdicts, why);
             silent++;
             continue;
@@ -521,7 +521,7 @@ static int check_limits(const char *path, int expected) {
             }
             const char *cursor = altered;
             wrong++;
-            if (ck_check(&cursor, &why) != CK_ACCEPTED) continue;
+            if (ck_check(&cursor, &why, 0) != CK_ACCEPTED) continue;
             wrong_accepted++;
             printf("  statement %d: altered certificate %d is accepted:\n%s", verdicts, kind, altered);
         }

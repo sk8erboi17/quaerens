@@ -60,7 +60,7 @@ int main(void) {
     int failed = 0;
     for (size_t i = 0; i < sizeof cases / sizeof *cases; i++) {
         const char *text = cases[i].text, *why;
-        CkAnswer answer = ck_check(&text, &why);
+        CkAnswer answer = ck_check(&text, &why, 0);
         int ok = answer == cases[i].answer;
         printf("%s: %s%s%s\n", ok ? "PASS" : "FAIL", cases[i].name, ok ? "" : ": ", ok ? "" : why);
         failed += !ok;
@@ -74,33 +74,70 @@ int main(void) {
     for (size_t i = 0; i < 257; i++) used += (size_t)snprintf(large + used, sizeof large - used, " %zu", i);
     snprintf(large + used, sizeof large - used, "\nend\n");
     const char *text = large, *why;
-    int ok = ck_check(&text, &why) == CK_ACCEPTED;
+    int ok = ck_check(&text, &why, 0) == CK_ACCEPTED;
     printf("%s: a 257-element identity table is checked exactly\n", ok ? "PASS" : "FAIL");
     failed += !ok;
     char *last = strstr(large, " 256\n");
     if (last) memcpy(last + 1, "255", 3);
     text = large;
-    ok = last && ck_check(&text, &why) == CK_REJECTED;
+    ok = last && ck_check(&text, &why, 0) == CK_REJECTED;
     printf("%s: changing the value beyond 255 invalidates the example\n", ok ? "PASS" : "FAIL");
     failed += !ok;
 
     /* Un testimone e la parte vuota: basta il primo sottoinsieme, senza
      * calcolare 2^257 o spostare un bit oltre la larghezza di un intero. */
     text = "certificate example\nsort S 257\nstatement (existspart X S (forall x S (not (X x))))\nend\n";
-    ok = ck_check(&text, &why) == CK_ACCEPTED;
+    ok = ck_check(&text, &why, 0) == CK_ACCEPTED;
     printf("%s: bound subsets have no machine-word cardinality limit\n", ok ? "PASS" : "FAIL");
     failed += !ok;
     text = "certificate counterexample\nsort S 257\nstatement (forallpart X S (forall x S (X x)))\nend\n";
-    ok = ck_check(&text, &why) == CK_ACCEPTED;
+    ok = ck_check(&text, &why, 0) == CK_ACCEPTED;
     printf("%s: a large empty subset refutes the claimed universal condition\n", ok ? "PASS" : "FAIL");
     failed += !ok;
     text = "certificate counterexample\nsort S 0\nstatement (and (exists x S (= x x)) (forall x S (= x x)))\nend\n";
-    ok = ck_check(&text, &why) == CK_ACCEPTED;
+    ok = ck_check(&text, &why, 0) == CK_ACCEPTED;
     printf("%s: explicit nonemptiness is false in an empty interpretation\n", ok ? "PASS" : "FAIL");
     failed += !ok;
     text = "certificate example\nsort S 0\nstatement (and (exists x S (= x x)) (forall x S (= x x)))\nend\n";
-    ok = ck_check(&text, &why) == CK_REJECTED;
+    ok = ck_check(&text, &why, 0) == CK_REJECTED;
     printf("%s: an empty example cannot satisfy explicit nonemptiness\n", ok ? "PASS" : "FAIL");
+    failed += !ok;
+
+    /* Il budget del ricalcolo, terzo argomento di ck_check(). Tre "per
+     * ogni" annidati su 30 elementi provano 30 + 900 + 27000 = 27930
+     * elementi: con quel budget il conto arriva in fondo, con uno in meno
+     * no, e la risposta è "non so controllarlo", non un rifiuto. */
+    const char *nested = "certificate example\nsort S 30\nstatement (forall a S (forall b S (forall c S (= a a))))\nend\n";
+    text = nested;
+    ok = ck_check(&text, &why, 27930) == CK_ACCEPTED;
+    printf("%s: a model is checked when the step budget is exactly its cost\n", ok ? "PASS" : "FAIL");
+    failed += !ok;
+    text = nested;
+    ok = ck_check(&text, &why, 27929) == CK_UNSUPPORTED;
+    printf("%s: one step less leaves the certificate unchecked, not rejected\n", ok ? "PASS" : "FAIL");
+    failed += !ok;
+    text = nested;
+    ok = ck_check(&text, &why, 0) == CK_ACCEPTED;
+    printf("%s: a zero budget asks for the usual one, also after a smaller one\n", ok ? "PASS" : "FAIL");
+    failed += !ok;
+
+    /* Oltre il budget consueto: quattro "per ogni" su 101 elementi provano
+     * più di cento milioni di elementi. Prima nessuno poteva far controllare
+     * questo modello; ora chi chiama dà il budget. Un budget largo non fa
+     * accettare nulla in più: lo stesso modello con la condizione negata
+     * resta respinto. */
+    const char *wide = "certificate example\nsort S 101\nstatement (forall a S (forall b S (forall c S (forall d S (= a a)))))\nend\n";
+    text = wide;
+    ok = ck_check(&text, &why, 0) == CK_UNSUPPORTED;
+    printf("%s: a model beyond the usual step budget is not checked by default\n", ok ? "PASS" : "FAIL");
+    failed += !ok;
+    text = wide;
+    ok = ck_check(&text, &why, 200000000LL) == CK_ACCEPTED;
+    printf("%s: the same model is accepted with a larger step budget\n", ok ? "PASS" : "FAIL");
+    failed += !ok;
+    text = "certificate example\nsort S 101\nstatement (forall a S (forall b S (forall c S (forall d S (not (= a a))))))\nend\n";
+    ok = ck_check(&text, &why, 200000000LL) == CK_REJECTED;
+    printf("%s: a larger step budget does not accept a false example\n", ok ? "PASS" : "FAIL");
     failed += !ok;
     return failed ? 1 : 0;
 }

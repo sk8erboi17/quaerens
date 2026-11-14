@@ -625,7 +625,7 @@ int main(void) {
     /* La tabella: risposta attesa, e il motivo per chi non è accettato. */
     for (size_t i = 0; i < sizeof cases / sizeof *cases; i++) {
         const char *text = cases[i].text;
-        CkAnswer answer = ck_check(&text, &why);
+        CkAnswer answer = ck_check(&text, &why, 0);
         snprintf(message, sizeof message, "\"%s\" should be %s but is %s (%s)", cases[i].name,
                  answer_name(cases[i].expected), answer_name(answer), why);
         check(answer == cases[i].expected, message);
@@ -637,12 +637,12 @@ int main(void) {
      * i suoi nomi, uno giusto che riusa gli stessi nomi resta accettato; e
      * due certificati in un testo si leggono uno dopo l'altro. */
     const char *reused = FOUR_HEAD FOUR_NAMES("a_1") FOUR_STEPS "end\n";
-    ck_check(&reused, &why);
+    ck_check(&reused, &why, 0);
     const char *again = FOUR_HEAD FOUR_NAMES("b_1") FOUR_STEPS "end\n";
-    check(ck_check(&again, &why) == CK_ACCEPTED, "a rejected certificate should not affect the next one");
+    check(ck_check(&again, &why, 0) == CK_ACCEPTED, "a rejected certificate should not affect the next one");
     const char *two = INVERSE_HEAD INVERSE_FIRST INVERSE_SECOND "end\n" INVERSE_HEAD INVERSE_FIRST "end\n";
-    check(ck_check(&two, &why) == CK_ACCEPTED, "the first of two certificates should be accepted");
-    check(ck_check(&two, &why) == CK_REJECTED, "the second of two certificates should be read next, and rejected");
+    check(ck_check(&two, &why, 0) == CK_ACCEPTED, "the first of two certificates should be accepted");
+    check(ck_check(&two, &why, 0) == CK_REJECTED, "the second of two certificates should be read next, and rejected");
 
     printf("%s: %d of %d structure certificate checks passed\n", failures ? "FAIL" : "PASS", checks - failures, checks);
     return failures ? 1 : 0;

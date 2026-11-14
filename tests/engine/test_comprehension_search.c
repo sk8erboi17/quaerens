@@ -57,7 +57,7 @@ static int problem(const char *name,const char *formula,int theorem,int portfoli
         int used=used_instances(&s);
         sp_write(&s,root,NULL,0,0);
         const char *text=certificate_text,*why="incomplete certificate";
-        ok &= theorem && (!s.schemas || used>0) && !s.limited && !certificate_broken && ck_check(&text,&why)==CK_ACCEPTED;
+        ok &= theorem && (!s.schemas || used>0) && !s.limited && !certificate_broken && ck_check(&text, &why, 0)==CK_ACCEPTED;
         if (!ok) printf("Certificate details: %s; used=%d\n",why,used);
     }
     if (!ok) printf("Search details: ready=%d found=%d schemas=%d expansions=%d clauses=%d work=%llu limited=%d unsupported=%d parse=%s\n",

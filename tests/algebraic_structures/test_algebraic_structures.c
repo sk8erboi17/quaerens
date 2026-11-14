@@ -85,7 +85,7 @@ static int check_counterexamples_written(const char *path, int expected) {
     int accepted = 0, others = 0;
     for (const char *cursor = written; (cursor = strstr(cursor, "certificate")) != NULL;) {
         const char *why;
-        if (ck_check(&cursor, &why) == CK_ACCEPTED) accepted++; else others++;
+        if (ck_check(&cursor, &why, 0) == CK_ACCEPTED) accepted++; else others++;
     }
     snprintf(summary, sizeof summary, "%d counterexamples written for %s, %d accepted when read back, %d counted as proved",
              accepted + others, path, accepted, report.certified);

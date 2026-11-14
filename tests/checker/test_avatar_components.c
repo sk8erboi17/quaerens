@@ -180,15 +180,15 @@ static int complete_certificates(void) {
         "step reflex 5 0 (subst) (clause (pos (f 3)))\n"
         "step resolve 7 0 8 0 (subst) (clause)\nend\n";
     const char *text = proof, *why;
-    int passed = check(ck_check(&text, &why) == CK_ACCEPTED, "a complete proof with component definitions and splitting is independently accepted");
+    int passed = check(ck_check(&text, &why, 0) == CK_ACCEPTED, "a complete proof with component definitions and splitting is independently accepted");
     text = "certificate saturation\nstatement (not true)\nclausify\ncomponent (clause (eq (v 0) (v 0)))\nend\n";
-    passed = check(ck_check(&text, &why) == CK_REJECTED, "a conservative component definition does not prove falsehood") && passed;
+    passed = check(ck_check(&text, &why, 0) == CK_REJECTED, "a conservative component definition does not prove falsehood") && passed;
     text = "certificate saturation\nsort S\nstatement (exists x S (= x x))\nclausify\ncomponent (clause (pos (f 0 (v 0))))\ncomplement 0\nend\n";
-    passed = check(ck_check(&text, &why) == CK_REJECTED, "component syntax cannot invent an element of an empty sort") && passed;
+    passed = check(ck_check(&text, &why, 0) == CK_REJECTED, "component syntax cannot invent an element of an empty sort") && passed;
     text = "certificate counterexample\nsort S 2\nsymbol P S bool\nstatement (or (forall x S (P x)) (forall x S (not (P x))))\ntable P 1 0\nend\n";
-    passed = check(ck_check(&text, &why) == CK_ACCEPTED, "a nonuniform predicate refutes the disjunction of the two universal closures") && passed;
+    passed = check(ck_check(&text, &why, 0) == CK_ACCEPTED, "a nonuniform predicate refutes the disjunction of the two universal closures") && passed;
     text = "certificate saturation\nsort S\nsymbol P S bool\nstatement (or (forall x S (P x)) (forall x S (not (P x))))\nclausify\ncomponent (clause (pos (f 0 (v 0))))\ncomplement 0\nend\n";
-    passed = check(ck_check(&text, &why) == CK_REJECTED, "the false uniformity theorem cannot use an illegal universal complement") && passed;
+    passed = check(ck_check(&text, &why, 0) == CK_REJECTED, "the false uniformity theorem cannot use an illegal universal complement") && passed;
     return passed;
 }
 

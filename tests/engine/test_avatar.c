@@ -211,7 +211,7 @@ static int partial_definition(const char *formula) {
         sp_requeue(&s,NULL); ok=sp_search(&s);
         if (ok) {
             sp_write(&s,root,NULL,0,0); const char *text=certificate_text,*why="incomplete certificate";
-            ok=!s.limited && !certificate_broken && ck_check(&text,&why)==CK_ACCEPTED;
+            ok=!s.limited && !certificate_broken && ck_check(&text, &why, 0)==CK_ACCEPTED;
             if (!ok) printf("Partial definition certificate: %s\n",why);
         }
     }
@@ -240,7 +240,7 @@ static int problem(const char *name,const char *formula,int theorem,int branches
     if (found) {
         sp_write(&s,root,NULL,0,0);
         const char *text=certificate_text,*why="incomplete certificate";
-        ok &= !s.limited && !certificate_broken && ck_check(&text,&why)==CK_ACCEPTED;
+        ok &= !s.limited && !certificate_broken && ck_check(&text, &why, 0)==CK_ACCEPTED;
         if (!ok) printf("Certificate details: %s\n",why);
     }
     if (!ok) printf("AVATAR details: ready=%d found=%d models=%u components=%d clauses=%d work=%llu limited=%d parse=%s\n",

@@ -110,7 +110,7 @@ static int structural_names(void) {
         Sentence truth={.kind=S_TRUE};declared_symbols=symbol_count;
         cert_abstract_head("example",&truth,&m);cert_add("end\n");
         const char *text=certificate_text,*why="";
-        ok &= !certificate_broken && ck_check(&text,&why)==CK_ACCEPTED;
+        ok &= !certificate_broken && ck_check(&text, &why, 0)==CK_ACCEPTED;
         if (!ok) printf("Structural certificate details: %s\n",why);
     }
     model_clear(&m);
@@ -132,7 +132,7 @@ static int derived_certificate_names(void) {
         Sentence truth={.kind=S_TRUE};
         cert_abstract_head("example",&truth,&m);cert_add("end\n");
         const char *text=certificate_text,*why="";
-        ok=!certificate_broken && ck_check(&text,&why)==CK_ACCEPTED;
+        ok=!certificate_broken && ck_check(&text, &why, 0)==CK_ACCEPTED;
         if (!ok) printf("Derived name details: %s\n",why);
     }
     model_clear(&m);

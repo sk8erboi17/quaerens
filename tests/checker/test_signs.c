@@ -236,7 +236,7 @@ int main(void) {
     /* La tabella: risposta attesa, e il motivo per chi non è accettato. */
     for (size_t i = 0; i < sizeof cases / sizeof *cases; i++) {
         const char *text = cases[i].text;
-        CkAnswer answer = ck_check(&text, &why);
+        CkAnswer answer = ck_check(&text, &why, 0);
         snprintf(message, sizeof message, "\"%s\" should be %s but is %s (%s)", cases[i].name,
                  answer_name(cases[i].expected), answer_name(answer), why);
         check(answer == cases[i].expected, message);
@@ -247,8 +247,8 @@ int main(void) {
     /* Un certificato non lascia tracce nel successivo, e due certificati in
      * un testo si leggono uno dopo l'altro. */
     const char *two = QUOTIENT_HEAD "solution (< x (neg 3))\n" QUOTIENT_FACTORS QUOTIENT_ROWS SQUARE_HEAD SQUARE_ROWS;
-    check(ck_check(&two, &why) == CK_REJECTED, "the first of two certificates should be rejected");
-    check(ck_check(&two, &why) == CK_ACCEPTED, "the second of two certificates should be read next, and accepted");
+    check(ck_check(&two, &why, 0) == CK_REJECTED, "the first of two certificates should be rejected");
+    check(ck_check(&two, &why, 0) == CK_ACCEPTED, "the second of two certificates should be read next, and accepted");
 
     printf("%s: %d of %d sign table certificate checks passed\n", failures ? "FAIL" : "PASS", checks - failures, checks);
     return failures ? 1 : 0;

@@ -22,7 +22,7 @@ static void long_name(char *text,char first,char last) {
  * Unsupported rimane distinto da Accepted. */
 static int expect(const char *name,const char *text,CkAnswer wanted) {
     const char *cursor=text,*why="";
-    CkAnswer found=ck_check(&cursor,&why);int ok=found==wanted;
+    CkAnswer found=ck_check(&cursor, &why, 0);int ok=found==wanted;
     printf("%s: %s%s%s\n",ok?"PASS":"FAIL",name,ok?"":": ",ok?"":why);
     return ok;
 }

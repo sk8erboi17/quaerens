@@ -279,7 +279,7 @@ static inline int check_structure_certificates(const char *path, int expected) {
         if (!from_chapter_28(&verdict)) continue;
         verdicts++;
         const char *why = "", *reread = verdict.certificate;
-        if (!reread || ck_check(&reread, &why) != CK_ACCEPTED) {
+        if (!reread || ck_check(&reread, &why, 0) != CK_ACCEPTED) {
             printf("  statement %d has no certificate the checker accepts (%s): ", number, why);
             verdict_print(stdout, &verdict);
             putchar('\n');
@@ -293,7 +293,7 @@ static inline int check_structure_certificates(const char *path, int expected) {
         }
         const char *cursor = altered;
         wrong++;
-        if (ck_check(&cursor, &why) != CK_ACCEPTED) continue;
+        if (ck_check(&cursor, &why, 0) != CK_ACCEPTED) continue;
         wrong_accepted++;
         printf("  statement %d: the altered certificate is accepted:\n%s", number, altered);
     }

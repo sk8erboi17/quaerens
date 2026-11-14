@@ -36,7 +36,7 @@ int main(void) {
         for (size_t i = 0; i < 257; i++) cert_add(" %zu", m.table[0][i]);
         cert_add("\nend\n");
         const char *text = certificate_text, *why;
-        passed = check_result(!certificate_broken && ck_check(&text, &why) == CK_ACCEPTED,
+        passed = check_result(!certificate_broken && ck_check(&text, &why, 0) == CK_ACCEPTED,
                               "the standalone checker independently verifies the large extracted model") && passed;
     }
     model_clear(&m);
@@ -60,7 +60,7 @@ int main(void) {
         cert_add("\nend\n");
         const char *text = certificate_text, *why;
         passed = check_result(!certificate_broken && certificate_length > CERTIFICATE_BYTES &&
-                              ck_check(&text, &why) == CK_ACCEPTED,
+                              ck_check(&text, &why, 0) == CK_ACCEPTED,
                               "a model certificate grows beyond its old buffer and is checked in full") && passed;
         proof_reset(); model_clear(&m);
     } else passed = check_result(0, "a large binary table can be represented") && passed;

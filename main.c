@@ -669,6 +669,16 @@ static unsigned long long model_work_limit = 20000000ULL;
  * di 83 elementi sotto quattro quantificatori. Resta sotto LLONG_MAX, perche
  * model_steps lo supera di uno per dire "conto interrotto". */
 static long long model_step_limit = 40000000LL;
+
+/* Ritorna il budget che il motore dà al verificatore per ricalcolare un
+ * modello (il terzo argomento di ck_check()): due volte e mezza il proprio,
+ * il rapporto che c'è sempre stato tra i due (40 e 100 milioni). Così
+ * --model-steps allarga insieme il ricalcolo del motore e quello del
+ * verificatore, e un controesempio che il primo conferma il secondo lo può
+ * controllare. */
+static long long checker_steps(void) {
+    return model_step_limit <= (LLONG_MAX - 1) / 5 ? model_step_limit * 5 / 2 : LLONG_MAX - 1;
+}
 static unsigned long long verification_work_limit = 20000000ULL;
 #define MAX_GROUND 2048      /* elementi nominati in una dimostrazione su insiemi qualsiasi (28b) */
 #define MAX_KNOWN 2048       /* condizioni note in un ramo di quella dimostrazione */
@@ -7179,7 +7189,7 @@ static CkAnswer certify(const Statement *statement, long long base, Rat d, Rat d
             break;
         }
         text = certificate_text;
-        answer = ck_check(&text, &why);
+        answer = ck_check(&text, &why, checker_steps());
         if (answer != CK_REJECTED || used < 0 || poly_depends_on_n(a)) break;
     }
 
@@ -7191,7 +7201,7 @@ static CkAnswer certify(const Statement *statement, long long base, Rat d, Rat d
         const char *doubt = "";
         write_certificate(statement, base, top, bottom, generic ? &a : NULL, 1);
         text = certificate_text;
-        CkAnswer full = certificate_broken ? CK_UNSUPPORTED : ck_check(&text, &doubt);
+        CkAnswer full = certificate_broken ? CK_UNSUPPORTED : ck_check(&text, &doubt, checker_steps());
         if (full == CK_REJECTED) {
             answer = CK_REJECTED;
             why = doubt;
@@ -9129,7 +9139,7 @@ static Verdict prove_set_tree(SetNode *root) {
     cert_add("\nend\n");
     if (!certificate_broken) {
         const char *text = certificate_text, *why;
-        CkAnswer answer = ck_check(&text, &why);
+        CkAnswer answer = ck_check(&text, &why, checker_steps());
         if (answer == CK_REJECTED) {
             unjustified_steps++;
             snprintf(certificate_problem, sizeof certificate_problem, "il verificatore indipendente ha respinto il certificato: %s", why);
@@ -20328,7 +20338,7 @@ static void sign_certify(const Formula *thesis, Verdict *verdict) {
     if (verdict->outcome != PROVED && verdict->outcome != REFUTED && verdict->outcome != SOLVED) return;
     const char *why = sign_certificate(thesis, verdict), *text = certificate_text;
     if (!why) {
-        CkAnswer answer = ck_check(&text, &why);
+        CkAnswer answer = ck_check(&text, &why, checker_steps());
         if (answer == CK_ACCEPTED) { verdict->certificate = certificate_text; return; }
 
         /* Respinto: nel dubbio non è dimostrato, e il grafico, che illustra
@@ -26703,7 +26713,7 @@ static void calculus_certify(Verdict *verdict, const char *why, const Node *func
     static char problem[512], note[512];
     const char *text = certificate_text;
     if (!why) {
-        CkAnswer answer = ck_check(&text, &why);
+        CkAnswer answer = ck_check(&text, &why, checker_steps());
         if (answer == CK_ACCEPTED) {
             verdict->certificate = certificate_text;
             verdict->reason = NULL;
@@ -32541,7 +32551,7 @@ static void cert_leaf(void) {
  * del verificatore non equivale ad averne ottenuto l'accettazione. */
 static Verdict abstract_certified(Verdict verdict) {
     const char *text = certificate_text, *why = "è più lungo di quanto il programma sappia scrivere";
-    CkAnswer answer = certificate_broken ? CK_UNSUPPORTED : ck_check(&text, &why);
+    CkAnswer answer = certificate_broken ? CK_UNSUPPORTED : ck_check(&text, &why, checker_steps());
     if (answer == CK_ACCEPTED) {
         verdict.certificate = certificate_text;
         return verdict;
@@ -38737,7 +38747,7 @@ static void limit_certify(const LimitStatement *st, const SideResult *sides, int
     const char *why = "la funzione usa qualcosa che la notazione dei certificati non ha", *text = certificate_text;
     limit_certificate(st, sides, count, claim, value, truth);
     if (!certificate_broken) {
-        CkAnswer answer = ck_check(&text, &why);
+        CkAnswer answer = ck_check(&text, &why, checker_steps());
         if (answer == CK_ACCEPTED) {
             verdict->certificate = certificate_text;
             verdict->reason = NULL;
@@ -42643,6 +42653,7 @@ static Verdict prove_item(const char *item, const char *end) {
  * --model-steps N regola gli elementi che i quantificatori provano
  * ricalcolando un enunciato sui modelli (40.000.000 di default): un modello
  * che non si riesce a ricalcolare non è un controesempio, e il verdetto lo dice.
+ * Il verificatore riceve due volte e mezza quel budget.
  * --stack-budget BYTES regola la pila concessa agli alberi di un enunciato
  * lungo (4 MiB di default, per una pila di 8 MB): oltre, l'esito è "pila di
  * lavoro esaurita".

@@ -187,11 +187,11 @@ static int certificates(void) {
         "step resolve 1 0 5 0 (subst) (clause (pos (f 3)))\n"
         "step resolve 6 0 3 0 (subst) (clause (ne (f 0) (f 0)))\n"
         "step reflex 7 0 (subst) (clause)\nend\n";
-    const char *text=proof,*why; int passed=check(ck_check(&text,&why)==CK_ACCEPTED,"a complete refutation using an explicit empty-part comprehension is accepted");
+    const char *text=proof,*why; int passed=check(ck_check(&text, &why, 0)==CK_ACCEPTED,"a complete refutation using an explicit empty-part comprehension is accepted");
     text="certificate saturation\nsort S\nsymbol c S\nsymbol Q S bool\n"
         "statement (implies (forallpart X S (forall y S (implies (X y) (X y)))) (Q c))\n"
         "clausify\ncomprehend 0 (clause (ne (v 0) (v 0)))\nend\n";
-    passed=check(ck_check(&text,&why)==CK_REJECTED,"instantiating a tautological premise does not produce a proof of a false conclusion") && passed;
+    passed=check(ck_check(&text, &why, 0)==CK_REJECTED,"instantiating a tautological premise does not produce a proof of a false conclusion") && passed;
     static const char *const invalid[]={
         "0 (clause (pos (f 1 (v 0))) (neg (f 2 (v 0))))",
         "0 (clause (eq (v 0) (v 1)))",
@@ -237,7 +237,7 @@ static int certificates(void) {
     ck_used=CK_ARENA_BYTES;ck_cursor="0 (clause (eq (v 0) (v 0)))";ck_r_comprehend();
     passed=check(ck_status==CK_UNSUPPORTED,"an allocation failure while reading a comprehension is not accepted") && passed;
     text=proof;
-    passed=check(ck_check(&text,&why)==CK_ACCEPTED,"a complete proof succeeds after a failed comprehension has been cleared") && passed;
+    passed=check(ck_check(&text, &why, 0)==CK_ACCEPTED,"a complete proof succeeds after a failed comprehension has been cleared") && passed;
     return passed;
 }
 

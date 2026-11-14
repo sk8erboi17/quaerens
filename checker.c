@@ -26,7 +26,9 @@
  *   - ACCETTATO: tutti i controlli sono riusciti;
  *   - RESPINTO: un controllo è fallito, il certificato non dimostra nulla;
  *   - NON CONTROLLABILE: il certificato usa qualcosa che questo programma non
- *     conosce, o i numeri sono troppo grandi. Non è un sì.
+ *     conosce, i numeri sono troppo grandi, o è finito il budget dato per
+ *     ricalcolare un modello (--model-steps, il terzo argomento di
+ *     ck_check()). Non è un sì.
  *
  * Trovare una dimostrazione è difficile, controllarla è facile: qui non c'è
  * nessuna ricerca, solo somme, prodotti e divisioni di polinomi, catene di
@@ -254,7 +256,7 @@
 #define CK_MAX_SCAN 100000   /* valori di n provati uno a uno per un polinomio */
 #define CK_MAX_BRICKS 32     /* voci "brick" di un certificato */
 #define CK_MAX_FACTORED 1000000000000LL  /* il più grande numero scomposto in fattori primi */
-#define CK_MAX_EVAL 100000000LL  /* elementi provati dai quantificatori calcolando su un modello */
+#define CK_MAX_EVAL 100000000LL  /* elementi provati dai quantificatori calcolando su un modello, se chi chiama non dà un budget */
 #define CK_MAX_GROUND 4096   /* termini chiusi di un caso */
 #define CK_MAX_ATOMS 2048    /* condizioni elementari di un caso */
 #define CK_MAX_FORMULAS 2048 /* condizioni supposte vere in un caso */
@@ -2607,6 +2609,18 @@ static const CkNode *ck_read_condition(void) {
 
 static long long ck_tried;
 
+/* Quanti elementi i quantificatori possono provare, in tutto, ricalcolando
+ * l'enunciato del certificato in corso su un modello: il budget che chi
+ * chiama ha dato a ck_check(), o CK_MAX_EVAL.
+ *
+ * È la sola cosa che chi chiama può regolare, e non cambia che cosa si
+ * accetta: il conto su un modello è finito e completo, e un budget più
+ * largo lo lascia soltanto arrivare in fondo. Finito il budget la risposta
+ * è "non so controllarlo", mai un sì. Prima era solo la costante: un
+ * controesempio di 101 elementi sotto quattro quantificatori, che il motore
+ * sa trovare, non si poteva certificare con nessuna opzione. */
+static long long ck_eval_limit = CK_MAX_EVAL;
+
 /* Ritorna il valore del termine t nel modello, con depth variabili legate;
  * per una parte legata applicata, 1 se l'argomento sta nella parte. */
 static size_t ck_value(const CkNode *t, int depth) {
@@ -2619,7 +2633,7 @@ static size_t ck_value(const CkNode *t, int depth) {
 }
 
 /* Ritorna 1 se la condizione c vale nel modello, con depth variabili legate.
- * Un quantificatore prova ogni elemento del suo insieme: oltre CK_MAX_EVAL
+ * Un quantificatore prova ogni elemento del suo insieme: oltre ck_eval_limit
  * prove il certificato non è controllabile. */
 static int ck_holds(const CkNode *c, int depth) {
     if (ck_status != CK_ACCEPTED) return 0;
@@ -2654,7 +2668,7 @@ static int ck_holds(const CkNode *c, int depth) {
         ck_bound[depth].bits = bits;
         int result = every;
         for (;;) {
-            if (++ck_tried > CK_MAX_EVAL) { ck_unsupported("lavoro di verifica del modello esaurito"); break; }
+            if (++ck_tried > ck_eval_limit) { ck_unsupported("lavoro di verifica del modello esaurito"); break; }
             if (ck_holds(c->a, depth + 1) != every) { result = !every; break; }
             if (ck_status != CK_ACCEPTED) break;
             size_t bit = 0;
@@ -2667,7 +2681,7 @@ static int ck_holds(const CkNode *c, int depth) {
         return result;
     }
     for (size_t x = 0; x < values && ck_status == CK_ACCEPTED; x++) {
-        if (++ck_tried > CK_MAX_EVAL) { ck_unsupported("il modello è troppo grande per calcolarvi l'enunciato"); return 0; }
+        if (++ck_tried > ck_eval_limit) { ck_unsupported("il modello è troppo grande per calcolarvi l'enunciato"); return 0; }
         ck_bound[depth].value = x;
         if (ck_holds(c->a, depth + 1) != every) return !every;
     }
@@ -4545,7 +4559,7 @@ static void ck_check_structure(int kind) {
             /* Anche un conteggio rappresentabile puo richiedere miliardi
              * di contesti. La quota del calcolo finito limita il formato
              * legacy, senza accettarne un'enumerazione incompleta. */
-            if (kind==2 && (1u<<ck_sort_count)>CK_MAX_EVAL/(ck_sort_count+1)) {
+            if (kind==2 && (1u<<ck_sort_count)>ck_eval_limit/(ck_sort_count+1)) {
                 ck_unsupported("i contesti vuoto/non vuoto superano il budget del formato per casi");return;
             }
         } else if (kind < 2 && statement && ck_word("table")) {
@@ -8793,10 +8807,13 @@ static void ck_verify(const CkCertificate *cert) {
 
 /* Controlla il certificato che comincia in *text e porta *text subito dopo
  * il suo "end". Ritorna la risposta, e mette in *why il motivo quando non è
- * CK_ACCEPTED. È la sola funzione che chi include questo file deve
- * chiamare. */
-static CkAnswer ck_check(const char **text, const char **why) {
+ * CK_ACCEPTED. steps è il budget del ricalcolo sui modelli (ck_eval_limit):
+ * quanti elementi i quantificatori possono provare; zero, o meno, chiede
+ * quello consueto, CK_MAX_EVAL. È la sola funzione che chi include questo
+ * file deve chiamare. */
+static CkAnswer ck_check(const char **text, const char **why, long long steps) {
     CkCertificate cert;
+    ck_eval_limit = steps > 0 ? steps : CK_MAX_EVAL;
     ck_model_clear();
     ck_structure_clear();
     ck_r_clear();
@@ -8842,14 +8859,30 @@ static CkAnswer ck_check(const char **text, const char **why) {
  * Il verificatore come programma a sé: legge un file di certificati, uno
  * dopo l'altro, e dice di ognuno se lo accetta. Il codice di uscita è 0 se
  * li ha accettati tutti e ce n'era almeno uno, 1 altrimenti, 2 se il file
- * non si legge. Chi include questo file definisce CK_NO_MAIN, e usa solo
- * ck_check().
+ * non si legge o la riga di comando è sbagliata. Chi include questo file
+ * definisce CK_NO_MAIN, e usa solo ck_check().
+ *
+ *     checker FILE                     controlla i certificati di FILE
+ *     checker --model-steps N FILE     con N elementi provati dai
+ *                                      quantificatori, al più, ricalcolando
+ *                                      ogni modello (100.000.000 di default)
  */
 
 #ifndef CK_NO_MAIN
 int main(int argc, char **argv) {
     int accepted = 0, others = 0;
-    if (argc != 2) { fprintf(stderr, "uso: %s <file di certificati>\n", argv[0]); return 2; }
+    long long steps = 0;
+
+    /* --model-steps N: un intero positivo scritto con sole cifre, che stia
+     * in un long long con un posto libero per il confronto "oltre il budget". */
+    if (argc == 4 && strcmp(argv[1], "--model-steps") == 0) {
+        const char *digit = argv[2];
+        for (; *digit >= '0' && *digit <= '9' && steps < (LLONG_MAX - 9) / 10; digit++) steps = 10 * steps + (*digit - '0');
+        if (*digit || steps == 0) { fprintf(stderr, "budget positivo non rappresentabile: %s\n", argv[2]); return 2; }
+        argv += 2;
+        argc -= 2;
+    }
+    if (argc != 2) { fprintf(stderr, "uso: checker [--model-steps N] <file di certificati>\n"); return 2; }
 
     /* Tutto il file in memoria, con uno zero in fondo. */
     FILE *in = fopen(argv[1], "rb");
@@ -8874,7 +8907,7 @@ int main(int argc, char **argv) {
         const char *why, *here = strstr(cursor, "certificate");
         if (!here) break;
         cursor = here;
-        CkAnswer answer = ck_check(&cursor, &why);
+        CkAnswer answer = ck_check(&cursor, &why, steps);
         if (cursor == here) cursor = here + 1;
         if (answer == CK_ACCEPTED) { printf("%4d. ACCETTATO\n", number); accepted++; }
         else { printf("%4d. %s: %s\n", number, answer == CK_REJECTED ? "RESPINTO" : "NON CONTROLLABILE", why); others++; }

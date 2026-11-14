@@ -199,7 +199,7 @@ static int problem(const char *name, const char *formula, int expected_phase) {
     if (found) {
         sp_write(&s, root, NULL, 0, 0);
         const char *text = certificate_text, *why = "incomplete certificate";
-        ok &= !certificate_broken && ck_check(&text, &why) == CK_ACCEPTED;
+        ok &= !certificate_broken && ck_check(&text, &why, 0) == CK_ACCEPTED;
         if (!ok) printf("Certificate details: %s\n", why);
     }
     if (!ok) printf("Portfolio details: ready=%d found=%d strategy=%d work=%llu limited=%d parse=%s\n",

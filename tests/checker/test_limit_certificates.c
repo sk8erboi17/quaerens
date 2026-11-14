@@ -187,7 +187,7 @@ int main(void) {
     /* La tabella: risposta attesa, e il motivo per chi non è accettato. */
     for (size_t i = 0; i < sizeof cases / sizeof *cases; i++) {
         const char *text = cases[i].text;
-        CkAnswer answer = ck_check(&text, &why);
+        CkAnswer answer = ck_check(&text, &why, 0);
         snprintf(message, sizeof message, "\"%s\" should be %s but is %s (%s)", cases[i].name,
                  answer_name(cases[i].expected), answer_name(answer), why);
         check(answer == cases[i].expected, message);
@@ -199,8 +199,8 @@ int main(void) {
      * la lettera L, uno di soli razionali; e due certificati in un testo si
      * leggono uno dopo l'altro. */
     const char *two = POWER("value (exp 3) true") AT_ZERO(COSINE, "value (/ 1 2) true");
-    check(ck_check(&two, &why) == CK_REJECTED, "the first of two certificates should be rejected");
-    check(ck_check(&two, &why) == CK_ACCEPTED, "the second of two certificates should be read next, and accepted");
+    check(ck_check(&two, &why, 0) == CK_REJECTED, "the first of two certificates should be rejected");
+    check(ck_check(&two, &why, 0) == CK_ACCEPTED, "the second of two certificates should be read next, and accepted");
 
     printf("%s: %d of %d limit certificate checks passed\n", failures ? "FAIL" : "PASS", checks - failures, checks);
     return failures ? 1 : 0;

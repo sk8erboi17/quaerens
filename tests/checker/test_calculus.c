@@ -206,7 +206,7 @@ int main(void) {
     /* La tabella: risposta attesa, e il motivo per chi non è accettato. */
     for (size_t i = 0; i < sizeof cases / sizeof *cases; i++) {
         const char *text = cases[i].text;
-        CkAnswer answer = ck_check(&text, &why);
+        CkAnswer answer = ck_check(&text, &why, 0);
         snprintf(message, sizeof message, "\"%s\" should be %s but is %s (%s)", cases[i].name,
                  answer_name(cases[i].expected), answer_name(answer), why);
         check(answer == cases[i].expected, message);
@@ -219,8 +219,8 @@ int main(void) {
     const char *two = PRIMITIVE("(/ 1 (+ (root 2 x) (root 3 x)))",
                                 "(- (+ (- (* 2 (root 2 x)) (* 3 (root 3 x))) (* 6 (root 6 x))) (* 6 (ln (+ (root 6 x) 1))))")
                       DERIVATIVE("2", "(root 3 x)", "(neg (/ 2 (* 9 (root 3 (^ x 5)))))");
-    check(ck_check(&two, &why) == CK_ACCEPTED, "the first of two certificates should be accepted");
-    check(ck_check(&two, &why) == CK_ACCEPTED, "the second of two certificates should be read next, and accepted");
+    check(ck_check(&two, &why, 0) == CK_ACCEPTED, "the first of two certificates should be accepted");
+    check(ck_check(&two, &why, 0) == CK_ACCEPTED, "the second of two certificates should be read next, and accepted");
 
     printf("%s: %d of %d derivative, antiderivative and integral certificate checks passed\n", failures ? "FAIL" : "PASS", checks - failures, checks);
     return failures ? 1 : 0;

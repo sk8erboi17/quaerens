@@ -376,7 +376,7 @@ static void check(int passed, const char *description) {
 /* Ritorna la risposta del verificatore sul certificato text; mette in *why
  * il motivo. */
 static CkAnswer answer_of(const char *text, const char **why) {
-    return ck_check(&text, why);
+    return ck_check(&text, why, 0);
 }
 
 /* Ritorna il nome inglese di una risposta, per i messaggi. */
@@ -411,8 +411,8 @@ int main(void) {
     /* ck_check() avanza fino a dopo "end": due certificati in un testo solo
      * si leggono uno dopo l'altro. */
     const char *two = HEAD GAUSS "factor 1\nend\n" HEAD "statement (= (sum k 1 n k) n)\nfactor 1\nend\n";
-    check(ck_check(&two, &why) == CK_ACCEPTED, "the first of two certificates should be accepted");
-    check(ck_check(&two, &why) == CK_REJECTED, "the second of two certificates should be read next, and rejected");
+    check(ck_check(&two, &why, 0) == CK_ACCEPTED, "the first of two certificates should be accepted");
+    check(ck_check(&two, &why, 0) == CK_REJECTED, "the second of two certificates should be read next, and rejected");
     while (*two == '\n') two++;
     check(*two == 0, "after two certificates the text should be finished");
 

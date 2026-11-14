@@ -14,7 +14,7 @@
 
 /* Controlla soltanto attraverso l'ingresso indipendente del checker. */
 static int expect(const char *name,const char *text,CkAnswer wanted) {
-    const char *cursor=text,*why="";CkAnswer answer=ck_check(&cursor,&why);
+    const char *cursor=text,*why="";CkAnswer answer=ck_check(&cursor, &why, 0);
     int ok=answer==wanted;
     printf("%s: %s%s%s\n",ok?"PASS":"FAIL",name,ok?"":": ",ok?"":why);
     return ok;

@@ -29,7 +29,7 @@ static void *controlled_realloc(void *data, size_t bytes) {
  * verificatore soltanto se la risposta differisce da quella attesa. */
 static int expect(const char *text, CkAnswer wanted, const char *description) {
     const char *why;
-    CkAnswer answer = ck_check(&text, &why);
+    CkAnswer answer = ck_check(&text, &why, 0);
     int passed = answer == wanted;
     printf("%s: %s%s%s\n", passed ? "PASS" : "FAIL", description, passed ? "" : ": ", passed ? "" : why);
     return passed;

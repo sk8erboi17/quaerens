@@ -14,7 +14,7 @@
 /* Controlla un certificato fornito come dato e riporta una descrizione
  * inglese. Una risposta non controllabile non vale come accettazione. */
 static int expect(const char *name,const char *text,CkAnswer wanted) {
-    const char *cursor=text,*why="";CkAnswer found=ck_check(&cursor,&why);
+    const char *cursor=text,*why="";CkAnswer found=ck_check(&cursor, &why, 0);
     int ok=found==wanted;
     printf("%s: %s%s%s\n",ok?"PASS":"FAIL",name,ok?"":": ",ok?"":why);
     return ok;

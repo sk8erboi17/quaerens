@@ -245,8 +245,19 @@ static int model_step_budget(void) {
                               !v.certificate && !v.detail,
                               "a model that cannot be recomputed within the step budget is reported as such, not as a counterexample");
     v = prove(text, 'n', 0, 0);
-    return check_result(v.outcome == REFUTED && v.certificate && strstr(v.certificate, "sort S 2\n"),
-                        "with the usual step budget the same statement has a certified two-element counterexample") && passed;
+    passed = check_result(v.outcome == REFUTED && v.certificate && strstr(v.certificate, "sort S 2\n"),
+                          "with the usual step budget the same statement has a certified two-element counterexample") && passed;
+
+    /* Il verificatore riceve due volte e mezza il budget del motore: con
+     * quello consueto, i cento milioni che erano la sua costante. */
+    passed = check_result(checker_steps() == 100000000LL, "the checker's usual step budget is 2.5 times the engine's") && passed;
+    model_step_limit = 1000000000LL;
+    long long wide = checker_steps();
+    model_step_limit = LLONG_MAX - 1;
+    long long widest = checker_steps();
+    model_step_limit = saved;
+    return check_result(wide == 2500000000LL && widest == LLONG_MAX - 1,
+                        "a larger engine budget widens the checker's, without overflow at the largest one") && passed;
 }
 
 /* 6. L'arena piena. Lo svolgimento di \\exists! raddoppia l'enunciato a

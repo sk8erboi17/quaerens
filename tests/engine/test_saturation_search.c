@@ -42,7 +42,7 @@ static int search_case(const SearchCase *test) {
         }
         sp_write(&state, root, NULL, 0, 0);
         const char *certificate = certificate_text, *why;
-        CkAnswer answer = certificate_broken ? CK_UNSUPPORTED : ck_check(&certificate, &why);
+        CkAnswer answer = certificate_broken ? CK_UNSUPPORTED : ck_check(&certificate, &why, 0);
         if (answer != CK_ACCEPTED) printf("Certificate failure: %s\n", certificate_broken ? "incomplete certificate" : why);
         ok &= used && answer == CK_ACCEPTED;
     }
@@ -111,7 +111,7 @@ static int storage_checks(void) {
     if (mapped && sp_search(&s)) {
         sp_write(&s, reordered, NULL, 0, 0);
         const char *text = certificate_text, *why;
-        mapped = ck_check(&text, &why) == CK_ACCEPTED;
+        mapped = ck_check(&text, &why, 0) == CK_ACCEPTED;
     } else mapped = 0;
     passed = check_result(mapped, "implicit sort symbols and explicit functions use the certificate declaration order") && passed;
     sp_clear(&s);

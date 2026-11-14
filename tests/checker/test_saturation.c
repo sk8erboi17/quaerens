@@ -58,7 +58,7 @@ static int certificates(void) {
     int passed = 1;
     for (size_t i = 0; i < sizeof cases / sizeof *cases; i++) {
         const char *text = cases[i].text, *why;
-        CkAnswer answer = ck_check(&text, &why);
+        CkAnswer answer = ck_check(&text, &why, 0);
         int ok = answer == cases[i].answer && (!cases[i].why[0] || strstr(why, cases[i].why));
         printf("%s: %s%s%s\n", ok ? "PASS" : "FAIL", cases[i].name, ok ? "" : ": ", ok ? "" : why);
         passed &= ok;
