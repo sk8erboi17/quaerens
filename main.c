@@ -291,12 +291,14 @@
  *     relazioni scritte tra gli elementi (x \le y), la composizione come
  *     operazione, le potenze di un elemento. E un insieme qualsiasi insieme
  *     a un insieme numerico nello stesso enunciato: i due linguaggi non si
- *     parlano. L'equipotenza c'è (17w, 28q), ma non il numero di elementi
- *     di un insieme, |S|, e il verdetto lo dice (capitolo 20): contare
- *     chiederebbe l'induzione sul numero degli elementi, con le biiezioni
- *     che il passo chiede (S = S' \cup \{a\}), e dire infinito un insieme,
- *     per le sue parti numerabili, l'assioma della scelta numerabile. Vedi i
- *     capitoli 17 (17p) e 28.
+ *     parlano. L'equipotenza c'è (17w, 28q), e il numero di elementi di un
+ *     insieme confrontato con un numero scritto, |S| = 3 (17x), che si dice
+ *     con le sole variabili: "ci sono tre elementi distinti, e fra quattro
+ *     due sono uguali". Non c'è con una lettera, |S| = n, e il verdetto lo
+ *     dice (capitolo 20): contare chiederebbe l'induzione sul numero degli
+ *     elementi, con le biiezioni che il passo chiede (S = S' \cup \{a\}), e
+ *     dire infinito un insieme, per le sue parti numerabili, l'assioma della
+ *     scelta numerabile. Vedi i capitoli 17 (17p, 17x) e 28.
  *   - Un certificato per tutto. Lo hanno le induzioni scritte con somme,
  *     prodotti, potenze, fattoriali, binomiali, successioni per ricorrenza
  *     e logaritmi, gli enunciati sugli insiemi senza "esiste", quelli su
@@ -862,7 +864,7 @@ static void *work_arena_array(size_t count, size_t unit) {
  * di lavoro la pila non cresce, e oltre il suo fondo il programma non dà un
  * esito: si ferma. Finché un enunciato stava in MAX_FORMULA caratteri i suoi
  * alberi non potevano essere abbastanza profondi; da quando il linguaggio
- * degli insiemi qualsiasi (17o-17w) legge enunciati di lunghezza qualsiasi
+ * degli insiemi qualsiasi (17o-17x) legge enunciati di lunghezza qualsiasi
  * (gli altri linguaggi no: prove_core()) possono esserlo, e 20.000 negazioni
  * una dentro l'altra fermavano il programma. Ora la lettura di un enunciato
  * lungo tiene il conto della pila che i suoi alberi chiederanno, e si ferma
@@ -884,6 +886,13 @@ static void *work_arena_array(size_t count, size_t unit) {
  *     \lor, le sole che in un enunciato possono essere lunghe quanto si
  *     vuole (le ipotesi), in un enunciato lungo non sono a pettine: il
  *     lettore le unisce a metà (abstract_chain() in parser.c).
+ *
+ * C'è un terzo modo, che questo budget non conta: un numero scritto. Lo
+ * svolgimento di |T| \ge n (17x in parser.c) ha n quantificatori uno dentro
+ * l'altro anche in un enunciato corto. Lì il limite è la memoria: le sue
+ * n(n - 1)/2 coppie riempiono l'arena poco oltre n = 1000 (misurato: 1150
+ * si svolge, 1300 no), e con una pila di 8 MB quei livelli sono stati
+ * visitati senza fermarsi anche con i sanitizer.
  *
  * La lettura conta il doppio: chi visiterà l'albero può usare, per livello,
  * più pila di chi lo ha letto. Sono misure fatte (novembre 2026, pila di
@@ -27753,7 +27762,7 @@ static int model_holds(const Model *m, const Sentence *s, size_t *value) {
         return model_part_quantifier(m, s, value, model_holds);
     case S_FORALL: case S_EXISTS:
         break;
-    case S_MEMBER: case S_INCLUDED: case S_SAME: case S_UNIQUE:
+    case S_MEMBER: case S_INCLUDED: case S_SAME: case S_UNIQUE: case S_COUNT:
         /* La notazione dei libri non arriva qui: lo svolgimento (17q) la
          * toglie, e book_holds() (28h) la calcola a parte. */
         return 0;
@@ -28618,7 +28627,7 @@ static SatLiteral sat_sentence(SatState *s, const Model *m, const Sentence *f) {
         m->part[f->part] = saved; free(bits); s->bytes -= cap;
         return result;
     }
-    case S_MEMBER: case S_INCLUDED: case S_SAME: case S_UNIQUE:
+    case S_MEMBER: case S_INCLUDED: case S_SAME: case S_UNIQUE: case S_COUNT:
         s->broken = 1; return -1;
     }
     s->broken = 1; return -1;
@@ -29087,6 +29096,17 @@ static int book_member(const Model *m, const size_t *t, const SetTerm *set, size
     return 0;
 }
 
+/* Passa dal membro possibile t[] di set al successivo: le scelte delle
+ * componenti nei loro insiemi, in ordine, a partire da quella con tutti
+ * zeri. Ritorna 0, con t[] di nuovo a zero, quando sono finite. */
+static int book_next(const Model *m, const SetTerm *set, size_t *t) {
+    for (int i = 0; i < set->arity; i++) {
+        if (++t[i] < m->dimension[set->sort[i]].size) return 1;
+        t[i] = 0;
+    }
+    return 0;
+}
+
 /* Ritorna 1 se, per ogni membro possibile t (ogni scelta delle componenti
  * nei loro insiemi), "t sta in set" e "t sta in other" valgono come chiede
  * how: 0 per "il primo implica il secondo", 1 per "hanno lo stesso valore".
@@ -29100,12 +29120,7 @@ static int book_compare(const Model *m, const SetTerm *set, const SetTerm *other
         if (how == 0 && in_set && !in_other) return 0;
         if (how == 1 && in_set != in_other) return 0;
         if (how == 2 && in_other && !in_set) return 1;
-        int i = 0;
-        for (; i < set->arity; i++) {
-            if (++t[i] < m->dimension[set->sort[i]].size) break;
-            t[i] = 0;
-        }
-        if (i == set->arity) return how != 2;
+        if (!book_next(m, set, t)) return how != 2;
     }
 }
 
@@ -29144,6 +29159,18 @@ static int book_holds(const Model *m, const Sentence *s, size_t *value) {
             count += book_holds(m, s->a, value);
         }
         return count == 1;
+    case S_COUNT: {
+        /* 17x. Si contano i membri, uno per uno, fra tutti i possibili: è
+         * la definizione, senza le variabili e le coppie dello svolgimento. */
+        long long members = 0;
+        memset(t, 0, sizeof t);
+        for (int i = 0; i < s->set->arity; i++) if (!m->dimension[s->set->sort[i]].size) return s->least == 0;
+        do {
+            if (++model_steps > model_step_limit) return 0;
+            members += book_member(m, t, s->set, value);
+        } while (book_next(m, s->set, t));
+        return members >= s->least && (s->most < 0 || members <= s->most);
+    }
     case S_FORALL: case S_EXISTS:
         break;
     }
@@ -29237,7 +29264,7 @@ finished:
 static void put_unfolding_note(long long compared) {
     if (!compared) return;
     proof_add(" The notation of sets (sets of elements or of pairs given by a rule, images and preimages, equalities and "
-              "inclusions between sets) is read as the conditions on elements it stands for, and that is the statement "
+              "inclusions between sets, numbers of elements) is read as the conditions on elements it stands for, and that is the statement "
               "written above; the statement as written and that one take the same value in each of the %lld finite models "
               "tried.", compared);
 }
@@ -29642,7 +29669,7 @@ static void put_sentence(const Sentence *s, int negated, SlotValues value, int t
         put_sentence(s->a, 0, value, 0);
         proof_add(")");
         return;
-    case S_MEMBER: case S_INCLUDED: case S_SAME: case S_UNIQUE:
+    case S_MEMBER: case S_INCLUDED: case S_SAME: case S_UNIQUE: case S_COUNT:
         /* Non arrivano qui: lo svolgimento (17q) li toglie. */
         return;
     }
@@ -29916,7 +29943,7 @@ static int truth(const Sentence *s, int negated, SlotValues value) {
         if (a >= 0 && b >= 0) known = a == b;
         break;
     case S_FORALL: case S_EXISTS: case S_FORALL_PART: case S_EXISTS_PART: case S_EQUIPOTENT:
-    case S_MEMBER: case S_INCLUDED: case S_SAME: case S_UNIQUE:  /* questi non arrivano qui (17q) */
+    case S_MEMBER: case S_INCLUDED: case S_SAME: case S_UNIQUE: case S_COUNT:  /* questi non arrivano qui (17q) */
         break;
     }
     return known < 0 ? -1 : known != negated;
@@ -30413,7 +30440,7 @@ static void known_open(int i) {
         return;
     case S_FORALL: case S_EXISTS:
         break;
-    case S_MEMBER: case S_INCLUDED: case S_SAME: case S_UNIQUE:
+    case S_MEMBER: case S_INCLUDED: case S_SAME: case S_UNIQUE: case S_COUNT:
         /* Non arrivano qui: lo svolgimento (17q) li toglie. */
         return;
     }
@@ -31320,7 +31347,7 @@ static int candidate_holds(const Sentence *s, SlotValues value) {
     }
     case S_FORALL_PART: case S_EXISTS_PART: case S_EQUIPOTENT:
         /* Le parti di 17u le sceglie 28k, le biiezioni di un'equipotenza 28q. */
-    case S_MEMBER: case S_INCLUDED: case S_SAME: case S_UNIQUE:  /* questi non arrivano qui (17q) */
+    case S_MEMBER: case S_INCLUDED: case S_SAME: case S_UNIQUE: case S_COUNT:  /* questi non arrivano qui (17q) */
         break;
     }
     return -1;
@@ -32390,7 +32417,7 @@ static void cert_sentence(const Sentence *s, SlotValues value) {
         cert_sentence(s->a, value);
         cert_add(")");
         return;
-    case S_MEMBER: case S_INCLUDED: case S_SAME: case S_UNIQUE:
+    case S_MEMBER: case S_INCLUDED: case S_SAME: case S_UNIQUE: case S_COUNT:
         /* Non arrivano qui (17q); se arrivassero, il certificato non le sa
          * dire. */
         certificate_broken = 1;
@@ -42318,11 +42345,12 @@ static Verdict prove_integral(const char *formula) {
  *
  * Il punto d'ingresso unico: sceglie il metodo guardando la notazione.
  *
- * Una notazione viene guardata subito, dopo il segno di integrale, perché
- * nessun metodo la tratta e il verdetto deve dirlo con il suo motivo: il
- * numero di elementi di un insieme, |S| (uses_cardinality()). Poi
- * l'equipotenza, A \sim B, che va al capitolo 28 (17w, 28q), tranne che con un
- * insieme di numeri (uses_equipotence()). Poi un enunciato che dichiara una relazione o
+ * Due notazioni vengono guardate subito, dopo il segno di integrale, perché
+ * sono del capitolo 28 qualunque cosa le accompagni, tranne che con un
+ * insieme di numeri: il numero di elementi di un insieme, |S|
+ * (uses_cardinality()), di cui il capitolo 28 legge solo il confronto con un
+ * numero scritto (17x), e allora il verdetto deve dire quel motivo; e
+ * l'equipotenza, A \sim B (17w, 28q; uses_equipotence()). Poi un enunciato che dichiara una relazione o
  * un'applicazione tra le parti di un insieme, con \mathcal{P}(S)^{2} o
  * \colon \mathcal{P}(S), va allo svolgimento di 17r e da lì al capitolo 15
  * (uses_parts_relations()); uno che scrive un insieme con una regola,
@@ -42418,12 +42446,11 @@ static int uses_elements(const char *formula) {
 }
 
 /* Ritorna 1 se formula parla del numero di elementi di un insieme, |S|.
- * Nessun lettore conosce questa notazione, e nessuna regola la saprebbe
- * decidere: |\mathcal{P}(S)| = 2^n chiede di contare per induzione sul numero
+ * La legge solo il capitolo 28, e solo confrontata con un numero scritto
+ * (17x): |\mathcal{P}(S)| = 2^n chiede di contare per induzione sul numero
  * degli elementi, e "un insieme infinito ha una parte numerabile" l'assioma
- * della scelta. Il verdetto deve dirlo, invece di riportare il simbolo su
- * cui un lettore si è fermato. L'equipotenza da sola, A \sim B, va al
- * capitolo 28 (17w, 28q).
+ * della scelta. Dove il lettore non arriva il verdetto deve dire questo,
+ * invece di riportare il simbolo su cui si è fermato (prove_core()).
  *
  * Una sbarra verticale è un numero di elementi quando la segue ciò che
  * indica un insieme: una graffa \{, \mathcal o \bigcup, e, se letters è 1,
@@ -42517,21 +42544,23 @@ static Verdict prove_core(const char *formula, int variable, int has_base, long 
     /* \int in testa: un integrale (capitolo 30), qualunque cosa segua. */
     if (starts_with_integral(formula)) return stack_guard ? too_long : prove_integral(formula);
 
-    /* Il numero di elementi di un insieme: nessun metodo del programma lo
-     * tratta, e il verdetto lo dice (uses_cardinality()). L'equipotenza sì,
-     * tra insiemi qualsiasi (17w, 28q); tra insiemi di numeri no. */
-    if (uses_cardinality(formula, !strstr(formula, "\\mathbb")))
-        return (Verdict){UNSUPPORTED, variable, 0, 0, "il numero di elementi di un insieme, |S|, non è trattato: contare chiede l'induzione sul numero "
-                         "degli elementi, che il capitolo 28 non fa, e dire infinito un insieme chiede, per le sue parti numerabili, l'assioma della scelta",
-                         NULL, NULL, NULL, NULL, NULL};
-    if (uses_equipotence(formula)) {
-        if (strstr(formula, "\\mathbb"))
+    /* Il numero di elementi di un insieme e l'equipotenza vanno al capitolo
+     * 28, tra insiemi qualsiasi (17x; 17w, 28q); tra insiemi di numeri no.
+     * Del primo il capitolo 28 legge solo il confronto con un numero
+     * scritto, |S| = 3: se non ha letto l'enunciato e si è fermato prima
+     * di incontrarne uno, il motivo è quello (count_reason), e non il
+     * simbolo su cui il lettore si è fermato. */
+    int numbers = strstr(formula, "\\mathbb") != NULL, counts = uses_cardinality(formula, !numbers);
+    if (counts && numbers) return (Verdict){UNSUPPORTED, variable, 0, 0, count_reason, NULL, NULL, NULL, NULL, NULL};
+    if (counts || uses_equipotence(formula)) {
+        if (numbers)
             return (Verdict){UNSUPPORTED, variable, 0, 0, "l'equipotenza è trattata solo tra insiemi qualsiasi, non con un insieme di numeri", NULL, NULL, NULL, NULL, NULL};
         /* Un esponente che il lettore non sa leggere, S^{T \cup V}, è il
          * motivo vero anche quando il lettore si ferma prima. */
         int bad_exponent = equipotence_bad_exponent(formula);
         Verdict verdict = prove_abstract(formula);
         if (verdict.outcome == UNSUPPORTED && bad_exponent) verdict.reason = equipotence_exponent_reason;
+        else if (verdict.outcome == UNSUPPORTED && counts && !count_met) verdict.reason = count_reason;
         return verdict;
     }
     if (strstr(formula, "\\mathbb")) return stack_guard ? too_long : prove_quantified(formula);

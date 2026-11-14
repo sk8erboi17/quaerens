@@ -149,6 +149,17 @@ def extremes():
         # uno sull'altro la tenevano occupata più di un'ora.
         "S^{" * 10 + "S" + "}" * 10 + r" \sim S",
         "S^{" * 13 + "S" + "}" * 13 + r" \sim S",
+        # Il numero degli elementi (17x): un numero scritto dà, svolto, tanti quantificatori
+        # uno dentro l'altro, anche in un enunciato corto, finché la memoria di lavoro basta.
+        r"|S| \ge 950",
+        r"|S| \le 1150",
+        r"\lnot (|S| = 600)",
+        r"|S| = 100000",
+        r"X \subseteq S \implies |X| \le 3000000000",
+        r"|S| = 99999999999999999999",
+        r"|\{x \in S \mid |\{y \in S \mid |\{z \in S \mid z = y\}| \ge 30\}| \ge 30\}| \ge 30",
+        "|" * 3000 + "S" + "|" * 3000 + " = 1",
+        r"|S| = 1 \land " * 3000 + "|S| = 1",
         "",
         "=",
         "\\",

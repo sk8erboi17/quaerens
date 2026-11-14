@@ -1,0 +1,31 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{finite\_cardinality.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{finite\_cardinality.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_finite\_cardinality.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 55 true statements about the number of elements of a set compared with a written number, $|T| = 3$, $|T| \le 2$, $|T| \ge 1$ (paragraph 17x of \texttt{parser.c}): what $0$, $1$ and $2$ elements mean, lists $\{a, b\}$, parts and their unions, intersections and differences, images under a map, injective and surjective maps between small sets, sets of parts, relations and sets of pairs given by a rule, families of parts and their union, sets of written numbers, one statement with an equipotence, and three that ask for an example. They are the fixed-number versions of the counting theorems of \texttt{finite\_sets.tex}, which have a letter in place of the number and are not read yet.
+
+\item \textbf{What is being tested.} That every statement is proved by chapter 28 on the statement unfolded by 17q (``at least $n$'': $n$ distinct members exist; ``at most $n$'': among any $n + 1$ members two are equal), with a certificate that \texttt{checker.c} accepts, after the unfolding has been compared on finite models with a direct count of the members (28h). No rule of the engine and no rule of the checker knows what a number of elements is: both see only quantifiers and equalities.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_finite_cardinality \
+    tests/set_theory/test_finite_cardinality.c && /tmp/test_finite_cardinality
+\end{verbatim}
+
+\item \textbf{Expected result.} One \texttt{PASS} line for the file, and one for its certificates.
+\end{enumerate}
+\end{document}

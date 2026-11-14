@@ -1,0 +1,31 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_finite\_cardinality.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_finite\_cardinality.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_finite\_cardinality.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} Anti-regression for paragraph 17x of \texttt{parser.c} and its unfolding (17q). The file holds 46 statements about $|T|$ compared with a written number that must not be proved, each a small change of a true one: a bound moved by one ($|S| > 2 \implies |S| \ge 4$), a comparison exchanged ($\le$ for $=$, $<$ for $\le$), a hypothesis dropped (the map injective or surjective, the two parts disjoint), a number of parts or of pairs off by one ($|\mathcal{P}(S)| = 3$ for two elements, five pairs for two and two), an equipotence with the wrong number.
+
+\item \textbf{What is being tested.} That none is proved, and that 44 are refuted by a finite model with a certificate that \texttt{checker.c} recomputes. An unfolding wrong by one (``at most $n$'' written with $n$ members instead of $n + 1$, a strict comparison read as a loose one) would make some of these true. Item 45 is false, but its smallest counterexample has six elements, beyond the default budget of the model search: it must stay \texttt{NON DIMOSTRATO}. Item 46 asks for an example that does not exist: no finite search can say so, and it must stay \texttt{NON DIMOSTRATO} too.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_finite_cardinality \
+    tests/set_theory/test_finite_cardinality.c && /tmp/test_finite_cardinality
+\end{verbatim}
+
+\item \textbf{Expected result.} One \texttt{PASS} line that none is proved, one that at least 44 are refuted, and one for the certificates of the counterexamples.
+\end{enumerate}
+\end{document}

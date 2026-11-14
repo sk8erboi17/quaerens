@@ -34,8 +34,9 @@
  * un modello candidato (28r), e l'ordine punto per punto su S^{S}, che
  * chiede le applicazioni con due valori (28s); e le equipotenze, con una
  * biiezione costruita (17w, 28q). Mancano soprattutto le applicazioni da
- * costruire con una regola qualsiasi, il quoziente, il numero di elementi e
- * gli insiemi infiniti, il massimo comun divisore e i numeri primi, le
+ * costruire con una regola qualsiasi, il quoziente, il numero di elementi
+ * dato da una lettera (con un numero scritto c'è: 17x, e ha il suo test,
+ * test_finite_cardinality.c) e gli insiemi infiniti, il massimo comun divisore e i numeri primi, le
  * applicazioni di due argomenti che non vengono da \mathbb{C}: il verdetto
  * dice quale.
  *

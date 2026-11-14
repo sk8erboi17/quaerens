@@ -1,0 +1,66 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{The number of elements of a set: statements that must not be proved (46)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Each statement below is a small change of a true one about $|T|$ compared with a written number: a bound moved by one, $\le$ in place of $=$, a hypothesis dropped (the map injective, the two parts disjoint), a number of parts or of pairs off by one. All but the last are false, and a finite model refutes them; the counterexample of item 45 has six elements. The last asks for an example that does not exist.
+
+\begin{enumerate}
+\item $\displaystyle |S| \ge 2$
+\item $\displaystyle |S| \neq 3$
+\item $\displaystyle |S| < 0$
+\item $\displaystyle |S| \le 2 \implies |S| = 2$
+\item $\displaystyle |S| > 2 \implies |S| \ge 4$
+\item $\displaystyle |S| < 3 \iff |S| \le 3$
+\item $\displaystyle |S| \le 2 \iff \forall x, y \in S\ (x = y)$
+\item $\displaystyle |S| = 4 \implies |S| \le 3$
+\item $\displaystyle |S| = 5 \implies |S| \le 4$
+\item $\displaystyle \forall a \in S\ (|\{a\}| = 2)$
+\item $\displaystyle \forall a \in S\ \forall b \in S\ (|\{a, b\}| = 2)$
+\item $\displaystyle (X \subseteq S \land |X| \ge 3) \implies |S| \ge 4$
+\item $\displaystyle (X \subseteq S \land Y \subseteq S \land X \subseteq Y \land |Y| \ge 2) \implies |X| \ge 2$
+\item $\displaystyle X \subseteq S \implies (|X| \le 1 \iff \exists a \in S\ (X = \{a\}))$
+\item $\displaystyle (X \subseteq S \land |X| = 2) \implies \exists a \in S\ (X = \{a\})$
+\item $\displaystyle (X \subseteq S \land Y \subseteq S \land |X \cup Y| \le 2) \implies |X| \le 1$
+\item $\displaystyle (X \subseteq S \land Y \subseteq S \land |X| \le 1 \land |Y| \le 1) \implies |X \cup Y| \le 1$
+\item $\displaystyle (X \subseteq S \land Y \subseteq S \land |X| = 1 \land |Y| = 1) \implies |X \cup Y| = 2$
+\item $\displaystyle (|S| = 3 \land X \subseteq S \land |X| = 2) \implies X = S$
+\item $\displaystyle (f \colon S \to T \land \forall x, y \in S\ (f(x) = f(y) \implies x = y) \land |T| \le 2) \implies |S| \le 1$
+\item $\displaystyle (f \colon S \to T \land \forall x, y \in S\ (f(x) = f(y) \implies x = y) \land |S| \ge 2) \implies |T| \ge 3$
+\item $\displaystyle (f \colon S \to T \land |S| \le 2) \implies |T| \le 2$
+\item $\displaystyle (f \colon S \to T \land X \subseteq S \land |X| = 2) \implies |f(X)| = 2$
+\item $\displaystyle (f \colon S \to T \land X \subseteq S \land |X| \ge 2) \implies |f(X)| \ge 2$
+\item $\displaystyle (f \colon S \to S \land |S| = 2) \implies \forall y \in S\ \exists x \in S\ (f(x) = y)$
+\item $\displaystyle |\mathcal{P}(S)| \ge 2$
+\item $\displaystyle |S| \ge 1 \implies |\mathcal{P}(S)| \ge 3$
+\item $\displaystyle |S| = 2 \implies |\mathcal{P}(S)| = 3$
+\item $\displaystyle |S| = 3 \implies |\mathcal{P}(S)| = 7$
+\item $\displaystyle (R \subseteq S \times S \land |S| = 2) \implies |R| \le 3$
+\item $\displaystyle (R \subseteq S \times T \land |S| = 1 \land |T| = 2) \implies |R| \le 1$
+\item $\displaystyle |S| = 2 \implies |\{(x, y) \mid x \in S \land y \in S\}| = 3$
+\item $\displaystyle (|S| = 2 \land |T| = 2) \implies |\{(x, y) \mid x \in S \land y \in T\}| = 5$
+\item $\displaystyle (S \sim T \land |S| = 2) \implies |T| = 3$
+\item $\displaystyle (|S| = 1 \land |T| = 2) \implies S \sim T$
+\item $\displaystyle (F \subseteq \mathcal{P}(S) \land |F| = 1) \implies \exists X \in \mathcal{P}(S)\ (F = \{X\} \land X \neq \emptyset)$
+\item $\displaystyle \forall a \in S\ (|\{x \in S \mid x \neq a\}| = 0 \implies |S| = 2)$
+\item $\displaystyle (f \colon S \to T \land Y \subseteq T \land |Y| \ge 1) \implies |f^{-1}(Y)| \ge 1$
+\item $\displaystyle (\forall i \in I\ (X_{i} \subseteq S) \land \forall i \in I\ (|X_{i}| \le 1)) \implies |\bigcup_{i \in I} X_{i}| \le 1$
+\item $\displaystyle |\{1, 2, 2\}| = 3$
+\item $\displaystyle R = \{(1, 2), (2, 3)\} \implies |R| = 3$
+\item $\displaystyle \forall X \in \mathcal{P}(S)\ \forall Y \in \mathcal{P}(S)\ (|X \triangle Y| \le 1 \iff X = Y)$
+\item $\displaystyle (f \colon S \to T \land |f(S)| \le 2) \implies \forall x, y \in S\ (f(x) = f(y))$
+\item $\displaystyle (R \subseteq S \times S \land \forall x \in S\ ((x, x) \in R) \land |R| \le 2) \implies |S| \le 1$
+\item $\displaystyle |S| = 6 \implies |S| \le 5$
+\item $\displaystyle \exists S\ (|S| = 2 \land |\mathcal{P}(S)| = 5)$
+\end{enumerate}
+\end{document}

@@ -1,0 +1,75 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{The number of elements of a set, compared with a written number (55)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+$|T| = 3$ means that the set $T$ has exactly three elements, $|T| \le 3$ at most three, $|T| \ge 3$ at least three; $T$ is a set, a part, an image, a set given by a rule or by a list, a set of parts $\mathcal{P}(S)$, or a relation, whose members are pairs; it may be a family of parts, the union of a family, or a set of written numbers. Every statement below is true for all sets, empty or not; the last three ask for an example. The numbers are written and small: a number of elements given by a letter, $|S| = n$, is not read.
+
+\begin{enumerate}
+\item $\displaystyle |S| \ge 1 \iff \exists x \in S\ (x = x)$
+\item $\displaystyle \left| S \right| = 0 \iff \lnot \exists x \in S\ (x = x)$
+\item $\displaystyle |S| = 1 \iff \exists! x \in S\ (x = x)$
+\item $\displaystyle |S| > 2 \implies |S| \ge 3$
+\item $\displaystyle |S| < 3 \iff |S| \le 2$
+\item $\displaystyle |S| \neq 0 \iff |S| \ge 1$
+\item $\displaystyle \forall a \in S\ (|\{a\}| = 1)$
+\item $\displaystyle \forall a \in S\ \forall b \in S\ (|\{a, b\}| \le 2)$
+\item $\displaystyle \forall a \in S\ \forall b \in S\ (a \neq b \implies |\{a, b\}| = 2)$
+\item $\displaystyle \forall a \in S\ \forall b \in S\ (|\{a, b\}| = 1 \iff a = b)$
+\item $\displaystyle (X \subseteq S \land |S| \le 2) \implies |X| \le 2$
+\item $\displaystyle (X \subseteq S \land Y \subseteq S \land X \subseteq Y \land |Y| \le 3) \implies |X| \le 3$
+\item $\displaystyle (X \subseteq S \land Y \subseteq S \land X \subseteq Y \land |X| \ge 2) \implies |Y| \ge 2$
+\item $\displaystyle X \subseteq S \implies (|X| = 1 \iff \exists a \in S\ (X = \{a\}))$
+\item $\displaystyle (X \subseteq S \land |X| = 2) \implies \exists a, b \in S\ (a \neq b \land X = \{a, b\})$
+\item $\displaystyle (X \subseteq S \land |X| \le 1) \implies \forall a, b \in S\ ((a \in X \land b \in X) \implies a = b)$
+\item $\displaystyle (X \subseteq S \land Y \subseteq S) \implies (|X \cap Y| = 0 \iff X \cap Y = \emptyset)$
+\item $\displaystyle (X \subseteq S \land Y \subseteq S \land |X \cup Y| \le 1) \implies |X| \le 1$
+\item $\displaystyle (X \subseteq S \land Y \subseteq S \land |X| \le 1 \land |Y| \le 1) \implies |X \cup Y| \le 2$
+\item $\displaystyle (X \subseteq S \land Y \subseteq S \land |X| = 1 \land |Y| = 1 \land X \cap Y = \emptyset) \implies |X \cup Y| = 2$
+\item $\displaystyle (X \subseteq S \land Y \subseteq S \land |X| = 2 \land |Y| = 1 \land Y \subseteq X) \implies |X \setminus Y| = 1$
+\item $\displaystyle (|S| \le 2 \land X \subseteq S \land |X| \ge 2) \implies X = S$
+\item $\displaystyle \forall X \in \mathcal{P}(S)\ (|X| = 0 \iff X = \emptyset)$
+\item $\displaystyle (f \colon S \to T \land \forall x, y \in S\ (f(x) = f(y) \implies x = y) \land |T| \le 2) \implies |S| \le 2$
+\item $\displaystyle (f \colon S \to T \land \forall x, y \in S\ (f(x) = f(y) \implies x = y) \land |S| \ge 2) \implies |T| \ge 2$
+\item $\displaystyle (f \colon S \to T \land \forall y \in T\ \exists x \in S\ (f(x) = y) \land |S| \le 2) \implies |T| \le 2$
+\item $\displaystyle (f \colon S \to T \land X \subseteq S \land |X| \le 2) \implies |f(X)| \le 2$
+\item $\displaystyle (f \colon S \to T \land X \subseteq S \land |X| \ge 1) \implies |f(X)| \ge 1$
+\item $\displaystyle (f \colon S \to T \land \forall x, y \in S\ (f(x) = f(y) \implies x = y) \land X \subseteq S \land |X| = 2) \implies |f(X)| = 2$
+\item $\displaystyle (f \colon S \to S \land |S| = 2 \land \forall x, y \in S\ (f(x) = f(y) \implies x = y)) \implies \forall y \in S\ \exists x \in S\ (f(x) = y)$
+\item $\displaystyle (f \colon S \to S \land |S| = 2 \land \forall y \in S\ \exists x \in S\ (f(x) = y)) \implies \forall x, y \in S\ (f(x) = f(y) \implies x = y)$
+\item $\displaystyle |\mathcal{P}(S)| \ge 1$
+\item $\displaystyle |S| = 0 \implies |\mathcal{P}(S)| = 1$
+\item $\displaystyle |S| = 1 \implies |\mathcal{P}(S)| = 2$
+\item $\displaystyle |S| \ge 1 \implies |\mathcal{P}(S)| \ge 2$
+\item $\displaystyle (R \subseteq S \times S \land |S| = 1) \implies |R| \le 1$
+\item $\displaystyle (R \subseteq S \times T \land |S| = 1 \land |T| = 2) \implies |R| \le 2$
+\item $\displaystyle |S| = 1 \implies |\{(x, y) \mid x \in S \land y \in S\}| = 1$
+\item $\displaystyle (|S| = 2 \land |T| = 1) \implies |\{(x, y) \mid x \in S \land y \in T\}| = 2$
+\item $\displaystyle (S \sim T \land |S| = 2) \implies |T| = 2$
+\item $\displaystyle \forall X \subseteq S\ (|X| \le 1 \lor \exists a, b \in S\ (a \in X \land b \in X \land a \neq b))$
+\item $\displaystyle \forall X \subseteq S\ (|X| \le 1 \lor \exists a \in S\ (a \in X))$
+\item $\displaystyle (F \subseteq \mathcal{P}(S) \land |F| = 1) \implies \exists X \in \mathcal{P}(S)\ (F = \{X\})$
+\item $\displaystyle \forall a \in S\ (|\{x \in S \mid x \neq a\}| = 0 \implies |S| = 1)$
+\item $\displaystyle (f \colon S \to T \land Y \subseteq T \land |f^{-1}(Y)| \ge 1) \implies |Y| \ge 1$
+\item $\displaystyle (\forall i \in I\ (X_{i} \subseteq S) \land |\bigcup_{i \in I} X_{i}| \le 1) \implies \forall i \in I\ (|X_{i}| \le 1)$
+\item $\displaystyle |\{1, 2, 3\}| = 3$
+\item $\displaystyle |\{1, 2, 2\}| = 2$
+\item $\displaystyle R = \{(1, 2), (2, 3)\} \implies |R| = 2$
+\item $\displaystyle \forall X \in \mathcal{P}(S)\ \forall Y \in \mathcal{P}(S)\ (|X \triangle Y| = 0 \iff X = Y)$
+\item $\displaystyle (f \colon S \to T \land |f(S)| = 1) \implies \forall x, y \in S\ (f(x) = f(y))$
+\item $\displaystyle (R \subseteq S \times S \land \forall x \in S\ ((x, x) \in R) \land |R| \le 1) \implies |S| \le 1$
+\item $\displaystyle \exists S\ (|S| = 3)$
+\item $\displaystyle \exists S\ (|S| = 2 \land |\mathcal{P}(S)| = 4)$
+\item $\displaystyle \exists S\ \exists X \subseteq S\ (|X| = 2 \land |S| = 3)$
+\end{enumerate}
+\end{document}

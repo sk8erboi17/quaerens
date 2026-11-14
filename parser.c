@@ -31,7 +31,9 @@
  *     come nei libri, con immagini, controimmagini e insiemi di coppie dati
  *     da una regola (SetTerm, 17p); il lettore svolge quella notazione nelle
  *     condizioni sugli elementi (17q), che sono le sole che il motore vede,
- *     insieme ai quantificatori sulle parti di un insieme (17u).
+ *     insieme ai quantificatori sulle parti di un insieme (17u). Così anche
+ *     il numero degli elementi di un insieme confrontato con un numero
+ *     scritto, |T| = 3 (17x).
  *     Le relazioni e le applicazioni tra le parti di un insieme si svolgono
  *     invece in un enunciato del capitolo 14 (17r, in fondo a quel
  *     capitolo), quando lì si sanno decidere; altrimenti, e per le famiglie
@@ -5699,8 +5701,10 @@ typedef enum {
     S_INCLUDED,                     /* 17p: set è contenuto in other, e se
                                        proper non è uguale a other */
     S_SAME,                         /* 17p: set e other sono lo stesso insieme */
-    S_UNIQUE                        /* 17p: esiste un solo elemento, la
+    S_UNIQUE,                       /* 17p: esiste un solo elemento, la
                                        variabile di posto slot, tale che a */
+    S_COUNT                         /* 17x: l'insieme set ha almeno least
+                                       elementi e, se most >= 0, al più most */
 } SentenceKind;
 
 /* Un insieme di elementi o di coppie scritto come nei libri: è definito
@@ -5732,6 +5736,9 @@ struct Sentence {
                                     applicazioni inverse (28q) */
     int sides[2];                /* S_EQUIPOTENT: le componenti di ogni lato,
                                     1 o 2 */
+    int least, most;             /* S_COUNT (17x): quanti elementi ha almeno
+                                    l'insieme set (0 o più), e quanti al più;
+                                    most = -1 se non c'è un massimo */
 };
 
 /* Una variabile astratta, riconosciuta dal suo posto e non dal nome.
@@ -6596,6 +6603,7 @@ static void reader_back(const ReaderMark *mark) {
  *                | name '_' '{' lettera '}' \subseteq Set   (famiglia, sotto \forall)
  *                | side (\in | \notin) setterm
  *                | setterm (= | \neq | \subseteq | \subsetneq | \supseteq | \supsetneq) setterm
+ *                | '|' setterm '|' ('=' | \neq | \le | \ge | '<' | '>') intero   (17x)
  *     range     := ... | \subseteq Set | \in \mathcal{P}(Set)
  *     setterm   := setinter { (\cup | \setminus | \triangle) setinter }
  *     setinter  := setfactor { \cap setfactor }
@@ -8166,6 +8174,103 @@ static Sentence *abstract_equipotence(const char *start) {
     return s;
 }
 
+/* 17x. IL NUMERO DEGLI ELEMENTI
+ *
+ * (Sta qui, prima di abstract_unary() che lo legge; la lettera è venuta dopo
+ * le altre.)
+ *
+ * |T| = 3, "T ha tre elementi", con T un insieme scritto come nei libri
+ * (17p): un insieme qualsiasi, una parte, un'immagine, un insieme dato da
+ * una regola o da un elenco, \mathcal{P}(S), o una relazione, i cui membri
+ * sono coppie. Le sbarre possono essere \left| e \right|.
+ *
+ * Il numero è scritto, e non una lettera, perché solo così la condizione si
+ * dice senza i numeri naturali, con le variabili e l'uguaglianza che il
+ * capitolo 28 ha già:
+ *
+ *   almeno n:  esistono x_1, ..., x_n in T, a due a due diversi;
+ *   al più n:  comunque si prendano x_1, ..., x_{n+1} in T, due sono uguali
+ *              (per n = 0: nessun elemento sta in T).
+ *
+ * Sono le definizioni. T ha almeno n elementi quando c'è un'applicazione
+ * iniettiva da \{1, ..., n\} a T, cioè quando ha n elementi distinti; ne ha
+ * al più n quando non ne ha almeno n + 1. |T| = n è le due insieme,
+ * |T| \ge n e |T| \le n una sola; \neq, < e > sono le negazioni di =, \ge e
+ * \le. Il lettore ne fa un nodo S_COUNT della notazione dei libri, lo
+ * svolgimento (17q, unfold_count()) lo traduce così, e 28h ricontrolla la
+ * traduzione contando davvero i membri nei modelli finiti. Il capitolo 28 e
+ * il verificatore vedono solo l'enunciato svolto: non hanno regole nuove.
+ *
+ * Un'alternativa per |T| = n era una sola condizione, "ci sono n elementi
+ * distinti di T e ogni altro è uno di loro". È equivalente e più corta, ma
+ * vale solo per l'uguaglianza: le due metà servono comunque per \le e \ge, e
+ * una regola sola per tutti i confronti è più semplice da ricontrollare.
+ *
+ * Resta fuori, e il verdetto lo dice (count_reason): |S| = n con n una
+ * lettera, 2^{n}, mn, che chiedono i numeri naturali e l'induzione sul
+ * numero degli elementi; |S| = \infty e |S| < \infty; due numeri di elementi
+ * confrontati tra loro, |S| = |T|, per cui c'è S \sim T (17w).
+ *
+ * Il costo cresce con il numero scritto, e non c'è un tetto: lo svolgimento
+ * ha n variabili e n(n - 1)/2 coppie, e un numero grande riempie la memoria
+ * di lavoro; prima ancora finiscono i budget di chi cerca, perché un modello
+ * di d elementi ha d^{n+1} scelte da provare per "al più n". Il verdetto è
+ * allora quello di una risorsa finita, mai un sì o un no. */
+
+/* 17x. Il motivo per un numero di elementi che non è confrontato con un
+ * numero scritto. Lo usa anche prove_core() (capitolo 20), per l'enunciato
+ * in cui il lettore si è fermato prima di arrivarci. */
+static const char count_reason[] =
+    "il numero di elementi di un insieme è trattato solo tra insiemi qualsiasi e confrontato con un numero scritto, come |S| = 3 o "
+    "|S| \\le 2: contare con una lettera chiede l'induzione sul numero degli elementi, che il capitolo 28 non fa, e dire infinito un "
+    "insieme chiede, per le sue parti numerabili, l'assioma della scelta";
+
+/* 17x. Quanti numeri di elementi il lettore ha incontrato nell'enunciato in
+ * corso, anche senza riuscire a leggerli: lo azzera abstract_statement().
+ * Se è zero e l'enunciato ne scrive, il lettore si è fermato prima. */
+static int count_met;
+
+/* 17x. Legge '|' setterm '|' confronto intero, con il token corrente sulla
+ * sbarra aperta, e ritorna il nodo S_COUNT, negato per \neq, < e >. start è
+ * l'inizio del testo. Gli errori sono annotati con syntax(). */
+static Sentence *abstract_count(const char *start) {
+    int left = token.kind == T_ABS_OPEN;
+    count_met++;
+    next_token();
+    SetTerm *set = abstract_set_term();
+    if (syntax_error) return sentence_new(S_TRUE, NULL, NULL, start);
+    if (left ? token.kind == T_ABS_CLOSE : is_char('|')) next_token();
+    else syntax("manca la sbarra che chiude il numero degli elementi di un insieme, |T|");
+    if (!set->arity && !syntax_error) syntax("non si sa di che cosa sia l'insieme vuoto di cui si contano gli elementi");
+    for (int i = 0; i < set->arity && !syntax_error; i++)
+        if (set->sort[i] < 0) syntax("non si sa in quale insieme stiano gli elementi scritti tra graffe");
+
+    /* Il confronto. I tre negati si leggono come il loro contrario. */
+    int equal = is_char('=') || is_command("neq") || is_command("ne");
+    int least = is_command("ge") || is_command("geq") || is_char('<'), most = is_command("le") || is_command("leq") || is_char('>');
+    int negate = is_command("neq") || is_command("ne") || is_char('<') || is_char('>');
+    if (!equal && !least && !most) syntax(count_reason);
+    next_token();
+
+    /* Il numero: scritto, e non l'inizio di un conto come 2^{n} o 2n. Uno
+     * che non sta in un int non si può svolgere, perché chiederebbe più
+     * memoria di quella di lavoro: è una risorsa finita, e il verdetto è
+     * lo stesso che dà unfold_count() per un numero solo grande. */
+    if (token.kind != T_NUM) syntax(count_reason);
+    else if (token.value >= INT_MAX) { fail(OUT_OF_MEMORY); syntax(OUT_OF_MEMORY); }
+    int number = syntax_error ? 0 : (int)token.value;
+    next_token();
+    if (is_char('^') || is_char('+') || is_char('-') || is_char('!') || is_char('/') || token.kind == T_LETTER ||
+        is_command("cdot") || is_command("times")) syntax(count_reason);
+    if (syntax_error) return sentence_new(S_TRUE, NULL, NULL, start);
+
+    Sentence *s = sentence_new(S_COUNT, NULL, NULL, start);
+    s->set = set;
+    s->least = equal || least ? number : 0;
+    s->most = equal || most ? number : -1;
+    return negate ? sentence_new(S_NOT, s, NULL, start) : s;
+}
+
 /* unary: vedi la grammatica in testa al paragrafo, e in 17p. */
 static Sentence *abstract_unary(void) {
     const char *start = token.start;
@@ -8186,6 +8291,9 @@ static Sentence *abstract_unary(void) {
         parser_restore(before);
     }
     if (is_command("forall") || is_command("exists")) return abstract_quantifier(start);
+
+    /* 17x. Una sbarra in testa a una condizione apre un numero di elementi. */
+    if (is_char('|') || token.kind == T_ABS_OPEN) return abstract_count(start);
 
     /* Tra graffe si scrive solo il nome di una relazione (17v), {\le}. */
     ParserState braced = parser_save();
@@ -8389,7 +8497,7 @@ static Sentence *abstract_statement(void) {
      * un errore e restituisce il suo indice di riserva zero. */
     if (!work_reserve((void **)&sort_data,&sort_capacity,1,sizeof *sort_data))
         return sentence_new(S_TRUE,NULL,NULL,token.start);
-    describe_count = describe_allowed = part_template_count = 0;
+    describe_count = describe_allowed = part_template_count = count_met = 0;
     if (symbol_bound_capacity) memset(symbol_bound, 0, symbol_bound_capacity * sizeof *symbol_bound);
     abstract_positive = 1;
     abstract_example = map_quantifiers = 0;
@@ -8864,6 +8972,73 @@ static Sentence *unfold_inclusion(const SetTerm *set, const SetTerm *other, int 
     return s;
 }
 
+/* 17x. Ritorna le condizioni item[from, to), con to > from, unite a metà
+ * dal connettivo kind (\land o \lor, associativi): così n condizioni danno
+ * un albero di log n livelli, e non di n (chain_tree()). */
+static Sentence *unfold_join(SentenceKind kind, Sentence **item, size_t from, size_t to, const Sentence *origin) {
+    if (to - from == 1) return item[from];
+    size_t middle = from + (to - from + 1) / 2;
+    Sentence *a = unfold_join(kind, item, from, middle, origin), *b = unfold_join(kind, item, middle, to, origin);
+    return unfold_node(kind, a, b, origin);
+}
+
+/* 17x. Ritorna, svolta, una metà del numero di elementi dell'insieme di s,
+ * con count > 0 membri nuovi x_1, ..., x_count, ognuno fatto di una
+ * variabile nuova per componente:
+ *
+ *   distinct = 1, "almeno count":  \exists x_1 ... x_count (tutti stanno
+ *                 nell'insieme, e sono a due a due diversi);
+ *   distinct = 0, "al più count - 1":  \forall x_1 ... x_count (se tutti
+ *                 stanno nell'insieme, due di loro sono uguali).
+ *
+ * Due membri sono uguali quando lo sono componente per componente. Con
+ * count = 1 la seconda è "nessun membro sta nell'insieme". Vedi 17x per il
+ * perché di queste due condizioni. Dopo un errore ritorna una condizione
+ * qualsiasi: chi svolge la scarta. */
+static Sentence *unfold_count(const Sentence *s, int count, int distinct) {
+    const SetTerm *set = s->set;
+    size_t members = (size_t)count, pairs = members * (members - 1) / 2, written = 0;
+
+    /* I depositi: le variabili e le componenti di ogni membro, le
+     * appartenenze e le coppie. Un numero troppo grande si ferma qui, con
+     * l'arena piena. */
+    int *slot = arena_alloc(members * MAX_ARITY * sizeof *slot);
+    Elem **t = arena_alloc(members * MAX_ARITY * sizeof *t);
+    Sentence **member = arena_alloc(members * sizeof *member);
+    Sentence **pair = arena_alloc((pairs ? pairs : 1) * sizeof *pair);
+    if (failure) return unfold_node(S_TRUE, NULL, NULL, s);
+
+    /* I membri, ognuno con la sua copia di "sta nell'insieme". */
+    for (size_t i = 0; i < members && !failure && !syntax_error; i++) {
+        for (int c = 0; c < set->arity; c++) {
+            slot[i * MAX_ARITY + c] = unfold_slot(set->sort[c]);
+            t[i * MAX_ARITY + c] = unfold_variable(slot[i * MAX_ARITY + c]);
+        }
+        member[i] = unfold_member(t + i * MAX_ARITY, set, s);
+    }
+
+    /* Le coppie di membri: diversi per "almeno", uguali per "al più". Gli
+     * elementi non si modificano mai, e una variabile si riusa com'è. */
+    for (size_t i = 0; i < members; i++)
+        for (size_t j = i + 1; j < members && !failure && !syntax_error; j++) {
+            Sentence *same = NULL;
+            for (int c = 0; c < set->arity; c++) same = unfold_and(same, unfold_equal(t[i * MAX_ARITY + c], t[j * MAX_ARITY + c], s), s);
+            pair[written++] = distinct ? unfold_node(S_NOT, same, NULL, s) : same;
+        }
+    if (failure || syntax_error) return unfold_node(S_TRUE, NULL, NULL, s);
+
+    /* La condizione sui membri, poi i quantificatori, dall'ultimo. */
+    Sentence *all = unfold_join(S_AND, member, 0, members, s), *body;
+    if (distinct) body = pairs ? unfold_node(S_AND, all, unfold_join(S_AND, pair, 0, pairs, s), s) : all;
+    else body = pairs ? unfold_node(S_IMPLIES, all, unfold_join(S_OR, pair, 0, pairs, s), s) : unfold_node(S_NOT, all, NULL, s);
+    for (size_t i = members; i-- > 0; )
+        for (int c = set->arity - 1; c >= 0; c--) {
+            body = unfold_node(distinct ? S_EXISTS : S_FORALL, body, NULL, s);
+            body->slot = slot[i * MAX_ARITY + c];
+        }
+    return body;
+}
+
 /* Ritorna la condizione s svolta: lo stesso albero, con i nodi di 17p al
  * posto dei quali c'è ciò che abbreviano, e le variabili sostituite come dice
  * unfold_to[]. Dentro una copia (unfold_copying) ogni quantificatore riceve
@@ -8929,6 +9104,13 @@ static Sentence *unfold_sentence(const Sentence *s) {
         copy = unfold_node(S_EXISTS, unfold_node(S_AND, first, x, s), NULL, s);
         copy->slot = slot;
         return copy;
+    }
+    case S_COUNT: {
+        /* 17x. "Almeno least" e "al più most", ognuno se c'è. */
+        Sentence *lower = s->least > 0 ? unfold_count(s, s->least, 1) : NULL;
+        Sentence *upper = s->most >= 0 ? unfold_count(s, s->most + 1, 0) : NULL;
+        if (lower && upper) return unfold_node(S_AND, lower, upper, s);
+        return lower ? lower : upper ? upper : unfold_node(S_TRUE, NULL, NULL, s);
     }
     case S_MEMBER: {
         Elem *t[MAX_ARITY];
