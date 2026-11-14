@@ -211,11 +211,11 @@ static inline int check_none_refuted(const char *path) {
 }
 
 /* Ritorna 1 se il verdetto viene dal capitolo 28: il metodo è uno dei suoi
- * due. */
+ * tre (il terzo, il conto sui numeri scritti, è di 17v). */
 static inline int from_chapter_28(const Verdict *verdict) {
     return (verdict->outcome == PROVED || verdict->outcome == REFUTED) && verdict->method &&
            (strcmp(verdict->method, "con istanze delle ipotesi e uguali al posto di uguali") == 0 ||
-            strcmp(verdict->method, "con un esempio") == 0);
+            strcmp(verdict->method, "con un esempio") == 0 || strcmp(verdict->method, "con un conto sui numeri dell'enunciato") == 0);
 }
 
 /* Scrive in out il certificato certificate alterato: una dimostrazione

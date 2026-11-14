@@ -1,0 +1,39 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Parts, maps and orders taken as objects (19)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Here $\mathcal{P}(S)$, the set of the parts of $S$, and $T^{S}$, the set of the maps from $S$ to $T$, are sets of objects: a relation between parts, a map with values in $\mathcal{P}(S)$, a family $F \subseteq \mathcal{P}(S)$, a relation between maps. An order is written between the elements, $x \le y$, and $\{\le\}$ is its name as a set of pairs. Every statement below is true; items 8 and 11 ask for an example. Items 17 and 18 speak only of the numbers they write, with relations given by the list of their pairs. Item 19 is a variant of item 21 of \texttt{equivalence\_relations.tex}: its proof has a case that closes by itself (28o), and the check that the written cases are complete (28p) looks at it.
+
+\begin{enumerate}
+\item $\displaystyle (E \subseteq S \land R = \{(X, Y) \in \mathcal{P}(S)^{2} \mid X \setminus E = Y \setminus E\}) \implies (\forall x \in \mathcal{P}(S)\ ((x, x) \in R) \land \forall x, y\ ((x, y) \in R \implies (y, x) \in R) \land \forall x, y, z\ (((x, y) \in R \land (y, z) \in R) \implies (x, z) \in R))$
+\item $\displaystyle (f \colon S \to \mathcal{P}(S) \land \forall x \in S\ (f(x) = \{x\})) \implies (\forall a, b \in S\ (f(a) = f(b) \implies a = b))$
+\item $\displaystyle (f \colon S \to \mathcal{P}(S) \land \forall x \in S\ (f(x) = \{x\})) \implies (\lnot (\forall y \in \mathcal{P}(S)\ \exists x \in S\ (f(x) = y)))$
+\item $\displaystyle G = \{(x, X) \in S \times \mathcal{P}(S) \mid x \notin X\} \implies (\forall x \in S\ \exists X \in \mathcal{P}(S)\ ((x, X) \in G))$
+\item $\displaystyle R = \{(f, g) \in (T^{S})^{2} \mid \forall x, y \in S\ (f(x) = f(y) \iff g(x) = g(y))\} \implies (\forall x \in T^{S}\ ((x, x) \in R) \land \forall x, y\ ((x, y) \in R \implies (y, x) \in R) \land \forall x, y, z\ (((x, y) \in R \land (y, z) \in R) \implies (x, z) \in R))$
+\item $\displaystyle R = \{(f, g) \in (T^{S})^{2} \mid \forall x \in S\ (f(x) = g(x))\} \implies (\forall f, g, h \in T^{S}\ (((f, g) \in R \land (g, h) \in R) \implies f = h))$
+\item $\displaystyle ((\forall x \in S\ ((x, x) \in \le_{S}) \land \forall x, y\ (((x, y) \in \le_{S} \land (y, x) \in \le_{S}) \implies x = y) \land \forall x, y, z\ (((x, y) \in \le_{S} \land (y, z) \in \le_{S}) \implies (x, z) \in \le_{S})) \land R = \{((x_{1}, y_{1}), (x_{2}, y_{2})) \in (S \times T)^{2} \mid x_{1} \le_{S} x_{2} \land y_{1} = y_{2}\}) \implies (\forall x \in S \times T\ ((x, x) \in R) \land \forall x, y\ (((x, y) \in R \land (y, x) \in R) \implies x = y) \land \forall x, y, z\ (((x, y) \in R \land (y, z) \in R) \implies (x, z) \in R))$
+\item $\displaystyle \exists S\ \exists {\le_{S}}\ ((\forall x \in S\ ((x, x) \in \le_{S}) \land \forall x, y\ (((x, y) \in \le_{S} \land (y, x) \in \le_{S}) \implies x = y) \land \forall x, y, z\ (((x, y) \in \le_{S} \land (y, z) \in \le_{S}) \implies (x, z) \in \le_{S})) \land \lnot (\forall x, y \in S\ ((x, y) \in \le_{S} \lor (y, x) \in \le_{S})))$
+\item $\displaystyle (F \subseteq \mathcal{P}(S) \land \forall X, Y \in F\ (X \neq Y \implies X \cap Y = \emptyset)) \implies (\forall X, Y \in F\ \forall x \in S\ ((x \in X \land x \in Y) \implies X = Y))$
+\item $\displaystyle (F \subseteq \mathcal{P}(S) \land \emptyset \notin F \land \bigcup_{X \in F} X = S) \implies (\forall X \in F\ \exists x \in S\ (x \in X))$
+\item $\displaystyle \exists S\ \exists F\ ((F \subseteq \mathcal{P}(S) \land \emptyset \notin F \land \bigcup_{X \in F} X = S) \land \lnot (\forall X, Y \in F\ (X \neq Y \implies X \cap Y = \emptyset)))$
+\item $\displaystyle R = \{(X, Y) \in \mathcal{P}(S)^{2} \mid \forall t \in X\ (t \in Y)\} \implies (\forall x \in \mathcal{P}(S)\ ((x, x) \in R) \land \forall x, y\ (((x, y) \in R \land (y, x) \in R) \implies x = y) \land \forall x, y, z\ (((x, y) \in R \land (y, z) \in R) \implies (x, z) \in R))$
+\item $\displaystyle R = \{(X, Y) \in \mathcal{P}(S)^{2} \mid \forall t \in X\ (t \in Y)\} \implies (\forall X \in \mathcal{P}(S)\ ((\emptyset, X) \in R))$
+\item $\displaystyle (E \subseteq S \land G \subseteq \mathcal{P}(S) \land F = \{X \cap E \mid X \in G\}) \implies (\forall Z \in F\ \forall x \in S\ (x \in Z \implies x \in E))$
+\item $\displaystyle S \neq \emptyset \implies (\exists! X \in \mathcal{P}(S)\ \forall x \in S\ (x \in X))$
+\item $\displaystyle R = \{(f, g) \in (T^{S})^{2} \mid f(S) \subseteq g(S)\} \implies (\forall x \in T^{S}\ ((x, x) \in R) \land \forall x, y, z\ (((x, y) \in R \land (y, z) \in R) \implies (x, z) \in R))$
+\item $\displaystyle (G_{1} = \{(1, 2), (2, 3), (1, 3)\} \land G = \{(x, z) \mid \exists y\ ((x, y) \in G_{1} \land (y, z) \in G_{1})\}) \implies ((\forall x, y, z\ (((x, y) \in G_{1} \land (y, z) \in G_{1}) \implies (x, z) \in G_{1})) \land (\lnot (\forall x, y\ ((x, y) \in G_{1} \implies (y, x) \in G_{1}))) \land (\forall x, y\ ((x, y) \in G \implies (x, y) \in G_{1})))$
+\item $\displaystyle G_{1} = \{(0, 0), (1, 1), (0, 1), (1, 0)\} \implies (\forall x, y\ ((x, y) \in G_{1} \implies (y, x) \in G_{1}))$
+\item $\displaystyle ((G_{1} \subseteq \mathcal{P}(S) \land \emptyset \notin G_{1} \land \forall X, Y \in G_{1}\ (X \neq Y \implies X \cap Y = \emptyset) \land \bigcup_{X \in G_{1}} X = S) \land (G_{2} \subseteq \mathcal{P}(S) \land \emptyset \notin G_{2} \land \forall X, Y \in G_{2}\ (X \neq Y \implies X \cap Y = \emptyset) \land \bigcup_{X \in G_{2}} X = S) \land \forall X, Y \in G_{1} \cup G_{2}\ (X \neq Y \implies X \cap Y = \emptyset)) \implies (\forall X \in G_{2}\ (X \in G_{1}))$
+\end{enumerate}
+\end{document}

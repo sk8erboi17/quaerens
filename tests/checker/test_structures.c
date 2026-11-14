@@ -34,7 +34,14 @@
  *     insieme che potrebbe essere vuoto, il falso "vale anche per gli
  *     insiemi vuoti";
  *   - non controllabili: modelli o enunciati troppo grandi. Non devono mai
- *     diventare un "accettato".
+ *     diventare un "accettato";
+ *   - 11h, gli insiemi di parti e di applicazioni: accettate le dimostrazioni
+ *     con le loro leggi (voci axiom) e i modelli sulle parti vere; respinte
+ *     le leggi false (due parti qualsiasi uguali, la parte di Russell, che
+ *     dimostrerebbe che nessun elemento è uguale a sé, una comprensione che
+ *     nomina la sua parte, una comprensione in un insieme che non è di
+ *     parti), una tabella per l'appartenenza, che il verificatore calcola da
+ *     sé, e la dimostrazione senza la comprensione che usa.
  *
  * I casi respinti e non controllabili sono antiregressione: non si tolgono
  * e non si indeboliscono per far passare una modifica al verificatore.
@@ -139,7 +146,85 @@ typedef struct {
 #define LEFT_LEFT "statement (implies (and (and (and (and true true) true) " LEFT ") (forall x S (= (perp v x) x))) (= u v))\n"
 #define MODEL_HEAD "sort S 2\nsymbol perp S S S\nsymbol u S\nsymbol v S\n"
 
+/* 11h. f(x) = S \setminus \{x\}, con f \colon S \to \mathcal{P}(S): f è
+ * iniettiva, e S non è un'immagine. PS è l'insieme delle parti di S, inPS
+ * l'appartenenza; le voci axiom sono le leggi delle parti, e la seconda
+ * affermazione usa la parte "tutto S" di una comprensione. */
+#define PARTS_HEAD "certificate structure\nsort S\nsort PS parts S inPS\nsymbol f S PS\n" \
+    "statement (implies (and (exists s S (= s s)) (forall x S (forall c S (iff (inPS c (f x)) (not (= c x)))))) " \
+    "(and (forall a S (forall b S (implies (= (f a) (f b)) (= a b)))) (not (forall y PS (exists x S (= (f x) y))))))\n"
+#define PARTS_EXTENSIONAL "axiom (forall d PS (forall g PS (implies (forall h S (iff (inPS h d) (inPS h g))) (= d g))))\n"
+#define PARTS_WHOLE "axiom (exists m PS (forall n S (iff (inPS n m) true)))\n"
+#define PARTS_RULE "(forall x S (forall c S (iff (inPS c (f x)) (not (= c x)))))"
+#define PARTS_CASES "case (not (forall a S (forall b S (implies (= (f a) (f b)) (= a b)))))\n" \
+    "witness (forall a S (forall b S (implies (= (f a) (f b)) (= a b)))) a_4\n" \
+    "witness (forall b S (implies (= (f a_4) (f b)) (= a_4 b))) b_5\n" \
+    "instance " PARTS_RULE " a_4 a_4\ninstance " PARTS_RULE " b_5 a_4\n" \
+    "case (not (not (forall y PS (exists x S (= (f x) y)))))\n" \
+    "witness (exists m PS (forall n S (iff (inPS n m) true))) m_3\n" \
+    "instance (forall y PS (exists x S (= (f x) y))) m_3\nwitness (exists x S (= (f x) m_3)) x_6\n" \
+    "instance " PARTS_RULE " x_6 x_6\ninstance (forall n S (iff (inPS n m_3) true)) x_6\nend\n"
+
+/* 11h. Due applicazioni uguali in ogni punto sono la stessa: l'enunciato è
+ * la legge stessa, e la dimostrazione ne usa la voce axiom. */
+#define MAPS_LAW "(forall b MSS (forall c MSS (implies (forall d S (= (apMSS b d) (apMSS c d))) (= b c))))"
+#define MAPS_STATEMENT "(forall f MSS (forall g MSS (implies (forall a S (= (apMSS f a) (apMSS g a))) (= f g))))"
+#define MAPS_PROOF(law) "certificate structure\nsort S\nsort MSS maps S S apMSS\nstatement " MAPS_STATEMENT "\naxiom " law "\n" \
+    "case (not " MAPS_STATEMENT ")\nwitness " MAPS_STATEMENT " f_1\n" \
+    "witness (forall g MSS (implies (forall a S (= (apMSS f_1 a) (apMSS g a))) (= f_1 g))) g_2\n" \
+    "instance " law " g_2 f_1\nwitness (forall d S (= (apMSS g_2 d) (apMSS f_1 d))) d_3\n" \
+    "instance (forall a S (= (apMSS f_1 a) (apMSS g_2 a))) d_3\nend\n"
+
+/* 11h. f(x) = S \setminus \{x\} non è suriettiva: un controesempio a chi lo
+ * dice, con S di un elemento e f(s_0) la parte vuota, la numero 0. */
+#define PARTS_MODEL(size, extra) "certificate counterexample\nsort S " size "\nsort PS parts S inPS\nsymbol f S PS\n" \
+    "statement (implies (and (exists s S (= s s)) (forall x S (forall a S (iff (inPS a (f x)) (not (= a x)))))) (forall y PS (exists x S (= (f x) y))))\n" \
+    "table f 0\n" extra "end\n"
+
 static const Case cases[] = {
+    /* 11h. Gli insiemi di parti e di applicazioni, e le loro leggi. */
+    {"parts as objects: S minus a point is injective and misses S", CK_ACCEPTED, "",
+     PARTS_HEAD PARTS_EXTENSIONAL PARTS_WHOLE PARTS_CASES},
+    {"the same proof without the comprehension of the whole set", CK_REJECTED, "non è comparsa",
+     PARTS_HEAD PARTS_EXTENSIONAL PARTS_CASES},
+    {"two maps equal at every point are equal: extensionality as an axiom", CK_ACCEPTED, "", MAPS_PROOF(MAPS_LAW)},
+    {"a false law of maps: any two maps are equal", CK_REJECTED, "non è una legge",
+     MAPS_PROOF("(forall b MSS (forall c MSS (implies (forall d S (= (apMSS b d) (apMSS b d))) (= b c))))")},
+    {"a false law of parts: any two parts are equal", CK_REJECTED, "non è una legge",
+     PARTS_HEAD "axiom (forall d PS (forall g PS (= d g)))\n" PARTS_CASES},
+    {"Russell's part, defined by not belonging to itself, is not a comprehension", CK_REJECTED, "non è una legge",
+     PARTS_HEAD "axiom (exists z PS (forall t S (iff (inPS t z) (not (inPS t z)))))\n" PARTS_CASES},
+    {"Russell's part would prove that no element equals itself", CK_REJECTED, "non è una legge",
+     "certificate structure\nsort S\nsort PS parts S inPS\nstatement (forall s S (not (= s s)))\n"
+     "axiom (exists z PS (forall t S (iff (inPS t z) (not (inPS t z)))))\n"
+     "case (not (forall s S (not (= s s))))\nwitness (forall s S (not (= s s))) s_1\n"
+     "witness (exists z PS (forall t S (iff (inPS t z) (not (inPS t z))))) z_2\n"
+     "instance (forall t S (iff (inPS t z_2) (not (inPS t z_2)))) s_1\nend\n"},
+    {"a comprehension in a set that is not a set of parts", CK_REJECTED, "non è una legge",
+     PARTS_HEAD "axiom (exists z S (forall t S (iff (= t z) true)))\n" PARTS_CASES},
+    {"a comprehension whose part is a parameter of its own condition", CK_REJECTED, "non è una legge",
+     PARTS_HEAD "axiom (forall q PS (exists z PS (forall t S (iff (inPS t z) (inPS t q)))))\n"
+     "axiom (exists z PS (forall t S (iff (inPS t z) (forall w PS (inPS t z)))))\n" PARTS_CASES},
+    {"a counterexample computed on the true set of parts", CK_ACCEPTED, "", PARTS_MODEL("1", "")},
+    {"a table for the membership, which the checker computes", CK_REJECTED, "due volte", PARTS_MODEL("1", "table inPS 0 1\n")},
+    {"the parts of a set of four elements are too many for a model", CK_UNSUPPORTED, "troppo grande", PARTS_MODEL("4", "")},
+    {"a set of parts over a set that is not declared", CK_REJECTED, "non dichiarato",
+     "certificate structure\nsort PS parts S inPS\nstatement true\nend\n"},
+
+    /* 11i. I numeri scritti: G = \{(1, 2), (2, 1)\} è simmetrica, e non
+     * transitiva. */
+    {"a relation given by its pairs of numbers is symmetric", CK_ACCEPTED, "",
+     "certificate example\nsort Num numbers n1 n2\n"
+     "statement (forall x Num (forall y Num (implies (or (and (= x n1) (= y n2)) (and (= x n2) (= y n1))) (or (and (= y n1) (= x n2)) (and (= y n2) (= x n1))))))\nend\n"},
+    {"the same relation claimed transitive", CK_REJECTED, "non è un esempio",
+     "certificate example\nsort Num numbers n1 n2\n"
+     "statement (forall x Num (forall y Num (forall z Num (implies (and (or (and (= x n1) (= y n2)) (and (= x n2) (= y n1))) (or (and (= y n1) (= z n2)) (and (= y n2) (= z n1)))) "
+     "(or (and (= x n1) (= z n2)) (and (= x n2) (= z n1)))))))\nend\n"},
+    {"two numbers made equal by a table", CK_REJECTED, "due volte",
+     "certificate example\nsort Num numbers n1 n2\nstatement (= n1 n1)\ntable n2 0\nend\n"},
+    {"a set of numbers without numbers", CK_REJECTED, "senza numeri",
+     "certificate example\nsort Num numbers\nstatement true\nend\n"},
+
     /* Dimostrazioni per assurdo, scritte dal motore. */
     {"a left and a right neutral element coincide", CK_ACCEPTED, "",
      "certificate structure\n" NEUTRAL_HEAD NEUTRAL "case (not (= u v))\ninstance " LEFT " v\ninstance " RIGHT " u\nend\n"},

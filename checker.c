@@ -248,6 +248,7 @@
 #define CK_MAX_ATOMS 2048    /* condizioni elementari di un caso */
 #define CK_MAX_FORMULAS 2048 /* condizioni supposte vere in un caso */
 #define CK_MAX_CASES 64      /* voci case di un certificato */
+#define CK_MAX_AXIOMS 32     /* voci axiom di un certificato (11h) */
 #define CK_MAX_SEARCH 200000 /* scelte parziali provate cercando un'assegnazione coerente, per certificato */
 #define CK_MAX_DEGREE 48     /* grado di un polinomio in una variabile, nel capitolo 12 */
 #define CK_MAX_FACTORS 128   /* voci factor di una tabella dei segni */
@@ -2032,12 +2033,80 @@ static void ck_check_sets(const CkNode *statement) {
  * Ogni valore deve stare nel suo insieme: così un elemento con un nome in
  * un insieme vuoto, o un'applicazione da un insieme con elementi a uno
  * vuoto, non si possono scrivere, ed è giusto, perché non esistono.
+ *
+ * 11h. LE PARTI E LE APPLICAZIONI COME OGGETTI
+ *
+ * Due voci sort in più dichiarano un insieme fatto di altri, con il suo
+ * simbolo di struttura:
+ *
+ *     sort PS parts S inPS     le parti di S; (inPS t X): t sta nella parte X
+ *     sort MST maps S T apMST  le applicazioni da S a T; (apMST f x) è f(x)
+ *
+ * In un'interpretazione ammessa PS è l'insieme di tutte le parti di S, con
+ * l'appartenenza vera, e MST quello di tutte le applicazioni da S a T, con
+ * l'applicazione vera. Nei modelli (11a, 11b) la grandezza e la tabella non
+ * si scrivono: le calcola il verificatore, 2^n per le parti e m^n per le
+ * applicazioni, con S di n elementi e T di m. La parte numero k contiene
+ * l'elemento i quando il bit i di k è 1; l'applicazione numero k manda i
+ * nella cifra i di k scritto in base m, la cifra 0 essendo quella delle
+ * unità. Ogni parte, e ogni applicazione, ha così un solo numero: il
+ * modello è quello vero, non uno in cui mancano delle parti.
+ *
+ * Le dimostrazioni (11c) possono avere, dopo l'enunciato e prima dei casi,
+ * delle voci "axiom C": C viene supposta vera in ogni caso, come la
+ * negazione dell'enunciato. Il verificatore la accetta solo se è una legge,
+ * vera in ogni interpretazione ammessa:
+ *
+ *   - l'estensionalità di PS, (forall X PS (forall Y PS (implies (forall t
+ *     S (iff (inPS t X) (inPS t Y))) (= X Y)))): una parte è l'insieme dei
+ *     suoi elementi, e due con gli stessi elementi sono la stessa;
+ *   - l'estensionalità di MST, (forall f MST (forall g MST (implies (forall
+ *     t S (= (apMST f t) (apMST g t))) (= f g)))): un'applicazione è la
+ *     tabella dei suoi valori;
+ *   - una comprensione, (forall p1 A1 ... (exists Z PS (forall t S (iff (inPS
+ *     t Z) C)))), con C una condizione in cui Z non compare. Fissati i
+ *     parametri, \{t \in S \mid C\} è una parte di S, quindi un elemento di
+ *     PS, e rende vera la condizione. Se Z comparisse in C non sarebbe una
+ *     definizione: con C = (not (inPS t Z)) sarebbe la parte di Russell, che
+ *     non esiste, e da lei seguirebbe tutto.
+ *
+ * Gli insiemi vuoti (11f): PS non lo è mai (c'è la parte vuota), e MST lo è
+ * esattamente quando S non è vuoto e T sì; le scelte degli insiemi vuoti
+ * che non rispettano queste regole non corrispondono a nessuna
+ * interpretazione ammessa, e non si provano.
+ *
+ * 11i. I NUMERI SCRITTI
+ *
+ *     sort Num numbers n1 n2 n3   i numeri 1, 2, 3 dell'enunciato: n1, n2, n3
+ *                                 sono elementi con un nome, tutti diversi,
+ *                                 e Num non ha altri elementi
+ *
+ * In un modello Num ha tanti elementi quanti i nomi, e il k-esimo nome vale
+ * k (da 0): la sua tabella non si scrive. Un'interpretazione ammessa ha i
+ * numeri distinti e nient'altro in Num; se un certificato 11b non ha
+ * insiemi qualsiasi né altri simboli che i numeri e quelli di 11h, le
+ * interpretazioni ammesse sono tutte quella del modello, a meno del nome
+ * degli elementi, e "esiste un'interpretazione in cui vale" vuol dire
+ * "l'enunciato vale". Num non è mai vuoto. In 11c è un insieme qualsiasi con
+ * quei nomi, senza leggi in più: ciò che vi si dimostra vale a maggior
+ * ragione.
+ *
+ * TEOREMA, con le voci sort di 11h: per 11c, l'enunciato vale in ogni
+ * interpretazione ammessa, cioè con gli insiemi qualsiasi scelti
+ * liberamente, anche vuoti o infiniti, e quelli di parti e di applicazioni
+ * fatti di tutte le parti e di tutte le applicazioni; per 11a e 11b, quanto
+ * detto sopra, nel modello con le parti e le applicazioni vere.
  */
 
-/* Un insieme dichiarato da una voce sort. */
+/* Un insieme dichiarato da una voce sort: un insieme qualsiasi, oppure
+ * (11h) l'insieme delle parti di un altro o delle applicazioni tra due. */
 typedef struct {
     char name[CK_MAX_NAME];
-    int size;  /* 11a, 11b: i suoi elementi sono 0, ..., size - 1; 11c: -1 */
+    int size;     /* 11a, 11b: i suoi elementi sono 0, ..., size - 1; 11c: -1 */
+    int kind;     /* 0 un insieme qualsiasi, 1 le parti di base, 2 le applicazioni da base a target,
+                     3 (11i) i numeri scritti, ognuno con il suo nome */
+    int base, target;  /* posti in ck_sorts[]; -1 dove non servono */
+    int symbol;   /* 11h: il simbolo di struttura, posto in ck_symbols[]; -1 per un insieme qualsiasi */
 } CkSort;
 
 /* Il "valore" di una parte o di una relazione: vero o falso. Occupa il posto
@@ -2774,6 +2843,150 @@ static int ck_consistent(unsigned empty) {
     return 0;
 }
 
+/* 11h. Legge il resto di una voce "sort NOME parts S IN" o "sort NOME maps S
+ * T AP", dopo la parola parts o maps (kind 1 o 2), per l'insieme di posto i
+ * che si sta dichiarando: gli insiemi su cui è costruito, già dichiarati, e
+ * il nome del simbolo di struttura, che viene dichiarato qui. Nei modelli
+ * (models = 1) calcola la grandezza e la tabella del simbolo con la
+ * numerazione scritta in testa al paragrafo 11h. */
+static void ck_derived_sort(int i, int kind, int models) {
+    char name[CK_MAX_NAME];
+    CkSort *sort = &ck_sorts[i];
+    sort->kind = kind;
+    sort->base = ck_name(name) ? ck_sort_of(name) : -1;
+    sort->target = kind == 2 && ck_name(name) ? ck_sort_of(name) : -1;
+    if (sort->base < 0 || (kind == 2 && sort->target < 0)) { ck_reject("certificato scritto male: un insieme di parti o di applicazioni su un insieme non dichiarato"); return; }
+    if (ck_symbol_count == CK_MAX_SYMBOLS) { ck_unsupported("troppi simboli per il verificatore"); return; }
+    CkSymbol *y = &ck_symbols[ck_symbol_count];
+    memset(y, 0, sizeof *y);
+    if (!ck_name(y->name) || ck_symbol_of(y->name) >= 0) { ck_reject("certificato scritto male: il simbolo di struttura manca, o ha il nome di un altro"); return; }
+    y->arity = 2;
+    y->arg[0] = kind == 1 ? sort->base : i;
+    y->arg[1] = kind == 1 ? i : sort->base;
+    y->result = kind == 1 ? CK_BOOL : sort->target;
+    sort->symbol = ck_symbol_count++;
+    if (!models) { sort->size = -1; return; }
+
+    /* La grandezza: 2^n per le parti, m^n per le applicazioni. */
+    int n = ck_sorts[sort->base].size, values = kind == 1 ? 2 : ck_sorts[sort->target].size;
+    long long size = 1;
+    for (int j = 0; j < n && size <= CK_MAX_SIZE; j++) size *= values;
+    if (size > CK_MAX_SIZE) { ck_unsupported("modello troppo grande per il verificatore"); return; }
+    sort->size = (int)size;
+
+    /* La tabella. Parti: la cella di (a, x) è il bit a di x. Applicazioni:
+     * quella di (x, a) è la cifra a di x in base m. */
+    y->table = ck_alloc(sizeof(int) * (size_t)(n * sort->size));
+    for (int x = 0; x < sort->size; x++)
+        for (int a = 0, rest = x; a < n; a++) {
+            if (kind == 1) { y->table[a + x * n] = x >> a & 1; continue; }
+            y->table[x + a * sort->size] = rest % values;
+            rest /= values;
+        }
+}
+
+/* 11h. Ritorna un nodo nuovo di tipo kind, con valore value e operandi a e
+ * b. */
+static CkNode *ck_make(CkKind kind, long long value, const CkNode *a, const CkNode *b) {
+    CkNode *node = ck_node(kind);
+    node->value = value;
+    node->a = a;
+    node->b = b;
+    return node;
+}
+
+/* 11h. Ritorna la legge di estensionalità dell'insieme di posto i, di
+ * parti o di applicazioni, scritta come la scrive un certificato: con le
+ * variabili legate X (o f), Y (o g), t, dalla più esterna,
+ *
+ *     (forall X P (forall Y P (implies (forall t S (iff (in t X) (in t Y))) (= X Y))))
+ *     (forall f M (forall g M (implies (forall t S (= (ap f t) (ap g t))) (= f g))))
+ *
+ * Una variabile è la distanza dal suo quantificatore (capitolo 6): sotto i
+ * tre quantificatori t è 0, Y è 1, X è 2. */
+static const CkNode *ck_extensionality(int i) {
+    const CkSort *s = &ck_sorts[i];
+    const CkNode *t = ck_make(CK_VAR, 0, NULL, NULL), *y = ck_make(CK_VAR, 1, NULL, NULL), *x = ck_make(CK_VAR, 2, NULL, NULL), *same;
+    if (s->kind == 1) same = ck_make(CK_IFF, 0, ck_make(CK_EQ, 0, ck_make(CK_APP, s->symbol, t, x), NULL), ck_make(CK_EQ, 0, ck_make(CK_APP, s->symbol, t, y), NULL));
+    else same = ck_make(CK_EQ, 0, ck_make(CK_APP, s->symbol, x, t), ck_make(CK_APP, s->symbol, y, t));
+    const CkNode *equal = ck_make(CK_EQ, 0, ck_make(CK_VAR, 1, NULL, NULL), ck_make(CK_VAR, 0, NULL, NULL));
+    const CkNode *law = ck_make(CK_IMPLIES, 0, ck_make(CK_FORALL, s->base, same, NULL), equal);
+    return ck_make(CK_FORALL, i, ck_make(CK_FORALL, i, law, NULL), NULL);
+}
+
+/* 11h. Ritorna 1 se nell'albero c compare la variabile legata dal
+ * quantificatore che sta depth quantificatori sopra c. */
+static int ck_uses_bound(const CkNode *c, long long depth) {
+    if (!c) return 0;
+    if (c->kind == CK_VAR) return c->value == depth;
+    long long inner = depth + (c->kind == CK_FORALL || c->kind == CK_EXISTS);
+    return ck_uses_bound(c->a, inner) || ck_uses_bound(c->b, depth) || ck_uses_bound(c->c, depth);
+}
+
+/* 11h. Ritorna 1 se la condizione a è una legge delle parti: la
+ * estensionalità di un insieme di parti o di applicazioni dichiarato, o una
+ * comprensione,
+ *
+ *     (forall p1 A1 ... (exists Z P (forall t S (iff (in t Z) C))))
+ *
+ * con P l'insieme delle parti di S, in il suo simbolo e C una condizione
+ * qualsiasi in cui Z non compare: i parametri p1, ... possono comparirvi.
+ * Vedi in testa al paragrafo perché sono vere. */
+static int ck_axiom_valid(const CkNode *a) {
+    for (int i = 0; i < ck_sort_count; i++)
+        if (ck_sorts[i].kind && ck_same(a, ck_extensionality(i))) return 1;
+    while (a->kind == CK_FORALL) a = a->a;
+    if (a->kind != CK_EXISTS || ck_sorts[a->value].kind != 1) return 0;
+    const CkSort *p = &ck_sorts[a->value];
+    const CkNode *every = a->a, *iff = every->a;
+    if (every->kind != CK_FORALL || every->value != p->base || iff->kind != CK_IFF) return 0;
+    const CkNode *member = iff->a;
+    if (member->kind != CK_EQ || member->b || member->a->kind != CK_APP || member->a->value != p->symbol) return 0;
+    if (member->a->a->kind != CK_VAR || member->a->a->value != 0 || member->a->b->kind != CK_VAR || member->a->b->value != 1) return 0;
+    return !ck_uses_bound(iff->b, 1);
+}
+
+/* 11i. Legge il resto di una voce "sort NOME numbers n1 n2 ...", dopo la
+ * parola numbers, per l'insieme di posto i: i nomi dei numeri, ognuno un
+ * elemento con un nome di quell'insieme, dichiarato qui. Nei modelli
+ * (models = 1) l'insieme ha tanti elementi quanti i nomi, e il k-esimo nome
+ * vale k: i numeri sono tutti diversi, e non ci sono altri elementi. */
+static void ck_numbers_sort(int i, int models) {
+    CkSort *sort = &ck_sorts[i];
+    sort->kind = 3;
+    sort->size = 0;
+    for (ck_skip(); *ck_cursor && *ck_cursor != '\n' && ck_status == CK_ACCEPTED; ck_skip()) {
+        if (ck_symbol_count == CK_MAX_SYMBOLS) { ck_unsupported("troppi simboli per il verificatore"); return; }
+        CkSymbol *y = &ck_symbols[ck_symbol_count];
+        memset(y, 0, sizeof *y);
+        if (!ck_name(y->name) || ck_symbol_of(y->name) >= 0) { ck_reject("certificato scritto male: un numero senza nome, o con il nome di un altro simbolo"); return; }
+        y->result = i;
+        if (models) {
+            y->table = ck_alloc(sizeof(int));
+            y->table[0] = sort->size;
+        }
+        sort->size++;
+        ck_symbol_count++;
+    }
+    if (!sort->size) { ck_reject("certificato scritto male: un insieme di numeri senza numeri"); return; }
+    if (sort->size > CK_MAX_SIZE && models) { ck_unsupported("modello troppo grande per il verificatore"); return; }
+    if (!models) sort->size = -1;
+}
+
+/* 11h. Ritorna 1 se in un'interpretazione degli insiemi può essere vuoto
+ * proprio l'insieme dei bit di empty: un insieme di parti non è mai vuoto
+ * (c'è sempre la parte vuota), e uno di applicazioni da S a T è vuoto
+ * esattamente quando S non lo è e T sì. */
+static int ck_empty_possible(unsigned empty) {
+    for (int i = 0; i < ck_sort_count; i++) {
+        const CkSort *s = &ck_sorts[i];
+        int is_empty = empty >> i & 1;
+        if ((s->kind == 1 || s->kind == 3) && is_empty) return 0;
+        if (s->kind == 2 && is_empty != (!(empty >> s->base & 1) && (empty >> s->target & 1))) return 0;
+    }
+    return 1;
+}
+
 /* Svuota il caso, e i nomi dati nel precedente. */
 static void ck_case_start(void) {
     ck_symbol_count = ck_declared;
@@ -2788,7 +3001,7 @@ static void ck_case_start(void) {
 static void ck_check_case(void) {
     static char text[128];
     for (unsigned empty = 0; empty < 1u << ck_sort_count && ck_status == CK_ACCEPTED; empty++) {
-        if (!ck_consistent(empty)) continue;
+        if (!ck_empty_possible(empty) || !ck_consistent(empty)) continue;
         int length = snprintf(text, sizeof text, "le condizioni di un caso non sono contraddittorie%s", empty ? ", con vuoti:" : "");
         for (int i = 0; i < ck_sort_count; i++)
             if (empty >> i & 1) length += snprintf(text + length, sizeof text - (size_t)length, " %s", ck_sorts[i].name);
@@ -2800,9 +3013,9 @@ static void ck_check_case(void) {
  * l'intestazione fino a "end" compreso. kind è 0 per counterexample (11a),
  * 1 per example (11b), 2 per structure (11c). */
 static void ck_check_structure(int kind) {
-    static const CkNode *assumed[CK_MAX_CASES];
+    static const CkNode *assumed[CK_MAX_CASES], *laws[CK_MAX_AXIOMS];
     const CkNode *statement = NULL;
-    int cases = 0;
+    int cases = 0, axioms = 0;
     ck_sort_count = ck_symbol_count = ck_declared = ck_bound_count = 0;
     ck_nodes = 0;
     for (int ended = 0; !ended && ck_status == CK_ACCEPTED;) {
@@ -2815,9 +3028,23 @@ static void ck_check_structure(int kind) {
             /* Un insieme, con il numero di elementi nei soli modelli. */
             if (ck_sort_count == CK_MAX_SORTS) { ck_unsupported("troppi insiemi per il verificatore"); return; }
             if (!ck_name(name) || ck_sort_of(name) >= 0) { ck_reject("certificato scritto male: sort senza nome, o due volte"); return; }
+            CkSort *sort = &ck_sorts[ck_sort_count];
+            strcpy(sort->name, name);
+            sort->kind = 0;
+            sort->base = sort->target = sort->symbol = -1;
+            int parts = ck_word("parts");
+            if (parts || ck_word("maps")) {
+                /* 11h: le parti o le applicazioni, con il loro simbolo. */
+                ck_derived_sort(ck_sort_count++, parts ? 1 : 2, kind < 2);
+                continue;
+            }
+            if (ck_word("numbers")) {
+                /* 11i: i numeri scritti, con i loro nomi. */
+                ck_numbers_sort(ck_sort_count++, kind < 2);
+                continue;
+            }
             if ((kind < 2) != ck_read_integer(&size) || (kind < 2 && size < 0)) { ck_reject("certificato scritto male: il numero di elementi c'è nei soli modelli"); return; }
             if (size > CK_MAX_SIZE) { ck_unsupported("modello troppo grande per il verificatore"); return; }
-            strcpy(ck_sorts[ck_sort_count].name, name);
             ck_sorts[ck_sort_count++].size = (int)size;
         } else if (!statement && ck_word("symbol")) {
             /* Un simbolo: gli insiemi degli argomenti, poi quello del valore. */
@@ -2856,14 +3083,22 @@ static void ck_check_structure(int kind) {
             }
             ck_skip();
             if (*ck_cursor && *ck_cursor != '\n') { ck_reject("una tabella ha più valori delle sue celle"); return; }
+        } else if (kind == 2 && statement && !cases && ck_word("axiom")) {
+            /* 11h. Una legge delle parti o delle applicazioni: vale solo se
+             * ha la forma di una legge. */
+            if (axioms == CK_MAX_AXIOMS) { ck_unsupported("troppe leggi per il verificatore"); return; }
+            laws[axioms] = ck_read_condition();
+            if (ck_status == CK_ACCEPTED && !ck_axiom_valid(laws[axioms])) { ck_reject("una voce axiom non è una legge delle parti o delle applicazioni"); return; }
+            axioms++;
         } else if (kind == 2 && statement && ck_word("case")) {
-            /* Un caso nuovo: si suppongono "E falso" e A. */
+            /* Un caso nuovo: si suppongono "E falso", le leggi (11h) e A. */
             if (cases) ck_check_case();
             if (cases == CK_MAX_CASES) { ck_unsupported("troppi casi per il verificatore"); return; }
             CkNode *denied = ck_node(CK_NOT);
             denied->a = statement;
             ck_case_start();
             ck_suppose(denied, 0);
+            for (int i = 0; i < axioms; i++) ck_suppose(laws[i], 0);
             assumed[cases] = ck_read_condition();
             ck_suppose(assumed[cases++], 0);
         } else if (kind == 2 && cases && ck_word("instance")) {
@@ -2897,6 +3132,7 @@ static void ck_check_structure(int kind) {
     denied->a = statement;
     ck_case_start();
     ck_suppose(denied, 0);
+    for (int i = 0; i < axioms; i++) ck_suppose(laws[i], 0);
     for (int i = 0; i < cases; i++) {
         CkNode *other = ck_node(CK_NOT);
         other->a = assumed[i];

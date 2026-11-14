@@ -1,0 +1,31 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{parts\_and\_maps.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{parts\_and\_maps.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_set\_theory.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 19 true statements. In the first 16 $\mathcal{P}(S)$ and $T^{S}$ are sets of objects (paragraph 17v of \texttt{parser.c}, 28m and 28n of \texttt{main.c}): relations between parts and between maps, maps with values in $\mathcal{P}(S)$, families of parts with their union, a part written as a set where an element is expected ($(\emptyset, X) \in R$), a set given by replacement ($\{X \cap E \mid X \in G\}$), orders written between the elements ($x_{1} \le_{S} x_{2}$), and two examples found among finite models. The last two speak only of the numbers they write, with relations given by the list of their pairs: they have one model only, and the engine decides them by computing there. Item 19, a variant of a book statement on partitions, has a proof with a case closed by itself (28o): if the engine stopped writing that case, the check of paragraph 28p would count it in \texttt{unjustified\_steps}. They are variants of the book statements in \texttt{correspondences.tex}, \texttt{maps.tex}, \texttt{equivalence\_relations.tex} and \texttt{order\_relations.tex}, not copies.
+
+\item \textbf{What is being tested.} That every statement is proved by chapter 28 with a written proof whose steps pass their independent check, and that each verdict carries a certificate that \texttt{checker.c} accepts (11h: the sets of parts and of maps, and the laws of parts given as \texttt{axiom} entries), while the same certificate without its \texttt{instance} and \texttt{witness} entries is not accepted. Items 6, 12 and 15 need extensionality (two parts, or two maps, with the same elements or values are equal); items 3 and 15 need the comprehension of a part (the empty part, the whole set).
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_set_theory \
+    tests/set_theory/test_set_theory.c && /tmp/test_set_theory
+\end{verbatim}
+
+\item \textbf{Expected result.} One \texttt{PASS} line for the file, and two for its certificates.
+\end{enumerate}
+\end{document}

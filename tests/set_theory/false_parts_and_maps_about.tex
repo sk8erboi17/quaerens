@@ -1,0 +1,31 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_parts\_and\_maps.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_parts\_and\_maps.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_set\_theory.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} Anti-regression for paragraph 17v of \texttt{parser.c} and 28m to 28o of \texttt{main.c}. The file holds 21 false statements, each a small change of a true one: three about relations given by the list of their pairs of numbers (a pair dropped from a symmetric relation, a composition claimed symmetric, a chain claimed transitive), and a relation on parts that is not transitive (``they meet''), inclusion claimed symmetric, a relation on parts that is not antisymmetric, $x \mapsto S \setminus \{x\}$ claimed surjective, or with injectivity turned around, the unique part containing a point claimed without $S$ being a singleton, ``same kernel'' claimed to give equal maps, the pointwise order claimed total (refuted with $S$ of two elements) or antisymmetric without the order being one, a partition with the cover dropped, two partitions whose union is claimed disjoint, the image of a partition by any map claimed disjoint, a family of preimages without the filter $f^{-1}(Y) \neq \emptyset$, the product of two total orders claimed total, an order on all the parts (the empty one included) claimed antisymmetric, the order of item 13 of \texttt{order\_relations.tex} with $\subseteq$ in place of $\subsetneq$, equal maps claimed unrelated, and an example that cannot exist.
+
+\item \textbf{What is being tested.} That none is proved. Today every one but the example is refuted by a finite model in which $\mathcal{P}(S)$ and $T^{S}$ are the true sets of parts and of maps (28m): item 1 by regions (chapter 15), the others with a certificate that \texttt{checker.c} accepts, where the checker builds those sets again by itself (11h). If the models gave $\mathcal{P}(S)$ only some of the parts, or the laws of 28n were wrong, or the guarded instances and the case choice of 28o let a step through unchecked, one of these would be at risk.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_set_theory \
+    tests/set_theory/test_set_theory.c && /tmp/test_set_theory
+\end{verbatim}
+
+\item \textbf{Expected result.} One \texttt{PASS} line for the file: none of the statements is proved; and two for the certificates of its counterexamples.
+\end{enumerate}
+\end{document}

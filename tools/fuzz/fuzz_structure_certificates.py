@@ -22,6 +22,12 @@ Un quantificatore su parti (11g), (forallpart X S c) o (existspart X S c),
 l'oracolo lo calcola provando ogni sottoinsieme di S, come frozenset, e (X t)
 dice che t vi sta. Le alterazioni scambiano anche forallpart ed existspart.
 
+Gli insiemi di parti e di applicazioni (11h), sort P parts S in e sort M maps
+S T ap, sono quelli veri: l'oracolo ne calcola da sé la grandezza e la
+tabella. L'insieme dei numeri scritti (11i), sort Num numbers n1 n2, ha nei
+modelli un elemento per numero, tutti diversi; nelle dimostrazioni è un
+insieme qualsiasi con quei nomi, come per il verificatore.
+
 L'oracolo non usa nulla del verificatore: legge la notazione da capo e
 calcola con le tabelle, quantificatore per quantificatore. Non trovare un
 controesempio piccolo non prova che una dimostrazione accettata sia giusta;
@@ -71,15 +77,59 @@ class Unreadable(Exception):
     pass
 
 
+DERIVED = {}  # 11h: insieme di parti o di applicazioni -> (tipo, base, valori o None, simbolo)
+NUMBERS = {}  # 11i: insieme dei numeri scritti -> i nomi dei numeri, nel loro ordine
+
+
+def derived_size(name, size):
+    """La grandezza dell'insieme delle parti (2^n) o delle applicazioni (m^n)."""
+    kind, base, target, _ = DERIVED[name]
+    return (2 if kind == "parts" else size[target]) ** size[base]
+
+
+def derived_table(name, size):
+    """La tabella del simbolo di struttura, come la definisce il formato dei
+    certificati: la parte numero k ha l'elemento i se il bit i di k è 1;
+    l'applicazione numero k manda i nella cifra i di k in base m. Il conto è
+    fatto qui da capo, con gli insiemi di Python."""
+    kind, base, target, _ = DERIVED[name]
+    n, table = size[base], {}
+    for k in range(derived_size(name, size)):
+        if kind == "parts":
+            members = {i for i in range(n) if k >> i & 1}
+            for i in range(n):
+                table[(i, k)] = int(i in members)
+        else:
+            m = size[target]
+            for i in range(n):
+                table[(k, i)] = (k // m ** i) % m
+    return table
+
+
 def read(text):
     """Il tipo, gli insiemi (nome -> grandezza o None), i simboli (nome -> (argomenti, valore)), l'enunciato, le tabelle."""
     lines = text.strip().splitlines()
     kind = lines[0].split()[1]
     sorts, symbols, tables, statement = {}, {}, {}, None
+    DERIVED.clear()
+    NUMBERS.clear()
     for line in lines[1:]:
         word, _, rest = line.strip().partition(" ")
         parts = rest.split()
-        if word == "sort":
+        if word == "sort" and len(parts) > 1 and parts[1] in ("parts", "maps"):
+            # 11h: sort P parts S in, sort M maps S T ap.
+            maps = parts[1] == "maps"
+            base, target, symbol = parts[2], parts[3] if maps else None, parts[4 if maps else 3]
+            DERIVED[parts[0]] = (parts[1], base, target, symbol)
+            sorts[parts[0]] = None
+            symbols[symbol] = ([parts[0], base], target) if maps else ([base, parts[0]], "bool")
+        elif word == "sort" and len(parts) > 1 and parts[1] == "numbers":
+            # 11i: sort Num numbers n1 n2, i numeri scritti, tutti diversi.
+            NUMBERS[parts[0]] = parts[2:]
+            sorts[parts[0]] = len(parts[2:])
+            for name in parts[2:]:
+                symbols[name] = ([], parts[0])
+        elif word == "sort":
             sorts[parts[0]] = int(parts[1]) if len(parts) > 1 else None
         elif word == "symbol":
             symbols[parts[0]] = (parts[1:-1], parts[-1])
@@ -137,7 +187,22 @@ def holds(c, env, model, size, symbols):
 def model_from_tables(sorts, symbols, tables):
     """L'interpretazione delle tabelle, o None se non è un'interpretazione."""
     model = {}
+    for name in DERIVED:
+        sorts[name] = derived_size(name, sorts)
     for name, (args, result) in symbols.items():
+        structure = [d for d in DERIVED if DERIVED[d][3] == name]
+        if structure:
+            if name in tables:
+                return None
+            model[name] = derived_table(structure[0], sorts)
+            continue
+        numeral = [n for n in NUMBERS if name in NUMBERS[n]]
+        if numeral:
+            # 11i: il k-esimo numero è l'elemento k, e non ha tabella.
+            if name in tables:
+                return None
+            model[name] = {(): NUMBERS[numeral[0]].index(name)}
+            continue
         keys = cells(name, symbols, sorts)
         values = tables.get(name)
         top = 2 if result == "bool" else sorts[result]
@@ -149,11 +214,21 @@ def model_from_tables(sorts, symbols, tables):
 
 def counter_model(sorts, symbols, statement):
     """Un'interpretazione con insiemi piccoli in cui l'enunciato è falso, oppure None."""
-    names = list(sorts)
+    names = [name for name in sorts if name not in DERIVED]
     for sizes in itertools.product(range(4), repeat=len(names)):
         size = dict(zip(names, sizes))
+        # 11h: gli insiemi di parti e di applicazioni sono quelli veri, con
+        # la loro tabella; non si sceglie nulla.
+        for name in DERIVED:
+            size[name] = derived_size(name, size)
+        if any(size[name] > 8 for name in DERIVED):
+            continue
         choices, count = [], 1
         for name, (args, result) in symbols.items():
+            structure = [d for d in DERIVED if DERIVED[d][3] == name]
+            if structure:
+                choices.append([derived_table(structure[0], size)])
+                continue
             keys = cells(name, symbols, size)
             top = 2 if result == "bool" else size[result]
             count *= top ** len(keys)

@@ -556,9 +556,15 @@
                                 Warning: se lo alzi, cambia anche i motivi scritti in decide_quantified() e in records_doubt() */
 #define MAX_SORTS 4          /* insiemi qualsiasi distinti in un enunciato (17o) */
 #define MAX_SYMBOLS 64       /* simboli di un enunciato su insiemi qualsiasi, compresi gli elementi a cui la dimostrazione dà un nome */
-#define MAX_SLOTS 64         /* variabili quantificate in un enunciato su insiemi qualsiasi, comprese quelle
-                                che nascono svolgendo le definizioni (17q). Non più di 64: il capitolo 28
-                                le tiene anche come bit di un unsigned long long (Rule.all, elem_slots()) */
+#define MAX_SLOTS 128        /* variabili quantificate in un enunciato su insiemi qualsiasi, comprese quelle
+                                che nascono svolgendo le definizioni (17q) e le leggi delle parti (28n). Non
+                                più di 128: il capitolo 28 le tiene anche come bit di un SlotSet (Rule.all,
+                                elem_slots(), set_term_free()). Le famiglie di parti (17v) ne chiedono più di 64 */
+
+/* Un insieme di variabili quantificate, il bit i per quella di posto i: vedi
+ * MAX_SLOTS. */
+typedef unsigned __int128 SlotSet;
+#define SLOT_BIT(i) ((SlotSet)1 << (i))
 #define MAX_ARITY 4          /* componenti di un membro di un insieme scritto come nei libri: 4 per una
                                 relazione tra coppie (17p) */
 #define MAX_LISTED 4         /* elementi scritti tra graffe, \{a, b\} (17p) */
@@ -566,6 +572,24 @@
 #define MAX_CHECK_MODELS 4000  /* modelli su cui si confrontano l'enunciato scritto e quello svolto (28h) */
 #define GREEK_NAMES 3000     /* "nomi" delle lettere greche usate come applicazioni (17o): non sono caratteri */
 #define MAX_MODEL_SIZE 4     /* elementi di un insieme in un modello finito (28a) */
+#define MAX_MODEL_OBJECTS 8  /* elementi di un insieme di parti o di applicazioni in un modello finito (28m):
+                                le parti di un insieme di 3 elementi. Non più di CK_MAX_SIZE */
+#define MAX_MODEL_CELLS 64   /* celle della tabella di un simbolo in un modello finito (28a, 28m) */
+#define MAX_AXIOMS 16        /* leggi delle parti e delle applicazioni aggiunte alle ipotesi (28n) */
+#define MAX_CASE_LEAVES 512  /* rami chiusi e scritti per un'affermazione, di cui si controlla la copertura (28p) */
+#define MAX_CASE_STEPS 32    /* casi uno dentro l'altro nel cammino di uno di quei rami (28p) */
+#define MAX_DESCRIBED 8      /* parti scritte come insiemi dove serve un elemento, in una condizione (17v) */
+#define MAX_TEMPLATES 8      /* insiemi scritti dall'enunciato come parti, usati per le comprensioni (17v, 28n) */
+#define MAX_LISTED_TUPLES 32 /* coppie in un elenco scritto tra graffe, \{(1, 1), (1, 2)\} (17v) */
+#define STRUCTURE_NAMES 4000 /* "nomi" dei simboli di struttura degli insiemi di parti e di applicazioni (17v):
+                                non sono caratteri, e stanno dopo quelli delle lettere greche */
+#define RELATION_NAMES 3500  /* "nomi" delle relazioni scritte con un comando, come \le (17v): non sono
+                                caratteri, e stanno tra le lettere greche e i simboli di struttura */
+#define LETTER_INDEX 100     /* un pedice che è una lettera, \le_{S}, vale LETTER_INDEX più la lettera (17v) */
+#define NUMERAL_NAMES 5000   /* "nomi" dei numeri scritti come elementi (17v): il numero v è NUMERAL_NAMES + v */
+#define MAX_NUMERAL 1000     /* il più grande numero scritto come elemento, più uno (17v) */
+#define ZERO_INDEX 99        /* il pedice 0, x_{0} (17v): 0 vuol dire "senza pedice". Sotto LETTER_INDEX, e
+                                sopra i pedici che 28-2 dà ai nomi nuovi, che sono meno di MAX_SYMBOLS */
 #define MAX_MODELS 400000    /* tabelle provate per una scelta delle grandezze degli insiemi */
 #define MAX_MODEL_WORK 3000000  /* tabelle provate in tutto per un enunciato */
 #define MAX_MODEL_STEPS 40000000  /* elementi provati dai quantificatori, in tutto, nel calcolare un enunciato sui modelli */
@@ -574,6 +598,8 @@
 #define MAX_DIFFERENT 256    /* fatti "diversi" noti in un ramo */
 #define MAX_SPLITS 4         /* distinzioni di casi una dentro l'altra (28-5) */
 #define MAX_ROUNDS 4         /* giri di istanze prima di arrendersi (28-3) */
+#define MAX_LOOKAHEAD 48     /* disgiunzioni di cui si guardano avanti i due casi, prima di sceglierne una (28o) */
+#define LOOKAHEAD_ROUNDS 2   /* giri di istanze prima di distinguere dei casi, quando si guarda avanti (28o) */
 #define MAX_TUPLES 20000     /* scelte di elementi esaminate per un "per ogni" in un giro */
 #define MAX_FREE_TUPLES 128  /* istanze di un "per ogni" sugli elementi con un nome, in un giro */
 #define MAX_PROP_ATOMS 12    /* condizioni elementari di un passo ricontrollato con la tabella di verità */
@@ -23518,8 +23544,10 @@ static const char *derivative_doubt(const Formula *thesis) {
  *     condizioni elementari di (p), se (p) è vera e A e B hanno il valore
  *     detto, allora C è vera (follows()).
  *
- * Se un controllo fallisce la dimostrazione non viene emessa, e
- * unjustified_steps lo registra.
+ * Poi, a dimostrazione finita, che i casi scritti siano tutti: le foglie,
+ * con i loro casi, devono coprire ogni distinzione che fanno (28p). Se un
+ * controllo fallisce la dimostrazione non viene emessa, e unjustified_steps
+ * lo registra.
  *
  * IL CERTIFICATO (28f)
  *
@@ -23559,14 +23587,37 @@ static const char *derivative_doubt(const Formula *thesis) {
  * il verificatore non legge la notazione dei libri, come non legge il
  * LaTeX.
  *
+ * LE PARTI E LE APPLICAZIONI COME OGGETTI (28m, 28n, 28o)
+ *
+ * Con \mathcal{P}(S) e T^{S} come insiemi di oggetti (17v in parser.c)
+ * cambiano tre cose. I modelli finiti danno a questi insiemi le parti e le
+ * applicazioni vere, con la loro tabella (28m): un controesempio è ancora un
+ * controesempio vero. Le dimostrazioni hanno in più, tra le ipotesi, le
+ * leggi delle parti, l'estensionalità e alcune comprensioni (28n), e il
+ * verificatore controlla da sé che lo siano. E poiché qui le istanze
+ * crescono in fretta, quando la ricerca di sempre non basta la si ripete
+ * guardando avanti prima di distinguere i casi e scegliendo le istanze con
+ * più cura, e un'affermazione che non segue tutta insieme si prova a pezzi
+ * (28o). Tutto questo cambia solo quali dimostrazioni si trovano: ogni passo
+ * scritto è ricontrollato come sempre, e il certificato pure.
+ *
+ * Un enunciato che parla solo dei numeri che scrive, con relazioni date
+ * dall'elenco delle loro coppie (17v), ha un solo modello, con i numeri
+ * tutti diversi: lì il calcolo decide, come per un esempio, e il verdetto
+ * DIMOSTRATO viene da quel conto, con il certificato del modello.
+ *
  * CHE COSA NON C'È
  *
  * Applicazioni da costruire (\exists f \in S^{S} dentro l'enunciato),
- * ipotesi su tutte le applicazioni, l'insieme delle parti come insieme di
- * oggetti, potenze x^{n} con n numero: il lettore le respinge, dicendo
- * quale. Le parti costruite con più di un passo, come f(f^{-1}(\{c\})) o
- * \{a, b\}, non vengono provate (28k): un enunciato che ne ha bisogno resta
- * NON DIMOSTRATO.
+ * ipotesi su tutte le applicazioni quando T^{S} non è un insieme di oggetti
+ * dell'enunciato, applicazioni definite per casi o come inverse
+ * (servirebbero comprensioni di applicazioni, che 28n non ha), il quoziente
+ * (\exists T\ \exists f), potenze x^{n} con n numero: il lettore le
+ * respinge, dicendo quale. Le parti costruite con più di un passo, come
+ * f(f^{-1}(\{c\})) o \{a, b\}, non vengono provate (28k): un enunciato che
+ * ne ha bisogno resta NON DIMOSTRATO, come le dimostrazioni lunghe sulle
+ * famiglie di parti (una partizione comune, la controimmagine di una
+ * partizione), che la ricerca spesso non trova.
  *
  * I modelli finiti dimostrano solo un esempio; un enunciato "per ogni" lo
  * dimostrano le istanze. Una dimostrazione dai soli modelli sarebbe lecita
@@ -23591,10 +23642,12 @@ static const char *derivative_doubt(const Formula *thesis) {
  * La tabella di un simbolo dà il suo valore per ogni scelta degli
  * argomenti: alla cella a + b * (elementi del primo insieme) c'è il valore
  * in (a, b), che è un elemento del codominio, oppure 0 o 1 per una parte o
- * una relazione. Un elemento con un nome ha la sola cella 0. */
+ * una relazione. Un elemento con un nome ha la sola cella 0. Le tabelle dei
+ * simboli di struttura degli insiemi di parti e di applicazioni non si
+ * scelgono: le fissa model_structure() (28m). */
 typedef struct {
     int size[MAX_SORTS];
-    unsigned char table[MAX_SYMBOLS][MAX_MODEL_SIZE * MAX_MODEL_SIZE];
+    unsigned char table[MAX_SYMBOLS][MAX_MODEL_CELLS];
 } Model;
 
 /* 28i. LE PARTI LEGATE NEI MODELLI
@@ -23710,6 +23763,109 @@ static int model_cells(const Model *m, int symbol, int *cells) {
     return s->range == TRUTH ? 2 : m->size[s->range];
 }
 
+/* 28m. GLI INSIEMI DI PARTI E DI APPLICAZIONI NEI MODELLI
+ *
+ * (Sta qui, dopo 28a, perché ne completa i modelli; la lettera è venuta
+ * dopo le altre.)
+ *
+ * Un enunciato che prende \mathcal{P}(S) o T^{S} come insieme di oggetti
+ * (17v in parser.c) parla delle parti e delle applicazioni vere: un suo
+ * modello non può dare a \mathcal{P}(S) elementi qualsiasi, perché un
+ * controesempio in cui \mathcal{P}(S) non contiene tutte le parti di S non
+ * smentirebbe nulla. Per questo in un modello la grandezza di questi insiemi
+ * e la tabella del loro simbolo di struttura non si scelgono, si calcolano:
+ *
+ *   - \mathcal{P}(S), con S di n elementi, ha 2^n elementi: l'elemento k è
+ *     la parte degli i con il bit i di k uguale a 1. Ogni parte di S ha un
+ *     solo k, quindi questo è proprio l'insieme delle parti.
+ *   - T^{S}, con S di n elementi e T di m, ha m^n elementi: l'elemento k è
+ *     l'applicazione che manda i nella cifra i di k scritto in base m (la
+ *     cifra 0 è quella delle unità). Ogni applicazione ha un solo k.
+ *
+ * È la stessa numerazione del verificatore (ck_derived_sort() in
+ * checker.c), che la rifà da sé: le tabelle degli altri simboli nominano gli
+ * elementi con quei numeri. Gli insiemi qualsiasi restano da 1 a
+ * MAX_MODEL_SIZE elementi; una scelta che darebbe a un insieme di parti o di
+ * applicazioni più di MAX_MODEL_OBJECTS elementi, o a un simbolo più di
+ * MAX_MODEL_CELLS celle, non si prova. */
+
+/* Ritorna 1 se la tabella del simbolo di posto s è fissata dalla struttura
+ * di un insieme, e non va scelta: il simbolo di struttura di un insieme di
+ * parti o di applicazioni, o un numero scritto come elemento (17v). */
+static int symbol_fixed(int s) { return symbol_structure(s) >= 0 || symbols[s].name >= NUMERAL_NAMES; }
+
+/* 17v. Ritorna quale dei numeri dell'insieme di posto sort è il simbolo s:
+ * 0 per il primo nell'elenco dei simboli, 1 per il secondo, e così via. È
+ * l'elemento che lo rappresenta nei modelli, dove i numeri sono gli
+ * elementi 0, 1, ... del loro insieme. */
+static int numeral_position(int sort, int s) {
+    int position = 0;
+    for (int i = 0; i < s; i++) position += symbols[i].name >= NUMERAL_NAMES && symbols[i].range == sort;
+    return position;
+}
+
+/* Dà agli insiemi di m le grandezze lette nel numero code, una cifra in
+ * base MAX_MODEL_SIZE per insieme: la cifra c dà c + 1 elementi a un insieme
+ * qualsiasi, e deve essere 0 per un insieme di parti o di applicazioni, la
+ * cui grandezza si calcola. Ritorna il numero di elementi degli insiemi
+ * qualsiasi, in tutto; -1 se code ha una cifra non 0 dove non serve, -2 se
+ * un insieme o una tabella diventerebbero troppo grandi. */
+static int model_sizes(Model *m, int code) {
+    int sum = 0;
+    for (int i = 0; i < sort_count; i++, code /= MAX_MODEL_SIZE) {
+        int digit = code % MAX_MODEL_SIZE, size = 1;
+        if (sort_kind[i] == SORT_PLAIN) { sum += m->size[i] = 1 + digit; continue; }
+        if (digit) return -1;
+        if (sort_kind[i] == SORT_NUMBERS) {
+            /* 17v. Tanti elementi quanti sono i numeri scritti. */
+            m->size[i] = 0;
+            for (int s = 0; s < symbol_count; s++) m->size[i] += symbols[s].name >= NUMERAL_NAMES && symbols[s].range == i;
+            if (m->size[i] > MAX_MODEL_OBJECTS) return -2;
+            continue;
+        }
+        int values = sort_kind[i] == SORT_PARTS ? 2 : m->size[sort_target[i]];
+        for (int j = 0; j < m->size[sort_base[i]] && size <= MAX_MODEL_OBJECTS; j++) size *= values;
+        if (size > MAX_MODEL_OBJECTS) return -2;
+        m->size[i] = size;
+    }
+    for (int s = 0; s < symbol_count; s++) {
+        int cells;
+        model_cells(m, s, &cells);
+        if (cells > MAX_MODEL_CELLS) return -2;
+    }
+    return sum;
+}
+
+/* Riempie in m le tabelle dei simboli di struttura, con la numerazione
+ * descritta in testa al paragrafo. Le grandezze devono essere già date
+ * (model_sizes()). */
+static void model_structure(Model *m) {
+    /* 17v. Ogni numero scritto è un elemento diverso del suo insieme. */
+    for (int s = 0; s < symbol_count; s++)
+        if (symbols[s].name >= NUMERAL_NAMES) m->table[s][0] = (unsigned char)numeral_position(symbols[s].range, s);
+    for (int i = 0; i < sort_count; i++) {
+        if (sort_kind[i] == SORT_PLAIN || sort_kind[i] == SORT_NUMBERS) continue;
+        unsigned char *cell = m->table[sort_symbol[i]];
+        int base = m->size[sort_base[i]];
+        for (int x = 0; x < m->size[i]; x++)
+            for (int a = 0, rest = x; a < base; a++) {
+                /* Le parti: la cella di (a, x) dice se a sta nella parte x.
+                 * Le applicazioni: quella di (x, a) è il valore di x in a. */
+                if (sort_kind[i] == SORT_PARTS) { cell[a + x * base] = (unsigned char)(x >> a & 1); continue; }
+                cell[x + a * m->size[i]] = (unsigned char)(rest % m->size[sort_target[i]]);
+                rest /= m->size[sort_target[i]];
+            }
+    }
+}
+
+/* Quanti insiemi qualsiasi ha l'enunciato in corso: gli altri sono insiemi
+ * di parti o di applicazioni, la cui grandezza non si sceglie. */
+static int plain_sorts(void) {
+    int count = 0;
+    for (int i = 0; i < sort_count; i++) count += sort_kind[i] == SORT_PLAIN;
+    return count;
+}
+
 /* Cerca un modello in cui la condizione root vale (wanted = 1) o non vale
  * (wanted = 0), tra quelli in cui ogni insieme ha da 1 a MAX_MODEL_SIZE
  * elementi, dai più piccoli. Se lo trova lo lascia in *m e ritorna 1.
@@ -23721,33 +23877,35 @@ static int model_cells(const Model *m, int symbol, int *cells) {
  * *bound il più grande k per cui ha provato tutti i modelli con insiemi di
  * al più k elementi: è ciò che il verdetto può dire di aver controllato. */
 static int model_search(const Sentence *root, int wanted, Model *m, long long *tried, int *bound) {
-    int value[MAX_SLOTS], codes = 1, complete[MAX_MODEL_SIZE * MAX_MODEL_SIZE * MAX_MODEL_SIZE * MAX_MODEL_SIZE] = {0};
+    int value[MAX_SLOTS], codes = 1, complete[MAX_MODEL_SIZE * MAX_MODEL_SIZE * MAX_MODEL_SIZE * MAX_MODEL_SIZE] = {0}, plain = plain_sorts();
     *tried = 0;
     *bound = 0;
     model_steps = 0;
     for (int i = 0; i < sort_count; i++) codes *= MAX_MODEL_SIZE;
 
-    /* Le grandezze, per numero totale di elementi: code le elenca tutte, e
-     * a ogni giro si tengono quelle con quel totale. */
-    for (int total = sort_count; sort_count && total <= sort_count * MAX_MODEL_SIZE && *tried < MAX_MODEL_WORK; total++) {
+    /* Le grandezze, per numero totale di elementi degli insiemi qualsiasi:
+     * code le elenca tutte, e a ogni giro si tengono quelle con quel totale.
+     * Gli insiemi di parti e di applicazioni hanno la grandezza che segue
+     * (28m). */
+    for (int total = plain; sort_count && total <= plain * MAX_MODEL_SIZE && *tried < MAX_MODEL_WORK; total++) {
         for (int code = 0; code < codes && *tried < MAX_MODEL_WORK; code++) {
-            int sum = 0, rest = code;
-            for (int i = 0; i < sort_count; i++, rest /= MAX_MODEL_SIZE) sum += m->size[i] = 1 + rest % MAX_MODEL_SIZE;
-            if (sum != total) continue;
+            if (model_sizes(m, code) != total) continue;
 
             /* Quante tabelle: il prodotto, su tutte le celle, dei valori
              * possibili. */
             double count = 1;
             for (int s = 0; s < symbol_count && count <= MAX_MODELS; s++) {
                 int cells, values = model_cells(m, s, &cells);
-                for (int c = 0; c < cells && count <= MAX_MODELS; c++) count *= values;
+                for (int c = 0; c < cells && count <= MAX_MODELS && !symbol_fixed(s); c++) count *= values;
             }
             if (count > MAX_MODELS) continue;
 
             /* Tutte le tabelle, come un contachilometri: si parte da tutte
              * le celle a zero e si aumenta la prima che può crescere,
-             * azzerando quelle prima di lei. */
+             * azzerando quelle prima di lei. Quelle fissate dalla struttura
+             * non cambiano. */
             memset(m->table, 0, sizeof m->table);
+            model_structure(m);
             for (int more = 1; more && *tried < MAX_MODEL_WORK; ) {
                 /* Una risposta ottenuta a conto interrotto non conta, e la
                  * ricerca finisce lì: *tried è già oltre il suo limite. */
@@ -23757,6 +23915,7 @@ static int model_search(const Sentence *root, int wanted, Model *m, long long *t
                 if (holds == wanted) return 1;
                 more = 0;
                 for (int s = 0; s < symbol_count && !more; s++) {
+                    if (symbol_fixed(s)) continue;
                     int cells, values = model_cells(m, s, &cells);
                     for (int c = 0; c < cells && !more; c++) {
                         if (++m->table[s][c] < values) more = 1; else m->table[s][c] = 0;
@@ -23767,11 +23926,14 @@ static int model_search(const Sentence *root, int wanted, Model *m, long long *t
         }
     }
 
-    /* Il più grande k con tutte le grandezze fino a k provate per intero. */
+    /* Il più grande k con tutte le grandezze fino a k provate per intero.
+     * Un codice con una cifra dove la grandezza si calcola non è una
+     * scelta; uno che darebbe un insieme di parti troppo grande sì, e non
+     * provato. */
     for (int k = 1; k <= MAX_MODEL_SIZE; k++) {
         int all = 1;
         for (int code = 0; code < codes; code++) {
-            int inside = 1, rest = code;
+            int inside = model_sizes(m, code) != -1, rest = code;
             for (int i = 0; i < sort_count; i++, rest /= MAX_MODEL_SIZE) inside = inside && 1 + rest % MAX_MODEL_SIZE <= k;
             if (inside && !complete[code]) all = 0;
         }
@@ -23781,31 +23943,86 @@ static int model_search(const Sentence *root, int wanted, Model *m, long long *t
     return 0;
 }
 
+/* Ritorna il numero che il pedice index scrive: index stesso, o 0 per
+ * ZERO_INDEX (17v). */
+static int index_digits(int index) { return index == ZERO_INDEX ? 0 : index; }
+
 /* Scrive il nome del simbolo di posto symbol: la lettera, o il comando
  * LaTeX, con il pedice se c'è. */
 static void put_symbol(int symbol) {
     const Symbol *s = &symbols[symbol];
-    if (s->name >= GREEK_NAMES) proof_add("\\%s", greek_letters[s->name - GREEK_NAMES]);
+    if (s->name >= NUMERAL_NAMES) { proof_add("%d", s->name - NUMERAL_NAMES); return; }
+    if (s->name >= STRUCTURE_NAMES) { proof_add(sort_kind[symbol_structure(symbol)] == SORT_PARTS ? "\\in" : "\\operatorname{ev}"); return; }
+    if (s->name >= RELATION_NAMES) proof_add("\\%s", relation_commands[s->name - RELATION_NAMES]);
+    else if (s->name >= GREEK_NAMES) proof_add("\\%s", greek_letters[s->name - GREEK_NAMES]);
     else if (s->name >= OPERATION_NAMES) proof_add("\\%s", operation_symbols[s->name - OPERATION_NAMES]);
     else proof_add("%c", s->name);
-    if (s->index) proof_add("_{%d}", s->index);
+    if (s->index >= LETTER_INDEX) proof_add("_{%c}", s->index - LETTER_INDEX);
+    else if (s->index) proof_add("_{%d}", index_digits(s->index));
+}
+
+/* Scrive il nome dell'insieme di posto sort: la lettera, o (17v)
+ * \mathcal{P}(S) e T^{S}. */
+static void put_sort(int sort) {
+    if (sort_kind[sort] == SORT_PLAIN) { proof_add("%c", sort_name[sort]); return; }
+    if (sort_kind[sort] == SORT_NUMBERS) {
+        /* 17v. I numeri che l'enunciato scrive. */
+        proof_add("\\{");
+        for (int s = 0, written = 0; s < symbol_count; s++)
+            if (symbols[s].name >= NUMERAL_NAMES && symbols[s].range == sort) { if (written++) proof_add(", "); put_symbol(s); }
+        proof_add("\\}");
+        return;
+    }
+    if (sort_kind[sort] == SORT_PARTS) { proof_add("\\mathcal{P}("); put_sort(sort_base[sort]); proof_add(")"); return; }
+    put_sort(sort_target[sort]);
+    proof_add("^{");
+    put_sort(sort_base[sort]);
+    proof_add("}");
 }
 
 /* Scrive l'elemento numero x dell'insieme di posto sort in un modello: la
  * minuscola della lettera dell'insieme, con il numero per pedice. Così gli
- * elementi di due insiemi diversi non si confondono. */
-static void put_model_element(int sort, int x) { proof_add("%c_{%d}", tolower(sort_name[sort]), x); }
+ * elementi di due insiemi diversi non si confondono. Un elemento di un
+ * insieme di parti si scrive come la parte che è, \{s_{0}, s_{2}\}; uno di
+ * un insieme di applicazioni con i suoi valori, (s_{0} \mapsto t_{1}, ...),
+ * con la numerazione di 28m. */
+static void put_model_element(const Model *m, int sort, int x) {
+    if (sort_kind[sort] == SORT_PLAIN) { proof_add("%c_{%d}", tolower(sort_name[sort]), x); return; }
+    if (sort_kind[sort] == SORT_NUMBERS) {
+        /* 17v. Il numero che l'elemento x rappresenta. */
+        for (int s = 0; s < symbol_count; s++)
+            if (symbols[s].name >= NUMERAL_NAMES && symbols[s].range == sort && numeral_position(sort, s) == x) put_symbol(s);
+        return;
+    }
+    proof_add(sort_kind[sort] == SORT_PARTS ? "\\{" : "(");
+    for (int a = 0, written = 0, rest = x; a < m->size[sort_base[sort]]; a++) {
+        if (sort_kind[sort] == SORT_PARTS && !(x >> a & 1)) continue;
+        if (written++) proof_add(", ");
+        put_model_element(m, sort_base[sort], a);
+        if (sort_kind[sort] == SORT_PARTS) continue;
+        proof_add(" \\mapsto ");
+        put_model_element(m, sort_target[sort], rest % m->size[sort_target[sort]]);
+        rest /= m->size[sort_target[sort]];
+    }
+    proof_add(sort_kind[sort] == SORT_PARTS ? "\\}" : ")");
+}
 
 /* Scrive il modello m: gli insiemi, poi ogni simbolo dichiarato con la sua
  * tabella. Una parte e una relazione si scrivono come l'insieme degli
- * elementi, o delle coppie, per cui valgono. */
+ * elementi, o delle coppie, per cui valgono. Gli insiemi di parti e di
+ * applicazioni (17v) sono quelli veri: non si elencano, e il loro simbolo
+ * di struttura non ha una tabella da dire. */
 static void put_model(const Model *m) {
-    for (int i = 0; i < sort_count; i++) {
-        proof_add("%s$%c = \\{", i ? ", " : "", sort_name[i]);
-        for (int x = 0; x < m->size[i]; x++) { if (x) proof_add(", "); put_model_element(i, x); }
+    for (int i = 0, written = 0; i < sort_count; i++) {
+        /* 17v. I numeri scritti sono i soli elementi del loro insieme. */
+        if (sort_kind[i] == SORT_NUMBERS) { proof_add("%s$", written++ ? ", " : ""); put_sort(i); proof_add("$"); }
+        if (sort_kind[i] != SORT_PLAIN) continue;
+        proof_add("%s$%c = \\{", written++ ? ", " : "", sort_name[i]);
+        for (int x = 0; x < m->size[i]; x++) { if (x) proof_add(", "); put_model_element(m, i, x); }
         proof_add("\\}$");
     }
     for (int s = 0; s < symbol_count; s++) {
+        if (symbol_fixed(s)) continue;
         const Symbol *symbol = &symbols[s];
         int cells, first = m->size[symbol->arity ? symbol->domain[0] : 0], written = 0;
         if (symbol_bound[s]) continue;  /* una parte legata (28i) non ha tabella */
@@ -23820,12 +24037,12 @@ static void put_model(const Model *m) {
             int infix = symbol->name >= OPERATION_NAMES && symbol->name < GREEK_NAMES;
             if (symbol->range != TRUTH && !infix) put_symbol(s);
             if (symbol->arity && !infix) proof_add(symbol->arity == 2 || symbol->range != TRUTH ? "(" : "");
-            if (symbol->arity) put_model_element(symbol->domain[0], c % first);
+            if (symbol->arity) put_model_element(m, symbol->domain[0], c % first);
             if (infix) { proof_add(" "); put_symbol(s); proof_add(" "); }
             else if (symbol->arity == 2) proof_add(", ");
-            if (symbol->arity == 2) put_model_element(symbol->domain[1], c / first);
+            if (symbol->arity == 2) put_model_element(m, symbol->domain[1], c / first);
             if (symbol->arity && !infix) proof_add(symbol->arity == 2 || symbol->range != TRUTH ? ")" : "");
-            if (symbol->range != TRUTH) { proof_add(" = "); put_model_element(symbol->range, m->table[s][c]); }
+            if (symbol->range != TRUTH) { proof_add(" = "); put_model_element(m, symbol->range, m->table[s][c]); }
         }
         if (symbol->range == TRUTH) proof_add(written ? "\\}" : "\\} = \\emptyset");
         proof_add("$");
@@ -23902,13 +24119,73 @@ static int book_member(const Model *m, const int *t, const SetTerm *set, int *va
         for (int i = 0; i < set->bounds; i++) value[set->bound[i]] = saved[i];
         return found;
     }
-    case ST_IMAGE:
-        for (arg = 0; arg < m->size[symbols[set->symbol].domain[0]] && !found; arg++)
-            found = model_cell(m, set->symbol, arg, 0) == t[0] && book_member(m, &arg, set->a, value);
+    case ST_IMAGE: case ST_PREIMAGE: {
+        /* f(x) è la cella di x; per un elemento di T^{S} (17v), la cella di
+         * (f, x) del simbolo di struttura. */
+        int map = set->items ? model_element(m, set->item[0], value) : -1, sort = symbols[set->symbol].domain[set->items];
+        if (set->kind == ST_PREIMAGE) {
+            arg = set->items ? model_cell(m, set->symbol, map, t[0]) : model_cell(m, set->symbol, t[0], 0);
+            return book_member(m, &arg, set->a, value);
+        }
+        for (arg = 0; arg < m->size[sort] && !found; arg++)
+            found = (set->items ? model_cell(m, set->symbol, map, arg) : model_cell(m, set->symbol, arg, 0)) == t[0] && book_member(m, &arg, set->a, value);
         return found;
-    case ST_PREIMAGE:
-        arg = model_cell(m, set->symbol, t[0], 0);
-        return book_member(m, &arg, set->a, value);
+    }
+    case ST_PART:
+        /* 17v. La cella di (t, X) dell'appartenenza. */
+        return model_cell(m, set->symbol, t[0], model_element(m, set->item[0], value));
+    case ST_TUPLES:
+        /* 17v. Uno dei membri dell'elenco, componente per componente. */
+        for (int k = 0; k < set->items && !found; k++) {
+            found = 1;
+            for (int i = 0; i < set->arity && found; i++) found = model_element(m, set->tuple[k * set->arity + i], value) == t[i];
+        }
+        return found;
+    case ST_REPLACE: {
+        /* 17v. Ogni valore delle lettere nuove, come un contachilometri: t
+         * sta nell'insieme se uno di loro rende vera la condizione e dà t,
+         * come elemento o come la parte con gli stessi elementi di a. */
+        for (int i = 0; i < set->bounds; i++) { saved[i] = value[set->bound[i]]; value[set->bound[i]] = 0; }
+        for (int more = 1; more && !found; ) {
+            if (++model_steps > MAX_MODEL_STEPS) break;
+            if (book_holds(m, set->condition, value)) {
+                if (set->items) {
+                    found = model_element(m, set->item[0], value) == t[0];
+                } else {
+                    found = 1;
+                    for (arg = 0; arg < m->size[sort_base[set->sort[0]]] && found; arg++)
+                        found = model_cell(m, set->symbol, arg, t[0]) == book_member(m, &arg, set->a, value);
+                }
+            }
+            more = 0;
+            for (int i = 0; i < set->bounds && !more; i++) {
+                if (++value[set->bound[i]] < m->size[slot_sort[set->bound[i]]]) more = 1; else value[set->bound[i]] = 0;
+            }
+        }
+        for (int i = 0; i < set->bounds; i++) value[set->bound[i]] = saved[i];
+        return found;
+    }
+    case ST_DESCRIBE: {
+        /* 17v. Ogni parte Z con gli stessi elementi dell'insieme a (nei
+         * modelli ce n'è una sola, 28m) dà t \in b. */
+        int z = set->bound[0], sort = slot_sort[z], result = 1;
+        saved[0] = value[z];
+        for (int x = 0; x < m->size[sort] && result; x++) {
+            int same = 1;
+            for (arg = 0; arg < m->size[sort_base[sort]] && same; arg++)
+                same = model_cell(m, sort_symbol[sort], arg, x) == book_member(m, &arg, set->a, value);
+            if (!same) continue;
+            value[z] = x;
+            result = book_member(m, t, set->b, value);
+        }
+        value[z] = saved[0];
+        return result;
+    }
+    case ST_POWERSET:
+        /* 17v. Ogni elemento della parte t sta in a. */
+        for (arg = 0; arg < m->size[sort_base[set->sort[0]]]; arg++)
+            if (model_cell(m, set->symbol, arg, t[0]) && !book_member(m, &arg, set->a, value)) return 0;
+        return 1;
     case ST_UNION:
         return book_member(m, t, set->a, value) || book_member(m, t, set->b, value);
     case ST_INTER:
@@ -23923,6 +24200,7 @@ static int book_member(const Model *m, const int *t, const SetTerm *set, int *va
         saved[0] = value[index];
         for (int i = 0; i < m->size[slot_sort[index]] && result == every; i++) {
             if (set->symbol >= 0 && !model_cell(m, set->symbol, i, 0)) continue;
+            if (set->b && !book_member(m, &i, set->b, value)) continue;
             value[index] = i;
             if (book_member(m, t, set->a, value) != every) result = !every;
         }
@@ -24003,6 +24281,7 @@ static int book_holds(const Model *m, const Sentence *s, int *value) {
  * *state: lo stesso seme dà gli stessi modelli, quindi lo stesso verdetto. */
 static void book_random_tables(Model *m, unsigned *state) {
     for (int s = 0; s < symbol_count; s++) {
+        if (symbol_fixed(s)) continue;
         int cells, values = model_cells(m, s, &cells);
         for (int c = 0; c < cells; c++) {
             *state ^= *state << 13;
@@ -24024,19 +24303,19 @@ static long long book_check(const Sentence *written, const Sentence *unfolded) {
     long long compared = 0;
     model_steps = 0;
     for (int i = 0; i < sort_count; i++) codes *= MAX_MODEL_SIZE;
-    for (int total = sort_count; sort_count && total <= sort_count * MAX_MODEL_SIZE; total++) {
+    for (int total = plain_sorts(); sort_count && total <= plain_sorts() * MAX_MODEL_SIZE; total++) {
         for (int code = 0; code < codes; code++) {
-            int sum = 0, rest = code;
-            for (int i = 0; i < sort_count; i++, rest /= MAX_MODEL_SIZE) sum += m.size[i] = 1 + rest % MAX_MODEL_SIZE;
-            if (sum != total) continue;
+            if (model_sizes(&m, code) != total) continue;
 
-            /* Tutte le tabelle se sono al più 256, altrimenti 256 a caso. */
+            /* Tutte le tabelle se sono al più 256, altrimenti 256 a caso.
+             * Quelle fissate dalla struttura (28m) non si scelgono. */
             double count = 1;
             for (int s = 0; s < symbol_count && count <= 256; s++) {
                 int cells, values = model_cells(&m, s, &cells);
-                for (int c = 0; c < cells && count <= 256; c++) count *= values;
+                for (int c = 0; c < cells && count <= 256 && !symbol_fixed(s); c++) count *= values;
             }
             memset(m.table, 0, sizeof m.table);
+            model_structure(&m);
             for (int tried = 0, more = 1; more; tried++) {
                 if (count > 256) book_random_tables(&m, &state);
                 int book = book_holds(&m, written, value), plain = model_holds(&m, unfolded, value);
@@ -24048,6 +24327,7 @@ static long long book_check(const Sentence *written, const Sentence *unfolded) {
                 more = 0;
                 if (count > 256) { more = tried + 1 < 256; continue; }
                 for (int s = 0; s < symbol_count && !more; s++) {
+                    if (symbol_fixed(s)) continue;
                     int cells, values = model_cells(&m, s, &cells);
                     for (int c = 0; c < cells && !more; c++) {
                         if (++m.table[s][c] < values) more = 1; else m.table[s][c] = 0;
@@ -24260,6 +24540,14 @@ static void put_ground(int id, int tight) {
     const Ground *g = &ground[id];
     if (g->symbol < 0) { proof_add("\\top"); return; }
     int name = symbols[g->symbol].name;
+    if (symbol_structure(g->symbol) >= 0) {
+        /* 17v. L'applicazione di un elemento di T^{S}, f(x). */
+        put_ground(g->arg[0], 1);
+        proof_add("\\left(");
+        put_ground(g->arg[1], 0);
+        proof_add("\\right)");
+        return;
+    }
     if (name >= OPERATION_NAMES && name < GREEK_NAMES) {
         if (tight) proof_add("\\left(");
         put_ground(g->arg[0], 1);
@@ -24282,7 +24570,7 @@ static void put_ground(int id, int tight) {
  * c'è. */
 static void put_slot(int slot) {
     proof_add("%c", slot_letter[slot]);
-    if (slot_index[slot]) proof_add("_{%d}", slot_index[slot]);
+    if (slot_index[slot]) proof_add("_{%d}", index_digits(slot_index[slot]));
 }
 
 /* Scrive l'elemento e, con gli elementi di value[] al posto delle variabili
@@ -24293,6 +24581,14 @@ static void put_elem(const Elem *e, const short *value, int tight) {
         return;
     }
     int name = symbols[e->symbol].name;
+    if (symbol_structure(e->symbol) >= 0) {
+        /* 17v. L'applicazione di un elemento di T^{S}, f(x). */
+        put_elem(e->arg[0], value, 1);
+        proof_add("\\left(");
+        put_elem(e->arg[1], value, 0);
+        proof_add("\\right)");
+        return;
+    }
     if (name >= OPERATION_NAMES && name < GREEK_NAMES) {
         if (tight) proof_add("\\left(");
         put_elem(e->arg[0], value, 1);
@@ -24340,6 +24636,24 @@ static void put_sentence(const Sentence *s, int negated, const short *value, int
             proof_add("}");
             return;
         }
+        if (symbol_structure(s->left->symbol) >= 0) {
+            /* 17v. L'appartenenza a un elemento di \mathcal{P}(S): t \in X. */
+            put_elem(s->left->arg[0], value, 0);
+            proof_add(negated ? " \\notin " : " \\in ");
+            put_elem(s->left->arg[1], value, 0);
+            return;
+        }
+        if (symbols[s->left->symbol].name >= RELATION_NAMES) {
+            /* 17v. Una relazione scritta con un comando: x \le y. */
+            if (negated) proof_add("\\lnot (");
+            put_elem(s->left->arg[0], value, 0);
+            proof_add(" ");
+            put_symbol(s->left->symbol);
+            proof_add(" ");
+            put_elem(s->left->arg[1], value, 0);
+            if (negated) proof_add(")");
+            return;
+        }
         if (s->left->arg[1]) proof_add("(");
         put_elem(s->left->arg[0], value, 0);
         if (s->left->arg[1]) { proof_add(", "); put_elem(s->left->arg[1], value, 0); proof_add(")"); }
@@ -24357,7 +24671,9 @@ static void put_sentence(const Sentence *s, int negated, const short *value, int
     case S_FORALL: case S_EXISTS:
         proof_add("%s\\%s ", negated ? "\\lnot " : "", s->kind == S_FORALL ? "forall" : "exists");
         put_slot(s->slot);
-        proof_add(" \\in %c\\ (", sort_name[slot_sort[s->slot]]);
+        proof_add(" \\in ");
+        put_sort(slot_sort[s->slot]);
+        proof_add("\\ (");
         put_sentence(s->a, 0, value, 0);
         proof_add(")");
         return;
@@ -24638,6 +24954,15 @@ static int truth(const Sentence *s, int negated, const short *value) {
 static int name_serial[MAX_SYMBOLS], name_known[MAX_SYMBOLS];
 static int names_given;
 
+/* 28n. Da quale legge delle parti viene una condizione nota (known_law()):
+ * da nessuna, dall'estensionalità o da una comprensione. */
+typedef enum { LAW_NONE, LAW_EXTENSIONALITY, LAW_COMPREHENSION } Law;
+static int known_law(int i);
+
+/* 28n. symbol_law[s] è 1 se il nome di posto s è nato da una legge delle
+ * parti: una parte data da una comprensione, o un elemento che distingue
+ * due parti. */
+static unsigned char symbol_law[MAX_SYMBOLS];
 /* Quanti simboli ha letto l'enunciato: gli altri sono nomi dati dalla
  * dimostrazione (28-2, e le parti di 28j). */
 static int declared_symbols;
@@ -24844,6 +25169,7 @@ static void known_open(int i) {
     while (symbol_find(name.name, name.index) >= 0) name.index++;
     if (symbol_count == MAX_SYMBOLS) { exhausted = 1; return; }
     symbols[symbol_count] = name;
+    symbol_law[symbol_count] = known_law(i) != LAW_NONE;
     name_serial[symbol_count] = ++names_given;
     name_known[symbol_count] = -1;
     memcpy(value, k->value, sizeof value);
@@ -24895,8 +25221,16 @@ static int settle(void) {
     clash_fact = clash_choice = -1;
     for (int changed = 1; changed && !exhausted; ) {
         changed = 0;
-        for (int i = 0; i < now->knowns && !exhausted; i++)
-            if (now->known[i].stage == K_NEW) { known_open(i); changed = 1; }
+        for (int i = 0; i < now->knowns && !exhausted; i++) {
+            if (now->known[i].stage != K_NEW) continue;
+            known_open(i);
+            changed = 1;
+
+            /* Il falso, una disgiunzione senza parti (lo svolgimento lo
+             * lascia, per esempio, per un'immagine dell'insieme vuoto): il
+             * ramo è chiuso. */
+            if (now->known[i].source->kind == S_TRUE && now->known[i].negated) { clash_choice = i; return 1; }
+        }
         closure();
 
         /* Una contraddizione: due elementi che si sanno diversi sono finiti
@@ -24921,7 +25255,7 @@ typedef struct {
     int known;             /* il suo posto in known[] */
     int slot[MAX_BOUND];   /* le variabili, dalla più esterna */
     int slots;
-    unsigned long long all;  /* le stesse, come bit: il bit i è la variabile di posto i */
+    SlotSet all;     /* le stesse, come bit: il bit i è la variabile di posto i */
     const Sentence *body;  /* la condizione che segue i "per ogni" */
     int negated;           /* il segno con cui è vera */
 } Rule;
@@ -24940,8 +25274,8 @@ static int instance_add(const Rule *rule, const short *value) {
 }
 
 /* Ritorna le variabili che compaiono nell'elemento e, come bit. */
-static unsigned long long elem_slots(const Elem *e) {
-    if (e->symbol < 0) return 1ull << e->slot;
+static SlotSet elem_slots(const Elem *e) {
+    if (e->symbol < 0) return SLOT_BIT(e->slot);
     return (e->arg[0] ? elem_slots(e->arg[0]) : 0) | (e->arg[1] ? elem_slots(e->arg[1]) : 0);
 }
 
@@ -25041,6 +25375,25 @@ static void instance_survey(const Sentence *s, const short *value, int *missing,
     if (s->b) instance_survey(s->b, value, missing, decided);
 }
 
+/* 28o. Con split_lookahead (le prove di ripiego) le istanze sugli elementi
+ * con un nome di un "per ogni" di due o più variabili, P_1 \implies P_2
+ * \implies ... \implies C, sono tante quante le coppie di nomi, e quasi
+ * tutte non servono. Si tengono quelle in cui nessuna premessa P_i si sa
+ * falsa (allora l'istanza è vera senza dire nulla) e al più una non si sa:
+ * le altre aspettano che se ne sappia di più. Ritorna 1 se l'istanza di
+ * rule con gli elementi di value[] è da tenere. */
+static int split_lookahead;
+static int instance_guarded(const Rule *rule, const short *value) {
+    int unknown = 0;
+    if (rule->negated) return 1;
+    for (const Sentence *s = rule->body; s->kind == S_IMPLIES; s = s->b) {
+        int known = truth(s->a, 0, value);
+        if (known == 0) return 0;
+        unknown += known < 0;
+    }
+    return unknown <= 1;
+}
+
 /* 28-3, le istanze per scelta degli elementi. Prova ogni scelta di un
  * elemento per ciascuna variabile di rule, uno per classe: con named = 1
  * tra i soli elementi con un nome, e le prende tutte; con named = 0 tra
@@ -25049,12 +25402,13 @@ static void instance_survey(const Sentence *s, const short *value, int *missing,
  * Ritorna quante istanze ha aggiunto. */
 static int instance_choices(const Rule *rule, int named) {
     static short candidate[MAX_BOUND][MAX_GROUND];
-    int candidates[MAX_BOUND], pick[MAX_BOUND] = {0}, made = 0;
+    int candidates[MAX_BOUND], pick[MAX_BOUND] = {0}, made = 0, law = known_law(rule->known);
     long long choices = 1;
     for (int j = 0; j < rule->slots && choices <= MAX_TUPLES; j++) {
         candidates[j] = 0;
         for (int id = 1; id < now->grounds; id++) {
             if (symbols[ground[id].symbol].range != slot_sort[rule->slot[j]] || (named && ground[id].arg[0] >= 0)) continue;
+            if (law == LAW_COMPREHENSION && symbol_law[ground[id].symbol]) continue;
             int fresh = 1;
             for (int c = 0; c < candidates[j] && fresh; c++) fresh = now->rep[candidate[j][c]] != now->rep[id];
             if (fresh) candidate[j][candidates[j]++] = (short)id;
@@ -25070,7 +25424,8 @@ static int instance_choices(const Rule *rule, int named) {
         memcpy(value, now->known[rule->known].value, sizeof value);
         for (int j = 0; j < rule->slots; j++) value[rule->slot[j]] = candidate[j][pick[j]];
         if (!named) instance_survey(rule->body, value, &missing, &decided);
-        if (named || (!missing && decided)) made += instance_add(rule, value);
+        int kept = !split_lookahead || rule->slots < 2 || instance_guarded(rule, value);
+        if (kept && (named || (!missing && decided))) made += instance_add(rule, value);
         more = 0;
         for (int j = 0; j < rule->slots && !more; j++) {
             if (++pick[j] < candidates[j]) more = 1; else pick[j] = 0;
@@ -25182,7 +25537,7 @@ static int instantiate(void) {
         Rule rule = {r, {0}, 0, 0, now->known[r].source, now->known[r].negated};
         while (rule.slots < MAX_BOUND && (rule.body->kind == S_FORALL || rule.body->kind == S_EXISTS) &&
                (rule.body->kind == S_FORALL) != rule.negated) {
-            rule.all |= 1ull << rule.body->slot;
+            rule.all |= SLOT_BIT(rule.body->slot);
             rule.slot[rule.slots++] = rule.body->slot;
             rule.body = rule.body->a;
         }
@@ -25190,11 +25545,15 @@ static int instantiate(void) {
             made += instance_definition(&rule) + instance_choices(&rule, 0);
             continue;
         }
-        made += instance_choices(&rule, 1);
-        made += instance_rewrite(&rule, rule.body);
-        made += instance_choices(&rule, 0);
-        int budget = MAX_FREE_TUPLES;
-        if (rule.slots == 1) made += instance_trigger(&rule, rule.body, &budget);
+
+        /* 28n. L'estensionalità solo dove un confronto è già deciso (X \neq
+         * Y noto), la comprensione solo sui nomi con cui si comincia: vedi
+         * "Quali istanze delle leggi" in testa a 28n. */
+        int law = known_law(r), budget = MAX_FREE_TUPLES;
+        if (law != LAW_EXTENSIONALITY) made += instance_choices(&rule, 1);
+        if (!law) made += instance_rewrite(&rule, rule.body);
+        if (law != LAW_COMPREHENSION) made += instance_choices(&rule, 0);
+        if (!law && rule.slots == 1) made += instance_trigger(&rule, rule.body, &budget);
     }
     return made;
 }
@@ -25520,11 +25879,112 @@ static void need_ground_names(int id) {
     for (int i = 0; i < 2 && g->arg[i] >= 0; i++) need_ground_names(g->arg[i]);
 }
 
+/* 28p. I CASI SCRITTI SONO TUTTI
+ *
+ * (Sta qui, accanto a leaf_write() che scrive i casi; la lettera è venuta
+ * dopo le altre.)
+ *
+ * Ogni passo scritto si ricontrolla da solo (28e): una catena di
+ * uguaglianze anello per anello, una deduzione con la sua tabella di verità,
+ * un caso con la disgiunzione da cui viene. Ma "per ogni passo" non basta a
+ * dire che la dimostrazione è completa: una distinzione di casi in cui un
+ * caso non è scritto ha tutti i passi giusti e non dimostra nulla. Il
+ * certificato non se ne accorge sempre, perché il verificatore ritrova da
+ * sé i casi che non chiedono istanze (11e di checker.c): l'esperimento di
+ * un motore bugiardo che non scriveva il caso già chiuso di 28o è passato
+ * senza che nessun test lo vedesse. Per questo, a dimostrazione finita, si
+ * controlla anche la forma dei casi.
+ *
+ * Di ogni ramo chiuso e scritto (una foglia) si annota il cammino: la
+ * successione dei casi in cui sta, ognuno come la disgiunzione da cui viene
+ * (il suo posto tra le cose note, uguale in tutti i rami che la ereditano) e
+ * la parte scelta. Le foglie coprono tutto se, partendo dal cammino vuoto,
+ * in ogni punto o c'è una foglia che si ferma lì (il ramo è chiuso senza
+ * altri casi), oppure tutte le foglie che proseguono distinguono la stessa
+ * disgiunzione, con le sue due parti, e da ognuna le foglie coprono tutto a
+ * loro volta. È la regola della dimostrazione per casi: da "A oppure B", da
+ * A una contraddizione e da B una contraddizione, segue la contraddizione;
+ * la disgiunzione è tra le righe del caso (la sua riga "there are two
+ * cases" la cita), ed è ricontrollata come le altre. Se la copertura manca
+ * il programma ha sbagliato: unjustified_steps lo conta, e l'affermazione
+ * non è dimostrata. */
+
+/* Un passo del cammino di una foglia: la disgiunzione di posto parent tra
+ * le cose note, e la parte scelta, come il primo caso che ne viene (source
+ * con il segno negated; per un "se e solo se" il primo lato). */
+typedef struct {
+    short parent;
+    const Sentence *source;
+    signed char negated;
+} CaseStep;
+
+/* Il cammino di una foglia scritta: i suoi casi, dal più esterno. */
+typedef struct {
+    CaseStep step[MAX_CASE_STEPS];
+    int steps;
+} CasePath;
+
+/* I cammini delle foglie scritte per l'affermazione in corso; 1 in
+ * case_overflow se una non ci stava, e allora la copertura non si può dire. */
+static CasePath case_path[MAX_CASE_LEAVES];
+static int case_paths, case_overflow;
+
+/* Annota il cammino del ramo corrente, appena chiuso e scritto. */
+static void case_path_record(void) {
+    if (case_paths == MAX_CASE_LEAVES) { case_overflow = 1; return; }
+    CasePath *p = &case_path[case_paths++];
+    p->steps = 0;
+    for (int i = 0; i < now->knowns; i++) {
+        const Known *k = &now->known[i];
+        int first = k->origin == K_CASE;
+        for (int j = 0; j < p->steps && first; j++) first = p->step[j].parent != k->parent;
+        if (!first) continue;
+        if (p->steps == MAX_CASE_STEPS) { case_overflow = 1; return; }
+        p->step[p->steps++] = (CaseStep){k->parent, k->source, k->negated};
+    }
+}
+
+/* Ritorna 1 se due passi scelgono la stessa parte della stessa
+ * disgiunzione. */
+static int case_step_same(const CaseStep *a, const CaseStep *b) {
+    return a->parent == b->parent && a->source == b->source && a->negated == b->negated;
+}
+
+/* Ritorna 1 se le foglie di posto leaf[0..count), che hanno i primi depth
+ * passi uguali, coprono tutti i casi da lì in giù (vedi la testa del
+ * paragrafo). */
+static int case_paths_cover(const CasePath *paths, const int *leaf, int count, int depth) {
+    int side[MAX_CASE_LEAVES], sides = 0, other[MAX_CASE_LEAVES], others = 0;
+    if (count == 0) return 0;
+    for (int i = 0; i < count; i++)
+        if (paths[leaf[i]].steps == depth) return 1;
+
+    /* Tutte proseguono: la stessa disgiunzione, divisa nelle sue due parti. */
+    const CaseStep *first = &paths[leaf[0]].step[depth];
+    for (int i = 0; i < count; i++) {
+        const CaseStep *s = &paths[leaf[i]].step[depth];
+        if (s->parent != first->parent) return 0;
+        if (case_step_same(s, first)) side[sides++] = leaf[i];
+        else if (!others || case_step_same(s, &paths[other[0]].step[depth])) other[others++] = leaf[i];
+        else return 0;
+    }
+    return others > 0 && case_paths_cover(paths, side, sides, depth + 1) && case_paths_cover(paths, other, others, depth + 1);
+}
+
+/* Ritorna 1 se le foglie scritte per l'affermazione in corso coprono tutti
+ * i loro casi. */
+static int case_paths_complete(void) {
+    int leaf[MAX_CASE_LEAVES];
+    for (int i = 0; i < case_paths; i++) leaf[i] = i;
+    return !case_overflow && case_paths_cover(case_path, leaf, case_paths, 0);
+}
+
 /* Scrive la dimostrazione del ramo che si è appena chiuso: le sole
  * condizioni note che servono alla contraddizione, una per riga, e la
  * contraddizione. `leaf` è il numero del caso, 0 se non ci sono casi.
  * Ritorna 1 se ogni passo scritto ha superato il suo controllo; se ritorna
- * 0 il testo scritto va cancellato da chi chiama. */
+ * 0 il testo scritto va cancellato da chi chiama. Annota il cammino dei
+ * casi della foglia (28p). */
 static int leaf_write(int leaf) {
     static Deduction d;
     static Reason reason;
@@ -25609,8 +26069,10 @@ static int leaf_write(int leaf) {
             int some = q->kind == S_EXISTS || q->kind == S_EXISTS_PART, part = part_quantifier(q);
             proof_add("By ");
             put_label(k->parent);
-            if (some) proof_add(" there is such %s of $%c$; call it $", part ? "a part" : "an element", sort_name[part ? symbols[q->part].domain[0] : slot_sort[q->slot]]);
-            else proof_add(" some %s of $%c$ makes it fail; call it $", part ? "part" : "element", sort_name[part ? symbols[q->part].domain[0] : slot_sort[q->slot]]);
+            if (some) proof_add(" there is such %s of $", part ? "a part" : "an element");
+            else proof_add(" some %s of $", part ? "part" : "element");
+            put_sort(part ? symbols[q->part].domain[0] : slot_sort[q->slot]);
+            proof_add(some ? "$; call it $" : "$ makes it fail; call it $");
             if (part) put_symbol(k->part[0]); else put_ground(k->value[q->slot], 0);
             proof_add("$. For it");
         } else if (k->origin == K_DEFINED) {
@@ -25667,6 +26129,7 @@ static int leaf_write(int leaf) {
         }
     }
     proof_add(".\n\\end{enumerate}\n");
+    if (!exhausted) case_path_record();
     return !exhausted;
 }
 
@@ -25696,14 +26159,36 @@ static int leaf_write(int leaf) {
  * già nel certificato dell'affermazione in corso. */
 static unsigned char name_written[MAX_NAMES_GIVEN + 1];
 
-/* Scrive nel certificato il nome del simbolo di posto symbol. */
+/* Scrive nel certificato il nome dell'insieme di posto sort: la lettera,
+ * oppure (17v) P seguito dal nome di S per \mathcal{P}(S), M seguito dai
+ * nomi di S e di T per T^{S}. Le lettere degli insiemi sono maiuscole
+ * singole, quindi un nome di più lettere non è mai quello di un insieme
+ * qualsiasi, e la scrittura si rilegge in un modo solo. */
+static void cert_sort(int sort) {
+    if (sort_kind[sort] == SORT_PLAIN) { cert_add("%c", sort_name[sort]); return; }
+    if (sort_kind[sort] == SORT_NUMBERS) { cert_add("Num"); return; }
+    cert_add(sort_kind[sort] == SORT_PARTS ? "P" : "M");
+    cert_sort(sort_base[sort]);
+    if (sort_kind[sort] == SORT_MAPS) cert_sort(sort_target[sort]);
+}
+
+/* Scrive nel certificato il nome del simbolo di posto symbol. Un simbolo
+ * di struttura (17v) si chiama in o ap seguito dal nome del suo insieme. */
 static void cert_symbol(int symbol) {
     const Symbol *s = &symbols[symbol];
+    if (symbol_structure(symbol) >= 0) {
+        cert_add(sort_kind[symbol_structure(symbol)] == SORT_PARTS ? "in" : "ap");
+        cert_sort(symbol_structure(symbol));
+        return;
+    }
+    if (s->name >= NUMERAL_NAMES) { cert_add("n%d", s->name - NUMERAL_NAMES); return; }
     if (symbol >= declared_symbols) { cert_add("%c_%d", s->name, name_serial[symbol]); return; }
-    if (s->name >= GREEK_NAMES) cert_add("%s", greek_letters[s->name - GREEK_NAMES]);
+    if (s->name >= RELATION_NAMES) cert_add("%s", relation_commands[s->name - RELATION_NAMES]);
+    else if (s->name >= GREEK_NAMES) cert_add("%s", greek_letters[s->name - GREEK_NAMES]);
     else if (s->name >= OPERATION_NAMES) cert_add("%s", operation_symbols[s->name - OPERATION_NAMES]);
     else cert_add("%c", s->name);
-    if (s->index) cert_add("%d", s->index);
+    if (s->index >= LETTER_INDEX) cert_add("%c", s->index - LETTER_INDEX);
+    else if (s->index) cert_add("%d", index_digits(s->index));
 }
 
 /* Scrive nel certificato l'elemento di posto id: (f a), o il nome. */
@@ -25722,7 +26207,7 @@ static void cert_ground(int id) {
  * un simbolo in vista, e i nomi dati da 28-2 hanno il trattino basso. */
 static void cert_slot(int slot) {
     cert_add("%c", slot_letter[slot]);
-    if (slot_index[slot]) cert_add("%d", slot_index[slot]);
+    if (slot_index[slot]) cert_add("%d", index_digits(slot_index[slot]));
 }
 
 /* Scrive nel certificato l'elemento e, con gli elementi di value[] al posto
@@ -25761,7 +26246,9 @@ static void cert_sentence(const Sentence *s, const short *value) {
     case S_FORALL: case S_EXISTS:
         cert_add("(%s ", s->kind == S_FORALL ? "forall" : "exists");
         cert_slot(s->slot);
-        cert_add(" %c ", sort_name[slot_sort[s->slot]]);
+        cert_add(" ");
+        cert_sort(slot_sort[s->slot]);
+        cert_add(" ");
         cert_sentence(s->a, value);
         cert_add(")");
         return;
@@ -25798,16 +26285,35 @@ static void cert_abstract_head(const char *kind, const Sentence *root, const Mod
     certificate_broken = 0;
     cert_add("certificate %s\n", kind);
     for (int i = 0; i < sort_count; i++) {
-        cert_add("sort %c", sort_name[i]);
-        if (m) cert_add(" %d", m->size[i]);
+        /* 17v. Un insieme di parti o di applicazioni dice di che cosa è
+         * fatto, e il nome del suo simbolo di struttura: la grandezza e la
+         * tabella il verificatore le calcola da sé. */
+        cert_add("sort ");
+        cert_sort(i);
+        if (sort_kind[i] == SORT_NUMBERS) {
+            /* 17v. I numeri scritti, nel loro ordine (numeral_position()). */
+            cert_add(" numbers");
+            for (int s = 0; s < declared_symbols; s++)
+                if (symbols[s].name >= NUMERAL_NAMES && symbols[s].range == i) { cert_add(" "); cert_symbol(s); }
+        } else if (sort_kind[i] != SORT_PLAIN) {
+            cert_add(sort_kind[i] == SORT_PARTS ? " parts " : " maps ");
+            cert_sort(sort_base[i]);
+            if (sort_kind[i] == SORT_MAPS) { cert_add(" "); cert_sort(sort_target[i]); }
+            cert_add(" ");
+            cert_symbol(sort_symbol[i]);
+        } else if (m) {
+            cert_add(" %d", m->size[i]);
+        }
         cert_add("\n");
     }
     for (int s = 0; s < declared_symbols; s++) {
-        if (symbol_bound[s]) continue;  /* una parte legata (17u) non è dichiarata */
+        if (symbol_fixed(s) || symbol_bound[s]) continue;  /* fissato da 17v, o una parte legata (17u): non è dichiarato */
         cert_add("symbol ");
         cert_symbol(s);
-        for (int i = 0; i < symbols[s].arity; i++) cert_add(" %c", sort_name[symbols[s].domain[i]]);
-        if (symbols[s].range == TRUTH) cert_add(" bool\n"); else cert_add(" %c\n", sort_name[symbols[s].range]);
+        for (int i = 0; i < symbols[s].arity; i++) { cert_add(" "); cert_sort(symbols[s].domain[i]); }
+        if (symbols[s].range == TRUTH) cert_add(" bool");
+        else { cert_add(" "); cert_sort(symbols[s].range); }
+        cert_add("\n");
     }
     cert_add("statement ");
     cert_sentence(root, nothing);
@@ -25942,11 +26448,257 @@ static Verdict abstract_certified(Verdict verdict, int required) {
     return verdict;
 }
 
+/* 28n. LE LEGGI DELLE PARTI E DELLE APPLICAZIONI
+ *
+ * Un enunciato che prende \mathcal{P}(S) o T^{S} come insieme di oggetti
+ * (17v) usa ciò che una parte e un'applicazione sono, e che le ipotesi non
+ * dicono: due parti con gli stessi elementi sono la stessa parte, e ogni
+ * condizione dà la parte degli elementi che la soddisfano. Le dimostrazioni
+ * dei libri lo usano senza dirlo ("sia Y = S \setminus \{x\}"); qui sono
+ * delle condizioni in più, gli assiomi, scritte come ogni altra e aggiunte
+ * alle ipotesi. Sono vere per le parti e le applicazioni vere, e sono le
+ * uniche cose che le distinguono da un insieme qualsiasi:
+ *
+ *   28n-1. Estensionalità delle parti. \forall X, Y \in \mathcal{P}(S)\
+ *          ((\forall t \in S\ (t \in X \iff t \in Y)) \implies X = Y): una
+ *          parte è l'insieme dei suoi elementi, e niente altro.
+ *   28n-2. Estensionalità delle applicazioni. \forall f, g \in T^{S}\
+ *          ((\forall x \in S\ (f(x) = g(x))) \implies f = g): un'applicazione
+ *          è la tabella dei suoi valori.
+ *   28n-3. Comprensione. Per una condizione P(t), con t in S e dei
+ *          parametri: per ogni scelta dei parametri esiste Z \in
+ *          \mathcal{P}(S) con \forall t \in S\ (t \in Z \iff P(t)). È la
+ *          parte \{t \in S \mid P(t)\}, che esiste per qualunque P: è un
+ *          sottoinsieme di S, e \mathcal{P}(S) li contiene tutti.
+ *
+ * Quali comprensioni. Le condizioni P sono infinite, e la ricerca ne prova
+ * poche: la parte vuota (P falsa), tutto S (P vera) e le parti di un solo
+ * elemento, \{a\} (P è t = a, con a parametro). Sono le parti di cui
+ * parlano le dimostrazioni a mano di questi enunciati: "S stesso non è
+ * un'immagine", "\{a\} e S contengono tutti e due a". Non è una ricerca
+ * completa, e non deve esserlo: come per le istanze (28-3), non trovare una
+ * dimostrazione vuol dire NON DIMOSTRATO.
+ *
+ * Il verificatore non si fida: riceve gli assiomi nel certificato, una voce
+ * axiom per ognuno, e controlla da sé che ognuno abbia la forma di 28n-1,
+ * 28n-2 o 28n-3, su un insieme di parti o di applicazioni dichiarato (11h in
+ * checker.c). Un assioma di forma diversa è respinto: non si può far
+ * passare un'ipotesi in più per una legge. I modelli finiti (28a, 28m)
+ * hanno le parti e le applicazioni vere, dove gli assiomi valgono: un
+ * controesempio trovato lì è un controesempio vero. */
+
+/* Gli assiomi dell'enunciato in corso, aggiunti alle sue ipotesi, e la
+ * legge di cui ognuno è un caso. */
+static const Sentence *axioms[MAX_AXIOMS];
+static Law axiom_law[MAX_AXIOMS];
+static int axiom_count;
+
+/* Ritorna la legge da cui viene la condizione nota di posto i: quella
+ * dell'assioma, se è un assioma o una sua istanza; LAW_NONE altrimenti. */
+static int known_law(int i) {
+    const Known *k = &now->known[i];
+    if (k->origin == K_INSTANCE || k->origin == K_PART) return known_law(k->parent);
+    if (k->origin != K_GIVEN) return LAW_NONE;
+    for (int a = 0; a < axiom_count; a++)
+        if (axioms[a] == k->source) return axiom_law[a];
+    return LAW_NONE;
+}
+
+/* Ritorna una variabile nuova dell'insieme sort, come elemento, e mette il
+ * suo posto in *slot. */
+static Elem *axiom_variable(int sort, int *slot) {
+    *slot = unfold_slot(sort);
+    return elem_new(-1, *slot, NULL, NULL);
+}
+
+/* Ritorna il quantificatore kind sulla variabile di posto slot davanti a
+ * body. I nodi degli assiomi non hanno testo nell'enunciato: start ed end
+ * sono vuoti, e non si stampano mai come testo. */
+static Sentence *axiom_bind(SentenceKind kind, int slot, Sentence *body) {
+    Sentence *s = sentence_new(kind, body, NULL, "");
+    s->end = s->start;
+    s->slot = slot;
+    return s;
+}
+
+/* Ritorna la condizione kind tra gli elementi left e right: un'uguaglianza
+ * (S_EQUAL), o l'appartenenza (S_HOLDS) del simbolo symbol applicato a
+ * left e right. */
+static Sentence *axiom_atom(SentenceKind kind, int symbol, Elem *left, Elem *right) {
+    Sentence *s = sentence_new(kind, NULL, NULL, "");
+    s->end = s->start;
+    s->left = kind == S_HOLDS ? elem_new(symbol, 0, left, right) : left;
+    s->right = kind == S_HOLDS ? NULL : right;
+    return s;
+}
+
+/* Ritorna il connettivo kind tra a e b, senza semplificare nulla: la forma
+ * è quella che il verificatore riconosce. */
+static Sentence *axiom_join(SentenceKind kind, Sentence *a, Sentence *b) {
+    Sentence *s = sentence_new(kind, a, b, "");
+    s->end = s->start;
+    return s;
+}
+
+/* Aggiunge l'assioma a, caso della legge law, se c'è posto; altrimenti lo
+ * lascia fuori, e la ricerca ha una legge in meno. */
+static void axiom_add(const Sentence *a, Law law) {
+    if (axiom_count == MAX_AXIOMS || syntax_error) return;
+    axiom_law[axiom_count] = law;
+    axioms[axiom_count++] = a;
+}
+
+/* 28n-1 e 28n-2. L'estensionalità dell'insieme di posto sort, di parti o
+ * di applicazioni. */
+static void axiom_extensionality(int sort) {
+    int x, y, t, symbol = sort_symbol[sort];
+    Elem *a = axiom_variable(sort, &x), *b = axiom_variable(sort, &y), *point = axiom_variable(sort_base[sort], &t);
+    Sentence *same = sort_kind[sort] == SORT_PARTS
+                         ? axiom_join(S_IFF, axiom_atom(S_HOLDS, symbol, point, a), axiom_atom(S_HOLDS, symbol, point, b))
+                         : axiom_atom(S_EQUAL, -1, elem_new(symbol, 0, a, point), elem_new(symbol, 0, b, point));
+    Sentence *law = axiom_join(S_IMPLIES, axiom_bind(S_FORALL, t, same), axiom_atom(S_EQUAL, -1, a, b));
+    axiom_add(axiom_bind(S_FORALL, x, axiom_bind(S_FORALL, y, law)), LAW_EXTENSIONALITY);
+}
+
+/* 28n-3. La comprensione della parte \{t \in S \mid P(t)\} di
+ * \mathcal{P}(S), insieme di posto sort: kind 0 per la parte vuota (P
+ * falsa), 1 per tutto S (P vera), 2 per \{a\} (P è t = a, con a
+ * parametro). */
+static void axiom_part(int sort, int kind) {
+    int z, t, a = -1, symbol = sort_symbol[sort];
+    Elem *part = axiom_variable(sort, &z), *point = axiom_variable(sort_base[sort], &t);
+    Sentence *condition = axiom_join(S_TRUE, NULL, NULL);
+    if (kind == 0) condition = axiom_join(S_NOT, condition, NULL);
+    if (kind == 2) condition = axiom_atom(S_EQUAL, -1, point, axiom_variable(sort_base[sort], &a));
+    Sentence *law = axiom_bind(S_EXISTS, z, axiom_bind(S_FORALL, t, axiom_join(S_IFF, axiom_atom(S_HOLDS, symbol, point, part), condition)));
+    axiom_add(kind == 2 ? axiom_bind(S_FORALL, a, law) : law, LAW_COMPREHENSION);
+}
+
+static void sentence_free(const Sentence *s, SlotSet bound, SlotSet *free);
+
+/* Aggiunge a *free, come bit, le variabili dell'elemento e che non sono in
+ * bound, cioè non legate dentro l'insieme di cui e fa parte. */
+static void elem_free(const Elem *e, SlotSet bound, SlotSet *free) {
+    if (!e) return;
+    if (e->symbol < 0) { if (!(bound >> e->slot & 1)) *free |= SLOT_BIT(e->slot); return; }
+    elem_free(e->arg[0], bound, free);
+    elem_free(e->arg[1], bound, free);
+}
+
+/* Come elem_free(), per un insieme scritto come nei libri: le lettere di
+ * una regola, l'indice di un'unione e la parte di una descrizione sono
+ * legate dentro di lui. */
+static void set_term_free(const SetTerm *t, SlotSet bound, SlotSet *free) {
+    if (!t) return;
+    for (int i = 0; i < t->bounds; i++) bound |= SLOT_BIT(t->bound[i]);
+    for (int i = 0; i < t->items; i++) elem_free(t->item[i], bound, free);
+    set_term_free(t->a, bound, free);
+    set_term_free(t->b, bound, free);
+    if (t->condition) sentence_free(t->condition, bound, free);
+}
+
+/* Come elem_free(), per una condizione. */
+static void sentence_free(const Sentence *s, SlotSet bound, SlotSet *free) {
+    if (!s) return;
+    if (s->kind == S_FORALL || s->kind == S_EXISTS || s->kind == S_UNIQUE) bound |= SLOT_BIT(s->slot);
+    elem_free(s->left, bound, free);
+    elem_free(s->right, bound, free);
+    for (int i = 0; i < s->items; i++) elem_free(s->item[i], bound, free);
+    set_term_free(s->set, bound, free);
+    set_term_free(s->other, bound, free);
+    sentence_free(s->a, bound, free);
+    sentence_free(s->b, bound, free);
+}
+
+/* 28n-3. La comprensione dell'insieme e, che l'enunciato scrive come una
+ * parte (part_template[] in 17v): per ogni valore delle sue lettere libere,
+ * esiste la parte Z con \forall t\ (t \in Z \iff t \in e). La condizione
+ * t \in e è svolta come in 17q, con lettere nuove al posto di quelle
+ * libere, così l'assioma non condivide variabili con l'enunciato. */
+static void axiom_template(const SetTerm *e) {
+    int sort = sort_derived_find(SORT_PARTS, e->sort[0], -1), z, t, slot[MAX_SLOTS], count = 0;
+    SlotSet free = 0;
+    if (sort < 0) return;
+    set_term_free(e, 0, &free);
+    for (int v = 0; v < MAX_SLOTS; v++)
+        if (free >> v & 1) { unfold_to[v] = axiom_variable(slot_sort[v], &slot[count]); count++; }
+    Elem *part = axiom_variable(sort, &z), *point = axiom_variable(e->sort[0], &t);
+    Sentence *from = axiom_join(S_TRUE, NULL, NULL);
+    unfold_copying++;
+    Sentence *condition = unfold_member(&point, e, from);
+    unfold_copying--;
+    memset(unfold_to, 0, sizeof unfold_to);
+    Sentence *law = axiom_bind(S_EXISTS, z, axiom_bind(S_FORALL, t, axiom_join(S_IFF, axiom_atom(S_HOLDS, sort_symbol[sort], point, part), condition)));
+    while (count > 0) law = axiom_bind(S_FORALL, slot[--count], law);
+    axiom_add(law, LAW_COMPREHENSION);
+}
+
+/* Prepara gli assiomi dell'enunciato in corso: per ogni insieme di parti
+ * l'estensionalità e le comprensioni descritte in testa al paragrafo, per
+ * ogni insieme di applicazioni l'estensionalità; poi le comprensioni degli
+ * insiemi che l'enunciato scrive come parti, tranne quelli che le prime già
+ * danno (\emptyset, tutto S). Usa posti nuovi per le variabili, dopo quelli
+ * dello svolgimento. */
+static void axioms_prepare(void) {
+    axiom_count = 0;
+    for (int i = 0; i < sort_count; i++)
+        if (sort_kind[i] != SORT_PLAIN) axiom_extensionality(i);
+    for (int i = 0; i < sort_count; i++)
+        for (int kind = 0; kind < 3 && sort_kind[i] == SORT_PARTS; kind++) axiom_part(i, kind);
+    for (int i = 0; i < part_template_count; i++)
+        if (part_template[i]->kind != ST_EMPTY && part_template[i]->kind != ST_SORT) axiom_template(part_template[i]);
+}
+
+/* Quanti dei primi assiomi sono estensionalità: axioms_prepare() le mette
+ * prima delle comprensioni. */
+static int axioms_extensional(void) {
+    int count = 0;
+    while (count < axiom_count && axiom_law[count] == LAW_EXTENSIONALITY) count++;
+    return count;
+}
+
+/* Scrive nel certificato una voce axiom per ogni assioma (28f, 11h in
+ * checker.c). */
+static void cert_axioms(void) {
+    short nothing[MAX_SLOTS];
+    memset(nothing, -1, sizeof nothing);
+    for (int i = 0; i < axiom_count; i++) {
+        cert_add("axiom ");
+        cert_sentence(axioms[i], nothing);
+        cert_add("\n");
+    }
+}
+
 /* 28g. I RAMI, LE AFFERMAZIONI, IL VERDETTO */
 
 /* Quanti rami sono stati chiusi finora nella dimostrazione in corso: serve
  * a numerare i casi. */
 static int leaves_closed;
+
+/* Quanti giri di istanze (28-3) un ramo fa prima di distinguere dei casi
+ * (28-5): MAX_ROUNDS, o di meno nelle prove di 28n. */
+static int rounds_before_split = MAX_ROUNDS;
+
+/* Copia nel ramo di profondità depth + 1 quello di profondità depth, con
+ * i suoi elementi e i suoi nomi, e ci si sposta. Delle tabelle si copia
+ * solo la parte in uso: il resto non vale nulla. */
+static void branch_copy(int depth) {
+    const Branch *from = &branch[depth];
+    Branch *to = &branch[depth + 1];
+    branch[depth].symbols = symbol_count;
+    memcpy(to->known, from->known, sizeof *from->known * (size_t)from->knowns);
+    memcpy(to->rep, from->rep, sizeof *from->rep * (size_t)from->grounds);
+    memcpy(to->up, from->up, sizeof *from->up * (size_t)from->grounds);
+    memcpy(to->why, from->why, sizeof *from->why * (size_t)from->grounds);
+    memcpy(to->different, from->different, sizeof *from->different * (size_t)from->differents);
+    to->knowns = from->knowns;
+    to->differents = from->differents;
+    to->grounds = from->grounds;
+    to->symbols = from->symbols;
+    to->clock = from->clock;
+    now = to;
+    ground_reindex();
+}
 
 /* 28k. QUALI PARTI PROVARE
  *
@@ -26183,13 +26935,13 @@ static int part_limit;
  * già scritte, i simboli. */
 typedef struct {
     size_t proof, certificate, arena;
-    int leaves, names, broken, symbols;
+    int leaves, names, broken, symbols, cases;  /* cases (28p): i cammini delle foglie scritte */
     unsigned char written[MAX_NAMES_GIVEN + 1];
 } SearchMark;
 
 /* Annota in *mark il punto in cui si trova la ricerca. */
 static void search_mark(SearchMark *mark) {
-    *mark = (SearchMark){proof_length, certificate_length, arena_used, leaves_closed, names_given, certificate_broken, symbol_count, {0}};
+    *mark = (SearchMark){proof_length, certificate_length, arena_used, leaves_closed, names_given, certificate_broken, symbol_count, case_paths, {0}};
     memcpy(mark->written, name_written, sizeof name_written);
 }
 
@@ -26204,6 +26956,7 @@ static void search_back(const SearchMark *mark, int depth) {
     arena_used = mark->arena;
     leaves_closed = mark->leaves;
     names_given = mark->names;
+    case_paths = mark->cases;
     memcpy(name_written, mark->written, sizeof name_written);
     symbol_count = mark->symbols;
     now = &branch[depth];
@@ -26245,10 +26998,7 @@ static int part_choose(int depth, int splits, int choices) {
             /* La copia del ramo, con le definizioni delle parti scelte e
              * l'istanza, se non c'è già. */
             int fresh = 1;
-            here->symbols = symbol_count;
-            branch[depth + 1] = *here;
-            now = &branch[depth + 1];
-            ground_reindex();
+            branch_copy(depth);
             for (int j = 0; j < parts && fresh; j++) {
                 const PartCandidate *c = &candidate[choices][j][pick[j]];
                 chosen[j] = (short)(c->kind == P_SYMBOL ? c->part : part_define(c, symbols[bound[j]].name));
@@ -26277,16 +27027,11 @@ static int part_choose(int depth, int splits, int choices) {
     return 0;
 }
 
-/* 28-5. Fa del ramo di profondità depth + 1 una copia di quello di
- * profondità depth, con in più il caso side (0 o 1) della disgiunzione in
- * attesa di posto open, e lo rende il ramo corrente. */
-static void case_open(int depth, int open, int side) {
-    Parts parts;
-    branch[depth].symbols = symbol_count;
-    branch[depth + 1] = branch[depth];
-    now = &branch[depth + 1];
-    ground_reindex();
+/* 28-5. Aggiunge alle cose note del ramo in corso il caso side della
+ * disgiunzione in attesa di posto open, che non resta più in attesa. */
+static void case_continue(int open, int side) {
     Known *k = &now->known[open];
+    Parts parts;
     k->stage = K_DONE;
     if (k->source->kind == S_IFF) {
         /* "A se e solo se B": o tutte e due vere, o tutte e due false; se è
@@ -26296,6 +27041,61 @@ static void case_open(int depth, int open, int side) {
     } else if (sentence_parts(k->source, k->negated, &parts)) {
         known_add(side ? parts.y : parts.x, side ? parts.ny : parts.nx, k->value, K_CASE, open);
     }
+}
+
+/* 28-5. Apre il caso side della disgiunzione in attesa di posto open: una
+ * copia del ramo di profondità depth (branch_copy()), con quel caso in più
+ * tra le cose note. */
+static void case_open(int depth, int open, int side) {
+    branch_copy(depth);
+    case_continue(open, side);
+}
+
+/* 28o. LA SCELTA DEL CASO
+ *
+ * (Sta qui, accanto a 28-5 che serve; la lettera è venuta dopo le altre.)
+ *
+ * 28-5 distingue i casi della prima disgiunzione in attesa, dopo
+ * MAX_ROUNDS giri di istanze. Con le parti e le applicazioni come oggetti
+ * le istanze crescono in fretta (un elemento dà una parte che lo contiene,
+ * la parte un elemento che contiene, e così via), e le tabelle si riempiono
+ * prima della fine dei giri; e le disgiunzioni in attesa sono decine, con la
+ * prima che spesso non serve. Con split_lookahead acceso, dopo ogni giro si
+ * guarda avanti: per le disgiunzioni in attesa più recenti (al più
+ * MAX_LOOKAHEAD) si apre ognuno dei due casi e si vede se si chiude da solo,
+ * con ciò che segue senza istanze (settle()). Se una ha un caso che si
+ * chiude, si distinguono subito i suoi casi, preferendo quella con tutti e
+ * due chiusi; altrimenti si va avanti come prima. È la regola del
+ * "letterale che fallisce" dei dimostratori: un caso che si chiude subito
+ * costa una riga, e l'altro sa una cosa in più. Le prove non lasciano nulla:
+ * i casi aperti sono copie, e i nomi dati lì si tolgono. Cambia solo
+ * l'ordine della ricerca, non ciò che una dimostrazione trovata dice: ogni
+ * suo passo è ricontrollato come sempre (28e). Le stesse prove scelgono le
+ * istanze con più cura (instance_guarded(), in 28-3, dove split_lookahead è
+ * dichiarata). */
+
+/* Ritorna la disgiunzione in attesa del ramo di profondità depth con un
+ * caso che si chiude da solo, scelta come in testa al paragrafo, o -1; in
+ * *closing mette quale caso si chiude, 0 o 1, oppure 2 se si chiudono tutti
+ * e due. */
+static int split_choice(int depth, int *closing) {
+    int best = -1, probes = 0, saved = exhausted;
+    for (int i = branch[depth].knowns - 1; i >= 0 && probes < MAX_LOOKAHEAD; i--) {
+        if (branch[depth].known[i].stage != K_WAITING) continue;
+        int closed[2];
+        probes++;
+        for (int side = 0; side < 2; side++) {
+            case_open(depth, i, side);
+            closed[side] = settle() && !exhausted;
+            exhausted = saved;
+            symbol_count = branch[depth].symbols;
+        }
+        if (closed[0] && closed[1]) { best = i; *closing = 2; break; }
+        if ((closed[0] || closed[1]) && best < 0) { best = i; *closing = closed[1]; }
+    }
+    now = &branch[depth];
+    ground_reindex();
+    return best;
 }
 
 /* 28l. Il valore di splits con cui refute() fa solo i suoi giri di istanze,
@@ -26338,12 +27138,19 @@ static int cheap_split(int depth, int splits, int choices) {
  * sopra di lui; con splits uguale a PROBE fa solo i giri di istanze (28l).
  *
  * Prima ciò che segue senza scelte e le istanze, per un numero fisso di
- * giri. Se non basta, una disgiunzione con un caso che si chiude subito
- * (28l), che non conta tra le distinzioni di casi; poi una scelta di parti
- * (28k); poi 28-5: la prima disgiunzione in attesa dà due casi, ognuno una
- * copia del ramo con una parte in più tra le cose note, e devono chiudersi
- * tutti e due. */
+ * giri (rounds_before_split). Se non basta, una disgiunzione con un caso che
+ * si chiude subito (28l), che non conta tra le distinzioni di casi; poi una
+ * scelta di parti (28k); poi 28-5: la prima disgiunzione in attesa dà due
+ * casi, ognuno una copia del ramo con una parte in più tra le cose note, e
+ * devono chiudersi tutti e due.
+ *
+ * 28o. Con split_lookahead, dopo ogni giro: se una disgiunzione ha i due
+ * casi che si chiudono con ciò che segue senza istanze, si distinguono, e
+ * il ramo è chiuso senza contarla tra le distinzioni; se ne ha uno, quello
+ * si scrive subito, chiuso, e il ramo va avanti con l'altro caso tra le
+ * cose note, senza scendere di profondità. */
 static int refute(int depth, int splits, int choices) {
+    int open = -1, closing = 0;
     now = &branch[depth];
     for (int round = 0; !exhausted; round++) {
         if (settle()) {
@@ -26353,19 +27160,36 @@ static int refute(int depth, int splits, int choices) {
             cert_leaf();
             return 1;
         }
-        if (round == MAX_ROUNDS || !instantiate()) break;
+
+        /* 28o. Un caso che si chiude da solo vale più di altre istanze. */
+        if (split_lookahead && splits != PROBE && depth + 1 < MAX_BRANCHES && (open = split_choice(depth, &closing)) >= 0) {
+            if (closing == 2) break;
+            case_open(depth, open, closing);
+            if (!settle() || !leaf_write(++leaves_closed)) return 0;
+            cert_leaf();
+            now = &branch[depth];
+            symbol_count = now->symbols;
+            ground_reindex();
+            case_continue(open, !closing);
+            open = -1;
+            round--;
+            continue;
+        }
+        if (round == rounds_before_split || !instantiate()) break;
     }
     if (exhausted || splits == PROBE || depth + 1 == MAX_BRANCHES) return 0;
-    int cheap = cheap_split(depth, splits, choices);
-    if (cheap) return cheap > 0;
-    if (choices < part_limit && part_choose(depth, splits, choices)) return 1;
-    int open = -1;
+    if (open < 0) {
+        int cheap = cheap_split(depth, splits, choices);
+        if (cheap) return cheap > 0;
+        if (choices < part_limit && part_choose(depth, splits, choices)) return 1;
+    }
     for (int i = 0; i < now->knowns && open < 0; i++)
         if (now->known[i].stage == K_WAITING) open = i;
-    if (exhausted || open < 0 || splits == MAX_SPLITS) return 0;
+    if (exhausted || open < 0 || (splits == MAX_SPLITS && closing != 2)) return 0;
     for (int side = 0; side < 2; side++) {
+        /* Il caso: una copia del ramo, con i suoi elementi e i suoi nomi. */
         case_open(depth, open, side);
-        if (!refute(depth + 1, splits + 1, choices)) return 0;
+        if (!refute(depth + 1, splits + (closing != 2), choices)) return 0;
         now = &branch[depth];
         symbol_count = now->symbols;
     }
@@ -26383,7 +27207,7 @@ static int refute(int depth, int splits, int choices) {
 static int abstract_claim(const Sentence **hypothesis, int hypotheses, const Sentence *claim) {
     short nothing[MAX_SLOTS];
     size_t start = proof_length, certificate_start = certificate_length, arena_start = arena_used;
-    int declared = symbol_count, proved = 0;
+    int declared = symbol_count, proved = 0, certificate_was_broken = certificate_broken;
     memset(nothing, -1, sizeof nothing);
     for (part_limit = 1; part_limit <= MAX_PART_CHOICES && !proved && !exhausted; part_limit++) {
         proof_cut(start);
@@ -26425,15 +27249,73 @@ static int abstract_claim(const Sentence **hypothesis, int hypotheses, const Sen
         names_given = 0;
         memset(name_written, 0, sizeof name_written);
         part_attempts = 0;
+        case_paths = case_overflow = 0;
         proved = refute(0, 0, 0);
         proof_add("\\end{itemize}\n");
+
+        /* 28p. I casi scritti devono coprire tutto: se non lo fanno, il
+         * programma ha sbagliato, e l'affermazione non è dimostrata. */
+        if (proved && !case_paths_complete()) {
+            unjustified_steps++;
+            proved = 0;
+            break;
+        }
         if (!part_attempts) break;
     }
 
-    /* I nomi dati durante la dimostrazione valgono solo per lei. */
+    /* I nomi dati durante la dimostrazione valgono solo per lei. Se non
+     * riesce, il suo caso esce anche dal certificato (28n: la si può
+     * riprovare con più leggi). */
     symbol_count = declared;
-    if (!proved) proof_cut(start);
+    if (!proved) {
+        proof_cut(start);
+        certificate_length = certificate_start;
+        certificate_text[certificate_start] = 0;
+        certificate_broken = certificate_was_broken;
+    }
     return proved;
+}
+
+/* Ritorna 1 se l'affermazione claim segue dalle ipotesi hypothesis[]: le
+ * prime first_pass sono le ipotesi dell'enunciato e le estensionalità
+ * (28n), le altre, fino a hypotheses, le comprensioni. Prova come
+ * abstract_claim(), con le sole prime; poi (28o) guardando avanti e
+ * distinguendo i casi dopo LOOKAHEAD_ROUNDS giri, prima che le istanze
+ * riempiano le tabelle; poi, se ci sono, anche con le comprensioni. */
+static int claim_attempts(const Sentence **hypothesis, int hypotheses, int first_pass, const Sentence *claim) {
+    int proved = abstract_claim(hypothesis, first_pass < hypotheses ? first_pass : hypotheses, claim);
+    for (int pass = 1; !proved && pass < 3; pass++) {
+        if (pass == 2 && first_pass >= hypotheses) break;
+        exhausted = 0;
+        split_lookahead = 1;
+        rounds_before_split = LOOKAHEAD_ROUNDS;
+        proved = abstract_claim(hypothesis, pass == 1 && first_pass < hypotheses ? first_pass : hypotheses, claim);
+        split_lookahead = 0;
+        rounds_before_split = MAX_ROUNDS;
+    }
+    return proved;
+}
+
+/* 28o. Un'affermazione che non si dimostra tutta insieme si prova a pezzi,
+ * ognuno come un'affermazione a sé: un'equivalenza A \iff B nei due versi,
+ * A \implies B e B \implies A; A \implies (B \land C) come A \implies B e A
+ * \implies C. L'affermazione segue dai pezzi per le sole leggi della logica,
+ * e il verificatore, che ritrova i connettivi da sé (11e in checker.c), lo
+ * ricontrolla. Ritorna 1 se ogni pezzo è dimostrato; un pezzo che non si
+ * dimostra si divide ancora, se si può. */
+static int claim_halves(const Sentence **hypothesis, int hypotheses, int first_pass, const Sentence *claim) {
+    const Sentence *x, *y;
+    if (claim->kind == S_IFF) {
+        x = axiom_join(S_IMPLIES, claim->a, claim->b);
+        y = axiom_join(S_IMPLIES, claim->b, claim->a);
+    } else if (claim->kind == S_IMPLIES && claim->b->kind == S_AND) {
+        x = axiom_join(S_IMPLIES, claim->a, claim->b->a);
+        y = axiom_join(S_IMPLIES, claim->a, claim->b->b);
+    } else {
+        return 0;
+    }
+    return (claim_attempts(hypothesis, hypotheses, first_pass, x) || claim_halves(hypothesis, hypotheses, first_pass, x)) &&
+           (claim_attempts(hypothesis, hypotheses, first_pass, y) || claim_halves(hypothesis, hypotheses, first_pass, y));
 }
 
 /* Aggiunge a list[], dal posto count, le condizioni di cui s è la
@@ -26535,7 +27417,7 @@ static Verdict prove_abstract(const char *formula) {
         cert_abstract_head(abstract_example ? "example" : "counterexample", root, &model);
         for (int s = 0; s < symbol_count; s++) {
             int cells;
-            if (symbol_bound[s]) continue;  /* una parte legata (28i) non ha tabella */
+            if (symbol_fixed(s) || symbol_bound[s]) continue;  /* fissato (28m), o una parte legata (28i): non ha tabella */
             model_cells(&model, s, &cells);
             cert_add("table ");
             cert_symbol(s);
@@ -26546,6 +27428,35 @@ static Verdict prove_abstract(const char *formula) {
         return abstract_certified(verdict, 1);
     }
     verdict.outcome = NOT_PROVED;
+
+    /* 17v, 28m. Un enunciato che parla solo dei numeri che scrive, con
+     * relazioni date dall'elenco delle loro coppie, non ha nulla da scegliere:
+     * i suoi insiemi sono quei numeri, tutti diversi, e ogni simbolo ha la
+     * sua tabella. Ha un solo modello, e quello che vi si calcola è il suo
+     * valore. Un conto finito e completo: se il modello non lo smentisce
+     * (sopra), l'enunciato vale. Il verificatore rifà il conto sullo stesso
+     * modello (11b e 11i in checker.c). */
+    int concrete = !plain_sorts() && !abstract_example;
+    for (int s = 0; s < symbol_count && concrete; s++) concrete = symbol_fixed(s);
+    if (concrete && model_search(root, 1, &model, &tried, &bound)) {
+        model_steps = 0;
+        if (!model_holds(&model, root, value) || (written != root && !book_holds(&model, written, value))) {
+            unjustified_steps++;
+            verdict.reason = "la verifica indipendente non conferma il conto sui numeri dell'enunciato";
+            return verdict;
+        }
+        proof_add("\\textbf{Proof.} The statement speaks only of the numbers it writes, which are distinct and are all its elements, "
+                  "and every set in it is given by the list of its members: there is nothing to choose, and computing with them "
+                  "the statement holds.");
+        put_unfolding_note(compared);
+        proof_add(" $\\Box$");
+        verdict.outcome = PROVED;
+        verdict.method = "con un conto sui numeri dell'enunciato";
+        verdict.proof = proof_text;
+        cert_abstract_head("example", root, &model);
+        cert_add("end\n");
+        return abstract_certified(verdict, 1);
+    }
     if (abstract_example) {
         verdict.reason = "nessun esempio tra gli insiemi con pochi elementi: può essercene uno più grande";
         return verdict;
@@ -26566,14 +27477,33 @@ static Verdict prove_abstract(const char *formula) {
     exhausted = part_interrupted = 0;
     memset(definition_slot, -1, sizeof definition_slot);
     cert_abstract_head("structure", root, NULL);
+
+    /* 28n. Le leggi delle parti e delle applicazioni, dopo le ipotesi:
+     * anche loro sono condizioni vere, e il certificato le porta. Se le
+     * lettere per scriverle non bastano, la ricerca va avanti senza. */
+    const char *before_axioms = syntax_error;
+    axioms_prepare();
+    if (syntax_error != before_axioms) { axiom_count = 0; syntax_error = before_axioms; }
+    int given = hypotheses;
+    for (int i = 0; i < axiom_count && hypotheses < MAX_KNOWN / 8; i++) hypothesis[hypotheses++] = axioms[i];
+    cert_axioms();
     proof_add("\\textbf{Proof.} By contradiction: we suppose that the hypotheses hold and that a claim fails.");
     for (int i = 0; i < hypotheses; i++) {
-        proof_add("%s (H%d) $", i ? "," : " The hypotheses:", i + 1);
+        if (i == given) proof_add("%s Since every set of parts or of maps here is the set of all of them, these hold too:", given ? "." : "");
+        proof_add("%s (H%d) $", i == given ? "" : i ? "," : " The hypotheses:", i + 1);
         put_sentence(hypothesis[i], 0, nothing, 0);
         proof_add("$");
     }
     proof_add("%s\n\\begin{itemize}\n", hypotheses ? "." : "");
-    for (int i = 0; i < claims && proved; i++) proved = abstract_claim(hypothesis, hypotheses, claim[i]);
+    /* 28n. Ogni affermazione prima con le sole estensionalità, che non
+     * fanno nascere elementi, poi, se non basta, con le comprensioni: le
+     * parti in più servono a poche dimostrazioni e rallentano le altre. Gli
+     * assiomi sono in coda alle ipotesi, le estensionalità per prime, quindi
+     * la prima prova usa un pezzo iniziale dell'elenco, con gli stessi
+     * numeri (H1), (H2), ... */
+    int first_pass = given + axioms_extensional();
+    for (int i = 0; i < claims && proved && !failure; i++)
+        proved = claim_attempts(hypothesis, hypotheses, first_pass, claim[i]) || claim_halves(hypothesis, hypotheses, first_pass, claim[i]);
     if (failure) {
         /* La memoria è finita durante la ricerca (le copie di 28j): ciò che
          * è stato scritto dopo non vale nulla. */
@@ -32536,11 +33466,20 @@ static int uses_elements(const char *formula) {
     int found = 0;
     syntax_error = NULL;
     cursor = formula;
+    int named = 0;
     for (next_token(); token.kind != T_END && !found; ) {
         int quantifier = is_command("forall") || is_command("exists"), element = token.kind == T_LETTER && islower(token.ch);
-        int braces = is_char(ESCAPED + '{');
-        found = is_command("colon");
+        int braces = is_char(ESCAPED + '{'), family = named && is_command("subseteq");
+
+        /* 17v. L'unione di una famiglia di parti, un'appartenenza negata, una
+         * lettera contenuta in \mathcal{P}(S) (una famiglia di parti, F
+         * \subseteq \mathcal{P}(S)): il capitolo 14 non ne ha, perché per lui
+         * una lettera è un insieme di elementi e \mathcal{P}(S) no. named
+         * dice se il token appena letto chiude un nome, F o F_{1}. */
+        found = is_command("colon") || is_command("bigcup") || is_command("bigcap") || is_command("notin");
+        named = token.kind == T_LETTER || is_char('}');
         next_token();
+        if (family && is_command("mathcal")) found = 1;
         if (quantifier && token.kind == T_LETTER && islower(token.ch)) found = 1;
         if (element && (is_command("in") || is_command("notin"))) found = 1;
         if (braces && (token.kind == T_OPEN || (token.kind == T_LETTER && islower(token.ch)))) found = 1;
@@ -32656,7 +33595,16 @@ static Verdict prove(const char *formula, int variable, int has_base, long long 
      * e non va letto come altro. */
     if (has_derivative_sign(formula) && (uses_elements(formula) || uses_set_notation(formula) || strstr(formula, "\\implies")))
         return (Verdict){UNSUPPORTED, variable, 0, 0, "il segno di derivata non ha senso in un enunciato su insiemi o su una successione definita per ricorrenza", NULL, NULL, NULL, NULL, NULL};
-    if (uses_parts_relations(formula)) return prove_parts(formula);
+    /* Una relazione tra parti che il capitolo 15 non sa decidere (troppi
+     * insiemi, o una scrittura che 17r non legge) può ancora essere un
+     * enunciato del capitolo 28, con \mathcal{P}(S) come insieme di oggetti
+     * (17v): se lì non si legge nemmeno, il motivo resta quello di 17r. */
+    if (uses_parts_relations(formula)) {
+        Verdict verdict = prove_parts(formula);
+        if (verdict.outcome != UNSUPPORTED) return verdict;
+        Verdict objects = prove_abstract(formula);
+        return objects.outcome != UNSUPPORTED ? objects : prove_parts(formula);
+    }
     if (uses_elements(formula)) return prove_abstract(formula);
     if (uses_set_notation(formula)) return prove_sets(formula);
     if (strstr(formula, "\\implies")) return prove_sequence(formula, variable, has_base, base);

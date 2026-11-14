@@ -6,8 +6,8 @@
  * insiemi finiti e infiniti. Gli enunciati sono dati: il motore non ne conosce
  * nessuno in anticipo.
  *
- * Oggi il motore dimostra 14 dei 16 enunciati di correspondences.tex, 31
- * dei 54 di maps.tex, 11 dei 28 di equivalence_relations.tex, 1 dei 14 di
+ * Oggi il motore dimostra tutti i 16 enunciati di correspondences.tex, 32
+ * dei 54 di maps.tex, 15 dei 28 di equivalence_relations.tex, 3 dei 14 di
  * order_relations.tex, e nessuno di finite_sets.tex e infinite_sets.tex: il
  * test fallisce, e indica il lavoro ancora da fare. Gli enunciati dimostrati
  * sono quelli sulle applicazioni tra insiemi di numeri date da una sola
@@ -15,12 +15,16 @@
  * e quelli su insiemi qualsiasi scritti come nei libri: immagini e
  * controimmagini, relazioni come insiemi di coppie, inverse e
  * composizioni, coppie, relazioni e applicazioni tra le parti di un insieme
- * (17p-17r di parser.c, capitoli 28 e 15), e quelli con un'ipotesi su
- * tutte le parti di un insieme, come le caratterizzazioni delle applicazioni
- * iniettive e suriettive con le immagini e le controimmagini (17u, 28i-28l).
- * Mancano soprattutto le applicazioni da costruire, il numero di
- * elementi e l'equipotenza, il massimo comun divisore e i numeri primi, le
- * relazioni d'ordine scritte tra gli elementi: il verdetto dice quale.
+ * (17p-17r di parser.c, capitoli 28 e 15), quelli con un'ipotesi su tutte
+ * le parti di un insieme, come le caratterizzazioni delle applicazioni
+ * iniettive e suriettive con le immagini e le controimmagini (17u,
+ * 28i-28l), e quelli che prendono \mathcal{P}(S) e T^{S} come insiemi di
+ * oggetti, con le famiglie di parti e le relazioni d'ordine scritte tra gli
+ * elementi, e le relazioni date dall'elenco delle loro coppie di numeri
+ * (17v, 28m-28o). Mancano soprattutto le applicazioni da costruire, il
+ * numero di elementi e l'equipotenza, il massimo comun divisore e i numeri
+ * primi, e le dimostrazioni più lunghe sulle famiglie di parti, che la
+ * ricerca non trova: il verdetto dice quale.
  *
  * Ciò che deve restare vero da subito ha un test a parte,
  * test_set_theory.c: lì stanno gli enunciati sugli insiemi già dimostrati,
