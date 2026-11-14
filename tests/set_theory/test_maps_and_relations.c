@@ -7,7 +7,7 @@
  * nessuno in anticipo.
  *
  * Oggi il motore dimostra tutti i 16 enunciati di correspondences.tex, 47
- * dei 54 di maps.tex, 19 dei 28 di equivalence_relations.tex, 5 dei 14 di
+ * dei 54 di maps.tex, 23 dei 28 di equivalence_relations.tex, 9 dei 14 di
  * order_relations.tex, 1 dei 7 di finite_sets.tex e 4 dei 17 di
  * infinite_sets.tex: il test fallisce, e indica il lavoro ancora da fare.
  * Gli enunciati dimostrati sono quelli sulle applicazioni tra insiemi di
@@ -27,12 +27,17 @@
  * 28i-28l), e quelli che prendono \mathcal{P}(S) e T^{S} come insiemi di
  * oggetti, con le famiglie di parti e le relazioni d'ordine scritte tra gli
  * elementi, e le relazioni date dall'elenco delle loro coppie di numeri
- * (17v, 28m-28o), e le equipotenze, con una biiezione costruita (17w,
- * 28q). Mancano soprattutto le applicazioni da costruire, il numero di
- * elementi e gli insiemi infiniti, il massimo comun divisore e i numeri
- * primi, le applicazioni di due argomenti che non vengono da \mathbb{C}, e
- * le dimostrazioni più lunghe sulle famiglie di parti, che la
- * ricerca non trova: il verdetto dice quale.
+ * (17v, 28m-28o), comprese le dimostrazioni più lunghe sulle famiglie di
+ * parti (una partizione comune, la controimmagine e l'immagine di una
+ * partizione), sulla composizione di due relazioni di equivalenza e sugli
+ * ordini tra parti, tra applicazioni e tra classi, le cui istanze sceglie
+ * un modello candidato (28r), e l'ordine punto per punto su S^{S}, che
+ * chiede le applicazioni con due valori (28s); e le equipotenze, con una
+ * biiezione costruita (17w, 28q). Mancano soprattutto le applicazioni da
+ * costruire con una regola qualsiasi, il quoziente, il numero di elementi e
+ * gli insiemi infiniti, il massimo comun divisore e i numeri primi, le
+ * applicazioni di due argomenti che non vengono da \mathbb{C}: il verdetto
+ * dice quale.
  *
  * Ciò che deve restare vero da subito ha un test a parte,
  * test_set_theory.c: lì stanno gli enunciati sugli insiemi già dimostrati,

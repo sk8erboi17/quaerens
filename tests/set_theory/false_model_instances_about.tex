@@ -1,0 +1,31 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_model\_instances.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_model\_instances.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_set\_theory.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} Anti-regression for paragraph 28r of \texttt{main.c}, the instances chosen by a candidate model, and for 28s, the maps with two values. The file holds 18 false statements, each a small change of a true one of \texttt{model\_instances.tex} or of the book: a family that does not cover $T$ claimed to reach every $f(a)$; the preimage of a family that does not cover claimed to cover $S$; the common refinement claimed equal to one of the partitions, or without the filter $X \cap Y \neq \emptyset$ claimed without the empty part, or claimed to cover $S$ when one family does not; the image of a partition by a surjective map claimed disjoint, by an injective map claimed to cover $T$; the composition of two equivalence relations claimed transitive without commuting, or claimed equal to one of them; the order on the non-empty parts built on a preorder claimed antisymmetric, the same relation on all the parts claimed transitive; the strict-image order on maps claimed total; the order on the classes without the convexity hypothesis claimed antisymmetric (item 13); and the relation ``some element of $X$ is below some element of $Y$'' claimed antisymmetric (item 14); near the maps with two values (28s), the pointwise order built on a preorder claimed total only on a singleton, all the maps of $S^{S}$ claimed equal, a map with two different values at once, and the pointwise order claimed total because the order is.
+
+\item \textbf{What is being tested.} That none is proved. Items 1 to 12 and 15 to 18 are refuted by a finite model, with a certificate that \texttt{checker.c} accepts. Item 13 is false only in infinite sets (the even and the odd integers, ordered as usual, are two classes each below the other), so no finite model refutes it: it checks that the candidate model, which looks only at the elements named in a proof, is never taken for a model of the statement. Item 14 is refuted by a model with four elements that the finite search does not reach; it must stay not proved. If 28r added an instance that is not true, or the generation limit hid a case, one of these would be at risk.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_set_theory \
+    tests/set_theory/test_set_theory.c && /tmp/test_set_theory
+\end{verbatim}
+
+\item \textbf{Expected result.} One \texttt{PASS} line for the file: none of the statements is proved; and two for the certificates of its counterexamples.
+\end{enumerate}
+\end{document}

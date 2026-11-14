@@ -57,7 +57,9 @@
  *     o una relazione di cui si sa solo ciò che dicono le ipotesi: "un
  *     elemento neutro a sinistra e uno a destra coincidono". Si smentiscono
  *     con un modello finito e si dimostrano per assurdo, con istanze delle
- *     ipotesi e uguali al posto di uguali (17o in parser.c, capitolo 28).
+ *     ipotesi e uguali al posto di uguali (17o in parser.c, capitolo 28);
+ *     le istanze si scelgono dalla forma, e dove non basta con un modello
+ *     candidato fatto degli elementi di cui si parla (28r).
  *     Vi si scrive anche come nei libri: immagini f(X) e controimmagini
  *     f^{-1}(Y) di parti, relazioni come insiemi di coppie \{(x, y) \mid
  *     ...\}, le loro inverse e composizioni, uguaglianze e inclusioni tra
@@ -541,8 +543,8 @@
                                 prima che lo svolgimento le riduca a MAX_SET_VARS */
 #define MAX_PART_RULES 4     /* relazioni e applicazioni tra parti date da una regola, in un enunciato (17r) */
 #define MAX_CONFIGS 16       /* configurazioni elencate in una dimostrazione */
-#define PROOF_BYTES 65536    /* lunghezza massima di una dimostrazione scritta */
-#define CERTIFICATE_BYTES 65536  /* lunghezza massima di un certificato */
+#define PROOF_BYTES 1048576  /* lunghezza massima di una dimostrazione scritta: quelle di 28r, con molti casi, arrivano a qualche centinaio di migliaia di caratteri */
+#define CERTIFICATE_BYTES 262144 /* lunghezza massima di un certificato */
 #define MAX_BRICKS 32        /* fattori suggeriti in un certificato: di più il verificatore non ne legge */
 #define MAX_MAPS 4           /* applicazioni dichiarate in un enunciato */
 #define MAX_PARAMETERS 4     /* parametri dichiarati tra le ipotesi con "k \in A" (17s) */
@@ -649,6 +651,8 @@ typedef unsigned __int128 SlotSet;
 #define MAX_DIFFERENT 256    /* fatti "diversi" noti in un ramo */
 #define MAX_SPLITS 4         /* distinzioni di casi una dentro l'altra (28-5) */
 #define MAX_ROUNDS 4         /* giri di istanze prima di arrendersi (28-3) */
+#define MODEL_ROUNDS 8       /* giri di istanze scelte dal modello candidato prima di distinguere i casi (28r) */
+#define MAX_CANDIDATE_STEPS 2000000  /* passi del calcolo nel modello candidato, per giro di istanze (28r) */
 #define MAX_LOOKAHEAD 48     /* disgiunzioni di cui si guardano avanti i due casi, prima di sceglierne una (28o) */
 #define LOOKAHEAD_ROUNDS 2   /* giri di istanze prima di distinguere dei casi, quando si guarda avanti (28o) */
 #define MAX_TUPLES 20000     /* scelte di elementi esaminate per un "per ogni" in un giro */
@@ -26971,6 +26975,12 @@ static const char *derivative_doubt(const Formula *thesis) {
  * La definizione di una parte (28j) non si prova su tutti gli elementi con
  * un nome, ma dove la parte compare: "c \in D" chiede che si svolga.
  *
+ * Quando le istanze scelte dalla forma non bastano, l'affermazione si
+ * riprova con quelle scelte dal significato (28r): dagli elementi di cui si
+ * parla si costruisce un modello candidato, il più piccolo che ciò che si
+ * sa permette, e di ogni "per ogni" si prova l'istanza che vi è falsa. È la
+ * "model-based quantifier instantiation" dei dimostratori SMT.
+ *
  * Quali casi. Prima di distinguere i casi della prima disgiunzione in
  * attesa (28-5), si cerca tra le disgiunzioni in attesa una con un caso che
  * si chiude con i soli giri di istanze: allora l'altro caso segue, e la
@@ -27050,7 +27060,8 @@ static const char *derivative_doubt(const Formula *thesis) {
  * crescono in fretta, quando la ricerca di sempre non basta la si ripete
  * guardando avanti prima di distinguere i casi e scegliendo le istanze con
  * più cura, e un'affermazione che non segue tutta insieme si prova a pezzi
- * (28o). Tutto questo cambia solo quali dimostrazioni si trovano: ogni passo
+ * (28o); se non basta ancora, le istanze le sceglie il modello candidato
+ * (28r). Tutto questo cambia solo quali dimostrazioni si trovano: ogni passo
  * scritto è ricontrollato come sempre, e il certificato pure.
  *
  * Un enunciato che parla solo dei numeri che scrive, con relazioni date
@@ -27080,14 +27091,12 @@ static const char *derivative_doubt(const Formula *thesis) {
  * Applicazioni da costruire (\exists f \in S^{S} dentro l'enunciato) fuori
  * da un'equipotenza, ipotesi su tutte le applicazioni quando T^{S} non è un
  * insieme di oggetti dell'enunciato, applicazioni definite per casi o come
- * inverse (servirebbero comprensioni di applicazioni tra le leggi di 28n: le
- * definizioni di 28q nascono solo per un testimone), il quoziente
- * (\exists T\ \exists f), potenze x^{n} con n numero: il lettore le
+ * inverse (servirebbero comprensioni di applicazioni più larghe di quella con
+ * due valori di 28s: le definizioni di 28q nascono solo per un testimone), il
+ * quoziente (\exists T\ \exists f), potenze x^{n} con n numero: il lettore le
  * respinge, dicendo quale. Le parti costruite con più di un passo, come
  * f(f^{-1}(\{c\})) o \{a, b\}, non vengono provate (28k): un enunciato che
- * ne ha bisogno resta NON DIMOSTRATO, come le dimostrazioni lunghe sulle
- * famiglie di parti (una partizione comune, la controimmagine di una
- * partizione), che la ricerca spesso non trova. Dell'equipotenza (28q)
+ * ne ha bisogno resta NON DIMOSTRATO. Dell'equipotenza (28q)
  * mancano le biiezioni che la grammatica non costruisce (\mathcal{P}(S) \sim
  * \{0, 1\}^{S}, l'associatività dei prodotti), i passi w3 e w4 uno dentro
  * l'altro, come \mathcal{P}(\mathcal{P}(S)) \sim \mathcal{P}(\mathcal{P}(T)),
@@ -27095,6 +27104,17 @@ static const char *derivative_doubt(const Formula *thesis) {
  * dimostrazione, che la ricerca non fa; e nel lettore gli esponenti che sono
  * un prodotto o un'unione, S^{T \times V} e S^{T \cup V} (17w), e i lati di
  * tre componenti. Il numero degli elementi, |S|, non c'è (capitolo 20).
+ *
+ * Il modello candidato di 28r sceglie le istanze, non i casi: le
+ * distinzioni restano quelle di refute(), sulla prima disgiunzione in
+ * attesa, e una dimostrazione che ne chiede molte, una dentro l'altra, non
+ * si trova. Le sue dimostrazioni sono lunghe: ogni caso riscrive le righe
+ * da cui parte, e il certificato porta insieme le istanze di tutti i casi,
+ * che il verificatore deve ridistinguere da sé. Una delle sue dimostrazioni
+ * (la transitività dell'ordine f(S) \subsetneq g(S) di order_relations.tex)
+ * ha più casi di quanti il verificatore sappia provare entro il suo limite:
+ * il verdetto resta, e dice che il certificato manca. Si potrebbe dare al
+ * verificatore la struttura dei casi, come voci del certificato.
  *
  * I modelli finiti dimostrano solo un esempio; un enunciato "per ogni" lo
  * dimostrano le istanze. Una dimostrazione dai soli modelli sarebbe lecita
@@ -28485,6 +28505,39 @@ static int truth(const Sentence *s, int negated, const short *value) {
 static int name_serial[MAX_SYMBOLS], name_known[MAX_SYMBOLS];
 static int names_given;
 
+/* 28r-3. La generazione di ogni simbolo: 0 per quelli dichiarati e per i
+ * nomi che l'enunciato dà senza istanze, 1 più la più alta degli elementi
+ * dell'istanza per un nome nato dentro un'istanza. Si scrive quando il nome
+ * nasce, e vale per quel nome solo (il posto si riusa da un ramo all'altro:
+ * lo si riscrive). */
+static unsigned char symbol_generation[MAX_SYMBOLS];
+
+/* 28r-3. Ritorna la generazione dell'elemento presente id: la più alta dei
+ * simboli che lo scrivono. */
+static int ground_generation(int id) {
+    const Ground *g = &ground[id];
+    int generation = g->symbol >= 0 ? symbol_generation[g->symbol] : 0;
+    for (int i = 0; i < 2 && g->arg[i] >= 0; i++) {
+        int inner = ground_generation(g->arg[i]);
+        if (inner > generation) generation = inner;
+    }
+    return generation;
+}
+
+/* 28r-3. Ritorna la generazione del nome che nasce dalla condizione nota k,
+ * un "esiste": la più alta degli elementi al posto delle sue variabili, più
+ * 1 se k viene, attraverso le sue parti, da un'istanza; al più 255. */
+static int known_generation(const Known *k) {
+    int generation = 0, instance = 0;
+    for (int v = 0; v < MAX_SLOTS; v++) {
+        int inner = k->value[v] > 0 ? ground_generation(k->value[v]) : 0;
+        if (inner > generation) generation = inner;
+    }
+    for (const Known *p = k; !instance && p; p = p->parent >= 0 ? &now->known[p->parent] : NULL) instance = p->origin == K_INSTANCE;
+    generation += instance;
+    return generation > 255 ? 255 : generation;
+}
+
 /* 28n. Da quale legge delle parti viene una condizione nota (known_law()):
  * da nessuna, dall'estensionalità o da una comprensione. */
 typedef enum { LAW_NONE, LAW_EXTENSIONALITY, LAW_COMPREHENSION } Law;
@@ -28630,6 +28683,7 @@ static int part_symbol_new(int letter, int sort, int first) {
     while (symbol_find(part.name, part.index) >= 0) part.index++;
     if (symbol_count == MAX_SYMBOLS) { exhausted = 1; return -1; }
     symbols[symbol_count] = part;
+    symbol_generation[symbol_count] = 1;
     name_serial[symbol_count] = ++names_given;
     name_known[symbol_count] = -1;
     return symbol_count++;
@@ -28777,6 +28831,7 @@ static int map_symbol_new(const char *word, int arity, const int *domain, int ra
     if (symbol_count == MAX_SYMBOLS || map.index >= ZERO_INDEX) { exhausted = 1; return -1; }
     symbols[symbol_count] = map;
     symbol_law[symbol_count] = 0;
+    symbol_generation[symbol_count] = 0;
     name_serial[symbol_count] = ++names_given;
     name_known[symbol_count] = -1;
     return symbol_count++;
@@ -28904,6 +28959,7 @@ static void known_open(int i) {
     if (symbol_count == MAX_SYMBOLS) { exhausted = 1; return; }
     symbols[symbol_count] = name;
     symbol_law[symbol_count] = known_law(i) != LAW_NONE;
+    symbol_generation[symbol_count] = (unsigned char)known_generation(k);
     name_serial[symbol_count] = ++names_given;
     name_known[symbol_count] = -1;
     memcpy(value, k->value, sizeof value);
@@ -29567,14 +29623,246 @@ static void bijection_prepare(const Sentence *root) {
     syntax_error = before;
 }
 
+/* 28r. LE ISTANZE SCELTE DA UN MODELLO CANDIDATO
+ *
+ * (Sta qui, dentro 28d, accanto alle altre istanze; la lettera è venuta dopo
+ * le altre.)
+ *
+ * A che cosa serve. Le istanze di 28-3 si scelgono dalla forma: tutte sui
+ * nomi, quelle che riscrivono un elemento presente, quelle che decidono un
+ * confronto. Nelle dimostrazioni sulle famiglie di parti (una partizione
+ * comune, la controimmagine di una partizione) e sugli ordini tra parti o
+ * tra applicazioni le scelte per forma sono migliaia, e quella giusta
+ * arriva quando le tabelle sono già piene, oppure non arriva mai: per "ogni
+ * elemento a di S sta in un pezzo di F*" serve l'ipotesi "ogni t di T sta in
+ * un pezzo di F" con t = f(a), un elemento di cui nessuno parla ancora. Qui
+ * le istanze si scelgono dal significato, con un modello.
+ *
+ * Il modello candidato di un ramo. Gli elementi di ogni insieme sono le
+ * classi degli elementi presenti (gli uguali per ciò che si sa sono uno
+ * solo); un simbolo applicato vale l'elemento presente scritto così, se c'è,
+ * altrimenti un valore "altro", diverso da tutti gli elementi presenti e
+ * uguale solo a se stesso; due classi diverse sono elementi diversi; una
+ * parte o una relazione vale solo dove si sa che vale. È il modello più
+ * piccolo che le uguaglianze e le appartenenze note permettono, e i
+ * quantificatori vi si calcolano provando gli elementi presenti: un conto
+ * finito. È la tecnica dei dimostratori SMT detta MBQI, "model-based
+ * quantifier instantiation" (Ge e de Moura, 2009).
+ *
+ * La regola. Un "per ogni" noto che nel modello candidato è falso in
+ * qualche elemento a dice che il modello non va: l'istanza su a è vera
+ * (28-3, come ogni istanza) e nel modello è falsa, quindi aggiungerla
+ * costringe il ramo a cambiare. Porta una contraddizione, o un fatto nuovo
+ * (il modello cresce), o un "esiste" a cui dare un nome (nasce un elemento),
+ * o una disgiunzione da distinguere. Le istanze vere nel modello non dicono
+ * nulla di nuovo su di lui, e si lasciano. Così "ogni t di T sta in un pezzo
+ * di F", su t = f(a), nel modello è falsa perché i pezzi presenti sono
+ * nessuno: l'istanza dà un pezzo nuovo, quello che serve. Per ogni "per ogni"
+ * si prende, a ogni giro, la prima istanza falsa sugli elementi in ordine
+ * di età: una sola, come fanno i dimostratori SMT, perché ognuna cambia il
+ * modello e le altre vanno ricalcolate su quello nuovo.
+ *
+ * Tre aggiunte, ognuna con il suo perché.
+ *
+ *   28r-1. Un insieme senza elementi presenti, in cui un'applicazione
+ *          dichiarata manda un elemento presente a: si aggiunge f(a). Il
+ *          modello deve dare un valore a f(a), e un valore è un elemento:
+ *          senza, i "per ogni" su quell'insieme non avrebbero dove provarsi.
+ *          f(a) c'è: f è un'applicazione e a un elemento del suo dominio.
+ *   28r-2. L'estensionalità di 28n resta come in 28n, provata solo dove un
+ *          confronto è già deciso. Nel modello candidato due parti con gli
+ *          stessi elementi presenti sembrano uguali in tutto ciò che si
+ *          prova, e l'estensionalità sembrerebbe falsa su quasi tutte le
+ *          coppie: le sue istanze, che servono solo a distinguere i casi,
+ *          riempirebbero i rami.
+ *   28r-3. La generazione. Un elemento nato da un "esiste" dentro
+ *          un'istanza ha generazione 1 più la più alta degli elementi
+ *          dell'istanza; quelli dichiarati e quelli a cui dà un nome
+ *          l'enunciato stesso, senza istanze, hanno generazione 0. Il modello
+ *          candidato prova solo gli elementi fino a una generazione data.
+ *          Senza, un'ipotesi come "ogni x è in relazione con qualche a"
+ *          darebbe un elemento nuovo da ogni elemento, e quello un altro, in
+ *          una catena senza fine. Le generazioni ammesse crescono come in
+ *          una ricerca ad approfondimento progressivo: prima 2, poi 4
+ *          (model_generations[]).
+ *
+ * Quando. Sono le ultime prove di claim_attempts(), dopo quelle di sempre e
+ * di 28o: le affermazioni che quelle dimostrano non cambiano, né nella
+ * dimostrazione scritta né nel certificato. Il modello cambia solo quali
+ * istanze si provano: ognuna è un'istanza di 28-3, scritta, ricontrollata
+ * da 28e e portata nel certificato (28f) come le altre, e il verificatore la
+ * rilegge senza sapere da dove viene. Le distinzioni di casi, le scelte di
+ * parti (28k) e i casi che si chiudono subito (28l) restano quelli di
+ * refute(). Il modello candidato non decide mai nulla da solo: non è un
+ * controesempio (non tiene conto delle disgiunzioni in attesa, e i suoi
+ * insiemi sono solo gli elementi nominati), e non trovarvi istanze false
+ * vuol dire solo che la ricerca si ferma. */
+
+/* 1 durante le prove di questo paragrafo: instantiate() sceglie le istanze
+ * con il modello candidato. */
+static int model_guided;
+
+/* Il valore, nel modello candidato, di un simbolo applicato che non è
+ * presente: "altro", diverso da ogni posto di ground[]. */
+#define CANDIDATE_ELSE (-3)
+
+/* Le generazioni ammesse nelle prove successive (28r-3), e quella ammessa
+ * nella prova in corso. */
+static const int model_generations[] = {2, 4};
+static int generation_limit;
+
+/* Il modello candidato del ramo in corso: per ogni insieme, un elemento
+ * presente per ogni classe (il più vecchio, posto in ground[]), in ordine di
+ * età, e quanti sono. Lo rifà candidate_prepare(). candidate_steps conta i
+ * passi del calcolo, fino a MAX_CANDIDATE_STEPS per giro di istanze. */
+static short candidate_domain[MAX_SORTS][MAX_GROUND];
+static int candidate_size[MAX_SORTS];
+static long long candidate_steps;
+
+/* Ritorna il valore dell'elemento e nel modello candidato, con le variabili
+ * agli elementi di value[]: il rappresentante della sua classe, oppure
+ * CANDIDATE_ELSE se e è un simbolo applicato che non è presente (anche
+ * perché non lo è un suo argomento). Una parte o una relazione applicata
+ * vale la classe di "vero" quando si sa che vale. Va chiamata dopo
+ * closure(), come ground_lookup() con G_CLASS. */
+static int candidate_term(const Elem *e, const short *value) {
+    int arg[2] = {-1, -1};
+    if (e->symbol < 0) return value[e->slot] >= 0 ? now->rep[value[e->slot]] : CANDIDATE_ELSE;
+    for (int i = 0; i < 2 && e->arg[i]; i++) {
+        arg[i] = candidate_term(e->arg[i], value);
+        if (arg[i] == CANDIDATE_ELSE) return CANDIDATE_ELSE;
+    }
+    int found = ground_lookup(e->symbol, arg[0], arg[1], arg[0] < 0 ? G_EXACT : G_CLASS);
+    return found >= 0 ? now->rep[found] : CANDIDATE_ELSE;
+}
+
+/* Ritorna il valore della condizione s nel modello candidato, con le
+ * variabili libere agli elementi di value[]: 1 vera, 0 falsa, -1 se non si
+ * calcola. Non si calcolano i quantificatori su parti di 17u (le loro parti
+ * le sceglie 28k), né nulla oltre MAX_CANDIDATE_STEPS passi; un connettivo
+ * con una parte che non si calcola vale -1, a meno che l'altra lo decida.
+ * value[] viene usato anche per le variabili che s lega, e rimesso com'era. */
+static int candidate_holds(const Sentence *s, short *value) {
+    int a, b = -1;
+    if (++candidate_steps > MAX_CANDIDATE_STEPS) return -1;
+    switch (s->kind) {
+    case S_TRUE:
+        return 1;
+    case S_NOT:
+        a = candidate_holds(s->a, value);
+        return a < 0 ? a : !a;
+    case S_EQUAL:
+        /* Due "altro" sono lo stesso valore, e nessuno dei due è un
+         * elemento presente. */
+        return candidate_term(s->left, value) == candidate_term(s->right, value);
+    case S_HOLDS:
+        return candidate_term(s->left, value) == now->rep[0];
+    case S_AND:
+        if ((a = candidate_holds(s->a, value)) == 0 || (b = candidate_holds(s->b, value)) == 0) return 0;
+        return a == 1 && b == 1 ? 1 : -1;
+    case S_OR: case S_IMPLIES:
+        a = candidate_holds(s->a, value);
+        if (s->kind == S_IMPLIES && a >= 0) a = !a;
+        if (a == 1 || (b = candidate_holds(s->b, value)) == 1) return 1;
+        return a == 0 && b == 0 ? 0 : -1;
+    case S_IFF:
+        a = candidate_holds(s->a, value);
+        b = candidate_holds(s->b, value);
+        return a < 0 || b < 0 ? -1 : a == b;
+    case S_FORALL: case S_EXISTS: {
+        /* Ogni elemento del modello, finché uno decide. */
+        int sort = slot_sort[s->slot], every = s->kind == S_FORALL, result = every;
+        short saved = value[s->slot];
+        for (int i = 0; i < candidate_size[sort] && result != !every; i++) {
+            value[s->slot] = candidate_domain[sort][i];
+            int v = candidate_holds(s->a, value);
+            if (v < 0) result = -1;
+            else if (v != every) result = !every;
+        }
+        value[s->slot] = saved;
+        return result;
+    }
+    case S_FORALL_PART: case S_EXISTS_PART: case S_EQUIPOTENT:
+        /* Le parti di 17u le sceglie 28k, le biiezioni di un'equipotenza 28q. */
+    case S_MEMBER: case S_INCLUDED: case S_SAME: case S_UNIQUE:  /* questi non arrivano qui (17q) */
+        break;
+    }
+    return -1;
+}
+
+/* Rifà il modello candidato del ramo in corso (candidate_domain[]): per ogni
+ * insieme, il più vecchio degli elementi presenti di ogni classe la cui
+ * generazione non supera generation_limit (28r-3). */
+static void candidate_prepare(void) {
+    for (int i = 0; i < sort_count; i++) candidate_size[i] = 0;
+    for (int id = 1; id < now->grounds; id++) {
+        int sort = symbols[ground[id].symbol].range, fresh = 1;
+        if (sort == TRUTH || ground_generation(id) > generation_limit) continue;
+        for (int c = 0; c < candidate_size[sort] && fresh; c++) fresh = now->rep[candidate_domain[sort][c]] != now->rep[id];
+        if (fresh) candidate_domain[sort][candidate_size[sort]++] = (short)id;
+    }
+}
+
+/* 28r-1. Aggiunge f(a) per ogni applicazione dichiarata f, di un
+ * argomento, che va in un insieme senza elementi nel modello candidato, con
+ * a il primo elemento del modello nel suo dominio. Ritorna quanti elementi
+ * ha aggiunto; se qualcuno, rifà la chiusura e il modello. */
+static int candidate_complete(void) {
+    int made = 0;
+    for (int f = 0; f < declared_symbols; f++) {
+        const Symbol *map = &symbols[f];
+        if (map->arity != 1 || map->range == TRUTH || symbol_bound[f] || symbol_structure(f) >= 0) continue;
+        if (candidate_size[map->range] > 0 || candidate_size[map->domain[0]] == 0) continue;
+        made += ground_lookup(f, candidate_domain[map->domain[0]][0], -1, G_CREATE) >= 0;
+    }
+    if (made) {
+        closure();
+        candidate_prepare();
+    }
+    return made;
+}
+
+/* Aggiunge la prima istanza del "per ogni" rule che è falsa nel modello
+ * candidato, provando le scelte degli elementi del modello come un
+ * contachilometri; se le scelte sono più di MAX_TUPLES non ne prova
+ * nessuna. Ritorna 1 se l'ha aggiunta. Un'istanza falsa che c'è già (una
+ * disgiunzione in attesa) non conta, e si passa alla scelta successiva. */
+static int instance_model(const Rule *rule) {
+    int pick[MAX_BOUND] = {0};
+    long long tuples = 1;
+    short value[MAX_SLOTS];
+    for (int j = 0; j < rule->slots; j++) tuples *= candidate_size[slot_sort[rule->slot[j]]];
+    if (!tuples || tuples > MAX_TUPLES) return 0;
+    memcpy(value, now->known[rule->known].value, sizeof value);
+    for (int more = 1; more && !exhausted && candidate_steps <= MAX_CANDIDATE_STEPS; ) {
+        for (int j = 0; j < rule->slots; j++) value[rule->slot[j]] = candidate_domain[slot_sort[rule->slot[j]]][pick[j]];
+
+        /* Falsa: il valore opposto al segno con cui il corpo è noto. */
+        if (candidate_holds(rule->body, value) == rule->negated && instance_add(rule, value)) return 1;
+        more = 0;
+        for (int j = 0; j < rule->slots && !more; j++) {
+            if (++pick[j] < candidate_size[slot_sort[rule->slot[j]]]) more = 1; else pick[j] = 0;
+        }
+    }
+    return 0;
+}
+
 /* 28-3. Aggiunge le istanze dei "per ogni" noti che vale la pena provare,
  * come descritto in testa al capitolo ("Quali istanze"), e ritorna quante
  * ne ha aggiunte. Va chiamata dopo settle(), con le classi aggiornate: le
  * istanze aggiunte non vengono aperte qui, quindi le classi non cambiano
  * mentre si cerca. Le definizioni di 28j hanno le loro (instance_definition()),
- * più quelle che decidono un confronto. */
+ * più quelle che decidono un confronto. Con model_guided le istanze sono
+ * quelle di 28r, scelte con il modello candidato. */
 static int instantiate(void) {
     int made = 0, before = now->knowns;
+
+    /* 28r. Il modello candidato, con gli elementi che gli mancano (28r-1). */
+    if (model_guided) {
+        candidate_steps = 0;
+        candidate_prepare();
+        made += candidate_complete();
+    }
     for (int r = 0; r < before && !exhausted; r++) {
         /* Un "per ogni parte" ha le sue istanze in 28k; un'equipotenza
          * falsa il suo testimone (28q-2). */
@@ -29586,6 +29874,16 @@ static int instantiate(void) {
             rule.all |= SLOT_BIT(rule.body->slot);
             rule.slot[rule.slots++] = rule.body->slot;
             rule.body = rule.body->a;
+        }
+
+        /* 28r. Una definizione di 28j o di 28q anche dove la sua parte o la
+         * sua applicazione compare, l'estensionalità come in 28n (28r-2), il
+         * resto dal modello. */
+        if (model_guided) {
+            if (now->known[r].origin == K_DEFINED) made += instance_definition(&rule);
+            if (now->known[r].origin == K_MAPDEF) made += instance_mapdef(&rule);
+            made += known_law(r) == LAW_EXTENSIONALITY ? instance_choices(&rule, 0) : instance_model(&rule);
+            continue;
         }
         if (now->known[r].origin == K_DEFINED) {
             made += instance_definition(&rule) + instance_choices(&rule, 0);
@@ -29998,6 +30296,21 @@ static int part_name_derived(int i, const Known *p) {
     return k->negated == negated && sentence_renamed(k->source, body, &from, &to, 1);
 }
 
+/* 28r. Ritorna 1 se l'elemento presente id è scritto bene: ogni argomento
+ * sta nell'insieme che il suo simbolo chiede, fino in fondo. Il controllo di
+ * un'istanza lo vuole per ogni elemento che sostituisce: chi ha costruito
+ * l'elemento, compresi gli f(a) aggiunti dal modello candidato (28r-1), non
+ * conta. */
+static int ground_sorted(int id) {
+    const Ground *g = &ground[id];
+    const Symbol *s = &symbols[g->symbol];
+    for (int i = 0; i < 2; i++) {
+        if ((i < s->arity) != (g->arg[i] >= 0)) return 0;
+        if (i < s->arity && (g->arg[i] < 1 || symbols[ground[g->arg[i]].symbol].range != s->domain[i] || !ground_sorted(g->arg[i]))) return 0;
+    }
+    return 1;
+}
+
 /* Controlla che la condizione nota di posto i, che non è un passo 28-1,
  * venga davvero da parent nel modo che origin dice: è un controllo sulla
  * forma, fatto rileggendo l'albero dell'enunciato. Ritorna 1 se regge. */
@@ -30013,7 +30326,7 @@ static int known_derived(int i) {
          * del suo insieme al posto di ogni variabile. */
         while ((body->kind == S_FORALL || body->kind == S_EXISTS) && (body->kind == S_FORALL) != p->negated) {
             int id = k->value[body->slot];
-            if (id < 1 || symbols[ground[id].symbol].range != slot_sort[body->slot]) return 0;
+            if (id < 1 || symbols[ground[id].symbol].range != slot_sort[body->slot] || !ground_sorted(id)) return 0;
             body = body->a;
         }
         return body != p->source && known_is(k, body, p->negated);
@@ -30765,12 +31078,13 @@ static Verdict abstract_certified(Verdict verdict, int required) {
  * parlano le dimostrazioni a mano di questi enunciati: "S stesso non è
  * un'immagine", "\{a\} e S contengono tutti e due a". Non è una ricerca
  * completa, e non deve esserlo: come per le istanze (28-3), non trovare una
- * dimostrazione vuol dire NON DIMOSTRATO.
+ * dimostrazione vuol dire NON DIMOSTRATO. Per le applicazioni c'è una legge
+ * in più, che dà quelle con due valori (28s).
  *
  * Il verificatore non si fida: riceve gli assiomi nel certificato, una voce
  * axiom per ognuno, e controlla da sé che ognuno abbia la forma di 28n-1,
- * 28n-2 o 28n-3, su un insieme di parti o di applicazioni dichiarato (11h in
- * checker.c). Un assioma di forma diversa è respinto: non si può far
+ * 28n-2, 28n-3 o 28s-1, su un insieme di parti o di applicazioni dichiarato
+ * (11h e 11k in checker.c). Un assioma di forma diversa è respinto: non si può far
  * passare un'ipotesi in più per una legge. I modelli finiti (28a, 28m)
  * hanno le parti e le applicazioni vere, dove gli assiomi valgono: un
  * controesempio trovato lì è un controesempio vero. */
@@ -30892,18 +31206,63 @@ static void axiom_template(const SetTerm *e) {
     axiom_add(law, LAW_COMPREHENSION);
 }
 
+/* 28s. LE APPLICAZIONI CON DUE VALORI
+ *
+ * (Sta qui, accanto alle leggi di 28n di cui è una in più; la lettera è
+ * venuta dopo le altre.)
+ *
+ * Le comprensioni di 28n danno delle parti: la vuota, tutto S, \{a\}. Per le
+ * applicazioni come oggetti, T^{S}, non ce n'era nessuna, e una
+ * dimostrazione che chiede di costruire un'applicazione non si trovava:
+ * "se l'ordine punto per punto su S^{S} è totale, S ha un solo elemento" si
+ * dimostra a mano prendendo, per a \neq b, le applicazioni che mandano a in
+ * a e il resto in b, e a in b e il resto in a, e guardando che non sono
+ * confrontabili. La legge che le dà è
+ *
+ *   28s-1. Per ogni p di S e ogni u, v di T esiste h in T^{S} con h(x) = u
+ *          se x = p e h(x) = v altrimenti.
+ *
+ * È vera: la regola dà a ogni x di S un valore solo, in T, quindi
+ * un'applicazione da S a T, e T^{S} le contiene tutte; se S è vuoto non c'è
+ * nessun p, se T lo è nessun u, e la legge non dice nulla. Con u = v dà le
+ * applicazioni costanti. Perché questa e non altre: sono le applicazioni che
+ * si scrivono con i soli elementi che hanno un nome, come \{a\} per le parti,
+ * ed è un passo solo; le applicazioni date da una formula qualsiasi sarebbero
+ * infinite, come le parti, e la legge diventerebbe una ricerca. Entra tra le
+ * comprensioni (LAW_COMPREHENSION), che le prove usano solo quando le altre
+ * non bastano (claim_attempts()), e il verificatore la riconosce dalla sua
+ * forma, lettera per lettera (11k in checker.c). */
+
+/* 28s-1. Aggiunge agli assiomi la legge delle applicazioni con due valori
+ * dell'insieme di posto sort, di applicazioni da S a T, nella forma che il
+ * verificatore riconosce: \forall p \in S\ \forall u, v \in T\ \exists h \in
+ * T^{S}\ \forall x \in S\ ((x = p \implies h(x) = u) \land (x \neq p
+ * \implies h(x) = v)). */
+static void axiom_map_point(int sort) {
+    int p, u, v, h, x, symbol = sort_symbol[sort];
+    Elem *point = axiom_variable(sort_base[sort], &p), *first = axiom_variable(sort_target[sort], &u), *other = axiom_variable(sort_target[sort], &v);
+    Elem *map = axiom_variable(sort, &h), *at = axiom_variable(sort_base[sort], &x);
+    Sentence *here = axiom_atom(S_EQUAL, -1, at, point);
+    Sentence *body = axiom_join(S_AND, axiom_join(S_IMPLIES, here, axiom_atom(S_EQUAL, -1, elem_new(symbol, 0, map, at), first)),
+                                axiom_join(S_IMPLIES, axiom_join(S_NOT, here, NULL), axiom_atom(S_EQUAL, -1, elem_new(symbol, 0, map, at), other)));
+    Sentence *law = axiom_bind(S_EXISTS, h, axiom_bind(S_FORALL, x, body));
+    axiom_add(axiom_bind(S_FORALL, p, axiom_bind(S_FORALL, u, axiom_bind(S_FORALL, v, law))), LAW_COMPREHENSION);
+}
+
 /* Prepara gli assiomi dell'enunciato in corso: per ogni insieme di parti
  * l'estensionalità e le comprensioni descritte in testa al paragrafo, per
- * ogni insieme di applicazioni l'estensionalità; poi le comprensioni degli
- * insiemi che l'enunciato scrive come parti, tranne quelli che le prime già
- * danno (\emptyset, tutto S). Usa posti nuovi per le variabili, dopo quelli
- * dello svolgimento. */
+ * ogni insieme di applicazioni l'estensionalità e la legge di 28s; poi le
+ * comprensioni degli insiemi che l'enunciato scrive come parti, tranne
+ * quelli che le prime già danno (\emptyset, tutto S). Usa posti nuovi per
+ * le variabili, dopo quelli dello svolgimento. */
 static void axioms_prepare(void) {
     axiom_count = 0;
     for (int i = 0; i < sort_count; i++)
         if (sort_kind[i] != SORT_PLAIN) axiom_extensionality(i);
     for (int i = 0; i < sort_count; i++)
         for (int kind = 0; kind < 3 && sort_kind[i] == SORT_PARTS; kind++) axiom_part(i, kind);
+    for (int i = 0; i < sort_count; i++)
+        if (sort_kind[i] == SORT_MAPS) axiom_map_point(i);
     for (int i = 0; i < part_template_count; i++)
         if (part_template[i]->kind != ST_EMPTY && part_template[i]->kind != ST_SORT) axiom_template(part_template[i]);
 }
@@ -31542,23 +31901,46 @@ static int abstract_claim(const Sentence **hypothesis, int hypotheses, const Sen
  * distinguendo i casi dopo LOOKAHEAD_ROUNDS giri, prima che le istanze
  * riempiano le tabelle; poi, se ci sono, anche con le comprensioni. */
 static int claim_passes(const Sentence **hypothesis, int hypotheses, int first_pass, const Sentence *claim) {
-    int proved = abstract_claim(hypothesis, first_pass < hypotheses ? first_pass : hypotheses, claim);
+    int first = first_pass < hypotheses ? first_pass : hypotheses;
+    int proved = abstract_claim(hypothesis, first, claim);
     for (int pass = 1; !proved && pass < 3; pass++) {
         if (pass == 2 && first_pass >= hypotheses) break;
         exhausted = 0;
         split_lookahead = 1;
         rounds_before_split = LOOKAHEAD_ROUNDS;
-        proved = abstract_claim(hypothesis, pass == 1 && first_pass < hypotheses ? first_pass : hypotheses, claim);
+        proved = abstract_claim(hypothesis, pass == 1 ? first : hypotheses, claim);
         split_lookahead = 0;
         rounds_before_split = MAX_ROUNDS;
     }
     return proved;
 }
 
+/* 28r. Come claim_passes(), con le istanze scelte dal modello candidato: per
+ * ogni generazione di model_generations[], prima senza e poi con le
+ * comprensioni, e MODEL_ROUNDS giri prima di distinguere i casi, perché ogni
+ * giro aggiunge una sola istanza per "per ogni", e una catena di istanze che
+ * dipendono l'una dall'altra chiede un giro per anello. */
+static int model_passes(const Sentence **hypothesis, int hypotheses, int first_pass, const Sentence *claim) {
+    int first = first_pass < hypotheses ? first_pass : hypotheses, proved = 0;
+    for (size_t g = 0; !proved && g < sizeof model_generations / sizeof *model_generations; g++)
+        for (int all = 0; all < 2 && !proved && (!all || first < hypotheses); all++) {
+            exhausted = 0;
+            model_guided = 1;
+            generation_limit = model_generations[g];
+            rounds_before_split = MODEL_ROUNDS;
+            proved = abstract_claim(hypothesis, all ? hypotheses : first, claim);
+            model_guided = 0;
+            rounds_before_split = MAX_ROUNDS;
+        }
+    return proved;
+}
+
 /* Come claim_passes(), e (28q) con un testimone per volta per le
  * equipotenze da dimostrare: dal più corto, finché la dimostrazione riesce o
  * i testimoni finiscono. Senza equipotenze witness_options resta 0, e il
- * giro è uno solo. */
+ * giro è uno solo. Infine (28r) model_passes(), con il primo testimone: le
+ * istanze scelte dal modello vengono dopo tutte le altre prove, così ciò che
+ * quelle dimostrano non cambia. */
 static int claim_attempts(const Sentence **hypothesis, int hypotheses, int first_pass, const Sentence *claim) {
     int proved = 0;
     witness_options = 0;
@@ -31579,9 +31961,9 @@ static int claim_attempts(const Sentence **hypothesis, int hypotheses, int first
         rounds_before_split = MAX_ROUNDS;
     }
     witness_choice = 0;
+    if (!proved) proved = model_passes(hypothesis, hypotheses, first_pass, claim);
     return proved;
 }
-
 /* 28o. Un'affermazione che non si dimostra tutta insieme si prova a pezzi,
  * ognuno come un'affermazione a sé: un'equivalenza A \iff B nei due versi,
  * A \implies B e B \implies A; A \implies (B \land C) come A \implies B e A
@@ -31642,6 +32024,7 @@ static Verdict prove_abstract(const char *formula) {
     if (syntax_error || failure) { verdict.reason = syntax_error ? syntax_error : failure; return verdict; }
     memset(nothing, -1, sizeof nothing);
     declared_symbols = symbol_count;
+    memset(symbol_generation, 0, sizeof symbol_generation);
 
     /* 17q, 28h. La notazione dei libri, se c'è, si svolge; e lo svolgimento
      * si ricontrolla sui modelli finiti prima di ragionare sull'enunciato
@@ -31806,6 +32189,15 @@ static Verdict prove_abstract(const char *formula) {
               "contradicts the statement (%lld were tried).", bound, bound == 1 ? "" : "s", tried);
     put_unfolding_note(compared);
     proof_add(" $\\Box$");
+
+    /* Una dimostrazione troncata non è scritta: proof_add() si ferma a
+     * PROOF_BYTES, e ciò che manca può essere un caso intero. Le
+     * dimostrazioni di 28r sono le più lunghe del capitolo, e l'hanno
+     * mostrato. */
+    if (proof_length >= PROOF_BYTES - 1) {
+        verdict.reason = "la dimostrazione trovata è più lunga di quanto il programma sappia scrivere";
+        return verdict;
+    }
     verdict.outcome = PROVED;
     verdict.proof = proof_text;
 

@@ -53,7 +53,13 @@
  *     dimostrerebbero il falso), su un insieme sbagliato, con i due lati
  *     scambiati o con un valore che non è un insieme; e la biiezione con un
  *     nome tra un insieme con elementi e uno vuoto, che non esiste, e
- *     farebbe passare "S non vuoto implica T non vuoto".
+ *     farebbe passare "S non vuoto implica T non vuoto";
+ *   - 11k, la legge delle applicazioni con due valori: accettata la
+ *     dimostrazione che la usa; respinte le leggi false (un'applicazione che
+ *     vale u e v insieme, che dimostrerebbe che due elementi qualsiasi sono
+ *     uguali, e "ogni applicazione" al posto di "una"), la stessa legge
+ *     scritta con x = p girato, che il verificatore non riconosce, e la
+ *     dimostrazione senza le istanze.
  *
  * I casi respinti e non controllabili sono antiregressione: non si tolgono
  * e non si indeboliscono per far passare una modifica al verificatore.
@@ -245,6 +251,21 @@ typedef struct {
     "case (not (implies (and " hypothesis " (exists s S (= s s))) (exists t T (= t t))))\n" \
     "witness (exists s S (= s s)) s_1\nwitness (equipotent S T) varphi_1 psi_2\ninstance (exists t T (= t t)) (varphi_1 s_1)\nend\n"
 
+/* 11k. Una legge delle applicazioni con due valori, h(x) = u se x = p e v
+ * altrimenti, e la dimostrazione che con lei ogni valore in un punto è
+ * preso da qualche applicazione: l'istanza con u = v, poi quella in p. */
+#define TWO_VALUES(eq, some) "(forall p S (forall u T (forall v T (" some " h MST (forall x S (and (implies " eq " (= (apMST h x) u)) " \
+    "(implies (not " eq ") (= (apMST h x) v))))))))"
+#define TWO_VALUES_HEAD "certificate structure\nsort S\nsort T\nsort MST maps S T apMST\n"
+#define VALUE_REACHED "(forall p S (forall u T (exists h MST (= (apMST h p) u))))"
+#define TWO_VALUES_PROOF(law, instances) TWO_VALUES_HEAD "statement " VALUE_REACHED "\naxiom " law "\ncase (not " VALUE_REACHED ")\n" \
+    "witness " VALUE_REACHED " p_1\nwitness (forall u T (exists h MST (= (apMST h p_1) u))) u_2\n" instances "end\n"
+#define TWO_VALUES_INSTANCES "instance " TWO_VALUES("(= x p)", "exists") " p_1 u_2 u_2\n" \
+    "witness (exists h MST (forall x S (and (implies (= x p_1) (= (apMST h x) u_2)) (implies (not (= x p_1)) (= (apMST h x) u_2))))) h_3\n" \
+    "instance (forall x S (and (implies (= x p_1) (= (apMST h_3 x) u_2)) (implies (not (= x p_1)) (= (apMST h_3 x) u_2)))) p_1\n" \
+    "instance (exists h MST (= (apMST h p_1) u_2)) h_3\n"
+#define ONE_VALUE_LAW "(forall p S (forall u T (forall v T (exists h MST (forall x S (and (= (apMST h x) u) (= (apMST h x) v)))))))"
+
 static const Case cases[] = {
     /* 11j. L'equipotenza, le biiezioni con un nome, le applicazioni
      * definite. */
@@ -338,6 +359,22 @@ static const Case cases[] = {
     {"the parts of a set of four elements are too many for a model", CK_UNSUPPORTED, "troppo grande", PARTS_MODEL("4", "")},
     {"a set of parts over a set that is not declared", CK_REJECTED, "non dichiarato",
      "certificate structure\nsort PS parts S inPS\nstatement true\nend\n"},
+
+    /* 11k. La legge delle applicazioni con due valori. */
+    {"a map with two values: every value at a point is reached", CK_ACCEPTED, "",
+     TWO_VALUES_PROOF(TWO_VALUES("(= x p)", "exists"), TWO_VALUES_INSTANCES)},
+    {"the same proof without its instances", CK_REJECTED, "non sono contraddittorie",
+     TWO_VALUES_PROOF(TWO_VALUES("(= x p)", "exists"), "")},
+    {"the same law written with p = x is not recognized", CK_REJECTED, "non è una legge",
+     TWO_VALUES_PROOF(TWO_VALUES("(= p x)", "exists"), "")},
+    {"a false law of maps: every map has the two values", CK_REJECTED, "non è una legge",
+     TWO_VALUES_PROOF(TWO_VALUES("(= x p)", "forall"), "")},
+    {"a false law of maps: a map with two values at once would make any two elements equal", CK_REJECTED, "non è una legge",
+     TWO_VALUES_HEAD "statement (implies (exists s S (= s s)) (forall u T (forall v T (= u v))))\naxiom " ONE_VALUE_LAW "\n"
+     "case (not (forall u T (forall v T (= u v))))\nwitness (exists s S (= s s)) s_1\nwitness (forall u T (forall v T (= u v))) u_2\n"
+     "witness (forall v T (= u_2 v)) v_3\ninstance " ONE_VALUE_LAW " s_1 u_2 v_3\n"
+     "witness (exists h MST (forall x S (and (= (apMST h x) u_2) (= (apMST h x) v_3)))) h_4\n"
+     "instance (forall x S (and (= (apMST h_4 x) u_2) (= (apMST h_4 x) v_3))) s_1\nend\n"},
 
     /* 11i. I numeri scritti: G = \{(1, 2), (2, 1)\} è simmetrica, e non
      * transitiva. */

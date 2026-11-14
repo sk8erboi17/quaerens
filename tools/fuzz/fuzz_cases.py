@@ -92,7 +92,11 @@ class NS:
     def window(self, size):
         if self.integers():
             return [Fr(i) for i in range(-size, size + 1) if self.has(i)]
-        return sorted({Fr(p, q) for q in range(1, 7) for p in range(-size * q // 3, size * q // 3 + 1)})
+        # Anche qui solo gli elementi dell'insieme: senza il filtro la finestra
+        # di R+ conteneva i negativi, e un valore come -10, che non sta nel
+        # codominio, risultava "mancato" da un'applicazione suriettiva su R+.
+        return sorted({Fr(p, q) for q in range(1, 7) for p in range(-size * q // 3, size * q // 3 + 1)
+                       if self.has(Fr(p, q))})
 
 
 class RealRoot:

@@ -2075,7 +2075,10 @@ static void ck_check_sets(const CkNode *statement) {
  *     parametri, \{t \in S \mid C\} è una parte di S, quindi un elemento di
  *     PS, e rende vera la condizione. Se Z comparisse in C non sarebbe una
  *     definizione: con C = (not (inPS t Z)) sarebbe la parte di Russell, che
- *     non esiste, e da lei seguirebbe tutto.
+ *     non esiste, e da lei seguirebbe tutto;
+ *   - (11k) un'applicazione con due valori, (forall p S (forall u T (forall
+ *     v T (exists h MST (forall x S (and (implies (= x p) (= (apMST h x) u))
+ *     (implies (not (= x p)) (= (apMST h x) v))))))). Vedi 11k.
  *
  * Gli insiemi vuoti (11f): PS non lo è mai (c'è la parte vuota), e MST lo è
  * esattamente quando S non è vuoto e T sì; le scelte degli insiemi vuoti
@@ -2179,6 +2182,17 @@ static void ck_check_sets(const CkNode *statement) {
  * biiezione da S a T vuoto a cui si dà un nome. Un nome di una voce define
  * esiste quando esistono quelli della sua definizione, e ne prende le
  * condizioni (CkSymbol.need e CkSymbol.pairs).
+ *
+ * 11k. LE APPLICAZIONI CON DUE VALORI
+ *
+ * Fissati p in S e u, v in T, la regola "x va in u se x = p, in v
+ * altrimenti" dà a ogni x di S un valore, uno solo (x = p o no, non tutte e
+ * due), e il valore sta in T: è un'applicazione da S a T, quindi un
+ * elemento di MST, che le contiene tutte, e rende vera la condizione. Con u
+ * = v è l'applicazione costante. Se S è vuoto non c'è nessun p, se T è
+ * vuoto nessun u: la legge non dice nulla, ed è vera anche lì. La forma è
+ * fissa, lettera per lettera (ck_map_point()): un'altra condizione, anche
+ * vera, non si accetta, perché per accettarla servirebbe dimostrarla.
  *
  * TEOREMA, con le voci sort di 11h: per 11c, l'enunciato vale in ogni
  * interpretazione ammessa, cioè con gli insiemi qualsiasi scelti
@@ -3251,6 +3265,24 @@ static int ck_uses_bound(const CkNode *c, long long depth) {
     return ck_uses_bound(c->a, inner) || ck_uses_bound(c->b, depth) || ck_uses_bound(c->c, depth);
 }
 
+/* 11k. Ritorna la legge delle applicazioni con due valori dell'insieme di
+ * posto i, di applicazioni da S a T, come la scrive un certificato, con le
+ * variabili legate p, u, v, h, x dalla più esterna:
+ *
+ *     (forall p S (forall u T (forall v T (exists h M (forall x S
+ *         (and (implies (= x p) (= (ap h x) u)) (implies (not (= x p)) (= (ap h x) v))))))))
+ *
+ * Sotto i cinque quantificatori x è 0, h è 1, v è 2, u è 3, p è 4. */
+static const CkNode *ck_map_point(int i) {
+    const CkSort *s = &ck_sorts[i];
+    const CkNode *x = ck_make(CK_VAR, 0, NULL, NULL), *value = ck_make(CK_APP, s->symbol, ck_make(CK_VAR, 1, NULL, NULL), x);
+    const CkNode *here = ck_make(CK_EQ, 0, x, ck_make(CK_VAR, 4, NULL, NULL));
+    const CkNode *first = ck_make(CK_IMPLIES, 0, here, ck_make(CK_EQ, 0, value, ck_make(CK_VAR, 3, NULL, NULL)));
+    const CkNode *other = ck_make(CK_IMPLIES, 0, ck_make(CK_NOT, 0, here, NULL), ck_make(CK_EQ, 0, value, ck_make(CK_VAR, 2, NULL, NULL)));
+    const CkNode *law = ck_make(CK_EXISTS, i, ck_make(CK_FORALL, s->base, ck_make(CK_AND, 0, first, other), NULL), NULL);
+    return ck_make(CK_FORALL, s->base, ck_make(CK_FORALL, s->target, ck_make(CK_FORALL, s->target, law, NULL), NULL), NULL);
+}
+
 /* 11h. Ritorna 1 se la condizione a è una legge delle parti: la
  * estensionalità di un insieme di parti o di applicazioni dichiarato, o una
  * comprensione,
@@ -3258,11 +3290,14 @@ static int ck_uses_bound(const CkNode *c, long long depth) {
  *     (forall p1 A1 ... (exists Z P (forall t S (iff (in t Z) C))))
  *
  * con P l'insieme delle parti di S, in il suo simbolo e C una condizione
- * qualsiasi in cui Z non compare: i parametri p1, ... possono comparirvi.
- * Vedi in testa al paragrafo perché sono vere. */
+ * qualsiasi in cui Z non compare: i parametri p1, ... possono comparirvi;
+ * oppure (11k) la legge delle applicazioni con due valori. Vedi in testa al
+ * paragrafo perché sono vere. */
 static int ck_axiom_valid(const CkNode *a) {
     for (int i = 0; i < ck_sort_count; i++)
         if (ck_sorts[i].kind && ck_same(a, ck_extensionality(i))) return 1;
+    for (int i = 0; i < ck_sort_count; i++)
+        if (ck_sorts[i].kind == 2 && ck_same(a, ck_map_point(i))) return 1;
     while (a->kind == CK_FORALL) a = a->a;
     if (a->kind != CK_EXISTS || ck_sorts[a->value].kind != 1) return 0;
     const CkSort *p = &ck_sorts[a->value];

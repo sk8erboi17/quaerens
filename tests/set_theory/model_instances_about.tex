@@ -1,0 +1,31 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{model\_instances.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{model\_instances.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_set\_theory.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 13 true statements, variants (not copies) of the book statements on partitions, compositions of equivalence relations and orders between parts and between equivalence classes: the preimage of a partition covers $S$, with or without the filter $f^{-1}(Y) \neq \emptyset$; the common refinement of two partitions covers $S$; the composition of two equivalence relations is symmetric, or transitive, when the two commute, and they commute when it is symmetric; the order on the non-empty parts and its reverse; the dual order on the classes of a convex equivalence relation. None of them is proved by the instances chosen by their form (28-3): the proofs need the instances chosen by the candidate model of paragraph 28r of \texttt{main.c}. Item 1 needs an element nobody mentions, $f(a)$, which the model adds because a map must have a value (28r-1). Items 12 and 13 need a map that the statement does not write: if all the maps of $S^{S}$ are equal, $S$ has one element (look at two constant maps), and a value at a point is reached by some map; the law of the maps with two values (28s), which the checker recognizes by its form (11k), gives them.
+
+\item \textbf{What is being tested.} That every statement is proved by chapter 28 with a written proof whose steps pass their independent check, and that each verdict carries a certificate that \texttt{checker.c} accepts, while the same certificate without its \texttt{instance} and \texttt{witness} entries is not accepted. If the candidate model chose instances that are not true (a wrong substitution, a variable left free), the check of 28e or the checker would reject the proof; if it stopped choosing the instances that matter, these statements would no longer be proved.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_set_theory \
+    tests/set_theory/test_set_theory.c && /tmp/test_set_theory
+\end{verbatim}
+
+\item \textbf{Expected result.} One \texttt{PASS} line for the file, and two for its certificates.
+\end{enumerate}
+\end{document}
