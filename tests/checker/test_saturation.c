@@ -138,7 +138,8 @@ static int clausification(void) {
         ck_sort_count = 2;
         ck_symbol_count = ck_declared = 1;
         memset(ck_sorts, 0, sizeof ck_sorts);
-        memset(ck_symbols, 0, sizeof ck_symbols);
+        if (!ck_symbols_reserve(1)) return 0;
+        memset(ck_symbols, 0, sizeof *ck_symbols);
         ck_symbols[0].arity = 2; ck_symbols[0].arg[1] = 1; ck_symbols[0].result = CK_BOOL;
         const CkNode *x = ck_make(CK_VAR, 1, NULL, NULL), *y = ck_make(CK_VAR, 0, NULL, NULL);
         const CkNode *a = ck_make(CK_EQ, 0, ck_make(CK_APP, 0, x, y), NULL);

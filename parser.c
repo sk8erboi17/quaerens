@@ -5459,7 +5459,8 @@ static const char *const greek_letters[] = {"alpha", "beta", "gamma", "delta", "
 typedef struct {
     int name;       /* una lettera; oppure OPERATION_NAMES + i per un simbolo
                        di operazione, GREEK_NAMES + i per una lettera greca */
-    int index;      /* il pedice, da 1 in su; 0 se non c'è */
+    int index;      /* 0 senza pedice, ZERO_INDEX per zero, positivo per un numero,
+                       LETTER_INDEX meno la lettera per un pedice letterale */
     int arity;      /* quanti argomenti: 0 per un elemento, 1 o 2 */
     int domain[2];  /* l'insieme di ogni argomento: un posto in sort_name[] */
     int range;      /* l'insieme del valore, o TRUTH per parti e relazioni */
@@ -5474,8 +5475,11 @@ typedef struct {
 
 /* I simboli dell'enunciato in corso, e i suoi insiemi: l'insieme di posto i
  * è la lettera sort_name[i], con il pedice sort_sub[i] (17w: S_{1}, da 1 a
- * 9; 0 se non c'è). */
-static Symbol symbols[MAX_SYMBOLS];
+ * 9; 0 se non c'è). I simboli e i loro ruoli hanno vettori posseduti
+ * dinamici: i contatori sono il solo prefisso valido, le capacita contano
+ * celle e possono crescere senza un tetto compilato alle dichiarazioni. */
+static Symbol *symbols;
+static size_t symbol_capacity;
 static int symbol_count;
 static int sort_name[MAX_SORTS], sort_sub[MAX_SORTS];
 static int sort_count;
@@ -5576,7 +5580,8 @@ static int sort_symbol[MAX_SORTS];  /* il simbolo di struttura, posto in symbols
  * è dichiarata: non ha una tabella nei modelli né una voce symbol nel
  * certificato. */
 enum { PART_FREE, PART_BOUND, PART_HIDDEN };
-static int symbol_bound[MAX_SYMBOLS];
+static int *symbol_bound;
+static size_t symbol_bound_capacity;
 
 /* Un'espressione che indica un elemento: una variabile, oppure un simbolo
  * applicato ai suoi argomenti (nessuno, per un elemento con un nome). Per
@@ -5735,14 +5740,28 @@ static int pair_find(int letter) {
     return -1;
 }
 
+/* Aggiunge una cella ai simboli e ai ruoli dei quantificatori. I vettori
+ * possiedono la memoria e possono spostarsi: i nodi conservano indici,
+ * mai indirizzi di Symbol. Ritorna il nuovo indice, oppure -1 con errore
+ * di risorse; una crescita fallita non pubblica una cella parziale. */
+static int symbol_append(Symbol symbol) {
+    if (symbol_count == INT_MAX ||
+        !work_reserve((void **)&symbols, &symbol_capacity, (size_t)symbol_count + 1, sizeof *symbols) ||
+        !work_reserve((void **)&symbol_bound, &symbol_bound_capacity, (size_t)symbol_count + 1, sizeof *symbol_bound)) {
+        syntax(OUT_OF_MEMORY); return -1;
+    }
+    int id = symbol_count++;
+    symbols[id] = symbol; symbol_bound[id] = PART_FREE;
+    return id;
+}
+
 /* Registra symbol tra i simboli dell'enunciato. Un nome già preso, da un
  * simbolo, da un insieme o da una variabile in vista, è un errore. */
 static void symbol_add(Symbol symbol) {
     int taken = symbol_find(symbol.name, symbol.index) >= 0 || visible_find(symbol.name, symbol.index) >= 0;
     for (int i = 0; i < sort_count; i++) taken = taken || (sort_sub[i] == symbol.index && sort_name[i] == symbol.name);
     if (taken) syntax("la stessa lettera ha due significati nello stesso enunciato");
-    else if (symbol_count == MAX_SYMBOLS) syntax("troppi simboli dichiarati in un enunciato");
-    else symbols[symbol_count++] = symbol;
+    else symbol_append(symbol);
 }
 
 /* 17v. I comandi con cui i libri scrivono una relazione tra gli elementi,
@@ -5753,7 +5772,7 @@ static const char *const relation_commands[] = {"le", "preceq", "sqsubseteq"};
 /* 17v. Legge il nome di una relazione scritta con un comando, \le, con il
  * pedice se c'è, \le_{S} o \le_{1}, e anche tra graffe come lo scrivono i
  * libri quando la relazione è un oggetto, {\le} o {\le_{S}}. Ritorna il
- * nome interno e mette il pedice in *index: una cifra, o LETTER_INDEX più
+ * nome interno e mette il pedice in *index: una cifra, o LETTER_INDEX meno
  * la lettera. Ritorna 0, senza leggere nulla, se ciò che segue non è il
  * nome di una relazione. */
 static int relation_name(int *index) {
@@ -5771,7 +5790,7 @@ static int relation_name(int *index) {
         next_token();
         int inner = is_char('{');
         if (inner) next_token();
-        if (token.kind == T_LETTER) *index = LETTER_INDEX + token.ch;
+        if (token.kind == T_LETTER) *index = LETTER_INDEX - token.ch;
         else if (token.kind == T_NUM && token.value >= 1 && token.value <= 9) *index = (int)token.value;
         else syntax("come pedice di una relazione è riconosciuta una lettera o una cifra da 1 a 9");
         next_token();
@@ -7157,16 +7176,18 @@ static SetTerm *abstract_set_factor(void) {
 
     /* Un'applicazione: l'immagine, o con ^{-1} la controimmagine. */
     if (symbol >= 0 && symbols[symbol].range != TRUTH && mark != 1) {
-        const Symbol *f = &symbols[symbol];
+        /* La lettura dell'insieme argomento puo registrare altri simboli:
+         * la copia locale resta valida anche se il deposito cresce. */
+        Symbol f = symbols[symbol];
         SetTerm *t = set_term_new(mark ? ST_PREIMAGE : ST_IMAGE), want = {0};
-        if (f->arity != 1) syntax("immagini e controimmagini sono lette solo per le applicazioni di un argomento");
+        if (f.arity != 1) syntax("immagini e controimmagini sono lette solo per le applicazioni di un argomento");
         if (token.kind == T_OPEN) next_token(); else syntax("un'applicazione, dove serve un insieme, va scritta con l'insieme tra parentesi: f(X), f^{-1}(Y)");
         t->symbol = symbol;
         t->a = abstract_set_term();
         if (token.kind == T_CLOSE) next_token(); else syntax("manca la parentesi chiusa");
         want.arity = t->arity = 1;
-        want.sort[0] = mark ? f->range : f->domain[0];
-        t->sort[0] = mark ? f->domain[0] : f->range;
+        want.sort[0] = mark ? f.range : f.domain[0];
+        t->sort[0] = mark ? f.domain[0] : f.range;
         if (!syntax_error) set_terms_match(t->a, &want);
         return t;
     }
@@ -7318,7 +7339,7 @@ static Sentence *abstract_set_relation(const char *start, int *seen) {
  * parte se la componente è una. Ritorna il posto del simbolo, o -1 se non
  * l'ha dichiarato. Vedi la convenzione in testa a 17v. */
 static int relation_declare(int name, int index, Elem *const *items, int count) {
-    int fit = name >= RELATION_NAMES || (name < 128 && isupper(name) && index > 0 && index < LETTER_INDEX);
+    int fit = name >= RELATION_NAMES || (name < 128 && isupper(name) && index != 0 && index > LETTER_INDEX);
     if (!fit || count < 1 || count > 2 || symbol_find(name, index) >= 0 || visible_find(name, index) >= 0 || definition_find(name, index, 0)) return -1;
     Symbol symbol = {name, index, count, {0, 0}, TRUTH, 0, 0};
     for (int i = 0; i < count; i++) {
@@ -8171,7 +8192,7 @@ static Sentence *abstract_statement(void) {
     unsigned nonempty = 0;  /* Gli insiemi detti esplicitamente non vuoti negli esistenziali iniziali. */
     symbol_count = sort_count = slot_count = visible_count = definition_count = builder_depth = 0;
     describe_count = describe_allowed = part_template_count = 0;
-    memset(symbol_bound, 0, sizeof symbol_bound);
+    if (symbol_bound_capacity) memset(symbol_bound, 0, symbol_bound_capacity * sizeof *symbol_bound);
     abstract_positive = 1;
     abstract_example = map_quantifiers = 0;
     family_slot = -1;
@@ -8208,12 +8229,12 @@ static Sentence *abstract_statement(void) {
          * nei libri; l'insieme deve essere già stato introdotto. */
         int orders = count > 0 && !operation && !parts && !map;
         for (int i = 0; i < count && orders; i++) {
-            int letter = names[i].index - LETTER_INDEX;
-            orders = names[i].letter >= RELATION_NAMES && names[i].index >= LETTER_INDEX && sort_index_find(letter) >= 0;
+            int letter = LETTER_INDEX - names[i].index;
+            orders = names[i].letter >= RELATION_NAMES && names[i].index <= LETTER_INDEX && sort_index_find(letter) >= 0;
         }
         if (orders) {
             for (int i = 0; i < count && !syntax_error; i++) {
-                int sort = sort_index_find(names[i].index - LETTER_INDEX);
+                int sort = sort_index_find(LETTER_INDEX - names[i].index);
                 symbol_add((Symbol){names[i].letter, names[i].index, 2, {sort, sort}, TRUTH, 0, 0});
             }
             abstract_example = 1;
@@ -8972,15 +8993,22 @@ static int read_conditions(const char *from, const char *to, int *variable, long
 }
 
 /* Un enunciato letto da un \item: la formula e ciò che il testo dice su dove
- * parte l'induzione. */
+ * parte l'induzione. formula e presa in prestito dal deposito del lettore,
+ * fino alla successiva read_item; chi la conserva deve copiarla. */
 typedef struct {
-    char formula[MAX_FORMULA];  /* la formula in LaTeX, terminata da '\0' */
+    const char *formula;        /* formula LaTeX terminata da '\0', presa in prestito */
     int variable;               /* variabile di induzione */
     int has_base;               /* 1 se il testo indica il caso base */
     int conditional;            /* 1 se il testo pone una condizione non letta */
     int remark;                 /* 1 se un inciso tra parentesi è stato letto come commento */
     long long base;             /* il caso base, se has_base */
 } Item;
+
+/* Copia riusabile dell'item corrente, indipendente dall'arena che prove()
+ * azzera. Cresce con il testo: un limite delle formule numeriche interne
+ * non deve diventare un tetto alle dichiarazioni degli insiemi. */
+static char *item_formula;
+static size_t item_formula_capacity;
 
 /* Cerca il prossimo \item a partire da *position. Se lo trova mette in *item
  * e *end l'inizio e la fine del suo testo, porta *position alla fine e ritorna
@@ -9011,11 +9039,19 @@ static const char *const closing_words[] = {"allora", "vale", "then"};
 static const char *const joining_words[] = {"e", "ed", "and"};
 
 /* Aggiunge a out->formula, lunga *length, il testo prefix seguito dai
- * caratteri [from, to), e aggiorna *length. Ritorna 0 se non c'è posto. */
+ * caratteri [from, to), e aggiorna *length. Ritorna 0 per risorse finite.
+ * I frammenti vengono dall'input o da buffer locali, mai da item_formula,
+ * che una crescita puo spostare. Il risultato non viene mai troncato. */
 static int formula_append(Item *out, size_t *length, const char *prefix, const char *from, const char *to) {
-    int written = snprintf(out->formula + *length, sizeof out->formula - *length, "%s%.*s", prefix, (int)(to - from), from);
-    if (written < 0 || (size_t)written >= sizeof out->formula - *length) return 0;
-    *length += (size_t)written;
+    size_t a=strlen(prefix),b=(size_t)(to-from);
+    if (a>(size_t)-1-*length || b>(size_t)-1-*length-a || *length+a+b==(size_t)-1) {
+        work_allocation_failed=1;fail(OUT_OF_MEMORY);return 0;
+    }
+    if (!work_reserve((void **)&item_formula,&item_formula_capacity,*length+a+b+1,1)) return 0;
+    memcpy(item_formula+*length,prefix,a);
+    memcpy(item_formula+*length+a,from,b);
+    *length+=a+b;item_formula[*length]=0;
+    out->formula=item_formula;
     return 1;
 }
 
@@ -9048,7 +9084,7 @@ static int formula_append(Item *out, size_t *length, const char *prefix, const c
  * riesce, PROSE se l'\item non ha questa forma, o un altro motivo, in
  * italiano. */
 static const char *read_sequence_item(const char *item, const char *end, Item *out, const char **tail, int *unread) {
-    const char *long_text = "enunciato troppo lungo";
+    const char *long_text = OUT_OF_MEMORY;
     size_t length = 0;
     int givens = 0, claims = 0, since = 0, closed = 0;
     const char *p = item;
@@ -9114,8 +9150,10 @@ static const char *read_sequence_item(const char *item, const char *end, Item *o
 
 /* Estrae in *out l'enunciato contenuto nel testo [item, end) di un \item.
  * Ritorna NULL se riesce; altrimenti ritorna il motivo, in italiano, per cui
- * il testo non è un enunciato utilizzabile. */
+ * il testo non è un enunciato utilizzabile. Il testo di out e valido fino
+ * alla chiamata successiva, anche se nel frattempo prove azzera l'arena. */
 static const char *read_item(const char *item, const char *end, Item *out) {
+    out->formula=NULL;
     /* Prima della formula sono ammessi spazi e commenti: un \item seguito
      * da una nota sulla fonte resta lo stesso enunciato. */
     while (item < end) {
@@ -9150,10 +9188,8 @@ static const char *read_item(const char *item, const char *end, Item *out) {
     /* Copia la formula in una stringa a sé. */
     if (!tail) {
         if (!stop || stop > end) return PROSE;
-        size_t length = (size_t)(stop - start);
-        if (length >= sizeof out->formula) return "enunciato troppo lungo";
-        memcpy(out->formula, start, length);
-        out->formula[length] = 0;
+        size_t length=0;
+        if (!formula_append(out,&length,"",start,stop)) return OUT_OF_MEMORY;
         tail = stop + closing;
     }
 

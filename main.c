@@ -613,7 +613,6 @@
 #define MAX_SORTS 6          /* insiemi distinti in un enunciato su insiemi qualsiasi (17o), contando quelli di parti e
                                 di applicazioni (17v): sei per T_{1}^{S_{1}} \sim T_{2}^{S_{2}} (17w). Non più di
                                 CK_MAX_SORTS */
-#define MAX_SYMBOLS 64       /* simboli di un enunciato su insiemi qualsiasi, compresi gli elementi a cui la dimostrazione dà un nome */
 
 /* Un insieme finito di indici di variabili. low conserva le prime due
  * parole senza allocazioni, per non rallentare i problemi gia trattati;
@@ -653,11 +652,10 @@ typedef struct {
                                 non sono caratteri, e stanno dopo quelli delle lettere greche */
 #define RELATION_NAMES 3500  /* "nomi" delle relazioni scritte con un comando, come \le (17v): non sono
                                 caratteri, e stanno tra le lettere greche e i simboli di struttura */
-#define LETTER_INDEX 100     /* un pedice che è una lettera, \le_{S}, vale LETTER_INDEX più la lettera (17v) */
+#define LETTER_INDEX (-2)    /* un pedice letterale, \le_{S}, vale LETTER_INDEX meno la lettera (17v) */
 #define NUMERAL_NAMES 5000   /* "nomi" dei numeri scritti come elementi (17v): il numero v è NUMERAL_NAMES + v */
 #define MAX_NUMERAL 1000     /* il più grande numero scritto come elemento, più uno (17v) */
-#define ZERO_INDEX 99        /* il pedice 0, x_{0} (17v): 0 vuol dire "senza pedice". Sotto LETTER_INDEX, e
-                                sopra i pedici che 28-2 dà ai nomi nuovi, che sono meno di MAX_SYMBOLS */
+#define ZERO_INDEX (-1)      /* il pedice 0, x_{0}: zero resta "senza pedice", i numeri positivi restano distinti */
 #define MAX_MODELS 400000    /* tabelle provate per una scelta delle grandezze degli insiemi */
 #define MAX_MODEL_WORK 3000000  /* tabelle provate in tutto per un enunciato */
 #define MAX_MODEL_STEPS 40000000  /* elementi provati dai quantificatori, in tutto, nel calcolare un enunciato sui modelli */
@@ -27420,14 +27418,17 @@ static const char *derivative_doubt(const Formula *thesis) {
  * scelgono: le fissa model_structure() (28m). */
 typedef struct {
     size_t size[MAX_SORTS];          /* Cardinalita; gli elementi sono indici size_t. */
-    size_t *table[MAX_SYMBOLS];      /* Tabelle possedute dal modello, NULL prima dell'allocazione. */
+    size_t **table;                 /* Tabelle possedute, una per simbolo, NULL senza celle. */
+    unsigned char **part;           /* Contesti temporanei presi in prestito dai quantificatori su parti. */
+    size_t symbols;                 /* Numero di celle allocate in table e part, indipendente dal parser. */
     size_t bytes;                    /* Byte delle tabelle allocate, entro model_memory_limit. */
     int limited;                     /* Ultima allocazione interrotta per risorse, non per dominio vuoto. */
 } Model;
 
 /* Libera le tabelle possedute; le cardinalita restano disponibili. */
 static void model_clear(Model *m) {
-    for (int i = 0; i < MAX_SYMBOLS; i++) { free(m->table[i]); m->table[i] = NULL; }
+    if (m->table) for (size_t i = 0; i < m->symbols; i++) free(m->table[i]);
+    free(m->table); free(m->part); m->table = NULL; m->part = NULL; m->symbols = 0;
     m->bytes = 0;
 }
 
@@ -27448,15 +27449,14 @@ static int model_product(size_t a, size_t b, size_t *out) {
  * elementi sono 2^n, e si provano tutte. Una parte e un vettore di n byte, con
  * il byte x acceso se l'elemento x sta nella parte. La parte legata non ha una
  * tabella sua (model_cells() le dà zero celle, così la ricerca dei
- * modelli non la sceglie): il suo valore è in part_values[], come quello di
+ * modelli non la sceglie): il suo valore è in Model.part, come quello di
  * una variabile in value[]. */
-static unsigned char *part_values[MAX_SYMBOLS];
 
 /* Ritorna il valore della cella (a, b) della tabella del simbolo symbol nel
  * modello m (b conta solo con due argomenti): per una parte legata, 1 se a
- * sta nella parte che le dà part_values[]. */
+ * sta nella parte che le dà Model.part. */
 static size_t model_cell(const Model *m, int symbol, size_t a, size_t b) {
-    if (symbol_bound[symbol]) return part_values[symbol][a];
+    if (symbol_bound[symbol]) return m->part[symbol][a];
     size_t cell = symbols[symbol].arity ? a : 0;
     if (symbols[symbol].arity == 2) cell += b * m->size[symbols[symbol].domain[0]];
     return m->table[symbol][cell];
@@ -27485,16 +27485,16 @@ typedef int (*ModelHolds)(const Model *m, const Sentence *s, size_t *value);
 /* 28i. Ritorna 1 se il quantificatore su parti s (S_FORALL_PART o
  * S_EXISTS_PART) vale nel modello m, con le variabili ai valori di value[],
  * calcolando la sua condizione con holds. Prova le parti dalla vuota,
- * contandole in model_steps, e rimette part_values[] com'era. Lo stesso
+ * contandole in model_steps, e rimette Model.part com'era. Lo stesso
  * simbolo può essere legato da due quantificatori uno dentro l'altro (le
  * copie di 17q): per questo il valore di fuori si salva e si rimette. */
 static int model_part_quantifier(const Model *m, const Sentence *s, size_t *value, ModelHolds holds) {
     int every = s->kind == S_FORALL_PART, result = every;
     size_t n = m->size[symbols[s->part].domain[0]];
     if (n > model_memory_limit) { model_steps = MAX_MODEL_STEPS + 1LL; return 0; }
-    unsigned char *saved = part_values[s->part], *bits = calloc(n ? n : 1, 1);
+    unsigned char *saved = m->part[s->part], *bits = calloc(n ? n : 1, 1);
     if (!bits) { model_steps = MAX_MODEL_STEPS + 1LL; return 0; }
-    part_values[s->part] = bits;
+    m->part[s->part] = bits;
     for (;;) {
         if (++model_steps > MAX_MODEL_STEPS) break;
         if (holds(m, s->a, value) != every) { result = !every; break; }
@@ -27503,7 +27503,7 @@ static int model_part_quantifier(const Model *m, const Sentence *s, size_t *valu
         if (bit == n) break;
         bits[bit] = 1;
     }
-    part_values[s->part] = saved;
+    m->part[s->part] = saved;
     free(bits);
     return result;
 }
@@ -27591,14 +27591,25 @@ static size_t model_cells(const Model *m, int symbol, size_t *cells) {
 static int model_allocate(Model *m) {
     model_clear(m);
     m->limited = 0;
+    size_t pointers;
+    if (!model_product((size_t)symbol_count, sizeof *m->table + sizeof *m->part, &pointers) || pointers > model_memory_limit) {
+        m->limited = 1; return 0;
+    }
+    if (symbol_count) {
+        m->symbols = (size_t)symbol_count;
+        m->table = calloc(m->symbols, sizeof *m->table);
+        m->part = calloc(m->symbols, sizeof *m->part);
+        if (!m->table || !m->part) { m->limited = 1; model_clear(m); return 0; }
+    }
+    m->bytes = pointers;
     for (int s = 0; s < symbol_count; s++) {
         size_t cells, bytes, values = model_cells(m, s, &cells);
         if (cells && !values && cells != (size_t)-1) { model_clear(m); return 0; }
         if (!model_product(cells, sizeof(size_t), &bytes) || bytes > model_memory_limit - m->bytes) {
             m->limited = 1; model_clear(m); return 0;
         }
-        m->table[s] = calloc(bytes ? bytes : 1, 1);
-        if (!m->table[s]) { m->limited = 1; model_clear(m); return 0; }
+        if (bytes) m->table[s] = calloc(bytes, 1);
+        if (bytes && !m->table[s]) { m->limited = 1; model_clear(m); return 0; }
         m->bytes += bytes;
     }
     return 1;
@@ -27900,8 +27911,8 @@ typedef struct {
     SatTerm *term;
     size_t var_cap, clause_cap, literal_cap, trail_cap, learned_cap;
     size_t watch_cap, limit_cap, term_cap, hash_cap;
-    size_t *table[MAX_SYMBOLS], *slots;
-    size_t slots_cap;
+    size_t **table, *slots;
+    size_t table_cap, slots_cap;
 } SatState;
 
 /* Registra lavoro prima di eseguirlo; un budget esaurito non e UNSAT. */
@@ -27939,7 +27950,8 @@ static int sat_reserve(SatState *s, void **data, size_t *capacity, size_t need, 
  * vettori di valori posseduti dai termini. Puo seguire una crescita fallita. */
 static void sat_clear(SatState *s) {
     for (size_t i = 1; i <= s->terms; i++) free(s->term[i].literal);
-    for (int i = 0; i < MAX_SYMBOLS; i++) free(s->table[i]);
+    for (size_t i = 0; i < s->table_cap; i++) free(s->table[i]);
+    free(s->table);
     free(s->var); free(s->clause); free(s->literal); free(s->trail);
     free(s->learned); free(s->watch); free(s->limit); free(s->hash); free(s->term); free(s->slots);
     memset(s, 0, sizeof *s);
@@ -28234,7 +28246,7 @@ static size_t sat_application(SatState *s, const Model *m, int symbol, size_t a,
     if (symbol_bound[symbol]) {
         SatLiteral truth = -1;
         for (size_t v = 0; v < m->size[f->domain[0]] && !s->broken; v++)
-            if (part_values[symbol][v]) truth = sat_or(s, truth, sat_at(s, a, v));
+            if (m->part[symbol][v]) truth = sat_or(s, truth, sat_at(s, a, v));
         return sat_boolean(s, truth);
     }
     size_t av = a ? s->term[a].known : 0, bv = b ? s->term[b].known : 0;
@@ -28328,9 +28340,9 @@ static SatLiteral sat_sentence(SatState *s, const Model *m, const Sentence *f) {
         int every = f->kind == S_FORALL_PART;
         SatLiteral result = every ? 1 : -1;
         size_t n = m->size[symbols[f->part].domain[0]], cap = 0;
-        unsigned char *saved = part_values[f->part], *bits = NULL;
+        unsigned char *saved = m->part[f->part], *bits = NULL;
         if (!sat_reserve(s, (void **)&bits, &cap, n ? n : 1, 1)) return -1;
-        part_values[f->part] = bits;
+        m->part[f->part] = bits;
         for (;;) {
             a = sat_sentence(s, m, f->a);
             result = every ? sat_and(s, result, a) : sat_or(s, result, a);
@@ -28340,7 +28352,7 @@ static SatLiteral sat_sentence(SatState *s, const Model *m, const Sentence *f) {
             if (bit == n) break;
             bits[bit] = 1;
         }
-        part_values[f->part] = saved; free(bits); s->bytes -= cap;
+        m->part[f->part] = saved; free(bits); s->bytes -= cap;
         return result;
     }
     case S_MEMBER: case S_INCLUDED: case S_SAME: case S_UNIQUE:
@@ -28371,6 +28383,7 @@ static int model_sat(const Sentence *root, int wanted, Model *m, unsigned long l
         if (!symbols[f].arity) named[sort]++;
         if (symbols[f].arity == 1 && symbols[f].domain[0] == sort && ordered_map[sort] < 0) ordered_map[sort] = f;
     }
+    sat_reserve(&s, (void **)&s.table, &s.table_cap, (size_t)symbol_count, sizeof *s.table);
     for (int f = 0; f < symbol_count && !s.broken; f++) {
         if (symbol_bound[f]) continue;
         size_t cells, values = model_cells(m, f, &cells), cap = 0;
@@ -28494,7 +28507,7 @@ static void put_symbol(int symbol) {
     else if (s->name >= GREEK_NAMES) proof_add("\\%s", greek_letters[s->name - GREEK_NAMES]);
     else if (s->name >= OPERATION_NAMES) proof_add("\\%s", operation_symbols[s->name - OPERATION_NAMES]);
     else proof_add("%c", s->name);
-    if (s->index >= LETTER_INDEX) proof_add("_{%c}", s->index - LETTER_INDEX);
+    if (s->index <= LETTER_INDEX) proof_add("_{%c}", LETTER_INDEX - s->index);
     else if (s->index) proof_add("_{%d}", index_digits(s->index));
 }
 
@@ -28922,7 +28935,7 @@ static void put_unfolding_note(long long compared) {
  * relazione che vale: così x \in X è l'uguaglianza X(x) = vero, e le regole
  * sulle uguaglianze servono anche per le appartenenze. */
 typedef struct {
-    short symbol;  /* posto in symbols[]; -1 per "vero" */
+    int symbol;    /* posto in symbols[]; -1 per "vero", senza troncamenti a 16 bit */
     short arg[2];  /* gli argomenti, posti in questa tabella; -1 dove mancano */
 } Ground;
 
@@ -29015,7 +29028,7 @@ typedef struct {
     int stamp;               /* numero d'ordine: vedi Branch.clock */
     SlotValues value;       /* snapshot immutabile delle sostituzioni */
     int parts;              /* numero di simboli nella copia immutabile part */
-    const short *part;      /* 28j: per un'istanza di un "per ogni parte", la
+    const int *part;      /* 28j: per un'istanza di un "per ogni parte", la
                                 parte al posto di ogni parte legata, dalla più
                                 esterna; per un nome dato a una parte (K_NAMED)
                                 o per una definizione (K_DEFINED), in part[0]
@@ -29113,7 +29126,7 @@ static int ground_lookup(int symbol, int a, int b, Lookup mode) {
 
     /* Un elemento nuovo: da solo nella sua classe. */
     int id = now->grounds++;
-    ground[id] = (Ground){(short)symbol, {(short)a, (short)b}};
+    ground[id] = (Ground){symbol, {(short)a, (short)b}};
     now->rep[id] = (short)id;
     now->up[id] = -1;
     exact[h] = (short)id;
@@ -29510,8 +29523,8 @@ static int known_add(const Sentence *source, int negated, SlotValues value, Orig
  * at indica un Known valido e count e non negativo.
  * I rami possono condividere la copia: un tentativo nuovo non la modifica.
  * Ritorna zero e interrompe la ricerca se manca la memoria per la copia. */
-static int known_parts(int at, const short *part, int count) {
-    short *copy = work_arena_array((size_t)count, sizeof *copy);
+static int known_parts(int at, const int *part, int count) {
+    int *copy = work_arena_array((size_t)count, sizeof *copy);
     if (count && !copy) { exhausted = 1; return 0; }
     if (count) memcpy(copy, part, (size_t)count * sizeof *copy);
     now->known[at].parts = count;
@@ -29598,7 +29611,8 @@ static int truth(const Sentence *s, int negated, SlotValues value) {
  * suo numero d'ordine, name_serial[], che non si ripete nella dimostrazione
  * di un'affermazione: names_given ne conta i nomi. name_known[] è il posto
  * in known[] della condizione K_NAMED che il nome ha aperto. */
-static int name_serial[MAX_SYMBOLS], name_known[MAX_SYMBOLS];
+static int *name_serial, *name_known;
+static size_t name_serial_capacity, name_known_capacity;
 static int names_given;
 
 /* 28r-3. La generazione di ogni simbolo: 0 per quelli dichiarati e per i
@@ -29606,7 +29620,8 @@ static int names_given;
  * dell'istanza per un nome nato dentro un'istanza. Si scrive quando il nome
  * nasce, e vale per quel nome solo (il posto si riusa da un ramo all'altro:
  * lo si riscrive). */
-static unsigned char symbol_generation[MAX_SYMBOLS];
+static unsigned char *symbol_generation;
+static size_t symbol_generation_capacity;
 
 /* 28r-3. Ritorna la generazione dell'elemento presente id: la più alta dei
  * simboli che lo scrivono. */
@@ -29642,10 +29657,34 @@ static int known_law(int i);
 /* 28n. symbol_law[s] è 1 se il nome di posto s è nato da una legge delle
  * parti: una parte data da una comprensione, o un elemento che distingue
  * due parti. */
-static unsigned char symbol_law[MAX_SYMBOLS];
+static unsigned char *symbol_law;
+static size_t symbol_law_capacity;
 /* Quanti simboli ha letto l'enunciato: gli altri sono nomi dati dalla
  * dimostrazione (28-2, e le parti di 28j). */
 static int declared_symbols;
+
+/* Dimensiona i metadati dei simboli della ricerca. Il parser possiede le
+ * dichiarazioni, il motore questi dati delle dimostrazioni: nessuno dei
+ * due conosce i vettori dell'altro. Tutti i riferimenti restano indici.
+ * Una crescita parziale conserva i dati e segnala soltanto risorse finite. */
+static int proof_symbols_reserve(size_t need) {
+    if (!work_reserve((void **)&name_serial, &name_serial_capacity, need, sizeof *name_serial) ||
+        !work_reserve((void **)&name_known, &name_known_capacity, need, sizeof *name_known) ||
+        !work_reserve((void **)&symbol_generation, &symbol_generation_capacity, need, sizeof *symbol_generation) ||
+        !work_reserve((void **)&symbol_law, &symbol_law_capacity, need, sizeof *symbol_law)) {
+        exhausted = 1; return 0;
+    }
+    return 1;
+}
+
+/* Registra un nome del motore dopo aver riservato anche i suoi metadati.
+ * Ritorna l'indice nuovo, o -1 senza pubblicare un nome incompleto. */
+static int proof_symbol_append(Symbol symbol) {
+    if (!proof_symbols_reserve((size_t)symbol_count + 1)) return -1;
+    int id = symbol_append(symbol);
+    if (id < 0) exhausted = 1;
+    return id;
+}
 
 /* 28j. LE PARTI NELLA RICERCA: NOMI, COPIE, DEFINIZIONI
  *
@@ -29716,7 +29755,7 @@ static const Sentence *sentence_rename(const Sentence *s, int from, int to) {
 
 /* Il simbolo che deve stare in una copia al posto di symbol: to[i] se
  * symbol è from[i], per qualche i < count; altrimenti lui stesso. */
-static int renamed_symbol(int symbol, const short *from, const short *to, int count) {
+static int renamed_symbol(int symbol, const int *from, const int *to, int count) {
     for (int i = 0; i < count; i++)
         if (from[i] == symbol) return to[i];
     return symbol;
@@ -29724,7 +29763,7 @@ static int renamed_symbol(int symbol, const short *from, const short *to, int co
 
 /* Ritorna 1 se l'elemento e è scritto come original con to[i] al posto di
  * from[i], per ogni i < count (con count = 0: scritto allo stesso modo). */
-static int elem_renamed(const Elem *e, const Elem *original, const short *from, const short *to, int count) {
+static int elem_renamed(const Elem *e, const Elem *original, const int *from, const int *to, int count) {
     if (!e || !original) return e == original;
     if (e->symbol < 0 || original->symbol < 0) return e->symbol == original->symbol && e->slot == original->slot;
     return e->symbol == renamed_symbol(original->symbol, from, to, count) && elem_renamed(e->arg[0], original->arg[0], from, to, count) &&
@@ -29737,7 +29776,7 @@ static int elem_renamed(const Elem *e, const Elem *original, const short *from, 
  * alberi. Sotto un quantificatore che lega di nuovo from[i], from[i] resta
  * com'è. Con count = 0 dice se i due alberi sono scritti allo stesso modo.
  * Una copia temporanea fallita segnala failure e ritorna zero. */
-static int sentence_renamed(const Sentence *s, const Sentence *original, const short *from, const short *to, int count) {
+static int sentence_renamed(const Sentence *s, const Sentence *original, const int *from, const int *to, int count) {
     if (!s || !original) return s == original;
     if (s->kind != original->kind || s->slot != original->slot || s->part != original->part) return 0;
     if (!elem_renamed(s->left, original->left, from, to, count) || !elem_renamed(s->right, original->right, from, to, count)) return 0;
@@ -29749,7 +29788,7 @@ static int sentence_renamed(const Sentence *s, const Sentence *original, const s
         for (int i = 0; i < count; i++) hidden |= original->part == from[i];
     if (!hidden)
         return sentence_renamed(s->a, original->a, from, to, count) && sentence_renamed(s->b, original->b, from, to, count);
-    short *inner = NULL; size_t capacity = 0;
+    int *inner = NULL; size_t capacity = 0;
     if (!work_reserve((void **)&inner, &capacity, 2 * (size_t)count, sizeof *inner)) return 0;
     int used = 0;
     for (int i = 0; i < count; i++) if (original->part != from[i]) {
@@ -29787,13 +29826,17 @@ static int part_of(int symbol, int sort) {
  * se non c'è più posto (e annota exhausted). */
 static int part_symbol_new(int letter, int sort, int first) {
     Symbol part = {letter, first, 1, {sort, 0}, TRUTH, 0, 0};
-    while (symbol_find(part.name, part.index) >= 0) part.index++;
-    if (symbol_count == MAX_SYMBOLS) { exhausted = 1; return -1; }
-    symbols[symbol_count] = part;
-    symbol_generation[symbol_count] = 1;
-    name_serial[symbol_count] = ++names_given;
-    name_known[symbol_count] = -1;
-    return symbol_count++;
+    while (symbol_find(part.name, part.index) >= 0) {
+        if (part.index == INT_MAX) { exhausted = 1; return -1; }
+        part.index++;
+    }
+    int id = proof_symbol_append(part);
+    if (id < 0) return -1;
+    symbol_law[id] = 0;
+    symbol_generation[id] = 1;
+    name_serial[id] = ++names_given;
+    name_known[id] = -1;
+    return id;
 }
 
 /* 28-2 per una parte: dalla condizione nota di posto i, "esiste una parte X
@@ -29806,7 +29849,7 @@ static void part_name(int i) {
     if (part < 0) return;
     int named = known_add(sentence_rename(s->a, s->part, part), now->known[i].negated, now->known[i].value, K_NAMED, i);
     if (named < 0) return;
-    short chosen = (short)part;
+    int chosen = part;
     if (!known_parts(named, &chosen, 1)) return;
     name_known[part] = named;
 }
@@ -29935,14 +29978,17 @@ static int greek_name(const char *word) {
  * più posto (e annota exhausted). */
 static int map_symbol_new(const char *word, int arity, const int *domain, int range) {
     Symbol map = {greek_name(word), 1, arity, {arity > 0 ? domain[0] : 0, arity > 1 ? domain[1] : 0}, range, 0, 0};
-    while (symbol_find(map.name, map.index) >= 0) map.index++;
-    if (symbol_count == MAX_SYMBOLS || map.index >= ZERO_INDEX) { exhausted = 1; return -1; }
-    symbols[symbol_count] = map;
-    symbol_law[symbol_count] = 0;
-    symbol_generation[symbol_count] = 0;
-    name_serial[symbol_count] = ++names_given;
-    name_known[symbol_count] = -1;
-    return symbol_count++;
+    while (symbol_find(map.name, map.index) >= 0) {
+        if (map.index == INT_MAX) { exhausted = 1; return -1; }
+        map.index++;
+    }
+    int id = proof_symbol_append(map);
+    if (id < 0) return -1;
+    symbol_law[id] = 0;
+    symbol_generation[id] = 0;
+    name_serial[id] = ++names_given;
+    name_known[id] = -1;
+    return id;
 }
 
 /* 28q. Ritorna le identità D dell'equipotenza e (vedi la testa del
@@ -29957,13 +30003,13 @@ static int map_symbol_new(const char *word, int arity, const int *domain, int ra
  * con le variabili del nodo, la più esterna per prima, e \varphi(x) scritto
  * come le n componenti \varphi_{j}(x_{1}, x_{2}). Con una componente sola
  * l'uguaglianza è una, senza congiunzione. */
-static Sentence *equipotent_identities(const Sentence *e, const short *map) {
+static Sentence *equipotent_identities(const Sentence *e, const int *map) {
     Sentence *half[2];
     for (int k = 0; k < 2; k++) {
         /* Per k = 0: le variabili di A, e \psi dopo \varphi; per k = 1 quelle
          * di B, e \varphi dopo \psi. */
         int m = e->sides[k], n = e->sides[1 - k];
-        const short *first = k ? map + e->sides[1] : map, *second = k ? map : map + e->sides[1];
+        const int *first = k ? map + e->sides[1] : map, *second = k ? map : map + e->sides[1];
         Elem *x[2], *inner[2];
         Sentence *body = NULL;
         for (int i = 0; i < m; i++) x[i] = slot_elem(e->side_slot[k][i]);
@@ -29994,11 +30040,11 @@ static int identity_map_sorts(const Sentence *e, int j, int *domain, int *range)
  * applicazione per componente), e aggiunge le loro identità. */
 static void bijection_name(int i) {
     const Sentence *e = now->known[i].source;
-    short map[4];
+    int map[4];
     int count = e->sides[0] + e->sides[1];
     for (int j = 0; j < count; j++) {
         int domain[2], range, arity = identity_map_sorts(e, j, domain, &range);
-        map[j] = (short)map_symbol_new(j < e->sides[1] ? "varphi" : "psi", arity, domain, range);
+        map[j] = map_symbol_new(j < e->sides[1] ? "varphi" : "psi", arity, domain, range);
         if (map[j] < 0) return;
     }
     int named = known_add(equipotent_identities(e, map), 0, now->known[i].value, K_BIJECTION, i);
@@ -30061,18 +30107,20 @@ static void known_open(int i) {
      * che non sia già di un altro simbolo. */
     Symbol name = {slot_data[s->slot].letter, 0, 0, {0, 0}, slot_data[s->slot].sort, 0, 0};
     SlotValues value = SLOT_VALUES_EMPTY;
-    while (symbol_find(name.name, name.index) >= 0) name.index++;
-    if (symbol_count == MAX_SYMBOLS) { exhausted = 1; return; }
-    symbols[symbol_count] = name;
-    symbol_law[symbol_count] = known_law(i) != LAW_NONE;
-    symbol_generation[symbol_count] = (unsigned char)known_generation(k);
-    name_serial[symbol_count] = ++names_given;
-    name_known[symbol_count] = -1;
+    while (symbol_find(name.name, name.index) >= 0) {
+        if (name.index == INT_MAX) { exhausted = 1; return; }
+        name.index++;
+    }
+    int id = proof_symbol_append(name);
+    if (id < 0) return;
+    symbol_law[id] = known_law(i) != LAW_NONE;
+    symbol_generation[id] = (unsigned char)known_generation(k);
+    name_serial[id] = ++names_given;
+    name_known[id] = -1;
     value = slot_values_copy(k->value);
     if (work_allocation_failed) { exhausted = 1; return; }
-    value.data[s->slot] = (short)ground_lookup(symbol_count, -1, -1, G_CREATE);
-    if (slot_values_get(value, s->slot) >= 0) name_known[symbol_count] = known_add(s->a, k->negated, value, K_NAMED, i);
-    symbol_count++;
+    value.data[s->slot] = (short)ground_lookup(id, -1, -1, G_CREATE);
+    if (slot_values_get(value, s->slot) >= 0) name_known[id] = known_add(s->a, k->negated, value, K_NAMED, i);
 }
 
 /* 28-1. Riguarda la disgiunzione in attesa di posto i alla luce di ciò che
@@ -30621,7 +30669,7 @@ static int mapdef_add(Sentence *spec, int map) {
 
     int i = known_add(spec, 0, nothing, K_MAPDEF, -1);
     if (i < 0) return 0;
-    short chosen = (short)map;
+    int chosen = map;
     if (!known_parts(i, &chosen, 1)) return 0;
     name_known[map] = i;
     return 1;
@@ -30702,18 +30750,18 @@ static int bijection_witness(int r) {
 
     /* Le applicazioni: quelle di un solo passo con un nome, w3 o w4 se il
      * lato ha una componente; altrimenti nuove, definite con d1. */
-    short map[4];
+    int map[4];
     for (int j = 0; j < n; j++)
         if (!bij_write(chosen.term[j])) return 0;
     const Bij *only = &bij[chosen.term[0]];
     if (m == 1 && only->kind != BIJ_SAME && only->next < 0) {
-        map[0] = (short)only->forward;
-        map[1] = (short)only->backward;
+        map[0] = only->forward;
+        map[1] = only->backward;
     } else {
         int domain[2], range;
         for (int j = 0; j < n + m; j++) {
             int arity = identity_map_sorts(e, j, domain, &range);
-            if ((map[j] = (short)map_symbol_new(j < n ? "gamma" : "delta", arity, domain, range)) < 0) return 0;
+            if ((map[j] = map_symbol_new(j < n ? "gamma" : "delta", arity, domain, range)) < 0) return 0;
         }
         for (int j = 0; j < n + m; j++) {
             /* \gamma_{j}(x) = \beta_{j}(x_{i}), con i la componente da cui parte
@@ -31340,12 +31388,12 @@ static int sentence_typed(const Sentence *s) {
  * poi un'uguaglianza per componente, ognuna con l'applicazione giusta
  * applicata alle altre e alle variabili nel loro ordine. Ritorna 1 se
  * regge. */
-static int identities_written(const Sentence *s, const Sentence *e, const short *map) {
+static int identities_written(const Sentence *s, const Sentence *e, const int *map) {
     if (s->kind != S_AND) return 0;
     for (int k = 0; k < 2; k++) {
         const Sentence *q = k ? s->b : s->a;
         int m = e->sides[k], n = e->sides[1 - k];
-        const short *first = k ? map + e->sides[1] : map, *second = k ? map : map + e->sides[1];
+        const int *first = k ? map + e->sides[1] : map, *second = k ? map : map + e->sides[1];
         for (int i = 0; i < m; i++, q = q->a)
             if (q->kind != S_FORALL || q->slot != e->side_slot[k][i]) return 0;
         if (m == 2 && q->kind != S_AND) return 0;
@@ -31440,11 +31488,11 @@ static int part_instance_derived(const Known *k, const Known *p) {
     int count = 0, negated = p->negated, valid = 1;
     for (const Sentence *q = body; part_quantifier(q) && (q->kind == S_FORALL_PART) != p->negated; q = q->a) count++;
     if (!count || count != k->parts) return 0;
-    short *from = NULL; size_t capacity = 0;
+    int *from = NULL; size_t capacity = 0;
     if (!work_reserve((void **)&from, &capacity, (size_t)count, sizeof *from)) return 0;
     for (int j = 0; j < count; j++, body = body->a) {
         valid &= part_of(k->part[j], symbols[body->part].domain[0]);
-        from[j] = (short)body->part;
+        from[j] = body->part;
     }
     while (body->kind == S_NOT) { body = body->a; negated = !negated; }
     valid = valid && k->negated == negated && sentence_renamed(k->source, body, from, k->part, count);
@@ -31460,7 +31508,7 @@ static int part_name_derived(int i, const Known *p) {
     const Known *k = &now->known[i];
     const Sentence *body = p->source->a;
     if (k->parts != 1) return 0;
-    short from = (short)p->source->part, to = k->part[0];
+    int from = p->source->part, to = k->part[0];
     int negated = p->negated;
     if ((p->source->kind == S_EXISTS_PART) == p->negated || to < declared_symbols || !part_of(to, symbols[from].domain[0])) return 0;
     for (int j = 0; j < i; j++)
@@ -31912,7 +31960,7 @@ static void cert_symbol(int symbol) {
     else if (s->name >= GREEK_NAMES) cert_add("%s", greek_letters[s->name - GREEK_NAMES]);
     else if (s->name >= OPERATION_NAMES) cert_add("%s", operation_symbols[s->name - OPERATION_NAMES]);
     else cert_add("%c", s->name);
-    if (s->index >= LETTER_INDEX) cert_add("%c", s->index - LETTER_INDEX);
+    if (s->index <= LETTER_INDEX) cert_add("%c", LETTER_INDEX - s->index);
     else if (s->index) cert_add("%d", index_digits(s->index));
 }
 
@@ -32607,7 +32655,10 @@ static int part_named(int symbol) {
 /* Mette in element[] gli elementi di sort con un nome nel ramo corrente,
  * uno per classe di elementi uguali, e ritorna quanti sono. */
 static int named_elements(int sort, int *element) {
-    int count = 0, rep[MAX_SYMBOLS];
+    static int *rep; static size_t capacity;
+    size_t need = (size_t)(symbol_count < now->grounds ? symbol_count : now->grounds);
+    if (!work_reserve((void **)&rep, &capacity, need, sizeof *rep)) { exhausted = 1; return 0; }
+    int count = 0;
     for (int s = 0; s < symbol_count; s++) {
         int id = symbols[s].arity == 0 && symbols[s].range == sort ? ground_lookup(s, -1, -1, G_EXACT) : -1, fresh = id >= 0;
         for (int i = 0; i < count && fresh; i++) fresh = rep[i] != now->rep[id];
@@ -32621,7 +32672,10 @@ static int named_elements(int sort, int *element) {
 /* Mette in out[] le parti di sort da provare, nell'ordine della testa del
  * paragrafo, al più MAX_PART_CANDIDATES, e ritorna quante sono. */
 static int part_candidates(int sort, PartCandidate *out) {
-    int count = 0, element[MAX_SYMBOLS], elements;
+    static int *element; static size_t capacity;
+    size_t need = (size_t)(symbol_count < now->grounds ? symbol_count : now->grounds);
+    if (!work_reserve((void **)&element, &capacity, need, sizeof *element)) { exhausted = 1; return 0; }
+    int count = 0, elements;
 #define CANDIDATE(...) do { if (count < MAX_PART_CANDIDATES) out[count++] = (PartCandidate){__VA_ARGS__}; } while (0)
     for (int s = 0; s < symbol_count; s++)
         if (part_of(s, sort) && part_named(s)) CANDIDATE(P_SYMBOL, sort, s, -1, -1);
@@ -32723,7 +32777,7 @@ static int part_define(const PartCandidate *candidate, int letter) {
 
     int at = known_add(definition, 0, nothing, K_DEFINED, -1);
     if (at < 0) return -1;
-    short chosen = (short)part;
+    int chosen = part;
     if (!known_parts(at, &chosen, 1)) return -1;
     name_known[part] = at;
     return part;
@@ -32783,7 +32837,7 @@ static void search_back(const SearchMark *mark, int depth) {
  * testo, certificato, nomi, memoria e il ramo tornano come erano. */
 static int part_choose(int depth, int splits, int choices) {
     PartCandidate *candidate = NULL;
-    short *names = NULL;
+    int *names = NULL;
     int *index = NULL, closed = 0;
     size_t candidate_capacity = 0, name_capacity = 0, index_capacity = 0;
     Branch *here = &branch[depth];
@@ -32802,10 +32856,10 @@ static int part_choose(int depth, int splits, int choices) {
             !work_reserve((void **)&index, &index_capacity, 2 * (size_t)parts, sizeof *index)) {
             exhausted = 1; goto done;
         }
-        short *bound = names, *chosen = names + parts;
+        int *bound = names, *chosen = names + parts;
         int *candidates = index, *pick = index + parts;
         for (int j = 0; j < parts; j++, body = body->a) {
-            bound[j] = (short)body->part;
+            bound[j] = body->part;
             candidates[j] = part_candidates(symbols[body->part].domain[0], candidate + (size_t)j * MAX_PART_CANDIDATES);
             pick[j] = 0;
             more = more && candidates[j] > 0;
@@ -32823,7 +32877,7 @@ static int part_choose(int depth, int splits, int choices) {
             branch_copy(depth);
             for (int j = 0; j < parts && fresh; j++) {
                 const PartCandidate *c = &candidate[(size_t)j * MAX_PART_CANDIDATES + (size_t)pick[j]];
-                chosen[j] = (short)(c->kind == P_SYMBOL ? c->part : part_define(c, symbols[bound[j]].name));
+                chosen[j] = c->kind == P_SYMBOL ? c->part : part_define(c, symbols[bound[j]].name);
                 fresh = chosen[j] >= 0;
             }
             for (int i = r + 1; i < now->knowns && fresh; i++)
@@ -35818,7 +35872,9 @@ static Verdict prove_abstract(const char *formula) {
     if (syntax_error || failure) { verdict.reason = syntax_error ? syntax_error : failure; return verdict; }
 
     declared_symbols = symbol_count;
-    memset(symbol_generation, 0, sizeof symbol_generation);
+    if (!proof_symbols_reserve((size_t)symbol_count)) { verdict.reason = OUT_OF_MEMORY; return verdict; }
+    if (symbol_count) memset(symbol_generation, 0, (size_t)symbol_count * sizeof *symbol_generation);
+    if (symbol_count) memset(symbol_law, 0, (size_t)symbol_count * sizeof *symbol_law);
 
     /* 17q, 28h. La notazione dei libri, se c'è, si svolge; e lo svolgimento
      * si ricontrolla sui modelli finiti prima di ragionare sull'enunciato
@@ -42189,7 +42245,7 @@ static Verdict prove(const char *formula, int variable, int has_base, long long 
 static Verdict prove_item(const char *item, const char *end) {
     Item statement;
     const char *problem = read_item(item, end, &statement);
-    if (problem) return (Verdict){UNSUPPORTED, 'n', 0, 0, problem, NULL, NULL, NULL, NULL, NULL};
+    if (problem) return (Verdict){problem==OUT_OF_MEMORY?NOT_PROVED:UNSUPPORTED, 'n', 0, 0, problem, NULL, NULL, NULL, NULL, NULL};
     Verdict verdict = prove(statement.formula, statement.variable, statement.has_base, statement.base);
 
     /* Una condizione scritta dopo la formula restringe i casi di cui parla
@@ -42310,18 +42366,38 @@ static int read_model_budget(const char *text, unsigned long long *value) {
     return n != 0;
 }
 
+/* Legge una riga completa da stream in memoria posseduta dal chiamante,
+ * da liberare dopo l'uso. Non tronca l'input a un buffer numerico interno.
+ * NULL indica EOF prima della riga oppure errore di risorse in failure. */
+static char *read_input_line(FILE *stream) {
+    char *line=NULL;size_t length=0,capacity=0;int ch;
+    while ((ch=fgetc(stream))!=EOF && ch!='\n') {
+        if (length>(size_t)-1-2 || !work_reserve((void **)&line,&capacity,length+2,1)) {
+            free(line);fail(OUT_OF_MEMORY);return NULL;
+        }
+        line[length++]=(char)ch;
+    }
+    /* Un errore dello stream non e la fine di una formula: il prefisso gia
+     * letto non deve diventare un enunciato diverso da quello ricevuto. */
+    if (ferror(stream)) { free(line);fail("errore durante la lettura dell'enunciato");return NULL; }
+    if (ch==EOF && !length) { free(line);return NULL; }
+    if (!work_reserve((void **)&line,&capacity,length+1,1)) { free(line);return NULL; }
+    line[length]=0;return line;
+}
+
 int main(int argc, char **argv) {
     engine_init();
 
     /* Senza argomenti: un solo enunciato da stdin, con la sua dimostrazione. */
     if (argc < 2) {
-        char line[MAX_FORMULA];
         printf("Enunciato in LaTeX: ");
-        if (!fgets(line, sizeof line, stdin)) return 1;
+        char *line=read_input_line(stdin);
+        if (!line) { if (failure) fprintf(stderr,"ERRORE: %s\n",failure); return 1; }
         Verdict verdict = prove(line, 'n', 0, 0);
         verdict_print(stdout, &verdict);
         putchar('\n');
         if (verdict.proof) printf("\n%s\n", verdict.proof);
+        free(line);
         return verdict.outcome == PROVED || verdict.outcome == SOLVED ? 0 : 1;
     }
 

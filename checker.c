@@ -256,7 +256,6 @@
 #define CK_MAX_FACTORED 1000000000000LL  /* il più grande numero scomposto in fattori primi */
 #define CK_MAX_NAME 16       /* caratteri di un nome nel capitolo 11, compreso lo zero finale */
 #define CK_MAX_SORTS 6       /* insiemi di un enunciato su insiemi qualsiasi: i casi vuoti sono 2^6 */
-#define CK_MAX_SYMBOLS 256   /* simboli dichiarati, più i nomi delle voci witness di un caso */
 #define CK_MAX_EVAL 100000000LL  /* elementi provati dai quantificatori calcolando su un modello */
 #define CK_MAX_GROUND 4096   /* termini chiusi di un caso */
 #define CK_MAX_ATOMS 2048    /* condizioni elementari di un caso */
@@ -2271,9 +2270,19 @@ typedef struct {
 
 static CkSort ck_sorts[CK_MAX_SORTS];
 static int ck_sort_count;
-static CkSymbol ck_symbols[CK_MAX_SYMBOLS];
+static CkSymbol *ck_symbols;
+static size_t ck_symbol_capacity;
 static int ck_symbol_count;
 static int ck_declared;  /* i simboli dichiarati: i primi ck_declared di ck_symbols[] */
+
+/* Dimensiona il deposito indipendente dei simboli. La memoria e posseduta
+ * dal certificato; i nodi conservano soltanto indici, non indirizzi delle
+ * celle che realloc puo spostare. Overflow o allocazione fallita danno
+ * NON CONTROLLABILE, senza accettare un prefisso delle dichiarazioni. */
+static int ck_symbols_reserve(size_t need) {
+    if (need > INT_MAX) { ck_unsupported("troppi simboli per la memoria disponibile"); return 0; }
+    return ck_reserve((void **)&ck_symbols, &ck_symbol_capacity, need, sizeof *ck_symbols);
+}
 
 /* Un blocco posseduto dal modello verificato: data e la tabella allocata,
  * next il blocco successivo. Le tabelle non occupano l'arena fissa usata
@@ -3048,7 +3057,7 @@ static void ck_instance(void) {
 static void ck_witness(void) {
     const CkNode *q = ck_read_available();
     if (ck_status != CK_ACCEPTED) return;
-    if (ck_symbol_count == CK_MAX_SYMBOLS) { ck_unsupported("troppi nomi in un caso"); return; }
+    if (!ck_symbols_reserve((size_t)ck_symbol_count + 1)) return;
     CkSymbol *c = &ck_symbols[ck_symbol_count];
     memset(c, 0, sizeof *c);
     if (!ck_name(c->name) || ck_symbol_of(c->name) >= 0) { ck_reject("witness: serve un nome che nel caso non c'è ancora"); return; }
@@ -3063,8 +3072,8 @@ static void ck_witness(void) {
         ck_pair_side[ck_pair_count][1] = ck_side_mask(q->value, 1);
         for (int j = 0; j < count; j++) {
             /* Il primo nome è già letto; gli altri si leggono qui. */
+            if (!ck_symbols_reserve((size_t)ck_symbol_count + 1)) return;
             CkSymbol *f = &ck_symbols[ck_symbol_count];
-            if (j && ck_symbol_count == CK_MAX_SYMBOLS) { ck_unsupported("troppi nomi in un caso"); return; }
             if (j) memset(f, 0, sizeof *f);
             if (j && (!ck_name(f->name) || ck_symbol_of(f->name) >= 0)) { ck_reject("witness: serve un nome che nel caso non c'è ancora"); return; }
             f->witness = 1;
@@ -3102,7 +3111,7 @@ static void ck_witness(void) {
  * altre variabili legate. */
 static void ck_part(void) {
     char set[CK_MAX_NAME];
-    if (ck_symbol_count == CK_MAX_SYMBOLS) { ck_unsupported("troppi nomi in un caso"); return; }
+    if (!ck_symbols_reserve((size_t)ck_symbol_count + 1)) return;
     CkSymbol *d = &ck_symbols[ck_symbol_count];
     memset(d, 0, sizeof *d);
     if (!ck_name(d->name) || ck_symbol_of(d->name) >= 0) { ck_reject("part: serve un nome che nel caso non c'è ancora"); return; }
@@ -3171,7 +3180,7 @@ static int ck_spec(const CkNode *c, const CkNode *v, int sort, int symbol) {
 static void ck_define(void) {
     char names[3][CK_MAX_NAME];
     int sorts[3], count = 0;
-    if (ck_symbol_count == CK_MAX_SYMBOLS) { ck_unsupported("troppi nomi in un caso"); return; }
+    if (!ck_symbols_reserve((size_t)ck_symbol_count + 1)) return;
     CkSymbol *g = &ck_symbols[ck_symbol_count];
     memset(g, 0, sizeof *g);
     if (!ck_name(g->name) || ck_symbol_of(g->name) >= 0) { ck_reject("define: serve un nome che nel caso non c'è ancora"); return; }
@@ -3324,7 +3333,7 @@ static void ck_derived_sort(int i, int kind, int models) {
     sort->base = ck_name(name) ? ck_sort_of(name) : -1;
     sort->target = kind == 2 && ck_name(name) ? ck_sort_of(name) : -1;
     if (sort->base < 0 || (kind == 2 && sort->target < 0)) { ck_reject("certificato scritto male: un insieme di parti o di applicazioni su un insieme non dichiarato"); return; }
-    if (ck_symbol_count == CK_MAX_SYMBOLS) { ck_unsupported("troppi simboli per il verificatore"); return; }
+    if (!ck_symbols_reserve((size_t)ck_symbol_count + 1)) return;
     CkSymbol *y = &ck_symbols[ck_symbol_count];
     memset(y, 0, sizeof *y);
     if (!ck_name(y->name) || ck_symbol_of(y->name) >= 0) { ck_reject("certificato scritto male: il simbolo di struttura manca, o ha il nome di un altro"); return; }
@@ -3437,7 +3446,7 @@ static void ck_numbers_sort(int i, int models) {
     sort->kind = 3;
     sort->size = 0;
     for (ck_skip(); *ck_cursor && *ck_cursor != '\n' && ck_status == CK_ACCEPTED; ck_skip()) {
-        if (ck_symbol_count == CK_MAX_SYMBOLS) { ck_unsupported("troppi simboli per il verificatore"); return; }
+        if (!ck_symbols_reserve((size_t)ck_symbol_count + 1)) return;
         CkSymbol *y = &ck_symbols[ck_symbol_count];
         memset(y, 0, sizeof *y);
         if (!ck_name(y->name) || ck_symbol_of(y->name) >= 0) { ck_reject("certificato scritto male: un numero senza nome, o con il nome di un altro simbolo"); return; }
@@ -4402,9 +4411,11 @@ static void ck_r_step(void) {
 static const CkNode **ck_assumed;
 static size_t ck_assumed_capacity;
 
-/* Libera i soli vettori dei contesti e dei rami, a ogni ingresso/uscita del
- * verificatore. Le parti del modello sono gia liberate dai quantificatori. */
+/* Libera dichiarazioni, contesti e rami a ogni ingresso/uscita del
+ * verificatore. Le parti del modello sono gia liberate dai quantificatori;
+ * le tabelle hanno il deposito separato liberato da ck_model_clear(). */
 static void ck_structure_clear(void) {
+    free(ck_symbols); ck_symbols = NULL; ck_symbol_capacity = 0;
     free(ck_bound); ck_bound = NULL; ck_bound_capacity = 0;
     free(ck_assumed); ck_assumed = NULL; ck_assumed_capacity = 0;
     ck_bound_count = 0;
@@ -4450,7 +4461,7 @@ static void ck_check_structure(int kind) {
         } else if (!statement && ck_word("symbol")) {
             /* Un simbolo: gli insiemi degli argomenti, poi quello del valore. */
             int sort[3], count = 0;
-            if (ck_symbol_count == CK_MAX_SYMBOLS) { ck_unsupported("troppi simboli per il verificatore"); return; }
+            if (!ck_symbols_reserve((size_t)ck_symbol_count + 1)) return;
             CkSymbol *y = &ck_symbols[ck_symbol_count];
             memset(y, 0, sizeof *y);
             if (!ck_name(y->name) || ck_symbol_of(y->name) >= 0) { ck_reject("certificato scritto male: symbol senza nome, o due volte"); return; }

@@ -80,9 +80,9 @@ static int part_snapshots(void) {
     if (width != 40) return check_result(0, "the quantified part test retains 40 binders in its hypothesis");
     declared_symbols = symbol_count;
     now = &branch[0]; now->knowns = now->clock = 0;
-    short from[40], chosen[40];
+    int from[40], chosen[40];
     int p = symbol_find('P', 0), q = symbol_find('Q', 0);
-    for (int i = 0; i < 40; i++, body = body->a) { from[i] = (short)body->part; chosen[i] = (short)p; }
+    for (int i = 0; i < 40; i++, body = body->a) { from[i] = body->part; chosen[i] = p; }
     const Sentence *instance = body;
     for (int i = 0; i < 40; i++) instance = sentence_rename(instance, from[i], chosen[i]);
     int parent = known_add(prefix, 0, SLOT_VALUES_EMPTY, K_GIVEN, -1);
@@ -91,7 +91,7 @@ static int part_snapshots(void) {
     int passed = check_result(saved && part_instance_derived(&now->known[at], &now->known[parent]),
                               "the structural checker validates all 40 part substitutions");
     if (!saved) return 0;
-    chosen[39] = (short)q;
+    chosen[39] = q;
     passed = check_result(now->known[at].part[39] == p,
                           "a saved part substitution is immutable after its input changes") && passed;
     now->known[at].parts--;
@@ -104,7 +104,7 @@ static int part_snapshots(void) {
 
     /* Un quantificatore interno nasconde X_1 ma non B_8. La rinomina
      * simultanea deve rispettare lo stesso confine della copia costruttiva. */
-    chosen[39] = (short)p;
+    chosen[39] = p;
     Elem *x = slot_elem(body->slot);
     Sentence *a = sentence_new(S_HOLDS, NULL, NULL, NULL), *b = sentence_new(S_HOLDS, NULL, NULL, NULL);
     a->left = elem_new(from[0], 0, x, NULL); b->left = elem_new(from[39], 0, x, NULL);
@@ -121,7 +121,7 @@ static int part_snapshots(void) {
     passed = check_result(!sentence_renamed(wrong, nested, from, chosen, 40),
                           "capturing a shadowed part name is rejected") && passed;
 
-    const short *previous = now->known[at].part;
+    const int *previous = now->known[at].part;
     size_t memory = arena_used; arena_used = ARENA_BYTES;
     int stored = known_parts(at, chosen, 40);
     int failed = !stored && exhausted && work_allocation_failed && now->known[at].part == previous;

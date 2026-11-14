@@ -11,6 +11,11 @@ implicazioni universali, con tesi vere e false. Non si usano SAT o tabelle
 del motore per decidere la verita. I certificati scritti dal motore restano
 nella cartella di lavoro per il controllo con checker da solo.
 
+Alcune implicazioni hanno da 65 a 320 parti dichiarate ma non usate. Ogni
+insieme ammette queste parti, anche quello vuoto: l'oracolo sui cicli non
+cambia. Servono a esercitare dichiarazioni e tabelle senza i vecchi tetti
+di 64 e 256 simboli, con nomi nella grammatica gia esistente.
+
 BUG: un falso DIMOSTRATO, un vero FALSO, oppure un errore del controllo
 indipendente. NOTE: un esempio possibile o un controesempio non trovato.
 """
@@ -46,6 +51,11 @@ def main():
             power = forbidden[0]
             formula = (r"(f \colon S \to S \land \forall x \in S\ (%s = x))"
                        r" \implies \forall x \in S\ (%s = x)" % (iterate(order), iterate(power)))
+            if rng.randrange(4) == 0:
+                extra = rng.choice([65, 257, 320])
+                letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+                declarations = r" \land ".join("%s_{%d} \\subseteq S" % (letters[i // 9], i % 9 + 1) for i in range(extra))
+                formula = formula.replace(r"(f \colon S \to S \land ", "(f \\colon S \\to S \\land " + declarations + r" \land ", 1)
             cases.append((formula, power % order == 0, False))
 
     path = os.path.join(work, "finite_models_%d.tex" % seed)
