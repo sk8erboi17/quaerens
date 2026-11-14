@@ -145,6 +145,10 @@ def extremes():
         r"\lim_{x \to 0} " + r"\sin(" * 20000 + "x" + ")" * 20000 + " = 0",
         r"\frac{d}{dx} " + r"\sin(" * 20000 + "x" + ")" * 20000 + " = 1",
         r"\int " + " + ".join(["x"] * 20000) + r"\,dx = x",
+        # La ricerca dei testimoni di un'equipotenza: senza budget, dieci esponenti
+        # uno sull'altro la tenevano occupata più di un'ora.
+        "S^{" * 10 + "S" + "}" * 10 + r" \sim S",
+        "S^{" * 13 + "S" + "}" * 13 + r" \sim S",
         "",
         "=",
         "\\",

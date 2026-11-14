@@ -357,6 +357,35 @@ static int spaces_do_not_matter(void) {
     return passed;
 }
 
+/* 8. La ricerca dei testimoni di un'equipotenza ha un budget. Con k
+ * esponenti uno sull'altro, S^{S^{...}} \\sim S, gli insiemi sono k + 1 e
+ * i cammini tra loro crescono come un fattoriale: con dieci la ricerca
+ * lavorava un'ora e venticinque minuti. L'enunciato è falso per k pari
+ * (due elementi danno una torre di potenze più grande di due, ma troppo
+ * grande per scriverne il modello) e per k dispari lo smentisce l'insieme
+ * vuoto: la torre vale uno. Le dimostrazioni che usano la grammatica dei
+ * testimoni restano. */
+static int witness_search_budget(void) {
+    char *text = nested("", "S^{", 10, "S", "}", " \\sim S");
+    Verdict v = prove(text, 'n', 0, 0);
+    free(text);
+    int passed = check_result(v.outcome == NOT_PROVED && v.reason && strstr(v.reason, "la ricerca è stata interrotta") && bij_visits > MAX_BIJ_VISITS,
+                              "ten nested exponents stop at the budget of the witness search, as an interrupted search");
+    text = nested("", "S^{", 4, "S", "}", " \\sim S");
+    v = prove(text, 'n', 0, 0);
+    free(text);
+    passed = check_result(v.outcome == NOT_PROVED && v.reason && !strstr(v.reason, "interrotta") && bij_visits <= MAX_BIJ_VISITS,
+                          "four nested exponents are searched to the end, well inside the budget") && passed;
+    text = nested("", "S^{", 3, "S", "}", " \\sim S");
+    v = prove(text, 'n', 0, 0);
+    free(text);
+    passed = check_result(v.outcome == REFUTED && v.certificate && strstr(v.certificate, "sort S 0\n"),
+                          "an odd tower of exponents is refuted by the empty set") && passed;
+    v = prove("(S \\sim T \\land V \\sim W) \\implies V^{S} \\sim W^{T}", 'n', 0, 0);
+    return check_result(v.outcome == PROVED && v.certificate,
+                        "an equipotence between sets of maps is still proved with a built witness") && passed;
+}
+
 int main(void) {
     engine_init();
 
@@ -369,6 +398,7 @@ int main(void) {
     passed = model_step_budget() && passed;
     passed = full_arena() && passed;
     passed = spaces_do_not_matter() && passed;
+    passed = witness_search_budget() && passed;
     printf(passed ? "All stack and step budget checks passed.\n" : "Some stack or step budget checks FAILED.\n");
     return passed ? 0 : 1;
 }

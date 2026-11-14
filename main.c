@@ -700,6 +700,7 @@ static unsigned long long verification_work_limit = 20000000ULL;
 #define MAX_PART_ATTEMPTS 600  /* scelte di parti provate in tutto per un'affermazione (28k) */
 #define MAX_WITNESSES 8      /* testimoni di un'equipotenza provati, dal più corto, uno per tentativo (28q) */
 #define MAX_BIJ 512          /* termini della grammatica dei testimoni costruiti per un'equipotenza (28q) */
+#define MAX_BIJ_VISITS 200000  /* insiemi da cui si riparte cercando quei termini, per un'equipotenza (28q) */
 #define MAX_BRANCHES 16      /* rami uno dentro l'altro: casi, scelte di parti e prove (28k, 28l) */
 #define MAX_PROBES 8         /* disgiunzioni provate per trovarne una con un caso che si chiude subito (28l) */
 #define MAX_CONGRUENCES 32   /* condizioni "m divide P" in un enunciato deciso sui resti (18r) */
@@ -30844,6 +30845,19 @@ static int instance_definition(const Rule *rule) {
  * in quest'ordine, uno per tentativo (claim_attempts()). Il certificato porta
  * quello che ha funzionato, con le sue definizioni.
  *
+ * Pochi i termini, non i cammini. Per trovarli la ricerca prova ogni
+ * insieme non ancora toccato come passo successivo, e a ogni passo w3 o w4
+ * riparte dagli insiemi su cui è costruito con nessuno toccato: con n
+ * insiemi costruiti uno sull'altro i cammini crescono come un fattoriale.
+ * S^{S^{\ldots}} \sim S visita 241 volte bij_terms() con 4 esponenti,
+ * 39.061 con 6, 13 milioni con 8; con 10 (63 caratteri) lavorava un'ora e
+ * venticinque minuti per un NON DIMOSTRATO. Gli enunciati dei libri ne
+ * chiedono una dozzina. Per questo le visite si contano, e oltre
+ * MAX_BIJ_VISITS la ricerca dei termini si ferma con quelli che ha: il ramo
+ * è segnato come interrotto (exhausted), e il verdetto lo dice. Un termine
+ * trovato resta un termine giusto: è la dimostrazione, con il suo
+ * certificato, a controllare che sia una biiezione.
+ *
  * La grammatica non conosce l'enunciato: solo gli insiemi e le biiezioni con
  * un nome nel ramo. Che cosa non costruisce: una biiezione che non è fatta
  * così, come \mathcal{P}(S) \sim \{0, 1\}^{S} o S \times (T \times V) \sim (S
@@ -30876,6 +30890,10 @@ static size_t bij_slot_capacity;
 /* 28q. Quale testimone provare, dal più corto (0), e quanti se ne sono
  * trovati al più in un ramo: li usa claim_attempts(). */
 static int witness_choice, witness_options;
+
+/* 28q. Le visite di bij_terms() per l'equipotenza in corso: le azzera
+ * bijection_witness(), e oltre MAX_BIJ_VISITS la ricerca si ferma. */
+static long bij_visits;
 
 /* 28q. Ritorna il posto in bij[] di una copia di b, o -1 se non c'è posto. */
 static int bij_new(Bij b) {
@@ -30928,9 +30946,11 @@ static void bij_steps(int from, int step, int *list, int *count, int max) {
 
 /* 28q. Mette in list[] i termini da from a to che non passano per gli
  * insiemi di visited (indice i: l'insieme di posto i), al più max, dai più
- * corti, e ritorna quanti sono. */
+ * corti, e ritorna quanti sono. Finito il budget delle visite non ne cerca
+ * altri, e annota che la ricerca è stata interrotta. */
 static int bij_terms(int from, int to, SlotSet visited, int *list, int max) {
     int count = 0;
+    if (++bij_visits > MAX_BIJ_VISITS) { exhausted = 1; return 0; }
     if (from == to) bij_keep(list, &count, max, bij_new((Bij){BIJ_SAME, from, to, -1, -1, {-1, -1}, -1, 0}));
     visited=slot_set_with(visited,from);
     for (int step = 0; step < sort_count; step++) {
@@ -31031,6 +31051,7 @@ static int bijection_witness(int r) {
     /* I testimoni: per ogni modo di accoppiare le componenti, un termine per
      * componente; in ordine di passi, a parità prima senza scambio. */
     bij_count = 0;
+    bij_visits = 0;
     for (int swap = 0; swap < m; swap++) {
         int list[2][MAX_WITNESSES], length[2];
         for (int j = 0; j < n; j++) length[j] = bij_terms(side_sort(e, 0, swap ? 1 - j : j), side_sort(e, 1, j), SLOT_EMPTY, list[j], MAX_WITNESSES);
