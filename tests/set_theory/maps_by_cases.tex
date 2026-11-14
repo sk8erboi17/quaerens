@@ -1,0 +1,40 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Maps defined by cases, with values in pairs, and iterates: true statements (20)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+$\mathbb{N} = \{1, 2, 3, \ldots\}$, $\mathbb{N}_{0} = \mathbb{N} \cup \{0\}$. Each map is defined by cases (on a remainder, on an order, on a point, on being an integer, on a parameter), or with an absolute value, which is a definition by cases. Items 13--17 have values in pairs: $(a, b) = (c, d)$ means $a = c$ and $b = d$. The last three are about the iterates $f^{n}$, defined by $f^{1} = f$ and $f^{n + 1} = f \circ f^{n}$.
+
+\begin{enumerate}
+\item $\displaystyle (f \colon \mathbb{Z} \to \mathbb{Z} \land \forall n \in \mathbb{Z}\ ((2 \mid n \implies f(n) = n + 3) \land (\lnot (2 \mid n) \implies f(n) = n - 1))) \implies ((\forall a, b \in \mathbb{Z}\ (f(a) = f(b) \implies a = b)) \land (\forall y \in \mathbb{Z}\ \exists x \in \mathbb{Z}\ (f(x) = y)))$
+\item $\displaystyle (f \colon \mathbb{N}_{0} \to \mathbb{N}_{0} \land \forall n \in \mathbb{N}_{0}\ ((n \ge 1 \implies f(n) = n - 1) \land (n \le 0 \implies f(n) = 0))) \implies ((\lnot (\forall a, b \in \mathbb{N}_{0}\ (f(a) = f(b) \implies a = b))) \land (\forall y \in \mathbb{N}_{0}\ \exists x \in \mathbb{N}_{0}\ (f(x) = y)))$
+\item $\displaystyle (f \colon \mathbb{Z} \to \mathbb{N}_{0} \land \forall n \in \mathbb{Z}\ (f(n) = |n - 2|)) \implies ((\lnot (\forall a, b \in \mathbb{Z}\ (f(a) = f(b) \implies a = b))) \land (\forall y \in \mathbb{N}_{0}\ \exists x \in \mathbb{Z}\ (f(x) = y)))$
+\item $\displaystyle (f \colon \mathbb{Q} \to \mathbb{Q} \land \forall x \in \mathbb{Q}\ (f(x) = 2x + |x|)) \implies ((\forall a, b \in \mathbb{Q}\ (f(a) = f(b) \implies a = b)) \land (\forall y \in \mathbb{Q}\ \exists x \in \mathbb{Q}\ (f(x) = y)))$
+\item $\displaystyle (f \colon \mathbb{Q} \to \mathbb{Q} \land \forall x \in \mathbb{Q}\ ((x \neq 1 \implies f(x) = \frac{x + 1}{x - 1}) \land (x = 1 \implies f(x) = 1))) \implies ((\forall a, b \in \mathbb{Q}\ (f(a) = f(b) \implies a = b)) \land (\forall y \in \mathbb{Q}\ \exists x \in \mathbb{Q}\ (f(x) = y)))$
+\item $\displaystyle (f \colon \mathbb{Q} \to \mathbb{Q} \land \forall x \in \mathbb{Q}\ ((x \in \mathbb{Z} \implies f(x) = 1 - x) \land (x \notin \mathbb{Z} \implies f(x) = x + 3))) \implies ((\forall a, b \in \mathbb{Q}\ (f(a) = f(b) \implies a = b)) \land (\forall y \in \mathbb{Q}\ \exists x \in \mathbb{Q}\ (f(x) = y)))$
+\item $\displaystyle (f \colon \mathbb{Z} \to \mathbb{Z} \land (k \in \mathbb{N} \land \forall n \in \mathbb{Z}\ ((k \mid n \implies f(n) = n) \land (k \nmid n \implies f(n) = n + k)))) \implies ((\forall a, b \in \mathbb{Z}\ (f(a) = f(b) \implies a = b)) \land (\forall y \in \mathbb{Z}\ \exists x \in \mathbb{Z}\ (f(x) = y)))$
+\item $\displaystyle (f \colon \mathbb{N} \to \mathbb{N} \land \forall n \in \mathbb{N}\ ((n \le 2 \implies f(n) = 3 - n) \land (n \ge 3 \implies f(n) = n))) \implies ((\forall a, b \in \mathbb{N}\ (f(a) = f(b) \implies a = b)) \land (\forall y \in \mathbb{N}\ \exists x \in \mathbb{N}\ (f(x) = y)))$
+\item $\displaystyle (f \colon \mathbb{Z} \to \mathbb{Z} \land \forall n \in \mathbb{Z}\ ((3 \mid n \implies f(n) = \frac{n}{3}) \land (\lnot (3 \mid n) \implies f(n) = n))) \implies ((\lnot (\forall a, b \in \mathbb{Z}\ (f(a) = f(b) \implies a = b))) \land (\forall y \in \mathbb{Z}\ \exists x \in \mathbb{Z}\ (f(x) = y)))$
+\item $\displaystyle (f \colon \mathbb{Z} \to \mathbb{Z} \land \forall n \in \mathbb{Z}\ ((2 \mid n \implies f(n) = n) \land (\lnot (2 \mid n) \implies f(n) = n + 1))) \implies ((\lnot (\forall a, b \in \mathbb{Z}\ (f(a) = f(b) \implies a = b))) \land (\lnot (\forall y \in \mathbb{Z}\ \exists x \in \mathbb{Z}\ (f(x) = y))))$
+\item $\displaystyle (f \colon \mathbb{Q} \to \mathbb{Q} \land \forall x \in \mathbb{Q}\ ((x \ge 0 \implies f(x) = x + 1) \land (x < 0 \implies f(x) = x))) \implies ((\forall a, b \in \mathbb{Q}\ (f(a) = f(b) \implies a = b)) \land (\lnot (\forall y \in \mathbb{Q}\ \exists x \in \mathbb{Q}\ (f(x) = y))))$
+\item $\displaystyle (f \colon \mathbb{Z} \to \mathbb{Z} \land \forall n \in \mathbb{Z}\ ((n \ge 0 \implies f(n) = 2n) \land (n < 0 \implies f(n) = -2n - 1))) \implies ((\forall a, b \in \mathbb{Z}\ (f(a) = f(b) \implies a = b)) \land (\lnot (\forall y \in \mathbb{Z}\ \exists x \in \mathbb{Z}\ (f(x) = y))))$
+\item $\displaystyle (f \colon \mathbb{Z} \to \mathbb{Z}^{2} \land \forall n \in \mathbb{Z}\ (f(n) = (n^{2}, 2n + 1))) \implies ((\forall a, b \in \mathbb{Z}\ (f(a) = f(b) \implies a = b)) \land (\lnot (\forall y \in \mathbb{Z}^{2}\ \exists x \in \mathbb{Z}\ (f(x) = y))))$
+\item $\displaystyle (f \colon \mathbb{Z} \to \mathbb{Z} \times \mathbb{N}_{0} \land \forall n \in \mathbb{Z}\ (f(n) = (n - 1, n^{2}))) \implies ((\forall a, b \in \mathbb{Z}\ (f(a) = f(b) \implies a = b)) \land (\lnot (\forall y \in \mathbb{Z} \times \mathbb{N}_{0}\ \exists x \in \mathbb{Z}\ (f(x) = y))))$
+\item $\displaystyle (f \colon \mathbb{Q} \to \mathbb{Q}^{2} \land \forall x \in \mathbb{Q}\ (f(x) = (x + 1, 2x))) \implies ((\forall a, b \in \mathbb{Q}\ (f(a) = f(b) \implies a = b)) \land (\lnot (\forall y \in \mathbb{Q}^{2}\ \exists x \in \mathbb{Q}\ (f(x) = y))))$
+\item $\displaystyle (f \colon \mathbb{Z} \to \mathbb{Z}^{2} \land \forall n \in \mathbb{Z}\ (f(n) = (n^{2}, n^{2}))) \implies ((\lnot (\forall a, b \in \mathbb{Z}\ (f(a) = f(b) \implies a = b))) \land (\lnot (\forall y \in \mathbb{Z}^{2}\ \exists x \in \mathbb{Z}\ (f(x) = y))))$
+\item $\displaystyle (f \colon \mathbb{Z} \to \mathbb{Z}^{2} \land \forall n \in \mathbb{Z}\ (f(n) = (n + 1, n))) \implies (\exists x \in \mathbb{Z}\ (f(x) = (3, 2)) \land \forall a \in \mathbb{Z}\ (f(a) \neq (a, a)))$
+\item $\displaystyle (f \colon \mathbb{Z} \to \mathbb{Z} \land \forall x \in \mathbb{Z}\ (f(x) = x + 2) \land f^{1} = f \land \forall n \in \mathbb{N}\ (f^{n + 1} = f \circ f^{n})) \implies (\forall n \in \mathbb{N}\ \forall x \in \mathbb{Z}\ (f^{n}(x) = x + 2n))$
+\item $\displaystyle (f \colon \mathbb{Z} \to \mathbb{Z} \land \forall x \in \mathbb{Z}\ (f(x) = 1 - x) \land f^{1} = f \land \forall n \in \mathbb{N}\ (f^{n + 1} = f \circ f^{n})) \implies (\forall n \in \mathbb{N}\ \forall x \in \mathbb{Z}\ (f^{n}(x) = \frac{1 - (-1)^{n}}{2} + (-1)^{n} x))$
+\item $\displaystyle (f \colon \mathbb{Q} \to \mathbb{Q} \land \forall x \in \mathbb{Q}\ (f(x) = 2x - 1) \land f^{1} = f \land \forall n \in \mathbb{N}\ (f^{n + 1} = f \circ f^{n})) \implies (\forall x \in \mathbb{Q}\ \forall n \in \mathbb{N}\ (f^{n}(x) = 2^{n}(x - 1) + 1))$
+\end{enumerate}
+\end{document}

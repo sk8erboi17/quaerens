@@ -1,0 +1,31 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{maps\_by\_cases.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{maps\_by\_cases.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_set\_theory.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 20 true statements about maps between number sets defined by cases: on the remainder in a division (by 2 and by 3), on an order ($n \ge 1$, $n \le 2$, $x \ge 0$), on a point ($x = 1$), on being an integer ($x \in \mathbb{Z}$), on a parameter ($k \mid n$, with $k \in \mathbb{N}$ declared among the hypotheses), and with absolute values ($|n - 2|$, $2x + |x|$), which are read as definitions by cases; the last five have values in pairs, $\mathbb{Z} \to \mathbb{Z}^{2}$ or $\mathbb{Z} \to \mathbb{Z} \times \mathbb{N}_{0}$, and one compares $f(x)$ with pairs written out; the last three claim a closed form for the iterates $f^{n}(x)$. Each claims, but for the last three, injectivity, surjectivity or their negations, and must be proved. They are not copies of the exercises of \texttt{maps.tex}: they are other facts of the same kinds, so that the rules are tested on statements the books do not contain.
+
+\item \textbf{What is being tested.} The reading of definitions by cases and of parameters (paragraph 17s of \texttt{parser.c}) and the rules 18v of \texttt{main.c}: that the cases define a map (they cover the domain, overlapping cases agree, the values lie in the codomain), that the case of each $f(t)$ is proved before it is used, that a variable is divided into the cases the proof needs (a remainder, a side of a number, a point, being an integer or a multiple), and that a preimage is looked for case by case. For the maps with values in pairs, the reading of a pair as two numbers (paragraph 17s): an equality between pairs is the equality of the components, and a variable over a set of pairs is two variables; and the rule 18v-7, by which two conditions that cannot fail together give $1 = 0$ as a combination. For the iterates, their reading (17s) and paragraph 26c of \texttt{main.c}: for a fixed $x$ the numbers $f^{n}(x)$ are a sequence defined by recursion, $s_{1} = f(x)$ and $s_{n + 1} = f(s_{n})$, and the closed form is proved for it as in chapter 26. Every written step is checked independently, and the statement is checked again on numbers (chapter 19).
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_set_theory \
+    tests/set_theory/test_set_theory.c && /tmp/test_set_theory
+\end{verbatim}
+
+\item \textbf{Expected result.} One \texttt{PASS} line for the file: every statement is proved, with its written proof. The false statements of the same kinds are in \texttt{false\_maps\_by\_cases.tex}.
+\end{enumerate}
+\end{document}

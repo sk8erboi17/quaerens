@@ -45,7 +45,10 @@
  * ricontrolla rifacendolo sull'albero; quelli di 17q e 17r si fanno
  * sull'albero, dove una variabile è un posto e non una lettera, e il motore
  * li ricontrolla calcolando su modelli finiti l'enunciato com'è scritto e
- * quello svolto (28h e parts_check() in main.c).
+ * quello svolto (28h e parts_check() in main.c). Anche il valore assoluto
+ * nella regola di un'applicazione si legge come una definizione per casi
+ * (17s), e il motore ricontrolla sui numeri che i casi diano gli stessi
+ * valori della regola com'è scritta.
  *
  * Il capitolo 21 legge il documento: trova gli \item, la formula di
  * ognuno e le poche parole che possono seguirla ("per ogni intero n \ge 2").
@@ -178,13 +181,30 @@ typedef struct {
     const char *start, *end;  /* com'è scritto nell'enunciato: [start, end) */
 } NumberSet;
 
+/* Un caso di un'applicazione definita per casi (17s): "se vale when, allora
+ * f(x) = value". when è una condizione sulla sola variabile x della regola
+ * (e sui parametri dell'enunciato), fatta di confronti, divisibilità e
+ * appartenenze legati da connettivi; value è un'espressione razionale. Gli
+ * alberi stanno nell'arena. Il tipo delle condizioni, Formula, è definito
+ * nel capitolo 17: qui basta il nome della struttura. */
+typedef struct {
+    const struct Formula *when;  /* la condizione del caso */
+    Node *value;                 /* il valore di f(x) quando la condizione vale */
+} MapCase;
+
 /* Un'applicazione dichiarata dall'enunciato con "f \colon A \to B". La regola
  * che la definisce, "f(x) = espressione", arriva dopo, da un'altra ipotesi:
- * finché manca, body è NULL e parameter non ha significato.
+ * finché manca, body è NULL, cases è 0 e parameter non ha significato.
+ *
+ * Una regola può essere data per casi (17s): allora i casi stanno in
+ * piece[], e il valore di f(x) è quello del caso la cui condizione vale.
+ * body resta NULL, salvo quando i casi vengono da una regola sola con dei
+ * valori assoluti: allora body è quella regola com'è scritta, e serve solo a
+ * ricontrollare sui numeri che i casi dicano lo stesso.
  *
  * Un'operazione binaria, dichiarata con "\ast \colon A \times B \to C", è
  * un'applicazione con due argomenti: la sua regola è "x \ast y = espressione"
- * (vedi 9g). Gli ultimi tre campi servono solo a lei. */
+ * (vedi 9g). second e parameter2 servono solo a lei. */
 typedef struct {
     int name;                    /* la lettera f, oppure il nome interno di un
                                     simbolo di operazione (operation_name()) */
@@ -194,6 +214,16 @@ typedef struct {
     int binary;                  /* 1 se è un'operazione binaria */
     NumberSet second;            /* operazione: B, l'insieme del secondo argomento */
     int parameter2;              /* operazione: la variabile y della regola */
+    int cases;                   /* definizione per casi: casi validi in piece[]; 0 se non lo è */
+    MapCase piece[MAX_MAP_CASES];
+    int partner;                 /* valori in coppie (17s): il nome dell'applicazione che dà la
+                                    seconda componente; questa dà la prima. 0 se i valori sono numeri */
+    int component;               /* 2 se è la seconda componente di un'applicazione a valori in
+                                    coppie, nascosta dentro di lei; altrimenti 0 */
+    int iterates;                /* le iterate (17s): il bit 1 se le ipotesi dicono f^{c} = f, il
+                                    bit 2 se dicono f^{n+1} = f \circ f^{n} per n da step_from in su */
+    long long iterate_from;      /* c, il primo indice delle iterate */
+    long long step_from;         /* il primo n per cui vale f^{n+1} = f \circ f^{n} */
 } Map;
 
 /* I simboli con cui un enunciato può indicare un'operazione binaria che
@@ -925,9 +955,17 @@ static Node *parse_primary(void) {
         next_token();
         Node *node;
         if (map_find(name)) {
+            /* f^{e}(t), l'iterata e-esima di f calcolata in t (17s):
+             * l'esponente va in c. */
+            Node *times = NULL;
+            if (is_char('^')) {
+                next_token();
+                times = parse_group();
+            }
             if (token.kind != T_OPEN) { syntax("un'applicazione va scritta con l'argomento tra parentesi, come f(x)"); return node_num(0); }
             next_token();
             node = node_new(N_APPLY, parse_expr(), NULL);
+            node->c = times;
             if (token.kind == T_CLOSE) next_token(); else syntax("manca la parentesi chiusa");
         } else if (is_char('_')) {
             next_token();
@@ -2307,7 +2345,8 @@ static void parts_reindex(SetNode *root, int *free_map) {
  *     \lnot (\forall y \in \mathbb{Z}\ \exists x \in \mathbb{Z}\ (2x = y))
  *
  * Tra le ipotesi un enunciato può dichiarare un'applicazione e darne la
- * regola; la tesi parla poi di quell'applicazione:
+ * regola, anche per casi, e dichiarare dei parametri (17s); la tesi parla
+ * poi di quell'applicazione:
  *
  *     (f \colon \mathbb{Z} \to \mathbb{Z} \land \forall n \in \mathbb{Z}\ (f(n) = n + 5))
  *         \implies \forall y \in \mathbb{Z}\ \exists x \in \mathbb{Z}\ (f(x) = y)
@@ -3320,11 +3359,195 @@ static Formula *logic_unique(const char *start) {
     return whole;
 }
 
+/* 17s. LE COPPIE COME VALORI
+ *
+ * f \colon \mathbb{Z} \to \mathbb{Z}^{2} con f(n) = (n + 1, n) è una coppia di
+ * applicazioni tra numeri: una per componente. Il lettore le tiene così: f
+ * dà la prima componente, e un'applicazione nascosta, che nell'enunciato non
+ * ha nome (partner, component), dà la seconda. Allo stesso modo una lettera
+ * che varia in un insieme di coppie, \forall y \in \mathbb{Z}^{2}, è una
+ * coppia di lettere: y per la prima componente e una lettera nuova per la
+ * seconda (la maiuscola, se l'enunciato non la usa), con due quantificatori.
+ * E un'uguaglianza tra coppie è la congiunzione delle uguaglianze tra le
+ * componenti, "diverse" la disgiunzione delle disuguaglianze: è la
+ * definizione di coppia ordinata, (a, b) = (c, d) se e solo se a = c e b = d.
+ * Il motore vede soltanto numeri.
+ *
+ * Il testo di un confronto tra componenti non c'è nell'enunciato: il lettore
+ * lo scrive, con il pedice della componente, f(a)_{1} = f(b)_{1}, e con le
+ * due lettere di una variabile di coppie, f(x)_{2} = Y. Così la
+ * dimostrazione scritta dice che cosa ha confrontato. Una coppia si confronta
+ * solo con = e \neq, e solo con un'altra coppia.
+ */
+
+/* Una variabile che varia in un insieme di coppie, mentre si legge la sua
+ * condizione: la lettera della prima componente e quella della seconda. */
+typedef struct {
+    int letter, partner;
+} PairLetter;
+
+static PairLetter pair_letters[MAX_BOUND];
+static int pair_letter_count;
+
+/* Ritorna la lettera della seconda componente della variabile name, se name
+ * varia in un insieme di coppie in questo punto della lettura, o 0. */
+static int pair_partner(int name) {
+    for (int i = pair_letter_count - 1; i >= 0; i--)
+        if (pair_letters[i].letter == name) return pair_letters[i].partner;
+    return 0;
+}
+
+/* Se dopo l'insieme first c'è ^{2} o \times B, lo legge, mette in *second
+ * l'insieme della seconda componente e ritorna 1: first era quello della
+ * prima. Altrimenti ritorna 0 e non legge nulla. */
+static int pairs_second(const NumberSet *first, NumberSet *second) {
+    if (is_command("times")) {
+        next_token();
+        *second = parse_side();
+        return 1;
+    }
+    if (!square_follows()) return 0;
+    next_token();
+    int braces = is_char('{');
+    if (braces) next_token();
+    next_token();
+    if (braces) expect_char('}', "manca }");
+    *second = *first;
+    return 1;
+}
+
+/* Se l'espressione node vale una coppia, un'applicazione a valori in coppie
+ * o una variabile che varia in un insieme di coppie, mette le sue due
+ * componenti in part[] e ritorna 1. */
+static int pair_parts(Node *node, Node **part) {
+    int partner = 0;
+    if (node->kind == N_APPLY && map_find(node->name)) partner = map_find(node->name)->partner;
+    if (node->kind == N_VAR) partner = pair_partner(node->name);
+    if (!partner) return 0;
+    part[0] = node;
+    part[1] = node_new(node->kind, node->a, node->b);
+    part[1]->name = partner;
+    return 1;
+}
+
+/* Scrive in *out, nell'arena, il testo della componente k (0 o 1) di un
+ * membro di un confronto tra coppie: [from, to) è il testo del membro,
+ * oppure, per una coppia scritta per esteso, della sua componente (explicit). */
+static void pair_side_text(char **out, size_t *length, const char *from, const char *to, const Node *node, int k, int explicit) {
+    char piece[160];
+    int n;
+    if (explicit) n = snprintf(piece, sizeof piece, "%.*s", (int)(to - from), from);
+    else if (node->kind == N_VAR) n = snprintf(piece, sizeof piece, "%c", k ? pair_partner(node->name) : node->name);
+    else n = snprintf(piece, sizeof piece, "%.*s_{%d}", (int)(to - from), from, k + 1);
+    if (n < 0 || (size_t)n >= sizeof piece || *length + (size_t)n + 8 > 400) { syntax("componente di una coppia troppo lunga"); return; }
+    memcpy(*out + *length, piece, (size_t)n);
+    *length += (size_t)n;
+}
+
+/* 17s. Legge "= destra" o "\neq destra" dopo il membro sinistro di un
+ * confronto, che vale una coppia: left[] sono le sue componenti, e il suo
+ * testo va da start a left_end. La destra è una coppia scritta per esteso,
+ * (e_1, e_2), o un'altra espressione che vale una coppia. Ritorna la
+ * congiunzione delle uguaglianze tra le componenti, o la disgiunzione delle
+ * disuguaglianze. */
+static Formula *pair_comparison(const char *start, const char *left_end, Node **left) {
+    int equal = is_char('=');
+    Node *right[2] = {NULL, NULL};
+    const char *span[2][2] = {{NULL, NULL}, {NULL, NULL}};
+    int explicit = 0;
+    next_token();
+
+    /* (e_1, e_2): se dopo la prima espressione non c'è la virgola, la
+     * parentesi era di un'espressione, e si rilegge. */
+    if (token.kind == T_OPEN) {
+        ParserState before = parser_save();
+        next_token();
+        span[0][0] = token.start;
+        right[0] = parse_expr();
+        span[0][1] = consumed;
+        if (!syntax_error && is_char(',')) {
+            next_token();
+            span[1][0] = token.start;
+            right[1] = parse_expr();
+            span[1][1] = consumed;
+            if (token.kind == T_CLOSE) { next_token(); explicit = 1; }
+            else syntax("manca la parentesi chiusa");
+        }
+        if (!explicit && !syntax_error) parser_restore(before);
+        else if (!explicit) return logic_nothing(start);
+    }
+    const char *right_start = token.start;
+    if (!explicit) {
+        Node *whole = parse_expr();
+        if (!syntax_error && !pair_parts(whole, right)) syntax("una coppia si confronta solo con un'altra coppia");
+        span[0][1] = span[1][1] = consumed;
+    }
+    if (syntax_error) return logic_nothing(start);
+
+    /* Le due componenti, ciascuna con il suo testo. */
+    Formula *part[2];
+    for (int k = 0; k < 2; k++) {
+        char *text = arena_alloc(400);
+        size_t length = 0;
+        if (!text) return logic_nothing(start);
+        pair_side_text(&text, &length, start, left_end, left[k], k, 0);
+        const char *relation = equal ? " = " : " \\neq ";
+        memcpy(text + length, relation, strlen(relation));
+        length += strlen(relation);
+        if (explicit) pair_side_text(&text, &length, span[k][0], span[k][1], right[k], k, 1);
+        else pair_side_text(&text, &length, right_start, span[0][1], right[0], k, 0);
+        text[length] = 0;
+        part[k] = formula_node(equal ? F_EQUAL : F_DISTINCT, NULL, NULL, NULL);
+        part[k]->left = left[k];
+        part[k]->right = right[k];
+        part[k]->start = text;
+        part[k]->end = text + length;
+    }
+    return formula_node(equal ? F_AND : F_OR, part[0], part[1], start);
+}
+
+/* 17s. LE ITERATE
+ *
+ * f^{1} = f e \forall n \in \mathbb{N}\ (f^{n + 1} = f \circ f^{n}), tra le
+ * ipotesi, definiscono le iterate di f: f^{n} è f composta con se stessa n
+ * volte. Il lettore legge le due ipotesi come una dichiarazione (F_MAP), con
+ * gli esponenti nei membri: left quello a sinistra, right quello dentro la
+ * composizione (NULL per f^{c} = f); swapped vale 1, perché le si distingua
+ * dalla dichiarazione di un'applicazione. Le registra poi read_definitions()
+ * nell'applicazione. Nella tesi f^{n}(x) è l'iterata calcolata in x: un
+ * N_APPLY con l'esponente in c. Il motore la tratta come il termine di una
+ * successione definita per ricorrenza (26c).
+ */
+
+/* Legge "= f" oppure "= f \circ f^{e'}" dopo f^{e}, con f l'applicazione di
+ * nome name ed e = times, e ritorna la dichiarazione F_MAP descritta sopra,
+ * il cui testo comincia in start. */
+static Formula *logic_iterate(int name, Node *times, const char *start) {
+    Node *inner = NULL;
+    next_token();
+    if (token.kind != T_LETTER || token.ch != name) syntax("dopo f^{n} = serve f, oppure f \\circ f^{m}");
+    next_token();
+    if (!syntax_error && is_command("circ")) {
+        next_token();
+        if (token.kind != T_LETTER || token.ch != name) syntax("dopo f \\circ serve la stessa applicazione, f^{m}");
+        next_token();
+        if (!is_char('^')) syntax("dopo f \\circ serve un'iterata di f, f^{m}");
+        next_token();
+        inner = parse_group();
+    }
+    Formula *node = formula_node(F_MAP, NULL, NULL, start);
+    node->variable = name;
+    node->left = times;
+    node->right = inner;
+    node->swapped = 1;
+    return node;
+}
+
 /* Prepara la lettura dell'enunciato il cui testo comincia in text: nessuna
  * relazione dichiarata, nessuna variabile in vista, e in letter_taken le
  * lettere che il testo usa. Il lettore resta dov'era. */
 static void unfolding_reset(const char *text) {
-    pair_set_count = guard_count = scope_count = 0;
+    pair_set_count = guard_count = scope_count = pair_letter_count = 0;
     unfolded = 0;
     memset(letter_taken, 0, sizeof letter_taken);
 
@@ -3379,21 +3602,38 @@ static Formula *logic_unary(void) {
         /* L'insieme, lo stesso per tutte le lettere. Se manca (17m) ogni
          * lettera aspetta il suo: numbers[i].start resta NULL finché
          * un'appartenenza della condizione non glielo dà. */
-        NumberSet numbers[MAX_BOUND];
+        NumberSet numbers[MAX_BOUND], second;
         memset(numbers, 0, sizeof numbers);
-        int stated = is_command("in") || !pair_set_count;
+        int stated = is_command("in") || !pair_set_count, paired = 0;
         if (stated) {
             if (!is_command("in")) syntax("dopo le lettere di un quantificatore servono \\in e un insieme numerico");
             next_token();
             numbers[0] = parse_numbers();
+            paired = pairs_second(&numbers[0], &second);
             for (int i = 1; i < names; i++) numbers[i] = numbers[0];
+        }
+
+        /* 17s. In un insieme di coppie ogni lettera ha una compagna per la
+         * seconda componente: la maiuscola, se l'enunciato non la usa. */
+        int partner[MAX_BOUND] = {0}, pairs_before = pair_letter_count;
+        for (int i = 0; i < names && paired && !syntax_error; i++) {
+            int upper = toupper(name[i]);
+            if (upper != name[i] && !letter_taken[upper & 127]) letter_taken[upper & 127] = 1;
+            else upper = fresh_letter();
+            partner[i] = upper;
+            if (pair_letter_count == MAX_BOUND) { syntax("troppe variabili in un insieme di coppie"); break; }
+            pair_letters[pair_letter_count++] = (PairLetter){name[i], upper};
         }
 
         /* La condizione, letta con le lettere in vista. */
         int outer = scope_count;
-        for (int i = 0; i < names && scope_count < MAX_BOUND; i++) scope[scope_count++] = (Bound){name[i], &numbers[i]};
+        for (int i = 0; i < names && scope_count < MAX_BOUND; i++) {
+            scope[scope_count++] = (Bound){name[i], &numbers[i]};
+            if (paired && scope_count < MAX_BOUND) scope[scope_count++] = (Bound){partner[i], &second};
+        }
         Formula *node = logic_unary();
         scope_count = outer;
+        pair_letter_count = pairs_before;
 
         /* 17m. Senza insieme, il quantificatore ha senso solo se la
          * condizione obbliga ogni lettera a stare nell'insieme che ha
@@ -3404,8 +3644,14 @@ static Formula *logic_unary(void) {
                 syntax("un quantificatore senza insieme è ammesso solo se la condizione obbliga la lettera a stare in un insieme, con un'appartenenza a una relazione dichiarata");
 
         /* \forall a, b è \forall a \forall b: un nodo per lettera, costruiti
-         * dall'ultima lettera alla prima. */
+         * dall'ultima lettera alla prima. Una lettera di coppie ne ha due,
+         * prima la sua e poi quella della compagna. */
         for (int i = names - 1; i >= 0; i--) {
+            if (paired) {
+                node = formula_node(kind, node, NULL, start);
+                node->variable = partner[i];
+                node->numbers = second;
+            }
             node = formula_node(kind, node, NULL, start);
             node->variable = name[i];
             node->numbers = numbers[i];
@@ -3455,13 +3701,32 @@ static Formula *logic_unary(void) {
             NumberSet domain[2];
             next_token();
             if (symbol) parse_pairs(domain); else domain[0] = domain[1] = parse_numbers();
+            NumberSet ignored;
+            if (!symbol && !syntax_error && pairs_second(&domain[0], &ignored))
+                syntax("un'applicazione di due argomenti, f \\colon A \\times B \\to C, non è trattata: si leggono solo le "
+                       "operazioni scritte con un simbolo, x \\ast y");
             if (is_command("to") || is_command("rightarrow") || is_command("longrightarrow")) next_token();
             else syntax("in una dichiarazione f \\colon A \\to B manca \\to");
-            NumberSet codomain = parse_numbers();
+            NumberSet codomain = parse_numbers(), second;
+
+            /* 17s. A valori in coppie: due applicazioni, una per componente. */
+            int paired = !symbol && pairs_second(&codomain, &second);
             if (map_find(name) || pair_set_find(name)) syntax("la stessa applicazione è dichiarata due volte");
-            else if (map_count == MAX_MAPS) syntax("troppe applicazioni dichiarate in un enunciato");
-            else if (!syntax_error) maps[map_count++] = (Map){name, domain[0], codomain, 0, NULL, symbol != 0, domain[1], 0};
+            else if (map_count + 1 + paired > MAX_MAPS) syntax("troppe applicazioni dichiarate in un enunciato");
+            else if (!syntax_error) {
+                maps[map_count++] = (Map){name, domain[0], codomain, 0, NULL, symbol != 0, domain[1], 0, 0, {{0}}, paired ? PAIR_NAMES + name : 0, 0, 0, 0, 0};
+                if (paired) maps[map_count++] = (Map){PAIR_NAMES + name, domain[0], second, 0, NULL, 0, domain[1], 0, 0, {{0}}, 0, 2, 0, 0, 0};
+            }
             return formula_node(F_MAP, NULL, NULL, start);
+        }
+
+        /* 17s. La definizione delle iterate: f^{c} = f, oppure f^{e} = f \circ
+         * f^{e'}. Un esponente seguito da una parentesi è invece l'iterata
+         * calcolata in un punto, un'espressione: si torna indietro. */
+        if (!symbol && map_find(name) && is_char('^')) {
+            next_token();
+            Node *times = parse_group();
+            if (!syntax_error && is_char('=')) return logic_iterate(name, times, start);
         }
 
         /* 17i. Una relazione data da una regola: lettera, uguale, \{. */
@@ -3493,6 +3758,11 @@ static Formula *logic_unary(void) {
     Node *left = parse_expr();
     const char *problem = syntax_error;
     Formula *chain = NULL;
+
+    /* 17s. Un confronto tra coppie: componente per componente. */
+    Node *pair[2];
+    if (!syntax_error && pair_parts(left, pair) && (is_char('=') || is_command("neq") || is_command("ne")))
+        return pair_comparison(start, consumed, pair);
 
     /* 17k. Appartenenza a un insieme numerico: non una catena di confronti
      * ma una condizione a sé, che il motore stabilisce con la regola 18e.
@@ -3725,7 +3995,9 @@ static void term_check(const Node *node) {
         return;
     case N_APPLY: {
         const Map *map = map_find(node->name);
-        if (!map->body) fail("un'applicazione è usata prima della regola che la definisce");
+        if (node->c && map->iterates != 3) fail("un'iterata f^{n} è usata senza la sua definizione: f^{c} = f e f^{n+1} = f \\circ f^{n}");
+        term_check(node->c);
+        if (!map->body && !map->cases) fail("un'applicazione è usata prima della regola che la definisce");
         else if (!argument_in(node->a, &map->domain) || (map->binary && !argument_in(node->b, &map->second)))
             fail("un'applicazione va applicata a un elemento del suo dominio: una variabile che vi varia, un numero che vi appartiene, o un valore di un'applicazione che vi arriva");
         return;
@@ -3815,31 +4087,278 @@ static void formula_check(const Formula *f) {
     }
 }
 
-/* Legge le ipotesi f: una congiunzione di dichiarazioni (di applicazioni,
- * operazioni e relazioni), già registrate dal parser, e di regole della forma
+/* 17s. DEFINIZIONI PER CASI E PARAMETRI
  *
- *     \forall x \in A\ (f(x) = espressione)
- *     \forall x \in A\ \forall y \in B\ (x \ast y = espressione)
+ * Un'applicazione si definisce spesso per casi:
  *
- * dove A è il dominio di f, e A \times B quello dell'operazione \ast.
- * Completa ogni applicazione con la sua regola; un'ipotesi di altro tipo
- * viene annotata con fail(). */
-static void read_definitions(const Formula *f) {
-    if (f->kind == F_AND) { read_definitions(f->a); read_definitions(f->b); return; }
-    if (f->kind == F_MAP) return;
+ *     \forall n \in \mathbb{N}\ ((2 \mid n \implies f(n) = 2n)
+ *                                \land (\lnot (2 \mid n) \implies f(n) = 5n))
+ *
+ * Ogni caso è un'implicazione "condizione implica f(n) = valore", e i casi
+ * stanno in una congiunzione, sotto il "per ogni" del dominio. La condizione
+ * parla della sola n (e dei parametri, più sotto): confronti (=, \neq, <,
+ * \le, >, \ge), divisibilità (\mid, \nmid), appartenenze (\in, \notin) e
+ * connettivi. Il valore è un'espressione razionale, come una regola sola.
+ *
+ * Il valore assoluto è una definizione per casi: |u| vale u dove u \ge 0, e
+ * -u dove u < 0. Una regola con dei valori assoluti, come f(x) = 3x - |x|,
+ * si legge quindi per casi: uno per ogni scelta dei segni, con la
+ * condizione scritta dal lettore (u \ge 0 oppure u < 0 per ogni valore
+ * assoluto) e il valore senza sbarre. Si comincia dal valore assoluto più
+ * interno, il cui argomento non ne contiene altri: così anche la condizione
+ * di quello che lo contiene, letta nel caso, è razionale. È una convenzione
+ * di lettura, come le altre di questo file; il motore la ricontrolla sui
+ * numeri, calcolando la regola com'è scritta accanto ai casi
+ * (map_holds_on_sample()).
+ *
+ * Che i casi coprano il dominio, che dove si sovrappongono diano lo stesso
+ * valore, e che il valore stia nel codominio non lo controlla il lettore:
+ * lo dimostra il motore (18v-6), e se non ci riesce l'enunciato non è
+ * dimostrato. Qui si controlla solo la forma.
+ *
+ * Un parametro. "k \in \mathbb{N}" tra le ipotesi, con k una lettera che
+ * nessun quantificatore lega, dice che k è un elemento qualsiasi di
+ * \mathbb{N}: le regole e la tesi possono nominarlo, e ciò che si dimostra
+ * vale per ogni suo valore. Il lettore lo annota in statement_parameters[],
+ * e lo mette tra le lettere visibili (scope) dovunque; il motore lo tratta
+ * come una variabile generica introdotta prima di tutto il resto.
+ */
+
+/* I parametri dichiarati dalle ipotesi dell'enunciato in corso, con
+ * l'insieme in cui variano (che sta nel nodo dell'ipotesi). Chi legge un
+ * enunciato deve azzerare il contatore, come map_count. */
+static Bound statement_parameters[MAX_PARAMETERS];
+static int statement_parameter_count;
+
+/* Mette in scope, e solo lì, i parametri dell'enunciato: sono le lettere
+ * visibili prima di ogni quantificatore. */
+static void scope_parameters(void) {
+    for (int i = 0; i < statement_parameter_count; i++) scope[i] = statement_parameters[i];
+    scope_count = statement_parameter_count;
+}
+
+/* Ritorna una nuova condizione di tipo kind, senza testo né componenti: la
+ * crea il lettore per i casi dei valori assoluti. Il motore scrive le
+ * condizioni dei casi con i valori del momento, non con il loro testo
+ * (18v-1), quindi non ne serve uno. */
+static Formula *condition_new(FormulaKind kind) {
+    Formula *node = formula_node(kind, NULL, NULL, NULL);
+    node->start = node->end = NULL;
+    return node;
+}
+
+/* Ritorna una copia di tree in cui il nodo target è sostituito da by. Si
+ * copia solo il cammino dalla radice a target: il resto è condiviso, perché
+ * gli alberi non si modificano mai. */
+static Node *node_replaced(Node *tree, const Node *target, Node *by) {
+    if (!tree) return NULL;
+    if (tree == target) return by;
+    Node *a = node_replaced(tree->a, target, by), *b = node_replaced(tree->b, target, by), *c = node_replaced(tree->c, target, by);
+    if (a == tree->a && b == tree->b && c == tree->c) return tree;
+    Node *copy = node_new(tree->kind, a, b);
+    copy->c = c;
+    copy->value = tree->value;
+    copy->name = tree->name;
+    copy->op = tree->op;
+    return copy;
+}
+
+/* Ritorna un valore assoluto di tree il cui argomento non ne contiene altri,
+ * o NULL se tree non ne ha. */
+static Node *abs_innermost(Node *tree) {
+    if (!tree) return NULL;
+    Node *inside = abs_innermost(tree->a);
+    if (!inside) inside = abs_innermost(tree->b);
+    if (!inside) inside = abs_innermost(tree->c);
+    if (inside) return inside;
+    return tree->kind == N_CALL && tree->op == FN_ABS ? tree : NULL;
+}
+
+/* Controlla la condizione c di un caso: confronti, divisibilità e
+ * appartenenze tra espressioni razionali, legati da connettivi, con le sole
+ * lettere in scope. Annota il problema con fail(). */
+static void case_condition_check(const Formula *c) {
+    switch (c->kind) {
+    case F_AND: case F_OR:
+        case_condition_check(c->a);
+        case_condition_check(c->b);
+        return;
+    case F_NOT:
+        case_condition_check(c->a);
+        return;
+    case F_EQUAL: case F_DISTINCT: case F_LESS: case F_LESS_EQ: case F_DIVIDES: case F_IN:
+        term_check(c->left);
+        term_check(c->right);
+        if (!term_is_rational(c->left) || !term_is_rational(c->right))
+            fail("le condizioni di una definizione per casi devono confrontare espressioni razionali");
+        return;
+    default:
+        fail("la condizione di un caso può contenere solo confronti, divisibilità, appartenenze e connettivi");
+    }
+}
+
+/* Aggiunge a map i casi di "se when, allora f(x) = value" (when NULL: sempre),
+ * leggendo per casi i valori assoluti di value, dal più interno. Annota con
+ * fail() un valore che non è razionale nemmeno senza le sbarre, o troppi
+ * casi. */
+static void case_add(Map *map, const Formula *when, Node *value) {
+    Node *bars = abs_innermost(value);
+    if (!bars) {
+        if (!term_is_rational(value)) fail("la regola di un'applicazione deve essere un'espressione razionale");
+        else if (map->cases == MAX_MAP_CASES) fail("troppi casi nella definizione di un'applicazione");
+        else map->piece[map->cases++] = (MapCase){when, value};
+        return;
+    }
+
+    /* |u| = u dove u \ge 0, e -u dove u < 0: due casi, con la condizione
+     * aggiunta a quella che c'era. */
+    Node *u = bars->a;
+    for (int negative = 0; negative < 2 && !failure; negative++) {
+        Formula *sign = condition_new(negative ? F_LESS : F_LESS_EQ);
+        sign->left = negative ? u : node_num(0);
+        sign->right = negative ? node_num(0) : u;
+        Formula *both = sign;
+        if (when) {
+            both = condition_new(F_AND);
+            both->a = (Formula *)when;
+            both->b = sign;
+        }
+        case_add(map, both, node_replaced(value, bars, negative ? node_new(N_NEG, u, NULL) : u));
+    }
+}
+
+/* Legge un caso, o la congiunzione di casi `rule`, della definizione per
+ * casi f, "\forall x \in A\ ((c_1 \implies f(x) = e_1) \land ...)", e lo
+ * registra nell'applicazione *map. *map è NULL al primo caso, che dice di
+ * quale applicazione si tratta; gli altri devono parlare della stessa.
+ * Annota con fail() ogni scrittura diversa. */
+static void cases_read(const Formula *f, const Formula *rule, Map **map) {
+    /* Si scende nella congiunzione: prima tutti i casi della parte sinistra. */
+    if (rule->kind == F_AND) {
+        cases_read(f, rule->a, map);
+        if (!failure) cases_read(f, rule->b, map);
+        return;
+    }
+
+    /* Un caso: condizione, implica, f(x) = valore, con x la variabile del
+     * "per ogni". */
+    const Formula *equation = rule->kind == F_IMPLIES ? rule->b : NULL;
+    const Node *applied = equation && equation->kind == F_EQUAL && equation->left->kind == N_APPLY ? equation->left : NULL;
+    Map *named = applied ? map_find(applied->name) : NULL;
+    if (!named || named->binary || applied->a->kind != N_VAR || applied->a->name != f->variable) {
+        fail("in una definizione per casi ogni caso è \"condizione \\implies f(x) = valore\", con x la variabile del \"per ogni\"");
+        return;
+    }
+    if (*map && named != *map) { fail("i casi di una definizione devono parlare della stessa applicazione"); return; }
+    if (!*map && (named->body || named->cases)) { fail("un'applicazione ha due regole"); return; }
+    *map = named;
+    if (!numbers_equal(&f->numbers, &named->domain)) { fail("la regola di un'applicazione deve valere su tutto il suo dominio"); return; }
+
+    /* Condizione e valore possono nominare solo x e i parametri. */
+    scope_parameters();
+    if (scope_find(f->variable)) fail("la stessa lettera ha due significati nello stesso punto dell'enunciato");
+    scope[scope_count++] = (Bound){f->variable, &f->numbers};
+    case_condition_check(rule->a);
+    term_check(equation->right);
+    scope_count = 0;
+    if (failure) return;
+    named->parameter = f->variable;
+    case_add(named, rule->a, equation->right);
+}
+
+/* Se f è la dichiarazione di un parametro, "k \in A" con k una lettera, la
+ * registra e ritorna 1. Una lettera dichiarata due volte, o che è già il
+ * nome di un'applicazione, viene annotata con fail(). */
+static int parameter_read(const Formula *f) {
+    if (f->kind != F_IN || f->swapped || f->left->kind != N_VAR || f->left->name == VAR_PI) return 0;
+    int name = f->left->name;
+    for (int i = 0; i < statement_parameter_count; i++)
+        if (statement_parameters[i].name == name) { fail("lo stesso parametro è dichiarato due volte"); return 1; }
+    if (map_find(name) || pair_set_find(name)) fail("la stessa lettera ha due significati nello stesso punto dell'enunciato");
+    else if (statement_parameter_count == MAX_PARAMETERS) fail("troppi parametri dichiarati in un enunciato");
+    else statement_parameters[statement_parameter_count++] = (Bound){name, &f->numbers};
+    return 1;
+}
+
+/* Registra i parametri dichiarati nella congiunzione di ipotesi f. Si fa
+ * prima di leggere le regole, che possono nominarli in qualunque ordine. */
+static void parameters_read(const Formula *f) {
+    if (f->kind == F_AND) { parameters_read(f->a); parameters_read(f->b); return; }
+    parameter_read(f);
+}
+
+/* Se f è una delle due ipotesi che definiscono le iterate (17s), f^{c} = f
+ * oppure \forall n \in A\ (f^{n + 1} = f \circ f^{n}) con A gli interi da un
+ * certo punto in su, la registra nell'applicazione e ritorna 1. Una scrittura
+ * diversa viene annotata con fail(), e ritorna 1. */
+static int iterates_read(const Formula *f) {
+    const Formula *step = f->kind == F_FORALL && f->a->kind == F_MAP && f->a->swapped ? f->a : NULL;
+    if (!step && (f->kind != F_MAP || !f->swapped)) return 0;
+    Map *map = map_find(step ? step->variable : f->variable);
+    Num c;
+
+    /* f^{c} = f, con c un intero. */
+    if (!step) {
+        if (f->right || !node_is_numeral(f->left) || !rat_number(eval(f->left), &c) || c.re.den != 1 || c.im.num != 0) {
+            fail("le iterate si definiscono con f^{c} = f, c un intero, e f^{n+1} = f \\circ f^{n}");
+            return 1;
+        }
+        map->iterates |= 1;
+        map->iterate_from = c.re.num;
+        return 1;
+    }
+
+    /* f^{n+1} = f \circ f^{n}, per ogni n intero da un estremo in su. */
+    const Node *up = step->left, *inner = step->right;
+    int n = f->variable;
+    int plus_one = up && up->kind == N_ADD &&
+                   ((up->a->kind == N_VAR && up->a->name == n && up->b->kind == N_NUM && up->b->value == 1) ||
+                    (up->b->kind == N_VAR && up->b->name == n && up->a->kind == N_NUM && up->a->value == 1));
+    if (!plus_one || !inner || inner->kind != N_VAR || inner->name != n || !f->numbers.integers || !f->numbers.bounded || f->numbers.holes) {
+        fail("le iterate si definiscono con f^{c} = f e \\forall n \\in \\mathbb{N}\\ (f^{n+1} = f \\circ f^{n})");
+        return 1;
+    }
+    map->iterates |= 2;
+    map->step_from = f->numbers.low + f->numbers.strict;
+    return 1;
+}
+
+/* Il lavoro di read_definitions(), che ne descrive il contratto, su una
+ * parte f delle ipotesi; i parametri sono già stati letti. */
+static void definitions_read(const Formula *f) {
+    if (f->kind == F_AND) { definitions_read(f->a); definitions_read(f->b); return; }
+    if (iterates_read(f)) return;
+    if (f->kind == F_MAP || (f->kind == F_IN && !f->swapped && f->left->kind == N_VAR && f->left->name != VAR_PI)) return;
 
     /* Riconosce la regola e l'applicazione che definisce: sotto uno o due
      * "per ogni" c'è un'uguaglianza il cui primo membro è l'applicazione,
-     * con una variabile per argomento. */
+     * con una variabile per argomento. Una congiunzione di implicazioni
+     * sotto un solo "per ogni" è invece una definizione per casi (17s). */
     const Formula *inner = f->kind == F_FORALL && f->a->kind == F_FORALL ? f->a : NULL;
     const Formula *rule = f->kind == F_FORALL ? (inner ? inner->a : f->a) : NULL;
+    if (rule && !inner && rule->kind == F_AND && rule->a->kind == F_EQUAL && rule->b->kind == F_EQUAL) {
+        /* 17s. La regola di un'applicazione a valori in coppie: una regola
+         * per componente, sotto lo stesso "per ogni". */
+        Formula one = *f;
+        one.a = rule->a;
+        definitions_read(&one);
+        one.a = rule->b;
+        if (!failure) definitions_read(&one);
+        return;
+    }
+    if (rule && !inner && (rule->kind == F_AND || rule->kind == F_IMPLIES)) {
+        Map *defined = NULL;
+        cases_read(f, rule, &defined);
+        return;
+    }
     const Node *applied = rule && rule->kind == F_EQUAL && rule->left->kind == N_APPLY ? rule->left : NULL;
     Map *map = applied ? map_find(applied->name) : NULL;
     if (!map || map->binary != (inner != NULL) || applied->a->kind != N_VAR || (inner && applied->b->kind != N_VAR)) {
-        fail("ipotesi non trattata: sono ammesse la dichiarazione di un'applicazione, di un'operazione o di una relazione, e la regola di un'applicazione o di un'operazione");
+        fail("ipotesi non trattata: sono ammesse la dichiarazione di un'applicazione, di un'operazione o di una relazione, "
+             "di un parametro, e la regola di un'applicazione o di un'operazione, anche per casi");
         return;
     }
-    if (map->body) { fail("un'applicazione ha due regole"); return; }
+    if (map->body || map->cases) { fail("un'applicazione ha due regole"); return; }
 
     /* Ogni argomento è la variabile di uno dei quantificatori, che varia
      * sull'insieme di quell'argomento. Per un'operazione le due variabili
@@ -3855,21 +4374,47 @@ static void read_definitions(const Formula *f) {
         return;
     }
 
-    /* L'espressione può contenere solo le variabili della regola. La si
-     * controlla prima di registrarla: così una regola che cita la propria
-     * applicazione trova body ancora NULL e viene respinta da term_check(). */
-    scope[0] = (Bound){first->variable, &first->numbers};
-    scope_count = 1;
+    /* L'espressione può contenere solo le variabili della regola e i
+     * parametri dell'enunciato (17s). La si controlla prima di registrarla:
+     * così una regola che cita la propria applicazione trova body ancora
+     * NULL e viene respinta da term_check(). */
+    scope_parameters();
+    if (scope_find(first->variable) || (inner && scope_find(second->variable)))
+        fail("la stessa lettera ha due significati nello stesso punto dell'enunciato");
+    scope[scope_count++] = (Bound){first->variable, &first->numbers};
     if (inner) scope[scope_count++] = (Bound){second->variable, &second->numbers};
     term_check(rule->right);
     scope_count = 0;
 
     /* Che la regola dia un valore per ogni elemento del dominio lo dimostra
-     * map_defined() (18m), che sa farlo solo guardando i divisori. */
-    if (!term_is_rational(rule->right)) { fail("la regola di un'applicazione deve essere un'espressione razionale"); return; }
+     * map_defined() (18m), che sa farlo solo guardando i divisori. Una regola
+     * con dei valori assoluti si legge per casi (17s): body resta la regola
+     * com'è scritta, per il controllo sui numeri. */
     map->parameter = first->variable;
     if (inner) map->parameter2 = second->variable;
+    if (!term_is_rational(rule->right) && !inner && abs_innermost(rule->right)) {
+        case_add(map, NULL, rule->right);
+        map->body = rule->right;
+        return;
+    }
+    if (!term_is_rational(rule->right)) { fail("la regola di un'applicazione deve essere un'espressione razionale"); return; }
     map->body = rule->right;
+}
+
+/* Legge le ipotesi f: una congiunzione di dichiarazioni (di applicazioni,
+ * operazioni e relazioni), già registrate dal parser, di parametri (17s) e
+ * di regole della forma
+ *
+ *     \forall x \in A\ (f(x) = espressione)
+ *     \forall x \in A\ \forall y \in B\ (x \ast y = espressione)
+ *     \forall x \in A\ ((c_1 \implies f(x) = e_1) \land (c_2 \implies f(x) = e_2) ...)
+ *
+ * dove A è il dominio di f, e A \times B quello dell'operazione \ast.
+ * Completa ogni applicazione con la sua regola; un'ipotesi di altro tipo
+ * viene annotata con fail(). */
+static void read_definitions(const Formula *f) {
+    parameters_read(f);
+    if (!failure) definitions_read(f);
 }
 
 /* Controlla la regola di ogni relazione dichiarata (17i): la condizione deve

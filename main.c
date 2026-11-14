@@ -237,10 +237,19 @@
  *     (\int_0^{+\infty} \cos x \, dx) e i domini che la tabella dei segni
  *     non sa decidere. Il capitolo 30 dice dove andrebbero.
  *   - Negli enunciati con quantificatori: i numeri reali e complessi, le
- *     disuguaglianze, il valore assoluto, le applicazioni definite per casi o
- *     a valori in coppie. Il linguaggio è nel capitolo 17; ogni nuovo modo
- *     di ragionare è una regola in più nel capitolo 18. L'induzione vi
- *     entra solo per un "per ogni n" senza altre variabili intorno.
+ *     disuguaglianze nella tesi, le applicazioni a valori in coppie o di due
+ *     argomenti, e le definizioni per casi tra numeri reali, dove la
+ *     suriettività vorrebbe una radice come \sqrt{y} nel valore di un
+ *     "esiste". Le applicazioni definite per casi tra interi e razionali, e
+ *     il valore assoluto nella loro regola, ci sono (17s, 18v); di un
+ *     enunciato con un parametro (17s) il motore dimostra la tesi per ogni
+ *     valore del parametro, e la smentisce per ogni valore o per uno dei
+ *     primi, mai con un valore cercato dalle condizioni. Mancano anche i
+ *     parametri dichiarati insieme (a, b \in \mathbb{Z}) e le lettere usate
+ *     sia come parametri sia come variabili legate. Il linguaggio è nel
+ *     capitolo 17; ogni nuovo modo di
+ *     ragionare è una regola in più nel capitolo 18. L'induzione vi entra
+ *     solo per un "per ogni n" senza altre variabili intorno.
  *   - Negli enunciati su insiemi qualsiasi: le applicazioni e le parti da
  *     costruire, le ipotesi su tutte le parti di un insieme (\forall X
  *     \subseteq S tra le ipotesi, o in un'equivalenza), l'insieme delle
@@ -424,7 +433,7 @@
  *       18.1   Lo stato della dimostrazione e la scrittura dei polinomi
  *       18.2   Polinomi nelle variabili generiche: zeri, segni, interi
  *       18.3   Confronti e disgiunzioni di confronti
- *       18.4   "Per ogni" ed "esiste": induzione, casi sul resto, equazioni
+ *       18.4   "Per ogni" ed "esiste": induzione, casi, equazioni
  *       18.5   Le ipotesi "esiste", con il loro testimone
  *       18.6   establish(): la dimostrazione per struttura
  *       18.7   Sole congruenze: tutti i resti
@@ -508,6 +517,12 @@
 #define CERTIFICATE_BYTES 65536  /* lunghezza massima di un certificato */
 #define MAX_BRICKS 32        /* fattori suggeriti in un certificato: di più il verificatore non ne legge */
 #define MAX_MAPS 4           /* applicazioni dichiarate in un enunciato */
+#define MAX_PARAMETERS 4     /* parametri dichiarati tra le ipotesi con "k \in A" (17s) */
+#define PARAMETER_TRIES 4    /* valori di ogni parametro con cui si cerca di smentire un enunciato (17s) */
+#define MAX_MAP_CASES 8      /* casi di un'applicazione definita per casi, contati dopo aver letto i valori assoluti (17s) */
+#define MAX_CASE_CHOICES 16  /* casi scelti insieme, in un confronto, per le applicazioni definite per casi (18v-1) */
+#define MAX_REGION_DEPTH 4   /* distinzioni di casi su una variabile, una dentro l'altra (18v-2) */
+#define MAX_REGION_POINTS 8  /* numeri elencati uno per uno quando una distinzione lascia un pezzo finito (18v-2) */
 #define MAX_HOLES 4          /* punti tolti da un insieme numerico con \setminus */
 #define MAX_BOUND 8          /* quantificatori uno dentro l'altro */
 #define MAX_LITERALS 4       /* confronti in una disgiunzione */
@@ -571,6 +586,8 @@ typedef unsigned __int128 SlotSet;
 #define MAX_DEFINITIONS 8    /* nomi dati dall'enunciato a un insieme, G = \{...\} (17p) */
 #define MAX_CHECK_MODELS 4000  /* modelli su cui si confrontano l'enunciato scritto e quello svolto (28h) */
 #define GREEK_NAMES 3000     /* "nomi" delle lettere greche usate come applicazioni (17o): non sono caratteri */
+#define PAIR_NAMES 4000      /* "nomi" delle seconde componenti delle applicazioni a valori in coppie (17s):
+                                PAIR_NAMES più la lettera dell'applicazione */
 #define MAX_MODEL_SIZE 4     /* elementi di un insieme in un modello finito (28a) */
 #define MAX_MODEL_OBJECTS 8  /* elementi di un insieme di parti o di applicazioni in un modello finito (28m):
                                 le parti di un insieme di 3 elementi. Non più di CK_MAX_SIZE */
@@ -636,6 +653,7 @@ typedef unsigned __int128 SlotSet;
  * lettera ausiliaria che vale zero o più (vedi body_is_positive()). */
 #define VAR_PI 256
 #define VAR_SLACK 257
+#define VAR_ITERATE 258  /* il valore corrente mentre si calcola un'iterata f^{m}(a) con i numeri (17s) */
 
 /* Nomi interni dei termini precedenti di una successione dichiarata
  * dall'enunciato, mentre la sua regola viene calcolata con i numeri
@@ -1570,6 +1588,23 @@ static int rat_affine(Rat r, long long *a, long long *c) {
         else return 0;
     }
     return 1;
+}
+
+/* Se e = alpha x + beta, con x l'atomo della variabile e alpha diverso da
+ * zero, mette i due razionali in *alpha e *beta e ritorna 1. */
+static int rat_affine_in(Rat e, int x, Frac *alpha, Frac *beta) {
+    *alpha = *beta = frac_int(0);
+    if (failure || e.den.count != 1 || e.den.term[0].mono.count != 0 || e.den.term[0].coef.im.num != 0) return 0;
+    for (int i = 0; i < e.num.count; i++) {
+        const Term *t = &e.num.term[i];
+        if (t->coef.im.num != 0) return 0;
+        if (t->mono.count == 0) *beta = t->coef.re;
+        else if (t->mono.count == 1 && t->mono.factor[0].atom == x && frac_cmp(t->mono.factor[0].exp, frac_int(1)) == 0) *alpha = t->coef.re;
+        else return 0;
+    }
+    *alpha = frac_div(*alpha, e.den.term[0].coef.re);
+    *beta = frac_div(*beta, e.den.term[0].coef.re);
+    return alpha->num != 0 && !failure;
 }
 
 /* I capitoli 8, 9, 14, 17 e 21, cioè tutta la lettura del LaTeX, stanno in
@@ -3395,6 +3430,125 @@ static Rat eval_call(const Node *node) {
     return rat_int(0);
 }
 
+/* Ritorna 1 se il numero u divide il numero v, cioè se v è u per un numero
+ * intero (17n): zero divide solo zero, e un altro numero divide v quando il
+ * quoziente è intero. Vale per i razionali come è scritta: 1/2 divide 3. */
+static int number_divides(Num u, Num v) {
+    if (u.im.num != 0 || v.im.num != 0) return 0;
+    if (u.re.num == 0) return v.re.num == 0;
+    return frac_div(v.re, u.re).den == 1;
+}
+
+/* 11v. LE APPLICAZIONI DEFINITE PER CASI: QUALE CASO VALE
+ *
+ * f(t), con f definita per casi (17s), vale il valore del caso la cui
+ * condizione vale in t. Quando t è un numero il caso si trova calcolando le
+ * condizioni, e si prende il primo che vale: che i casi che valgono insieme
+ * diano lo stesso numero lo ha dimostrato la regola 18v-6, prima di ogni
+ * altra cosa, e lo ricontrolla map_holds_on_sample() (capitolo 19).
+ *
+ * Quando t contiene le variabili generiche di una dimostrazione, calcolare
+ * non basta: il caso va dimostrato, per tutti i loro valori. Lo fa la regola
+ * 18v-1, che annota la sua scelta in case_choice[]; qui la si legge
+ * soltanto. Se manca, il conto fallisce con CASE_UNDECIDED, e
+ * l'applicazione resta annotata in undecided_*: chi cerca una dimostrazione
+ * ne ricava che cosa distinguere (18v-2) o quali casi provare (18v-3).
+ */
+
+/* Una scelta di caso per un'applicazione definita per casi: f(t) vale il
+ * caso piece. La fa la dimostrazione dopo aver dimostrato la condizione del
+ * caso (18v-1), oppure la impone per tentativo chi cerca un valore e poi
+ * ricontrolla tutto (18v-3). Vale solo per quel nodo e per quel valore di t,
+ * che cambia con le variabili legate. */
+typedef struct {
+    const Node *node;  /* l'applicazione f(t), nell'albero dell'enunciato */
+    Rat argument;      /* il valore di t quando il caso è stato scelto */
+    int piece;         /* il caso: un indice di piece[] nell'applicazione */
+} CaseChoice;
+
+/* Le scelte valide in questo momento, dalla più vecchia. Chi le aggiunge le
+ * toglie quando ha finito, riportando il contatore dov'era. */
+static CaseChoice case_choice[MAX_CASE_CHOICES];
+static int case_choice_count;
+
+/* Il motivo del fallimento di un conto che ha incontrato un'applicazione
+ * definita per casi senza un caso scelto. Ha un nome perché chi cerca una
+ * dimostrazione lo riconosce: non è un errore dell'enunciato. */
+static const char *const CASE_UNDECIDED = "un'applicazione definita per casi è calcolata in un punto in cui il caso non è stabilito";
+
+/* L'ultima applicazione che ha fatto fallire un conto con CASE_UNDECIDED: la
+ * sua definizione, il suo nodo e il valore dell'argomento. */
+static const Map *undecided_map;
+static const Node *undecided_node;
+static Rat undecided_argument;
+
+/* Ritorna 1 se a e b sono scritte allo stesso modo, termine per termine. */
+static int rat_same(Rat a, Rat b) { return poly_equal(a.num, b.num) && poly_equal(a.den, b.den); }
+
+/* Calcola con i numeri la condizione c di un caso, in cui ogni variabile ha
+ * un numero per valore: ritorna 1 se è vera, 0 se è falsa, -1 se un membro
+ * non è un numero reale o il conto non riesce. */
+static int condition_computed(const Formula *c) {
+    Num u, v;
+    if (c->kind == F_NOT) {
+        int inner = condition_computed(c->a);
+        return inner < 0 ? -1 : !inner;
+    }
+    if (c->kind == F_AND || c->kind == F_OR) {
+        int x = condition_computed(c->a), y = condition_computed(c->b);
+        if (x < 0 || y < 0) return -1;
+        return c->kind == F_AND ? x && y : x || y;
+    }
+    int numbers = rat_number(eval(c->left), &u) && u.im.num == 0;
+    if (c->kind != F_IN) numbers = numbers && rat_number(eval(c->right), &v) && v.im.num == 0;
+    if (failure || !numbers) return -1;
+    switch (c->kind) {
+    case F_EQUAL:    return frac_cmp(u.re, v.re) == 0;
+    case F_DISTINCT: return frac_cmp(u.re, v.re) != 0;
+    case F_LESS:     return frac_cmp(u.re, v.re) < 0;
+    case F_LESS_EQ:  return frac_cmp(u.re, v.re) <= 0;
+    case F_DIVIDES:  return number_divides(u, v) != c->swapped;
+    case F_IN:       return numbers_contain(&c->numbers, u.re) != c->swapped;
+    default:         return -1;
+    }
+}
+
+/* Calcola con i numeri quale caso di map vale nel punto argument: ritorna il
+ * primo che vale, -1 se nessuno vale, -2 se il punto non è un numero o una
+ * condizione non si calcola, perché nomina anche una variabile generica,
+ * come un parametro (17s). */
+static int case_computed(const Map *map, Rat argument) {
+    Num t;
+    if (!rat_number(argument, &t) || t.im.num != 0) return -2;
+    for (int i = 0; i < map->cases && !failure; i++) {
+        env_push(map->parameter, argument);
+        int holds = condition_computed(map->piece[i].when);
+        env_pop();
+        if (holds) return holds > 0 ? i : -2;
+    }
+    return failure ? -2 : -1;
+}
+
+/* Ritorna il caso di map che vale per l'applicazione node, il cui argomento
+ * vale argument, come descritto in testa al paragrafo; -1, con fail(), se
+ * non lo si sa. */
+static int case_of(const Map *map, const Node *node, Rat argument) {
+    int computed = case_computed(map, argument);
+    if (failure) return -1;
+    if (computed >= 0) return computed;
+    if (computed == -1) {
+        fail_undefined("nessun caso della definizione vale in questo punto");
+        return -1;
+    }
+    for (int i = case_choice_count - 1; i >= 0; i--)
+        if (case_choice[i].node == node && rat_same(case_choice[i].argument, argument)) return case_choice[i].piece;
+    undecided_map = map;
+    undecided_node = node;
+    undecided_argument = argument;
+    fail(CASE_UNDECIDED);
+    return -1;
+}
+
 /* Ritorna il valore del nodo con le variabili legate attuali. In caso di
  * errore `failure` è impostato e il valore non ha significato. */
 static Rat eval(const Node *node) {
@@ -3422,12 +3576,42 @@ static Rat eval(const Node *node) {
          * La regola non contiene altre lettere (lo controlla il capitolo 17),
          * quindi le variabili legate in questo momento non la toccano. */
         const Map *map = map_find(node->name);
-        if (!map || !map->body) { fail("applicazione senza la regola che la definisce"); return rat_int(0); }
+        if (!map || (!map->body && !map->cases)) { fail("applicazione senza la regola che la definisce"); return rat_int(0); }
 
         /* Gli argomenti si calcolano prima di legare le variabili della
          * regola: in (a \ast b) \ast c, con la regola scritta in a e b,
-         * la a dell'argomento è quella dell'enunciato. */
+         * la a dell'argomento è quella dell'enunciato. Per una definizione
+         * per casi la regola è il valore del caso che vale (11v). */
         Rat first = eval(node->a);
+
+        /* 17s. L'iterata f^{m}(a): con f^{c} = f, è f applicata m - c + 1
+         * volte. Si calcola solo con m un numero; con m una lettera la
+         * dimostra il capitolo 26 (26c), come una successione. */
+        if (node->c) {
+            long long m;
+            if (!rat_integer(eval(node->c), &m)) { fail("un'iterata con l'esponente che non è un numero si dimostra solo per induzione"); return rat_int(0); }
+            if (map->iterates != 3 || map->iterate_from != map->step_from || map->binary || m < map->iterate_from ||
+                m - map->iterate_from >= MAX_UNROLL) {
+                fail("un'iterata fuori dagli indici per cui le ipotesi la definiscono");
+                return rat_int(0);
+            }
+            Node once = *node;
+            once.c = NULL;
+            for (long long k = map->iterate_from; k <= m && !failure; k++) {
+                env_push(VAR_ITERATE, first);
+                Node at = {N_VAR, 0, VAR_ITERATE, 0, NULL, NULL, NULL};
+                once.a = &at;
+                first = eval(&once);
+                env_pop();
+            }
+            return first;
+        }
+        const Node *body = map->body;
+        if (map->cases) {
+            int piece = case_of(map, node, first);
+            if (piece < 0) return rat_int(0);
+            body = map->piece[piece].value;
+        }
         if (map->binary) {
             Rat second = eval(node->b);
             env_push(map->parameter, first);
@@ -3435,7 +3619,7 @@ static Rat eval(const Node *node) {
         } else {
             env_push(map->parameter, first);
         }
-        Rat value = eval(map->body);
+        Rat value = eval(body);
         if (map->binary) env_pop();
         env_pop();
         return value;
@@ -9200,6 +9384,17 @@ static Range poly_range(Poly p) {
  *        definizione, e il valore di un "esiste" della tesi si cerca tra i
  *        polinomi nelle variabili generiche, con il sistema lineare di 18s.
  *        È il seguito di 18i.
+ *   18v. Le applicazioni definite per casi (17s): il caso di f(t) si
+ *        dimostra prima di usarlo; quando non si sa, una variabile si divide
+ *        nei casi che servono (un resto, un lato di un numero, un punto,
+ *        l'essere un intero o un multiplo), e il valore di un "esiste" si
+ *        cerca caso per caso. Le stesse distinzioni servono a ogni "esiste"
+ *        il cui valore sta nell'insieme solo da un lato di un numero. Prima
+ *        di tutto si dimostra che i casi definiscono un'applicazione. E una
+ *        disgiunzione di "diversi" vale quando le loro condizioni non
+ *        possono mancare insieme: 1 è una combinazione dei polinomi
+ *        (18v-7, il seguito di 18s), come per le coppie (x + 1, 2x) \neq
+ *        (0, 0).
  *
  * I capitoli che seguono, numerati da 18.1 a 18.19, raccolgono queste regole
  * per argomento, nell'ordine in cui un lettore ne ha bisogno: ognuno usa solo
@@ -9207,13 +9402,13 @@ static Range poly_range(Poly p) {
  * quelle dell'elenco qui sopra, perché le citano commenti, test e README.
  *
  *   18.1   Lo stato della dimostrazione e la scrittura dei polinomi
- *   18.2   Polinomi nelle variabili generiche              18a-18f
- *   18.3   Confronti e disgiunzioni di confronti           18g, 18h, 18s
- *   18.4   "Per ogni" ed "esiste": induzione, resti,       18n, 18o, 18i
- *          equazioni
+ *   18.2   Polinomi nelle variabili generiche              18a-18f, 18v-4, 18v-5
+ *   18.3   Confronti e disgiunzioni di confronti           18g, 18h, 18s, 18v-7
+ *   18.4   "Per ogni" ed "esiste": induzione, resti,       18n, 18o, 18v,
+ *          casi di una definizione, equazioni              18i
  *   18.5   Le ipotesi "esiste", con il loro testimone      18u
  *   18.6   establish(): la dimostrazione per struttura     18e, 18j, 18k, 18l,
- *                                                          18m
+ *                                                          18m, 18v-6
  *   18.7   Sole congruenze: tutti i resti                  18r
  *   18.8   La tabella dei segni: numeri e polinomi         18p-1 ... 18p-6
  *          esatti, i punti
@@ -9320,22 +9515,45 @@ typedef struct {
 static Choice chosen[MAX_BOUND];
 static int chosen_count;
 
-/* 1 se una scelta è stata fatta dentro un caso sul resto (18o): allora i
- * numeri scelti cambiano da un caso all'altro, e non formano un controesempio
- * da riportare. */
+/* 1 se una scelta è stata fatta dentro un caso sul resto (18o), o dentro una
+ * distinzione di casi su una variabile (18v-2): allora i numeri scelti
+ * cambiano da un caso all'altro, e non formano un controesempio da
+ * riportare. */
 static int chosen_by_cases;
+
+/* Quante distinzioni di casi su una variabile (18v-2) racchiudono il punto
+ * della dimostrazione in cui si è. */
+static int region_depth;
+
+/* 18v-4. I fatti "u non divide w" del caso in esame. Nascono da una
+ * distinzione di casi (18v-2): nel caso "k \nmid y" la variabile y non si
+ * scrive come k s, e il fatto resta scritto qui finché dura il caso. u = 1
+ * dice che w non è un intero. Le regole 18v-1 e 18v-4 li usano. */
+typedef struct {
+    Rat divisor;  /* u: un numero, o un'espressione nelle variabili generiche */
+    Poly value;   /* w: un polinomio nelle variabili generiche */
+} Exclusion;
+
+static Exclusion excluded[MAX_BOUND];
+static int excluded_count;
 
 /* Annota che alla variabile name è stato dato il valore value. */
 static void choose(int name, Frac value) {
-    if (split_modulus) chosen_by_cases = 1;
+    if (split_modulus || region_depth) chosen_by_cases = 1;
     if (chosen_count < MAX_BOUND) chosen[chosen_count++] = (Choice){name, value};
 }
 
 /* Annota nel quantificatore "esiste" f il valore value con cui la sua
  * condizione è stata dimostrata, nel caso split_case (vedi Formula): la
  * verifica del capitolo 19 lo rilegge. witness_drop() lo toglie, quando per
- * lo stesso caso si ricomincia, o il valore non va usato. */
+ * lo stesso caso si ricomincia, o il valore non va usato.
+ *
+ * Dentro una distinzione di casi su una variabile (18v-2) il valore non si
+ * annota: cambia da un caso all'altro, e quei casi non hanno un numero come
+ * quelli sul resto. La verifica cerca allora da sé un valore che renda vera
+ * la condizione, come per un "esiste" che la dimostrazione non ha scelto. */
 static void witness_keep(Formula *f, Rat value) {
+    if (region_depth) return;
     f->has_witness |= 1u << split_case;
     f->witness[split_case] = value;
 }
@@ -9497,6 +9715,14 @@ static int rat_polynomials(Rat r, Poly *num, Poly *den) {
         *den = poly_mul(*den, poly_term(lift));
     }
     return !failure;
+}
+
+/* Scrive il valore r come frazione di due polinomi "veri" (vedi
+ * rat_polynomials()), o \ldots se non lo è. */
+static void put_fraction(Rat r) {
+    Poly num, den;
+    if (rat_polynomials(r, &num, &den)) put_ratio(num, den);
+    else proof_add("\\ldots");
 }
 
 /* =============================================================================
@@ -9724,10 +9950,124 @@ static int signs(Poly shown, Poly p, const Poly *guard, int index, SignGoal goal
     return 1;
 }
 
+/* Ritorna 1 se p ha coefficienti interi e contiene solo variabili generiche
+ * intere: allora vale un intero per ogni loro valore. Non scrive nulla. */
+static int poly_whole(Poly p) {
+    for (int i = 0; i < p.count; i++) {
+        if (p.term[i].coef.im.num != 0 || p.term[i].coef.re.den != 1) return 0;
+        for (int k = 0; k < p.term[i].mono.count; k++) {
+            const Factor *f = &p.term[i].mono.factor[k];
+            int who = universal_index(f->atom);
+            if (who < 0 || !universal[who].numbers->integers || f->exp.den != 1 || f->exp.num < 0) return 0;
+        }
+    }
+    return 1;
+}
+
+/* 18v-4. Dimostra che p non si annulla perché, se fosse zero, una variabile
+ * avrebbe il valore che il caso in esame esclude. Scrive il ragionamento e
+ * ritorna 1 se ci riesce.
+ *
+ * Se p = gamma y + delta, con gamma un numero diverso da zero e delta senza y,
+ * allora p = 0 vuol dire y = rho = -delta/gamma. Se nel caso in esame vale
+ * "u non divide w" (excluded[]) e w, con rho al posto di y, è u per un
+ * polinomio a coefficienti interi nelle variabili intere, cioè u per un
+ * intero, allora p = 0 porterebbe a "u divide w": falso. È ciò che serve con
+ * k \nmid b e k s + k - b, o con b \notin \mathbb{Z} e a + 1 - b. */
+static int excluded_root(Poly p) {
+    Poly one = poly_const(num_int(1));
+    for (int e = 0; e < excluded_count && !failure; e++) {
+        for (int i = 0; i < universal_count && !failure; i++) {
+            Poly part[2], q, d;
+            int y = atom_var(universal[i].name);
+            if (!poly_uses(excluded[e].value, y) || poly_split(p, y, part, 1) != 1 || !poly_is_constant(part[1]) || part[1].count == 0) continue;
+            Rat root = rat_div((Rat){poly_negate(part[0]), one}, (Rat){part[1], one});
+            Rat image = poly_substitute(excluded[e].value, y, root);
+            if (failure || !rat_polynomials(rat_div(image, excluded[e].divisor), &q, &d) || !poly_is_one(d) || !poly_whole(q)) continue;
+
+            /* Controllo del passo: u per il quoziente deve ridare w. */
+            Rat back = rat_add(rat_mul((Rat){q, one}, excluded[e].divisor), image, 1);
+            if (failure) return 0;
+            if (back.num.count != 0) { unjustified_steps++; return 0; }
+
+            Num unit;
+            int integer = rat_number(excluded[e].divisor, &unit) && num_equal(unit, num_int(1));
+            /* Il testo: il valore della variabile, quello di w se w non è
+             * la variabile stessa, perché è un multiplo, e il fatto del caso. */
+            proof_add(" If it were zero, then $%c = ", universal[i].name);
+            put_fraction(root);
+            if (!poly_equal(excluded[e].value, rat_atom(y).num)) {
+                proof_add("$, and so $");
+                put_poly(excluded[e].value);
+                proof_add(" = ");
+                put_fraction(image);
+            }
+            if (integer) {
+                proof_add("$, an integer (integer coefficients, integer variables); but in this case $");
+                put_poly(excluded[e].value);
+                proof_add(" \\notin \\mathbb{Z}$.");
+            } else {
+                proof_add("$, which is $");
+                put_fraction(excluded[e].divisor);
+                proof_add("$ times the integer $");
+                put_poly(q);
+                proof_add("$; but in this case $");
+                put_fraction(excluded[e].divisor);
+                proof_add(" \\nmid ");
+                put_poly(excluded[e].value);
+                proof_add("$.");
+            }
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/* 18v-5. Dimostra che p, a coefficienti razionali in variabili generiche
+ * intere, non si annulla guardando i resti: scrive il ragionamento e ritorna
+ * 1 se ci riesce.
+ *
+ * Moltiplicato p per il minimo comune multiplo s dei denominatori, s p =
+ * g Q + c, dove c è il termine noto, g il massimo comun divisore degli altri
+ * coefficienti e Q un polinomio a coefficienti interi: per valori interi
+ * delle variabili Q è un intero, e s p = 0 direbbe che g divide c. Se g non
+ * divide c, quindi, p non è mai zero. Così 4s - 10t - 5 = 0 non ha soluzioni
+ * intere: 4s - 10t è pari, 5 no. */
+static int content_excludes(Poly p) {
+    long long scale = 1;
+    for (int i = 0; i < p.count; i++) {
+        const Term *t = &p.term[i];
+        if (t->coef.im.num != 0) return 0;
+        for (int k = 0; k < t->mono.count; k++) {
+            int who = universal_index(t->mono.factor[k].atom);
+            if (who < 0 || !universal[who].numbers->integers || t->mono.factor[k].exp.den != 1) return 0;
+        }
+        __int128 multiple = (__int128)scale / gcd128(scale, t->coef.re.den) * t->coef.re.den;
+        if (multiple > 1000000000) return 0;
+        scale = (long long)multiple;
+    }
+    __int128 g = 0, c = 0;
+    for (int i = 0; i < p.count; i++) {
+        __int128 value = (__int128)p.term[i].coef.re.num * (scale / p.term[i].coef.re.den);
+        if (p.term[i].mono.count == 0) c = value;
+        else g = gcd128(g, value);
+    }
+    if (g < 2 || c % g == 0) return 0;
+    proof_add(" The variables are integers, and every coefficient of $");
+    if (scale != 1) proof_add("%lld\\left(", scale);
+    put_poly(p);
+    if (scale != 1) proof_add("\\right)");
+    proof_add("$ except the constant term is a multiple of $%lld$, while the constant term $%lld$ is not: so it is never zero.",
+              (long long)g, (long long)c);
+    return 1;
+}
+
 /* 18a, 18b, 18c. Dimostra che il polinomio p non si annulla per nessun valore
  * delle variabili generiche; se guard non è NULL basta meno: che p si annulli
  * solo dove si annulla anche guard. Scrive il ragionamento e ritorna 1 se ci
- * riesce. p deve essere un polinomio "vero" (vedi rat_polynomials()). */
+ * riesce. p deve essere un polinomio "vero" (vedi rat_polynomials()). Le
+ * regole 18v-4 e 18v-5, provate prima di 18b e dopo 18c, dimostrano qualcosa
+ * di più: che p non si annulla mai. */
 static int zero_only_where(Poly p, const Poly *guard) {
     if (failure || p.count == 0) return 0;
 
@@ -9738,6 +10078,11 @@ static int zero_only_where(Poly p, const Poly *guard) {
         proof_add("$ is not zero.");
         return 1;
     }
+
+    /* 18v-4. Un fatto "u non divide w" del caso in esame può escludere la
+     * radice anche quando sta nell'insieme: va guardato prima di 18b, che
+     * altrimenti si fermerebbe lì. C'è solo dentro una distinzione di casi. */
+    if (excluded_count && excluded_root(p)) return 1;
 
     /* 18b. Una sola variabile: si annulla solo nelle radici, e quelle che
      * contano stanno nell'insieme, che è fatto di razionali. */
@@ -9787,8 +10132,15 @@ static int zero_only_where(Poly p, const Poly *guard) {
         return 1;
     }
 
-    /* 18c. Più variabili, o radici non determinabili: la regola dei segni. */
-    return signs(p, p, guard, 0, SIGN_NONZERO);
+    /* 18c. Più variabili, o radici non determinabili: la regola dei segni.
+     * Se non basta, il testo che ha scritto si toglie, e resta 18v-5, i
+     * resti. Viene dopo perché dove la regola dei segni basta la
+     * dimostrazione resta quella di sempre. */
+    size_t before = proof_length;
+    if (signs(p, p, guard, 0, SIGN_NONZERO)) return 1;
+    if (failure) return 0;
+    proof_cut(before);
+    return content_excludes(p);
 }
 
 /* 18d. Dimostra che il polinomio p è un numero intero per ogni valore delle
@@ -10288,14 +10640,23 @@ static int prove_combination(Literal *literal, int count) {
         hypothesis[hypotheses] = literal[i].value;
         assumed[hypotheses++] = &literal[i];
     }
-    if (theses != 1 || !hypotheses) return 0;
+    if (theses > 1 || !hypotheses || (!theses && hypotheses < 2)) return 0;
 
     /* Prima la tesi com'è; poi, una per volta, moltiplicata per una
      * variabile generica che non può valere zero. `factor` è il posto di
-     * quella variabile, -1 se non è servita. */
-    Poly target = thesis->value;
-    int factor = -1, found = combination(target, hypothesis, hypotheses, multiplier, poly_degree(target), NULL);
-    for (int v = 0; v < universal_count && !found && !failure && search_left > 0; v++) {
+     * quella variabile, -1 se non è servita.
+     *
+     * 18v-7. Senza tesi la disgiunzione dice che le H_i non sono zero tutte
+     * insieme: basta trovare 1 = c_1 H_1 + ... + c_m H_m, perché dove le H_i
+     * fossero tutte zero sarebbe 1 = 0. I moltiplicatori arrivano al grado
+     * delle ipotesi. Serve a confronti tra coppie, (x + 1, 2x) \neq (0, 0):
+     * 1 = (x + 1) - \frac{1}{2}(2x). */
+    Poly target = thesis ? thesis->value : poly_const(num_int(1));
+    long long top = poly_degree(target);
+    for (int i = 0; i < hypotheses && !thesis; i++)
+        if (poly_degree(hypothesis[i]) > top) top = poly_degree(hypothesis[i]);
+    int factor = -1, found = combination(target, hypothesis, hypotheses, multiplier, top, NULL);
+    for (int v = 0; v < universal_count && !found && thesis && !failure && search_left > 0; v++) {
         if (numbers_contain(universal[v].numbers, frac_int(0))) continue;
         target = poly_mul(thesis->value, rat_atom(atom_var(universal[v].name)).num);
         found = combination(target, hypothesis, hypotheses, multiplier, poly_degree(target), NULL);
@@ -10321,7 +10682,7 @@ static int prove_combination(Literal *literal, int count) {
     }
     proof_add(". As polynomials, $");
     if (factor >= 0) proof_add("%c\\left(", universal[factor].name);
-    put_poly(thesis->value);
+    put_poly(target);
     proof_add(factor >= 0 ? "\\right) = " : " = ");
     for (int i = 0, written = 0; i < hypotheses; i++) {
         if (multiplier[i].count == 0) continue;
@@ -10332,6 +10693,10 @@ static int prove_combination(Literal *literal, int count) {
         proof_add("\\right)");
     }
     proof_add("$: multiplying out gives the same terms. So $");
+    if (!thesis) {
+        proof_add("1 = 0$, which is impossible: the conditions cannot fail together.");
+        return 1;
+    }
 
     /* Il fattore: il prodotto è zero, e il fattore non lo è mai (18b). */
     if (factor >= 0) {
@@ -10464,16 +10829,18 @@ static int prove_clause(Literal *literal, int count) {
 }
 
 /* =============================================================================
- * 18.4 "PER OGNI" ED "ESISTE": INDUZIONE, CASI SUL RESTO, EQUAZIONI
+ * 18.4 "PER OGNI" ED "ESISTE": INDUZIONE, CASI, EQUAZIONI
  * ============================================================================
  *
  * Le regole che dimostrano un quantificatore con un metodo proprio, quando
  * introdurre una variabile generica (18k) non basta: "per ogni n" di
  * un'uguaglianza per induzione (18n), "per ogni x" intero per casi sul resto
- * in una divisione (18o), "esiste x" risolvendo un'equazione in x (18i).
- * L'induzione è il metodo del capitolo 13; le altre due dimostrano ciò che
- * resta chiamando establish() (18.6), con la variabile legata al caso in
- * esame o al valore trovato.
+ * in una divisione (18o), per casi chiesti da ciò che si sta dimostrando
+ * (18v: i casi di un'applicazione definita per casi, o i lati di un numero
+ * per il valore di un "esiste"), "esiste x" risolvendo un'equazione in x
+ * (18i), anche caso per caso (18v-3). L'induzione è il metodo del capitolo
+ * 13; le altre dimostrano ciò che resta chiamando establish() (18.6), con la
+ * variabile legata al caso in esame o al valore trovato.
  */
 
 /* Prototipo in avanti inevitabile: establish() (18.6) e le regole 18i, 18o e
@@ -10636,6 +11003,921 @@ static int by_remainders(Formula *f, int negated) {
     return 0;
 }
 
+/* 18v. LE APPLICAZIONI DEFINITE PER CASI, E LE DISTINZIONI DI CASI
+ *
+ * A che cosa serve. "f(n) = 2n se n è pari, 5n se n è dispari: f è
+ * iniettiva." Un matematico distingue i casi, n = 2s e n = 2s + 1, e in
+ * ognuno f(n) è un polinomio. Le regole di questo paragrafo fanno lo stesso,
+ * in tre passi.
+ *
+ *   18v-1. Il caso di f(t). Prima di calcolare una condizione in cui compare
+ *          f(t), con f definita per casi (17s) e t un'espressione nelle
+ *          variabili generiche, si dimostra la condizione di uno dei casi
+ *          per tutti i loro valori: allora f(t) è il valore di quel caso.
+ *          Lo dice l'ipotesi stessa, "se vale la condizione allora f(t) è
+ *          quel valore", e non serve altro. Le condizioni si dimostrano con
+ *          le regole di sempre: 18d per "m divide v" (il quoziente è un
+ *          intero), 18c per i confronti d'ordine, 18b per "diverso", 18e per
+ *          le appartenenze; e "u non divide v" in due modi: v = m q + c con
+ *          q intero e c non multiplo del numero m, oppure v = w + u q con q
+ *          intero e "u non divide w" noto nel caso in esame (18v-4).
+ *   18v-2. Distinguere i casi. Quando nessuna condizione si sa dimostrare,
+ *          la regola annota che cosa servirebbe sapere di una variabile
+ *          generica y (split_wanted): un resto (y = 2s oppure 2s + 1), un
+ *          lato di un numero (y \ge 2 oppure y \le 1), un punto (y = -2
+ *          oppure no), l'essere un intero o un multiplo di k. Il "per ogni"
+ *          che ha introdotto y (18k) raccoglie la richiesta e ripete la
+ *          dimostrazione in ognuno dei casi. È lecito perché i casi coprono
+ *          l'insieme di y per come sono fatti: un resto tra 0 e M - 1, un
+ *          lato o l'altro di un numero, un punto o il resto, una proprietà
+ *          o la sua negazione. La stessa richiesta la fa chi cerca il
+ *          valore di un "esiste" (18i) e trova un valore che sta
+ *          nell'insieme solo da un lato di un numero (x = 2y + 2 è in
+ *          \mathbb{N} solo per y \ge 0), o un coefficiente che si annulla in
+ *          un punto.
+ *   18v-3. "Esiste x con f(x) = y". Per trovare x si prova ogni caso: la sua
+ *          equazione, risolta da 18i, dà un valore, oppure il caso stesso è
+ *          un punto (x = -2). Il valore è solo una proposta: con x legata a
+ *          lui, 18v-1 dimostra da capo quale caso vale, e l'uguaglianza si
+ *          ricontrolla.
+ *
+ * In un caso nato da 18v-2 la variabile cambia: diventa 2s + 1, o -1 - s con
+ * s \ge 0, oppure resta y ma in un insieme più piccolo (y \ge 2, y \neq -2,
+ * y intero), oppure le si affianca un fatto "u non divide y" (excluded[]).
+ * Così le regole dei capitoli precedenti vedono di nuovo polinomi in
+ * variabili generiche, e i fatti del caso stanno nei loro insiemi.
+ *
+ * Quante distinzioni. Ogni caso può chiederne un'altra, fino a
+ * MAX_REGION_DEPTH una dentro l'altra: un'iniettività ne vuole due (una su
+ * a, una su b), qualcuna in più quando i casi della definizione si
+ * intrecciano con quelli del valore di un "esiste". Poi la ricerca si
+ * ferma. Una richiesta che parla di una variabile più esterna passa al "per
+ * ogni" che l'ha introdotta; tra più richieste vale la prima.
+ *
+ * La verifica. Ogni distinzione divide l'insieme in parti che lo coprono, e
+ * in ogni parte valgono le regole di sempre. Il capitolo 19 ricontrolla
+ * comunque tutto sui numeri: f si calcola con i numeri (11v), i casi della
+ * definizione si ricontrollano punto per punto (map_holds_on_sample()), e i
+ * valori degli "esiste" scelti dentro una distinzione la verifica li cerca
+ * da sé (witness_keep()).
+ */
+
+/* Scrive la condizione c di un caso, negata se negated, con i valori del
+ * momento: ogni confronto tra $...$, i connettivi a parole. Le
+ * disuguaglianze si scrivono nel verso in cui le ha scritte l'enunciato. */
+static void put_condition(const Formula *c, int negated) {
+    if (c->kind == F_NOT) { put_condition(c->a, !negated); return; }
+    if (c->kind == F_AND || c->kind == F_OR) {
+        put_condition(c->a, negated);
+        proof_add((c->kind == F_AND) != negated ? " and " : " or ");
+        put_condition(c->b, negated);
+        return;
+    }
+    Rat u = eval(c->left);
+    proof_add("$");
+    switch (c->kind) {
+    case F_EQUAL: case F_DISTINCT:
+        put_fraction(u);
+        proof_add((c->kind == F_EQUAL) != negated ? " = " : " \\neq ");
+        put_fraction(eval(c->right));
+        break;
+    case F_LESS: case F_LESS_EQ: {
+        /* u < v e u \le v; negate, v \le u e v < u. */
+        int strict = (c->kind == F_LESS) != negated;
+        Rat v = eval(c->right), low = negated ? v : u, high = negated ? u : v;
+        if (c->swapped) { put_fraction(high); proof_add(strict ? " > " : " \\ge "); put_fraction(low); }
+        else { put_fraction(low); proof_add(strict ? " < " : " \\le "); put_fraction(high); }
+        break;
+    }
+    case F_DIVIDES:
+        put_fraction(u);
+        proof_add(c->swapped == negated ? " \\mid " : " \\nmid ");
+        put_fraction(eval(c->right));
+        break;
+    case F_IN:
+        put_fraction(u);
+        proof_add(c->swapped == negated ? " \\in " : " \\notin ");
+        put_numbers(&c->numbers);
+        break;
+    default:
+        break;
+    }
+    proof_add("$");
+}
+
+/* Scrive " + c" oppure " - |c|". */
+static void put_added(Frac c) {
+    proof_add(c.num < 0 ? " - " : " + ");
+    put_frac(c.num < 0 ? frac_neg(c) : c);
+}
+
+/* 18v-1. Dimostra che u non divide v per ogni valore delle variabili
+ * generiche, in uno dei due modi descritti in testa al paragrafo. Scrive il
+ * ragionamento e ritorna 1 se ci riesce; altrimenti il testo va cancellato
+ * da chi chiama.
+ *
+ * Perché basta. Con u = m un numero e v = m q + c, dove q vale sempre un
+ * intero: v/m = q + c/m, intero esattamente quando lo è c/m. Con v = w + u q
+ * e q intero: v/u = w/u + q, intero esattamente quando lo è w/u. */
+static int not_multiple(Rat u, Rat v) {
+    Poly num, den, q, d, one = poly_const(num_int(1));
+    Num m;
+    if (failure) return 0;
+
+    /* v = m q + c, con c il termine noto di v. */
+    if (rat_number(u, &m) && m.im.num == 0 && m.re.num != 0 && rat_polynomials(v, &num, &den) && poly_is_one(den)) {
+        Num c = num_int(0);
+        for (int i = 0; i < num.count; i++)
+            if (num.term[i].mono.count == 0) c = num.term[i].coef;
+        Rat rest = rat_div(rat_add(v, (Rat){poly_const(c), one}, 1), u);
+        if (!failure && c.im.num == 0 && !number_divides(m, c) && rat_polynomials(rest, &q, &d) && poly_is_one(d)) {
+            size_t start = proof_length;
+            proof_add(" Indeed $");
+            put_poly(num);
+            proof_add(" = ");
+            put_frac(m.re);
+            proof_add(" q");
+            put_added(c.re);
+            proof_add("$ with $q = ");
+            put_poly(q);
+            proof_add("$.");
+            if (always_integer(q)) {
+                proof_add(" The number $");
+                put_frac(m.re);
+                proof_add("$ does not divide $");
+                put_frac(c.re);
+                proof_add("$.");
+                return 1;
+            }
+            proof_cut(start);
+        }
+    }
+
+    /* v = w + u q, con "u non divide w" noto nel caso in esame. Se v è w
+     * stessa, è il fatto del caso. */
+    for (int e = 0; e < excluded_count && !failure; e++) {
+        Rat same = rat_add(excluded[e].divisor, u, 1);
+        if (failure || same.num.count != 0) continue;
+        Rat rest = rat_div(rat_add(v, (Rat){excluded[e].value, one}, 1), u);
+        if (failure || !rat_polynomials(rest, &q, &d) || !poly_is_one(d)) continue;
+        if (q.count == 0) { proof_add(" It is the fact of this case."); return 1; }
+        size_t start = proof_length;
+        proof_add(" Indeed $");
+        put_fraction(v);
+        proof_add(" = ");
+        put_poly(excluded[e].value);
+        proof_add(" + ");
+        put_fraction(u);
+        proof_add(" q$ with $q = ");
+        put_poly(q);
+        proof_add("$.");
+        if (always_integer(q)) {
+            proof_add(" In this case $");
+            if (rat_number(u, &m) && num_equal(m, num_int(1))) {
+                put_poly(excluded[e].value);
+                proof_add(" \\notin \\mathbb{Z}$.");
+            } else {
+                put_fraction(u);
+                proof_add(" \\nmid ");
+                put_poly(excluded[e].value);
+                proof_add("$.");
+            }
+            return 1;
+        }
+        proof_cut(start);
+    }
+    return 0;
+}
+
+/* 18v-1. Dimostra la condizione c di un caso, negata se negated, per ogni
+ * valore delle variabili generiche; la variabile della regola è già legata
+ * al valore dell'argomento. Scrive, per ogni confronto, che vale e perché, e
+ * ritorna 1 se ci riesce; altrimenti il testo va cancellato da chi chiama. */
+static int case_proved(const Formula *c, int negated) {
+    Poly num, den;
+    if (failure) return 0;
+    if (c->kind == F_NOT) return case_proved(c->a, !negated);
+    if (c->kind == F_AND || c->kind == F_OR) {
+        if ((c->kind == F_AND) != negated) return case_proved(c->a, negated) && case_proved(c->b, negated);
+        size_t start = proof_length;
+        if (case_proved(c->a, negated)) return 1;
+        proof_cut(start);
+        return case_proved(c->b, negated);
+    }
+
+    /* Tra numeri si calcola. */
+    proof_add(" ");
+    put_condition(c, negated);
+    proof_add(" holds.");
+    int computed = condition_computed(c);
+    if (failure) return 0;
+    if (computed >= 0) {
+        if ((computed == 1) == negated) return 0;
+        proof_add(" Computed with the numbers.");
+        return 1;
+    }
+
+    /* Altrimenti, una regola per ogni tipo di confronto. */
+    Rat u = eval(c->left), v = c->kind == F_IN ? rat_int(0) : eval(c->right);
+    if (failure) return 0;
+    switch (c->kind) {
+    case F_EQUAL: case F_DISTINCT:
+        /* Uguali: la differenza è il polinomio nullo. Diversi: il suo
+         * numeratore non si annulla, e il denominatore nemmeno, perché la
+         * differenza esista. */
+        if (!rat_polynomials(rat_add(u, v, 1), &num, &den)) return 0;
+        if ((c->kind == F_EQUAL) != negated) {
+            if (num.count) return 0;
+            proof_add(" The two sides are the same expression.");
+            return 1;
+        }
+        if (!poly_is_constant(den)) {
+            proof_add(" The difference of the two sides has the denominator $");
+            put_poly(den);
+            proof_add("$.");
+            if (!zero_only_where(den, NULL)) return 0;
+        }
+        proof_add(" The difference of the two sides has the numerator $");
+        put_poly(num);
+        proof_add("$.");
+        return zero_only_where(num, NULL);
+    case F_LESS: case F_LESS_EQ: {
+        /* u < v vuol dire v - u > 0; la negazione u - v \ge 0. */
+        int strict = (c->kind == F_LESS) != negated;
+        Rat gap = negated ? rat_add(u, v, 1) : rat_add(v, u, 1);
+        if (!rat_polynomials(gap, &num, &den) || !poly_is_one(den)) return 0;
+        return signs(num, num, NULL, 0, strict ? SIGN_POSITIVE : SIGN_NONNEGATIVE);
+    }
+    case F_DIVIDES:
+        if (c->swapped != negated) return not_multiple(u, v);
+        if (u.num.count == 0 || !rat_polynomials(rat_div(v, u), &num, &den) || !poly_is_one(den)) return 0;
+        proof_add(" The quotient is $");
+        put_poly(num);
+        proof_add("$.");
+        return always_integer(num);
+    case F_IN:
+        if (c->swapped == negated) return always_in(u, &c->numbers);
+        return c->numbers.integers && !c->numbers.bounded && !c->numbers.holes && not_multiple(rat_int(1), u);
+    default:
+        return 0;
+    }
+}
+
+/* 18v-2. Che cosa si distingue: vedi Split. */
+typedef enum {
+    SPLIT_ORDER,    /* un lato o l'altro del numero at */
+    SPLIT_POINT,    /* il numero at, o tutti gli altri */
+    SPLIT_RESIDUE,  /* il resto nella divisione per modulus */
+    SPLIT_MEMBER,   /* alpha y + beta multiplo del numero divisor, o no: per y razionale */
+    SPLIT_DIVISOR   /* y multiplo di divisor, o no: per y intero */
+} SplitKind;
+
+/* Una distinzione di casi richiesta per una variabile generica y (18v-2):
+ * che cosa servirebbe sapere di y per proseguire. */
+typedef struct {
+    int atom;           /* y, come atomo */
+    SplitKind kind;
+    Frac at;            /* ORDER, POINT: il numero */
+    int upper_closed;   /* ORDER: 1 se at sta con i valori più grandi (y \ge at
+                           oppure y < at), 0 se con i più piccoli (y > at
+                           oppure y \le at) */
+    long long modulus;  /* RESIDUE: il modulo, da 2 a MAX_CASES */
+    Rat divisor;        /* MEMBER: un numero; DIVISOR: un'espressione senza y */
+    Frac alpha, beta;   /* MEMBER: la condizione è "divisor divide alpha y + beta" */
+} Split;
+
+/* La richiesta in attesa, se split_pending: la raccoglie in_regions(). */
+static Split split_wanted;
+static int split_pending;
+
+/* Annota la richiesta s, se non ce n'è già una: vale la prima. */
+static void split_ask(Split s) {
+    if (split_pending) return;
+    split_wanted = s;
+    split_pending = 1;
+}
+
+/* Ritorna, per una distinzione ORDER su una variabile intera, il primo
+ * intero c del lato di sopra: y \ge at vuol dire y \ge c con c = \lceil at
+ * \rceil, y > at vuol dire y \ge \lfloor at \rfloor + 1. */
+static long long order_cut(const Split *s) {
+    return s->upper_closed ? -frac_floor(frac_neg(s->at)) : frac_floor(s->at) + 1;
+}
+
+/* Ritorna il posto in universal[] dell'unica variabile generica di p, o -1
+ * se p non ne ha, ne ha più di una o contiene altri atomi. */
+static int sole_generic(Poly p) {
+    int who = -1;
+    for (int i = 0; i < p.count; i++)
+        for (int k = 0; k < p.term[i].mono.count; k++) {
+            int w = universal_index(p.term[i].mono.factor[k].atom);
+            if (w < 0 || (who >= 0 && w != who)) return -1;
+            who = w;
+        }
+    return who;
+}
+
+/* Legge il numeratore di gap come alpha y + beta, con y l'unica variabile
+ * generica e alpha, beta numeri: mette il posto di y in *who e ritorna 1. */
+static int gap_affine(Rat gap, int *who, Frac *alpha, Frac *beta) {
+    Poly num, den;
+    if (failure || !rat_polynomials(gap, &num, &den) || !poly_is_constant(den) || den.count == 0) return 0;
+    *who = sole_generic(num);
+    if (*who < 0) return 0;
+    return rat_affine_in((Rat){num, poly_const(num_int(1))}, atom_var(universal[*who].name), alpha, beta);
+}
+
+/* Chiede di distinguere il punto in cui gap si annulla, se gap è di primo
+ * grado in una sola variabile e quel punto sta nel suo insieme. */
+static void split_at_zero(Rat gap) {
+    Frac alpha, beta;
+    int who;
+    if (split_pending || !gap_affine(gap, &who, &alpha, &beta)) return;
+    Frac at = frac_neg(frac_div(beta, alpha));
+    if (failure || !numbers_contain(universal[who].numbers, at)) return;
+    split_ask((Split){atom_var(universal[who].name), SPLIT_POINT, at, 0, 0, rat_int(0), frac_int(0), frac_int(0)});
+}
+
+/* Chiede di distinguere i due lati del punto in cui gap si annulla, per
+ * sapere se gap > 0 (strict) o gap \ge 0: il punto sta dal lato in cui la
+ * condizione vale se non è stretta, dall'altro se lo è. Serve che i due lati
+ * abbiano elementi dell'insieme: per gli interi, che l'estremo inferiore
+ * stia sotto il punto; per i razionali, che non ci sia un estremo. */
+static void split_at_sign(Rat gap, int strict) {
+    Frac alpha, beta;
+    int who;
+    if (split_pending || !gap_affine(gap, &who, &alpha, &beta)) return;
+    Frac at = frac_neg(frac_div(beta, alpha));
+    int upper_closed = (alpha.num > 0) == !strict;
+    const NumberSet *set = universal[who].numbers;
+    if (failure) return;
+    Split s = {atom_var(universal[who].name), SPLIT_ORDER, at, upper_closed, 0, rat_int(0), frac_int(0), frac_int(0)};
+    if (set->integers ? set->bounded && order_cut(&s) <= set->low + set->strict : set->bounded) return;
+    split_ask(s);
+}
+
+/* Chiede di distinguere se u divide v. Con u un intero e v un polinomio in
+ * una sola variabile y: per y intera i resti modulo |u| per il minimo comune
+ * multiplo dei denominatori di v (con quel periodo v cambia di un multiplo
+ * di u); per y razionale, se v è di primo grado, "multiplo o no". Con u
+ * un'espressione: se v = y + u q, con q a coefficienti interi in variabili
+ * intere e y intera senza estremi, "u divide y o no". */
+static void split_at_multiple(Rat u, Rat v) {
+    Poly num, den, part[2], q, d, one = poly_const(num_int(1));
+    Num m;
+    if (split_pending || failure || !rat_polynomials(v, &num, &den) || !poly_is_one(den)) return;
+    if (rat_number(u, &m)) {
+        int who = sole_generic(num);
+        if (who < 0 || m.im.num != 0 || m.re.den != 1 || m.re.num == 0) return;
+        const NumberSet *set = universal[who].numbers;
+        int y = atom_var(universal[who].name);
+        if (set->integers && !set->holes) {
+            long long scale = 1;
+            for (int i = 0; i < num.count && scale <= MAX_CASES; i++) scale = scale / (long long)gcd128(scale, num.term[i].coef.re.den) * num.term[i].coef.re.den;
+            long long modulus = llabs(m.re.num) * scale;
+            if (scale > MAX_CASES || modulus < 2 || modulus > MAX_CASES) return;
+            split_ask((Split){y, SPLIT_RESIDUE, frac_int(0), 0, modulus, rat_int(0), frac_int(0), frac_int(0)});
+        } else if (!set->integers && !set->reals && !set->bounded && !set->holes) {
+            Frac alpha, beta;
+            if (rat_affine_in((Rat){num, one}, y, &alpha, &beta))
+                split_ask((Split){y, SPLIT_MEMBER, frac_int(0), 0, 0, u, alpha, beta});
+        }
+        return;
+    }
+    for (int i = 0; i < universal_count && !failure; i++) {
+        const NumberSet *set = universal[i].numbers;
+        int y = atom_var(universal[i].name);
+        if (!set->integers || set->bounded || set->holes || poly_uses(u.num, y) || poly_uses(u.den, y)) continue;
+        if (poly_split(num, y, part, 1) != 1 || !poly_is_one(part[1])) continue;
+        if (!rat_polynomials(rat_div((Rat){part[0], one}, u), &q, &d) || !poly_is_one(d) || !poly_whole(q)) continue;
+        split_ask((Split){y, SPLIT_DIVISOR, frac_int(0), 0, 0, u, frac_int(0), frac_int(0)});
+        return;
+    }
+}
+
+/* Chiede ciò che servirebbe perché value stia in set: non sotto l'estremo,
+ * diverso dai punti tolti. */
+static void split_for_membership(Rat value, const NumberSet *set) {
+    if (set->bounded) split_at_sign(rat_add(value, rat_int(set->low), 1), set->strict);
+    for (int i = 0; i < set->holes; i++) split_at_zero(rat_add(value, rat_frac(set->hole[i]), 1));
+}
+
+/* Chiede di distinguere ciò che decide la condizione c di un caso, letta con
+ * i valori del momento: il primo dei suoi confronti che non si sa già
+ * dimostrare né smentire. */
+static void split_from_condition(const Formula *c) {
+    if (split_pending || failure) return;
+    if (c->kind == F_NOT) { split_from_condition(c->a); return; }
+    if (c->kind == F_AND || c->kind == F_OR) {
+        split_from_condition(c->a);
+        split_from_condition(c->b);
+        return;
+    }
+
+    /* Un confronto che si sa già decidere non va distinto. */
+    size_t start = proof_length;
+    int decided = case_proved(c, 0);
+    proof_cut(start);
+    if (!decided && !failure) decided = case_proved(c, 1);
+    proof_cut(start);
+    if (decided || failure) return;
+
+    Rat u = eval(c->left), v = c->kind == F_IN ? rat_int(0) : eval(c->right);
+    if (failure) return;
+    switch (c->kind) {
+    case F_EQUAL: case F_DISTINCT: split_at_zero(rat_add(u, v, 1)); return;
+    case F_LESS:                   split_at_sign(rat_add(v, u, 1), 1); return;
+    case F_LESS_EQ:                split_at_sign(rat_add(v, u, 1), 0); return;
+    case F_DIVIDES:                split_at_multiple(u, v); return;
+    case F_IN:
+        if (c->numbers.integers) split_at_multiple(rat_int(1), u);
+        split_for_membership(u, &c->numbers);
+        return;
+    default:
+        return;
+    }
+}
+
+/* Chiede ciò che decide il caso di f(t), con f = map e t = argument. */
+static void split_from_cases(const Map *map, Rat argument) {
+    env_push(map->parameter, argument);
+    for (int i = 0; i < map->cases && !split_pending && !failure; i++) split_from_condition(map->piece[i].when);
+    env_pop();
+}
+
+/* Che cosa diventa la variabile y in un caso di una distinzione. */
+typedef enum {
+    REGION_SET,      /* resta y, in un insieme più piccolo */
+    REGION_VALUE,    /* y è un'espressione in una variabile generica nuova */
+    REGION_POINT,    /* y è un numero */
+    REGION_EXCLUDED  /* resta y, con un fatto "u non divide w" in più */
+} RegionKind;
+
+/* Uno dei casi di una distinzione (18v-2). */
+typedef struct {
+    RegionKind kind;
+    const NumberSet *set;  /* SET: il nuovo insieme di y; VALUE: quello della variabile nuova */
+    int letter;            /* VALUE: la variabile nuova */
+    Rat value;             /* VALUE: y come espressione nella variabile nuova; POINT: il numero */
+    Exclusion excluded;    /* EXCLUDED: il fatto del caso */
+} Region;
+
+/* Ritorna un insieme uguale a set, nell'arena, con il testo che lo scrive.
+ * Prima lo riporta all'invariante di NumberSet: un insieme di interi con
+ * l'estremo escluso comincia dal successivo, un punto tolto sull'estremo lo
+ * sposta (come in parse_numbers()), e restano solo i punti tolti che
+ * appartengono all'insieme. Ritorna NULL, con fail(), se l'arena è piena. */
+static const NumberSet *numbers_made(NumberSet set) {
+    NumberSet *made = arena_alloc(sizeof *made);
+    char *text = arena_alloc(192);
+    if (!made || !text) return NULL;
+    if (set.integers && set.bounded && set.strict) { set.low++; set.strict = 0; }
+    for (int i = 0; set.integers && set.bounded && i < set.holes; ) {
+        if (frac_cmp(set.hole[i], frac_int(set.low)) != 0) { i++; continue; }
+        set.hole[i] = set.hole[--set.holes];
+        set.low++;
+        i = 0;
+    }
+    NumberSet plain = set;
+    plain.holes = 0;
+    int kept = 0;
+    for (int i = 0; i < set.holes; i++)
+        if (numbers_contain(&plain, set.hole[i])) set.hole[kept++] = set.hole[i];
+    set.holes = kept;
+
+    /* Il testo: l'insieme di partenza, poi i punti tolti. */
+    const char *field = set.reals ? "\\mathbb{R}" : "\\mathbb{Q}";
+    int n;
+    if (set.integers && !set.bounded) n = snprintf(text, 192, "\\mathbb{Z}");
+    else if (set.integers && set.low == 0) n = snprintf(text, 192, "\\mathbb{N}_{0}");
+    else if (set.integers && set.low == 1) n = snprintf(text, 192, "\\mathbb{N}");
+    else if (set.integers) n = snprintf(text, 192, "\\{%lld, %lld, \\ldots\\}", set.low, set.low + 1);
+    else if (!set.bounded) n = snprintf(text, 192, "%s", field);
+    else if (set.low == 0 && set.strict) n = snprintf(text, 192, "%s^{+}", field);
+    else n = snprintf(text, 192, "\\{q \\in %s \\mid q %s %lld\\}", field, set.strict ? ">" : "\\ge", set.low);
+    for (int i = 0; i < set.holes && n < 150; i++) {
+        Frac h = set.hole[i];
+        n += snprintf(text + n, 192 - (size_t)n, "%s", i ? ", " : " \\setminus \\{");
+        if (h.den == 1) n += snprintf(text + n, 192 - (size_t)n, "%lld", h.num);
+        else n += snprintf(text + n, 192 - (size_t)n, "%s\\frac{%lld}{%lld}", h.num < 0 ? "-" : "", llabs(h.num), h.den);
+    }
+    if (set.holes) snprintf(text + n, 192 - (size_t)n, "\\}");
+    *made = set;
+    made->start = text;
+    made->end = text + strlen(text);
+    return made;
+}
+
+/* Ritorna una lettera per una variabile nuova: non è usata in body, né tra le
+ * variabili generiche, legate o dei parametri, né dalle applicazioni e dalle
+ * loro regole. 0 se non ce n'è. */
+static int region_letter(const Formula *body) {
+    for (const char *letter = "stuvwpqrhgmjz"; *letter; letter++) {
+        int taken = map_find(*letter) != NULL || formula_uses_letter(body, *letter) || env_lookup(*letter) != NULL;
+        for (int i = 0; i < universal_count; i++) taken = taken || universal[i].name == *letter;
+        for (int i = 0; i < map_count; i++) taken = taken || maps[i].parameter == *letter;
+        for (int i = 0; i < statement_parameter_count; i++) taken = taken || statement_parameters[i].name == *letter;
+        if (!taken) return *letter;
+    }
+    return 0;
+}
+
+/* Mette in out[] i casi della distinzione s per la variabile generica di
+ * posto index, e ritorna quanti sono; 0 se la distinzione non si sa fare.
+ * body è la condizione da dimostrare in ogni caso, che serve solo a
+ * scegliere la lettera di una variabile nuova. Ogni elenco copre l'insieme
+ * di y:
+ *
+ *   - ORDER, y intera, c il primo intero del lato di sopra: y \ge c, e poi
+ *     y \le c - 1, cioè gli interi da l'estremo inferiore a c - 1 uno per
+ *     uno, oppure y = c - 1 - s con s \in \mathbb{N}_{0} se non c'è un
+ *     estremo;
+ *   - ORDER, y razionale senza estremo: y = at + s e y = at - s, con s \ge 0
+ *     da un lato e s > 0 dall'altro, secondo dove sta at;
+ *   - POINT: y = at, e y nel suo insieme senza at;
+ *   - RESIDUE: y = M s + r per r da 0 a M - 1, con s dove serve perché
+ *     y stia sopra l'estremo inferiore (come in 18o);
+ *   - MEMBER: y = P s + o con s intero, dove P = |m / alpha| e o è la
+ *     soluzione di alpha y + beta = 0 ridotta tra 0 e P: sono le y per cui
+ *     alpha y + beta è un multiplo di m; e le altre, con il loro fatto;
+ *   - DIVISOR: y = u s con s intero, e le altre, con il loro fatto. */
+static int regions_of(int index, const Split *s, const Formula *body, Region *out) {
+    const NumberSet *set = universal[index].numbers;
+    int letter = region_letter(body), count = 0;
+    Rat fresh = letter ? rat_atom(atom_var(letter)) : rat_int(0);
+    NumberSet any = {0}, base = *set;
+    any.integers = 1;
+    base.holes = 0;
+    if (!letter) return 0;
+    switch (s->kind) {
+    case SPLIT_ORDER:
+        if (set->integers) {
+            long long c = order_cut(s);
+            NumberSet up = *set;
+            up.bounded = 1;
+            up.low = c;
+            up.strict = 0;
+            out[count++] = (Region){REGION_SET, numbers_made(up), 0, rat_int(0), {rat_int(0), {0, NULL}}};
+            if (set->bounded) {
+                for (long long p = set->low + set->strict; p <= c - 1; p++) {
+                    if (!numbers_contain(set, frac_int(p))) continue;
+                    if (count > MAX_REGION_POINTS) return 0;
+                    out[count++] = (Region){REGION_POINT, NULL, 0, rat_int(p), {rat_int(0), {0, NULL}}};
+                }
+                return count;
+            }
+            NumberSet down = any;
+            down.bounded = 1;
+            for (int i = 0; i < set->holes; i++)
+                if (frac_cmp(set->hole[i], frac_int(c - 1)) <= 0) down.hole[down.holes++] = frac_add(frac_int(c - 1), frac_neg(set->hole[i]));
+            out[count++] = (Region){REGION_VALUE, numbers_made(down), letter, rat_add(rat_int(c - 1), fresh, 1), {rat_int(0), {0, NULL}}};
+            return count;
+        }
+        if (set->bounded) return 0;
+        for (int side = 0; side < 2; side++) {
+            /* side 0: y = at + s; side 1: y = at - s. at è compreso dal lato
+             * upper_closed. */
+            NumberSet half = base;
+            half.bounded = 1;
+            half.low = 0;
+            half.strict = side == s->upper_closed;
+            for (int i = 0; i < set->holes; i++) {
+                Frac moved = frac_add(set->hole[i], frac_neg(s->at));
+                if (side) moved = frac_neg(moved);
+                if (moved.num >= 0 && half.holes < MAX_HOLES) half.hole[half.holes++] = moved;
+            }
+            Rat value = rat_add(rat_frac(s->at), fresh, side);
+            out[count++] = (Region){REGION_VALUE, numbers_made(half), letter, value, {rat_int(0), {0, NULL}}};
+        }
+        return count;
+    case SPLIT_POINT: {
+        NumberSet rest = *set;
+        if (rest.holes == MAX_HOLES) return 0;
+        rest.hole[rest.holes++] = s->at;
+        out[count++] = (Region){REGION_POINT, NULL, 0, rat_frac(s->at), {rat_int(0), {0, NULL}}};
+        out[count++] = (Region){REGION_SET, numbers_made(rest), 0, rat_int(0), {rat_int(0), {0, NULL}}};
+        return count;
+    }
+    case SPLIT_RESIDUE:
+        for (long long r = 0; r < s->modulus; r++) {
+            NumberSet part = any;
+            long long first = set->low + set->strict - r, m = s->modulus;
+            part.bounded = set->bounded;
+            part.low = !set->bounded ? 0 : first >= 0 ? (first + m - 1) / m : -((-first) / m);
+            Rat value = rat_add(rat_mul(rat_int(m), fresh), rat_int(r), 0);
+            out[count++] = (Region){REGION_VALUE, numbers_made(part), letter, value, {rat_int(0), {0, NULL}}};
+        }
+        return count;
+    case SPLIT_MEMBER: {
+        Num m;
+        if (!rat_number(s->divisor, &m)) return 0;
+        Frac period = frac_div(m.re, s->alpha), offset = frac_neg(frac_div(s->beta, s->alpha));
+        if (period.num < 0) period = frac_neg(period);
+        offset = frac_add(offset, frac_neg(frac_mul(period, frac_int(frac_floor(frac_div(offset, period))))));
+        if (period.num == 1 && period.den == 1 && offset.num == 0) {
+            NumberSet whole = base;
+            whole.integers = 1;
+            out[count++] = (Region){REGION_SET, numbers_made(whole), 0, rat_int(0), {rat_int(0), {0, NULL}}};
+        } else {
+            Rat value = rat_add(rat_mul(rat_frac(period), fresh), rat_frac(offset), 0);
+            out[count++] = (Region){REGION_VALUE, numbers_made(any), letter, value, {rat_int(0), {0, NULL}}};
+        }
+        Rat linear = rat_add(rat_mul(rat_frac(s->alpha), rat_atom(s->atom)), rat_frac(s->beta), 0);
+        out[count++] = (Region){REGION_EXCLUDED, NULL, 0, rat_int(0), {s->divisor, linear.num}};
+        return count;
+    }
+    case SPLIT_DIVISOR:
+        out[count++] = (Region){REGION_VALUE, numbers_made(any), letter, rat_mul(s->divisor, fresh), {rat_int(0), {0, NULL}}};
+        out[count++] = (Region){REGION_EXCLUDED, NULL, 0, rat_int(0), {s->divisor, rat_atom(s->atom).num}};
+        return count;
+    }
+    return 0;
+}
+
+/* Controllo del passo: ogni elemento dell'insieme di y deve stare in uno dei
+ * casi, altrimenti la distinzione ne lascerebbe fuori qualcuno. Lo si
+ * verifica, come in 18c, sui primi elementi dell'insieme, calcolando: un
+ * insieme nuovo lo contiene, un punto è lui, un'espressione a s + b lo dà
+ * con s = (y - b)/a nel suo insieme, un fatto "m non divide w" vale con
+ * i numeri. La distinzione "u divide y o no", con u un'espressione, è vera
+ * per come è fatta, e non ha numeri da calcolare: lì il controllo non c'è.
+ * Ritorna 1 se il controllo passa. */
+static int regions_cover(int index, const Split *s, const Region *region, int regions) {
+    Frac sample[2 * SAMPLE_SIZE], alpha, beta;
+    Num w, m;
+    if (s->kind == SPLIT_DIVISOR) return 1;
+    numbers_sample(universal[index].numbers, sample, 2 * SAMPLE_SIZE);
+    for (int i = 0; i < 2 * SAMPLE_SIZE; i++) {
+        int covered = 0;
+        for (int k = 0; k < regions && !covered && !failure; k++) {
+            const Region *r = &region[k];
+            if (r->kind == REGION_SET) covered = numbers_contain(r->set, sample[i]);
+            else if (r->kind == REGION_POINT) covered = rat_number(r->value, &w) && frac_cmp(w.re, sample[i]) == 0;
+            else if (r->kind == REGION_VALUE && rat_affine_in(r->value, atom_var(r->letter), &alpha, &beta))
+                covered = numbers_contain(r->set, frac_div(frac_add(sample[i], frac_neg(beta)), alpha));
+            else if (r->kind == REGION_EXCLUDED && rat_number(r->excluded.divisor, &m) &&
+                     rat_number(poly_substitute(r->excluded.value, s->atom, rat_frac(sample[i])), &w))
+                covered = !number_divides(m, w);
+        }
+        if (failure) return 0;
+        if (!covered) return 0;
+    }
+    return 1;
+}
+
+/* Scrive la frase che annuncia la distinzione s sulla variabile name; region
+ * sono i suoi casi. */
+static void region_intro(int name, const Split *s, const Region *region) {
+    Num m;
+    switch (s->kind) {
+    case SPLIT_ORDER:
+        if (region[0].set->integers) {
+            long long c = order_cut(s);
+            proof_add("\\item Either $%c \\ge %lld$ or $%c \\le %lld$.\n", name, c, name, c - 1);
+            return;
+        }
+        proof_add("\\item Either $%c %s ", name, s->upper_closed ? "\\ge" : ">");
+        put_frac(s->at);
+        proof_add("$ or $%c %s ", name, s->upper_closed ? "<" : "\\le");
+        put_frac(s->at);
+        proof_add("$.\n");
+        return;
+    case SPLIT_POINT:
+        proof_add("\\item Either $%c = ", name);
+        put_frac(s->at);
+        proof_add("$ or $%c \\neq ", name);
+        put_frac(s->at);
+        proof_add("$.\n");
+        return;
+    case SPLIT_RESIDUE:
+        proof_add("\\item Every integer is $%lld%c + r$ for exactly one integer $%c$ and one $r$ among $0", s->modulus, region[0].letter, region[0].letter);
+        for (long long r = 1; r < s->modulus; r++) proof_add(", %lld", r);
+        proof_add("$: division by $%lld$ with remainder. So there are $%lld$ cases.\n", s->modulus, s->modulus);
+        return;
+    case SPLIT_MEMBER:
+        proof_add("\\item Either $");
+        put_poly(region[1].excluded.value);
+        if (rat_number(s->divisor, &m) && num_equal(m, num_int(1))) {
+            proof_add(" \\in \\mathbb{Z}$ or $");
+            put_poly(region[1].excluded.value);
+            proof_add(" \\notin \\mathbb{Z}$.\n");
+        } else {
+            proof_add("$ is a multiple of $");
+            put_fraction(s->divisor);
+            proof_add("$ or it is not.\n");
+        }
+        return;
+    case SPLIT_DIVISOR:
+        proof_add("\\item Either $");
+        put_fraction(s->divisor);
+        proof_add(" \\mid %c$ or $", name);
+        put_fraction(s->divisor);
+        proof_add(" \\nmid %c$.\n", name);
+        return;
+    }
+}
+
+/* Scrive il titolo del caso r, il numero k della distinzione s sulla
+ * variabile name: che cosa vale nel caso e, se y diventa un'espressione in
+ * una variabile nuova, quale. */
+static void region_heading(int name, const Split *s, const Region *r, int k) {
+    Num m;
+    proof_add("\\item \\emph{Case $");
+    if (r->kind == REGION_POINT) {
+        proof_add("%c = ", name);
+        put_fraction(r->value);
+    } else {
+        switch (s->kind) {
+        case SPLIT_ORDER:
+            if (r->set->integers) proof_add(k == 0 ? "%c \\ge %lld" : "%c \\le %lld", name, order_cut(s) - (k != 0));
+            else {
+                proof_add("%c %s ", name, k == 0 ? (s->upper_closed ? "\\ge" : ">") : (s->upper_closed ? "<" : "\\le"));
+                put_frac(s->at);
+            }
+            break;
+        case SPLIT_POINT:
+            proof_add("%c \\neq ", name);
+            put_frac(s->at);
+            break;
+        case SPLIT_RESIDUE:
+            proof_add("%c = ", name);
+            put_fraction(r->value);
+            break;
+        case SPLIT_MEMBER: {
+            Rat linear = rat_add(rat_mul(rat_frac(s->alpha), rat_atom(s->atom)), rat_frac(s->beta), 0);
+            int unit = rat_number(s->divisor, &m) && num_equal(m, num_int(1));
+            if (unit) {
+                put_fraction(linear);
+                proof_add(k == 0 ? " \\in \\mathbb{Z}" : " \\notin \\mathbb{Z}");
+            } else {
+                put_fraction(s->divisor);
+                proof_add(k == 0 ? " \\mid " : " \\nmid ");
+                put_fraction(linear);
+            }
+            break;
+        }
+        case SPLIT_DIVISOR:
+            put_fraction(s->divisor);
+            proof_add(k == 0 ? " \\mid %c" : " \\nmid %c", name);
+            break;
+        }
+    }
+    proof_add("$}");
+    if (r->kind == REGION_VALUE && s->kind != SPLIT_RESIDUE) {
+        proof_add(", that is $%c = ", name);
+        put_fraction(r->value);
+        proof_add("$ with $%c \\in ", r->letter);
+        put_numbers(r->set);
+        proof_add("$");
+    } else if (r->kind == REGION_VALUE) {
+        proof_add(", with $%c \\in ", r->letter);
+        put_numbers(r->set);
+        proof_add("$");
+    }
+    proof_add(".\n");
+}
+
+/* Ciò che va dimostrato in ogni caso di una distinzione: una funzione che lo
+ * dimostra, scrivendo, e i suoi dati. Ritorna 1 se ci riesce. */
+typedef int (*RegionGoal)(void *data);
+
+/* 18v-2. Dimostra goal, e se non riesce perché manca una distinzione su una
+ * delle variabili generiche dal posto from in su, la fa e dimostra goal in
+ * ognuno dei casi, che possono chiederne altre fino a MAX_REGION_DEPTH.
+ * body serve a scegliere le lettere nuove (regions_of()). Ritorna 1 se ci
+ * riesce; se ritorna 0 non lascia testo, e una richiesta su una variabile
+ * più esterna resta in attesa per chi l'ha introdotta. */
+static int in_regions(RegionGoal prove, void *data, const Formula *body, int from, int depth) {
+    Mark mark = mark_here();
+    Split older = split_wanted;
+    int had = split_pending;
+    split_pending = 0;
+    int holds = prove(data);
+    Split wanted = split_wanted;
+    int asked = split_pending;
+    split_pending = had;
+    split_wanted = older;
+    if (failure == CASE_UNDECIDED) failure = NULL;
+    if (holds || !asked || failure || search_left <= 0) return holds;
+
+    /* La richiesta è per una variabile più esterna: passa a chi l'ha
+     * introdotta, se non ce n'è già una. */
+    int index = universal_index(wanted.atom);
+    if (index < 0) return 0;
+    if (index < from) {
+        if (!had) { split_pending = 1; split_wanted = wanted; }
+        return 0;
+    }
+    if (depth >= MAX_REGION_DEPTH) return 0;
+    rollback(mark);
+
+    /* I casi, uno per uno. */
+    Region region[MAX_CASES + MAX_REGION_POINTS + 2];
+    int regions = regions_of(index, &wanted, body, region);
+    if (regions < 2 || failure) return 0;
+    if (!regions_cover(index, &wanted, region, regions)) {
+        if (!failure) unjustified_steps++;
+        return 0;
+    }
+    int name = universal[index].name;
+    region_intro(name, &wanted, region);
+    region_depth++;
+    holds = 1;
+    for (int k = 0; k < regions && holds && !failure; k++) {
+        const Region *r = &region[k];
+        Bound kept = universal[index];
+        region_heading(name, &wanted, r, k);
+        if (r->kind == REGION_EXCLUDED && excluded_count == MAX_BOUND) { holds = 0; break; }
+        if (r->kind == REGION_SET) universal[index].numbers = r->set;
+        if (r->kind == REGION_VALUE || r->kind == REGION_POINT) env_push(name, r->value);
+        if (r->kind == REGION_VALUE) universal[index] = (Bound){r->letter, r->set};
+        if (r->kind == REGION_EXCLUDED) excluded[excluded_count++] = r->excluded;
+        proof_add("\\begin{itemize}\n");
+        holds = in_regions(prove, data, body, from, depth + 1);
+        proof_add("\\end{itemize}\n");
+        if (r->kind == REGION_EXCLUDED) excluded_count--;
+        if (r->kind == REGION_VALUE || r->kind == REGION_POINT) env_pop();
+        universal[index] = kept;
+    }
+    region_depth--;
+    if (!holds) rollback(mark);
+    return holds && !failure;
+}
+
+/* La condizione da dimostrare in ogni caso di una distinzione chiesta
+ * dentro un "per ogni" (18k). */
+typedef struct {
+    Formula *body;
+    int negated;
+} Claim;
+
+/* La RegionGoal di un Claim: lo dimostra con establish(). */
+static int claim_established(void *data) {
+    Claim *claim = data;
+    return establish(claim->body, claim->negated);
+}
+
+/* 18v-2. Dimostra body, negata se negated, distinguendo i casi che servono
+ * sulle variabili generiche dal posto from in su: quelle appena introdotte
+ * da un "per ogni". */
+static int establish_in_regions(Formula *body, int negated, int from) {
+    Claim claim = {body, negated};
+    return in_regions(claim_established, &claim, body, from, 0);
+}
+
+/* 18v-1. Stabilisce il caso di ogni applicazione definita per casi
+ * nell'espressione node, dalle più interne: per ognuna, se l'argomento non è
+ * un numero, dimostra la condizione di un caso e annota la scelta in
+ * case_choice[], scrivendo il ragionamento. Ritorna 1 se ci riesce; se no
+ * chiede una distinzione (18v-2) e ritorna 0, e il testo va cancellato da
+ * chi chiama. */
+static int cases_decided_in(const Node *node) {
+    if (!node) return 1;
+    if (failure || !cases_decided_in(node->a) || !cases_decided_in(node->b) || !cases_decided_in(node->c)) return 0;
+    const Map *map = node->kind == N_APPLY ? map_find(node->name) : NULL;
+    if (!map || !map->cases) return 1;
+    Rat t = eval(node->a);
+    if (failure) return 0;
+    if (case_computed(map, t) >= 0) return 1;
+    if (failure) return 0;
+    for (int i = case_choice_count - 1; i >= 0; i--)
+        if (case_choice[i].node == node && rat_same(case_choice[i].argument, t)) return 1;
+    if (case_choice_count == MAX_CASE_CHOICES) return 0;
+
+    /* Il primo caso la cui condizione si dimostra. */
+    for (int i = 0; i < map->cases && !failure; i++) {
+        size_t start = proof_length;
+        env_push(map->parameter, t);
+        Rat value = eval(map->piece[i].value);
+        proof_add("\\item By the definition of $%c$, $%c(", map->name, map->name);
+        put_fraction(t);
+        proof_add(") = ");
+        put_fraction(value);
+        proof_add("$:");
+        int holds = !failure && case_proved(map->piece[i].when, 0);
+        env_pop();
+        if (holds) {
+            proof_add("\n");
+            case_choice[case_choice_count++] = (CaseChoice){node, t, i};
+            return 1;
+        }
+        proof_cut(start);
+        if (failure == OUT_OF_MEMORY) return 0;
+        failure = NULL;
+    }
+    split_from_cases(map, t);
+    return 0;
+}
+
+/* 18v-1. Stabilisce il caso di ogni applicazione definita per casi nelle
+ * espressioni della condizione f, che non contiene quantificatori. */
+static int cases_decided(const Formula *f) {
+    if (!f) return 1;
+    if (f->kind == F_NOT || f->kind == F_AND || f->kind == F_OR || f->kind == F_IMPLIES || f->kind == F_IFF)
+        return cases_decided(f->a) && cases_decided(f->b);
+    return cases_decided_in(f->left) && cases_decided_in(f->right);
+}
+
 /* Elenca in list[], a partire dal posto count, le uguaglianze di f (negata
  * se negated) da cui si può ricavare il valore di una variabile, e ritorna il
  * nuovo numero di elementi; list ha MAX_EQUATIONS posti.
@@ -10715,6 +11997,10 @@ static int solve_by_roots(Formula *f, int negated, const Formula *equation, Poly
     return 0;
 }
 
+/* Prototipo in avanti inevitabile: 18v-3 risolve la stessa equazione caso
+ * per caso, chiamando di nuovo solve_with() con il caso scelto. */
+static int solve_through_cases(Formula *f, int negated, const Formula *equation);
+
 /* 18i. Prova a dimostrare "esiste x in A tale che ..." risolvendo
  * l'uguaglianza `equation`, una di quelle di find_equations(). f è il nodo
  * del quantificatore e negated il segno con cui va letta la sua condizione.
@@ -10741,6 +12027,10 @@ static int solve_with(Formula *f, int negated, const Formula *equation) {
      * Vuol dire solo che così non si ricava nulla, quindi l'errore si
      * cancella; all'ingresso `failure` era NULL, e non si perde altro. */
     Rat gap = rat_add(eval(equation->left), eval(equation->right), 1);
+    if (failure == CASE_UNDECIDED && poly_uses(undecided_argument.num, x)) {
+        failure = NULL;
+        return solve_through_cases(f, negated, equation);
+    }
     if (failure) { failure = NULL; return 0; }
     if (!rat_polynomials(gap, &num, &den)) return 0;
     if (poly_split(num, x, part, 1) != 1) return solve_by_roots(f, negated, equation, num, !poly_is_one(den));
@@ -10765,7 +12055,10 @@ static int solve_with(Formula *f, int negated, const Formula *equation) {
     /* Si può dividere per alpha solo se non si annulla mai. */
     if (!poly_is_constant(alpha)) {
         proof_add(" The coefficient of $%c$ is never zero.", f->variable);
-        if (!zero_only_where(alpha, NULL)) return 0;
+        if (!zero_only_where(alpha, NULL)) {
+            split_at_zero((Rat){alpha, poly_const(num_int(1))});
+            return 0;
+        }
     }
 
     /* Il valore, e la sua appartenenza ad A. */
@@ -10774,7 +12067,10 @@ static int solve_with(Formula *f, int negated, const Formula *equation) {
     proof_add("$. It has to be an element of $");
     put_numbers(&f->numbers);
     proof_add("$.");
-    if (!always_in(solution, &f->numbers)) return 0;
+    if (!always_in(solution, &f->numbers)) {
+        split_for_membership(solution, &f->numbers);
+        return 0;
+    }
     proof_add("\n");
 
     /* La condizione, con x legata al valore trovato. */
@@ -10784,6 +12080,75 @@ static int solve_with(Formula *f, int negated, const Formula *equation) {
     env_pop();
     if (holds) witness_keep(f, solution);
     return holds;
+}
+
+/* Se il caso piece di map è un punto, "x = c" con x la variabile della regola
+ * e c un numero, mette c in *point e ritorna 1. */
+static int case_point(const Map *map, int piece, Frac *point) {
+    const Formula *c = map->piece[piece].when;
+    Num value;
+    if (c->kind != F_EQUAL) return 0;
+    const Node *other = c->left->kind == N_VAR && c->left->name == map->parameter ? c->right
+                      : c->right->kind == N_VAR && c->right->name == map->parameter ? c->left : NULL;
+    if (!other || node_uses_letter(other, map->parameter)) return 0;
+    int number = rat_number(eval(other), &value) && value.im.num == 0;
+    if (failure) { failure = NULL; return 0; }
+    if (number) *point = value.re;
+    return number;
+}
+
+/* 18v-3. L'uguaglianza `equation`, richiesta dalla condizione dell'"esiste"
+ * f, contiene un'applicazione definita per casi il cui argomento dipende
+ * dalla variabile x: è quella che ha fatto fallire il conto (undecided_*).
+ * Si prova un caso alla volta: se il caso è un punto x = c si prova c; se no
+ * l'uguaglianza si risolve (18i) con il valore di quel caso. Il caso è solo
+ * un tentativo: scelto il valore, la condizione di f si dimostra da capo, e
+ * 18v-1 stabilisce il caso con una dimostrazione. Scrive il ragionamento e
+ * ritorna 1 se un caso funziona; se ritorna 0 il testo va cancellato. */
+static int solve_through_cases(Formula *f, int negated, const Formula *equation) {
+    const Map *map = undecided_map;
+    const Node *node = undecided_node;
+    Rat argument = undecided_argument;
+    int x = atom_var(f->variable);
+    if (case_choice_count == MAX_CASE_CHOICES) return 0;
+    for (int i = 0; i < map->cases && !failure && search_left > 0; i++) {
+        Mark mark = mark_here();
+        Frac point;
+        int holds;
+        if (rat_same(argument, rat_atom(x)) && case_point(map, i, &point)) {
+            if (!numbers_contain(&f->numbers, point)) continue;
+            proof_add("\\item Case %d of the definition of $%c$ is $%c = ", i + 1, map->name, f->variable);
+            put_frac(point);
+            proof_add("$: take $%c = ", f->variable);
+            put_frac(point);
+            proof_add("$, an element of $");
+            put_numbers(&f->numbers);
+            proof_add("$.\n");
+            choose(f->variable, point);
+            env_push(f->variable, rat_frac(point));
+            holds = establish(f->a, negated);
+            env_pop();
+            if (holds) witness_keep(f, rat_frac(point));
+        } else {
+            env_push(map->parameter, argument);
+            Rat value = eval(map->piece[i].value);
+            proof_add("\\item In case %d of the definition of $%c$, where ", i + 1, map->name);
+            put_condition(map->piece[i].when, 0);
+            proof_add(", $%c(", map->name);
+            put_fraction(argument);
+            proof_add(") = ");
+            put_fraction(value);
+            proof_add("$.\n");
+            env_pop();
+            case_choice[case_choice_count++] = (CaseChoice){node, argument, i};
+            holds = !failure && solve_with(f, negated, equation);
+            case_choice_count--;
+        }
+        if (holds) return 1;
+        rollback(mark);
+        if (failure == CASE_UNDECIDED) failure = NULL;
+    }
+    return 0;
 }
 
 /* 18i. Prova a dimostrare "esiste x in A tale che ..." risolvendo, una dopo
@@ -11443,21 +12808,9 @@ static int name_witnesses(Formula *f, int negated) {
  * punti di ingresso del capitolo 19.
  */
 
-/* Ritorna 1 se il numero u divide il numero v, cioè se v è u per un numero
- * intero (17n): zero divide solo zero, e un altro numero divide v quando il
- * quoziente è intero. Vale per i razionali come è scritta: 1/2 divide 3. */
-static int number_divides(Num u, Num v) {
-    if (u.im.num != 0 || v.im.num != 0) return 0;
-    if (u.re.num == 0) return v.re.num == 0;
-    return frac_div(v.re, u.re).den == 1;
-}
-
-/* Dimostra la condizione f, o la sua negazione se negated, per ogni valore
- * delle variabili generiche e con i valori dati alle altre. Scrive il
- * ragionamento come una serie di \item e ritorna 1 se ci riesce; se ritorna 0
- * non lascia testo né scelte. Le regole sono descritte in testa al capitolo
- * 18. */
-static int establish(Formula *f, int negated) {
+/* Il lavoro di establish(), che ne descrive il contratto, una volta
+ * stabiliti i casi delle applicazioni definite per casi. */
+static int establish_rules(Formula *f, int negated) {
     Mark mark = mark_here();
     Literal literal[MAX_LITERALS];
     Junction j;
@@ -11645,7 +12998,7 @@ static int establish(Formula *f, int negated) {
         proof_add(" \\in ");
         put_numbers(&f->numbers);
         proof_add("$.\n");
-        int holds = establish(last->a, negated);
+        int holds = establish_in_regions(last->a, negated, outer);
         universal_count = outer;
         if (holds) return 1;
 
@@ -11713,6 +13066,122 @@ static int establish(Formula *f, int negated) {
     return 0;
 }
 
+/* Ritorna 1 se la condizione f contiene un quantificatore. */
+static int formula_quantifies(const Formula *f) {
+    return f && (f->kind == F_FORALL || f->kind == F_EXISTS || f->kind == F_SOLVE || formula_quantifies(f->a) || formula_quantifies(f->b));
+}
+
+/* Ritorna 1 se l'enunciato in corso ha un'applicazione definita per casi. */
+static int cases_declared(void) {
+    for (int i = 0; i < map_count; i++)
+        if (maps[i].cases) return 1;
+    return 0;
+}
+
+/* Dimostra la condizione f, o la sua negazione se negated, per ogni valore
+ * delle variabili generiche e con i valori dati alle altre. Scrive il
+ * ragionamento come una serie di \item e ritorna 1 se ci riesce; se ritorna 0
+ * non lascia testo né scelte. Le regole sono descritte in testa al capitolo
+ * 18.
+ *
+ * Una condizione senza quantificatori in cui compare un'applicazione
+ * definita per casi comincia con la scelta dei casi (18v-1), che vale finché
+ * la si dimostra: dopo, le scelte si tolgono, perché parlano di quei valori
+ * delle variabili. Un conto che si è fermato su un caso non stabilito non è
+ * un errore dell'enunciato: lo si dimentica, e la richiesta di distinguere
+ * (18v-2) resta a chi la raccoglie. */
+static int establish(Formula *f, int negated) {
+    Mark mark = mark_here();
+    int choices = case_choice_count;
+    int holds = (!cases_declared() || formula_quantifies(f) || cases_decided(f)) && establish_rules(f, negated);
+    case_choice_count = choices;
+    if (failure == CASE_UNDECIDED) failure = NULL;
+    if (!holds) rollback(mark);
+    return holds;
+}
+
+/* 18v-6. Dimostra, in uno dei casi di una distinzione sulla variabile della
+ * regola di map (o senza distinzioni), che la definizione per casi dà un
+ * solo valore e che sta nel codominio: un caso vale, il suo valore è
+ * definito e sta nel codominio, e ognuno degli altri o non vale o dà lo
+ * stesso valore. Scrive il ragionamento e ritorna 1 se ci riesce; se un caso
+ * non si sa decidere chiede una distinzione (18v-2).
+ *
+ * Che nessun caso valga in una parte del dominio non si dimostra: i casi
+ * allora non coprono il dominio, e la verifica sul campione lo trova. */
+static int cases_hold_here(void *data) {
+    const Map *map = data;
+    const Rat *bound = env_lookup(map->parameter);
+    Rat t = bound ? *bound : rat_atom(atom_var(map->parameter));
+    int first = -1, holds = 1;
+    env_push(map->parameter, t);
+
+    /* Il primo caso che vale, con il suo valore. */
+    for (int i = 0; i < map->cases && first < 0 && !failure; i++) {
+        size_t start = proof_length;
+        proof_add("\\item Case %d of the definition applies:", i + 1);
+        if (case_proved(map->piece[i].when, 0)) first = i;
+        else proof_cut(start);
+        if (failure == CASE_UNDECIDED) failure = NULL;
+    }
+    if (first < 0) holds = 0;
+    Rat value = holds ? eval(map->piece[first].value) : rat_int(0);
+    if (holds) {
+        proof_add(" So $%c(", map->name);
+        put_fraction(t);
+        proof_add(") = ");
+        put_fraction(value);
+        proof_add("$.");
+        holds = term_defined(map->piece[first].value) && always_in(value, &map->codomain);
+        proof_add("\n");
+    }
+
+    /* Gli altri: non valgono, o danno lo stesso valore. */
+    for (int j = 0; j < map->cases && holds && !failure; j++) {
+        if (j == first) continue;
+        Rat other = eval(map->piece[j].value);
+        Rat gap = rat_add(other, value, 1);
+        if (!failure && gap.num.count == 0) {
+            proof_add("\\item Case %d of the definition gives the same value.\n", j + 1);
+            continue;
+        }
+        if (failure) failure = NULL;
+        size_t start = proof_length;
+        proof_add("\\item Case %d of the definition does not apply:", j + 1);
+        if (case_proved(map->piece[j].when, 1)) { proof_add("\n"); continue; }
+        proof_cut(start);
+        holds = 0;
+    }
+
+    /* Un caso che non si sa decidere: si chiede che cosa distinguere. */
+    if (!holds && !failure)
+        for (int i = 0; i < map->cases && !split_pending; i++) split_from_condition(map->piece[i].when);
+    env_pop();
+    return holds && !failure;
+}
+
+/* 18v-6. Dimostra che la definizione per casi di map definisce
+ * un'applicazione dal dominio al codominio: per ogni x del dominio i casi
+ * che valgono danno uno stesso valore, definito e nel codominio. Scrive il
+ * ragionamento come un \item e ritorna 1 se ci riesce. È il seguito di 18m
+ * per le definizioni per casi. */
+static int cases_define(const Map *map) {
+    int outer = universal_count;
+    proof_add("\\item \\emph{The definition by cases defines a map from $");
+    put_numbers(&map->domain);
+    proof_add("$ to $");
+    put_numbers(&map->codomain);
+    proof_add("$.} Let $%c \\in ", map->parameter);
+    put_numbers(&map->domain);
+    proof_add("$.\n\\begin{itemize}\n");
+    if (universal_count == MAX_BOUND) return 0;
+    universal[universal_count++] = (Bound){map->parameter, &map->domain};
+    int defined = in_regions(cases_hold_here, (void *)map, NULL, outer, 0);
+    universal_count = outer;
+    proof_add("\\end{itemize}\n");
+    return defined && !failure;
+}
+
 /* 18m. Dimostra che la regola di map definisce un'applicazione dal dominio al
  * codominio: per ogni x del dominio il valore esiste, perché nessun divisore
  * si annulla, e appartiene al codominio. Scrive il ragionamento come un \item
@@ -11723,7 +13192,9 @@ static int establish(Formula *f, int negated) {
  * un verdetto FALSO sarebbe sbagliato, e uno DIMOSTRATO non direbbe nulla. */
 static int map_defined(const Map *map) {
     Poly num, den;
-    proof_add("\\item \\emph{The rule defines %s from $", map->binary ? "an operation" : "a map");
+    if (map->cases) return cases_define(map);
+    proof_add("\\item \\emph{The %srule defines %s from $", map->partner ? "first component of the " : map->component ? "second component of the " : "",
+              map->binary ? "an operation" : "a map");
     put_numbers(&map->domain);
     if (map->binary) { proof_add(" \\times "); put_numbers(&map->second); }
     proof_add("$ to $");
@@ -11733,9 +13204,11 @@ static int map_defined(const Map *map) {
     if (map->binary) { proof_add("$ and $%c \\in ", map->parameter2); put_numbers(&map->second); }
     proof_add("$.");
 
-    /* Le variabili della regola sono generiche nel dominio. */
-    universal[0] = (Bound){map->parameter, &map->domain};
-    universal_count = 1;
+    /* Le variabili della regola sono generiche nel dominio, dopo i
+     * parametri dell'enunciato (17s). */
+    int outer = universal_count;
+    if (universal_count + 2 > MAX_BOUND) return 0;
+    universal[universal_count++] = (Bound){map->parameter, &map->domain};
     if (map->binary) universal[universal_count++] = (Bound){map->parameter2, &map->second};
     int defined = term_defined(map->body);
     Rat value = eval(map->body);
@@ -11747,7 +13220,7 @@ static int map_defined(const Map *map) {
     } else {
         defined = 0;
     }
-    universal_count = 0;
+    universal_count = outer;
     proof_add("\n");
     return defined && !failure;
 }
@@ -13015,23 +14488,6 @@ static int space_of(int atom) {
     int s = 0;
     while (s < spaces && space[s].letter != atom) s++;
     return s;
-}
-
-/* Se e = alpha x + beta, con x l'atomo della variabile e alpha diverso da
- * zero, mette i due razionali in *alpha e *beta e ritorna 1. */
-static int rat_affine_in(Rat e, int x, Frac *alpha, Frac *beta) {
-    *alpha = *beta = frac_int(0);
-    if (failure || e.den.count != 1 || e.den.term[0].mono.count != 0 || e.den.term[0].coef.im.num != 0) return 0;
-    for (int i = 0; i < e.num.count; i++) {
-        const Term *t = &e.num.term[i];
-        if (t->coef.im.num != 0) return 0;
-        if (t->mono.count == 0) *beta = t->coef.re;
-        else if (t->mono.count == 1 && t->mono.factor[0].atom == x && frac_cmp(t->mono.factor[0].exp, frac_int(1)) == 0) *alpha = t->coef.re;
-        else return 0;
-    }
-    *alpha = frac_div(*alpha, e.den.term[0].coef.re);
-    *beta = frac_div(*beta, e.den.term[0].coef.re);
-    return alpha->num != 0 && !failure;
 }
 
 /* Legge la base di una potenza o di un logaritmo. Ritorna 1 se node è il
@@ -19565,34 +21021,56 @@ static int sample_equations(const Formula *f, int negated, const Formula **outer
     }
 }
 
+/* Il numeratore e il denominatore della condizione w, scritta come
+ * polinomio uguale a zero, quando il suo testimone vale q. */
+static Rat sample_gap(const Wanted *w, Frac q) {
+    const Formula *f = w->source;
+    if (f->kind == F_DIVIDES) return rat_add(eval(f->right), rat_mul(rat_frac(q), eval(f->left)), 1);
+    if (f->kind == F_IN) return rat_add(eval(f->left), rat_frac(q), 1);
+    if (w->witness) env_push(w->witness, rat_frac(q));
+    Rat gap = rat_add(eval(f->left), eval(f->right), 1);
+    if (w->witness) env_pop();
+    return gap;
+}
+
 /* Il valore della variabile name che rende vera la condizione w quando il
  * suo testimone vale q, con tutte le altre variabili legate a numeri. Lo
  * mette in *value e ritorna 1 se la condizione, scritta come polinomio
  * uguale a zero, è di primo grado in name con coefficienti numerici, e se in
  * quel valore il denominatore non si annulla. Un conto che non riesce vuol
- * dire solo che da qui non viene un valore. */
-static int sample_solution(int name, const Wanted *w, Frac q, Frac *value) {
-    const Formula *f = w->source;
+ * dire solo che da qui non viene un valore.
+ *
+ * Se la condizione contiene un'applicazione definita per casi il cui
+ * argomento dipende da name (11v), in *pieces va il numero dei suoi casi, e
+ * si usa il caso piece: il valore del caso nell'equazione, oppure il punto
+ * stesso, se il caso è "x = c". Con piece fuori dai casi non c'è un valore.
+ * È solo un valore da provare: chi chiama lo ricontrolla calcolando con i
+ * numeri, dove il caso si decide da sé. */
+static int sample_solution(int name, const Wanted *w, Frac q, int piece, int *pieces, Frac *value) {
     size_t mark = arena_used;
     Poly num, den, part[2];
     Num zero;
-    Rat gap;
+    int x = atom_var(name), forced = 0;
+    *pieces = 0;
     if (w->witness && env_count == MAX_ENV) return 0;
-    if (f->kind == F_DIVIDES) {
-        gap = rat_add(eval(f->right), rat_mul(rat_frac(q), eval(f->left)), 1);
-    } else if (f->kind == F_IN) {
-        gap = rat_add(eval(f->left), rat_frac(q), 1);
-    } else {
-        if (w->witness) env_push(w->witness, rat_frac(q));
-        gap = rat_add(eval(f->left), eval(f->right), 1);
-        if (w->witness) env_pop();
+    Rat gap = sample_gap(w, q);
+    if (failure == CASE_UNDECIDED && poly_uses(undecided_argument.num, x)) {
+        const Map *map = undecided_map;
+        Rat argument = undecided_argument;
+        failure = NULL;
+        *pieces = map->cases;
+        if (piece < 0 || piece >= map->cases || case_choice_count == MAX_CASE_CHOICES) { arena_used = mark; return 0; }
+        if (rat_same(argument, rat_atom(x)) && case_point(map, piece, value)) { arena_used = mark; return 1; }
+        case_choice[case_choice_count++] = (CaseChoice){undecided_node, argument, piece};
+        forced = 1;
+        gap = sample_gap(w, q);
     }
-    int x = atom_var(name);
     int solved = !failure && rat_polynomials(gap, &num, &den) && poly_split(num, x, part, 1) == 1 &&
                  poly_is_constant(part[0]) && poly_is_constant(part[1]) && part[1].term[0].coef.im.num == 0 &&
                  (part[0].count == 0 || part[0].term[0].coef.im.num == 0);
     if (solved) *value = frac_neg(frac_div(part[0].count ? part[0].term[0].coef.re : frac_int(0), part[1].term[0].coef.re));
     solved = solved && !(rat_number(poly_substitute(den, x, rat_frac(*value)), &zero) && num_is_zero(zero)) && !failure;
+    if (forced) case_choice_count--;
     failure = NULL;
     arena_used = mark;
     return solved;
@@ -19616,12 +21094,16 @@ static int sample_candidates(int name, const NumberSet *set, const Wanted *list,
             if ((list[e].set != NULL) != witnessed) continue;
             int tries = witnessed ? check_sample(list[e].set, q, width) : 1;
             for (int t = 0; t < tries && count < SAMPLE_SIZE; t++) {
-                Frac x;
-                if (!sample_solution(name, &list[e], witnessed ? q[t] : frac_int(0), &x) || !numbers_contain(set, x)) continue;
-                int seen = 0;
-                for (int i = 0; i < knowns && !seen; i++) seen = frac_cmp(known[i], x) == 0;
-                for (int i = 0; i < count && !seen; i++) seen = frac_cmp(value[i], x) == 0;
-                if (!seen) value[count++] = x;
+                /* Con un'applicazione definita per casi, un valore per
+                 * ogni caso (sample_solution()). */
+                for (int piece = -1, pieces = 0; piece < pieces && count < SAMPLE_SIZE; piece++) {
+                    Frac x;
+                    if (!sample_solution(name, &list[e], witnessed ? q[t] : frac_int(0), piece, &pieces, &x) || !numbers_contain(set, x)) continue;
+                    int seen = 0;
+                    for (int i = 0; i < knowns && !seen; i++) seen = frac_cmp(known[i], x) == 0;
+                    for (int i = 0; i < count && !seen; i++) seen = frac_cmp(value[i], x) == 0;
+                    if (!seen) value[count++] = x;
+                }
             }
         }
     }
@@ -19894,8 +21376,32 @@ static const char *records_doubt(void) {
     return NULL;
 }
 
+/* Calcola con i numeri l'immagine dell'elemento value del dominio di map,
+ * un'applicazione definita per casi (17s), senza fidarsi del primo caso che
+ * vale: tutti i casi che valgono devono dare lo stesso numero, e almeno uno
+ * deve valere. Se la regola com'è scritta c'è (i casi vengono dai suoi
+ * valori assoluti), anche lei deve dare quel numero: è il controllo della
+ * lettura per casi. Mette il numero in *image e ritorna 1 se tutto torna. */
+static int cases_image(const Map *map, Rat value, Num *image) {
+    int found = 0;
+    Num other;
+    env_push(map->parameter, value);
+    for (int i = 0; i < map->cases && !failure; i++) {
+        int holds = condition_computed(map->piece[i].when);
+        if (holds < 0) found = -1;
+        if (holds != 1 || found < 0) continue;
+        if (!rat_number(eval(map->piece[i].value), &other)) found = -1;
+        else if (found && !num_equal(other, *image)) found = -1;
+        else { *image = other; found = 1; }
+    }
+    if (found > 0 && map->body && (!rat_number(eval(map->body), &other) || !num_equal(other, *image))) found = -1;
+    env_pop();
+    return found > 0 && !failure;
+}
+
 /* Ritorna 1 se, sul campione del dominio, la regola di map dà sempre un
- * numero che sta nel codominio. */
+ * numero che sta nel codominio. Per una definizione per casi, lo dà nel
+ * modo di cases_image(). */
 static int map_holds_on_sample(const Map *map) {
     Frac sample[SAMPLE_SIZE], other[SAMPLE_SIZE];
     numbers_sample(&map->domain, sample, SAMPLE_SIZE);
@@ -19906,13 +21412,78 @@ static int map_holds_on_sample(const Map *map) {
     for (int i = 0; i < SAMPLE_SIZE; i++) {
         for (int j = 0; j < seconds; j++) {
             Num value;
-            env_push(map->parameter, rat_frac(sample[i]));
-            if (map->binary) env_push(map->parameter2, rat_frac(other[j]));
-            Rat image = eval(map->body);
-            if (map->binary) env_pop();
-            env_pop();
-            if (failure || !rat_number(image, &value) || value.im.num != 0 || !numbers_contain(&map->codomain, value.re)) return 0;
+            if (map->cases) {
+                if (!cases_image(map, rat_frac(sample[i]), &value)) return 0;
+            } else {
+                env_push(map->parameter, rat_frac(sample[i]));
+                if (map->binary) env_push(map->parameter2, rat_frac(other[j]));
+                Rat image = eval(map->body);
+                if (map->binary) env_pop();
+                env_pop();
+                if (failure || !rat_number(image, &value)) return 0;
+            }
+            if (value.im.num != 0 || !numbers_contain(&map->codomain, value.re)) return 0;
         }
+    }
+    return 1;
+}
+
+/* Ritorna, per un'applicazione definita per casi i cui casi non si sono
+ * dimostrati una definizione (18v-6), che cosa trova il campione del
+ * dominio: un punto in cui nessun caso vale, due casi che valgono insieme e
+ * danno valori diversi, o un valore fuori dal codominio. Il motivo sta in un
+ * testo che vale fino alla chiamata successiva; NULL se il campione non trova
+ * nulla, o se le condizioni non si calcolano con i numeri, perché nominano
+ * un parametro (17s). */
+static const char *cases_fault(const Map *map) {
+    static char reason[160];
+    Frac sample[2 * SAMPLE_SIZE];
+    Num value, other;
+    numbers_sample(&map->domain, sample, 2 * SAMPLE_SIZE);
+    for (int i = 0; i < 2 * SAMPLE_SIZE && !failure; i++) {
+        int applies = 0, clash = 0;
+        env_push(map->parameter, rat_frac(sample[i]));
+        for (int k = 0; k < map->cases && !failure; k++) {
+            int holds = condition_computed(map->piece[k].when);
+            if (holds < 0) { env_pop(); failure = NULL; return NULL; }
+            if (!holds || !rat_number(eval(map->piece[k].value), &other)) continue;
+            if (applies++ && !num_equal(other, value)) clash = 1;
+            value = other;
+        }
+        env_pop();
+        if (failure) break;
+        const char *what = !applies ? "nessun caso della definizione vale" : clash ? "due casi della definizione valgono e danno valori diversi"
+                         : value.im.num || !numbers_contain(&map->codomain, value.re) ? "il valore cade fuori dal codominio" : NULL;
+        if (!what) continue;
+        int n = snprintf(reason, sizeof reason, "la definizione per casi non definisce un'applicazione: in %c = ", map->parameter);
+        if (sample[i].den == 1) snprintf(reason + n, sizeof reason - (size_t)n, "%lld %s", sample[i].num, what);
+        else snprintf(reason + n, sizeof reason - (size_t)n, "%lld/%lld %s", sample[i].num, sample[i].den, what);
+        return reason;
+    }
+    failure = NULL;
+    return NULL;
+}
+
+/* La verifica dell'enunciato e delle sue applicazioni, con i parametri
+ * (17s) dal posto level in su legati, uno per volta, ai valori di
+ * check_sample(): ciò che la dimostrazione ha stabilito per ogni valore dei
+ * parametri deve reggere in ognuno. Con thesis NULL si guardano solo le
+ * applicazioni. Ritorna 1 se tutto regge. */
+static int sample_with_parameters(const Formula *thesis, int negated, int level) {
+    if (level < statement_parameter_count && env_lookup(statement_parameters[level].name))
+        return sample_with_parameters(thesis, negated, level + 1);
+    if (level == statement_parameter_count) {
+        int holds = !thesis || sample_holds(thesis, negated);
+        for (int i = 0; i < map_count; i++) holds = holds && map_holds_on_sample(&maps[i]);
+        return holds;
+    }
+    Frac value[SAMPLE_SIZE + 1];
+    int values = check_sample(statement_parameters[level].numbers, value, sample_width);
+    for (int i = 0; i < values; i++) {
+        env_push(statement_parameters[level].name, rat_frac(value[i]));
+        int holds = sample_with_parameters(thesis, negated, level + 1);
+        env_pop();
+        if (!holds) return 0;
     }
     return 1;
 }
@@ -20209,6 +21780,19 @@ static int formula_has_kind(const Formula *f, FormulaKind kind) {
     return f && (f->kind == kind || formula_has_kind(f->a, kind) || formula_has_kind(f->b, kind));
 }
 
+/* Prototipo in avanti inevitabile: le iterate di un'applicazione (17s) si
+ * dimostrano come una successione definita per ricorrenza, con il metodo
+ * del capitolo 26, che viene dopo (26c). */
+static Verdict decide_iterates(const Formula *thesis);
+
+/* Ritorna 1 se l'enunciato in corso definisce le iterate di
+ * un'applicazione (17s). */
+static int iterates_declared(void) {
+    for (int i = 0; i < map_count; i++)
+        if (maps[i].iterates) return 1;
+    return 0;
+}
+
 /* Il lavoro di prove_quantified(), che ne descrive il contratto. Al ritorno
  * la tabella `maps` contiene ancora le applicazioni dell'enunciato. */
 static Verdict decide_quantified(const char *formula) {
@@ -20228,7 +21812,7 @@ static Verdict decide_quantified(const char *formula) {
     atom_count = base_poly_count = atan_count = 0;
     failure = NULL;
     env_count = 0;
-    map_count = 0;
+    map_count = statement_parameter_count = 0;
     syntax_error = NULL;
     cursor = formula;
     next_token();
@@ -20247,11 +21831,19 @@ static Verdict decide_quantified(const char *formula) {
             thesis = thesis->b;
         }
         for (int i = 0; i < map_count; i++)
-            if (!maps[i].body) fail("un'applicazione è dichiarata senza la regola che la definisce");
+            if (!maps[i].body && !maps[i].cases) fail("un'applicazione è dichiarata senza la regola che la definisce");
         pair_sets_check();
-        quantifier_depth = 0;
+
+        /* I parametri (17s) sono visibili in tutta la tesi, e contano tra le
+         * variabili a cui la verifica dà un valore. */
+        scope_parameters();
+        quantifier_depth = statement_parameter_count;
         if (!failure) formula_check(thesis);
+        scope_count = 0;
     }
+
+    /* 26c. Le iterate di un'applicazione: una successione per ricorrenza. */
+    if (!syntax_error && !failure && iterates_declared()) return decide_iterates(thesis);
 
     /* 27l. Un enunciato con segni di derivata lo decide solo la tabella dei
      * segni, in una variabile reale, e solo se le derivate espanse dicono
@@ -20283,7 +21875,13 @@ static Verdict decide_quantified(const char *formula) {
      * con = e \neq. Con due lettere reali, un parametro e una variabile, la
      * tabella si fa per casi sul parametro (18t). */
     if (!syntax_error && !failure && formula_needs_signs(thesis)) {
-        if (map_count > 0) verdict.reason = "le relazioni d'ordine e i numeri reali non sono ancora trattati insieme alle applicazioni";
+        int reals = 0;
+        for (int i = 0; i < map_count; i++) reals = reals || maps[i].domain.reals || maps[i].codomain.reals;
+        if (reals)
+            verdict.reason = "le applicazioni tra numeri reali non sono trattate: le regole sui quantificatori lavorano sui razionali, "
+                             "dove manca per esempio la radice \\sqrt{y} che servirebbe come valore di un \"esiste\", e la tabella "
+                             "dei segni decide una sola variabile reale";
+        else if (map_count > 0) verdict.reason = "le relazioni d'ordine e i numeri reali non sono ancora trattati insieme alle applicazioni";
         else if (formula_has_kind(thesis, F_IN) || formula_has_kind(thesis, F_DIVIDES))
             verdict.reason = "le relazioni d'ordine e i numeri reali non sono ancora trattati insieme all'appartenenza a un insieme numerico e alla divisibilità";
         else if (has_parameter(thesis)) decide_with_parameter(thesis, &verdict);
@@ -20301,10 +21899,22 @@ static Verdict decide_quantified(const char *formula) {
     /* Prima la tesi, poi la sua negazione. Il testo si riscrive da capo ogni
      * volta, perché comincia in modo diverso nei due casi. Anche la memoria
      * riparte da dov'era dopo il parsing: un primo tentativo che la riempie
-     * non deve togliere al secondo la possibilità di riuscire. */
-    int stopped = 0;
+     * non deve togliere al secondo la possibilità di riuscire.
+     *
+     * Con dei parametri (17s) la tesi e la negazione si cercano per ogni
+     * valore dei parametri, che restano variabili generiche. Una tesi falsa
+     * solo per qualche valore si smentisce però con quel valore: dopo i due
+     * tentativi soliti, la negazione si cerca con i parametri legati, uno
+     * dopo l'altro, ai primi PARAMETER_TRIES elementi del loro insieme. È
+     * lecito perché ciò che l'enunciato afferma vale per ogni valore dei
+     * parametri: basta che fallisca per uno, in cui le ipotesi valgono (le
+     * regole definiscono un'applicazione, 18m), per smentirlo. */
+    int stopped = 0, instances = 0;
     size_t parsed = arena_used;
-    for (int negated = 0; negated < 2 && !syntax_error && !failure; negated++) {
+    if (statement_parameter_count) instances = 1;
+    for (int i = 0; i < statement_parameter_count; i++) instances *= PARAMETER_TRIES;
+    for (int attempt = 0; attempt < 2 + instances && !syntax_error && !failure; attempt++) {
+        int negated = attempt > 0, instance = attempt - 2;
         proof_reset();
         forget_choices(thesis);
         arena_used = parsed;
@@ -20312,26 +21922,51 @@ static Verdict decide_quantified(const char *formula) {
         chosen_count = 0;
         chosen_by_cases = 0;
         record_count = hypotheses_named = 0;
-        universal_count = 0;
         universal_named = 0;
+        excluded_count = case_choice_count = region_depth = split_pending = 0;
+
+        /* I parametri (17s) sono variabili generiche dall'inizio, oppure, in
+         * uno degli ultimi tentativi, numeri. */
+        env_count = 0;
+        for (int i = 0; i < statement_parameter_count; i++) universal[i] = statement_parameters[i];
+        universal_count = instance < 0 ? statement_parameter_count : 0;
         split_modulus = split_case = 0;
         search_left = MAX_SEARCH;
         proof_add("\\textbf{%s}\n\\begin{itemize}\n", negated ? "The statement is false." : "Proof.");
+        for (int i = 0, rest = instance; i < statement_parameter_count && instance >= 0; i++, rest /= PARAMETER_TRIES) {
+            Frac value[PARAMETER_TRIES];
+            numbers_sample(statement_parameters[i].numbers, value, PARAMETER_TRIES);
+            proof_add("\\item Take $%c = ", statement_parameters[i].name);
+            put_frac(value[rest % PARAMETER_TRIES]);
+            proof_add("$, an element of $");
+            put_numbers(statement_parameters[i].numbers);
+            proof_add("$.\n");
+            choose(statement_parameters[i].name, value[rest % PARAMETER_TRIES]);
+            env_push(statement_parameters[i].name, rat_frac(value[rest % PARAMETER_TRIES]));
+        }
 
         /* 18m. Le regole definiscono davvero delle applicazioni? Se no, si
          * guarda sul campione se la regola è sbagliata o se è solo il
          * programma a non saperlo dimostrare. Il conto sul campione può
          * incontrare una divisione per zero, che qui è una risposta e non
          * un errore: per questo `failure` viene azzerato. */
-        for (int i = 0; i < map_count; i++) {
+        int defined = 1;
+        for (int i = 0; i < map_count && defined; i++) {
             if (map_defined(&maps[i])) continue;
-            int plausible = !failure && map_holds_on_sample(&maps[i]);
+
+            /* Con i parametri legati a dei numeri le ipotesi possono non
+             * valere per quei numeri: si passa ai successivi. */
+            if (instance >= 0) { failure = NULL; defined = 0; continue; }
+            int plausible = !failure && sample_with_parameters(NULL, 0, 0);
             failure = NULL;
+            const char *fault = maps[i].cases && !plausible && !statement_parameter_count ? cases_fault(&maps[i]) : NULL;
             verdict.outcome = NOT_PROVED;
-            verdict.reason = plausible ? "non riesco a dimostrare che la regola dà sempre un valore nel codominio"
+            verdict.reason = fault ? fault
+                           : plausible ? "non riesco a dimostrare che la regola dà sempre un valore nel codominio"
                                        : "la regola non definisce un'applicazione: per qualche elemento del dominio il valore manca o cade fuori dal codominio";
             return verdict;
         }
+        if (!defined) continue;
 
         /* Le regole del capitolo 18. */
         int found;
@@ -20355,8 +21990,7 @@ static Verdict decide_quantified(const char *formula) {
          * testa del capitolo 19). Come sopra, un errore di calcolo qui è una
          * mancata conferma. */
         sample_theses = 0;
-        int confirmed = sample_holds(thesis, negated);
-        for (int i = 0; i < map_count; i++) confirmed = confirmed && map_holds_on_sample(&maps[i]);
+        int confirmed = sample_with_parameters(thesis, negated, 0);
         const char *doubt = NULL;
         if (failure || !confirmed) doubt = "la verifica indipendente, su un campione di numeri, non conferma la dimostrazione";
         else if (hypotheses_named && sample_theses < MIN_SATISFIED)
@@ -20416,8 +22050,8 @@ static Verdict prove_quantified(const char *formula) {
 
     /* Le applicazioni dichiarate valgono solo per questo enunciato: il parser
      * delle espressioni, che serve anche agli altri metodi, non deve più
-     * vederle (vedi `maps`, capitolo 8). */
-    map_count = 0;
+     * vederle (vedi `maps`, capitolo 8). Lo stesso per i parametri (17s). */
+    map_count = statement_parameter_count = 0;
     return verdict;
 }
 
@@ -21143,7 +22777,9 @@ static Verdict prove_inequality(const char *formula, int variable, int has_base,
  * (capitolo 10): la definisce l'enunciato, con i primi valori e una regola
  * che dà ogni termine dai precedenti. L'enunciato arriva nella notazione di
  * parse_sequence_statement(): ipotesi, \implies, tesi. Le tesi trattate sono
- * di due tipi, ognuno con il suo teorema.
+ * di due tipi, ognuno con il suo teorema. Ci arrivano anche le iterate f^{n}
+ * di un'applicazione di un enunciato con quantificatori (17s): fissato x, i
+ * numeri f^{n}(x) sono una successione definita per ricorrenza (26c).
  *
  * LA SUCCESSIONE DICHIARATA
  *
@@ -21733,6 +23369,135 @@ static Verdict prove_sequence(const char *formula, int variable, int has_base, l
         refusal.reason = reason;
         if (table.outcome != REFUTED || attempt == INVARIANTS - 1) return refusal;
     }
+}
+
+/* 26c. LE ITERATE DI UN'APPLICAZIONE
+ *
+ * A che cosa serve. "f(x) = 2 + 3x, f^{1} = f e f^{n+1} = f \circ f^{n}:
+ * allora f^{n}(x) = (3^{n} - 1) + 3^{n} x per ogni n e ogni x." Fissato x,
+ * i numeri s_n = f^{n}(x) sono una successione definita per ricorrenza: s_c =
+ * f(x), e s_{n+1} = f^{n+1}(x) = f(f^{n}(x)) = f(s_n), cioè la regola di f
+ * con s_n al posto della sua variabile. È ciò che dicono le due ipotesi, e
+ * niente di più: l'enunciato sulle iterate è quello sulla successione, e lo
+ * dimostra 26a, con x come parametro.
+ *
+ * Perché il passaggio è lecito, e che cosa serve:
+ *
+ *   - la regola di f deve valere in s_n: s_n è un valore di f, quindi sta
+ *     nel codominio, e il codominio deve stare nel dominio (numbers_subset());
+ *     che i valori di f stiano nel codominio lo dimostra 18m;
+ *   - la tesi deve essere per ogni n da c in su e per ogni x di una parte del
+ *     dominio, f^{n}(x) = E, con E senza iterate;
+ *   - 26a vale per i valori del parametro in cui la formula è definita per
+ *     ogni n: con le divisioni di E e della regola soltanto per numeri non
+ *     c'è riserva, e così si chiede. Per lo stesso motivo una smentita di
+ *     26a vale anche qui: per un n fissato E - f^{n}(x) è un polinomio in x
+ *     non nullo, che si annulla in un numero finito di punti, e l'insieme di
+ *     x è infinito.
+ *
+ * La successione si scrive nella notazione di parse_sequence_statement(),
+ * con una lettera nuova, e la si passa a prove_sequence(): da lì in poi è un
+ * enunciato del capitolo 26 come gli altri, con i suoi controlli. */
+
+/* Ritorna 1 se in node ogni divisione è per un numero, senza lettere. */
+static int divisions_by_numbers(const Node *node) {
+    if (!node) return 1;
+    if (node->kind == N_DIV && !node_is_numeral(node->b)) return 0;
+    return divisions_by_numbers(node->a) && divisions_by_numbers(node->b) && divisions_by_numbers(node->c);
+}
+
+/* Ritorna 1 se in node compare un'iterata di un'applicazione. */
+static int node_iterates(const Node *node) {
+    return node && ((node->kind == N_APPLY && node->c) || node_iterates(node->a) || node_iterates(node->b) || node_iterates(node->c));
+}
+
+/* 26c. Decide la tesi thesis di un enunciato che definisce le iterate di
+ * un'applicazione, come descritto in testa al paragrafo, e ne ritorna il
+ * verdetto. Svuota l'arena, come prove_sequence(): al ritorno le applicazioni
+ * e la tesi non valgono più. */
+static Verdict decide_iterates(const Formula *thesis) {
+    static char sequence[MAX_FORMULA], prefix[PROOF_BYTES / 4], shown[3][MAX_FORMULA / 3];
+    Verdict verdict = {UNSUPPORTED, 0, 0, 0, NULL, NULL, NULL, "per induzione, sulle iterate come successione", NULL, NULL};
+    verdict.reason = "le iterate f^{n} si dimostrano in un'uguaglianza f^{n}(x) = E, per ogni n dal primo indice e per ogni x, "
+                     "con f data da una regola sola che manda il codominio nel dominio";
+
+    /* La forma: due "per ogni", n e x, e un'uguaglianza con f^{n}(x) da una
+     * parte. */
+    const Formula *outer = thesis, *inner = thesis->kind == F_FORALL ? thesis->a : NULL;
+    const Formula *equation = inner && inner->kind == F_FORALL ? inner->a : NULL;
+    if (!equation || equation->kind != F_EQUAL) return verdict;
+    const Node *term = equation->left, *closed = equation->right;
+    if (!(term->kind == N_APPLY && term->c)) { term = equation->right; closed = equation->left; }
+    if (term->kind != N_APPLY || !term->c || term->c->kind != N_VAR || term->a->kind != N_VAR || node_iterates(closed)) return verdict;
+    const Formula *index = outer->variable == term->c->name ? outer : inner, *point = index == outer ? inner : outer;
+    if (index->variable != term->c->name || point->variable != term->a->name) return verdict;
+    const Map *map = map_find(term->name);
+    if (!map || !map->body || map->cases || map->binary || map->partner || statement_parameter_count ||
+        map->iterate_from != map->step_from || !index->numbers.integers || !index->numbers.bounded || index->numbers.holes ||
+        index->numbers.low + index->numbers.strict != map->iterate_from || !numbers_subset(&map->codomain, &map->domain) ||
+        !numbers_subset(&point->numbers, &map->domain) || !divisions_by_numbers(closed) || !divisions_by_numbers(map->body))
+        return verdict;
+    int n = index->variable, x = point->variable, letter = 0;
+    for (const char *c = "satubvw"; *c && !letter; c++)
+        if (*c != n && *c != x && !map_find(*c) && !node_uses_letter(closed, *c) && !node_uses_letter(map->body, *c)) letter = *c;
+    if (!letter) return verdict;
+
+    /* Che la regola definisca un'applicazione (18m): i valori stanno nel
+     * codominio, e quindi nel dominio. */
+    proof_reset();
+    universal_count = 0;
+    proof_add("\\textbf{Proof.} First the iterates are written as a sequence, then the claim is proved for it.\n\\begin{itemize}\n");
+    if (!map_defined(map) || failure) {
+        failure = NULL;
+        verdict.outcome = NOT_PROVED;
+        verdict.reason = "non riesco a dimostrare che la regola dà sempre un valore nel codominio";
+        return verdict;
+    }
+
+    /* La successione, scritta con put_node(): il primo valore f(x), la
+     * regola f(s_n), la tesi. Il testo nasce nella dimostrazione e da lì si
+     * copia. */
+    Node at = {N_SEQ, 0, letter, 0, NULL, NULL, NULL}, variable = {N_VAR, 0, x, 0, NULL, NULL, NULL}, now = {N_VAR, 0, n, 0, NULL, NULL, NULL};
+    at.a = &now;
+    const Node *value[3] = {&variable, &at, NULL};
+    for (int part = 0; part < 3; part++) {
+        size_t start = proof_length;
+        shown_name = map->parameter;
+        shown_value = value[part];
+        put_node(part < 2 ? map->body : closed, 0);
+        shown_value = NULL;
+        size_t length = proof_length - start;
+        if (length >= sizeof shown[part] || failure) return verdict;
+        memcpy(shown[part], proof_text + start, length);
+        shown[part][length] = 0;
+        proof_cut(start);
+    }
+    snprintf(sequence, sizeof sequence, "%c_{%lld} = %s, %c_{%c + 1} = %s, %c \\ge %lld \\implies %c_{%c} = %s", letter,
+             map->iterate_from, shown[0], letter, n, shown[1], n, map->iterate_from, letter, n, shown[2]);
+    proof_add("\\item \\emph{The iterates as a sequence.} Fix $%c \\in ", x);
+    put_numbers(&point->numbers);
+    proof_add("$ and let $%c_{%c} = %c^{%c}(%c)$ for $%c \\ge %lld$. By the hypotheses $%c_{%lld} = %c(%c)$ and $%c_{%c + 1} = "
+              "%c(%c_{%c})$: the rule of $%c$ applies to $%c_{%c}$, which is a value of $%c$, because the codomain is part of the "
+              "domain. So $%c_{%lld} = %s$ and $%c_{%c + 1} = %s$ for $%c \\ge %lld$, and the claim is $%c_{%c} = %s$.\n\\end{itemize}\n",
+              letter, n, map->name, n, x, n, map->iterate_from, letter, map->iterate_from, map->name, x, letter, n, map->name,
+              letter, n, map->name, letter, n, map->name, letter, map->iterate_from, shown[0], letter, n, shown[1], n,
+              map->iterate_from, letter, n, shown[2]);
+    if (proof_length >= sizeof prefix) return verdict;
+    memcpy(prefix, proof_text, proof_length + 1);
+
+    /* Il capitolo 26, e la dimostrazione con il suo inizio davanti. */
+    map_count = 0;
+    Verdict decided = prove_sequence(sequence, n, 1, map->iterate_from);
+    if (decided.outcome != PROVED || !decided.proof) return decided;
+    const char *heading = "\\textbf{Proof.} ";
+    if (strncmp(decided.proof, heading, strlen(heading)) == 0) decided.proof += strlen(heading);
+    size_t ahead = strlen(prefix), rest = strlen(decided.proof);
+    if (ahead + rest + 1 > PROOF_BYTES) { decided.proof = NULL; decided.outcome = NOT_PROVED; decided.reason = "dimostrazione troppo lunga"; return decided; }
+    memmove(proof_text + ahead, decided.proof, rest + 1);
+    memcpy(proof_text, prefix, ahead);
+    proof_length = ahead + rest;
+    decided.proof = proof_text;
+    return decided;
 }
 
 /* =============================================================================
