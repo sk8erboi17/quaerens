@@ -513,6 +513,7 @@
 #include <stdint.h>
 #include <float.h>
 #include <stdarg.h>
+#include <time.h>
 
 /* Il verificatore dei certificati (13h). È un programma a sé, incluso qui
  * solo perché il progetto resti un unico comando di compilazione: senza il
@@ -33289,10 +33290,20 @@ static int model_sat_slice(const Sentence *root, int wanted, Model *model, long 
  * perche continuano a nascerne di leggere. Esaurire risorse o saturare senza
  * il vuoto non prova la tesi. Solo il vuoto ricontrollato la dimostra.
  *
+ * SInE sceglie prima le clausole attivate dai simboli meno comuni della
+ * tesi, poi allarga la tolleranza. Il portafoglio limita questi tentativi
+ * per lavoro e tempo CPU; l'ultimo riattiva tutte le clausole. Le clausole
+ * sospese conservano indice e contenuto: il checker ricostruisce sempre
+ * l'enunciato originale, non una tesi riscritta dal selettore. Riprendere
+ * dopo una quota richiede di rimettere in coda anche le clausole elaborate:
+ * l'ultima inferenza puo essere stata interrotta a meta.
+ *
  * Riferimenti: Kovacs e Voronkov, First-Order Theorem Proving and Vampire
  * (2013); Sternagel e Thiemann, Formalizing Knuth-Bendix Orders and
- * Knuth-Bendix Completion (2013). Si implementano le regole, senza codice
- * o risolutori esterni.
+ * Knuth-Bendix Completion (2013); Hoder e Voronkov, Sine Qua Non for Large
+ * Theory Reasoning (2011), selezione applicata qui alle clausole e ai soli
+ * simboli originali, non ai nomi tecnici della traduzione. Si implementano
+ * le regole, senza codice o risolutori esterni.
  */
 
 /* Un blocco stabile di memoria della ricerca. next concatena i blocchi,
@@ -33343,8 +33354,20 @@ typedef struct {
 } SpStep;
 
 /* Stato di una clausola nella ricerca. Cancellarla dalla ricerca conserva
- * la deduzione nel deposito, perche puo essere genitore di una prova. */
-typedef enum { SP_PENDING, SP_ACTIVE, SP_DELETED } SpStage;
+ * la deduzione nel deposito, perche puo essere genitore di una prova.
+ * HELD sospende soltanto un'ipotesi non selezionata nel tentativo corrente. */
+typedef enum { SP_PENDING, SP_ACTIVE, SP_DELETED, SP_HELD } SpStage;
+
+/* Indice sparso di SInE, posseduto dall'arena persistente della ricerca.
+ * first[i..i+1] delimita in symbol i simboli originali distinti della
+ * clausola iniziale i; reverse[j..j+1] delimita in clause le clausole che
+ * contengono il simbolo j. frequency conta clausole, non occorrenze di un
+ * termine; minimum[i] e la frequenza minima nei simboli della clausola,
+ * zero se non ne ha. Entrambi gli indici occupano spazio lineare nei dati. */
+typedef struct {
+    size_t *first, *reverse, *frequency, *minimum;
+    int *symbol, *clause;
+} SpSine;
 
 /* Una clausola immutabile quanto a letterali e deduzione. count e il numero
  * di letterali, variables quello dei nomi normalizzati; literal e posseduto
@@ -33403,13 +33426,29 @@ typedef struct {
     size_t input_cap, original_cap;
     size_t symbol_cap, clause_cap, sub_cap, match_cap, trail_cap, occurs_cap, todo_cap, balance_cap, path_cap;
     int sub_count, match_count, trails, todos, occurrences, balances;
+    SpSine sine;                 /* incidenze immutabili delle clausole iniziali */
+    unsigned long long quota;    /* fine della quota di lavoro, zero per il budget globale */
+    clock_t started, cpu_quota;  /* inizio e durata massima CPU del tentativo; zero senza timer */
+    int resumable;              /* limited dipende dalla quota locale, non da memoria o budget globale */
+    unsigned age_interval;      /* una scelta per eta ogni age_interval turni; zero mantiene cinque */
+    int strategy;               /* zero per il ciclo diretto, 1/2 SInE e 3 tutte le ipotesi */
     SpArena storage, scratch;
 } SpState;
 
-/* Registra lavoro effettivo prima di visitare un nodo o tentare un passo. */
+/* Registra lavoro effettivo prima di visitare un nodo o tentare un passo.
+ * Le quote locali interrompono con le stesse cautele di quelle globali,
+ * ma il portafoglio puo riprendere lo stato. Il tempo CPU guida soltanto
+ * la ricerca: non decide alcuna proposizione matematica. */
 static int sp_visit(SpState *s) {
     if (s->limited || s->unsupported) return 0;
     if (s->work >= saturation_work_limit) { s->limited = 1; return 0; }
+    if (s->quota && s->work >= s->quota) { s->limited = s->resumable = 1; return 0; }
+    if (s->cpu_quota && s->work % 1024 == 0) {
+        clock_t current = clock();
+        if (s->started != (clock_t)-1 && current != (clock_t)-1 && current >= s->started && current - s->started >= s->cpu_quota) {
+            s->limited = s->resumable = 1; return 0;
+        }
+    }
     s->work++;
     return 1;
 }
@@ -33874,10 +33913,11 @@ static int sp_pop(SpState *s) {
     return result;
 }
 
-/* Quattro scelte per peso e una per eta. Con risorse illimitate ogni
- * clausola persistente viene prima o poi scelta, anche con peso crescente. */
+/* Una scelta per eta ogni age_interval turni, cinque di default. Con
+ * risorse illimitate ogni clausola persistente viene prima o poi scelta. */
 static int sp_select(SpState *s) {
-    if (s->rounds++ % 5 == 4) {
+    unsigned interval = s->age_interval ? s->age_interval : 5;
+    if (s->rounds++ % interval == interval - 1) {
         while (s->age < s->clauses && s->clause[s->age].stage != SP_PENDING && sp_visit(s)) s->age++;
         if (s->age < s->clauses) return s->age++;
     }
@@ -33898,7 +33938,7 @@ static int sp_keep(SpState *s, const SpLiteral *literal, int count, SpStep step,
     int trivial = sp_tautology(&c), initial = step.rule == SP_INPUT;
     if (!initial && trivial) return -1;
     if (!initial) for (int i = 0; i < s->clauses && sp_visit(s); i++)
-        if (i != replaced && s->clause[i].stage != SP_DELETED && sp_subsumes(s, s->clause[i], c)) return -1;
+        if (i != replaced && s->clause[i].stage != SP_DELETED && s->clause[i].stage != SP_HELD && sp_subsumes(s, s->clause[i], c)) return -1;
     if (s->clauses == INT_MAX) { s->limited = 1; return -1; }
     if (!sp_reserve(s, (void **)&s->clause, &s->clause_cap, (size_t)s->clauses + 1, sizeof *s->clause)) return -1;
     SpLiteral *saved = sp_allocate(s, &s->storage, (size_t)c.count, sizeof *saved);
@@ -34325,7 +34365,7 @@ static int sp_demodulate(SpState *s, int p, int q) {
 static int sp_search(SpState *s) {
     while (s->empty < 0 && sp_visit(s)) {
         int given = sp_select(s);
-        if (given < 0) break;
+        if (given < 0 || s->limited) break;
         int last = s->clauses, redundant = 0;
         sp_scratch_reset(s);
         for (int i = 0; i < last && !redundant && sp_visit(s); i++)
@@ -34345,9 +34385,191 @@ static int sp_search(SpState *s) {
         /* Una nuova regola unitaria riscrive anche clausole gia in coda o
          * elaborate: le versioni nuove torneranno nella coda equa. */
         for (int i = 0; i < last && s->empty < 0 && sp_visit(s); i++)
-            if (i != given && s->clause[i].stage != SP_DELETED) sp_demodulate(s, given, i);
+            if (i != given && s->clause[i].stage != SP_DELETED && s->clause[i].stage != SP_HELD) sp_demodulate(s, given, i);
     }
     return s->empty >= 0 && !s->limited && !s->unsupported;
+}
+
+/* Conta o raccoglie i simboli originali distinti di un termine. stamp e
+ * l'indice della clausola piu uno, seen evita di contare ripetizioni.
+ * frequency e list possono essere NULL: i due passaggi condividono la
+ * stessa visita, ma il primo conta e il secondo scrive lo spazio esatto. */
+static void sp_sine_term(SpState *s, int term, int stamp, int *seen,
+                          size_t *frequency, int *list, size_t *used) {
+    if (term <= 0 || !sp_visit(s)) return;
+    SpTerm t = s->term[term];
+    if (t.symbol < s->inputs && seen[t.symbol] != stamp) {
+        seen[t.symbol] = stamp;
+        if (*used == (size_t)-1) { s->limited = 1; return; }
+        if (frequency) frequency[t.symbol]++;
+        if (list) list[*used] = t.symbol;
+        (*used)++;
+    }
+    for (int i = 0; i < t.count; i++) sp_sine_term(s, s->argument[t.first + i], stamp, seen, frequency, list, used);
+}
+
+/* Costruisce le incidenze in due passaggi. Ogni simbolo e contato una sola
+ * volta per clausola, anche in f(f(x)); Skolem, domini e Tseitin non
+ * collegano ipotesi altrimenti distinte soltanto perche sono nomi tecnici.
+ * Nessuna clausola viene cambiata, omessa dal deposito o rinumerata.
+ * Richiede una clausificazione completa; ritorna uno per l'indice completo,
+ * zero se le risorse non sono bastate a costruirlo. */
+static int sp_sine_prepare(SpState *s) {
+    if (s->limited || s->unsupported) return 0;
+    SpSine *g = &s->sine;
+    g->first = sp_allocate(s, &s->storage, (size_t)s->initial + 1, sizeof *g->first);
+    g->reverse = sp_allocate(s, &s->storage, (size_t)s->inputs + 1, sizeof *g->reverse);
+    g->frequency = sp_allocate(s, &s->storage, (size_t)s->inputs, sizeof *g->frequency);
+    g->minimum = sp_allocate(s, &s->storage, (size_t)s->initial, sizeof *g->minimum);
+    int *seen = sp_allocate(s, &s->scratch, (size_t)s->inputs, sizeof *seen);
+    if (s->limited) return 0;
+    if (s->inputs) { memset(seen, 0, (size_t)s->inputs * sizeof *seen); memset(g->frequency, 0, (size_t)s->inputs * sizeof *g->frequency); }
+    g->first[0] = 0;
+    for (int i = 0; i < s->initial && sp_visit(s); i++) {
+        size_t used = 0;
+        SpClause c = s->clause[i];
+        for (int j = 0; j < c.count; j++) {
+            sp_sine_term(s, c.literal[j].left, i + 1, seen, g->frequency, NULL, &used);
+            sp_sine_term(s, c.literal[j].right, i + 1, seen, g->frequency, NULL, &used);
+        }
+        if (used > (size_t)-1 - g->first[i]) { s->limited = 1; return 0; }
+        g->first[i + 1] = g->first[i] + used;
+    }
+    if (s->limited) return 0;
+    size_t edges = g->first[s->initial];
+    g->symbol = sp_allocate(s, &s->storage, edges, sizeof *g->symbol);
+    g->clause = sp_allocate(s, &s->storage, edges, sizeof *g->clause);
+    size_t *next = sp_allocate(s, &s->scratch, (size_t)s->inputs, sizeof *next);
+    if (s->limited) return 0;
+    g->reverse[0] = 0;
+    for (int i = 0; i < s->inputs; i++) { g->reverse[i + 1] = g->reverse[i] + g->frequency[i]; next[i] = g->reverse[i]; seen[i] = 0; }
+    for (int i = 0; i < s->initial && sp_visit(s); i++) {
+        size_t used = 0, minimum = (size_t)-1;
+        SpClause c = s->clause[i];
+        int *list = edges ? g->symbol + g->first[i] : NULL;
+        for (int j = 0; j < c.count; j++) {
+            sp_sine_term(s, c.literal[j].left, i + 1, seen, NULL, list, &used);
+            sp_sine_term(s, c.literal[j].right, i + 1, seen, NULL, list, &used);
+        }
+        for (size_t j = 0; j < used && sp_visit(s); j++) {
+            int symbol = list[j];
+            if (g->frequency[symbol] < minimum) minimum = g->frequency[symbol];
+            g->clause[next[symbol]++] = i;
+        }
+        g->minimum[i] = used ? minimum : 0;
+    }
+    return !s->limited;
+}
+
+/* Segna i simboli originali di un elemento della tesi, traducendo i posti
+ * del parser nell'ordine del certificato. Le variabili non sono simboli. */
+static void sp_sine_goal_term(SpState *s, const Elem *e, unsigned char *goal) {
+    if (!e || !sp_visit(s)) return;
+    if (e->symbol >= 0 && e->symbol < declared_symbols && s->input_symbol[e->symbol] >= 0)
+        goal[s->input_symbol[e->symbol]] = 1;
+    sp_sine_goal_term(s, e->arg[0], goal); sp_sine_goal_term(s, e->arg[1], goal);
+}
+
+/* La tesi fornisce i simboli inizialmente rilevanti; le ipotesi non li
+ * diventano soltanto perche sono scritte nell'enunciato da dimostrare. */
+static void sp_sine_goal(SpState *s, const Sentence *n, unsigned char *goal) {
+    if (!n || !sp_visit(s)) return;
+    sp_sine_goal_term(s, n->left, goal); sp_sine_goal_term(s, n->right, goal);
+    sp_sine_goal(s, n->a, goal); sp_sine_goal(s, n->b, goal);
+}
+
+/* Chiusura dei trigger di SInE. Un simbolo rilevante s attiva C se la sua
+ * frequenza non supera tolerance volte il minimo di C; C rende rilevanti
+ * tutti i suoi simboli. Le clausole senza simboli originali sono tenute.
+ * Si visitano liste inverse, non tutte le clausole per ogni nuovo simbolo.
+ * Richiede sp_sine_prepare riuscita. selected ha initial celle e viene
+ * riempito; tolerance deve essere >0. Ritorna uno se la chiusura e completa,
+ * zero con limited se le risorse non sono bastate. */
+static int sp_sine_select(SpState *s, const unsigned char *goal, unsigned tolerance, unsigned char *selected) {
+    if (s->limited || s->unsupported) return 0;
+    const SpSine *g = &s->sine;
+    int *queue = sp_allocate(s, &s->scratch, (size_t)s->inputs, sizeof *queue);
+    unsigned char *relevant = sp_allocate(s, &s->scratch, (size_t)s->inputs, 1);
+    if (s->limited) return 0;
+    int count = 0;
+    for (int i = 0; i < s->inputs; i++) { relevant[i] = goal[i]; if (goal[i]) queue[count++] = i; }
+    for (int i = 0; i < s->initial; i++) selected[i] = g->minimum[i] == 0;
+    for (int at = 0; at < count && sp_visit(s); at++) {
+        int symbol = queue[at];
+        for (size_t j = g->reverse[symbol]; j < g->reverse[symbol + 1] && sp_visit(s); j++) {
+            int clause = g->clause[j]; size_t minimum = g->minimum[clause];
+            if (selected[clause] || (minimum <= (size_t)-1 / tolerance && g->frequency[symbol] > tolerance * minimum)) continue;
+            selected[clause] = 1;
+            for (size_t k = g->first[clause]; k < g->first[clause + 1] && sp_visit(s); k++) {
+                int next = g->symbol[k];
+                if (!relevant[next]) { relevant[next] = 1; queue[count++] = next; }
+            }
+        }
+    }
+    return !s->limited;
+}
+
+/* Ricomincia la coda con le clausole scelte e ogni deduzione conservata.
+ * Non si rianima una clausola eliminata per tautologia o sussunzione.
+ * Anche gli ACTIVE tornano PENDING: una quota puo avere fermato le loro
+ * inferenze prima di esaurirle. L'eta riparte da zero senza perdere equita.
+ * selected=NULL riattiva tutte le ipotesi. Ritorna quante ne sono sospese;
+ * con limited la coda e incompleta e il chiamante non deve usarla. */
+static int sp_requeue(SpState *s, const unsigned char *selected) {
+    int held = 0;
+    s->heap_count = s->age = 0; s->rounds = 0;
+    for (int i = 0; i < s->clauses && sp_visit(s); i++) {
+        if (s->clause[i].stage == SP_DELETED) continue;
+        int keep = i >= s->initial || !selected || selected[i];
+        s->clause[i].stage = keep ? SP_PENDING : SP_HELD;
+        if (keep) sp_enqueue(s, i); else held++;
+    }
+    return held;
+}
+
+/* Portafoglio in ordine: SInE stretto, SInE con tolleranza due e maggiore
+ * frequenza delle scelte per eta, infine tutte le ipotesi. Ogni tentativo
+ * filtrato ha al piu un ottavo del lavoro rimasto e un quarto di secondo
+ * CPU; l'ultimo usa il budget globale. Una firma vuota o un insieme gia
+ * ristretto al massimo non richiedono ricerche filtrate ridondanti.
+ * s contiene la clausificazione completa di root. Ritorna uno soltanto
+ * per una refutazione, zero per una ricerca incompleta; tutti i passi
+ * continuano a riferirsi alle clausole originali. */
+static int sp_portfolio(SpState *s, const Sentence *root) {
+    if (s->limited || s->unsupported) return 0;
+    if (s->empty >= 0 || !s->inputs) return sp_search(s);
+    sp_scratch_reset(s);
+    if (!sp_sine_prepare(s)) return 0;
+    unsigned char *goal = sp_allocate(s, &s->storage, (size_t)s->inputs, 1);
+    if (!goal) return 0;
+    memset(goal, 0, (size_t)s->inputs);
+    sp_sine_goal(s, root->kind == S_IMPLIES ? root->b : root, goal);
+    if (s->limited) return 0;
+    for (int phase = 1; phase <= 3; phase++) {
+        s->strategy = phase;
+        s->quota = 0; s->cpu_quota = 0;
+        sp_scratch_reset(s);
+        unsigned char *selected = NULL;
+        if (phase < 3) {
+            selected = sp_allocate(s, &s->scratch, (size_t)s->initial, 1);
+            if (s->initial && !selected) return 0;
+            if (!sp_sine_select(s, goal, (unsigned)phase, selected)) return 0;
+        }
+        int held = sp_requeue(s, selected);
+        if (s->limited) return 0;
+        if (phase < 3) {
+            unsigned long long share = (saturation_work_limit - s->work) / 8;
+            if (!held || !share) continue;
+            s->quota = s->work + share;
+            s->started = clock(); s->cpu_quota = CLOCKS_PER_SEC / 4 ? CLOCKS_PER_SEC / 4 : 1;
+        }
+        s->age_interval = phase == 2 ? 2 : 5;
+        if (sp_search(s)) { s->quota = 0; s->cpu_quota = 0; return 1; }
+        if (s->limited && !s->resumable) return 0;
+        s->limited = s->resumable = 0;
+    }
+    s->quota = 0; s->cpu_quota = 0;
+    return 0;
 }
 
 /* Scrive un termine nel protocollo indipendente. I simboli sono numeri
@@ -34483,12 +34705,12 @@ static int saturation_attempt(const Sentence *root, const Sentence *const *laws,
                                long long compared, Verdict *verdict) {
     if (!sp_first_order(root)) return 0;
     SpState state = {0};
-    if (!sp_prepare(&state, root, laws, law_count) || !sp_search(&state)) { sp_clear(&state); return 0; }
+    if (!sp_prepare(&state, root, laws, law_count) || !sp_portfolio(&state, root)) { sp_clear(&state); return 0; }
     /* Se il vuoto e gia nella negazione della tesi, non servono leggi
      * aggiuntive dopo di esso: si riscrive la sola refutazione della tesi. */
     if (state.empty < state.initial && state.empty + 1 < state.initial) {
         sp_clear(&state);
-        if (!sp_prepare(&state, root, NULL, 0) || !sp_search(&state)) { sp_clear(&state); return 0; }
+        if (!sp_prepare(&state, root, NULL, 0) || !sp_portfolio(&state, root)) { sp_clear(&state); return 0; }
         law_count = 0;
     }
     sp_write(&state, root, laws, law_count, compared);
