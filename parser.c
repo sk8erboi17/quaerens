@@ -41,8 +41,9 @@
  *
  * Svolgere una definizione è l'unico punto, oltre alle convenzioni di
  * lettura, in cui questo file può cambiare il senso di un enunciato. Lo
- * svolgimento delle relazioni tra numeri (17j) riscrive il testo, e si
- * ricontrolla rifacendolo sull'albero; quelli di 17q e 17r si fanno
+ * svolgimento delle relazioni tra numeri (17j), anche tra coppie di numeri
+ * (17t), riscrive il testo, e si ricontrolla rifacendolo sull'albero; quelli
+ * di 17q e 17r si fanno
  * sull'albero, dove una variabile è un posto e non una lettera, e il motore
  * li ricontrolla calcolando su modelli finiti l'enunciato com'è scritto e
  * quello svolto (28h e parts_check() in main.c). Anche il valore assoluto
@@ -2366,12 +2367,20 @@ static void parts_reindex(SetNode *root, int *free_map) {
  *     conjunction := unary { \land unary }
  *     unary       := \lnot unary
  *                  | (\forall | \exists) lettera { ',' lettera } [\in numbers] unary
+ *                  | (\forall | \exists) lettera { ',' lettera } \in pairs unary  (17t)
+ *                  | (\forall | \exists) lettera { ',' lettera } \in lettera unary  (17t-4)
  *                  | \exists '!' lettera \in numbers unary
- *                  | lettera \colon numbers \to numbers
+ *                  | lettera \colon numbers \to (numbers | pairs)   (in coppie: 17s)
  *                  | operazione \colon pairs \to numbers
  *                  | lettera '=' \{ '(' lettera ',' lettera ')' \in pairs
  *                                    (\mid | ':') formula \}
+ *                  | lettera '=' \{ '(' couple ',' couple ')' \in quads
+ *                                    (\mid | ':') formula \}          (17t)
  *                  | '(' expr ',' expr ')' (\in | \notin) lettera
+ *                  | lettera '=' \{ lettera '+' 'i' lettera \mid lettera ',' lettera
+ *                                    \in numbers \}                    (17t-4)
+ *                  | '(' member ',' member ')' (\in | \notin) lettera  (17t)
+ *                  | couple-value ('=' | \neq) couple-value          (17s, 17t-5)
  *                  | expr (\in | \notin) numbers
  *                  | expr (\mid | \nmid) expr
  *                  | expr \equiv expr \pmod group
@@ -2381,6 +2390,12 @@ static void parts_reindex(SetNode *root, int *free_map) {
  *     relation    := '=' | \neq | '<' | '>' | \le | \ge
  *     pairs       := side \times side | side '^' 2
  *     side        := numbers | '(' numbers ')'
+ *     couple      := '(' name ',' name ')' | name '+' 'i' name     name := lettera [ '_' cifra ]
+ *     quads       := couples '^' 2 | couples \times couples
+ *     couples     := pairs | '(' pairs ')' | lettera   (un insieme di complessi, 17t-4)
+ *     member      := '(' expr ',' expr ')' | lettera
+ *     couple-value := '(' expr ',' expr ')' | lettera che sta per una coppia
+ *                   | f '(' expr ')' con f a valori in coppie
  *     numbers     := (\mathbb{N} | \mathbb{N}_{0} | \mathbb{Z} | \mathbb{Q} | \mathbb{Q}^{+}
  *                     | \mathbb{R} | \mathbb{R}^{+})
  *                    { \setminus \{ numero { ',' numero } \} }
@@ -2396,7 +2411,9 @@ static void parts_reindex(SetNode *root, int *free_map) {
  *   - una relazione data da una regola (17i). Dichiarata tra le ipotesi con
  *     R = \{(x, y) \in A \times B \mid c\}, la lettera R è un nome per la
  *     condizione c, e (s, t) \in R vuol dire: s sta in A, t sta in B, e vale
- *     c con s e t al posto di x e y (17j);
+ *     c con s e t al posto di x e y (17j). Una relazione tra coppie di
+ *     numeri si svolge allo stesso modo, una componente alla volta, e una
+ *     lettera che sta per una coppia diventa le sue due componenti (17t);
  *   - \exists! y \in A\ P, "esiste un solo y": esiste y in A con P, e ogni
  *     z di A con P è uguale a y (17l);
  *   - s \in A con A un insieme numerico resta invece una condizione, F_IN:
@@ -2440,7 +2457,10 @@ static void parts_reindex(SetNode *root, int *free_map) {
  * motore, la tabella dei segni (18p): le altre lavorano sui razionali con =
  * e \neq, e non per caso. La regola 18b, che esclude gli zeri di un
  * polinomio, trova solo le radici razionali, e tra i numeri reali x^2 = 2 ha
- * soluzioni che quella regola non vede.
+ * soluzioni che quella regola non vede. Fa eccezione un enunciato sui reali
+ * senza relazioni d'ordine che parla di appartenenza, come a b^{-1} \in
+ * \mathbb{Q}: lo trattano le regole del capitolo 18, che per le variabili
+ * reali rinunciano a ciò che vale solo per le razionali (18y in main.c).
  *
  * Dopo il parsing, formula_check() controlla ciò che la grammatica non dice:
  * che ogni lettera sia quantificata, e una volta sola; che le espressioni
@@ -2553,10 +2573,11 @@ typedef enum {
  * qualcosa che può essere vero o falso. I campi non usati dal tipo sono NULL o
  * zero. I nodi vivono nell'arena.
  *
- * Gli ultimi quattro campi sono i soli scritti dopo il parsing: li riempie la
- * dimostrazione (capitolo 18), perché la verifica indipendente (capitolo 19)
- * possa ricontrollare ciò che ha scelto. Quando un "per ogni" è dimostrato
- * per casi sul resto (regola 18o), il valore scelto per un "esiste" al suo
+ * I campi da has_witness a quotient sono i soli scritti dopo il parsing: li
+ * riempie la dimostrazione (capitolo 18), perché la verifica indipendente
+ * (capitolo 19) possa ricontrollare ciò che ha scelto. Quando un "per ogni"
+ * è dimostrato per casi sul resto (regola 18o), il valore scelto per un
+ * "esiste" al suo
  * interno cambia da un caso all'altro: per questo i valori sono MAX_CASES, e
  * fuori da una dimostrazione per casi si usa il primo. */
 typedef struct Formula Formula;
@@ -2584,6 +2605,12 @@ struct Formula {
     int modulus;              /* F_FORALL dimostrato per casi sul resto: il
                                  modulo m; altrimenti 0 */
     int quotient;             /* e la lettera t di variable = m t + r */
+    int pair;                 /* 17t-2. F_FORALL, F_EXISTS: se variable è la
+                                 prima componente di una coppia, la lettera
+                                 della coppia (la seconda componente è la
+                                 variabile del nodo a); altrimenti 0 */
+    int complex;              /* 17t-4: con pair, 1 se la coppia è un numero
+                                 complesso, parte reale e coefficiente di i */
 };
 
 /* Una variabile quantificata e l'insieme su cui varia. */
@@ -2725,12 +2752,19 @@ static const Bound *scope_find(int name) {
  * il programma R è un nome per la condizione c, e ogni (s, t) \in R viene
  * svolto (17j).
  *
- * Invariante: le due lettere sono diverse; [start, end) è il testo di c
- * com'è scritto, e resta valido finché dura la lettura dell'enunciato. */
+ * Una relazione tra coppie di numeri (17t), R = \{((x_{1}, y_{1}), (x_{2},
+ * y_{2})) \in (A \times B)^{2} \mid c\}, ha quattro lettere invece di due:
+ * le componenti della prima coppia, poi quelle della seconda.
+ *
+ * Invariante: le lettere sono diverse; [start, end) è il testo di c, com'è
+ * scritto o, per una relazione tra coppie, con le lettere rinominate, e resta
+ * valido finché dura la lettura dell'enunciato. */
 typedef struct {
     int name;                  /* la lettera R */
-    int letter[2];             /* x e y */
-    NumberSet numbers[2];      /* A e B */
+    int width;                 /* 1 per una relazione tra numeri, 2 tra coppie (17t) */
+    int complex;               /* 17t-4: 1 se le coppie sono numeri complessi a + ib */
+    int letter[4];             /* x e y; tra coppie le quattro componenti */
+    NumberSet numbers[4];      /* A e B; tra coppie l'insieme di ogni componente */
     const char *start, *end;   /* il testo di c */
     const Formula *condition;  /* c letta una volta: serve ai controlli di
                                   pair_sets_check(), non alle dimostrazioni */
@@ -2742,6 +2776,25 @@ typedef struct {
 /* Gli insiemi di coppie dichiarati dall'enunciato in corso. */
 static PairSet pair_sets[MAX_PAIR_SETS];
 static int pair_set_count;
+
+/* 17t-4. Un insieme di numeri complessi dichiarato dall'enunciato, A =
+ * \{a + ib \mid a, b \in S\}: per il lettore è l'insieme delle coppie
+ * (a, b) di S \times S. */
+typedef struct {
+    int name;          /* la lettera A */
+    NumberSet part;    /* S, l'insieme delle due componenti */
+} ComplexSet;
+
+/* Gli insiemi di numeri complessi dichiarati dall'enunciato in corso. */
+static ComplexSet complex_sets[MAX_PAIR_SETS];
+static int complex_set_count;
+
+/* Ritorna l'insieme di numeri complessi di nome name, o NULL. */
+static const ComplexSet *complex_set_find(int name) {
+    for (int i = 0; i < complex_set_count; i++)
+        if (complex_sets[i].name == name) return &complex_sets[i];
+    return NULL;
+}
 
 /* Ritorna l'insieme di coppie di nome name, o NULL se non è stato dichiarato. */
 static PairSet *pair_set_find(int name) {
@@ -2952,6 +3005,17 @@ static NumberSet parse_side(void) {
     return set;
 }
 
+/* Legge l'apice di un quadrato cartesiano, ^2 oppure ^{2}. */
+static void parse_square(void) {
+    if (!is_char('^')) { syntax("serve un insieme di coppie: A \\times B oppure A^{2}"); return; }
+    next_token();
+    int braces = is_char('{');
+    if (braces) next_token();
+    if (token.kind != T_NUM || token.value != 2 || token.digits != 1) syntax("di un insieme è riconosciuto solo il quadrato, A^{2}");
+    next_token();
+    if (braces) expect_char('}', "manca }");
+}
+
 /* pairs := side \times side | side '^' 2
  *
  * Mette in side[0] e side[1] gli insiemi delle due componenti. */
@@ -2963,13 +3027,7 @@ static void parse_pairs(NumberSet *side) {
         return;
     }
     side[1] = side[0];
-    if (!is_char('^')) { syntax("serve un insieme di coppie: A \\times B oppure A^{2}"); return; }
-    next_token();
-    int braces = is_char('{');
-    if (braces) next_token();
-    if (token.kind != T_NUM || token.value != 2 || token.digits != 1) syntax("di un insieme è riconosciuto solo il quadrato, A^{2}");
-    next_token();
-    if (braces) expect_char('}', "manca }");
+    parse_square();
 }
 
 /* Aggiunge a set->bound l'indice di ogni somma o prodotto dell'espressione
@@ -2999,6 +3057,306 @@ static void bound_letters(const Formula *f, PairSet *set) {
     bound_letters(f->b, set);
 }
 
+/* 17t. COPPIE DI NUMERI
+ *
+ * Una relazione può legare coppie di numeri invece che numeri:
+ *
+ *     R = \{((x_{1}, y_{1}), (x_{2}, y_{2})) \in (\mathbb{Z}^{2})^{2} \mid
+ *          x_{1} - y_{2} = x_{2} - y_{1}\}
+ *
+ * e gli enunciati ne parlano con lettere che stanno per coppie: \forall x
+ * \in \mathbb{Z}^{2}\ ((x, x) \in R), oppure \forall x, y\ ((x, y) \in R
+ * \implies (y, x) \in R), dove x e y variano tra le coppie come in 17m. Per
+ * il motore una coppia non è un oggetto: è le sue due componenti, ognuna un
+ * numero. Il lettore svolge quindi tutto in componenti:
+ *
+ *   17t-1. La dichiarazione: le quattro componenti, anche con un pedice,
+ *          ricevono lettere nuove, e la regola viene riscritta con quelle
+ *          (draft_rename()). La riscrittura si ricontrolla confrontando,
+ *          nodo per nodo, la regola letta com'era scritta, dove x_{1} è una
+ *          lettera con un pedice, con quella riscritta (formula_parts_renamed()).
+ *   17t-2. Una lettera che sta per una coppia riceve due lettere nuove, le
+ *          sue componenti (PairVariable). Il suo quantificatore diventa due
+ *          quantificatori, uno per componente: "per ogni coppia (a, b) di
+ *          A \times B" è "per ogni a di A e ogni b di B". La lettera della
+ *          coppia non resta nell'albero: usata altrove, come numero, non
+ *          risulterebbe quantificata, e l'enunciato sarebbe respinto.
+ *   17t-3. L'appartenenza ((s_{1}, s_{2}), (t_{1}, t_{2})) \in R, o con la
+ *          lettera di una coppia al posto di una delle due, si svolge come in
+ *          17j, con le quattro componenti al posto delle quattro lettere della
+ *          regola, e lo svolgimento si ricontrolla allo stesso modo.
+ *   17t-4. I numeri complessi. A = \{a + ib \mid a, b \in S\} dichiara un
+ *          insieme di numeri complessi, che per il lettore è S \times S: un
+ *          suo elemento è la coppia della parte reale e del coefficiente di
+ *          i, e due complessi sono uguali quando lo sono le due parti. Una
+ *          relazione tra loro si scrive R = \{(a + ib, c + id) \in A^{2}
+ *          \mid c\}, e \forall x \in A dice che x varia tra le coppie di A.
+ *          Tutto il resto è 17t-1, 17t-2 e 17t-3.
+ *   17t-5. L'uguaglianza x = y tra due lettere che stanno per coppie è
+ *          quella delle componenti, x_1 = y_1 \land x_2 = y_2. La legge
+ *          pair_comparison(), con i confronti tra coppie di 17s: anche x =
+ *          (1, 2), o f(t) = x con f a valori in coppie.
+ *
+ * Che cosa non c'è: una coppia come argomento di un'applicazione o dentro
+ * un'espressione (le operazioni tra numeri complessi, f(a + ib)), i numeri
+ * complessi scritti con dei numeri, come (0, z) \in R o 1 + 2i, l'insieme
+ * \mathbb{C} e una relazione dichiarata con a, b, c, d \in \mathbb{R}
+ * dentro la condizione, le coppie di coppie. */
+
+/* 17t. Il nome di una componente nella dichiarazione di una relazione tra
+ * coppie: una lettera, con un pedice di una cifra (x_{1}) oppure senza
+ * (index 0). */
+typedef struct {
+    int letter, index;
+} PartName;
+
+/* 17t. Ritorna il posto del nome (letter, index) tra i count di part[], o -1. */
+static int part_find(const PartName *part, int count, int letter, long long index) {
+    for (int i = 0; i < count; i++)
+        if (part[i].letter == letter && part[i].index == index) return i;
+    return -1;
+}
+
+/* 17t-1. Legge un nome: lettera [ '_' cifra | '_' '{' cifra '}' ]. */
+static PartName parse_part_name(void) {
+    PartName name = {token.ch, 0};
+    if (token.kind != T_LETTER) { syntax("in una relazione tra coppie le componenti sono lettere, anche con un pedice di una cifra"); return name; }
+    next_token();
+    if (!is_char('_')) return name;
+    next_token();
+    int braces = is_char('{');
+    if (braces) next_token();
+    if (token.kind != T_NUM || token.digits != 1 || token.value < 1) syntax("in una relazione tra coppie il pedice di una componente è una cifra");
+    name.index = (int)token.value;
+    next_token();
+    if (braces) expect_char('}', "manca }");
+    return name;
+}
+
+/* 17t. Legge l'insieme di una coppia, pairs oppure '(' pairs ')', e ne mette
+ * le due componenti in side[0] e side[1]. */
+static void parse_pair_side(NumberSet *side) {
+    int open = token.kind == T_OPEN;
+    if (open) next_token();
+    parse_pairs(side);
+    if (open && token.kind == T_CLOSE) next_token();
+    else if (open) syntax("manca la parentesi chiusa");
+}
+
+/* 17t-1. Aggiunge alla bozza il testo [start, end) in cui ogni nome part[i],
+ * per i < count, è sostituito dalla lettera to[i]. Come draft_rewrite(): il
+ * testo è diviso in token dallo stesso lettore, e tra le graffe di
+ * \mathbb{} e \begin{} nulla cambia; un nome con un pedice sono i token
+ * della lettera, del trattino basso e della cifra, con o senza graffe. */
+static void draft_rename(const char *start, const char *end, const PartName *part, const int *to, int count) {
+    size_t length = (size_t)(end - start);
+    char *copy = arena_alloc(length + 1);
+    if (!copy) return;
+    memcpy(copy, start, length);
+    copy[length] = 0;
+
+    Detour detour = detour_begin(copy);
+    const char *copied = copy;
+    int verbatim = 0;
+    while (token.kind != T_END) {
+        const char *first = token.start;
+        int found = -1;
+        if (is_command("mathbb") || is_command("begin") || is_command("end")) verbatim = 1;
+        else if (is_char('}')) verbatim = 0;
+
+        /* Una lettera, forse con un pedice: se il nome non è tra quelli da
+         * cambiare, il lettore torna sulla lettera. */
+        if (!verbatim && token.kind == T_LETTER) {
+            ParserState here = parser_save();
+            const char *here_consumed = consumed;
+            int letter = token.ch;
+            long long index = 0;
+            next_token();
+            if (is_char('_')) {
+                next_token();
+                int braces = is_char('{');
+                if (braces) next_token();
+                index = token.kind == T_NUM && token.digits == 1 ? token.value : -1;
+                if (index >= 0) next_token();
+                if (braces && index >= 0 && is_char('}')) next_token();
+                else if (braces) index = -1;
+            }
+            found = part_find(part, count, letter, index);
+            if (found < 0) { parser_restore(here); consumed = here_consumed; }
+        }
+        if (found < 0) {
+            next_token();
+            draft_add(copied, consumed);
+        } else {
+            char written[2] = {(char)to[found], 0};
+            draft_add(copied, first);
+            draft_word(written);
+        }
+        copied = consumed;
+    }
+    detour_end(detour);
+}
+
+/* 17t-1. Ritorna 1 se l'espressione b è a con ogni nome part[i] scritto con
+ * la lettera to[i]: in a quel nome è una variabile (senza pedice) o una
+ * lettera con il pedice di una cifra, in b la variabile to[i]. Tutto il
+ * resto deve essere uguale, e le lettere to[] non devono comparire altrove. */
+static int node_parts_renamed(const Node *a, const Node *b, const PartName *part, const int *to, int count) {
+    if (!a || !b) return a == b;
+    int found = -1;
+    if (a->kind == N_SEQ && a->a && a->a->kind == N_NUM) found = part_find(part, count, a->name, a->a->value);
+    else if (a->kind == N_VAR) found = part_find(part, count, a->name, 0);
+    if (found >= 0) return b->kind == N_VAR && b->name == to[found];
+    for (int i = 0; i < count; i++)
+        if (b->kind == N_VAR && b->name == to[i]) return 0;
+    return a->kind == b->kind && a->value == b->value && a->op == b->op && a->name == b->name && node_parts_renamed(a->a, b->a, part, to, count) &&
+           node_parts_renamed(a->b, b->b, part, to, count) && node_parts_renamed(a->c, b->c, part, to, count);
+}
+
+/* 17t-1. Come node_parts_renamed(), per due condizioni con la stessa forma. */
+static int formula_parts_renamed(const Formula *a, const Formula *b, const PartName *part, const int *to, int count) {
+    if (!a || !b) return a == b;
+    return a->kind == b->kind && a->swapped == b->swapped && a->variable == b->variable && numbers_equal(&a->numbers, &b->numbers) &&
+           node_parts_renamed(a->left, b->left, part, to, count) && node_parts_renamed(a->right, b->right, part, to, count) &&
+           formula_parts_renamed(a->a, b->a, part, to, count) && formula_parts_renamed(a->b, b->b, part, to, count);
+}
+
+static void bound_letters(const Formula *f, PairSet *set);
+
+/* 17t-1. Legge il resto della dichiarazione di una relazione tra coppie,
+ * dopo "R = \{(": ((x_{1}, y_{1}), (x_{2}, y_{2})) \in P \mid c\}, con P
+ * l'insieme delle coppie di coppie, scritto (A \times B)^{2} o (A \times B)
+ * \times (C \times D) (e A^{2} per A \times A). Completa *set, con il nome e
+ * width già scritti, e lo registra in pair_sets[]. start è l'inizio della
+ * dichiarazione. */
+static Formula *logic_pairs_of_pairs(PairSet *set, const char *start) {
+    static const char shape[] = "una relazione tra coppie si scrive R = \\{((x_{1}, y_{1}), (x_{2}, y_{2})) \\in (A \\times B)^{2} \\mid ...\\}, "
+                                "e tra numeri complessi R = \\{(a + ib, c + id) \\in A^{2} \\mid ...\\}";
+    PartName part[4];
+
+    /* Le quattro componenti: il token corrente è la seconda parentesi, o la
+     * lettera della parte reale di un numero complesso (17t-4). */
+    for (int i = 0; i < 2 && !syntax_error; i++) {
+        if (set->complex) {
+            part[2 * i] = parse_part_name();
+            if (is_char('+')) next_token(); else syntax(shape);
+            if (token.kind == T_LETTER && token.ch == 'i') next_token(); else syntax(shape);
+            part[2 * i + 1] = parse_part_name();
+        } else {
+            if (token.kind == T_OPEN) next_token(); else syntax(shape);
+            part[2 * i] = parse_part_name();
+            expect_char(',', shape);
+            part[2 * i + 1] = parse_part_name();
+            if (token.kind == T_CLOSE) next_token(); else syntax(shape);
+        }
+        if (i == 0) expect_char(',', shape);
+    }
+    if (token.kind == T_CLOSE) next_token(); else syntax(shape);
+    if (is_command("in")) next_token(); else syntax(shape);
+
+    /* L'insieme: un quadrato di coppie, oppure il prodotto di due; di
+     * numeri complessi, quello di un insieme dichiarato (17t-4). */
+    for (int side = 0; side < 2 && !syntax_error; side++) {
+        if (set->complex) {
+            const ComplexSet *complex = token.kind == T_LETTER ? complex_set_find(token.ch) : NULL;
+            if (complex) next_token(); else syntax(shape);
+            if (complex) set->numbers[2 * side] = set->numbers[2 * side + 1] = complex->part;
+        } else {
+            parse_pair_side(set->numbers + 2 * side);
+        }
+        if (side == 1) break;
+        if (is_char('^')) {
+            parse_square();
+            set->numbers[2] = set->numbers[0];
+            set->numbers[3] = set->numbers[1];
+            break;
+        }
+        if (is_command("times")) next_token(); else syntax(shape);
+    }
+    if (is_command("mid") || is_char(':')) next_token(); else syntax(shape);
+    if (scope_count) syntax("una relazione si dichiara tra le ipotesi, fuori dai quantificatori");
+    else if (pair_set_find(set->name) || map_find(set->name)) syntax("la stessa lettera è dichiarata due volte");
+    else if (pair_set_count == MAX_PAIR_SETS) syntax("troppe relazioni dichiarate in un enunciato");
+    for (int i = 0; i < 4; i++)
+        if (part_find(part, i, part[i].letter, part[i].index) >= 0) syntax("le componenti di una relazione tra coppie devono avere nomi diversi");
+    if (syntax_error) return logic_nothing(start);
+
+    /* La regola, letta una volta com'è scritta: per sapere dove finisce, e
+     * per il controllo della riscrittura. */
+    const char *from = token.start;
+    const Formula *written = logic_formula();
+    const char *to = consumed;
+    expect_char(ESCAPED + '}', "manca \\}");
+    if (syntax_error) return logic_nothing(start);
+
+    /* Lettere nuove per le componenti, e la regola riscritta con loro, letta
+     * con le quattro lettere in vista. */
+    for (int i = 0; i < 4; i++) set->letter[i] = fresh_letter();
+    draft_length = 0;
+    draft_rename(from, to, part, set->letter, 4);
+    char *text = arena_alloc(draft_length + 1);
+    if (!text || syntax_error) return logic_nothing(start);
+    memcpy(text, draft, draft_length);
+    text[draft_length] = 0;
+    Detour detour = detour_begin(text);
+    for (int i = 0; i < 4; i++) scope[scope_count++] = (Bound){set->letter[i], &set->numbers[i]};
+    set->condition = logic_formula();
+    scope_count = 0;
+    if (token.kind != T_END) syntax("testo inatteso dopo una definizione svolta");
+    detour_end(detour);
+    set->start = text;
+    set->end = text + draft_length;
+
+    /* Il controllo della riscrittura (17t-1). */
+    if (!syntax_error && !formula_parts_renamed(written, set->condition, part, set->letter, 4))
+        syntax("la riscrittura delle componenti di una relazione tra coppie, ricontrollata, non dà la stessa formula");
+    bound_letters(set->condition, set);
+    if (!syntax_error) pair_sets[pair_set_count++] = *set;
+    return formula_node(F_MAP, NULL, NULL, start);
+}
+
+/* 17t-4. Ritorna 1 se dopo il token corrente viene un +: la lettera è la
+ * parte reale di un numero complesso a + ib. Il lettore resta dov'era. */
+static int plus_follows(void) {
+    ParserState here = parser_save();
+    const char *here_consumed = consumed;
+    next_token();
+    int plus = is_char('+');
+    parser_restore(here);
+    consumed = here_consumed;
+    return plus;
+}
+
+/* 17t-4. Legge ciò che segue "A = \{" nella dichiarazione di un insieme di
+ * numeri complessi, A = \{a + ib \mid a, b \in S\}, e lo registra in
+ * complex_sets[]: per il lettore A è S \times S, e un suo elemento è la
+ * coppia della parte reale e del coefficiente di i. name è la lettera A e
+ * start l'inizio della dichiarazione. Le due lettere dopo la barra devono
+ * essere quelle del numero, nello stesso ordine. */
+static Formula *logic_complex_set(int name, const char *start) {
+    static const char shape[] = "un insieme di numeri complessi si scrive A = \\{a + ib \\mid a, b \\in S\\}, con S un insieme numerico";
+    int letter[2] = {token.ch, 0};
+    next_token();
+    if (is_char('+')) next_token(); else syntax(shape);
+    if (token.kind == T_LETTER && token.ch == 'i') next_token(); else syntax(shape);
+    if (token.kind == T_LETTER) { letter[1] = token.ch; next_token(); } else syntax(shape);
+    if (is_command("mid") || is_char(':')) next_token(); else syntax(shape);
+    for (int i = 0; i < 2 && !syntax_error; i++) {
+        if (token.kind != T_LETTER || token.ch != letter[i]) syntax(shape);
+        next_token();
+        if (i == 0) expect_char(',', shape);
+    }
+    if (is_command("in")) next_token(); else syntax(shape);
+    NumberSet part = parse_numbers();
+    expect_char(ESCAPED + '}', "manca \\}");
+    if (letter[0] == letter[1] || letter[0] == 'i') syntax(shape);
+    else if (scope_count) syntax("un insieme si dichiara tra le ipotesi, fuori dai quantificatori");
+    else if (pair_set_find(name) || map_find(name) || complex_set_find(name)) syntax("la stessa lettera è dichiarata due volte");
+    else if (complex_set_count == MAX_PAIR_SETS) syntax("troppi insiemi di numeri complessi dichiarati in un enunciato");
+    if (!syntax_error) complex_sets[complex_set_count++] = (ComplexSet){name, part};
+    return formula_node(F_MAP, NULL, NULL, start);
+}
+
 /* 17i. Una relazione data da una regola: legge ciò che segue "R = \{" nella
  * dichiarazione R = \{(x, y) \in A \times B \mid c\} e registra R in
  * pair_sets[]. name è la lettera R e start l'inizio della dichiarazione.
@@ -3012,16 +3370,26 @@ static Formula *logic_pair_set(int name, const char *start) {
     PairSet set;
     memset(&set, 0, sizeof set);
     set.name = name;
+    set.width = 1;
 
-    /* (x, y) \in A \times B, e la barra. */
+    /* (x, y) \in A \times B, e la barra; con una seconda parentesi, una
+     * relazione tra coppie (17t). */
+    if (token.kind == T_LETTER && plus_follows()) return logic_complex_set(name, start);
     if (token.kind == T_OPEN) next_token(); else syntax("una relazione data da una regola si scrive R = \\{(x, y) \\in A \\times B \\mid ...\\}");
+    if (token.kind == T_OPEN || (token.kind == T_LETTER && plus_follows())) {
+        set.width = 2;
+        set.complex = token.kind == T_LETTER;
+        return logic_pairs_of_pairs(&set, start);
+    }
+    static const char components[] = "le due componenti della coppia, in una relazione data da una regola, devono essere due lettere, o due coppie di "
+                                     "lettere (17t): i numeri complessi scritti a + ib non sono trattati";
     for (int i = 0; i < 2 && !syntax_error; i++) {
-        if (token.kind != T_LETTER) { syntax("le due componenti della coppia, in una relazione data da una regola, devono essere due lettere"); break; }
+        if (token.kind != T_LETTER) { syntax(components); break; }
         set.letter[i] = token.ch;
         next_token();
-        if (i == 0) expect_char(',', "le due componenti della coppia, in una relazione data da una regola, devono essere due lettere");
+        if (i == 0) expect_char(',', components);
     }
-    if (token.kind == T_CLOSE) next_token(); else syntax("le due componenti della coppia, in una relazione data da una regola, devono essere due lettere");
+    if (token.kind == T_CLOSE) next_token(); else syntax(components);
     if (is_command("in")) next_token(); else syntax("in R = \\{(x, y) \\in A \\times B \\mid ...\\} manca \\in");
     parse_pairs(set.numbers);
     if (is_command("mid") || is_char(':')) next_token(); else syntax("in R = \\{(x, y) \\in A \\times B \\mid ...\\} manca \\mid");
@@ -3234,7 +3602,7 @@ static Formula *logic_member(const char *start) {
     if (!negative && !is_command("in")) return NULL;
     next_token();
     const PairSet *set = token.kind == T_LETTER ? pair_set_find(token.ch) : NULL;
-    if (!set) return NULL;
+    if (!set || set->width != 1) return NULL;
     next_token();
 
     /* Che cosa va al posto di ogni lettera della regola: gli argomenti al
@@ -3293,6 +3661,188 @@ static Formula *logic_member(const char *start) {
      * stanno nel loro insieme: lo si annota per 17m. */
     for (int i = 0; i < 2; i++)
         if (plain[i] && variable[i] && guard_count < MAX_GUARDS) guards[guard_count++] = (Guard){atom, variable[i]};
+    return negative ? formula_node(F_NOT, atom, NULL, start) : atom;
+}
+
+/* 17t-2. Una lettera che sta per una coppia di numeri, e le sue componenti.
+ * Si riconosce dal quantificatore: bound è l'insieme della sua variabile in
+ * scope[], che per una coppia resta vuoto (start NULL), e identifica il
+ * quantificatore finché è in vista. Le componenti sono lettere nuove. */
+typedef struct {
+    int letter;              /* la lettera della coppia */
+    const NumberSet *bound;  /* l'insieme della sua variabile in scope[] */
+    int part[2];             /* le lettere delle due componenti */
+    NumberSet numbers[2];    /* i loro insiemi */
+    int complex;             /* 17t-4: 1 se la coppia è un numero complesso */
+} PairVariable;
+
+/* Le lettere che stanno per una coppia, dei quantificatori in vista: le
+ * aggiunge chi legge un quantificatore su un insieme di coppie, o chi legge
+ * un'appartenenza a una relazione tra coppie, e le toglie il quantificatore
+ * quando finisce la sua condizione. */
+static PairVariable pair_variables[MAX_PAIR_VARIABLES];
+static int pair_variable_count;
+
+/* Tutte le coppie dell'enunciato in corso, anche quelle uscite di vista:
+ * servono al motore per scrivere un controesempio come x = (0, 1) invece che
+ * con le lettere delle componenti (describe_choices()). */
+static PairVariable pairs_seen[2 * MAX_PAIR_VARIABLES];
+static int pairs_seen_count;
+
+/* 17t-2. Ritorna la coppia di lettera letter del quantificatore il cui
+ * insieme è bound, o NULL. */
+static PairVariable *pair_variable_find(int letter, const NumberSet *bound) {
+    for (int i = pair_variable_count - 1; i >= 0; i--)
+        if (pair_variables[i].letter == letter && pair_variables[i].bound == bound) return &pair_variables[i];
+    return NULL;
+}
+
+/* 17t-2. Aggiunge la coppia di lettera letter, del quantificatore con
+ * insieme bound, con le componenti in side[0] e side[1], un numero
+ * complesso se complex; ritorna NULL se non c'è posto. */
+static PairVariable *pair_variable_add(int letter, const NumberSet *bound, const NumberSet *side, int complex) {
+    if (pair_variable_count == MAX_PAIR_VARIABLES) return NULL;
+    PairVariable *v = &pair_variables[pair_variable_count++];
+    v->letter = letter;
+    v->bound = bound;
+    v->part[0] = fresh_letter();
+    v->part[1] = fresh_letter();
+    v->numbers[0] = side[0];
+    v->numbers[1] = side[1];
+    v->complex = complex;
+    if (pairs_seen_count < 2 * MAX_PAIR_VARIABLES) pairs_seen[pairs_seen_count++] = *v;
+    return v;
+}
+
+/* 17t-3. La coppia per cui sta la lettera letter, scritta da sola al posto
+ * di una coppia di side[0] \times side[1]. Se la lettera è di un
+ * quantificatore senza insieme che non lo ha ancora imparato (17m), diventa
+ * ora una coppia di quell'insieme. Ritorna NULL se la lettera non è in vista
+ * o se è già un numero. */
+static PairVariable *pair_variable_for(int letter, const NumberSet *side, int complex) {
+    const Bound *variable = scope_find(letter);
+    if (!variable || !variable->numbers) return NULL;
+    PairVariable *v = pair_variable_find(letter, variable->numbers);
+    if (v || variable->numbers->start) return v;
+    return pair_variable_add(letter, variable->numbers, side, complex);
+}
+
+/* 17t-3. Prova a leggere "((s_1, s_2), (t_1, t_2)) \in R", o con \notin,
+ * con R una relazione tra coppie; al posto di una coppia ci può essere la
+ * lettera di una coppia (17t-2). Il token corrente è la parentesi aperta.
+ * Ritorna la condizione svolta, o NULL se ciò che segue non ha questa
+ * forma: allora il lettore va rimesso dov'era da chi chiama.
+ *
+ * Lo svolgimento è quello di 17j, con quattro argomenti: le componenti al
+ * posto delle quattro lettere della regola, lettere nuove al posto di
+ * quelle legate, e davanti le appartenenze delle componenti che non stanno
+ * nel loro insieme per come l'enunciato è scritto. Il controllo, come in
+ * 17j, rifà la sostituzione sull'albero della regola. */
+static Formula *logic_pair_member(const char *start) {
+    const Node *argument[4];
+    const char *from[4], *to[4];
+    int alone[2] = {0, 0};
+
+    /* Le due coppie: tra parentesi, o una lettera ciascuna. */
+    next_token();
+    for (int i = 0; i < 2; i++) {
+        if (token.kind == T_LETTER) {
+            alone[i] = token.ch;
+            next_token();
+        } else if (token.kind == T_OPEN) {
+            next_token();
+            for (int k = 0; k < 2; k++) {
+                from[2 * i + k] = token.start;
+                argument[2 * i + k] = parse_expr();
+                to[2 * i + k] = consumed;
+                if (syntax_error || (k == 0 ? !is_char(',') : token.kind != T_CLOSE)) return NULL;
+                next_token();
+            }
+        } else {
+            return NULL;
+        }
+        if (syntax_error || (i == 0 ? !is_char(',') : token.kind != T_CLOSE)) return NULL;
+        next_token();
+    }
+    int negative = is_command("notin");
+    if (!negative && !is_command("in")) return NULL;
+    next_token();
+    const PairSet *set = token.kind == T_LETTER ? pair_set_find(token.ch) : NULL;
+    if (!set || set->width != 2) return NULL;
+    next_token();
+
+    /* Una coppia scritta con la sua lettera: le sue componenti, che stanno
+     * nel loro insieme se quello della relazione lo contiene. */
+    int letter[4 + MAX_RENAMED], count = 0, plain[4] = {0};
+    const char *replacement[4 + MAX_RENAMED];
+    for (int i = 0; i < 2; i++) {
+        if (!alone[i]) continue;
+        PairVariable *v = pair_variable_for(alone[i], &set->numbers[2 * i], set->complex);
+        if (!v) {
+            syntax("una lettera scritta al posto di una coppia deve variare tra le coppie, e non essere usata anche come numero");
+            return logic_nothing(start);
+        }
+        for (int k = 0; k < 2; k++) {
+            Node *component = node_new(N_VAR, NULL, NULL);
+            component->name = v->part[k];
+            argument[2 * i + k] = component;
+            plain[2 * i + k] = numbers_subset(&v->numbers[k], &set->numbers[2 * i + k]);
+        }
+    }
+
+    /* Che cosa va al posto di ogni lettera della regola, come in 17j. */
+    for (int i = 0; i < 4; i++) {
+        int length = alone[i / 2] ? 1 : (int)(to[i] - from[i]);
+        char *text = arena_alloc((size_t)length + 3);
+        if (!text) return logic_nothing(start);
+        if (alone[i / 2]) snprintf(text, 2, "%c", argument[i]->name);
+        else snprintf(text, (size_t)length + 3, argument[i]->kind == N_VAR && length == 1 ? "%.*s" : "(%.*s)", length, from[i]);
+        letter[count] = set->letter[i];
+        replacement[count++] = text;
+    }
+    for (int i = 0; i < set->bounds; i++) {
+        char *text = arena_alloc(2);
+        if (!text) return logic_nothing(start);
+        text[0] = (char)fresh_letter();
+        text[1] = 0;
+        letter[count] = set->bound[i];
+        replacement[count++] = text;
+    }
+
+    /* Il testo svolto, e la sua lettura. */
+    draft_length = 0;
+    for (int i = 0; i < 4; i++) {
+        int variable;
+        if (!alone[i / 2]) plain[i] = member_is_plain(argument[i], &set->numbers[i], &variable);
+        if (plain[i]) continue;
+        draft_word(replacement[i]);
+        draft_word(" \\in ");
+        draft_add(set->numbers[i].start, set->numbers[i].end);
+        draft_word(" \\land ");
+    }
+    draft_word("(");
+    draft_rewrite(set->start, set->end, letter, replacement, count);
+    draft_word(")");
+    Formula *atom = unfold();
+
+    /* Il controllo dello svolgimento, sull'albero, come in 17j. */
+    const Node *tree[4 + MAX_RENAMED] = {argument[0], argument[1], argument[2], argument[3]};
+    for (int i = 4; i < count; i++) {
+        Node *renamed = node_new(N_VAR, NULL, NULL);
+        renamed->name = (unsigned char)replacement[i][0];
+        tree[i] = renamed;
+    }
+    int all_plain = plain[0] && plain[1] && plain[2] && plain[3];
+    const Formula *core = all_plain ? atom : atom->kind == F_AND ? atom->b : NULL;
+    alike_count = 0;
+    if (!syntax_error && (!core || !formula_alike(core, formula_substitute(set->condition, letter, tree, count))))
+        syntax("lo svolgimento di una relazione, rifatto in un secondo modo, non dà la stessa formula");
+
+    /* Chi afferma l'appartenenza afferma che la lettera di una coppia
+     * scritta da sola sta tra le coppie della relazione: lo si annota per
+     * 17m. */
+    for (int i = 0; i < 2; i++)
+        if (alone[i] && guard_count < MAX_GUARDS) guards[guard_count++] = (Guard){atom, alone[i]};
     return negative ? formula_node(F_NOT, atom, NULL, start) : atom;
 }
 
@@ -3364,38 +3914,29 @@ static Formula *logic_unique(const char *start) {
  * f \colon \mathbb{Z} \to \mathbb{Z}^{2} con f(n) = (n + 1, n) è una coppia di
  * applicazioni tra numeri: una per componente. Il lettore le tiene così: f
  * dà la prima componente, e un'applicazione nascosta, che nell'enunciato non
- * ha nome (partner, component), dà la seconda. Allo stesso modo una lettera
- * che varia in un insieme di coppie, \forall y \in \mathbb{Z}^{2}, è una
- * coppia di lettere: y per la prima componente e una lettera nuova per la
- * seconda (la maiuscola, se l'enunciato non la usa), con due quantificatori.
- * E un'uguaglianza tra coppie è la congiunzione delle uguaglianze tra le
- * componenti, "diverse" la disgiunzione delle disuguaglianze: è la
- * definizione di coppia ordinata, (a, b) = (c, d) se e solo se a = c e b = d.
- * Il motore vede soltanto numeri.
+ * ha nome (partner, component), dà la seconda. Una lettera che varia in un
+ * insieme di coppie, \forall y \in \mathbb{Z}^{2}, è invece quella di 17t-2:
+ * le sue due componenti sono due lettere nuove, ognuna con il suo
+ * quantificatore (PairVariable). E un'uguaglianza tra coppie è la
+ * congiunzione delle uguaglianze tra le componenti, "diverse" la
+ * disgiunzione delle disuguaglianze: è la definizione di coppia ordinata,
+ * (a, b) = (c, d) se e solo se a = c e b = d. Vale per le coppie di
+ * applicazioni, per quelle scritte per esteso e per le lettere di 17t-2, anche
+ * tra due lettere (17t-5). Il motore vede soltanto numeri.
  *
  * Il testo di un confronto tra componenti non c'è nell'enunciato: il lettore
- * lo scrive, con il pedice della componente, f(a)_{1} = f(b)_{1}, e con le
- * due lettere di una variabile di coppie, f(x)_{2} = Y. Così la
+ * lo scrive, con il pedice della componente, f(a)_{1} = f(b)_{1}, e con la
+ * lettera della componente di una variabile di coppie, f(x)_{2} = b. Così la
  * dimostrazione scritta dice che cosa ha confrontato. Una coppia si confronta
  * solo con = e \neq, e solo con un'altra coppia.
+ *
+ * Why: prima dell'unione dei due lavori una lettera di coppie aveva due
+ * letture, questa con la maiuscola come seconda componente e quella di
+ * 17t-2. Resta la seconda, perché toglie la lettera della coppia
+ * dall'albero: usata anche come numero, y + 1, resta senza quantificatore e
+ * l'enunciato è respinto, mentre con la prima y avrebbe valso la sua prima
+ * componente senza che l'enunciato lo dicesse.
  */
-
-/* Una variabile che varia in un insieme di coppie, mentre si legge la sua
- * condizione: la lettera della prima componente e quella della seconda. */
-typedef struct {
-    int letter, partner;
-} PairLetter;
-
-static PairLetter pair_letters[MAX_BOUND];
-static int pair_letter_count;
-
-/* Ritorna la lettera della seconda componente della variabile name, se name
- * varia in un insieme di coppie in questo punto della lettura, o 0. */
-static int pair_partner(int name) {
-    for (int i = pair_letter_count - 1; i >= 0; i--)
-        if (pair_letters[i].letter == name) return pair_letters[i].partner;
-    return 0;
-}
 
 /* Se dopo l'insieme first c'è ^{2} o \times B, lo legge, mette in *second
  * l'insieme della seconda componente e ritorna 1: first era quello della
@@ -3407,22 +3948,26 @@ static int pairs_second(const NumberSet *first, NumberSet *second) {
         return 1;
     }
     if (!square_follows()) return 0;
-    next_token();
-    int braces = is_char('{');
-    if (braces) next_token();
-    next_token();
-    if (braces) expect_char('}', "manca }");
+    parse_square();
     *second = *first;
     return 1;
 }
 
 /* Se l'espressione node vale una coppia, un'applicazione a valori in coppie
- * o una variabile che varia in un insieme di coppie, mette le sue due
- * componenti in part[] e ritorna 1. */
+ * o una lettera che sta per una coppia (17t-2), mette le sue due componenti
+ * in part[] e ritorna 1. */
 static int pair_parts(Node *node, Node **part) {
-    int partner = 0;
-    if (node->kind == N_APPLY && map_find(node->name)) partner = map_find(node->name)->partner;
-    if (node->kind == N_VAR) partner = pair_partner(node->name);
+    if (node->kind == N_VAR) {
+        const Bound *variable = scope_find(node->name);
+        const PairVariable *pair = variable && variable->numbers ? pair_variable_find(node->name, variable->numbers) : NULL;
+        if (!pair) return 0;
+        for (int k = 0; k < 2; k++) {
+            part[k] = node_new(N_VAR, NULL, NULL);
+            part[k]->name = pair->part[k];
+        }
+        return 1;
+    }
+    int partner = node->kind == N_APPLY && map_find(node->name) ? map_find(node->name)->partner : 0;
     if (!partner) return 0;
     part[0] = node;
     part[1] = node_new(node->kind, node->a, node->b);
@@ -3432,12 +3977,14 @@ static int pair_parts(Node *node, Node **part) {
 
 /* Scrive in *out, nell'arena, il testo della componente k (0 o 1) di un
  * membro di un confronto tra coppie: [from, to) è il testo del membro,
- * oppure, per una coppia scritta per esteso, della sua componente (explicit). */
+ * oppure, per una coppia scritta per esteso, della sua componente (explicit).
+ * node è la componente, come l'ha data pair_parts(): per una lettera di
+ * coppie (17t-2) è la lettera della componente, e il testo è quella. */
 static void pair_side_text(char **out, size_t *length, const char *from, const char *to, const Node *node, int k, int explicit) {
     char piece[160];
     int n;
     if (explicit) n = snprintf(piece, sizeof piece, "%.*s", (int)(to - from), from);
-    else if (node->kind == N_VAR) n = snprintf(piece, sizeof piece, "%c", k ? pair_partner(node->name) : node->name);
+    else if (node->kind == N_VAR) n = snprintf(piece, sizeof piece, "%c", node->name);
     else n = snprintf(piece, sizeof piece, "%.*s_{%d}", (int)(to - from), from, k + 1);
     if (n < 0 || (size_t)n >= sizeof piece || *length + (size_t)n + 8 > 400) { syntax("componente di una coppia troppo lunga"); return; }
     memcpy(*out + *length, piece, (size_t)n);
@@ -3495,7 +4042,7 @@ static Formula *pair_comparison(const char *start, const char *left_end, Node **
         memcpy(text + length, relation, strlen(relation));
         length += strlen(relation);
         if (explicit) pair_side_text(&text, &length, span[k][0], span[k][1], right[k], k, 1);
-        else pair_side_text(&text, &length, right_start, span[0][1], right[0], k, 0);
+        else pair_side_text(&text, &length, right_start, span[0][1], right[k], k, 0);
         text[length] = 0;
         part[k] = formula_node(equal ? F_EQUAL : F_DISTINCT, NULL, NULL, NULL);
         part[k]->left = left[k];
@@ -3547,7 +4094,7 @@ static Formula *logic_iterate(int name, Node *times, const char *start) {
  * relazione dichiarata, nessuna variabile in vista, e in letter_taken le
  * lettere che il testo usa. Il lettore resta dov'era. */
 static void unfolding_reset(const char *text) {
-    pair_set_count = guard_count = scope_count = pair_letter_count = 0;
+    pair_set_count = guard_count = scope_count = pair_variable_count = pairs_seen_count = complex_set_count = 0;
     unfolded = 0;
     memset(letter_taken, 0, sizeof letter_taken);
 
@@ -3592,7 +4139,7 @@ static Formula *logic_unary(void) {
         do {
             next_token();  /* supera il quantificatore, poi ogni virgola */
             if (token.kind != T_LETTER || names == MAX_BOUND) {
-                syntax("dopo un quantificatore servono delle lettere separate da virgole, non più di 8");
+                syntax("dopo un quantificatore servono delle lettere separate da virgole, non più di 12");
                 break;
             }
             name[names++] = token.ch;
@@ -3602,60 +4149,79 @@ static Formula *logic_unary(void) {
         /* L'insieme, lo stesso per tutte le lettere. Se manca (17m) ogni
          * lettera aspetta il suo: numbers[i].start resta NULL finché
          * un'appartenenza della condizione non glielo dà. */
-        NumberSet numbers[MAX_BOUND], second;
+        NumberSet numbers[MAX_BOUND];
         memset(numbers, 0, sizeof numbers);
-        int stated = is_command("in") || !pair_set_count, paired = 0;
+        int stated = is_command("in") || !pair_set_count, first_pair = pair_variable_count;
         if (stated) {
             if (!is_command("in")) syntax("dopo le lettere di un quantificatore servono \\in e un insieme numerico");
             next_token();
-            numbers[0] = parse_numbers();
-            paired = pairs_second(&numbers[0], &second);
-            for (int i = 1; i < names; i++) numbers[i] = numbers[0];
-        }
 
-        /* 17s. In un insieme di coppie ogni lettera ha una compagna per la
-         * seconda componente: la maiuscola, se l'enunciato non la usa. */
-        int partner[MAX_BOUND] = {0}, pairs_before = pair_letter_count;
-        for (int i = 0; i < names && paired && !syntax_error; i++) {
-            int upper = toupper(name[i]);
-            if (upper != name[i] && !letter_taken[upper & 127]) letter_taken[upper & 127] = 1;
-            else upper = fresh_letter();
-            partner[i] = upper;
-            if (pair_letter_count == MAX_BOUND) { syntax("troppe variabili in un insieme di coppie"); break; }
-            pair_letters[pair_letter_count++] = (PairLetter){name[i], upper};
+            /* 17t-2. Un insieme di coppie, A \times B o A^{2}, o (17t-4) un
+             * insieme di numeri complessi dichiarato: ogni lettera sta per
+             * una coppia, e il suo insieme in scope[] resta vuoto. */
+            const ComplexSet *complex = token.kind == T_LETTER ? complex_set_find(token.ch) : NULL;
+            ParserState here = parser_save();
+            const char *here_consumed = consumed;
+            if (complex) next_token(); else numbers[0] = parse_numbers();
+            if (!syntax_error && (complex || square_follows() || is_command("times"))) {
+                NumberSet side[2];
+                if (complex) {
+                    side[0] = side[1] = complex->part;
+                } else {
+                    parser_restore(here);
+                    consumed = here_consumed;
+                    parse_pairs(side);
+                }
+                memset(numbers, 0, sizeof numbers);
+                for (int i = 0; i < names; i++)
+                    if (!pair_variable_add(name[i], &numbers[i], side, complex != NULL)) syntax("troppe lettere che stanno per una coppia");
+            }
+            for (int i = 1; i < names && numbers[0].start; i++) numbers[i] = numbers[0];
         }
 
         /* La condizione, letta con le lettere in vista. */
         int outer = scope_count;
-        for (int i = 0; i < names && scope_count < MAX_BOUND; i++) {
-            scope[scope_count++] = (Bound){name[i], &numbers[i]};
-            if (paired && scope_count < MAX_BOUND) scope[scope_count++] = (Bound){partner[i], &second};
-        }
+        for (int i = 0; i < names && scope_count < MAX_BOUND; i++) scope[scope_count++] = (Bound){name[i], &numbers[i]};
         Formula *node = logic_unary();
         scope_count = outer;
-        pair_letter_count = pairs_before;
 
         /* 17m. Senza insieme, il quantificatore ha senso solo se la
          * condizione obbliga ogni lettera a stare nell'insieme che ha
          * ricevuto: per un "per ogni" deve farlo la negazione della
-         * condizione, perché è lì che la lettera potrebbe stare fuori. */
-        for (int i = 0; i < names && !stated && !syntax_error; i++)
-            if (!numbers[i].start || !imposes_membership(node, kind == F_FORALL, name[i]))
+         * condizione, perché è lì che la lettera potrebbe stare fuori. Così
+         * anche per una lettera che è diventata una coppia (17t-2), che però
+         * non deve essere stata usata anche come numero. */
+        for (int i = 0; i < names && !syntax_error; i++) {
+            const PairVariable *pair = pair_variable_find(name[i], &numbers[i]);
+            if (pair && numbers[i].start) syntax("una lettera è usata sia come coppia sia come numero");
+            else if (!stated && ((!numbers[i].start && !pair) || !imposes_membership(node, kind == F_FORALL, name[i])))
                 syntax("un quantificatore senza insieme è ammesso solo se la condizione obbliga la lettera a stare in un insieme, con un'appartenenza a una relazione dichiarata");
+        }
 
         /* \forall a, b è \forall a \forall b: un nodo per lettera, costruiti
-         * dall'ultima lettera alla prima. Una lettera di coppie ne ha due,
-         * prima la sua e poi quella della compagna. */
+         * dall'ultima lettera alla prima. Una coppia (17t-2) ha un nodo per
+         * componente, e il primo ricorda la lettera della coppia. */
         for (int i = names - 1; i >= 0; i--) {
-            if (paired) {
+            const PairVariable *pair = pair_variable_find(name[i], &numbers[i]);
+            for (int k = pair ? 1 : 0; k >= 0; k--) {
                 node = formula_node(kind, node, NULL, start);
-                node->variable = partner[i];
-                node->numbers = second;
+                node->variable = pair ? pair->part[k] : name[i];
+                node->numbers = pair ? pair->numbers[k] : numbers[i];
+                node->pair = pair && k == 0 ? name[i] : 0;
+                node->complex = pair && k == 0 && pair->complex;
             }
-            node = formula_node(kind, node, NULL, start);
-            node->variable = name[i];
-            node->numbers = numbers[i];
         }
+
+        /* Le coppie di questo quantificatore escono di vista; quelle dei
+         * quantificatori più esterni, nate leggendo questa condizione,
+         * restano. */
+        int kept = first_pair;
+        for (int i = first_pair; i < pair_variable_count; i++) {
+            int own = 0;
+            for (int j = 0; j < names; j++) own = own || pair_variables[i].bound == &numbers[j];
+            if (!own) pair_variables[kept++] = pair_variables[i];
+        }
+        pair_variable_count = kept;
         return node;
     }
 
@@ -3748,6 +4314,11 @@ static Formula *logic_unary(void) {
         Formula *member = logic_member(start);
         if (member) return member;
         parser_restore(before);
+
+        /* 17t-3. Oppure a una relazione tra coppie. */
+        member = logic_pair_member(start);
+        if (member) return member;
+        parser_restore(before);
     }
 
     /* 17d. Confronto tra due espressioni. Anche un confronto può cominciare
@@ -3759,7 +4330,8 @@ static Formula *logic_unary(void) {
     const char *problem = syntax_error;
     Formula *chain = NULL;
 
-    /* 17s. Un confronto tra coppie: componente per componente. */
+    /* 17s. Un confronto tra coppie: componente per componente. Anche tra due
+     * lettere che stanno per coppie (17t-5). */
     Node *pair[2];
     if (!syntax_error && pair_parts(left, pair) && (is_char('=') || is_command("neq") || is_command("ne")))
         return pair_comparison(start, consumed, pair);
@@ -4428,9 +5000,8 @@ static void read_definitions(const Formula *f) {
 static void pair_sets_check(void) {
     for (int i = 0; i < pair_set_count && !failure; i++) {
         const PairSet *set = &pair_sets[i];
-        scope[0] = (Bound){set->letter[0], &set->numbers[0]};
-        scope[1] = (Bound){set->letter[1], &set->numbers[1]};
-        scope_count = 2;
+        scope_count = 0;
+        for (int k = 0; k < 2 * set->width; k++) scope[scope_count++] = (Bound){set->letter[k], &set->numbers[k]};
         formula_check(set->condition);
         scope_count = 0;
     }
@@ -6724,7 +7295,7 @@ static Sentence *abstract_quantifier(const char *start) {
         int read = letters < MAX_BOUND ? abstract_letter(&index[letters]) : 0;
         if (!read) {
             syntax(is_char('{') ? "una relazione con un nome tra graffe, {\\le}, scritta tra gli elementi come x \\le y, non è trattata: si scrive (x, y) \\in R"
-                                : "dopo un quantificatore servono delle lettere separate da virgole, non più di 8");
+                                : "dopo un quantificatore servono delle lettere separate da virgole, non più di 12");
             break;
         }
         letter[letters++] = read;

@@ -8,12 +8,12 @@
 \setlength{\emergencystretch}{3em}
 \allowdisplaybreaks
 
-\title{Maps defined by cases, with values in pairs, and iterates: false statements (26)}
+\title{Maps defined by cases, with values in pairs, and iterates: false statements (28)}
 \author{}
 \date{}
 \begin{document}
 \maketitle
-$\mathbb{N} = \{1, 2, 3, \ldots\}$, $\mathbb{N}_{0} = \mathbb{N} \cup \{0\}$. Each statement is a true one about a map defined by cases, changed a little: a case condition moved, a coefficient changed, a property swapped, cases that overlap with different values, cases that leave a point out, a value outside the codomain. Items 17--21 have values in pairs, the last five are about the iterates $f^{n}$.
+$\mathbb{N} = \{1, 2, 3, \ldots\}$, $\mathbb{N}_{0} = \mathbb{N} \cup \{0\}$. Each statement is a true one about a map defined by cases, changed a little: a case condition moved, a coefficient changed, a property swapped, cases that overlap with different values, cases that leave a point out, a value outside the codomain. Items 17--21 have values in pairs, items 22 and 23 compare a variable over a set of pairs with a pair written out, the last five are about the iterates $f^{n}$.
 
 \begin{enumerate}
 \item $\displaystyle (f \colon \mathbb{N}_{0} \to \mathbb{N}_{0} \land \forall n \in \mathbb{N}_{0}\ ((n \ge 1 \implies f(n) = n^{2} - 2) \land (n \le 1 \implies f(n) = n + 2))) \implies (\lnot (\forall y \in \mathbb{N}_{0}\ \exists x \in \mathbb{N}_{0}\ (f(x) = y)))$
@@ -37,6 +37,8 @@ $\mathbb{N} = \{1, 2, 3, \ldots\}$, $\mathbb{N}_{0} = \mathbb{N} \cup \{0\}$. Ea
 \item $\displaystyle (f \colon \mathbb{Z} \to \mathbb{Z}^{2} \land \forall n \in \mathbb{Z}\ (f(n) = (n + 1, -n - 1))) \implies (\lnot (\forall a, b \in \mathbb{Z}\ (f(a) = f(b) \implies a = b)))$
 \item $\displaystyle (f \colon \mathbb{Z} \to \mathbb{Z} \times \mathbb{N} \land \forall n \in \mathbb{Z}\ (f(n) = (n, n^{2}))) \implies (\forall a, b \in \mathbb{Z}\ (f(a) = f(b) \implies a = b))$
 \item $\displaystyle (f \colon \mathbb{Z} \to \mathbb{Z}^{2} \land \forall n \in \mathbb{Z}\ (f(n) = (n + 1, n))) \implies (\exists x \in \mathbb{Z}\ (f(x) = (3, 3)))$
+\item $\displaystyle \forall y \in \mathbb{Z} \times \mathbb{N}_{0}\ (y \neq (-1, 0))$
+\item $\displaystyle \exists y \in \mathbb{N} \times \mathbb{Z}\ (y = (-1, 1))$
 \item $\displaystyle (f \colon \mathbb{Z} \to \mathbb{Z} \land \forall x \in \mathbb{Z}\ (f(x) = 2 + 3x) \land f^{1} = f \land \forall n \in \mathbb{N}\ (f^{n + 1} = f \circ f^{n})) \implies (\forall n \in \mathbb{N}\ \forall x \in \mathbb{Z}\ (f^{n}(x) = 3^{n} + 3^{n} x))$
 \item $\displaystyle (f \colon \mathbb{Z} \to \mathbb{Z} \land \forall x \in \mathbb{Z}\ (f(x) = x + 2) \land f^{1} = f \land \forall n \in \mathbb{N}\ (f^{n + 1} = f \circ f^{n})) \implies (\forall n \in \mathbb{N}\ \forall x \in \mathbb{Z}\ (f^{n}(x) = x + 2n + n(n - 1)(n - 2)))$
 \item $\displaystyle (f \colon \mathbb{Z} \to \mathbb{Q} \land \forall x \in \mathbb{Z}\ (f(x) = \frac{x}{2}) \land f^{1} = f \land \forall n \in \mathbb{N}\ (f^{n + 1} = f \circ f^{n})) \implies (\forall n \in \mathbb{N}\ \forall x \in \mathbb{Z}\ (f^{n}(x) = \frac{x}{2^{n}}))$

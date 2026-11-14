@@ -48,7 +48,11 @@
  *     associativa o commutativa, o una relazione data da una regola, e
  *     dirla riflessiva o simmetrica: sempre per esteso, con la definizione.
  *     Un'ipotesi "esiste k" viene usata con il suo testimone, e così una
- *     congruenza il cui modulo è una lettera (18u);
+ *     congruenza il cui modulo è una lettera (18u). I divisori di un numero
+ *     si provano tutti (18w), una potenza 2^{n} con n intero fa da lettera
+ *     (18x), una relazione può legare coppie di numeri (17t), e i reali
+ *     senza disuguaglianze si trattano con l'appartenenza a \mathbb{Q}
+ *     (18y);
  *   - quelli su un insieme qualsiasi, con un'operazione, delle applicazioni
  *     o una relazione di cui si sa solo ciò che dicono le ipotesi: "un
  *     elemento neutro a sinistra e uno a destra coincidono". Si smentiscono
@@ -236,20 +240,30 @@
  *     secondo grado, i parametri; negli impropri, le oscillazioni
  *     (\int_0^{+\infty} \cos x \, dx) e i domini che la tabella dei segni
  *     non sa decidere. Il capitolo 30 dice dove andrebbero.
- *   - Negli enunciati con quantificatori: i numeri reali e complessi, le
- *     disuguaglianze nella tesi, le applicazioni a valori in coppie o di due
- *     argomenti, e le definizioni per casi tra numeri reali, dove la
+ *   - Negli enunciati con quantificatori: i numeri complessi fuori dalle
+ *     relazioni (le operazioni tra loro, f(a + ib), \mathbb{C}; dentro una
+ *     relazione sono coppie, 17t-4), i reali insieme alle disuguaglianze o
+ *     alle applicazioni (senza, li trattano le regole del capitolo 18, 18y),
+ *     le disuguaglianze nella tesi e tra più variabili, le applicazioni di
+ *     due argomenti, e le definizioni per casi tra numeri reali, dove la
  *     suriettività vorrebbe una radice come \sqrt{y} nel valore di un
- *     "esiste". Le applicazioni definite per casi tra interi e razionali, e
- *     il valore assoluto nella loro regola, ci sono (17s, 18v); di un
- *     enunciato con un parametro (17s) il motore dimostra la tesi per ogni
- *     valore del parametro, e la smentisce per ogni valore o per uno dei
- *     primi, mai con un valore cercato dalle condizioni. Mancano anche i
- *     parametri dichiarati insieme (a, b \in \mathbb{Z}) e le lettere usate
- *     sia come parametri sia come variabili legate. Il linguaggio è nel
- *     capitolo 17; ogni nuovo modo di
- *     ragionare è una regola in più nel capitolo 18. L'induzione vi entra
- *     solo per un "per ogni n" senza altre variabili intorno.
+ *     "esiste". Le applicazioni definite per casi tra interi e razionali, il
+ *     valore assoluto nella loro regola e i valori in coppie ci sono (17s,
+ *     18v); di un enunciato con un parametro (17s) il motore dimostra
+ *     la tesi per ogni valore del parametro, e la smentisce per ogni valore
+ *     o per uno dei primi, mai con un valore cercato dalle condizioni.
+ *     Mancano anche i parametri dichiarati insieme (a, b \in \mathbb{Z}) e
+ *     le lettere usate sia come parametri sia come variabili legate, e le
+ *     coppie di coppie. Nella teoria dei numeri mancano il massimo comun
+ *     divisore, i numeri primi come insieme, il numero dei divisori di una
+ *     lettera (quelli di un numero li prova tutti 18w), e le uguaglianze tra
+ *     potenze della stessa base: x^{n m} = x non dà n m = 1, perché le
+ *     potenze sono lettere indipendenti (18x), e così l'antisimmetria di "y
+ *     è una potenza di x" resta fuori. La verifica del capitolo 19 non sa
+ *     calcolare potenze di potenze troppo grandi, e allora non conferma. Il
+ *     linguaggio è nel capitolo 17; ogni nuovo modo di ragionare è una
+ *     regola in più nel capitolo 18. L'induzione vi entra solo per un "per
+ *     ogni n" senza altre variabili intorno.
  *   - Negli enunciati su insiemi qualsiasi: le applicazioni e le parti da
  *     costruire, le ipotesi su tutte le parti di un insieme (\forall X
  *     \subseteq S tra le ipotesi, o in un'equivalenza), l'insieme delle
@@ -524,8 +538,8 @@
 #define MAX_REGION_DEPTH 4   /* distinzioni di casi su una variabile, una dentro l'altra (18v-2) */
 #define MAX_REGION_POINTS 8  /* numeri elencati uno per uno quando una distinzione lascia un pezzo finito (18v-2) */
 #define MAX_HOLES 4          /* punti tolti da un insieme numerico con \setminus */
-#define MAX_BOUND 8          /* quantificatori uno dentro l'altro */
-#define MAX_LITERALS 4       /* confronti in una disgiunzione */
+#define MAX_BOUND 12         /* quantificatori uno dentro l'altro, e variabili generiche (17t-2: una coppia ne conta due) */
+#define MAX_LITERALS 8       /* confronti in una disgiunzione (18z ne sostituisce fino a due: quattro ipotesi e la tesi) */
 #define SAMPLE_SIZE 12       /* elementi di un insieme numerico provati uno a uno */
 #define MAX_CHECKS 4096      /* combinazioni di valori provate dalla verifica sul campione */
 #define MAX_SEARCH 20000     /* passi di ricerca per un enunciato con quantificatori */
@@ -558,6 +572,7 @@
 #define MAX_PANELS 4         /* confronti che un grafico mostra, uno per pannello */
 #define FIGURE_SAMPLES 600   /* punti con cui il grafico traccia una curva */
 #define MAX_PAIR_SETS 4      /* insiemi di coppie dati da una regola in un enunciato (17i) */
+#define MAX_PAIR_VARIABLES 8 /* lettere che stanno per una coppia di numeri, in vista insieme (17t) */
 #define MAX_RENAMED 16       /* lettere legate nella regola di un insieme di coppie */
 #define MAX_GUARDS 64        /* appartenenze che fissano l'insieme di una lettera (17m) */
 #define MAX_UNFOLDED 262144  /* caratteri riscritti svolgendo le definizioni di un enunciato */
@@ -2190,6 +2205,14 @@ static int mono_is_integer(const Mono *m) {
  * negative ed esponente non intero può fallire. Per questo la scomposizione si
  * fa solo quando l'esponente q m è un intero per ogni n (11b'); altrimenti la
  * base resta un blocco unico e diventa un atomo così com'è. */
+/* Prototipi in avanti inevitabili: le potenze che fanno da lettere sono
+ * della ricerca del capitolo 18 (18x), che conosce le variabili generiche;
+ * qui servono solo a fondere gli esponenti, (x^{n})^{m} = x^{n m}, che per
+ * una base positiva e esponenti interi è vero. Fuori dalla ricerca
+ * power_letter() ritorna sempre 0. */
+static int power_letter(int atom);
+static int power_exponent(const Mono *m);
+
 static Rat symbolic_power(Poly p, const Mono *m, Frac q) {
     Term out;
     out.coef = num_int(1);
@@ -2204,7 +2227,8 @@ static Rat symbolic_power(Poly p, const Mono *m, Frac q) {
         int single = p.count == 1 && only->mono.count == 1 && num_equal(only->coef, num_int(1)) &&
                      only->mono.factor[0].exp.num == 1 && only->mono.factor[0].exp.den == 1;
         int atom = single ? only->mono.factor[0].atom : 0;
-        if (single && atoms[atom].kind == ATOM_POW && atoms[atom].base == BASE_PRIME) term_times(&out, atom_raised(atom, m), q);
+        if (single && atoms[atom].kind == ATOM_POW && (atoms[atom].base == BASE_PRIME || (q.den == 1 && power_letter(atom) && power_exponent(m))))
+            term_times(&out, atom_raised(atom, m), q);
         else if (single) term_times(&out, atom_pow(BASE_ATOM, atom, m), q);
         else term_times(&out, atom_pow(BASE_POLY, base_poly_intern(p), m), q);
         return (Rat){poly_term(out), poly_const(num_int(1))};
@@ -2933,7 +2957,13 @@ static Rat power(Rat base, Rat exponent) {
             if (q.num < 0) require(NEVER_ZERO, base.num, "zero elevato a un esponente negativo");
             if (conditions_on && (q.den != 1 || !mono_is_integer(&m)))
                 require(NEVER_NEGATIVE, poly_mul(base.num, base.den), "potenza a esponente non intero di un numero negativo");
-            result = rat_mul(result, rat_div(symbolic_power(base.num, &m, q), symbolic_power(base.den, &m, q)));
+
+            /* 1 elevato a qualunque esponente è 1: senza questo passo il
+             * denominatore 1 di 2^{x} diventava un atomo (1)^{x}, e le
+             * dimostrazioni di 18x lo scrivevano. */
+            Rat top = poly_is_one(base.num) ? rat_int(1) : symbolic_power(base.num, &m, q);
+            Rat bottom = poly_is_one(base.den) ? rat_int(1) : symbolic_power(base.den, &m, q);
+            result = rat_mul(result, rat_div(top, bottom));
         }
     }
     return result;
@@ -5973,7 +6003,10 @@ static void put_atom(int atom, Frac exp) {
         /* La base: un numero o una lettera da soli, altrimenti tra parentesi;
          * sotto radice le parentesi non servono. */
         int root = a->exponent.count == 0 && exp.num == 1 && exp.den == 2;
-        int simple = a->base == BASE_PRIME || (a->base == BASE_ATOM && atoms[a->id].kind == ATOM_VAR);
+        const Poly *poly = a->base == BASE_POLY ? &base_polys[a->id] : NULL;
+        int whole = poly && poly->count == 1 && poly->term[0].mono.count == 0 && poly->term[0].coef.im.num == 0 &&
+                    poly->term[0].coef.re.den == 1 && poly->term[0].coef.re.num > 0;
+        int simple = a->base == BASE_PRIME || (a->base == BASE_ATOM && atoms[a->id].kind == ATOM_VAR) || whole;
         proof_add(root ? "\\sqrt{" : simple ? "" : "\\left(");
         if (a->base == BASE_PRIME) proof_add("%lld", a->id);
         else if (a->base == BASE_ATOM) put_atom((int)a->id, frac_int(1));
@@ -9395,20 +9428,47 @@ static Range poly_range(Poly p) {
  *        possono mancare insieme: 1 è una combinazione dei polinomi
  *        (18v-7, il seguito di 18s), come per le coppie (x + 1, 2x) \neq
  *        (0, 0).
+ *   18w. Una variabile intera che deve dividere un numero diverso da zero:
+ *        i valori che contano sono i divisori di quel numero, finiti, e si
+ *        provano tutti. Un "per ogni" diventa un caso per divisore, un
+ *        "esiste" cerca tra i divisori.
+ *   18x. Le potenze come lettere: 2^{n}, con n una variabile generica
+ *        intera, è un numero razionale positivo, e nelle identità tra
+ *        polinomi fa da lettera; il valore di un "esiste" che compare solo
+ *        negli esponenti si cerca tra le combinazioni degli esponenti delle
+ *        ipotesi (a = 2^{n} b, b = 2^{k} c danno a = 2^{n + k} c).
+ *   18y. Le variabili reali senza relazioni d'ordine: le regole precedenti
+ *        valgono anche per loro, tranne ciò che presuppone variabili
+ *        razionali (le radici di 18b oltre il primo grado, "è un numero
+ *        razionale" in 18e); un valore positivo che sta in \mathbb{Q} ha il
+ *        nome in \mathbb{Q}^{+}, e il valore di un "esiste" si cerca anche
+ *        diviso per una variabile che non è zero, come 1/q. Più in generale
+ *        il nome di un'ipotesi "esiste" che ne fissa un valore positivo
+ *        varia nella parte positiva del suo insieme: da y = a x, con x e y
+ *        naturali, a è naturale.
+ *   18z. Tre regole per i ragionamenti tra interi: un'ipotesi che dà il
+ *        valore di una variabile si sostituisce nel resto (da y = a x e x =
+ *        b y segue x (1 - a b) = 0, e con a, b naturali a = b = 1); un
+ *        polinomio con un fattore monomio che non si annulla è zero solo
+ *        dove lo è l'altro fattore (m (1 - 2a) con m naturale); un "esiste"
+ *        prova anche le espressioni di primo grado più semplici nelle
+ *        variabili generiche (x = 2m).
  *
  * I capitoli che seguono, numerati da 18.1 a 18.19, raccolgono queste regole
  * per argomento, nell'ordine in cui un lettore ne ha bisogno: ognuno usa solo
  * ciò che sta nei capitoli prima di lui. Le etichette delle regole restano
  * quelle dell'elenco qui sopra, perché le citano commenti, test e README.
  *
- *   18.1   Lo stato della dimostrazione e la scrittura dei polinomi
- *   18.2   Polinomi nelle variabili generiche              18a-18f, 18v-4, 18v-5
- *   18.3   Confronti e disgiunzioni di confronti           18g, 18h, 18s, 18v-7
+ *   18.1   Lo stato della dimostrazione e la scrittura dei polinomi    18x
+ *   18.2   Polinomi nelle variabili generiche              18a-18f, 18v-4, 18v-5,
+ *                                                          18y, 18z
+ *   18.3   Confronti e disgiunzioni di confronti           18g, 18h, 18s, 18v-7,
+ *                                                          18z
  *   18.4   "Per ogni" ed "esiste": induzione, resti,       18n, 18o, 18v,
  *          casi di una definizione, equazioni              18i
- *   18.5   Le ipotesi "esiste", con il loro testimone      18u
+ *   18.5   Le ipotesi "esiste", con il loro testimone      18u, 18x, 18y
  *   18.6   establish(): la dimostrazione per struttura     18e, 18j, 18k, 18l,
- *                                                          18m, 18v-6
+ *                                                          18m, 18v-6, 18w, 18z
  *   18.7   Sole congruenze: tutti i resti                  18r
  *   18.8   La tabella dei segni: numeri e polinomi         18p-1 ... 18p-6
  *          esatti, i punti
@@ -9485,13 +9545,18 @@ static int split_modulus, split_case;
  * DIMOSTRATO, invece di esaurire tempo e memoria. */
 static int search_left;
 
-/* Mette da parte i tentativi rimasti oltre MAX_SEARCH / 20 e ritorna quanti
+/* Mette da parte i tentativi rimasti oltre MAX_SEARCH / 10 e ritorna quanti
  * sono; chi chiama li restituisce, con search_left += ..., quando ha finito.
  * Serve alle regole che provano molte strade (i moduli di 18o, i testimoni
  * di 18u): i loro tentativi si contano a parte, e quando non portano a nulla
- * non consumano la ricerca di chi sta intorno. */
+ * non consumano la ricerca di chi sta intorno.
+ *
+ * Perché un decimo. Era un ventesimo, mille passi: la transitività di una
+ * relazione tra numeri complessi (17t-4) dà un nome a quattro testimoni e ne
+ * cerca altri due, tutto dentro 18u, e la sua dimostrazione chiede quasi
+ * duemila passi. */
 static int search_set_aside(void) {
-    int outside = search_left > MAX_SEARCH / 20 ? search_left - MAX_SEARCH / 20 : 0;
+    int outside = search_left > MAX_SEARCH / 10 ? search_left - MAX_SEARCH / 10 : 0;
     search_left -= outside;
     return outside;
 }
@@ -9632,9 +9697,18 @@ static void put_poly(Poly p) {
             proof_add("%s", written++ ? (negative ? " - " : " + ") : (negative ? "-" : ""));
             if (t->mono.count == 0 || size.num != 1 || size.den != 1) put_frac(size);
 
-            /* Le lettere, con apice ed esponente. */
+            /* Le lettere, con apice ed esponente. Una potenza che fa da
+             * lettera (18x) la scrive put_atom(), con l'esponente; dopo un
+             * numero ci vuole il punto, perché 2 e 2^{n} accostati si
+             * leggerebbero 22^{n}. */
             for (int k = 0; k < t->mono.count; k++) {
                 const Factor *f = &t->mono.factor[k];
+                if (atoms[f->atom].kind != ATOM_VAR) {
+                    if (k == 0 && (size.num != 1 || size.den != 1)) proof_add(" \\cdot ");
+                    else if (k) proof_add("\\,");
+                    put_atom(f->atom, frac_int(f->exp.num));
+                    continue;
+                }
                 proof_add("%c%s", (int)atoms[f->atom].id, primed[f->atom] ? "'" : "");
                 if (f->exp.num != 1) proof_add("^{%lld}", f->exp.num);
             }
@@ -9672,10 +9746,73 @@ static int poly_uses(Poly p, int x) {
     return 0;
 }
 
+/* 18x. LE POTENZE COME LETTERE
+ *
+ * A che cosa serve. "a = 2^{n} b con n intero" è una relazione di
+ * equivalenza: con m = -n si ha b = 2^{m} a, e da a = 2^{n} b, b = 2^{k} c
+ * segue a = 2^{n + k} c. Sono identità tra polinomi, purché 2^{n} e 2^{k}
+ * siano lettere come le altre: (a - 2^{n} b) + 2^{n} (b - 2^{k} c) =
+ * a - 2^{n} 2^{k} c. Il conto le scrive già così, perché 2^{n + k} diventa
+ * 2^{n} 2^{k} e 2^{-n} l'inverso di 2^{n} (capitolo 11); ma le regole del
+ * capitolo 18 lavorano solo con le variabili, e davanti a un atomo che non
+ * lo è si fermavano.
+ *
+ * Una potenza fa da lettera quando l'esponente è un prodotto di variabili
+ * generiche intere e la base è positiva e razionale: un numero positivo, o
+ * una variabile generica che varia tra i razionali positivi. Allora, per
+ * ogni valore delle variabili, la potenza è un numero razionale positivo.
+ *
+ * Perché è lecito. Un'identità tra polinomi in lettere indipendenti vale
+ * per ogni valore delle lettere, quindi anche quando una lettera vale 2^{n}:
+ * tutto ciò che le regole ricavano da un'identità resta vero. Le lettere
+ * nuove non sono però indipendenti davvero (2^{n} è sempre positivo, e
+ * dipende da n), e una regola che ragionasse sul loro insieme sbaglierebbe:
+ * per questo ogni regola che guarda gli insiemi lavora soltanto sulle
+ * variabili di universal[], e davanti a una potenza non si applica. La
+ * regola dei segni e quella delle radici (18b, 18c) guardano
+ * universal_index(), e così 18d; 18e dice di una potenza soltanto che è un
+ * numero razionale, ed è vero per quanto detto sopra; 18s la usa come
+ * moltiplicatore, come una variabile.
+ *
+ * Solo dentro la ricerca. power_letters vale 1 mentre il capitolo 18 cerca
+ * una dimostrazione, e 0 altrove: la regola dei resti (18r) e la verifica del
+ * capitolo 19 vogliono polinomi nelle sole variabili, e per loro una potenza
+ * resta ciò che era. */
+static int power_letters;
+
+/* 18x. Ritorna 1 se il monomio m è fatto di variabili generiche intere con
+ * esponenti interi positivi: l'esponente di una potenza che fa da lettera. */
+static int power_exponent(const Mono *m) {
+    for (int i = 0; i < m->count; i++) {
+        int who = universal_index(m->factor[i].atom);
+        Frac e = m->factor[i].exp;
+        if (who < 0 || !universal[who].numbers->integers || e.den != 1 || e.num < 1) return 0;
+    }
+    return 1;
+}
+
+/* 18x. Ritorna 1 se l'atomo è una potenza che fa da lettera (vedi sopra):
+ * esponente fatto di variabili generiche intere, con esponenti interi
+ * positivi, e base un numero positivo o una variabile generica dei
+ * razionali positivi. Fuori dalla ricerca (power_letters a 0) ritorna 0. */
+static int power_letter(int atom) {
+    const Atom *a = &atoms[atom];
+    if (!power_letters || a->kind != ATOM_POW || a->exponent.count == 0 || !power_exponent(&a->exponent)) return 0;
+    if (a->base == BASE_PRIME) return 1;
+    if (a->base == BASE_POLY) {
+        Poly b = base_polys[a->id];
+        return b.count == 1 && b.term[0].mono.count == 0 && b.term[0].coef.im.num == 0 && b.term[0].coef.re.num > 0;
+    }
+    if (a->base != BASE_ATOM) return 0;
+    int who = universal_index((int)a->id);
+    const NumberSet *set = who >= 0 ? universal[who].numbers : NULL;
+    return set && !set->reals && set->bounded && (set->low > 0 || (set->low == 0 && set->strict));
+}
+
 /* Scrive r come frazione di due polinomi "veri": coefficienti razionali, solo
- * atomi che sono variabili, esponenti interi non negativi. Mette i due
- * polinomi in *num e *den e ritorna 1; ritorna 0 se r non si può scrivere
- * così.
+ * atomi che sono variabili (o, durante la ricerca, potenze che fanno da
+ * lettere: 18x), esponenti interi non negativi. Mette i due polinomi in *num
+ * e *den e ritorna 1; ritorna 0 se r non si può scrivere così.
  *
  * Serve perché rat_make() porta al numeratore un denominatore fatto di un
  * solo termine, lasciando esponenti negativi: 1/x diventa x^{-1}. Qui si fa
@@ -9691,8 +9828,10 @@ static int rat_polynomials(Rat r, Poly *num, Poly *den) {
         Poly p = side ? r.den : r.num;
         for (int i = 0; i < p.count; i++) {
             if (p.term[i].coef.im.num != 0) return 0;
-            for (int k = 0; k < p.term[i].mono.count; k++)
-                if (atoms[p.term[i].mono.factor[k].atom].kind != ATOM_VAR || p.term[i].mono.factor[k].exp.den != 1) return 0;
+            for (int k = 0; k < p.term[i].mono.count; k++) {
+                int atom = p.term[i].mono.factor[k].atom;
+                if ((atoms[atom].kind != ATOM_VAR && !power_letter(atom)) || p.term[i].mono.factor[k].exp.den != 1) return 0;
+            }
         }
     }
 
@@ -9787,6 +9926,14 @@ typedef enum {
     SIGN_NONZERO       /* non è mai zero, oppure lo è solo dove lo è `guard` */
 } SignGoal;
 
+/* 18z. Ritorna 1 se il monomio a divide il monomio b: ogni suo atomo
+ * compare in b con un esponente almeno uguale. */
+static int mono_divides(const Mono *a, const Mono *b) {
+    for (int i = 0; i < a->count; i++)
+        if (frac_cmp(mono_exponent(b, a->factor[i].atom), a->factor[i].exp) < 0) return 0;
+    return 1;
+}
+
 /* 18c. Regola dei segni.
  *
  * Stabilisce il segno del polinomio p per tutti i valori delle variabili
@@ -9856,7 +10003,7 @@ static int signs(Poly shown, Poly p, const Poly *guard, int index, SignGoal goal
     /* 18c-2. Tutte le variabili sono su una semiretta: si guardano i
      * coefficienti. `certain` dice se c'è un termine sicuramente diverso da
      * zero; forced[i] se un termine è potenza della sola variabile i. */
-    int negative = 0, positive = 0, certain = 0, constant = 0;
+    int negative = 0, positive = 0, certain = 0, constant = 0, multiples = 0;
     char forced[MAX_BOUND] = {0};
     for (int i = 0; i < p.count; i++) {
         const Term *t = &p.term[i];
@@ -9883,12 +10030,20 @@ static int signs(Poly shown, Poly p, const Poly *guard, int index, SignGoal goal
     } else if (goal == SIGN_NONZERO && !positive && certain) {
         conclusion = "negative";
     } else if (goal == SIGN_NONZERO && guard && p.count && !(negative && positive)) {
+        /* Un termine di guard si annulla se contiene una variabile forzata
+         * a zero, oppure (18z) se è un multiplo di un termine di p: quando
+         * ogni termine di p vale zero, vale zero anche il suo monomio, e con
+         * lui ogni suo multiplo. Così a (1 - m n) = 0 con m, n naturali e a
+         * intero dà a (1 - m) = 0 anche per a = 0, dove nessuna variabile è
+         * forzata. */
         for (int i = 0; i < guard->count; i++) {
             int vanishes = 0;
             for (int k = 0; k < guard->term[i].mono.count; k++) {
                 int who = universal_index(guard->term[i].mono.factor[k].atom);
                 if (who >= 0 && forced[who]) vanishes = 1;
             }
+            for (int j = 0; j < p.count && !vanishes; j++)
+                if (mono_divides(&p.term[j].mono, &guard->term[i].mono)) vanishes = multiples = 1;
             if (!vanishes) return 0;
         }
     } else {
@@ -9938,18 +10093,63 @@ static int signs(Poly shown, Poly p, const Poly *guard, int index, SignGoal goal
         if (goal != SIGN_NONNEGATIVE) proof_add(" and %s", constant ? "a constant term" : "a term whose variables are all positive");
         proof_add(", so it is %s.", conclusion);
     } else {
-        proof_add(" has no %s coefficient, so it is zero only if each of its terms is zero. That forces",
-                  negative ? "positive" : "negative");
-        for (int i = 0, written = 0; i < universal_count; i++)
-            if (forced[i]) proof_add("%s $%c%s = 0$", written++ ? "," : "", universal[i].name, primed[atom_var(universal[i].name)] ? "'" : "");
-        proof_add(", and then $");
+        int written = 0;
+        proof_add(" has no %s coefficient, so it is zero only if each of its terms is zero.", negative ? "positive" : "negative");
+        for (int i = 0; i < universal_count; i++)
+            if (forced[i]) proof_add("%s $%c%s = 0$", written++ ? "," : " That forces", universal[i].name, primed[atom_var(universal[i].name)] ? "'" : "");
+        proof_add("%s $", written ? ", and then" : " Then");
         put_poly(*guard);
-        proof_add(" = 0$.");
+        proof_add(" = 0$%s.", multiples ? ": each of its terms has a factor forced to zero, or is a multiple of a term that is zero" : "");
     }
     memset(primed, 0, sizeof primed);
     return 1;
 }
 
+/* 18y. LE VARIABILI REALI, SENZA RELAZIONI D'ORDINE
+ *
+ * A che cosa serve. "a b^{-1} \in \mathbb{Q}" tra numeri reali positivi è
+ * una relazione di equivalenza: a a^{-1} = 1, il reciproco di un razionale
+ * diverso da zero è razionale, e (a b^{-1})(b c^{-1}) = a c^{-1}. Sono conti
+ * con = e con l'appartenenza, senza disuguaglianze: la tabella dei segni non
+ * li tratta, e le regole del capitolo 18 sì, purché nessuna di loro dia per
+ * scontato che una variabile sia razionale. Lo davano per scontato in due:
+ *
+ *   18y-1. La regola delle radici (18b): un polinomio in una variabile reale
+ *          può annullarsi in una radice irrazionale, come x^2 - 2, e le
+ *          radici razionali non le dicono tutte. Per una variabile reale la
+ *          regola vale solo al primo grado, dove l'unica radice, -r/c, è
+ *          razionale.
+ *   18y-2. L'appartenenza (18e): "è un numero razionale" vale per
+ *          un'espressione razionale nelle variabili razionali e nelle
+ *          potenze che fanno da lettere (18x), non in una variabile reale, né
+ *          nelle costanti e e \pi. Che lo fosse anche lì era un errore già
+ *          presente: "esiste x razionale con x = e" passava le regole, e lo
+ *          fermava solo la verifica del capitolo 19.
+ *
+ * Le altre regole non dipendono dall'insieme in questo modo: la regola dei
+ * segni (18c) copre una semiretta di reali come una di razionali, 18d e 18o
+ * vogliono interi, 18j prova numeri razionali, che sono anche reali, e le
+ * identità tra polinomi valgono per ogni valore delle lettere. Il valore di
+ * un "esiste" tra i razionali, cercato da 18u-3, va però scritto con le sole
+ * lettere razionali (`need` in combination()), e due passi servono al
+ * reciproco di un razionale:
+ *
+ *   18y-3. Il valore cercato può essere w / v, con v una variabile generica
+ *          che non vale zero (in witnesses_solve()): da x = q y segue
+ *          y = (1/q) x.
+ *   18y-4. Un valore sempre positivo che sta in \mathbb{Q} ha il nome in
+ *          \mathbb{Q}^{+} (positive_part()), che non contiene lo zero: così
+ *          da x y^{-1} = q, con x e y reali positivi, q non è zero, e si può
+ *          dividere per lui. Una potenza con esponente intero negativo, come
+ *          y^{-1}, è un'espressione razionale, e la sua base fa da divisore
+ *          (negative_power(), term_defined()).
+ *
+ * Che cosa resta da sapere. La verifica del capitolo 19 prova numeri
+ * razionali anche al posto delle variabili reali: su di loro "a b^{-1} \in
+ * \mathbb{Q}" vale sempre, e un enunciato vero sui razionali ma falso sui
+ * reali non la fermerebbe. Per questi enunciati la correttezza riposa sulle
+ * regole, e i test ne contengono di falsi di quel tipo, che non devono
+ * risultare dimostrati (false_number_relations.tex). */
 /* Ritorna 1 se p ha coefficienti interi e contiene solo variabili generiche
  * intere: allora vale un intero per ogni loro valore. Non scrive nulla. */
 static int poly_whole(Poly p) {
@@ -10093,6 +10293,10 @@ static int zero_only_where(Poly p, const Poly *guard) {
         int x = atom_var(universal[i].name);
         int degree = poly_coefficients(p, x, c, &scale);
         if (degree < 1) continue;
+
+        /* 18y-1. Per una variabile reale le radici razionali sono tutte le
+         * radici solo al primo grado. */
+        if (set->reals && degree > 1) continue;
         int roots = rational_roots(c, degree, root);
         if (roots < 0) break;
         if (!roots_confirmed(p, x, root, roots, set)) return 0;
@@ -10130,6 +10334,39 @@ static int zero_only_where(Poly p, const Poly *guard) {
             proof_add("$ is zero.");
         }
         return 1;
+    }
+
+    /* 18z. Un fattore comune che non si annulla: p = M q, con M un monomio
+     * le cui lettere non valgono mai zero (variabili generiche il cui
+     * insieme non contiene lo zero, o potenze di 18x, che sono positive).
+     * Un prodotto di numeri è zero solo se lo è un fattore, quindi p è zero
+     * esattamente dove lo è q, e basta dimostrare di q ciò che si chiede di
+     * p. Così m (1 - 2a), con m naturale e a intero, non è mai zero: lo dice
+     * 18b di 1 - 2a, la cui radice 1/2 non è intera. Se q non riesce, resta
+     * la regola dei segni su p. */
+    Mono common = poly_common(p);
+    int factor = common.count > 0;
+    for (int k = 0; k < common.count && factor; k++) {
+        int atom = common.factor[k].atom, who = universal_index(atom);
+        factor = power_letter(atom) || (who >= 0 && !numbers_contain(universal[who].numbers, frac_int(0)));
+    }
+    if (factor) {
+        Term inverse = {num_int(1), mono_pow(&common, frac_int(-1))}, whole = {num_int(1), common};
+        Poly q = poly_mul(p, poly_term(inverse));
+        Mark mark = mark_here();
+
+        /* Controllo del passo: M q deve ridare p. */
+        if (failure) return 0;
+        if (!poly_equal(poly_mul(q, poly_term(whole)), p)) { unjustified_steps++; return 0; }
+        proof_add(" The polynomial $");
+        put_poly(p);
+        proof_add("$ is $");
+        put_poly(poly_term(whole));
+        proof_add("$ times $");
+        put_factor(q);
+        proof_add("$, and the letters of the first factor are never zero.");
+        if (zero_only_where(q, guard)) return 1;
+        rollback(mark);
     }
 
     /* 18c. Più variabili, o radici non determinabili: la regola dei segni.
@@ -10211,9 +10448,25 @@ static int always_in(Rat value, const NumberSet *set) {
         return 1;
     }
 
-    /* Intero, se l'insieme è di interi. */
-    if (!set->integers) proof_add(" It is a rational number.");
-    else if (!poly_is_one(den) || !always_integer(num)) return 0;
+    /* Intero, se l'insieme è di interi; razionale, se è di razionali, e
+     * questo lo è solo un'espressione nelle variabili razionali e nelle
+     * potenze che fanno da lettere (18y-2). Ogni espressione razionale è un
+     * numero reale. */
+    if (set->integers) {
+        if (!poly_is_one(den) || !always_integer(num)) return 0;
+    } else if (set->reals) {
+        proof_add(" It is a real number.");
+    } else {
+        for (int side = 0; side < 2; side++)
+            for (int i = 0; i < (side ? den : num).count; i++) {
+                const Mono *m = &(side ? den : num).term[i].mono;
+                for (int k = 0; k < m->count; k++) {
+                    int who = universal_index(m->factor[k].atom);
+                    if (!power_letter(m->factor[k].atom) && (who < 0 || universal[who].numbers->reals)) return 0;
+                }
+            }
+        proof_add(" It is a rational number.");
+    }
 
     /* Non sotto l'estremo inferiore: value - low = above/den, e si guarda il
      * segno di above e quello di den. */
@@ -10255,10 +10508,29 @@ static int always_in(Rat value, const NumberSet *set) {
  *
  * Si controllano prima le divisioni più interne: un divisore si può calcolare
  * solo se ciò che contiene è definito. */
+/* 18y. Ritorna 1 se node è una potenza con esponente un intero negativo
+ * scritto in cifre, come b^{-1}: un'espressione razionale, dove la base non
+ * è zero. */
+static int negative_power(const Node *node) {
+    const Node *e = node->kind == N_POW ? node->b : NULL;
+    return e && e->kind == N_NEG && e->a->kind == N_NUM && e->a->value >= 1 && e->a->value <= MAX_POWER;
+}
+
 static int term_defined(const Node *node) {
     Poly num, den;
     if (!node || node->kind == N_APPLY) return 1;
     if (!term_defined(node->a) || !term_defined(node->b)) return 0;
+
+    /* 18y. Una potenza con esponente intero negativo, come b^{-1}, è una
+     * divisione per una potenza della base: la base fa da divisore. */
+    if (node->kind == N_POW && negative_power(node)) {
+        if (!rat_polynomials(eval(node->a), &num, &den)) return 0;
+        if (poly_is_constant(num)) return num.count != 0;
+        proof_add(" The base $");
+        put_ratio(num, den);
+        proof_add("$ of a negative power is never zero.");
+        return zero_only_where(num, NULL);
+    }
     if (node->kind != N_DIV) return 1;
     if (!rat_polynomials(eval(node->b), &num, &den)) return 0;
     if (poly_is_constant(num)) return num.count != 0;
@@ -10430,6 +10702,82 @@ static int divide_out(Poly *h, Poly e) {
     return 0;
 }
 
+/* 18x. Ritorna 1 se r è un polinomio a coefficienti interi nelle variabili
+ * generiche intere, con esponenti interi non negativi: un intero, per ogni
+ * valore delle variabili. */
+static int rat_is_integer_polynomial(Rat r) {
+    if (!poly_is_one(r.den)) return 0;
+    for (int i = 0; i < r.num.count; i++) {
+        const Term *t = &r.num.term[i];
+        if (t->coef.im.num != 0 || t->coef.re.den != 1) return 0;
+        for (int k = 0; k < t->mono.count; k++) {
+            int who = universal_index(t->mono.factor[k].atom);
+            Frac e = t->mono.factor[k].exp;
+            if (who < 0 || !universal[who].numbers->integers || e.den != 1 || e.num < 0) return 0;
+        }
+    }
+    return 1;
+}
+
+/* 18x. Ritorna 1 se l'esponente node vale un intero per ogni valore delle
+ * variabili generiche, per come è scritto: numeri interi, variabili
+ * generiche intere o legate a un polinomio intero in quelle, somme,
+ * differenze, prodotti e opposti. */
+static int exponent_is_integer(const Node *node) {
+    switch (node->kind) {
+    case N_NUM:
+        return 1;
+    case N_VAR: {
+        const Rat *bound = env_lookup(node->name);
+        if (bound) return rat_is_integer_polynomial(*bound);
+        int who = universal_index(atom_var(node->name));
+        return who >= 0 && universal[who].numbers->integers;
+    }
+    case N_NEG:
+        return exponent_is_integer(node->a);
+    case N_ADD: case N_SUB: case N_MUL:
+        return exponent_is_integer(node->a) && exponent_is_integer(node->b);
+    default:
+        return 0;
+    }
+}
+
+/* 18x. Ritorna 1 se la base node è un razionale positivo per ogni valore
+ * delle variabili generiche, per come è scritta: un numero positivo, o una
+ * variabile generica che varia tra i razionali positivi. */
+static int base_is_positive(const Node *node) {
+    Num value;
+    if (node_is_numeral(node)) return rat_number(eval(node), &value) && value.im.num == 0 && value.re.num > 0;
+
+    /* Una potenza intera, un prodotto o un quoziente di numeri positivi è
+     * positivo: (x^{n})^{m} ha una base positiva se ce l'ha x^{n}. */
+    if (node->kind == N_POW) return exponent_is_integer(node->b) && base_is_positive(node->a);
+    if (node->kind == N_MUL || node->kind == N_DIV) return base_is_positive(node->a) && base_is_positive(node->b);
+
+    /* Una variabile legata a un valore (18z la lega a ciò che un'ipotesi
+     * dice): positiva se il valore è un monomio con coefficiente positivo
+     * nelle lettere positive, come x^{n} con x naturale. */
+    const Rat *bound = node->kind == N_VAR ? env_lookup(node->name) : NULL;
+    if (bound) {
+        Poly num, den;
+        if (!rat_polynomials(*bound, &num, &den) || num.count != 1 || den.count != 1) return 0;
+        for (int side = 0; side < 2; side++) {
+            const Term *t = side ? &den.term[0] : &num.term[0];
+            if (t->coef.im.num != 0 || t->coef.re.num <= 0) return 0;
+            for (int k = 0; k < t->mono.count; k++) {
+                int atom = t->mono.factor[k].atom, who = universal_index(atom);
+                const NumberSet *set = who >= 0 ? universal[who].numbers : NULL;
+                if (!power_letter(atom) && !(set && set->bounded && (set->low > 0 || (set->low == 0 && set->strict)))) return 0;
+            }
+        }
+        return 1;
+    }
+    if (node->kind != N_VAR || env_lookup(node->name)) return 0;
+    int who = universal_index(atom_var(node->name));
+    const NumberSet *set = who >= 0 ? universal[who].numbers : NULL;
+    return set && !set->reals && set->bounded && (set->low > 0 || (set->low == 0 && set->strict));
+}
+
 /* Ritorna 1 se l'espressione node è razionale in questo momento: lo è per
  * come è scritta (term_is_rational()), oppure lo diventa perché ogni
  * esponente che è una lettera ha adesso per valore un intero non negativo,
@@ -10442,6 +10790,15 @@ static int term_is_rational_now(const Node *node) {
     case N_NEG: case N_ADD: case N_SUB: case N_MUL: case N_DIV: case N_APPLY:
         return term_is_rational_now(node->a) && term_is_rational_now(node->b);
     case N_POW: {
+        /* 18x. Durante la ricerca anche una potenza con un esponente intero
+         * scritto con le variabili è un numero razionale, se la base è
+         * positiva: il conto ne fa delle lettere, e se non ci riesce
+         * rat_polynomials() lo dirà. */
+        if (power_letters && exponent_is_integer(node->b) && base_is_positive(node->a)) return 1;
+
+        /* 18y. b^{-1}: razionale dove la base non è zero, cosa che
+         * term_defined() controlla. */
+        if (negative_power(node)) return term_is_rational_now(node->a);
         const Rat *bound = node->b->kind == N_VAR ? env_lookup(node->b->name) : NULL;
         return bound && rat_number(*bound, &exponent) && exponent.im.num == 0 && exponent.re.den == 1 && exponent.re.num >= 0 &&
                exponent.re.num <= MAX_POWER && term_is_rational_now(node->a);
@@ -10515,8 +10872,10 @@ static int clause_polynomials(Literal *literal, int count) {
  *
  * La stessa ricerca serve alla regola 18u, che tra i moltiplicatori cerca
  * anche il valore di un "esiste": per lei alcuni dei polinomi dati possono
- * avere per moltiplicatore solo un polinomio nelle variabili intere (vedi
- * `whole` in combination()).
+ * avere per moltiplicatore solo un polinomio nelle variabili intere, o in
+ * quelle razionali (vedi `need` in combination()): il valore di un "esiste"
+ * tra i razionali, scritto con una variabile reale, non si saprebbe
+ * razionale (18y).
  */
 
 /* Ritorna il coefficiente con cui il monomio m compare in p, zero se manca. */
@@ -10541,30 +10900,57 @@ typedef struct {
     Poly left;  /* ciò che ne resta durante l'eliminazione */
 } Generator;
 
+/* Che cosa vale sempre una lettera dei moltiplicatori di 18s, e che cosa si
+ * chiede a quelle del moltiplicatore di un'ipotesi: un numero qualsiasi, un
+ * razionale, un intero. L'ordine conta: una lettera va bene per una
+ * richiesta se il suo tipo non è più basso. */
+enum { LETTER_REAL, LETTER_RATIONAL, LETTER_INTEGER };
+
+/* Le lettere con cui 18s forma i monomi dei moltiplicatori: le variabili
+ * generiche, e poi le potenze che fanno da lettere (18x) che compaiono nei
+ * polinomi in esame. letter_kind[i] dice che cosa vale sempre la lettera i:
+ * una potenza è razionale ma non intera, perché 2^{-n} non lo è, e una
+ * variabile reale (18y) solo reale. Le riempie combination(). */
+static int multiplier_letter[MAX_BOUND + MAX_FACTORS], letter_kind[MAX_BOUND + MAX_FACTORS], multiplier_letters;
+
+/* 18x. Aggiunge a multiplier_letter[] le potenze che fanno da lettere nel
+ * polinomio p, ognuna una volta, finché c'è posto. */
+static void power_letters_add(Poly p) {
+    for (int i = 0; i < p.count; i++)
+        for (int k = 0; k < p.term[i].mono.count; k++) {
+            int atom = p.term[i].mono.factor[k].atom, seen = 0;
+            if (!power_letter(atom)) continue;
+            for (int j = 0; j < multiplier_letters && !seen; j++) seen = multiplier_letter[j] == atom;
+            if (seen || multiplier_letters == MAX_BOUND + MAX_FACTORS) continue;
+            letter_kind[multiplier_letters] = LETTER_RATIONAL;
+            multiplier_letter[multiplier_letters++] = atom;
+        }
+}
+
 /* Aggiunge a list[], che ha già *count elementi, i generatori dell'ipotesi
  * hypothesis, di posto owner: uno per ogni monomio di grado esattamente
- * degree nelle variabili generiche da `from` in poi, moltiplicato per
- * `prefix`. Con whole si usano solo le variabili che variano tra gli
- * interi. Si ferma quando l'elenco è pieno. */
-static void generators_add(Generator *list, int *count, Poly hypothesis, int owner, Mono prefix, int from, long long degree, int whole) {
+ * degree nelle lettere di multiplier_letter[] da `from` in poi, moltiplicato
+ * per `prefix`. Si usano solo le lettere il cui tipo (letter_kind[]) non è
+ * più basso di need. Si ferma quando l'elenco è pieno. */
+static void generators_add(Generator *list, int *count, Poly hypothesis, int owner, Mono prefix, int from, long long degree, int need) {
     if (degree == 0) {
         Term by = {num_int(1), prefix};
         if (*count < MAX_GENERATORS) list[(*count)++] = (Generator){owner, prefix, poly_mul(hypothesis, poly_term(by))};
         return;
     }
-    for (int v = from; v < universal_count && *count < MAX_GENERATORS; v++) {
-        if (whole && !universal[v].numbers->integers) continue;
-        Mono letter = mono_atom(atom_var(universal[v].name), frac_int(1));
-        generators_add(list, count, hypothesis, owner, mono_mul(&prefix, &letter), v, degree - 1, whole);
+    for (int v = from; v < multiplier_letters && *count < MAX_GENERATORS; v++) {
+        if (letter_kind[v] < need) continue;
+        Mono letter = mono_atom(multiplier_letter[v], frac_int(1));
+        generators_add(list, count, hypothesis, owner, mono_mul(&prefix, &letter), v, degree - 1, need);
     }
 }
 
 /* 18s. Cerca di scrivere thesis come combinazione dei `count` polinomi di
  * hypothesis[]: se ci riesce mette in multiplier[i] il polinomio c_i e
  * ritorna 1. I polinomi devono essere "veri" (vedi rat_polynomials()). Ogni
- * prodotto c_i H_i ha grado al più top. Se whole non è NULL, il
- * moltiplicatore dell'ipotesi i contiene solo variabili intere quando
- * whole[i] non è zero.
+ * prodotto c_i H_i ha grado al più top. Se need non è NULL, il
+ * moltiplicatore dell'ipotesi i contiene solo lettere che valgono sempre un
+ * intero se need[i] è LETTER_INTEGER, un razionale se è LETTER_RATIONAL.
  *
  * Ogni chiamata toglie alla ricerca in corso un numero di tentativi
  * proporzionale ai generatori: un sistema grande costa quanto molti passi di
@@ -10580,11 +10966,32 @@ static void generators_add(Generator *list, int *count, Poly hypothesis, int own
  * di g; tornando indietro dall'ultimo generatore al primo, ciò che restava
  * di g è g meno i multipli dei precedenti, e i coefficienti dei generatori
  * veri si ottengono correggendo share[] con remove[][]. */
-static int combination(Poly thesis, const Poly *hypothesis, int count, Poly *multiplier, long long top, const int *whole) {
+static int combination(Poly thesis, const Poly *hypothesis, int count, Poly *multiplier, long long top, const int *need) {
     static Generator list[MAX_GENERATORS];
     static Frac remove[MAX_GENERATORS][MAX_GENERATORS], share[MAX_GENERATORS];
     Mono one;
     one.count = 0;
+
+    /* Le lettere dei moltiplicatori: le variabili generiche, poi le potenze
+     * che fanno da lettere (18x). */
+    multiplier_letters = 0;
+    for (int v = 0; v < universal_count; v++) {
+        const NumberSet *set = universal[v].numbers;
+
+        /* Solo le variabili che compaiono nella tesi o in un'ipotesi: se
+         * c'è una combinazione con una lettera che non compare in nessuno di
+         * quei polinomi, mettendo zero al suo posto nei moltiplicatori se ne
+         * ottiene un'altra, senza. Con le dieci variabili generiche della
+         * transitività di una relazione tra numeri complessi (17t-4), i
+         * generatori inutili esaurivano i tentativi. */
+        int x = atom_var(universal[v].name), used = poly_uses(thesis, x);
+        for (int i = 0; i < count && !used; i++) used = poly_uses(hypothesis[i], x);
+        if (!used) continue;
+        letter_kind[multiplier_letters] = set->integers ? LETTER_INTEGER : set->reals ? LETTER_REAL : LETTER_RATIONAL;
+        multiplier_letter[multiplier_letters++] = atom_var(universal[v].name);
+    }
+    power_letters_add(thesis);
+    for (int i = 0; i < count; i++) power_letters_add(hypothesis[i]);
 
     /* I generatori, per grado crescente del monomio: se l'elenco si riempie
      * restano fuori i più grandi. */
@@ -10592,7 +10999,7 @@ static int combination(Poly thesis, const Poly *hypothesis, int count, Poly *mul
     for (long long degree = 0; degree <= top; degree++)
         for (int i = 0; i < count; i++)
             if (poly_degree(hypothesis[i]) + degree <= top)
-                generators_add(list, &generators, hypothesis[i], i, one, 0, degree, whole && whole[i]);
+                generators_add(list, &generators, hypothesis[i], i, one, 0, degree, need ? need[i] : LETTER_REAL);
     search_left -= generators / 16;
 
     /* L'eliminazione. */
@@ -10826,6 +11233,102 @@ static int prove_clause(Literal *literal, int count) {
     put_source(equal->source);
     proof_add(equal->source->kind == F_EQUAL ? "$." : "$ fails.");
     return 1;
+}
+
+/* 18z. SOSTITUIRE UN'IPOTESI
+ *
+ * A che cosa serve. "Se y = a x e x = b y allora x = y", con x, y naturali
+ * e a, b interi: la tesi non è una combinazione delle ipotesi (18s), perché
+ * è vera solo grazie ai segni. Un matematico scrive: "metto a x al posto di
+ * y; allora x = b a x, cioè x (1 - a b) = 0". Da lì la regola dei segni con
+ * guardia (18c) conclude: con a = 1 + a', b = 1 + b' (18y-4 sa che a e b
+ * sono naturali) e x = 1 + x', x - a b x ha tutti i coefficienti negativi e
+ * i termini a' e b', quindi si annulla solo se a' = b' = 0, e allora x - a x
+ * = 0. La regola dei segni fa da sola la parte "un prodotto di naturali che
+ * vale 1 ha tutti i fattori uguali a 1".
+ *
+ * La regola. Tra i confronti di una disgiunzione da dimostrare, un "diversi"
+ * è un'ipotesi H = 0. Se H è di primo grado in una variabile generica v, con
+ * un coefficiente c che è un numero, H = c v + R con R senza v, allora dove
+ * vale l'ipotesi v = -R/c. Si lega v a quel valore e si dimostrano le altre
+ * parti, ricalcolate con v al suo posto, per ogni valore delle variabili che
+ * restano: dove l'ipotesi vale, le parti valgono quanto le loro copie
+ * ricalcolate, e dove non vale la disgiunzione è già vera. È lecito anche
+ * se v ha un insieme: lo si dimentica, e si dimostra di più.
+ *
+ * Perché il calcolo e non i polinomi. Le altre parti si ricalcolano dalle
+ * loro espressioni, con v legata, e non sostituendo nei polinomi: così anche
+ * una potenza di v cambia, y^{m} con y = x^{n} diventa x^{n m} (18x), ed è
+ * ciò che serve alla transitività di "y è una potenza di x".
+ *
+ * Il controllo del passo. Anche l'ipotesi si ricalcola con v legata, e deve
+ * diventare il polinomio nullo: se v comparisse anche dentro un altro atomo
+ * di H, come in y - 2^{y}, il valore -R/c non risolverebbe l'ipotesi, e la
+ * regola non si applica. Le sostituzioni una dopo l'altra sono al più
+ * MAX_SUBSTITUTIONS. */
+
+/* Quante sostituzioni 18z fa una dopo l'altra, al più. */
+#define MAX_SUBSTITUTIONS 2
+
+/* 18z. Dimostra che, per ogni valore delle variabili generiche, vale almeno
+ * uno dei `count` confronti di literal[], sostituendo una variabile con il
+ * valore che un'ipotesi le dà (vedi la testa del paragrafo) e passando il
+ * resto a 18h, a 18s o a un'altra sostituzione, al più `depth`. Scrive il
+ * ragionamento, come seguito di un \item già aperto, e ritorna 1 se ci
+ * riesce; se ritorna 0 il testo scritto va cancellato da chi chiama. */
+static int prove_by_substitution(Literal *literal, int count, int depth) {
+    Mark mark = mark_here();
+    if (depth <= 0 || count < 2 || failure || !clause_polynomials(literal, count)) return 0;
+    rollback(mark);
+    for (int i = 0; i < count; i++) {
+        if (literal[i].equation || literal[i].computed) continue;
+        for (int v = 0; v < universal_count && !failure && search_left > 0; v++) {
+            int name = universal[v].name;
+            Poly part[2], shown_num, shown_den;
+            if (env_lookup(name) || poly_split(literal[i].value, atom_var(name), part, 1) != 1 || !poly_is_constant(part[1])) continue;
+            Rat value = rat_make(poly_negate(part[0]), part[1]);
+            if (!rat_polynomials(value, &shown_num, &shown_den)) continue;
+
+            /* Il controllo del passo: l'ipotesi, con v al suo valore. */
+            Literal again = literal[i];
+            env_push(name, value);
+            int solved = clause_polynomials(&again, 1) && again.value.count == 0 && !failure;
+            rollback(mark);
+            if (!solved) { env_pop(); continue; }
+
+            /* Le altre parti, ricalcolate. */
+            Literal rest[MAX_LITERALS];
+            int left = 0;
+            for (int j = 0; j < count; j++)
+                if (j != i) rest[left++] = literal[j];
+            proof_add(" Suppose that $");
+            put_source(literal[i].source);
+            proof_add("$ %s: then $%c = ", literal[i].source->kind == F_EQUAL ? "holds" : "fails", name);
+            put_ratio(shown_num, shown_den);
+            proof_add("$, and we write that in place of $%c$.\n\\item", name);
+            Mark inner = mark_here();
+            int proved = prove_clause(rest, left);
+            if (!proved && !failure) { rollback(inner); proved = prove_combination(rest, left); }
+
+            /* Una disgiunzione vale se ne vale una parte: si prova anche con
+             * una sola ipotesi accanto agli "uguali", quando le altre
+             * parlano d'altro (le componenti b, d accanto ad a, c). */
+            for (int j = 0; j < left && left > 2 && !proved && !failure; j++) {
+                Literal some[MAX_LITERALS];
+                int kept = 0;
+                if (rest[j].equation) continue;
+                for (int k = 0; k < left; k++)
+                    if (k == j || rest[k].equation) some[kept++] = rest[k];
+                rollback(inner);
+                proved = prove_clause(some, kept);
+            }
+            if (!proved && !failure) { rollback(inner); proved = prove_by_substitution(rest, left, depth - 1); }
+            env_pop();
+            if (proved) return 1;
+            rollback(mark);
+        }
+    }
+    return 0;
 }
 
 /* =============================================================================
@@ -12413,6 +12916,93 @@ static Formula *membership_unfolded(const Formula *f, int letter) {
     return negation;
 }
 
+/* 18y-4. IL NOME DI UN VALORE POSITIVO
+ *
+ * Un'ipotesi "esiste q in A con E(q)", dove E fissa il valore di q, dice di
+ * più quando quel valore è sempre positivo: allora q sta nella parte
+ * positiva di A. È un fatto, non una scelta: se E è alpha q + beta = 0, con
+ * alpha che non si annulla mai, l'unico q possibile è -beta/alpha, e se
+ * questo numero è positivo per ogni valore delle variabili generiche, ogni q
+ * che soddisfa E è positivo. Quindi "esiste q in A con E(q)" ed "esiste q
+ * nella parte positiva di A con E(q)" dicono la stessa cosa, in tutti e due i
+ * versi, e il nome che 18u-1 dà a q può variare nella parte positiva.
+ *
+ * A che cosa serve. Due casi, con lo stesso ragionamento:
+ *
+ *   - x y^{-1} \in \mathbb{Q}, tra reali positivi, è "esiste q razionale con
+ *     x y^{-1} = q" (18u-2): q = x/y è positivo, quindi q non è zero, e si
+ *     può dividere per lui (18y-3): da x y^{-1} = q segue y x^{-1} = 1/q;
+ *   - y = a x con x, y naturali e a intero: a = y/x è positivo, quindi a è
+ *     un naturale, a >= 1. È ciò che serve all'antisimmetria della
+ *     divisibilità (18z): da y = a x e x = b y segue a b = 1, e tra i naturali
+ *     questo vuol dire a = b = 1.
+ *
+ * Si guardano le uguaglianze che E chiede tutte insieme: E stessa, o le
+ * parti di una congiunzione. */
+
+/* 18y-4. Se l'insieme a ha una parte positiva diversa da lui, scritta come
+ * un insieme dei libri, la mette in *out e ritorna 1: \mathbb{N} per gli
+ * interi che arrivano a 1 o sotto, \mathbb{Q}^{+} e \mathbb{R}^{+} per i
+ * razionali e i reali senza estremo. Con dei punti tolti ritorna 0. */
+static int positive_part(const NumberSet *a, NumberSet *out) {
+    static const char *const written[] = {"\\mathbb{N}", "\\mathbb{Q}^{+}", "\\mathbb{R}^{+}"};
+    if (a->holes || (a->bounded && (!a->integers || a->low >= 1))) return 0;
+    memset(out, 0, sizeof *out);
+    out->integers = a->integers;
+    out->reals = a->reals;
+    out->bounded = 1;
+    out->low = a->integers ? 1 : 0;
+    out->strict = !a->integers;
+    out->start = written[a->integers ? 0 : a->reals ? 2 : 1];
+    out->end = out->start + strlen(out->start);
+    return 1;
+}
+
+/* 18y-4. Dimostra che l'"esiste" q, un'ipotesi, fissa un valore positivo per
+ * la sua lettera, come descritto in testa al paragrafo: una delle
+ * uguaglianze che la sua condizione chiede è alpha q + beta = 0, con alpha
+ * che non si annulla mai e -beta/alpha positivo. Scrive il ragionamento e
+ * ritorna 1 se ci riesce; se ritorna 0 non lascia testo. */
+static int witness_positive(const Formula *q) {
+    const Formula *equation[MAX_EQUATIONS];
+    int count = 0, x = atom_var(q->variable);
+    Mark mark = mark_here();
+
+    /* Le uguaglianze chieste tutte insieme: la condizione, o le parti di una
+     * congiunzione. */
+    const Formula *stack[MAX_EQUATIONS], *g;
+    int depth = 0;
+    stack[depth++] = q->a;
+    while (depth && count < MAX_EQUATIONS) {
+        g = stack[--depth];
+        if (g->kind == F_AND && depth + 2 <= MAX_EQUATIONS) { stack[depth++] = g->b; stack[depth++] = g->a; }
+        else if (g->kind == F_EQUAL) equation[count++] = g;
+    }
+    for (int i = 0; i < count && !failure; i++) {
+        Poly num, den, part[2], top, bottom;
+        Rat gap = rat_add(eval(equation[i]->left), eval(equation[i]->right), 1);
+        if (failure) { failure = NULL; continue; }
+        if (!rat_polynomials(gap, &num, &den) || poly_split(num, x, part, 1) != 1) continue;
+        Rat value = rat_make(poly_negate(part[0]), part[1]);
+        if (!rat_polynomials(value, &top, &bottom)) continue;
+        proof_add("\\item In $");
+        put_source(q);
+        proof_add("$ the equality $");
+        put_source(equation[i]);
+        proof_add("$ fixes $%c = ", q->variable);
+        put_ratio(top, bottom);
+        proof_add("$.");
+        if (!poly_is_constant(part[1])) proof_add(" The coefficient of $%c$ is never zero:", q->variable);
+        int positive = poly_is_constant(part[1]) || zero_only_where(part[1], NULL);
+        if (positive) proof_add(" That value is positive, so $%c$ is too.", q->variable);
+        positive = positive && signs(top, top, NULL, 0, SIGN_POSITIVE) && (poly_is_one(bottom) || signs(bottom, bottom, NULL, 0, SIGN_POSITIVE));
+        if (positive && !failure) { proof_add("\n"); return 1; }
+        failure = NULL;
+        rollback(mark);
+    }
+    return 0;
+}
+
 /* La lettera name dopo la sostituzione di ogni from[i] con to[i], per i <
  * count; -1 se name è già una delle to[i], che dovevano essere nuove. */
 static int letter_renamed(int name, const int *from, const int *to, int count) {
@@ -12518,7 +13108,7 @@ static Formula *quantifier_renamed(const Formula *q, const Leaf *leaf, int count
 static int witnesses_solve(Formula *f, int negated, Formula **quantifier, int names, Formula *body,
                            const Formula *equation, Poly *given, int hypotheses) {
     Poly num, den, part[2], alpha[MAX_NAMED], multiplier[MAX_LITERALS + MAX_NAMED];
-    int whole[MAX_LITERALS + MAX_NAMED] = {0};
+    int need[MAX_LITERALS + MAX_NAMED] = {0};
     Mark mark = mark_here();
 
     /* L'equazione con le lettere cercate come atomi. È un conto fatto per
@@ -12542,67 +13132,84 @@ static int witnesses_solve(Formula *f, int negated, Formula **quantifier, int na
 
     /* Prima l'equazione com'è, v = -1; poi, se ci sono ipotesi, moltiplicata
      * per una variabile generica v che non può valere zero (vedi "Un fattore
-     * che non si annulla" in testa a 18s). */
-    for (int v = -1; v < (hypotheses ? universal_count : 0) && !failure && search_left > 0; v++) {
-        Poly scale = poly_const(num_int(1));
-        if (v >= 0 && numbers_contain(universal[v].numbers, frac_int(0))) continue;
-        if (v >= 0) scale = rat_atom(atom_var(universal[v].name)).num;
-        Poly target = poly_mul(scale, beta);
-        long long least = poly_degree(target);
-        for (int j = 0; j < names; j++) {
-            given[hypotheses + j] = poly_mul(scale, alpha[j]);
-            whole[hypotheses + j] = quantifier[j]->numbers.integers;
-            if (poly_degree(given[hypotheses + j]) > least) least = poly_degree(given[hypotheses + j]);
+     * che non si annulla" in testa a 18s).
+     *
+     * 18y-3. Moltiplicata per v si può anche cercare v m al posto di m, se m
+     * varia tra i razionali o i reali: allora m = w / v. Serve dove il
+     * valore è un reciproco: da x = q y, con q diverso da zero, y = (1/q) x,
+     * e 1/q non è un polinomio. Si cerca w con v beta + alpha w nullo dove
+     * valgono le ipotesi; dividendo per v, che non è zero, beta + alpha (w /
+     * v) lo è anche lui. */
+    int fractions = 1;
+    for (int j = 0; j < names; j++) fractions = fractions && !quantifier[j]->numbers.integers;
+    for (int v = -1; v < (hypotheses ? universal_count : 0) && !failure && search_left > 0; v++)
+        for (int divide = 0; divide <= (v >= 0 && fractions) && !failure && search_left > 0; divide++) {
+            Poly scale = poly_const(num_int(1));
+            if (v >= 0 && numbers_contain(universal[v].numbers, frac_int(0))) continue;
+            if (v >= 0) scale = rat_atom(atom_var(universal[v].name)).num;
+            Poly target = poly_mul(scale, beta);
+            long long least = poly_degree(target);
+            for (int j = 0; j < names; j++) {
+                given[hypotheses + j] = divide ? alpha[j] : poly_mul(scale, alpha[j]);
+                need[hypotheses + j] = quantifier[j]->numbers.integers ? LETTER_INTEGER : quantifier[j]->numbers.reals ? LETTER_REAL : LETTER_RATIONAL;
+                if (poly_degree(given[hypotheses + j]) > least) least = poly_degree(given[hypotheses + j]);
+            }
+
+            /* Il grado di ciò che si cerca non è noto: si parte dal più basso
+             * possibile e si sale di poco, finché il sistema ha una soluzione. */
+            int found = 0;
+            for (long long top = least; top <= least + 2 && !found && !failure && search_left > 0; top++)
+                found = combination(target, given, hypotheses + names, multiplier, top, need);
+            if (!found) continue;
+
+            /* Controllo del passo: rifatto il conto con prodotti e somme,
+             * scale (beta + alpha_1 w_1 + ...) deve essere la combinazione delle
+             * ipotesi che il sistema ha trovato (scale beta + alpha_1 w_1 + ...
+             * se si divide). I w_j sono i moltiplicatori degli alpha_j, cambiati
+             * di segno. */
+            Poly rebuilt = poly_const(num_int(0));
+            for (int i = 0; i < hypotheses + names; i++) rebuilt = poly_add(rebuilt, poly_mul(multiplier[i], given[i]), 0);
+            if (failure) return 0;
+            if (!poly_equal(rebuilt, target)) { unjustified_steps++; continue; }
+
+            /* I valori, e la loro appartenenza agli insiemi. Dividendo per v,
+             * prima che v non è zero. */
+            Rat value[MAX_NAMED];
+            int inside = 1;
+            proof_add("\\item We look for $%c", quantifier[0]->variable);
+            for (int j = 1; j < names; j++) proof_add(", %c", quantifier[j]->variable);
+            proof_add("$ with $");
+            put_source(equation);
+            proof_add("$%s.", hypotheses ? ", using what is assumed" : "");
+            if (divide) {
+                proof_add(" We divide by $%c$, which is not zero.", universal[v].name);
+                inside = zero_only_where(scale, NULL);
+            }
+            for (int j = 0; j < names && inside; j++) {
+                Poly shown_num, shown_den;
+                value[j] = rat_make(poly_negate(multiplier[hypotheses + j]), divide ? scale : poly_const(num_int(1)));
+                proof_add(" Take $%c = ", quantifier[j]->variable);
+                if (rat_polynomials(value[j], &shown_num, &shown_den)) put_ratio(shown_num, shown_den); else put_poly(value[j].num);
+                proof_add("$. It has to be an element of $");
+                put_numbers(&quantifier[j]->numbers);
+                proof_add("$.");
+                inside = always_in(value[j], &quantifier[j]->numbers);
+            }
+            proof_add("\n");
+            if (!inside) { rollback(mark); continue; }
+
+            /* Il resto, con le lettere legate ai valori trovati. */
+            for (int j = 0; j < names; j++) {
+                Num number;
+                if (rat_number(value[j], &number)) choose(quantifier[j]->variable, number.re);
+                env_push(quantifier[j]->variable, value[j]);
+            }
+            int holds = establish(leaf_replaced(f, quantifier[0], body), negated);
+            for (int j = 0; j < names; j++) env_pop();
+            if (!holds) { rollback(mark); continue; }
+            for (int j = 0; j < names; j++) witness_keep(quantifier[j], value[j]);
+            return 1;
         }
-
-        /* Il grado di ciò che si cerca non è noto: si parte dal più basso
-         * possibile e si sale di poco, finché il sistema ha una soluzione. */
-        int found = 0;
-        for (long long top = least; top <= least + 2 && !found && !failure && search_left > 0; top++)
-            found = combination(target, given, hypotheses + names, multiplier, top, whole);
-        if (!found) continue;
-
-        /* Controllo del passo: rifatto il conto con prodotti e somme,
-         * scale (beta + alpha_1 w_1 + ...) deve essere la combinazione delle
-         * ipotesi che il sistema ha trovato. I w_j sono i moltiplicatori
-         * degli alpha_j, cambiati di segno. */
-        Poly rebuilt = poly_const(num_int(0));
-        for (int i = 0; i < hypotheses + names; i++) rebuilt = poly_add(rebuilt, poly_mul(multiplier[i], given[i]), 0);
-        if (failure) return 0;
-        if (!poly_equal(rebuilt, target)) { unjustified_steps++; continue; }
-
-        /* I valori, e la loro appartenenza agli insiemi. */
-        Rat value[MAX_NAMED];
-        int inside = 1;
-        proof_add("\\item We look for $%c", quantifier[0]->variable);
-        for (int j = 1; j < names; j++) proof_add(", %c", quantifier[j]->variable);
-        proof_add("$ with $");
-        put_source(equation);
-        proof_add("$%s.", hypotheses ? ", using what is assumed" : "");
-        for (int j = 0; j < names && inside; j++) {
-            value[j] = rat_make(poly_negate(multiplier[hypotheses + j]), poly_const(num_int(1)));
-            proof_add(" Take $%c = ", quantifier[j]->variable);
-            put_poly(value[j].num);
-            proof_add("$. It has to be an element of $");
-            put_numbers(&quantifier[j]->numbers);
-            proof_add("$.");
-            inside = always_in(value[j], &quantifier[j]->numbers);
-        }
-        proof_add("\n");
-        if (!inside) { rollback(mark); continue; }
-
-        /* Il resto, con le lettere legate ai valori trovati. */
-        for (int j = 0; j < names; j++) {
-            Num number;
-            if (rat_number(value[j], &number)) choose(quantifier[j]->variable, number.re);
-            env_push(quantifier[j]->variable, value[j]);
-        }
-        int holds = establish(leaf_replaced(f, quantifier[0], body), negated);
-        for (int j = 0; j < names; j++) env_pop();
-        if (!holds) { rollback(mark); continue; }
-        for (int j = 0; j < names; j++) witness_keep(quantifier[j], value[j]);
-        return 1;
-    }
     return 0;
 }
 
@@ -12638,6 +13245,146 @@ static int record_witnesses(const Leaf *leaf, int count, int own, Formula **quan
     r->body = body;
     r->sign = sign;
     return 1;
+}
+
+/* 18x. IL VALORE DI UN ESPONENTE
+ *
+ * "Esiste m intero con b = 2^{m} a", accanto all'ipotesi a = 2^{n} b: m sta
+ * in un esponente, e l'equazione non è di primo grado in m, quindi 18u-3 non
+ * lo trova. Ma gli esponenti si sommano quando le potenze si moltiplicano, e
+ * il valore che serve è di solito una combinazione degli esponenti delle
+ * ipotesi: qui m = -n; con a = 2^{n} b e b = 2^{k} c, per a = 2^{m} c, m =
+ * n + k. La regola prova come valore di un "esiste" tra gli interi, la cui
+ * lettera compare solo negli esponenti, le somme n_1 \pm ... \pm n_j delle
+ * variabili generiche intere che compaiono negli esponenti delle altre
+ * parti, dalle più corte; con ognuna la disgiunzione viene dimostrata da
+ * capo, con le regole di sempre. È una ricerca, come 18j: un valore che non
+ * porta a una dimostrazione si scarta, e uno che ci porta è giusto perché
+ * la dimostrazione c'è. Il valore trovato si annota come quelli di 18u-3, e
+ * la verifica del capitolo 19 lo ricontrolla con i numeri. */
+
+/* 18x. Ritorna 1 se la lettera compare nell'espressione node fuori dagli
+ * esponenti: come variabile, o nella base di una potenza. */
+static int letter_outside_exponents(const Node *node, int letter) {
+    if (!node) return 0;
+    if (node->kind == N_POW) return letter_outside_exponents(node->a, letter);
+    if (node->name == letter && (node->kind == N_VAR || node->kind == N_BIGOP || node->kind == N_SEQ || node->kind == N_APPLY)) return 1;
+    return letter_outside_exponents(node->a, letter) || letter_outside_exponents(node->b, letter) || letter_outside_exponents(node->c, letter);
+}
+
+/* 18x. Ritorna 1 se nella condizione f la lettera compare, e solo negli
+ * esponenti delle potenze. */
+static int letter_only_in_exponents(const Formula *f, int letter) {
+    if (!f) return 1;
+    if (letter_outside_exponents(f->left, letter) || letter_outside_exponents(f->right, letter)) return 0;
+    return letter_only_in_exponents(f->a, letter) && letter_only_in_exponents(f->b, letter);
+}
+
+/* 18x. Aggiunge a letters[], che ne ha *count e posto per MAX_NAMED, le
+ * variabili generiche intere che compaiono negli esponenti dell'espressione
+ * node, ognuna una volta. inside dice se si è già dentro un esponente. */
+static void exponent_letters(const Node *node, int inside, int *letters, int *count) {
+    if (!node) return;
+    if (inside && node->kind == N_VAR && !env_lookup(node->name)) {
+        int who = universal_index(atom_var(node->name)), seen = 0;
+        for (int i = 0; i < *count; i++) seen = seen || letters[i] == node->name;
+        if (who >= 0 && universal[who].numbers->integers && !seen && *count < MAX_NAMED) letters[(*count)++] = node->name;
+    }
+    exponent_letters(node->a, inside, letters, count);
+    exponent_letters(node->b, inside || node->kind == N_POW, letters, count);
+    exponent_letters(node->c, inside, letters, count);
+}
+
+/* 18x. Come exponent_letters(), per ogni espressione della condizione f. */
+static void formula_exponent_letters(const Formula *f, int *letters, int *count) {
+    if (!f) return;
+    exponent_letters(f->left, 0, letters, count);
+    exponent_letters(f->right, 0, letters, count);
+    formula_exponent_letters(f->a, letters, count);
+    formula_exponent_letters(f->b, letters, count);
+}
+
+/* Fin dove arriva, in valore assoluto, la costante che 18x aggiunge alle
+ * combinazioni degli esponenti. */
+#define EXPONENT_SHIFT 2
+
+/* 18x. Prova il valore value per l'"esiste" q con cui comincia la parte own
+ * della disgiunzione f (negata se negated), le cui parti sono
+ * leaf[0..count); body è la condizione di q, da leggere con il segno sign.
+ * Ritorna 1 se con quel valore la disgiunzione è dimostrata e il valore
+ * annotato per la verifica; 0 se no, senza lasciare testo né scelte; -1 se
+ * è dimostrata ma l'elenco delle annotazioni è pieno, e allora il valore non
+ * si può usare: nessuno lo ricontrollerebbe. */
+static int exponent_try(Formula *f, int negated, const Leaf *leaf, int count, int own, Formula *q, Formula *body, int sign, Rat value) {
+    Mark mark = mark_here();
+    proof_add("\\item The letter $%c$ appears only in exponents, and exponents add up when powers are multiplied: we try $%c = ", q->variable, q->variable);
+    put_poly(value.num);
+    proof_add("$. It has to be an element of $");
+    put_numbers(&q->numbers);
+    proof_add("$.");
+    if (!always_in(value, &q->numbers)) { rollback(mark); return 0; }
+    proof_add("\n");
+    env_push(q->variable, value);
+    int holds = establish(leaf_replaced(f, q, body), negated);
+    env_pop();
+    if (!holds) { rollback(mark); return 0; }
+    witness_keep(q, value);
+    if (record_witnesses(leaf, count, own, &q, 1, body, sign)) return 1;
+    witness_drop(q);
+    rollback(mark);
+    return -1;
+}
+
+/* 18x. Dimostra la disgiunzione f (negata se negated), le cui parti sono
+ * leaf[0..count), dando all'"esiste" q con cui comincia la parte own, la cui
+ * condizione è body da leggere con il segno sign, il valore di una
+ * combinazione degli esponenti delle altre parti (vedi la testa del
+ * paragrafo). Scrive il ragionamento e ritorna 1 se ci riesce; se ritorna 0
+ * non lascia testo né scelte. */
+static int exponent_witness(Formula *f, int negated, const Leaf *leaf, int count, int own, Formula *q, Formula *body, int sign) {
+    int letters[MAX_NAMED], found = 0;
+    if (!power_letters || !q->numbers.integers || !formula_uses_letter(body, q->variable) || !letter_only_in_exponents(body, q->variable)) return 0;
+    for (int i = 0; i < count; i++)
+        if (i != own) formula_exponent_letters(leaf[i].source, letters, &found);
+
+    /* Tre giri, dai valori più semplici. Prima le combinazioni: per ogni
+     * lettera il segno + o -, oppure niente (cifra 0, 1 o 2 in base 3),
+     * dalle più corte. Poi i prodotti di due esponenti, con i due segni:
+     * (x^{n})^{m} = x^{n m}, e con y = x^{n} e z = y^{m} il valore per
+     * z = x^{k} è k = n m. Infine le combinazioni con una costante piccola,
+     * perché con a = 2^{n + 1} b il valore per b = 2^{m + 1} a è m = -n - 2.
+     * I prodotti vengono prima delle costanti perché ogni valore provato
+     * costa una dimostrazione intera, e le costanti sono le più numerose. */
+    int combinations = 1;
+    for (int i = 0; i < found; i++) combinations *= 3;
+    for (int round = 0; round < 3; round++) {
+        if (round == 1) {
+            for (int i = 0; i < found; i++)
+                for (int j = i; j < found; j++)
+                    for (int minus = 0; minus < 2 && !failure && search_left > 0; minus++) {
+                        Rat value = rat_mul(rat_atom(atom_var(letters[i])), rat_atom(atom_var(letters[j])));
+                        if (minus) value = rat_add(rat_int(0), value, 1);
+                        int tried = exponent_try(f, negated, leaf, count, own, q, body, sign, value);
+                        if (tried) return tried > 0;
+                    }
+            continue;
+        }
+        for (int length = 1; length <= found; length++)
+            for (int shift = round ? 1 : 0; shift <= (round ? 2 * EXPONENT_SHIFT : 0); shift++)
+                for (int code = 1; code < combinations && !failure && search_left > 0; code++) {
+                    Rat value = rat_int(shift % 2 ? (shift + 1) / 2 : -(shift / 2));
+                    int used = 0;
+                    for (int i = 0, c = code; i < found; i++, c /= 3) {
+                        if (c % 3 == 0) continue;
+                        value = rat_add(value, rat_atom(atom_var(letters[i])), c % 3 == 2);
+                        used++;
+                    }
+                    if (used != length) continue;
+                    int tried = exponent_try(f, negated, leaf, count, own, q, body, sign, value);
+                    if (tried) return tried > 0;
+                }
+    }
+    return 0;
 }
 
 /* 18u-3. Dimostra la disgiunzione f (negata se negated), le cui parti sono
@@ -12700,7 +13447,10 @@ static int witnesses_from(Formula *f, int negated, const Leaf *leaf, int count, 
             rollback(mark);
         }
     }
-    return 0;
+
+    /* 18x. Un "esiste" la cui lettera sta solo negli esponenti: le
+     * combinazioni degli esponenti delle altre parti. */
+    return exponent_witness(f, negated, leaf, count, own, quantifier[0], quantifier[0]->a, sign);
 }
 
 /* 18u. Dimostra la disgiunzione f (negata se negated) guardandone tutte le
@@ -12741,6 +13491,15 @@ static int name_witnesses(Formula *f, int negated) {
             rollback(mark);
             return 0;
         }
+        /* 18y-4. Il nome di un valore che l'ipotesi fissa, e che è sempre
+         * positivo, varia nella parte positiva dell'insieme. L'insieme sta
+         * nell'arena: la verifica del capitolo 19 lo rilegge dopo. */
+        const NumberSet *named = &q->numbers;
+        NumberSet positive, *kept;
+        if (q->kind == F_EXISTS && positive_part(&q->numbers, &positive) && (kept = arena_alloc(sizeof *kept)) && witness_positive(q)) {
+            *kept = positive;
+            named = kept;
+        }
         if (q->kind == F_FORALL) {
             proof_add("\\item Let $%c \\in ", q->variable);
             put_numbers(&q->numbers);
@@ -12749,14 +13508,14 @@ static int name_witnesses(Formula *f, int negated) {
             proof_add("\\item Suppose that $");
             put_source(q);
             proof_add("$ holds, and call $%c$ such an element of $", q->variable);
-            put_numbers(&q->numbers);
+            put_numbers(named);
             proof_add("$: from here on $%c$ is fixed, and what follows is proved for every $%c \\in ", q->variable, q->variable);
-            put_numbers(&q->numbers);
+            put_numbers(named);
             proof_add("$.\n");
         }
         int hypothesis = q->kind == F_EXISTS;
         universal_named |= (unsigned)hypothesis << universal_count;
-        universal[universal_count++] = (Bound){q->variable, &q->numbers};
+        universal[universal_count++] = (Bound){q->variable, named};
         int holds = establish(leaf_replaced(f, q, q->a), negated);
         universal_count--;
         universal_named &= ~(1u << universal_count);
@@ -12777,6 +13536,7 @@ static int name_witnesses(Formula *f, int negated) {
         if (q->kind != F_IN && q->kind != F_DIVIDES) continue;
         for (const char *c = "qhkjtsuvwpgdcba"; *c && !letter; c++)
             if (letter_is_free(leaf, count, -1, *c)) letter = *c;
+
         Formula *unfolded = letter ? membership_unfolded(q, letter) : NULL;
         if (!unfolded) continue;
         proof_add("\\item By definition, $");
@@ -12802,11 +13562,171 @@ static int name_witnesses(Formula *f, int negated) {
  * establish() mette insieme le regole dei capitoli precedenti seguendo la
  * forma della condizione: un'appartenenza (18e) o una divisibilità, un
  * confronto o una disgiunzione di confronti (18g, 18h, 18s), i connettivi
- * (18l, 18u), i quantificatori (18k, 18n, 18o, 18i, 18j). Qui stanno anche
+ * (18l, 18u), i quantificatori (18w, 18k, 18n, 18o, 18i, 18j), e prima di
+ * establish() la regola dei divisori (18w), che le serve. Qui stanno anche
  * ciò che si dimostra di un'applicazione prima di usarla (18m) e la
  * divisione della tesi nelle sue affermazioni (prove_claims()), che sono i
  * punti di ingresso del capitolo 19.
  */
+
+/* 18w. I DIVISORI DI UN NUMERO: UNA RICERCA FINITA
+ *
+ * A che cosa serve. "Nessun d diverso da 1 divide sia 2 sia 3" si scrive
+ * \forall d \in \mathbb{N}\ \lnot (d \neq 1 \land d \mid 2 \land d \mid 3),
+ * e parla di infiniti d; ma per tutti quelli che non dividono 2 la
+ * condizione vale da sé, perché la sua parte "d divide 2" è falsa. Restano i
+ * divisori di 2, che sono pochi: si provano uno per uno.
+ *
+ * Il teorema. Se d divide un intero c diverso da zero, allora |d| <= |c|.
+ * Infatti c = q d con q intero (17n), e q non è zero perché c non lo è;
+ * quindi |q| >= 1 e |c| = |q| |d| >= |d|. I divisori di c stanno dunque tra
+ * -|c| e |c|, e si trovano tutti provando quei numeri: il conto è finito e
+ * completo.
+ *
+ * La regola, per una lettera d che varia tra gli interi:
+ *
+ *   18w-1. "Per ogni d vale P(d)", dove P(d), letta come una disgiunzione,
+ *          ha tra le sue parti "d non divide c", con c un numero diverso da
+ *          zero (una volta date alle altre lettere i loro valori). Per ogni d
+ *          che non divide c quella parte è vera, e con lei P(d); resta da
+ *          dimostrare P(d) per i divisori di c che stanno nell'insieme di d,
+ *          un caso ciascuno. È così che si legge un'ipotesi "d divide c":
+ *          "d \mid c \implies Q" è "d non divide c, oppure Q".
+ *   18w-2. "Esiste d con P(d)", dove P(d), letta come una congiunzione, ha
+ *          tra le sue parti "d divide c": un d che va bene divide c, e si
+ *          provano i divisori di c nell'insieme di d, dal più piccolo in
+ *          valore assoluto. È la regola 18j con l'elenco completo dei valori
+ *          possibili al posto dei numeri più semplici.
+ *
+ * Il valore di c deve essere un numero: un divisore di una lettera generica
+ * non ha un elenco finito. Fuori dai casi di 18w-1 nulla si dimostra: lì la
+ * parte "d non divide c" è vera per definizione, e i casi coprono tutti gli
+ * altri d dell'insieme.
+ *
+ * La verifica indipendente (capitolo 19) ricalcola l'enunciato com'è
+ * scritto, con d sul campione, senza usare questa regola. I valori scelti
+ * per un "esiste" dentro un caso di 18w-1 cambiano da un caso all'altro, e
+ * un nodo ne ricorda uno solo: perciò, riuscita la regola, vengono
+ * dimenticati, e la verifica ricalcola quegli "esiste" com'è scritto. */
+
+/* Il più grande |c| di cui 18w elenca i divisori provando i numeri da 1 a
+ * |c|: oltre, il conto costerebbe troppo e la regola non si applica. */
+#define DIVISOR_SCAN 100000
+
+/* 18w. Se la condizione del quantificatore f, letta con il segno di f
+ * (negata se negated), obbliga la variabile a dividere un numero diverso da
+ * zero, mette quel numero in *c, la parte che lo dice in *part, e ritorna 1;
+ * altrimenti ritorna 0. every dice se il quantificatore, con quel segno, è un
+ * "per ogni": allora la parte è "d non divide c" di una disgiunzione (18w-1),
+ * altrimenti "d divide c" di una congiunzione (18w-2). */
+static int divisor_bound(Formula *f, int negated, int every, long long *c, const Formula **part) {
+    Leaf leaf[MAX_LEAVES];
+
+    /* Le parti di una congiunzione sono le negazioni delle parti della
+     * disgiunzione negata: in tutti e due i casi si cerca una parte che,
+     * con il suo segno, dice "d non divide c". */
+    int count = leaves_collect(f->a, every ? negated : !negated, leaf, 0);
+    for (int i = 0; i < count; i++) {
+        const Formula *q = leaf[i].source;
+        Num value;
+        if (q->kind != F_DIVIDES || q->swapped == leaf[i].negated) continue;
+        if (q->left->kind != N_VAR || q->left->name != f->variable || node_uses_letter(q->right, f->variable)) continue;
+
+        /* c deve essere un intero diverso da zero: un conto che non riesce
+         * vuol dire solo che questa parte non dà un elenco. */
+        Rat r = eval(q->right);
+        int number = !failure && rat_number(r, &value) && value.im.num == 0 && value.re.den == 1 && value.re.num != 0 &&
+                     value.re.num >= -DIVISOR_SCAN && value.re.num <= DIVISOR_SCAN;
+        failure = NULL;
+        if (!number) continue;
+        *c = value.re.num < 0 ? -value.re.num : value.re.num;
+        *part = q;
+        return 1;
+    }
+    return 0;
+}
+
+/* 18w. Dimostra il quantificatore f, negato se negated, quando la sua
+ * variabile varia tra gli interi e la sua condizione la obbliga a dividere
+ * un numero diverso da zero (divisor_bound()), con i casi descritti in testa
+ * al paragrafo. Scrive il ragionamento e ritorna 1 se ci riesce; 0 se la
+ * regola non si applica; -1 se si applica ma un caso non riesce. Se non
+ * ritorna 1 non lascia testo né scelte.
+ *
+ * Perché il -1. I divisori sono tutti i valori che contano: un "esiste" il
+ * cui valore non si trova tra loro non si trova altrove, perché un valore
+ * scritto con le variabili generiche che fosse sempre un divisore di c
+ * sarebbe un polinomio con un numero finito di valori su insiemi infiniti,
+ * cioè una costante, e le costanti sono già state provate. Lo stesso per un
+ * "per ogni" con un caso che non riesce. Chi chiama può quindi smettere di
+ * cercare: provare le altre regole costava migliaia di passi, e la ricerca
+ * di un controesempio a una proprietà transitiva si fermava prima di
+ * arrivarci. */
+static int by_divisors(Formula *f, int negated) {
+    long long c, divisor[2 * MAX_CASES];
+    const Formula *part;
+    int every = (f->kind == F_FORALL) != negated, count = 0;
+    Mark mark = mark_here();
+    if (!f->numbers.integers || failure || !divisor_bound(f, negated, every, &c, &part)) return 0;
+
+    /* I divisori di c nell'insieme della variabile, dal più piccolo in
+     * valore assoluto, prima il positivo. Il controllo del passo ricalcola
+     * che ognuno divida davvero c, con la divisione di number_divides(). */
+    for (long long d = 1; d <= c; d++) {
+        if (c % d != 0) continue;
+        for (long long v = d; v >= -d; v -= 2 * d) {
+            if (!numbers_contain(&f->numbers, frac_int(v))) continue;
+            if (count == 2 * MAX_CASES) return 0;
+            if (!number_divides(num_int(v), num_int(c))) { unjustified_steps++; return 0; }
+            divisor[count++] = v;
+        }
+    }
+
+    /* 18w-2. "Esiste": i divisori, uno dopo l'altro, come in 18j. */
+    if (!every) {
+        for (int i = 0; i < count && !failure; i++) {
+            proof_add("\\item Since $");
+            put_source(part);
+            proof_add("$ is required, $%c$ is a divisor of $%lld$. Take $%c = %lld$, an element of $", f->variable, c, f->variable, divisor[i]);
+            put_numbers(&f->numbers);
+            proof_add("$.\n");
+            choose(f->variable, frac_int(divisor[i]));
+            env_push(f->variable, rat_int(divisor[i]));
+            int holds = establish(f->a, negated);
+            env_pop();
+            if (holds) { witness_keep(f, rat_int(divisor[i])); return 1; }
+            rollback(mark);
+        }
+        return -1;
+    }
+
+    /* 18w-1. "Per ogni": fuori dai divisori la parte "d non divide c" vale;
+     * poi un caso per divisore. */
+    proof_add("\\item Let $%c \\in ", f->variable);
+    put_numbers(&f->numbers);
+    proof_add("$. If $");
+    put_source(part);
+    proof_add("$ fails, the condition holds. Otherwise $%c$ divides $%lld$: then $%lld = q %c$ with $q$ a nonzero integer, so "
+              "$|%c| \\le %lld$, and the divisors of $%lld$ in $", f->variable, c, c, f->variable, f->variable, c, c);
+    put_numbers(&f->numbers);
+    proof_add(count ? "$ are " : "$: there are none, so the condition always holds.\n");
+    for (int i = 0; i < count; i++) proof_add("%s$%lld$%s", i ? (i + 1 == count ? " and " : ", ") : "", divisor[i], i + 1 == count ? ".\n" : "");
+    for (int i = 0; i < count; i++) {
+        proof_add("\\item \\emph{Case $%c = %lld$}.\n\\begin{itemize}\n", f->variable, divisor[i]);
+        env_push(f->variable, rat_int(divisor[i]));
+        int holds = establish(f->a, negated);
+        env_pop();
+        proof_add("\\end{itemize}\n");
+        if (!holds) { rollback(mark); return -1; }
+    }
+
+    /* Le scelte fatte dentro i casi cambiano da un caso all'altro: non sono
+     * un controesempio da riportare, e i nodi non le ricordano (vedi la
+     * testa del paragrafo). */
+    if (chosen_count > mark.chosen) chosen_by_cases = 1;
+    forget_choices(f->a);
+    return 1;
+}
 
 /* Il lavoro di establish(), che ne descrive il contratto, una volta
  * stabiliti i casi delle applicazioni definite per casi. */
@@ -12892,6 +13812,14 @@ static int establish_rules(Formula *f, int negated) {
             proof_add("\\item");
             proved = prove_combination(literal, count);
         }
+
+        /* 18z. Dove non arriva nemmeno 18s: un'ipotesi dà il valore di una
+         * variabile, che si sostituisce nel resto. */
+        if (!proved && !failure) {
+            rollback(mark);
+            proof_add("\\item");
+            proved = prove_by_substitution(literal, count, MAX_SUBSTITUTIONS);
+        }
         if (polys == base_poly_count && atans == atan_count && failure != OUT_OF_MEMORY) arena_used = before;
         if (proved) { proof_add("\n"); return 1; }
         rollback(mark);
@@ -12975,6 +13903,14 @@ static int establish_rules(Formula *f, int negated) {
     }
     if (f->kind != F_FORALL && f->kind != F_EXISTS) return 0;
 
+    /* 18w. Una variabile intera che deve dividere un numero: i valori che
+     * contano sono i divisori, finiti. Si prova prima delle altre regole,
+     * perché quando si applica decide in pochi passi ciò che quelle
+     * cercherebbero a lungo. Quando si applica e non riesce, le altre non
+     * troverebbero di più (vedi by_divisors()). */
+    int divisors = by_divisors(f, negated);
+    if (divisors) return divisors > 0;
+
     /* 18k. "Per ogni": variabili generiche. Più quantificatori di seguito
      * sullo stesso insieme si introducono insieme, come in "siano a, b". */
     if ((f->kind == F_FORALL) != negated) {
@@ -12997,7 +13933,15 @@ static int establish_rules(Formula *f, int negated) {
         }
         proof_add(" \\in ");
         put_numbers(&f->numbers);
-        proof_add("$.\n");
+        proof_add("$");
+
+        /* 17t-2. Le componenti di una coppia: si dice di quale. */
+        for (const Formula *g = f, *said = NULL; ; g = g->a) {
+            if (g->pair) proof_add(g->complex ? "%s$%c = %c + i%c$" : "%s$%c = (%c, %c)$", said ? " and " : ", with ", g->pair, g->variable, g->a->variable);
+            if (g->pair) said = g;
+            if (g == last) break;
+        }
+        proof_add(".\n");
         int holds = establish_in_regions(last->a, negated, outer);
         universal_count = outer;
         if (holds) return 1;
@@ -13053,6 +13997,7 @@ static int establish_rules(Formula *f, int negated) {
     for (int i = 0; i < SAMPLE_SIZE && !failure; i++) {
         proof_add("\\item Take $%c = ", f->variable);
         put_frac(sample[i]);
+        if (f->pair) proof_add(f->complex ? "$ in $%c = %c + i%c" : "$ in $%c = (%c, %c)", f->pair, f->variable, f->a->variable);
         proof_add("$, an element of $");
         put_numbers(&f->numbers);
         proof_add("$.\n");
@@ -13062,6 +14007,40 @@ static int establish_rules(Formula *f, int negated) {
         env_pop();
         if (holds) { witness_keep(f, rat_frac(sample[i])); return 1; }
         rollback(mark);
+    }
+
+    /* 18z. Poi le espressioni di primo grado più semplici nelle variabili
+     * generiche: "per ogni m c'è un x che m non è un multiplo di x" non ha
+     * un x fisso, ma x = 2m va bene per ogni m. Il valore va dimostrato
+     * nell'insieme e la condizione con quel valore, come ogni altro: chi
+     * cerca propone, la dimostrazione decide. Una variabile intera dà valori
+     * interi, una razionale razionali. */
+    static const int line[][2] = {{1, 0}, {1, 1}, {2, 0}, {1, -1}, {2, 1}, {3, 0}};
+    const Formula *equation[MAX_EQUATIONS];
+
+    /* Solo quando nessuna uguaglianza dà il valore, e solo con le variabili
+     * di cui la condizione parla: dove 18i ha già un'equazione da risolvere
+     * questi tentativi non aggiungono nulla, e dentro più "esiste" annidati
+     * costavano migliaia di passi. */
+    if (find_equations(f->a, negated, equation, 0)) return 0;
+    for (int v = 0; v < universal_count && !failure && search_left > 0; v++) {
+        if (env_lookup(universal[v].name) || (f->numbers.integers && !universal[v].numbers->integers) ||
+            !formula_uses_letter(f->a, universal[v].name)) continue;
+        for (size_t k = 0; k < sizeof line / sizeof *line && !failure && search_left > 0; k++) {
+            Rat value = rat_add(rat_mul(rat_int(line[k][0]), rat_atom(atom_var(universal[v].name))), rat_int(line[k][1]), 0);
+            proof_add("\\item Take $%c = ", f->variable);
+            put_poly(value.num);
+            proof_add("$. It has to be an element of $");
+            put_numbers(&f->numbers);
+            proof_add("$.");
+            if (!always_in(value, &f->numbers)) { rollback(mark); continue; }
+            proof_add("\n");
+            env_push(f->variable, value);
+            int holds = establish(f->a, negated);
+            env_pop();
+            if (holds) { witness_keep(f, value); return 1; }
+            rollback(mark);
+        }
     }
     return 0;
 }
@@ -21021,6 +22000,37 @@ static int sample_equations(const Formula *f, int negated, const Formula **outer
     }
 }
 
+/* Fin dove la verifica prova gli interi, in valore assoluto, per una lettera
+ * che compare solo negli esponenti (sample_exponent()). */
+#define EXPONENT_SCAN 40
+
+/* 18x, per la verifica. Il valore intero della variabile name che rende vera
+ * l'uguaglianza w quando il suo testimone vale q, se name vi compare solo
+ * negli esponenti: a = 2^{m} c non è di primo grado in m, ma con a e c
+ * numeri il valore di m, se c'è, si trova provando gli interi da 0 verso
+ * l'esterno, fino a EXPONENT_SCAN. Lo mette in *value e ritorna 1 se lo
+ * trova. È un conto con i numeri, come il resto della verifica: senza, la
+ * verifica di "a = 2^{n} b e b = 2^{k} c implicano a = 2^{m} c" provava per
+ * m solo i primi interi, e non trovava m = -7 per a = 1, c = 128. */
+static int sample_exponent(int name, const Wanted *w, Frac q, Frac *value) {
+    const Formula *f = w->source;
+    if (!formula_uses_letter(f, name) || env_count + 2 > MAX_ENV) return 0;
+    for (int i = 0; i <= 2 * EXPONENT_SCAN; i++) {
+        long long m = i % 2 ? (i + 1) / 2 : -(i / 2);
+        size_t mark = arena_used;
+        Num gap;
+        if (w->witness) env_push(w->witness, rat_frac(q));
+        env_push(name, rat_int(m));
+        int zero = rat_number(rat_add(eval(f->left), eval(f->right), 1), &gap) && num_is_zero(gap) && !failure;
+        env_pop();
+        if (w->witness) env_pop();
+        failure = NULL;
+        arena_used = mark;
+        if (zero) { *value = frac_int(m); return 1; }
+    }
+    return 0;
+}
+
 /* Il numeratore e il denominatore della condizione w, scritta come
  * polinomio uguale a zero, quando il suo testimone vale q. */
 static Rat sample_gap(const Wanted *w, Frac q) {
@@ -21037,8 +22047,9 @@ static Rat sample_gap(const Wanted *w, Frac q) {
  * suo testimone vale q, con tutte le altre variabili legate a numeri. Lo
  * mette in *value e ritorna 1 se la condizione, scritta come polinomio
  * uguale a zero, è di primo grado in name con coefficienti numerici, e se in
- * quel valore il denominatore non si annulla. Un conto che non riesce vuol
- * dire solo che da qui non viene un valore.
+ * quel valore il denominatore non si annulla; oppure, se name compare solo
+ * negli esponenti, se sample_exponent() lo trova. Un conto che non riesce
+ * vuol dire solo che da qui non viene un valore.
  *
  * Se la condizione contiene un'applicazione definita per casi il cui
  * argomento dipende da name (11v), in *pieces va il numero dei suoi casi, e
@@ -21047,6 +22058,7 @@ static Rat sample_gap(const Wanted *w, Frac q) {
  * È solo un valore da provare: chi chiama lo ricontrolla calcolando con i
  * numeri, dove il caso si decide da sé. */
 static int sample_solution(int name, const Wanted *w, Frac q, int piece, int *pieces, Frac *value) {
+    const Formula *f = w->source;
     size_t mark = arena_used;
     Poly num, den, part[2];
     Num zero;
@@ -21073,6 +22085,8 @@ static int sample_solution(int name, const Wanted *w, Frac q, int piece, int *pi
     if (forced) case_choice_count--;
     failure = NULL;
     arena_used = mark;
+    if (!solved && (f->kind == F_EQUAL || f->kind == F_DISTINCT) && letter_only_in_exponents(f, name))
+        solved = sample_exponent(name, w, q, value);
     return solved;
 }
 
@@ -21497,11 +22511,30 @@ static const char *describe_choices(void) {
     size_t length = 0;
     if (!chosen_count || chosen_by_cases) return NULL;
     for (int i = 0; i < chosen_count; i++) {
-        Frac v = chosen[i].value;
-        if (length < sizeof choice_text)
-            length += (size_t)snprintf(choice_text + length, sizeof choice_text - length, "%s%c = %lld", i ? ", " : "", chosen[i].name, v.num);
-        if (v.den != 1 && length < sizeof choice_text)
-            length += (size_t)snprintf(choice_text + length, sizeof choice_text - length, "/%lld", v.den);
+        /* 17t-2. Le due componenti di una coppia, scelte una dopo l'altra, si
+         * scrivono come la coppia: x = (0, 1), o x = 0 + 1i per un numero
+         * complesso (17t-4). */
+        int pair = 0, complex = 0;
+        for (int k = 0; k < pairs_seen_count && !pair && i + 1 < chosen_count; k++)
+            if (pairs_seen[k].part[0] == chosen[i].name && pairs_seen[k].part[1] == chosen[i + 1].name) {
+                pair = pairs_seen[k].letter;
+                complex = pairs_seen[k].complex;
+            }
+        if (length < sizeof choice_text && pair)
+            length += (size_t)snprintf(choice_text + length, sizeof choice_text - length, complex ? "%s%c = " : "%s%c = (", i ? ", " : "", pair);
+        for (int j = i; j <= i + (pair != 0); j++) {
+            Frac v = chosen[j].value;
+            const char *between = j == i ? "" : complex ? (v.num < 0 ? " - " : " + ") : ", ";
+            if (complex && j > i && v.num < 0) v.num = -v.num;
+            if (length < sizeof choice_text && !pair)
+                length += (size_t)snprintf(choice_text + length, sizeof choice_text - length, "%s%c = ", i ? ", " : "", chosen[j].name);
+            if (length < sizeof choice_text)
+                length += (size_t)snprintf(choice_text + length, sizeof choice_text - length, "%s%lld", between, v.num);
+            if (v.den != 1 && length < sizeof choice_text)
+                length += (size_t)snprintf(choice_text + length, sizeof choice_text - length, "/%lld", v.den);
+        }
+        if (length < sizeof choice_text && pair) length += (size_t)snprintf(choice_text + length, sizeof choice_text - length, complex ? "i" : ")");
+        if (pair) i++;
     }
     return choice_text;
 }
@@ -21780,6 +22813,12 @@ static int formula_has_kind(const Formula *f, FormulaKind kind) {
     return f && (f->kind == kind || formula_has_kind(f->a, kind) || formula_has_kind(f->b, kind));
 }
 
+/* 18y. Ritorna 1 se nella condizione f compare una relazione d'ordine, o un
+ * insieme di soluzioni: ciò che decide soltanto la tabella dei segni. */
+static int formula_has_order(const Formula *f) {
+    return formula_has_kind(f, F_LESS) || formula_has_kind(f, F_LESS_EQ) || formula_has_kind(f, F_SOLVE);
+}
+
 /* Prototipo in avanti inevitabile: le iterate di un'applicazione (17s) si
  * dimostrano come una successione definita per ricorrenza, con il metodo
  * del capitolo 26, che viene dopo (26c). */
@@ -21873,8 +22912,17 @@ static Verdict decide_quantified(const char *formula) {
     /* 18p. Relazioni d'ordine e numeri reali: li tratta solo la tabella dei
      * segni, che decide da sola. Le altre regole lavorano sui razionali e
      * con = e \neq. Con due lettere reali, un parametro e una variabile, la
-     * tabella si fa per casi sul parametro (18t). */
-    if (!syntax_error && !failure && formula_needs_signs(thesis)) {
+     * tabella si fa per casi sul parametro (18t).
+     *
+     * 18y. Fa eccezione un enunciato sui numeri reali senza relazioni
+     * d'ordine che parla di appartenenza o di divisibilità, come "a b^{-1}
+     * \in \mathbb{Q}" tra reali positivi: la tabella dei segni non lo
+     * tratta, e le regole del capitolo 18 sì, perché quelle che
+     * presuppongono variabili razionali lo controllano (vedi 18y, in testa a
+     * always_in()). */
+    int real_membership = !map_count && !formula_has_order(thesis) &&
+                          (formula_has_kind(thesis, F_IN) || formula_has_kind(thesis, F_DIVIDES));
+    if (!syntax_error && !failure && formula_needs_signs(thesis) && !real_membership) {
         int reals = 0;
         for (int i = 0; i < map_count; i++) reals = reals || maps[i].domain.reals || maps[i].codomain.reals;
         if (reals)
@@ -21968,8 +23016,10 @@ static Verdict decide_quantified(const char *formula) {
         }
         if (!defined) continue;
 
-        /* Le regole del capitolo 18. */
+        /* Le regole del capitolo 18, con le potenze che fanno da lettere
+         * (18x) solo finché cercano. */
         int found;
+        power_letters = 1;
         if (negated) {
             proof_add("\\item \\emph{The conclusion fails.}\n\\begin{itemize}\n");
             found = establish(thesis, 1);
@@ -21977,6 +23027,7 @@ static Verdict decide_quantified(const char *formula) {
         } else {
             found = prove_claims(thesis);
         }
+        power_letters = 0;
         /* Una ricerca che finisce i tentativi, o la memoria, è una ricerca
          * interrotta: non dice nulla sull'enunciato. */
         if (search_left <= 0 || failure == OUT_OF_MEMORY) stopped = 1;

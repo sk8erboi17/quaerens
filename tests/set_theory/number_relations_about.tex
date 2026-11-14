@@ -1,0 +1,41 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{number\_relations.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{number\_relations.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_set\_theory.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 39 true statements of the kinds that the number theory of the relations in \texttt{equivalence\_relations.tex} and \texttt{order\_relations.tex} needs, written differently from the books. Each must be proved, with a written proof. The statements are data: the engine knows none of them in advance.
+
+\item \textbf{What is being tested.} Six rules.
+\begin{itemize}
+\item Rule 18w of \texttt{main.c} (items 1--9): a letter that ranges over the integers and has to divide a number that is not zero takes finitely many values, because a divisor of $c \neq 0$ is at most $|c|$ in absolute value. A ``for every $d$'' is proved by one case per divisor; a ``there is $d$'' tries the divisors, also those beyond the first numbers that rule 18j tries. Item 2 needs the negative divisors, item 3 a divisor larger than 12, items 4 and 6 a prime and a number that is not a prime, item 7 a ``there is'' inside each case, item 9 a counterexample to transitivity found among the integers.
+\item Rule 18x (items 10--15): a power $2^{n}$, with $n$ an integer letter, is a letter in the identities between polynomials, and the value of an exponent is looked for among the integer combinations of the exponents of the hypotheses, with a small constant added: from $a = 2^{n + 1} b$ follows $b = 2^{m + 1} a$ with $m = -n - 2$.
+\item Rule 18y (items 16--21): real letters without inequalities. ``$a b^{-1}$ is rational'' between positive reals: the reciprocal of a rational that is not zero is rational, and a product of rationals is rational; but a polynomial in a real letter is not an integer or a rational number by itself.
+\item Paragraph 17t of \texttt{parser.c} (items 22--27): relations between pairs of numbers, with the components written $x_{1}$, $y_{1}$, and letters that stand for pairs, with or without their set. Item 2 of this group is the construction of the rationals as pairs $(a, b)$ with $b \neq 0$, whose transitivity needs to divide by a component.
+\item Rules 18z and 18y-4 (items 28--33): divisibility between naturals as an order. The name of a witness that an hypothesis fixes and that is positive ranges over the naturals ($y = a x$ with $x, y \in \mathbb{N}$ gives $a \in \mathbb{N}$); an hypothesis that gives the value of a letter is substituted in the rest ($y = a x$ and $x = b y$ give $x (1 - a b) = 0$, and with the sign rule $a = b = 1$); a polynomial with a factor that is a product of letters that are never zero is zero only where the other factor is ($m (1 - 2a)$); an ``there is'' also tries the simplest expressions of first degree in the letters ($x = 2m$, for ``there is no maximum''); and the exponent of $(x^{n})^{m}$ is $n m$.
+\item Paragraph 17t-4 (items 34--39): complex numbers $a + ib$ with integer, rational or natural parts, read as pairs, with the equality of two of them read part by part; the antisymmetry of ``componentwise multiples'' needs the sign rule with a guard whose terms are multiples of terms of the polynomial, for the case where a part is zero.
+\end{itemize}
+
+\item \textbf{Adding statements.} Any new statement must be true, and of a kind that the present rules prove.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_set_theory \
+    tests/set_theory/test_set_theory.c && /tmp/test_set_theory
+\end{verbatim}
+
+\item \textbf{Expected result.} The line \texttt{PASS: 39 of 39 statements proved, each with a written proof}.
+\end{enumerate}
+\end{document}

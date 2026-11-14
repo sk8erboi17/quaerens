@@ -617,11 +617,14 @@ static const Case cases[] = {
      "\\forall x, y \\in \\mathbb{Q}\\ ((\\exists k \\in \\mathbb{Z}\\ (x = 2k) \\land \\exists k \\in \\mathbb{Z}\\ (y = 3k)) \\implies \\exists k \\in \\mathbb{Z}\\ (x + y = 2k))", REFUTED},
 
     /* Una potenza il cui esponente è una lettera diventa un polinomio quando
-     * la dimostrazione dà un valore alla lettera. */
+     * la dimostrazione dà un valore alla lettera. Gli ultimi due sono falsi:
+     * con a = 1 la potenza vale 1 per ogni esponente (11h), e la regola 18x
+     * la sa calcolare anche con l'esponente generico, quindi vengono smentiti;
+     * prima restavano senza risposta. */
     {"an exponent that the proof chooses", "\\exists e \\in \\mathbb{N}\\ \\forall a \\in \\mathbb{N}\\ (a^{e} = a)", PROVED},
     {"two exponents that the proof chooses", "\\forall a \\in \\mathbb{Z}\\ \\exists m, n \\in \\mathbb{N}_{0}\\ (2^{m} a = 2^{n} a)", PROVED},
-    {"no exponent gives a power equal to twice the base", "\\exists e \\in \\mathbb{N}\\ \\forall a \\in \\mathbb{Q}\\ (a^{e} = 2a)", NOT_PROVED},
-    {"no exponent gives a power one more than the base", "\\exists e \\in \\mathbb{N}\\ \\forall a \\in \\mathbb{N}\\ (a^{e} = a + 1)", NOT_PROVED},
+    {"no exponent gives a power equal to twice the base", "\\exists e \\in \\mathbb{N}\\ \\forall a \\in \\mathbb{Q}\\ (a^{e} = 2a)", REFUTED},
+    {"no exponent gives a power one more than the base", "\\exists e \\in \\mathbb{N}\\ \\forall a \\in \\mathbb{N}\\ (a^{e} = a + 1)", REFUTED},
 
     /* Capitolo 28: insiemi qualsiasi. Un controesempio è un modello finito;
      * non trovarne non è una dimostrazione. */

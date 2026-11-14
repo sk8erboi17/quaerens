@@ -431,12 +431,15 @@ class PairMap:
                     out.append(("SUSPECT", "proved not surjective but every pair of the window has a preimage"))
             return out
         values = dict((name, Fr(v)) for name, v in re.findall(r"(\w) = (-?\d+(?:/\d+)?)", detail or ""))
+        # Una lettera che sta per una coppia compare nel controesempio con
+        # la coppia, y = (1, -2).
+        pair = re.search(r"\by = \((-?\d+(?:/\d+)?), (-?\d+(?:/\d+)?)\)", detail or "")
         if "a" in values and "b" in values and "inj" in parts:
             a, b = values["a"], values["b"]
             if not (self.A.has(a) and self.A.has(b) and a != b and self.f(a) == self.f(b)):
                 out.append(("BUG", "refuted injectivity with a=%s, b=%s, which is not a collision" % (a, b)))
-        elif "y" in values and "Y" in values and "surj" in parts:
-            y = (values["y"], values["Y"])
+        elif pair and "surj" in parts:
+            y = (Fr(pair.group(1)), Fr(pair.group(2)))
             if not (self.B[0].has(y[0]) and self.B[1].has(y[1])) or self.preimages(y):
                 out.append(("BUG", "refuted surjectivity with y=%s, which has a preimage or is outside B" % (y,)))
         else:

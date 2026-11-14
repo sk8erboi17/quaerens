@@ -1,0 +1,59 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Divisors, powers and pairs in relations between numbers (39)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+$\mathbb{N} = \{1, 2, 3, \ldots\}$. A relation is declared by its rule, and every $(s, t) \in R$ stands for the rule with $s$ and $t$ in place of its two letters. A divisor of a number that is not zero is at most that number in absolute value: the statements below about divisors are decided by trying them all.
+
+\begin{enumerate}
+\item $\displaystyle \forall d \in \mathbb{N}\ (d \mid 7 \implies (d = 1 \lor d = 7))$
+\item $\displaystyle \forall d \in \mathbb{Z}\ (d \mid 6 \implies (d^{2} = 1 \lor d^{2} = 4 \lor d^{2} = 9 \lor d^{2} = 36))$
+\item $\displaystyle \exists d \in \mathbb{N}\ (d \neq 1 \land d \neq 221 \land d \mid 221)$
+\item $\displaystyle \lnot (\exists d \in \mathbb{N}\ (d \neq 1 \land d \neq 97 \land d \mid 97))$
+\item $\displaystyle \forall d \in \mathbb{N}\ (\lnot (d \neq 1 \land d \mid 8 \land d \mid 15))$
+\item $\displaystyle \lnot (\forall d \in \mathbb{N}\ (d \mid 91 \implies (d = 1 \lor d = 91)))$
+\item $\displaystyle \forall d \in \mathbb{Z}\ (d \mid 10 \implies \exists e \in \mathbb{Z}\ (d e = 10))$
+\item $\displaystyle R = \{(a, b) \in \mathbb{N}^{2} \mid \exists d \in \mathbb{N}\ (d \neq 1 \land d \mid a \land d \mid b)\} \implies (\lnot (\forall x \in \mathbb{N}\ ((x, x) \in R)))$
+\item $\displaystyle R = \{(a, b) \in \mathbb{N}^{2} \mid a = b \lor \exists d \in \mathbb{N}\ (d \neq 1 \land d \mid a \land d \mid b)\} \implies (\lnot (\forall x, y, z\ (((x, y) \in R \land (y, z) \in R) \implies (x, z) \in R)))$
+\item $\displaystyle R = \{(a, b) \in \mathbb{Z}^{2} \mid \exists n \in \mathbb{Z}\ (a = 3^{n} b)\} \implies ((\forall x \in \mathbb{Z}\ ((x, x) \in R) \land \forall x, y\ ((x, y) \in R \implies (y, x) \in R) \land \forall x, y, z\ (((x, y) \in R \land (y, z) \in R) \implies (x, z) \in R)))$
+\item $\displaystyle R = \{(a, b) \in \mathbb{N}^{2} \mid \exists n \in \mathbb{Z}\ (a = 2^{n + 1} b)\} \implies ((\forall x \in \mathbb{N}\ ((x, x) \in R) \land \forall x, y\ ((x, y) \in R \implies (y, x) \in R) \land \forall x, y, z\ (((x, y) \in R \land (y, z) \in R) \implies (x, z) \in R)))$
+\item $\displaystyle R = \{(a, b) \in (\mathbb{Q}^{+})^{2} \mid \exists n \in \mathbb{Z}\ (a = 2^{n} b)\} \implies ((\forall x \in \mathbb{Q}^{+}\ ((x, x) \in R) \land \forall x, y\ ((x, y) \in R \implies (y, x) \in R) \land \forall x, y, z\ (((x, y) \in R \land (y, z) \in R) \implies (x, z) \in R)))$
+\item $\displaystyle \forall a, b \in \mathbb{N}\ \forall n \in \mathbb{Z}\ (a = 2^{n} b \implies b = 2^{-n} a)$
+\item $\displaystyle R = \{(a, b) \in \mathbb{N}^{2} \mid \exists n \in \mathbb{Z}\ (a = 2^{n} b)\} \implies (\forall x \in \mathbb{N}\ ((x, 4x) \in R \land (12, 3) \in R))$
+\item $\displaystyle R = \{(a, b) \in \mathbb{N}^{2} \mid \exists n \in \mathbb{Z}\ (a = 6^{n} b)\} \implies (\forall x, y, z\ (((x, y) \in R \land (y, z) \in R) \implies (x, z) \in R))$
+\item $\displaystyle \forall x, y \in \mathbb{R}^{+}\ ((x y \in \mathbb{Q} \land x \in \mathbb{Q}) \implies y \in \mathbb{Q})$
+\item $\displaystyle \forall x \in \mathbb{R}\ (x \in \mathbb{Q} \implies x^{2} \in \mathbb{Q})$
+\item $\displaystyle R = \{(a, b) \in \mathbb{R}^{2} \mid a - b \in \mathbb{Q}\} \implies ((\forall x \in \mathbb{R}\ ((x, x) \in R) \land \forall x, y\ ((x, y) \in R \implies (y, x) \in R) \land \forall x, y, z\ (((x, y) \in R \land (y, z) \in R) \implies (x, z) \in R)))$
+\item $\displaystyle R = \{(a, b) \in (\mathbb{R}^{+})^{2} \mid a b^{-1} \in \mathbb{Q}\} \implies (\forall x \in \mathbb{R}^{+}\ ((x, 2x) \in R \land (x, \frac{x}{3}) \in R))$
+\item $\displaystyle \forall x, y \in \mathbb{R}^{+}\ (x y^{-1} \in \mathbb{Z} \implies x^{2} y^{-2} \in \mathbb{Z})$
+\item $\displaystyle R = \{(a, b) \in (\mathbb{R}^{+})^{2} \mid a b^{-1} \in \mathbb{Q}\} \implies (\forall x, y\ ((x, y) \in R \implies (x, 2y) \in R))$
+\item $\displaystyle R = \{((a, b), (c, d)) \in (\mathbb{Z}^{2})^{2} \mid a + d = b + c\} \implies ((\forall x \in \mathbb{Z}^{2}\ ((x, x) \in R) \land \forall x, y\ ((x, y) \in R \implies (y, x) \in R) \land \forall x, y, z\ (((x, y) \in R \land (y, z) \in R) \implies (x, z) \in R)))$
+\item $\displaystyle R = \{((x_{1}, y_{1}), (x_{2}, y_{2})) \in (\mathbb{Z} \times \mathbb{N})^{2} \mid x_{1} y_{2} = x_{2} y_{1}\} \implies ((\forall x \in \mathbb{Z} \times \mathbb{N}\ ((x, x) \in R) \land \forall x, y\ ((x, y) \in R \implies (y, x) \in R) \land \forall x, y, z\ (((x, y) \in R \land (y, z) \in R) \implies (x, z) \in R)))$
+\item $\displaystyle R = \{((a, b), (c, d)) \in (\mathbb{Z}^{2})^{2} \mid a = c\} \implies (((1, 2), (1, 5)) \in R \land ((1, 2), (2, 1)) \notin R)$
+\item $\displaystyle R = \{((a, b), (c, d)) \in (\mathbb{Z}^{2})^{2} \mid c = a + 1 \land d = b\} \implies (\forall x \in \mathbb{Z}^{2}\ \exists y \in \mathbb{Z}^{2}\ ((x, y) \in R))$
+\item $\displaystyle R = \{((x_{1}, y_{1}), (x_{2}, y_{2})) \in (\mathbb{Z}^{2})^{2} \mid x_{1} - y_{2} = x_{2} - y_{1}\} \implies (\forall x \in \mathbb{N}^{2}\ ((x, x) \in R))$
+\item $\displaystyle R = \{((x_{1}, y_{1}), (x_{2}, y_{2})) \in (\mathbb{Z}^{2})^{2} \mid x_{1} - y_{2} = x_{2} - y_{1}\} \implies (\forall x \in \mathbb{Z}^{2}\ ((x, (2, 3)) \in R \implies ((2, 3), x) \in R))$
+\item $\displaystyle \forall m \in \mathbb{N}\ \exists x \in \mathbb{N}\ \forall a \in \mathbb{Z}\ (m \neq a x)$
+\item $\displaystyle \forall m \in \mathbb{N}\ \forall a \in \mathbb{Z}\ (3ma \neq m)$
+\item $\displaystyle \forall x \in \mathbb{N}\ \exists y \in \mathbb{N}\ (y \neq x \land \exists a \in \mathbb{Z}\ (y = a x))$
+\item $\displaystyle \forall x, y, z, n, m \in \mathbb{N}\ ((y = x^{n} \land z = y^{m}) \implies z = x^{nm})$
+\item $\displaystyle \forall x, y \in \mathbb{N}\ ((\exists a \in \mathbb{Z}\ (y = a x)) \implies \exists b \in \mathbb{N}\ (y = b x))$
+\item $\displaystyle R = \{(x, y) \in \mathbb{N}^{2} \mid \exists a \in \mathbb{Z}\ (y = ax)\} \implies (\lnot (\exists m \in \mathbb{N}\ \forall x \in \mathbb{N}\ ((x, m) \in R)) \land \forall x, y\ (((x, y) \in R \land (y, x) \in R) \implies x = y))$
+\item $\displaystyle A = \{a + ib \mid a, b \in \mathbb{Z}\} \land R = \{(a + ib, c + id) \in A^{2} \mid a + d = b + c\} \implies ((\forall x \in A\ ((x, x) \in R) \land \forall x, y\ ((x, y) \in R \implies (y, x) \in R) \land \forall x, y, z\ (((x, y) \in R \land (y, z) \in R) \implies (x, z) \in R)))$
+\item $\displaystyle A = \{a + ib \mid a, b \in \mathbb{Q}\} \land R = \{(a + ib, c + id) \in A^{2} \mid a = c\} \implies (\forall x, y\ ((x, y) \in R \implies (y, x) \in R))$
+\item $\displaystyle A = \{a + ib \mid a, b \in \mathbb{Z}\} \land R = \{(a + ib, c + id) \in A^{2} \mid \exists m \in \mathbb{N}\ (c = ma \land d = mb)\} \implies (\forall x, y\ (((x, y) \in R \land (y, x) \in R) \implies x = y))$
+\item $\displaystyle A = \{a + ib \mid a, b \in \mathbb{Z}\} \land R = \{(a + ib, c + id) \in A^{2} \mid c = a \land d = -b\} \implies (\forall x \in A\ \exists y \in A\ ((x, y) \in R) \land \forall x, y\ ((x, y) \in R \implies (y, x) \in R))$
+\item $\displaystyle A = \{a + ib \mid a, b \in \mathbb{Z}\} \land R = \{(a + ib, c + id) \in A^{2} \mid a = c \land b = d\} \implies (\forall x, y\ ((x, y) \in R \implies x = y))$
+\item $\displaystyle A = \{u + iv \mid u, v \in \mathbb{N}\} \land R = \{(a + ib, c + id) \in A^{2} \mid \exists m, n \in \mathbb{N}\ (c = ma \land d = nb)\} \implies (\forall x, y\ (((x, y) \in R \land (y, x) \in R) \implies x = y))$
+\end{enumerate}
+\end{document}

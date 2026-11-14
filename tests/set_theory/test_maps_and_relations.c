@@ -7,14 +7,16 @@
  * nessuno in anticipo.
  *
  * Oggi il motore dimostra tutti i 16 enunciati di correspondences.tex, 43
- * dei 54 di maps.tex, 15 dei 28 di equivalence_relations.tex, 3 dei 14 di
+ * dei 54 di maps.tex, 19 dei 28 di equivalence_relations.tex, 5 dei 14 di
  * order_relations.tex, 1 dei 7 di finite_sets.tex e nessuno di
  * infinite_sets.tex: il test fallisce, e indica il lavoro ancora da fare.
  * Gli enunciati dimostrati sono quelli sulle applicazioni tra insiemi di
  * numeri date da una formula, anche per casi, con un valore assoluto, con un
  * parametro o a valori in coppie (17s, 18v), sulle loro iterate (26c), e
- * sulle relazioni tra numeri date da una regola (capitoli 17-18),
- * e quelli su insiemi qualsiasi scritti come nei libri: immagini e
+ * sulle relazioni tra numeri date da una regola, anche con i divisori, le
+ * potenze, i numeri reali senza ordine, le coppie e i numeri complessi a +
+ * ib (capitoli 17-18, 17t, 18w-18z), e quelli su insiemi qualsiasi
+ * scritti come nei libri: immagini e
  * controimmagini, relazioni come insiemi di coppie, inverse e
  * composizioni, coppie, relazioni e applicazioni tra le parti di un insieme
  * (17p-17r di parser.c, capitoli 28 e 15), quelli con un'ipotesi su tutte

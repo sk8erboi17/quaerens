@@ -1,0 +1,43 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_number\_relations.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_number\_relations.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_set\_theory.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} Anti-regression. The file holds 80 false statements, each a small change of a true one of \texttt{number\_relations.tex} or of the books.
+\begin{itemize}
+\item Items 1--12, divisors: a common divisor that exists, a divisor forgotten in a list (also one larger than 12, and the number itself), the negative divisors left out, a prime claimed to have a divisor, a number that is not a prime claimed to be one, a ``there is'' asked in $\mathbb{N}$ where only $\mathbb{Z}$ has it, and the relation ``equal, or with a common divisor other than 1'' claimed reflexive on a set where it is not, or transitive, or an equivalence.
+\item Items 13--23, powers: $a = 2^{n} b$ with $n \in \mathbb{N}$ claimed symmetric or reflexive, $a = 2^{n} + b$ claimed transitive or reflexive, $2^{n}$ taken for $4^{n}$, $2^{n}$ for $2^{-n}$, a relation claimed total, a pair claimed outside, $8 = 2^{2n}$ claimed solvable, $6^{n}$ taken for $2^{n}$.
+\item Items 24--37, real letters: properties that hold among the rationals but not among the reals, as ``$a + b$ rational'' claimed transitive between positive reals, ``$x^{2}$ rational implies $x$ rational'', ``$a b^{-1}$ rational'' claimed to hold for all positive reals or reflexive on all reals, where $0^{-1}$ is not defined; and the constant $e$ claimed rational.
+\item Items 38--45, pairs: a pair of pairs claimed in a relation, components exchanged in the rule, a relation between pairs claimed total, the ``rationals as pairs'' claimed transitive when the second component may be zero.
+\item Items 46--48, the positive part: a number of $\mathbb{Z}$, $\mathbb{Q}$, or a product of reals in $\mathbb{Q}$, claimed positive. Rule 18y gives the name of a rational value a set without zero only when the value is proved positive; a copy of the program that skipped that proof ``proved'' the third one, and the check of chapter 19 stopped it.
+\item Items 49--50, found by \texttt{tools/fuzz/fuzz\_number\_relations.py} against copies of the program broken on purpose: $a = 6^{2n - 1} b$ with $n \in \mathbb{N}_{0}$ claimed symmetric, which a copy that did not check that the value of an exponent stays in its set (rule 18x) ``proved''; and the symmetry of $x_{1} = y_{2}$ between pairs, whose counterexample a copy that exchanged the components of a pair (17t) wrote wrong.
+\item Items 51--52: a real number that is rational or not a root of a polynomial of degree two with irrational roots, like $x^{2} = 2$. A copy of rule 18b that kept looking only at the rational roots of a polynomial in a real letter ``proved'' both, and the check of chapter 19, which tries rational numbers, confirmed them.
+\item Items 53--68, divisibility as an order: antisymmetry on $\mathbb{Z}$ (where $1$ and $-1$ divide each other) or with rational witnesses, a ``no maximum'' with the roles exchanged, a wrong minimum, wrong consequences of $y = a x$ and $x = b y$, a product with a factor that can be zero, $n + m$ or $y^{nm}$ in place of $x^{nm}$, a witness claimed natural on $\mathbb{Z}$, divisibility claimed to have no minimum, and on $\mathbb{N}_{0}$, where $0$ is a maximum.
+\item Items 69--76, complex numbers: componentwise multiples with integer factors claimed antisymmetric, symmetric or total, the equality of the real parts taken for the equality of the numbers, conjugation claimed reflexive, and other relations claimed to give the equality.
+\item Items 77--80: the rules of a second round broken on purpose. A copy of the sign rule that accepted a term of the guard when it divided a term of the polynomial, instead of being a multiple of one, ``proved'' item 77, and the check of chapter 19 stopped it; the others guard the witnesses of first degree and the products with a factor that can be zero.
+\end{itemize}
+
+\item \textbf{What is being tested.} That none is proved. Rule 18w of \texttt{main.c} tries all the divisors of a number: if it forgot one, or the negative ones, or stopped before the number itself, a statement of the first group would become proved. Rule 18x makes letters of powers: if it treated $2^{n}$ as an integer, or $2^{n}$ and $4^{n}$ as unrelated in the wrong way, one of the second group would. The statements of the third group are true when the letters are rational, and the check of chapter 19 tries only rational numbers: there only the rules stand between the engine and a false proof, and rule 18y must not take a real letter for a rational one. The fourth group guards the unfolding of paragraph 17t of \texttt{parser.c}: a component in the wrong place changes the relation.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_set_theory \
+    tests/set_theory/test_set_theory.c && /tmp/test_set_theory
+\end{verbatim}
+
+\item \textbf{Expected result.} Two \texttt{PASS} lines for the file: none of the statements is proved, and at least 48 are refuted; then a line for the counterexample of item 50, which must be written $x = (0, 0)$, $y = (1, 0)$. The second check is there because a broken rule can ``prove'' a false statement that the check of chapter 19 then stops, leaving it not proved: a copy of the program that forgot the negative divisors in rule 18w did so with two statements here, which stopped being refuted.
+\end{enumerate}
+\end{document}
