@@ -1,0 +1,33 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{part\_hypotheses.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{part\_hypotheses.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_set\_theory.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 21 true statements in which a quantifier over the parts of a set is used as a hypothesis: on a side of an equivalence (items 1 to 5), to the left of an implication (items 6 to 12, 20 and 21), as an existence among the hypotheses (items 13 and 19), or as an existence to prove (items 14 to 18). Items 20 and 21 have two hypotheses on every part, and their proofs need a choice of parts for each, one inside the other. Each must be proved. They are not copies of the exercises of \texttt{maps.tex}: they are other characterizations of injective and surjective maps ($f^{-1}(f(X)) = X$, $f(f^{-1}(Y)) = Y$, disjoint parts with disjoint images), the same ideas with two maps or with a map of a set into itself, and existences whose witness is a part built from what is at hand ($\emptyset$, $S$, $f(X)$, $f^{-1}(Z)$, $S \setminus X$).
+
+\item \textbf{What is being tested.} Paragraph 17u of \texttt{parser.c} reads the quantifiers over parts. Paragraphs 28i to 28l of \texttt{main.c} decide them: on finite models every part is tried; in the proof a hypothesis on every part is used with parts built from the named elements and parts (singletons $\{a\}$, $\emptyset$, $S$, images, preimages, complements), each defined by a rule and tried one choice at a time; an existence among the hypotheses gives a new named part. The certificate carries the definitions and the chosen parts, and \texttt{checker.c} checks every instance without searching (paragraph 11g). The file is also read by the certificate check: every verdict must carry a certificate that the checker accepts, and the same certificate without its instances and names must not be accepted.
+
+\item \textbf{A regression.} Item 19 has a hypothesis that never holds ($f(\emptyset)$ is always empty), so it is true for an empty reason. Its proof names a part, then an element of $T$, then one of $S$, and uses only the last; the written proof once left out the chain of names before it, and the certificate it wrote was rejected by the checker. It was found by \texttt{tools/fuzz/fuzz\_part\_hypotheses.py}. Item 21 has a hypothesis on every part of $S$ and one on every part of $T$: the engine once took the empty part of $T$, already defined, as the empty part of $S$, because the two have the same rule; the step failed its independent check, and the proof was found anyway.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_set_theory \
+    tests/set_theory/test_set_theory.c && /tmp/test_set_theory
+\end{verbatim}
+
+\item \textbf{Expected result.} One \texttt{PASS} line for the file: every statement is proved, with its written proof; and one \texttt{PASS} line for its certificates. The false statements of the same kinds are in \texttt{false\_part\_hypotheses.tex}.
+\end{enumerate}
+\end{document}

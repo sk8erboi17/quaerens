@@ -1,0 +1,46 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{False statements with hypotheses on every part of a set (26)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+$f(X) = \{f(x) \mid x \in X\}$, $f^{-1}(Y) = \{x \mid f(x) \in Y\}$. Every statement below is false. Items 1 to 8 are the characterizations of injective and surjective maps with the two words swapped; item 9 has $\cup$ in place of $\cap$; items 10 and 11 turn an inclusion around; item 12 swaps two quantifiers; items 13, 14, 21 to 23 and 25 drop a hypothesis or change the conclusion. Items 15 to 17 hold on every finite set and fail on an infinite one. Items 18, 19 and 24 fail only when $S$ is empty, and item 20 asks for an example that does not exist.
+
+\begin{enumerate}
+\item $\displaystyle f \colon S \to T \implies ((\forall y \in T\ \exists x \in S\ (f(x) = y)) \iff \forall X, Y \subseteq S\ (f(X) \subseteq f(Y) \implies X \subseteq Y))$
+\item $\displaystyle f \colon S \to T \implies ((\forall y \in T\ \exists x \in S\ (f(x) = y)) \iff \forall X, Y \subseteq S\ (f(X \cap Y) = f(X) \cap f(Y)))$
+\item $\displaystyle f \colon S \to T \implies ((\forall y \in T\ \exists x \in S\ (f(x) = y)) \iff \forall X, Y \subseteq S\ (f(X \setminus Y) = f(X) \setminus f(Y)))$
+\item $\displaystyle f \colon S \to T \implies ((\forall y \in T\ \exists x \in S\ (f(x) = y)) \iff \forall X \subseteq S\ (f(S \setminus X) \subseteq T \setminus f(X)))$
+\item $\displaystyle f \colon S \to T \implies ((\forall a, b \in S\ (f(a) = f(b) \implies a = b)) \iff \forall X \subseteq S\ (T \setminus f(X) \subseteq f(S \setminus X)))$
+\item $\displaystyle f \colon S \to T \implies ((\forall a, b \in S\ (f(a) = f(b) \implies a = b)) \iff \forall X, Y \subseteq T\ (f^{-1}(X) \subseteq f^{-1}(Y) \implies X \subseteq Y))$
+\item $\displaystyle f \colon S \to T \implies ((\forall a, b \in S\ (f(a) = f(b) \implies a = b)) \iff \forall Z \subseteq T\ \exists X \subseteq S\ (f(X) = Z))$
+\item $\displaystyle f \colon S \to T \implies ((\forall y \in T\ \exists x \in S\ (f(x) = y)) \iff \forall Z \subseteq S\ \exists Y \subseteq T\ (f^{-1}(Y) = Z))$
+\item $\displaystyle f \colon S \to T \implies ((\forall a, b \in S\ (f(a) = f(b) \implies a = b)) \iff \forall X, Y \subseteq S\ (f(X \cup Y) = f(X) \cup f(Y)))$
+\item $\displaystyle (S \neq \emptyset \land T \neq \emptyset \land f \colon S \to T) \implies ((\forall a, b \in S\ (f(a) = f(b) \implies a = b)) \iff \forall X, Y \subseteq S\ (f(X) \subseteq f(Y) \implies Y \subseteq X))$
+\item $\displaystyle f \colon S \to T \implies ((\forall a, b \in S\ (f(a) = f(b) \implies a = b)) \iff \forall X, Y \subseteq S\ (X \subseteq Y \implies f(X) \subseteq f(Y)))$
+\item $\displaystyle f \colon S \to T \implies ((\forall y \in T\ \exists x \in S\ (f(x) = y)) \iff \exists X \subseteq S\ \forall Z \subseteq T\ (f(X) = Z))$
+\item $\displaystyle f \colon S \to T \implies \forall Y \subseteq T\ \exists X \subseteq S\ (f(X) = Y)$
+\item $\displaystyle f \colon S \to T \implies \forall X \subseteq S\ \exists Y \subseteq T\ (f^{-1}(Y) = X)$
+\item $\displaystyle (f \colon S \to S \land \forall a, b \in S\ (f(a) = f(b) \implies a = b)) \implies \forall Y \subseteq S\ (f(f^{-1}(Y)) = Y)$
+\item $\displaystyle (f \colon S \to S \land \forall X, Y \subseteq S\ (f(X) \subseteq f(Y) \implies X \subseteq Y)) \implies \forall y \in S\ \exists x \in S\ (f(x) = y)$
+\item $\displaystyle (f \colon S \to S \land \forall Y \subseteq S\ (f(f^{-1}(Y)) = Y)) \implies \forall a, b \in S\ (f(a) = f(b) \implies a = b)$
+\item $\displaystyle (f \colon S \to T \land \forall X \subseteq S\ (X = \emptyset \lor f(X) \neq \emptyset)) \implies \exists x \in S\ (x = x)$
+\item $\displaystyle (f \colon S \to T \land \forall X \subseteq S\ (X = S \lor X = \emptyset)) \implies \exists x \in S\ (x = x)$
+\item $\displaystyle \exists S \neq \emptyset\ \exists f \colon S \to S\ (\forall X \subseteq S\ (f(X) \neq X))$
+\item $\displaystyle (f \colon S \to T \land E \subseteq S \land \forall X \subseteq S\ (X \subseteq E \implies f(X) = \emptyset)) \implies E = S$
+\item $\displaystyle (f \colon S \to T \land \forall X \subseteq S\ (f(X) \cap f(S \setminus X) = \emptyset)) \implies \forall y \in T\ \exists x \in S\ (f(x) = y)$
+\item $\displaystyle (f \colon S \to T \land g \colon T \to U \land \forall X, Y \subseteq S\ (g(f(X)) \subseteq g(f(Y)) \implies X \subseteq Y)) \implies \forall a, b \in T\ (g(a) = g(b) \implies a = b)$
+\item $\displaystyle f \colon S \to T \implies \forall X \subseteq S\ \exists Y \subseteq S\ (X \cap Y = \emptyset \land X \cup Y = S \land X \neq Y)$
+\item $\displaystyle (f \colon S \to T \land u \in T \land \forall X \subseteq T\ (u \in X \implies f^{-1}(X) \neq \emptyset)) \implies \forall y \in T\ \exists x \in S\ (f(x) = y)$
+\item $\displaystyle (h \colon S \to S \land \forall X \in \mathcal{P}(S)\ (h(X) \subseteq h(h(X)))) \implies \forall x \in S\ (h(x) = x)$
+\end{enumerate}
+\end{document}

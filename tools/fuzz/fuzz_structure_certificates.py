@@ -18,6 +18,10 @@ controlla tutti, e per ognuno che ACCETTA l'oracolo rifà il conto da sé:
     verificatore ha accettato la dimostrazione di un falso: BUG. Gli insiemi
     vuoti sono provati apposta: lì sbaglia chi inventa un elemento.
 
+Un quantificatore su parti (11g), (forallpart X S c) o (existspart X S c),
+l'oracolo lo calcola provando ogni sottoinsieme di S, come frozenset, e (X t)
+dice che t vi sta. Le alterazioni scambiano anche forallpart ed existspart.
+
 L'oracolo non usa nulla del verificatore: legge la notazione da capo e
 calcola con le tabelle, quantificatore per quantificatore. Non trovare un
 controesempio piccolo non prova che una dimostrazione accettata sia giusta;
@@ -118,6 +122,13 @@ def holds(c, env, model, size, symbols):
     if head in ("forall", "exists"):
         values = (holds(c[3], dict(env, **{c[1]: x}), model, size, symbols) for x in range(size[c[2]]))
         return all(values) if head == "forall" else any(values)
+    if head in ("forallpart", "existspart"):
+        n = size[c[2]]
+        parts = (frozenset(p) for k in range(n + 1) for p in itertools.combinations(range(n), k))
+        values = (holds(c[3], dict(env, **{c[1]: p}), model, size, symbols) for p in parts)
+        return all(values) if head == "forallpart" else any(values)
+    if isinstance(env.get(head), frozenset):
+        return term(c[1], env, model) in env[head]
     if head in symbols and symbols[head][1] == "bool":
         return bool(term(c, env, model))
     raise Unreadable("condition %r" % (c,))
@@ -163,7 +174,7 @@ def mutate(text):
         head, body = lines[0], lines[1:-1]
         what = rnd.randrange(7)
         pick = rnd.randrange(len(body))
-        names = sorted(set(re.findall(r"[A-Za-z][A-Za-z0-9_]*", " ".join(body))) - {"forall", "exists", "and", "or", "not", "implies", "iff", "true", "bool"} - set(KINDS) - {"sort", "symbol", "statement", "table", "case", "instance", "witness"})
+        names = sorted(set(re.findall(r"[A-Za-z][A-Za-z0-9_]*", " ".join(body))) - {"forall", "exists", "forallpart", "existspart", "and", "or", "not", "implies", "iff", "true", "bool"} - set(KINDS) - {"sort", "symbol", "statement", "table", "case", "instance", "witness", "part"})
         if what == 0 and len(body) > 1:
             del body[pick]
         elif what == 1:
@@ -176,7 +187,7 @@ def mutate(text):
                 w = rnd.choice(spots)
                 body[pick] = body[pick][:w.start()] + rnd.choice(names) + body[pick][w.end():]
         elif what == 3:
-            spots = [m.start() for m in re.finditer(r"\((forall|exists) ", body[pick])]
+            spots = [m.start() for m in re.finditer(r"\((forall|exists)(part)? ", body[pick])]
             if spots:
                 at = rnd.choice(spots) + 1
                 word = "exists" if body[pick][at:at + 6] == "forall" else "forall"
@@ -211,7 +222,7 @@ def substitute(c, name, value):
     """La condizione (o il termine) c con value al posto della variabile name, dove non è legata più dentro."""
     if isinstance(c, str):
         return value if c == name else c
-    if c[0] in ("forall", "exists"):
+    if c[0] in ("forall", "exists", "forallpart", "existspart"):
         return c if c[1] == name else [c[0], c[1], c[2], substitute(c[3], name, value)]
     return [c[0]] + [substitute(x, name, value) for x in c[1:]]
 
@@ -220,7 +231,7 @@ def quantified(c, found):
     """Mette in found le condizioni quantificate di c che non stanno sotto un quantificatore."""
     if isinstance(c, str) or c[0] in ("=",):
         return
-    if c[0] in ("forall", "exists"):
+    if c[0] in ("forall", "exists", "forallpart", "existspart"):
         if c not in found:
             found.append(c)
         return

@@ -1,0 +1,41 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Hypotheses on every part of a set (21)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+$f(X) = \{f(x) \mid x \in X\}$, $f^{-1}(Y) = \{x \mid f(x) \in Y\}$. In every statement below a quantifier over the parts of a set, $\forall X \subseteq S$ or $\exists X \subseteq S$, is used as a hypothesis: on a side of an equivalence, to the left of an implication, or as an existence to prove. Every statement is true.
+
+\begin{enumerate}
+\item $\displaystyle f \colon S \to T \implies ((\forall a, b \in S\ (f(a) = f(b) \implies a = b)) \iff \forall X \subseteq S\ (f^{-1}(f(X)) = X))$
+\item $\displaystyle f \colon S \to T \implies ((\forall y \in T\ \exists x \in S\ (f(x) = y)) \iff \forall Y \subseteq T\ (f(f^{-1}(Y)) = Y))$
+\item $\displaystyle f \colon S \to T \implies ((\forall y \in T\ \exists x \in S\ (f(x) = y)) \iff \forall Y \subseteq T\ (f^{-1}(Y) = \emptyset \implies Y = \emptyset))$
+\item $\displaystyle f \colon S \to T \implies ((\forall a, b \in S\ (f(a) = f(b) \implies a = b)) \iff \forall X, Y \subseteq S\ (X \cap Y = \emptyset \implies f(X) \cap f(Y) = \emptyset))$
+\item $\displaystyle f \colon S \to T \implies ((\forall a, b \in S\ (f(a) = f(b) \implies a = b)) \iff \forall X, Y \subseteq S\ (f(X \setminus Y) \subseteq f(X) \setminus f(Y)))$
+\item $\displaystyle (g \colon A \to A \land \forall X, Y \subseteq A\ (g(X) = g(Y) \implies X = Y)) \implies \forall a, b \in A\ (g(a) = g(b) \implies a = b)$
+\item $\displaystyle (f \colon S \to T \land \forall X \subseteq S\ (f(X) \cap f(S \setminus X) = \emptyset)) \implies \forall a, b \in S\ (f(a) = f(b) \implies a = b)$
+\item $\displaystyle (f \colon S \to T \land E \subseteq T \land \forall X \subseteq S\ (f(X) \cap E = \emptyset \implies X = \emptyset)) \implies f^{-1}(E) = S$
+\item $\displaystyle (f \colon S \to T \land g \colon T \to U \land \forall X, Y \subseteq S\ (g(f(X)) \subseteq g(f(Y)) \implies X \subseteq Y)) \implies \forall a, b \in S\ (f(a) = f(b) \implies a = b)$
+\item $\displaystyle (f \colon S \to T \land \forall Y \subseteq T\ (f^{-1}(Y) \neq \emptyset \lor Y = \emptyset)) \implies \forall y \in T\ \exists x \in S\ (f(x) = y)$
+\item $\displaystyle (f \colon S \to T \land u \in T \land \forall X \subseteq T\ (u \in X \implies f^{-1}(X) \neq \emptyset)) \implies \exists x \in S\ (f(x) = u)$
+\item $\displaystyle (h \colon S \to S \land \forall X \in \mathcal{P}(S)\ (h(X) \subseteq X)) \implies \forall x \in S\ (h(x) = x)$
+\item $\displaystyle (f \colon S \to T \land \exists X \subseteq S\ (f(X) = T)) \implies \forall y \in T\ \exists x \in S\ (f(x) = y)$
+\item $\displaystyle f \colon S \to T \implies \forall X \subseteq S\ \exists Y \subseteq T\ (X \subseteq f^{-1}(Y))$
+\item $\displaystyle f \colon S \to T \implies \forall Y \subseteq T\ \exists X \subseteq S\ (f(X) \subseteq Y)$
+\item $\displaystyle f \colon S \to T \implies \exists X \subseteq S\ (f(X) = f(S))$
+\item $\displaystyle f \colon S \to T \implies \forall X \subseteq S\ \exists Y \subseteq S\ (X \cap Y = \emptyset \land X \cup Y = S \land f(X) \cup f(Y) = f(S))$
+\item $\displaystyle (f \colon S \to T \land \forall y \in T\ \exists x \in S\ (f(x) = y)) \implies \forall Z \subseteq T\ \exists X \subseteq S\ (f(X) = Z \land X = f^{-1}(Z))$
+\item $\displaystyle (f \colon S \to T \land \exists Z \subseteq T\ (f(\emptyset) \neq \emptyset)) \implies \exists x \in S\ (x = x)$
+\item $\displaystyle (f \colon S \to S \land g \colon S \to S \land \forall X \subseteq S\ (f(X) \subseteq X) \land \forall Y \subseteq S\ (g(Y) \subseteq Y)) \implies \forall x \in S\ (f(g(x)) = x)$
+\item $\displaystyle (f \colon S \to T \land \forall X \subseteq S\ (f^{-1}(f(X)) = X) \land \forall Y \subseteq T\ (f(f^{-1}(Y)) = Y)) \implies \forall y \in T\ \exists! x \in S\ (f(x) = y)$
+\end{enumerate}
+\end{document}

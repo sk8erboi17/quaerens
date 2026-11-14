@@ -30,7 +30,8 @@
  *     in fondo al capitolo 17), le cui foglie sono Elem. Vi si scrive anche
  *     come nei libri, con immagini, controimmagini e insiemi di coppie dati
  *     da una regola (SetTerm, 17p); il lettore svolge quella notazione nelle
- *     condizioni sugli elementi (17q), che sono le sole che il motore vede.
+ *     condizioni sugli elementi (17q), che sono le sole che il motore vede,
+ *     insieme ai quantificatori sulle parti di un insieme (17u).
  *     Le relazioni e le applicazioni tra le parti di un insieme si svolgono
  *     invece in un enunciato del capitolo 14 (17r, in fondo a quel
  *     capitolo).
@@ -3913,7 +3914,8 @@ static void pair_sets_check(void) {
  *   - \forall f \in T^{S}, "per ogni applicazione da S a T", è letto solo
  *     dove equivale a una dichiarazione: in testa alla tesi, o sotto altri
  *     "per ogni" e a destra di un'implicazione. Lì "per ogni f vale P(f)" e
- *     "sia f un'applicazione; allora P(f)" dicono lo stesso.
+ *     "sia f un'applicazione; allora P(f)" dicono lo stesso. Un quantificatore
+ *     sulle parti, \forall X \subseteq S, è letto ovunque (17u).
  *   - \forall x \in X, con X una parte dichiarata di S, è "per ogni x di S,
  *     se x sta in X allora", e \exists x \in X è "esiste x in S che sta in
  *     X e". L'albero contiene la forma svolta.
@@ -3981,6 +3983,17 @@ static int symbol_count;
 static int sort_name[MAX_SORTS];
 static int sort_count;
 
+/* 17u. Che cosa è il simbolo di posto i rispetto ai quantificatori su parti.
+ * PART_FREE: un simbolo dichiarato, o un nome dato dalla dimostrazione.
+ * PART_BOUND: la parte legata da un \forall X \subseteq S o da un \exists X
+ * \subseteq S, il cui nome è in vista mentre si legge la condizione del
+ * quantificatore. PART_HIDDEN: la stessa, dopo; il nome non vuol più dire
+ * nulla, e la stessa lettera può legare un'altra parte. Una parte legata non
+ * è dichiarata: non ha una tabella nei modelli né una voce symbol nel
+ * certificato. */
+enum { PART_FREE, PART_BOUND, PART_HIDDEN };
+static int symbol_bound[MAX_SYMBOLS];
+
 /* Un'espressione che indica un elemento: una variabile, oppure un simbolo
  * applicato ai suoi argomenti (nessuno, per un elemento con un nome). Per
  * una parte o una relazione applicata, il "valore" è vero o falso. I nodi
@@ -4011,6 +4024,8 @@ typedef enum {
     S_AND, S_OR, S_IMPLIES, S_IFF,  /* connettivi tra a e b */
     S_FORALL, S_EXISTS,             /* per ogni / esiste un elemento, la
                                        variabile di posto slot: a */
+    S_FORALL_PART, S_EXISTS_PART,   /* 17u: per ogni / esiste una parte, il
+                                       simbolo legato part: a */
     S_MEMBER,                       /* 17p: gli elementi item[] stanno
                                        nell'insieme set */
     S_INCLUDED,                     /* 17p: set è contenuto in other, e se
@@ -4041,6 +4056,8 @@ struct Sentence {
     int items;                   /* S_MEMBER: quante componenti */
     int proper;                  /* S_INCLUDED: 1 per l'inclusione propria,
                                     \subsetneq */
+    int part;                    /* S_FORALL_PART, S_EXISTS_PART (17u): la
+                                    parte legata, un posto in symbols[] */
 };
 
 /* Le variabili quantificate dell'enunciato in corso. Ogni quantificatore ha
@@ -4073,10 +4090,11 @@ static int map_quantifiers;
  * su insiemi, parti o applicazioni. */
 static int abstract_example;
 
-/* Ritorna il posto del simbolo di nome name e pedice index, o -1. */
+/* Ritorna il posto del simbolo di nome name e pedice index, o -1. Una parte
+ * legata il cui quantificatore è già stato letto non si trova più (17u). */
 static int symbol_find(int name, int index) {
     for (int i = 0; i < symbol_count; i++)
-        if (symbols[i].name == name && symbols[i].index == index) return i;
+        if (symbols[i].name == name && symbols[i].index == index && symbol_bound[i] != PART_HIDDEN) return i;
     return -1;
 }
 
@@ -4401,6 +4419,11 @@ static int sentence_forces(const Sentence *s, int negated, int slot) {
     }
     case S_FORALL: case S_EXISTS:
         return (s->kind == S_EXISTS) != negated && sentence_forces(s->a, negated, slot);
+    case S_FORALL_PART: case S_EXISTS_PART:
+        /* 17u. Una parte c'è sempre, anche di un insieme vuoto (il vuoto):
+         * vero o falso, "per ogni" o "esiste", il quantificatore lo è per
+         * qualche parte, e lì la condizione impone ciò che impone. */
+        return sentence_forces(s->a, negated, slot);
     case S_UNIQUE:
         return !negated && sentence_forces(s->a, 0, slot);
     default:
@@ -4631,9 +4654,8 @@ static void reader_back(const ReaderMark *mark) {
  *     l'immagine di tutto S.
  *   - \forall X \subseteq S, o \forall X \in \mathcal{P}(S), dove vale quanto
  *     una dichiarazione (gli stessi posti di \forall f \in T^{S}, 17o),
- *     dichiara una parte qualsiasi di S. Altrove non è letto: "per ogni
- *     parte" tra le ipotesi chiederebbe di scegliere delle parti, e il
- *     capitolo 28 sa scegliere solo elementi.
+ *     dichiara una parte qualsiasi di S. Altrove, e \exists X \subseteq S
+ *     ovunque, è un quantificatore su parti: vedi 17u.
  *   - \forall i \in I\ (X_{i} \subseteq S) dichiara una famiglia di parti di
  *     S indicizzata da I. Per il capitolo 28 è una relazione tra S e I:
  *     x \in X_{i} vuol dire che x e i sono in relazione. \bigcup_{i \in I}
@@ -5275,6 +5297,97 @@ static Sentence *abstract_declaration(const char *start) {
     return NULL;
 }
 
+/* 17u. I QUANTIFICATORI SU PARTI
+ *
+ * (Sta qui, dentro 17p, perché la legge il lettore dei quantificatori; la
+ * lettera è venuta dopo quella di 17r.)
+ *
+ * "f è iniettiva se e solo se per ogni X, Y \subseteq S da f(X) \subseteq
+ * f(Y) segue X \subseteq Y": qui \forall X, Y \subseteq S è un lato di
+ * un'equivalenza, quindi anche un'ipotesi, e non si può leggere come una
+ * dichiarazione. È un quantificatore su parti: un nodo S_FORALL_PART (o
+ * S_EXISTS_PART) che lega la parte X, e il capitolo 28 lo usa come si usa
+ * a mano, scegliendo per X delle parti costruite con ciò che ha davanti
+ * (28i-28k di main.c).
+ *
+ * La parte legata è un simbolo, una parte di S come quelle dichiarate con
+ * X \subseteq S: così x \in X, f(X), f^{-1}(X), X \cap Y si leggono e si
+ * svolgono (17q) senza nulla di nuovo. Il simbolo però non è dichiarato
+ * (symbol_bound[]): il suo nome vale solo dentro la condizione del
+ * quantificatore, e la stessa lettera può legare un'altra parte più avanti.
+ *
+ * Le convenzioni di lettura:
+ *
+ *   - \forall X \subseteq S, \forall X \in \mathcal{P}(S): per ogni parte X
+ *     di S; \exists X \subseteq S: esiste una parte X di S. Parte vuota e S
+ *     comprese: è "per ogni sottoinsieme" dei libri.
+ *   - Dove "per ogni parte X vale P(X)" e "sia X una parte; allora P(X)"
+ *     dicono lo stesso, cioè in testa alla tesi, sotto altri "per ogni", a
+ *     destra di un'implicazione e dentro congiunzioni e disgiunzioni, il
+ *     quantificatore vale quanto una dichiarazione, e parts_declare() lo
+ *     toglie: X diventa una parte dichiarata, come prima di 17u. Che lì le
+ *     due letture coincidano è la regola delle forme prenesse: un "per ogni"
+ *     su una lettera che non compare altrove esce da una congiunzione, da
+ *     una disgiunzione, dalla conclusione di un'implicazione e da un altro
+ *     "per ogni". Lo si fa solo a enunciato letto, perché che un pezzo stia a
+ *     sinistra di un'implicazione lo si sa solo dopo averlo letto; e mai
+ *     quando la stessa lettera è già il nome di un'altra parte dichiarata.
+ */
+
+/* Legge la condizione dei quantificatori su parti \forall (kind S_FORALL) o
+ * \exists (S_EXISTS) X_1, ..., X_n \subseteq Set, con le lettere in
+ * letter[] e index[] e l'insieme di posto sort; start è l'inizio del testo.
+ * Ritorna un nodo per lettera, il più esterno per la prima. */
+static Sentence *abstract_part_quantifier(SentenceKind kind, const int *letter, const int *index, int letters, int sort, const char *start) {
+    int part[MAX_BOUND], bound = 0, positive = abstract_positive;
+    for (int i = 0; i < letters && !syntax_error; i++) {
+        symbol_add((Symbol){letter[i], index[i], 1, {sort, 0}, TRUTH, 0, 0});
+        if (syntax_error) break;
+        part[bound] = symbol_count - 1;
+        symbol_bound[part[bound++]] = PART_BOUND;
+    }
+
+    /* Sotto un "esiste", come per gli elementi, un "per ogni applicazione"
+     * non vale più quanto una dichiarazione. */
+    if (kind == S_EXISTS) abstract_positive = 0;
+    Sentence *node = syntax_error ? sentence_new(S_TRUE, NULL, NULL, start) : abstract_unary();
+    abstract_positive = positive;
+    for (int i = 0; i < bound; i++) symbol_bound[part[i]] = PART_HIDDEN;
+    for (int i = bound - 1; i >= 0 && !syntax_error; i--) {
+        node = sentence_new(kind == S_FORALL ? S_FORALL_PART : S_EXISTS_PART, node, NULL, start);
+        node->part = part[i];
+    }
+    return node;
+}
+
+/* Toglie dall'enunciato s, letto per intero, i "per ogni parte" che valgono
+ * quanto una dichiarazione (vedi la testa di 17u), e ne fa delle parti
+ * dichiarate. s è in un punto in cui una dichiarazione è ammessa; ritorna
+ * l'enunciato, cambiato sul posto. */
+static Sentence *parts_declare(Sentence *s) {
+    switch (s->kind) {
+    case S_FORALL_PART:
+        /* Il nome della parte non deve essere già quello di un'altra parte
+         * dichiarata. La parte stessa, letta, è nascosta: symbol_find() non
+         * la trova. */
+        if (symbol_find(symbols[s->part].name, symbols[s->part].index) >= 0) return s;
+        symbol_bound[s->part] = PART_FREE;
+        return parts_declare(s->a);
+    case S_AND: case S_OR:
+        s->a = parts_declare(s->a);
+        s->b = parts_declare(s->b);
+        return s;
+    case S_IMPLIES:
+        s->b = parts_declare(s->b);
+        return s;
+    case S_FORALL:
+        s->a = parts_declare(s->a);
+        return s;
+    default:
+        return s;
+    }
+}
+
 /* Legge un quantificatore, di cui il token corrente è \forall o \exists:
  * le lettere, il loro insieme, la condizione. Vedi le convenzioni in testa
  * al paragrafo, e in 17p, per le forme dell'insieme. */
@@ -5330,14 +5443,15 @@ static Sentence *abstract_quantifier(const char *start) {
         }
     }
 
-    /* "Per ogni applicazione" e "per ogni parte": una dichiarazione, e poi
-     * la condizione. */
-    if (maps || parts) {
+    /* 17u. "Per ogni parte" ed "esiste una parte": quantificatori veri e
+     * propri, ovunque stiano. */
+    if (parts) return abstract_part_quantifier(kind, letter, index, letters, sort, start);
+
+    /* "Per ogni applicazione": una dichiarazione, e poi la condizione. */
+    if (maps) {
         if (kind != S_FORALL || !abstract_positive)
-            syntax(maps ? "\\forall f \\in T^{S} è letto solo in testa alla tesi, dove vale quanto dichiarare f; un'applicazione da cercare non è trattata"
-                        : "\\forall X \\subseteq S è letto solo in testa alla tesi, dove vale quanto dichiarare X; una parte da cercare, o una ipotesi su tutte le parti, non è trattata");
-        for (int i = 0; i < letters && !syntax_error; i++)
-            symbol_add(maps ? (Symbol){letter[i], index[i], 1, {domain, 0}, sort, 0, 0} : (Symbol){letter[i], index[i], 1, {sort, 0}, TRUTH, 0, 0});
+            syntax("\\forall f \\in T^{S} è letto solo in testa alla tesi, dove vale quanto dichiarare f; un'applicazione da cercare non è trattata");
+        for (int i = 0; i < letters && !syntax_error; i++) symbol_add((Symbol){letter[i], index[i], 1, {domain, 0}, sort, 0, 0});
         map_quantifiers++;
         return abstract_unary();
     }
@@ -5514,7 +5628,7 @@ static Sentence *abstract_implication(void) {
     int before = map_quantifiers;
     Sentence *node = abstract_disjunction();
     if (!is_command("implies") && !is_command("Rightarrow") && !is_command("Longrightarrow")) return node;
-    if (map_quantifiers != before) syntax("\\forall f \\in T^{S} e \\forall X \\subseteq S sono letti solo in testa alla tesi, dove valgono quanto una dichiarazione: un'ipotesi su tutte le applicazioni o su tutte le parti non è trattata");
+    if (map_quantifiers != before) syntax("\\forall f \\in T^{S} è letto solo in testa alla tesi, dove vale quanto una dichiarazione: un'ipotesi su tutte le applicazioni non è trattata");
     next_token();
     Sentence *right = abstract_implication();
     return sentence_new(S_IMPLIES, node, right, start);
@@ -5532,7 +5646,7 @@ static Sentence *abstract_formula(void) {
         next_token();
         Sentence *right = abstract_implication();
         node = sentence_new(S_IFF, node, right, start);
-        if (map_quantifiers != before) syntax("\\forall f \\in T^{S} e \\forall X \\subseteq S sono letti solo in testa alla tesi, dove valgono quanto una dichiarazione: in un'equivalenza ognuno dei due lati è anche un'ipotesi, e un'ipotesi su tutte le applicazioni o su tutte le parti non è trattata");
+        if (map_quantifiers != before) syntax("\\forall f \\in T^{S} è letto solo in testa alla tesi, dove vale quanto una dichiarazione: in un'equivalenza ognuno dei due lati è anche un'ipotesi, e un'ipotesi su tutte le applicazioni non è trattata");
     }
     return node;
 }
@@ -5552,6 +5666,7 @@ static int declaration_misplaced(const Sentence *s, int allowed) {
  * elenchi ciò che dichiara. Gli errori sono annotati con syntax(). */
 static Sentence *abstract_statement(void) {
     symbol_count = sort_count = slot_count = visible_count = definition_count = builder_depth = 0;
+    memset(symbol_bound, 0, sizeof symbol_bound);
     abstract_positive = 1;
     abstract_example = map_quantifiers = 0;
     family_slot = -1;
@@ -5641,6 +5756,11 @@ static Sentence *abstract_statement(void) {
     Sentence *root = abstract_formula();
     if (token.kind != T_END) syntax("testo inatteso dopo l'enunciato");
     if (abstract_example && sort_count != sorts_declared) syntax("in un enunciato che chiede un esempio ogni insieme va introdotto con \\exists");
+
+    /* 17u. Dove un "per ogni parte" vale quanto una dichiarazione. Nella
+     * condizione di un esempio no: lì ciò che è dichiarato è cercato, e
+     * "per ogni" diventerebbe "esiste". */
+    if (!abstract_example && !syntax_error) root = parts_declare(root);
 
     /* Nella condizione di un esempio una definizione (17p), R = \{...\}, sta
      * tra le congiunzioni più esterne, come tra le ipotesi: dà un nome a un
@@ -5899,6 +6019,12 @@ static Sentence *unfold_sentence(const Sentence *s) {
         unfold_to[s->slot] = saved;
         return copy;
     }
+    case S_FORALL_PART: case S_EXISTS_PART:
+        /* 17u. La parte legata resta la stessa: è un simbolo, e le copie non
+         * la confondono con altre (vedi model_part_quantifier(), 28i). */
+        copy = unfold_node(s->kind, unfold_sentence(s->a), NULL, s);
+        copy->part = s->part;
+        return copy;
     case S_UNIQUE: {
         /* \exists y\ (P \land \forall z\ (P[z / y] \implies z = y)): la
          * seconda copia di P è una copia, con z al posto di y. */

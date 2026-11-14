@@ -155,7 +155,9 @@
  *     insiemi, finiti o infiniti, anche vuoti, e di un'interpretazione dei
  *     simboli dichiarati (un elemento per un elemento con un nome, una
  *     funzione per un'applicazione, un sottoinsieme per una parte o una
- *     relazione).
+ *     relazione). Nei tre teoremi un quantificatore su parti dell'enunciato,
+ *     forallpart o existspart (11g), vuol dire "per ogni" o "esiste" un
+ *     sottoinsieme qualsiasi dell'insieme, vuoto e insieme intero compresi.
  *   - "certificate signs" (capitolo 12): con C la condizione nella variabile
  *     x, e un confronto che vale in x solo dove i suoi due membri sono
  *     definiti, "per ogni x in D vale C", "esiste x in D in cui C non vale",
@@ -711,7 +713,7 @@ typedef enum {
     CK_EMPTY, CK_ONLYEMPTY, CK_POWER, CK_UNION, CK_INTER, CK_DIFF, CK_SYMDIFF, CK_TIMES,
     CK_EQ, CK_SUBSET, CK_NEQ, CK_AND, CK_OR, CK_IMPLIES, CK_IFF, CK_NOT,
     /* Enunciati su insiemi qualsiasi (capitolo 11). */
-    CK_TRUE, CK_FORALL, CK_EXISTS, CK_APP, CK_VAR, CK_ATOM,
+    CK_TRUE, CK_FORALL, CK_EXISTS, CK_APP, CK_VAR, CK_ATOM, CK_FORALLPART, CK_EXISTSPART, CK_PARTVAR,
     /* Tabelle dei segni (capitolo 12). */
     CK_LESS, CK_LESS_EQ, CK_ABS, CK_SQRT,
     /* Le funzioni di una variabile reale: derivate e primitive (capitolo 13)
@@ -736,6 +738,11 @@ typedef enum {
  *   VAR: value è la distanza dal quantificatore che la lega: 0 per il
  *        più vicino che la contiene, 1 per quello prima, e così via.
  *   FORALL, EXISTS: value è l'insieme, a la condizione.
+ *   FORALLPART, EXISTSPART (11g): per ogni / esiste una parte dell'insieme
+ *        value; a la condizione. La parte legata conta tra le variabili
+ *        legate, per le distanze di VAR e PARTVAR.
+ *   PARTVAR (11g): la parte legata dal quantificatore a distanza value,
+ *        applicata al termine a: "a sta nella parte".
  *   EQ: a = b tra due termini; con b NULL, a è una parte o una relazione
  *       applicata, e la condizione è che valga.
  *   ATOM: value è una condizione elementare (11e), in uno scheletro.
@@ -1990,17 +1997,20 @@ static void ck_check_sets(const CkNode *statement) {
  *     condizione := true | (= termine termine) | (nome termine [termine])
  *                 | (not c) | (and c c) | (or c c) | (implies c c) | (iff c c)
  *                 | (forall x S c) | (exists x S c)
+ *                 | (forallpart X S c) | (existspart X S c)
  *
  * In una condizione, (nome termine...) è una parte o una relazione
  * applicata: "x sta in X", "(x, y) sta in R". Un nome è la variabile legata
  * più interna che si chiama così, altrimenti un simbolo. Il lettore
  * controlla gli insiemi: f(x) solo con x nel dominio di f, un'uguaglianza
- * solo tra due elementi dello stesso insieme.
+ * solo tra due elementi dello stesso insieme. (forallpart X S c) è "per
+ * ogni parte X di S vale c", e in c (X t) dice che t sta in X (11g).
  *
  * Un'interpretazione dà a ogni insieme dei suoi elementi, quanti si vuole,
  * anche infiniti, anche nessuno; a ogni simbolo un elemento, una funzione o
- * un sottoinsieme, come dice la dichiarazione. I certificati sono di tre
- * tipi, e ognuno dimostra un teorema diverso.
+ * un sottoinsieme, come dice la dichiarazione. Un quantificatore su parti
+ * prova tutti i sottoinsiemi di S, compresi il vuoto e S. I certificati
+ * sono di tre tipi, e ognuno dimostra un teorema diverso.
  *
  *   11a. "certificate counterexample", con una voce "table" per simbolo:
  *        un'interpretazione finita in cui l'enunciato è falso. TEOREMA: non
@@ -2010,11 +2020,12 @@ static void ck_check_sets(const CkNode *statement) {
  *        cui l'enunciato è vero. TEOREMA: esistono degli insiemi, con il
  *        numero di elementi indicato, e dei simboli per cui vale.
  *   11c. "certificate structure", con le voci case, instance e witness
- *        (11d). TEOREMA: l'enunciato vale per ogni scelta degli insiemi,
- *        finiti o infiniti, anche vuoti, e dei simboli.
+ *        (11d), e part (11g). TEOREMA: l'enunciato vale per ogni scelta
+ *        degli insiemi, finiti o infiniti, anche vuoti, e dei simboli.
  *
  * Per 11a e 11b si calcola: con insiemi finiti un quantificatore prova ogni
- * elemento, un simbolo si legge nella sua tabella, e il valore
+ * elemento (uno su parti, ogni sottoinsieme), un simbolo si legge nella sua
+ * tabella, e il valore
  * dell'enunciato è un conto finito e completo. Le tabelle hanno una cella
  * per ogni scelta degli argomenti, il primo che cambia più in fretta: per
  * un'operazione su S di 2 elementi le celle sono (0,0), (1,0), (0,1), (1,1).
@@ -2034,13 +2045,13 @@ typedef struct {
 #define CK_BOOL CK_MAX_SORTS
 
 /* Un simbolo: dichiarato da una voce symbol, oppure un nome nuovo dato da una
- * voce witness (11d), che vale solo nel suo caso. */
+ * voce witness (11d) o part (11g), che vale solo nel suo caso. */
 typedef struct {
     char name[CK_MAX_NAME];
     int arity;    /* 0, 1 o 2 argomenti */
     int arg[2];   /* gli insiemi degli argomenti: posti in ck_sorts[] */
     int result;   /* l'insieme del valore, o CK_BOOL */
-    int witness;  /* 1 per un nome dato da witness */
+    int witness;  /* 1 per un nome dato da witness o da part (11g) */
     int *table;   /* 11a, 11b: il valore di ogni cella, nell'arena; NULL finché manca la sua voce table */
 } CkSymbol;
 
@@ -2051,9 +2062,10 @@ static int ck_symbol_count;
 static int ck_declared;  /* i simboli dichiarati: i primi ck_declared di ck_symbols[] */
 
 /* Le variabili legate visibili mentre si legge, dalla più esterna, con i
- * loro insiemi. */
+ * loro insiemi; ck_bound_part[i] è 1 se la variabile è una parte di quel
+ * insieme, legata da forallpart o existspart (11g). */
 static char ck_bound[CK_MAX_BOUND][CK_MAX_NAME];
-static int ck_bound_sort[CK_MAX_BOUND];
+static int ck_bound_sort[CK_MAX_BOUND], ck_bound_part[CK_MAX_BOUND];
 static int ck_bound_count;
 
 /* Legge un nome (una lettera, poi lettere, cifre e _) e lo mette in out.
@@ -2097,14 +2109,34 @@ static const CkNode *ck_read_term(int *sort) {
     if (open) ck_cursor++;
     if (ck_status != CK_ACCEPTED || !ck_name(name)) { ck_reject("certificato scritto male: termine atteso"); return node; }
 
-    /* Una variabile: senza parentesi, la più interna con quel nome. */
-    for (int i = ck_bound_count - 1; i >= 0 && !open; i--)
-        if (strcmp(ck_bound[i], name) == 0) {
+    /* Una variabile: senza parentesi, la più interna con quel nome. Con le
+     * parentesi, una parte legata applicata a un termine (11g). Una parte
+     * legata non è un elemento: scritta senza parentesi è un errore. */
+    for (int i = ck_bound_count - 1; i >= 0; i--) {
+        if (strcmp(ck_bound[i], name) != 0) continue;
+        if (ck_bound_part[i] != open) {
+            if (!open) { ck_reject("una parte legata è scritta dove serve un elemento"); return node; }
+            break;
+        }
+        node->value = ck_bound_count - 1 - i;
+        if (!open) {
             node->kind = CK_VAR;
-            node->value = ck_bound_count - 1 - i;
             *sort = ck_bound_sort[i];
             return node;
         }
+        int got;
+        if (ck_depth >= CK_MAX_DEPTH) { ck_unsupported("espressione con troppe parentesi una dentro l'altra"); return node; }
+        node->kind = CK_PARTVAR;
+        ck_depth++;
+        node->a = ck_read_term(&got);
+        ck_depth--;
+        if (got != ck_bound_sort[i]) ck_reject("un argomento non sta nell'insieme che il simbolo chiede");
+        *sort = CK_BOOL;
+        ck_skip();
+        if (*ck_cursor != ')') ck_reject("certificato scritto male: parentesi chiusa attesa");
+        else ck_cursor++;
+        return node;
+    }
 
     /* Un simbolo, con i suoi argomenti. */
     int s = ck_symbol_of(name);
@@ -2133,7 +2165,7 @@ static const CkNode *ck_read_term(int *sort) {
 static const CkNode *ck_read_condition(void) {
     static const struct { const char *word; CkKind kind; int operands; } table[] = {
         {"not", CK_NOT, 1}, {"and", CK_AND, 2}, {"or", CK_OR, 2}, {"implies", CK_IMPLIES, 2}, {"iff", CK_IFF, 2},
-        {"forall", CK_FORALL, 0}, {"exists", CK_EXISTS, 0},
+        {"forall", CK_FORALL, 0}, {"exists", CK_EXISTS, 0}, {"forallpart", CK_FORALLPART, 0}, {"existspart", CK_EXISTSPART, 0},
     };
     char word[CK_MAX_NAME];
     CkNode *node = ck_node(CK_TRUE);
@@ -2175,13 +2207,14 @@ static const CkNode *ck_read_condition(void) {
         node->kind = table[found].kind;
         if (table[found].operands == 0) {
             /* (forall x S c): la variabile e il suo insieme restano in vista
-             * mentre si legge c. */
+             * mentre si legge c. Lo stesso per una parte (11g). */
             char set[CK_MAX_NAME];
             if (ck_bound_count == CK_MAX_BOUND) { ck_unsupported("troppe variabili legate una dentro l'altra"); return node; }
             if (!ck_name(ck_bound[ck_bound_count]) || !ck_name(set) || (node->value = ck_sort_of(set)) < 0) {
                 ck_reject("certificato scritto male: dopo forall ed exists servono una variabile e un insieme dichiarato");
                 return node;
             }
+            ck_bound_part[ck_bound_count] = node->kind == CK_FORALLPART || node->kind == CK_EXISTSPART;
             ck_bound_sort[ck_bound_count++] = (int)node->value;
             node->a = ck_read_condition();
             ck_bound_count--;
@@ -2198,13 +2231,17 @@ static const CkNode *ck_read_condition(void) {
 }
 
 /* 11a, 11b. I valori delle variabili legate, dalla più esterna, e quanti
- * elementi i quantificatori hanno provato. */
+ * elementi i quantificatori hanno provato. Il valore di una parte legata
+ * (11g) è un numero di bit: il bit x acceso se l'elemento x sta nella parte;
+ * gli elementi sono al più CK_MAX_SIZE, quindi i bit bastano. */
 static int ck_values[CK_MAX_BOUND];
 static long long ck_tried;
 
-/* Ritorna il valore del termine t nel modello, con depth variabili legate. */
+/* Ritorna il valore del termine t nel modello, con depth variabili legate;
+ * per una parte legata applicata, 1 se l'argomento sta nella parte. */
 static int ck_value(const CkNode *t, int depth) {
     if (t->kind == CK_VAR) return ck_values[depth - 1 - t->value];
+    if (t->kind == CK_PARTVAR) return ck_values[depth - 1 - t->value] >> ck_value(t->a, depth) & 1;
     const CkSymbol *s = &ck_symbols[t->value];
     int cell = s->arity > 0 ? ck_value(t->a, depth) : 0;
     if (s->arity > 1) cell += ck_value(t->b, depth) * ck_sorts[s->arg[0]].size;
@@ -2225,8 +2262,12 @@ static int ck_holds(const CkNode *c, int depth) {
     case CK_IFF:     return ck_holds(c->a, depth) == ck_holds(c->b, depth);
     default:         break;
     }
-    int every = c->kind == CK_FORALL;
-    for (int x = 0; x < ck_sorts[c->value].size && ck_status == CK_ACCEPTED; x++) {
+
+    /* Un quantificatore prova ogni elemento; uno su parti (11g) ogni
+     * sottoinsieme, come numero di bit, da 0 (il vuoto) a 2^n - 1 (tutto). */
+    int every = c->kind == CK_FORALL || c->kind == CK_FORALLPART, parts = c->kind == CK_FORALLPART || c->kind == CK_EXISTSPART;
+    int values = parts ? 1 << ck_sorts[c->value].size : ck_sorts[c->value].size;
+    for (int x = 0; x < values && ck_status == CK_ACCEPTED; x++) {
         if (++ck_tried > CK_MAX_EVAL) { ck_unsupported("il modello è troppo grande per calcolarvi l'enunciato"); return 0; }
         ck_values[depth] = x;
         if (ck_holds(c->a, depth + 1) != every) return !every;
@@ -2334,7 +2375,44 @@ static int ck_holds(const CkNode *c, int depth) {
  * un elemento di un insieme vuoto: quando ce n'è uno, nessuna M ha vuoti
  * proprio gli insiemi di Z, e il conto per quel Z non serve, ma non fa
  * danno. Così "valido anche per gli insiemi vuoti" non è un argomento: è un
- * conto. */
+ * conto.
+ *
+ * 11g. LE PARTI
+ *
+ * L'enunciato può quantificare sulle parti di un insieme: (forallpart X S
+ * c), "per ogni sottoinsieme X di S vale c", e (existspart X S c). In M una
+ * parte di S è un sottoinsieme qualsiasi di S, vuoto e S compresi. Le voci
+ * del 11d valgono anche qui, con una parte al posto di un elemento, e ce
+ * n'è una in più:
+ *
+ *   instance Q D...  Q comincia con dei forallpart (o degli existspart), e
+ *                    D... sono nomi di parti, uno per quantificatore, ognuno
+ *                    una parte dell'insieme giusto: un simbolo dichiarato
+ *                    "symbol D S bool", o un nome dato in questo caso. Se ne
+ *                    trae "Q implica C(D...)", con (D t) al posto di (X t)
+ *                    (per gli existspart, "C(D...) implica Q");
+ *   witness Q C      Q comincia con un existspart (o, negato, con un
+ *                    forallpart): C è un nome nuovo, una parte di S;
+ *   part D x S c     D è un nome nuovo, la parte degli x di S per cui vale c,
+ *                    una condizione in cui l'unica variabile libera è x: se
+ *                    ne trae "per ogni x di S, (D x) se e solo se c".
+ *
+ * Perché le condizioni tratte sono vere in M, come in 11d. Un'istanza: in M
+ * ogni nome di parte indica un sottoinsieme di S, e ciò che vale per ogni
+ * sottoinsieme vale per quello. Un witness: se Q è vera c'è una parte che la
+ * rende vera, e la si dà a C; se è falsa, a C se ne dà una qualsiasi. Una
+ * voce part: è l'assioma di separazione, che dà, per ogni insieme S e ogni
+ * condizione c, il sottoinsieme degli x di S per cui c vale; D non compariva
+ * prima, quindi dargli quel valore non cambia nulla di ciò che c'era.
+ *
+ * Gli insiemi vuoti (11f). Una parte c'è sempre, anche di un insieme vuoto:
+ * è il vuoto. Per questo un nome di parte non porta il bit del suo insieme,
+ * e le voci che lo nominano restano dentro qualunque sia Z: valgono per
+ * qualunque valore di quel nome, anche quando la voce che glielo dava è
+ * stata lasciata fuori. Una voce part con un nome di un insieme di Z nella
+ * sua condizione, come \{a\}, è lasciata fuori come ogni altra: in M a non
+ * c'è. Un forallpart su un insieme vuoto non vale vero da sé, come un
+ * forall: il vuoto è una parte, e la condizione va controllata su di lui. */
 
 /* Un termine chiuso, come lo vede la chiusura per congruenza: un simbolo
  * applicato ad altri termini chiusi. Il posto 0 è "vero", il valore di una
@@ -2368,6 +2446,12 @@ static int ck_formula_count;
 static int ck_rep[CK_MAX_GROUND];
 static long long ck_nodes;
 
+/* Ritorna 1 se la condizione c comincia con un quantificatore, su elementi
+ * o su parti (11g). */
+static int ck_quantifier(const CkNode *c) {
+    return c->kind == CK_FORALL || c->kind == CK_EXISTS || c->kind == CK_FORALLPART || c->kind == CK_EXISTSPART;
+}
+
 /* Ritorna il posto del termine chiuso t in ck_grounds[], aggiungendolo se
  * manca: due termini scritti allo stesso modo hanno lo stesso posto. */
 static int ck_ground_of(const CkNode *t) {
@@ -2385,7 +2469,7 @@ static int ck_ground_of(const CkNode *t) {
 static const CkNode *ck_skeleton(const CkNode *c) {
     CkNode *s = ck_node(c->kind);
     if (ck_status != CK_ACCEPTED || c->kind == CK_TRUE) return s;
-    if (c->kind != CK_EQ && c->kind != CK_FORALL && c->kind != CK_EXISTS) {
+    if (c->kind != CK_EQ && !ck_quantifier(c)) {
         s->a = ck_skeleton(c->a);
         if (c->b) s->b = ck_skeleton(c->b);
         return s;
@@ -2414,11 +2498,13 @@ static void ck_suppose(const CkNode *c, unsigned mask) {
     ck_formulas[ck_formula_count++] = ck_skeleton(c);
 }
 
-/* Ritorna, come bit, gli insiemi dei nomi dati da witness che compaiono
- * nell'albero t. */
+/* Ritorna, come bit, gli insiemi dei nomi di elementi dati da witness che
+ * compaiono nell'albero t. Un nome di parte non porta bit: una parte c'è
+ * sempre, anche di un insieme vuoto (11g). */
 static unsigned ck_names(const CkNode *t) {
     if (!t) return 0;
-    unsigned here = t->kind == CK_APP && ck_symbols[t->value].witness ? 1u << ck_symbols[t->value].result : 0;
+    const CkSymbol *s = t->kind == CK_APP ? &ck_symbols[t->value] : NULL;
+    unsigned here = s && s->witness && s->result != CK_BOOL ? 1u << s->result : 0;
     return here | ck_names(t->a) | ck_names(t->b);
 }
 
@@ -2432,8 +2518,25 @@ static const CkNode *ck_subst(const CkNode *c, long long depth, const CkNode *t)
     if (c->kind == CK_VAR) return c->value == depth ? t : c;
     CkNode *copy = ck_node(c->kind);
     *copy = *c;
-    copy->a = ck_subst(c->a, depth + (c->kind == CK_FORALL || c->kind == CK_EXISTS), t);
+    copy->a = ck_subst(c->a, depth + ck_quantifier(c), t);
     copy->b = ck_subst(c->b, depth, t);
+    return copy;
+}
+
+/* 11g. Ritorna la condizione c con la parte di nome symbol al posto della
+ * parte legata dal quantificatore che sta depth quantificatori sopra c: ogni
+ * (X t) diventa (symbol t), in un albero nuovo. Come in ck_subst(), le altre
+ * variabili restano come sono. */
+static const CkNode *ck_subst_part(const CkNode *c, long long depth, int symbol) {
+    if (!c) return NULL;
+    CkNode *copy = ck_node(c->kind);
+    *copy = *c;
+    if (c->kind == CK_PARTVAR && c->value == depth) {
+        copy->kind = CK_APP;
+        copy->value = symbol;
+    }
+    copy->a = ck_subst_part(c->a, depth + ck_quantifier(c), symbol);
+    copy->b = ck_subst_part(c->b, depth, symbol);
     return copy;
 }
 
@@ -2443,7 +2546,7 @@ static const CkNode *ck_subst(const CkNode *c, long long depth, const CkNode *t)
 static const CkNode *ck_read_available(void) {
     const CkNode *q = ck_read_condition();
     if (ck_status != CK_ACCEPTED) return q;
-    if (q->kind != CK_FORALL && q->kind != CK_EXISTS) { ck_reject("instance e witness vogliono una condizione che comincia con un quantificatore"); return q; }
+    if (!ck_quantifier(q)) { ck_reject("instance e witness vogliono una condizione che comincia con un quantificatore"); return q; }
     for (int i = 0; i < ck_atom_count; i++)
         if (ck_atoms[i].quantified && ck_same(ck_atoms[i].quantified, q)) return q;
     ck_reject("instance o witness di una condizione che nel caso non è comparsa");
@@ -2458,24 +2561,47 @@ static const CkNode *ck_implies(const CkNode *premise, const CkNode *conclusion)
     return clause;
 }
 
-/* La voce instance Q t1 ... tk (11d). */
+/* 11g. Legge il nome di una parte dell'insieme sort: un simbolo, dichiarato
+ * o dato nel caso, con un solo argomento in sort e valore vero o falso.
+ * Ritorna il suo posto, o -1 (e il certificato è respinto). */
+static int ck_read_part(int sort) {
+    char name[CK_MAX_NAME];
+    int s = ck_name(name) ? ck_symbol_of(name) : -1;
+    if (s < 0 || ck_symbols[s].arity != 1 || ck_symbols[s].arg[0] != sort || ck_symbols[s].result != CK_BOOL) {
+        ck_reject("un'istanza su parti vuole il nome di una parte dell'insieme giusto");
+        return -1;
+    }
+    return s;
+}
+
+/* La voce instance Q t1 ... tk (11d); per i quantificatori su parti, i
+ * nomi delle parti (11g). */
 static void ck_instance(void) {
     const CkNode *q = ck_read_available(), *body = q;
     unsigned mask = ck_names(q);
-    int count = 0;
+    int count = 0, parts = q->kind == CK_FORALLPART || q->kind == CK_EXISTSPART;
     for (ck_skip(); ck_status == CK_ACCEPTED && *ck_cursor && *ck_cursor != '\n'; ck_skip(), count++) {
+        if (body->kind != q->kind) { ck_reject("un'istanza ha un termine di troppo, o in un altro insieme"); return; }
+        if (parts) {
+            int part = ck_read_part((int)body->value);
+            if (part < 0) return;
+            body = ck_subst_part(body->a, 0, part);
+            continue;
+        }
         int sort;
         const CkNode *t = ck_read_term(&sort);
-        if (body->kind != q->kind || sort != body->value) { ck_reject("un'istanza ha un termine di troppo, o in un altro insieme"); return; }
+        if (sort != body->value) { ck_reject("un'istanza ha un termine di troppo, o in un altro insieme"); return; }
         mask |= ck_names(t);
         body = ck_subst(body->a, 0, t);
     }
     if (ck_status != CK_ACCEPTED) return;
     if (count == 0) { ck_reject("un'istanza senza termini"); return; }
-    ck_suppose(q->kind == CK_FORALL ? ck_implies(q, body) : ck_implies(body, q), mask);
+    ck_suppose(q->kind == CK_FORALL || q->kind == CK_FORALLPART ? ck_implies(q, body) : ck_implies(body, q), mask);
 }
 
-/* La voce witness Q c (11d). */
+/* La voce witness Q c (11d). Per un quantificatore su parti c è una parte
+ * nuova del suo insieme (11g), che non porta il bit di quell'insieme: una
+ * parte c'è anche quando l'insieme è vuoto. */
 static void ck_witness(void) {
     const CkNode *q = ck_read_available();
     if (ck_status != CK_ACCEPTED) return;
@@ -2483,12 +2609,58 @@ static void ck_witness(void) {
     CkSymbol *c = &ck_symbols[ck_symbol_count];
     memset(c, 0, sizeof *c);
     if (!ck_name(c->name) || ck_symbol_of(c->name) >= 0) { ck_reject("witness: serve un nome che nel caso non c'è ancora"); return; }
-    c->result = (int)q->value;
     c->witness = 1;
+    if (q->kind == CK_FORALLPART || q->kind == CK_EXISTSPART) {
+        c->arity = 1;
+        c->arg[0] = (int)q->value;
+        c->result = CK_BOOL;
+        const CkNode *body = ck_subst_part(q->a, 0, ck_symbol_count++);
+        ck_suppose(q->kind == CK_EXISTSPART ? ck_implies(q, body) : ck_implies(body, q), ck_names(q));
+        return;
+    }
+    c->result = (int)q->value;
     CkNode *t = ck_node(CK_APP);
     t->value = ck_symbol_count++;
     const CkNode *body = ck_subst(q->a, 0, t);
     ck_suppose(q->kind == CK_EXISTS ? ck_implies(q, body) : ck_implies(body, q), ck_names(q) | 1u << q->value);
+}
+
+/* 11g. La voce part D x S c: D è la parte degli x di S per cui vale c, e se
+ * ne trae "per ogni x di S, (D x) se e solo se c", scritta come la scrive il
+ * lettore, così che le istanze del motore la ritrovino (ck_same()). D è un
+ * nome nuovo, registrato solo dopo aver letto c: c non lo può nominare. Le
+ * variabili libere di c possono essere solo x, perché il lettore non conosce
+ * altre variabili legate. */
+static void ck_part(void) {
+    char set[CK_MAX_NAME];
+    if (ck_symbol_count == CK_MAX_SYMBOLS) { ck_unsupported("troppi nomi in un caso"); return; }
+    CkSymbol *d = &ck_symbols[ck_symbol_count];
+    memset(d, 0, sizeof *d);
+    if (!ck_name(d->name) || ck_symbol_of(d->name) >= 0) { ck_reject("part: serve un nome che nel caso non c'è ancora"); return; }
+    int sort = !ck_name(ck_bound[0]) || !ck_name(set) ? -1 : ck_sort_of(set);
+    if (sort < 0) { ck_reject("certificato scritto male: dopo part servono il nome, una variabile e un insieme dichiarato"); return; }
+    ck_bound_sort[0] = sort;
+    ck_bound_part[0] = 0;
+    ck_bound_count = 1;
+    const CkNode *rule = ck_read_condition();
+    ck_bound_count = 0;
+    if (ck_status != CK_ACCEPTED) return;
+    d->arity = 1;
+    d->arg[0] = sort;
+    d->result = CK_BOOL;
+    d->witness = 1;
+
+    /* (forall x S (iff (D x) c)), nodo per nodo come lo costruisce il
+     * lettore: x è la variabile a distanza 0. */
+    CkNode *x = ck_node(CK_VAR), *member = ck_node(CK_APP), *holds = ck_node(CK_EQ), *iff = ck_node(CK_IFF), *every = ck_node(CK_FORALL);
+    member->value = ck_symbol_count++;
+    member->a = x;
+    holds->a = member;
+    iff->a = holds;
+    iff->b = rule;
+    every->value = sort;
+    every->a = iff;
+    ck_suppose(every, ck_names(rule));
 }
 
 /* Ritorna il rappresentante della classe del termine t, accorciando la
@@ -2541,7 +2713,10 @@ static void ck_closure(void) {
 static int ck_atom_value(const CkAtom *atom, unsigned empty) {
     if (atom->value >= 0) return atom->value;
     if (!atom->quantified) return ck_find(atom->left) == ck_find(atom->right) ? 1 : -1;
-    return empty >> atom->quantified->value & 1 ? atom->quantified->kind == CK_FORALL : -1;
+
+    /* Su parti no (11g): anche un insieme vuoto ha una parte, il vuoto. */
+    const CkNode *q = atom->quantified;
+    return (q->kind == CK_FORALL || q->kind == CK_EXISTS) && empty >> q->value & 1 ? q->kind == CK_FORALL : -1;
 }
 
 /* Ritorna il valore dello scheletro s per la scelta in corso: 1, 0, oppure
@@ -2695,6 +2870,8 @@ static void ck_check_structure(int kind) {
             ck_instance();
         } else if (kind == 2 && cases && ck_word("witness")) {
             ck_witness();
+        } else if (kind == 2 && cases && ck_word("part")) {
+            ck_part();
         } else {
             ck_reject("certificato scritto male: voce sconosciuta o fuori posto, o \"end\" mancante");
         }

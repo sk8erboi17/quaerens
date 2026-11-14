@@ -580,6 +580,11 @@
 #define MAX_CHAIN 64         /* anelli di una catena di uguaglianze */
 #define MAX_PATTERN 64       /* elementi in attesa mentre si confronta uno schema con ciò che è presente (28-3) */
 #define MAX_NAMES_GIVEN 4096 /* nomi dati in tutti i rami della dimostrazione di un'affermazione (28f) */
+#define MAX_PART_CANDIDATES 24  /* parti provate per una parte legata da un "per ogni parte" (28k) */
+#define MAX_PART_CHOICES 2   /* scelte di parti una dentro l'altra, in un ramo (28k) */
+#define MAX_PART_ATTEMPTS 600  /* scelte di parti provate in tutto per un'affermazione (28k) */
+#define MAX_BRANCHES 16      /* rami uno dentro l'altro: casi, scelte di parti e prove (28k, 28l) */
+#define MAX_PROBES 8         /* disgiunzioni provate per trovarne una con un caso che si chiude subito (28l) */
 #define MAX_CONGRUENCES 32   /* condizioni "m divide P" in un enunciato deciso sui resti (18r) */
 #define MAX_PERIOD 100000    /* il multiplo comune dei moduli, al più */
 #define MAX_RESIDUE_CASES 200000  /* assegnazioni di resti provate per un enunciato */
@@ -23459,12 +23464,18 @@ static const char *derivative_doubt(const Formula *thesis) {
  *   28-5. Due casi. Se di "A oppure B" non si sa quale valga, si prova che
  *         la contraddizione arriva in tutti e due i casi.
  *
+ * 28-2 e 28-3 valgono anche per le parti (17u di parser.c): da "esiste una
+ * parte X di S con P(X)" nasce una parte con un nome nuovo, e da "per ogni
+ * parte X di S vale P(X)" segue P(D) per ogni parte D di S che si sa
+ * nominare, anche una definita da una regola, "D = \{x \in S \mid c(x)\}"
+ * (28j). Quali parti provare, e come, lo dice 28k.
+ *
  * La contraddizione è un'uguaglianza che dovrebbe essere falsa (si sa
  * s diverso da t, e s e t sono finiti nella stessa classe), oppure una
  * disgiunzione di cui tutte le parti sono false.
  *
  * Quali istanze. Le regole dicono che cosa è lecito, non che cosa conviene:
- * le istanze possibili sono infinite. Se ne provano di due tipi, per un
+ * le istanze possibili sono infinite. Se ne provano di quattro tipi, per un
  * numero fisso di giri:
  *
  *   - sugli elementi che hanno un nome (quelli dichiarati, quelli della
@@ -23475,7 +23486,18 @@ static const char *derivative_doubt(const Formula *thesis) {
  *     (a b) c perché ce l'ha davanti;
  *   - sugli altri elementi presenti, solo quelle che non introducono
  *     elementi nuovi e contengono un confronto già deciso: sono quelle da
- *     cui 28-1 può trarre subito qualcosa.
+ *     cui 28-1 può trarre subito qualcosa;
+ *   - per un "per ogni t" con t = f(u) nel corpo, sugli elementi presenti
+ *     scritti come f(u): è "f(x) sta in f(X)" (28l).
+ *
+ * La definizione di una parte (28j) non si prova su tutti gli elementi con
+ * un nome, ma dove la parte compare: "c \in D" chiede che si svolga.
+ *
+ * Quali casi. Prima di distinguere i casi della prima disgiunzione in
+ * attesa (28-5), si cerca tra le disgiunzioni in attesa una con un caso che
+ * si chiude con i soli giri di istanze: allora l'altro caso segue, e la
+ * distinzione non conta tra quelle una dentro l'altra (28l). È il lemma che
+ * si dimostra per assurdo a metà di una dimostrazione.
  *
  * Non trovare la contraddizione vuol dire NON DIMOSTRATO, mai FALSO: la
  * ricerca non è completa.
@@ -23509,8 +23531,9 @@ static const char *derivative_doubt(const Formula *thesis) {
  *     tabelle, e il verificatore vi ricalcola l'enunciato con il suo
  *     valutatore;
  *   - una dimostrazione va con i soli dati che la ricerca ha trovato: per
- *     ogni affermazione un caso, con i nomi (28-2) e le istanze (28-3) che
- *     servono alle contraddizioni dei suoi rami. Le parti, le uguaglianze e
+ *     ogni affermazione un caso, con i nomi (28-2), le istanze (28-3) e le
+ *     parti definite (28j) che servono alle contraddizioni dei suoi rami.
+ *     Le parti, le uguaglianze e
  *     i casi (28-1, 28-4, 28-5) il verificatore li ritrova da sé, provando
  *     tutti i valori delle condizioni elementari con la sua chiusura per
  *     congruenza, e lo rifà per ogni scelta degli insiemi vuoti: così che la
@@ -23538,11 +23561,12 @@ static const char *derivative_doubt(const Formula *thesis) {
  *
  * CHE COSA NON C'È
  *
- * Applicazioni e parti da costruire (\exists f \in S^{S} dentro
- * l'enunciato, \exists X \subseteq S nella tesi), ipotesi su tutte le
- * parti di un insieme (che chiederebbero istanze su parti scelte, come
- * \{a\} o \emptyset), l'insieme delle parti come insieme di oggetti,
- * potenze x^{n} con n numero: il lettore le respinge, dicendo quale.
+ * Applicazioni da costruire (\exists f \in S^{S} dentro l'enunciato),
+ * ipotesi su tutte le applicazioni, l'insieme delle parti come insieme di
+ * oggetti, potenze x^{n} con n numero: il lettore le respinge, dicendo
+ * quale. Le parti costruite con più di un passo, come f(f^{-1}(\{c\})) o
+ * \{a, b\}, non vengono provate (28k): un enunciato che ne ha bisogno resta
+ * NON DIMOSTRATO.
  *
  * I modelli finiti dimostrano solo un esempio; un enunciato "per ogni" lo
  * dimostrano le istanze. Una dimostrazione dai soli modelli sarebbe lecita
@@ -23573,13 +23597,35 @@ typedef struct {
     unsigned char table[MAX_SYMBOLS][MAX_MODEL_SIZE * MAX_MODEL_SIZE];
 } Model;
 
+/* 28i. LE PARTI LEGATE NEI MODELLI
+ *
+ * (Sta qui, dentro 28a, perché i modelli la usano; la lettera è venuta dopo
+ * le altre.)
+ *
+ * Un quantificatore su parti (17u), "per ogni parte X di S", in un modello
+ * finito si calcola come uno su elementi: le parti di un insieme di n
+ * elementi sono 2^n, e si provano tutte. Una parte è un numero di n bit, il
+ * bit x acceso se l'elemento x sta nella parte. La parte legata non ha una
+ * tabella sua (model_cells() le dà un solo valore, così la ricerca dei
+ * modelli non la sceglie): il suo valore è in part_bits[], come quello di
+ * una variabile in value[]. */
+static unsigned part_bits[MAX_SYMBOLS];
+
+/* Ritorna il valore della cella (a, b) della tabella del simbolo symbol nel
+ * modello m (b conta solo con due argomenti): per una parte legata, 1 se a
+ * sta nella parte che le dà part_bits[]. */
+static int model_cell(const Model *m, int symbol, int a, int b) {
+    if (symbol_bound[symbol]) return part_bits[symbol] >> a & 1;
+    return m->table[symbol][a + b * m->size[symbols[symbol].domain[0]]];
+}
+
 /* Ritorna il valore dell'elemento e nel modello m, con ogni variabile al
  * valore che ha in value[]; per una parte o una relazione applicata, 1 se
  * vale. */
 static int model_element(const Model *m, const Elem *e, const int *value) {
     if (e->symbol < 0) return value[e->slot];
     int a = e->arg[0] ? model_element(m, e->arg[0], value) : 0, b = e->arg[1] ? model_element(m, e->arg[1], value) : 0;
-    return m->table[e->symbol][a + b * m->size[symbols[e->symbol].domain[0]]];
+    return model_cell(m, e->symbol, a, b);
 }
 
 /* Quanti elementi i quantificatori hanno provato da quando model_search()
@@ -23588,6 +23634,28 @@ static int model_element(const Model *m, const Elem *e, const int *value) {
  * sono miliardi di prove. Oltre MAX_MODEL_STEPS model_holds() smette di
  * calcolare, e chi la chiama deve buttare via la sua risposta. */
 static long long model_steps;
+
+/* 28i. Il calcolo di una condizione in un modello: model_holds() per le
+ * condizioni svolte, book_holds() (28h) per quelle scritte come nei libri. */
+typedef int (*ModelHolds)(const Model *m, const Sentence *s, int *value);
+
+/* 28i. Ritorna 1 se il quantificatore su parti s (S_FORALL_PART o
+ * S_EXISTS_PART) vale nel modello m, con le variabili ai valori di value[],
+ * calcolando la sua condizione con holds. Prova le parti dalla vuota,
+ * contandole in model_steps, e rimette part_bits[] com'era. Lo stesso
+ * simbolo può essere legato da due quantificatori uno dentro l'altro (le
+ * copie di 17q): per questo il valore di fuori si salva e si rimette. */
+static int model_part_quantifier(const Model *m, const Sentence *s, int *value, ModelHolds holds) {
+    int every = s->kind == S_FORALL_PART, result = every;
+    unsigned saved = part_bits[s->part], parts = 1u << m->size[symbols[s->part].domain[0]];
+    for (unsigned bits = 0; bits < parts && result == every; bits++) {
+        if (++model_steps > MAX_MODEL_STEPS) break;
+        part_bits[s->part] = bits;
+        if (holds(m, s->a, value) != every) result = !every;
+    }
+    part_bits[s->part] = saved;
+    return result;
+}
 
 /* Ritorna 1 se la condizione s vale nel modello m, con le variabili libere
  * ai valori di value[]. È un conto finito e completo: ogni quantificatore
@@ -23612,6 +23680,8 @@ static int model_holds(const Model *m, const Sentence *s, int *value) {
         return !model_holds(m, s->a, value) || model_holds(m, s->b, value);
     case S_IFF:
         return model_holds(m, s->a, value) == model_holds(m, s->b, value);
+    case S_FORALL_PART: case S_EXISTS_PART:
+        return model_part_quantifier(m, s, value, model_holds);
     case S_FORALL: case S_EXISTS:
         break;
     case S_MEMBER: case S_INCLUDED: case S_SAME: case S_UNIQUE:
@@ -23629,11 +23699,14 @@ static int model_holds(const Model *m, const Sentence *s, int *value) {
 }
 
 /* Ritorna quanti valori può prendere una cella della tabella del simbolo
- * symbol nel modello m, e mette in *cells quante celle ha la tabella. */
+ * symbol nel modello m, e mette in *cells quante celle ha la tabella. Una
+ * parte legata (28i) ne ha uno solo, che non si usa: così nessuno la
+ * sceglie. */
 static int model_cells(const Model *m, int symbol, int *cells) {
     const Symbol *s = &symbols[symbol];
     *cells = 1;
     for (int i = 0; i < s->arity; i++) *cells *= m->size[s->domain[i]];
+    if (symbol_bound[symbol]) return 1;
     return s->range == TRUTH ? 2 : m->size[s->range];
 }
 
@@ -23735,6 +23808,7 @@ static void put_model(const Model *m) {
     for (int s = 0; s < symbol_count; s++) {
         const Symbol *symbol = &symbols[s];
         int cells, first = m->size[symbol->arity ? symbol->domain[0] : 0], written = 0;
+        if (symbol_bound[s]) continue;  /* una parte legata (28i) non ha tabella */
         model_cells(m, s, &cells);
         proof_add("; $");
         if (symbol->range == TRUTH) { put_symbol(s); proof_add(" = \\{"); }
@@ -23792,12 +23866,6 @@ static void put_model(const Model *m) {
 
 static int book_holds(const Model *m, const Sentence *s, int *value);
 
-/* Ritorna il valore della tabella del simbolo symbol nel modello m, con gli
- * argomenti a e b (b conta solo con due argomenti). */
-static int book_cell(const Model *m, int symbol, int a, int b) {
-    return m->table[symbol][a + b * m->size[symbols[symbol].domain[0]]];
-}
-
 /* Ritorna 1 se il membro t[], di set->arity componenti già calcolate, sta
  * nell'insieme set del modello m, con le variabili libere ai valori di
  * value[]. Calcola dalla definizione, senza sostituire nulla (vedi la testa
@@ -23807,9 +23875,9 @@ static int book_member(const Model *m, const int *t, const SetTerm *set, int *va
     int found = 0, saved[MAX_ARITY], arg;
     switch (set->kind) {
     case ST_SYMBOL:
-        return book_cell(m, set->symbol, t[0], set->arity == 2 ? t[1] : 0);
+        return model_cell(m, set->symbol, t[0], set->arity == 2 ? t[1] : 0);
     case ST_SECTION:
-        return book_cell(m, set->symbol, t[0], model_element(m, set->item[0], value));
+        return model_cell(m, set->symbol, t[0], model_element(m, set->item[0], value));
     case ST_SORT:
         return 1;
     case ST_EMPTY:
@@ -23836,10 +23904,10 @@ static int book_member(const Model *m, const int *t, const SetTerm *set, int *va
     }
     case ST_IMAGE:
         for (arg = 0; arg < m->size[symbols[set->symbol].domain[0]] && !found; arg++)
-            found = book_cell(m, set->symbol, arg, 0) == t[0] && book_member(m, &arg, set->a, value);
+            found = model_cell(m, set->symbol, arg, 0) == t[0] && book_member(m, &arg, set->a, value);
         return found;
     case ST_PREIMAGE:
-        arg = book_cell(m, set->symbol, t[0], 0);
+        arg = model_cell(m, set->symbol, t[0], 0);
         return book_member(m, &arg, set->a, value);
     case ST_UNION:
         return book_member(m, t, set->a, value) || book_member(m, t, set->b, value);
@@ -23854,7 +23922,7 @@ static int book_member(const Model *m, const int *t, const SetTerm *set, int *va
         int index = set->bound[0], every = set->kind == ST_BIG_INTER, result = every;
         saved[0] = value[index];
         for (int i = 0; i < m->size[slot_sort[index]] && result == every; i++) {
-            if (set->symbol >= 0 && !book_cell(m, set->symbol, i, 0)) continue;
+            if (set->symbol >= 0 && !model_cell(m, set->symbol, i, 0)) continue;
             value[index] = i;
             if (book_member(m, t, set->a, value) != every) result = !every;
         }
@@ -23909,6 +23977,8 @@ static int book_holds(const Model *m, const Sentence *s, int *value) {
         return book_compare(m, s->set, s->other, 0, value) && (!s->proper || book_compare(m, s->set, s->other, 2, value));
     case S_SAME:
         return book_compare(m, s->set, s->other, 1, value);
+    case S_FORALL_PART: case S_EXISTS_PART:
+        return model_part_quantifier(m, s, value, book_holds);
     case S_UNIQUE:
         /* Si contano gli elementi per cui vale. */
         for (int x = 0; x < m->size[slot_sort[s->slot]] && count < 2; x++) {
@@ -24028,7 +24098,8 @@ typedef enum {
     K_PART,      /* 28-1: segue da parent, date le condizioni già decise */
     K_INSTANCE,  /* 28-3: parent, un "per ogni", su degli elementi */
     K_NAMED,     /* 28-2: parent, un "esiste", su un elemento con un nome nuovo */
-    K_CASE       /* 28-5: uno dei due casi lasciati aperti da parent */
+    K_CASE,      /* 28-5: uno dei due casi lasciati aperti da parent */
+    K_DEFINED    /* 28j: la definizione di una parte nuova, data da una regola */
 } Origin;
 
 /* A che punto è una condizione nota. */
@@ -24055,6 +24126,12 @@ typedef struct {
     int stamp;               /* numero d'ordine: vedi Branch.clock */
     short value[MAX_SLOTS];  /* l'elemento al posto di ogni variabile; -1 per
                                 le variabili non ancora sostituite */
+    short part[MAX_BOUND];   /* 28j: per un'istanza di un "per ogni parte", la
+                                parte al posto di ogni parte legata, dalla più
+                                esterna; per un nome dato a una parte (K_NAMED)
+                                o per una definizione (K_DEFINED), in part[0]
+                                la parte nuova. Posti in symbols[]; -1 dove
+                                non servono */
 } Known;
 
 /* Un ramo della ricerca: tutto ciò che si sa dopo certe scelte di casi.
@@ -24087,9 +24164,10 @@ typedef struct {
  * uguali perché hanno lo stesso simbolo e argomenti uguali (28-4). */
 #define CONGRUENT (-1)
 
-/* I rami, uno per profondità della distinzione di casi, e quello in cui si
- * sta lavorando. */
-static Branch branch[MAX_SPLITS + 1];
+/* I rami, uno per profondità (una distinzione di casi, una scelta di parti
+ * di 28k o un caso provato da 28l ne aggiungono uno), e quello in cui si sta
+ * lavorando. */
+static Branch branch[MAX_BRANCHES];
 static Branch *now;
 
 /* 1 se la ricerca si è fermata perché una tabella è piena: allora non aver
@@ -24283,6 +24361,13 @@ static void put_sentence(const Sentence *s, int negated, const short *value, int
         put_sentence(s->a, 0, value, 0);
         proof_add(")");
         return;
+    case S_FORALL_PART: case S_EXISTS_PART:
+        proof_add("%s\\%s ", negated ? "\\lnot " : "", s->kind == S_FORALL_PART ? "forall" : "exists");
+        put_symbol(s->part);
+        proof_add(" \\subseteq %c\\ (", sort_name[symbols[s->part].domain[0]]);
+        put_sentence(s->a, 0, value, 0);
+        proof_add(")");
+        return;
     case S_MEMBER: case S_INCLUDED: case S_SAME: case S_UNIQUE:
         /* Non arrivano qui: lo svolgimento (17q) li toglie. */
         return;
@@ -24469,6 +24554,7 @@ static int known_add(const Sentence *source, int negated, const short *value, Or
     k->left = k->right = -1;
     k->stamp = now->clock++;
     memcpy(k->value, value, sizeof k->value);
+    memset(k->part, -1, sizeof k->part);
     return now->knowns++;
 }
 
@@ -24493,7 +24579,7 @@ static int sentence_parts(const Sentence *s, int negated, Parts *p) {
  * sotto un quantificatore: così truth() li trova, e la chiusura per
  * congruenza li confronta con gli altri. */
 static void sentence_ground(const Sentence *s, const short *value) {
-    if (s->kind == S_FORALL || s->kind == S_EXISTS || s->kind == S_TRUE) return;
+    if (s->kind == S_FORALL || s->kind == S_EXISTS || s->kind == S_FORALL_PART || s->kind == S_EXISTS_PART || s->kind == S_TRUE) return;
     if (s->kind == S_EQUAL || s->kind == S_HOLDS) {
         elem_ground(s->left, value, G_CREATE);
         if (s->right) elem_ground(s->right, value, G_CREATE);
@@ -24537,7 +24623,7 @@ static int truth(const Sentence *s, int negated, const short *value) {
         b = truth(s->b, 0, value);
         if (a >= 0 && b >= 0) known = a == b;
         break;
-    case S_FORALL: case S_EXISTS:
+    case S_FORALL: case S_EXISTS: case S_FORALL_PART: case S_EXISTS_PART:
     case S_MEMBER: case S_INCLUDED: case S_SAME: case S_UNIQUE:  /* questi non arrivano qui (17q) */
         break;
     }
@@ -24551,6 +24637,161 @@ static int truth(const Sentence *s, int negated, const short *value) {
  * in known[] della condizione K_NAMED che il nome ha aperto. */
 static int name_serial[MAX_SYMBOLS], name_known[MAX_SYMBOLS];
 static int names_given;
+
+/* Quanti simboli ha letto l'enunciato: gli altri sono nomi dati dalla
+ * dimostrazione (28-2, e le parti di 28j). */
+static int declared_symbols;
+
+/* 28j. LE PARTI NELLA RICERCA: NOMI, COPIE, DEFINIZIONI
+ *
+ * (Sta qui, dentro 28d, perché known_open() la usa; la lettera è venuta
+ * dopo le altre.)
+ *
+ * Un quantificatore su parti (17u) si usa come uno su elementi, con una
+ * parte al posto di un elemento:
+ *
+ *   - 28-2 per le parti. Da "esiste una parte X di S con P(X)" si prende una
+ *     tale parte e le si dà un nome nuovo, X_1: vale P(X_1).
+ *   - 28-3 per le parti. Da "per ogni parte X di S vale P(X)", e da una
+ *     parte D di S, segue P(D). Quali D provare lo dice 28k.
+ *
+ * Una parte D si sa nominare quando è un simbolo: una parte dichiarata, una
+ * nata da 28-2, oppure una DEFINITA da una regola, "sia D = \{x \in S \mid
+ * c(x)\}", con c fatta di ciò che c'è già. Una definizione è un passo
+ * valido: per l'assioma di separazione, per ogni insieme S e ogni condizione
+ * c c'è la parte degli x di S per cui c vale (vuota, se non vale per
+ * nessuno; e se S è vuoto c'è comunque, ed è vuota). D è un nome nuovo, e di
+ * lei si sa solo "per ogni x di S, x \in D se e solo se c(x)" (K_DEFINED):
+ * nulla di ciò che si sapeva prima cambia. Anche una parte di un insieme
+ * vuoto esiste, quindi una parte, nominata o definita, non chiede mai che
+ * un insieme abbia elementi; è c che può nominarne uno, come \{a\}, e allora
+ * la definizione vale solo dove a c'è (lo controlla il verificatore, 11g).
+ *
+ * P(D) è P(X) con D al posto di X: una copia dell'albero (sentence_rename()),
+ * nell'arena come l'enunciato. Da lì in poi una condizione nota che viene da
+ * una copia è come le altre: si apre, si istanzia, si scrive e si
+ * ricontrolla allo stesso modo. Il controllo di 28e rilegge ogni copia con
+ * sentence_renamed(), che confronta i due alberi nodo per nodo senza
+ * ricostruirli: un controllo diverso da chi ha fatto la copia. */
+
+/* Ritorna 1 se s è un quantificatore su parti. */
+static int part_quantifier(const Sentence *s) { return s->kind == S_FORALL_PART || s->kind == S_EXISTS_PART; }
+
+/* Ritorna l'elemento e con il simbolo to al posto di from; dove nulla
+ * cambia, e stesso. */
+static Elem *elem_rename(Elem *e, int from, int to) {
+    if (e->symbol < 0) return e;
+    Elem *a = e->arg[0] ? elem_rename(e->arg[0], from, to) : NULL, *b = e->arg[1] ? elem_rename(e->arg[1], from, to) : NULL;
+    if (e->symbol != from && a == e->arg[0] && b == e->arg[1]) return e;
+    return elem_new(e->symbol == from ? to : e->symbol, 0, a, b);
+}
+
+/* Ritorna la condizione s con la parte to al posto della parte legata
+ * from: ogni from applicato a qualcosa diventa to applicato alla stessa
+ * cosa. Un quantificatore interno che lega di nuovo from (le copie di 17q
+ * possono farlo) la nasconde, e lì non cambia nulla. Dove nulla cambia si
+ * riusa s; se l'arena è piena annota exhausted.
+ *
+ * Perché i cast: i nodi sono nell'arena, scrivibili, e l'albero letto non
+ * cambia mai; una copia ne condivide i pezzi che restano uguali. */
+static const Sentence *sentence_rename(const Sentence *s, int from, int to) {
+    if (part_quantifier(s) && s->part == from) return s;
+    Elem *left = s->left ? elem_rename(s->left, from, to) : NULL, *right = s->right ? elem_rename(s->right, from, to) : NULL;
+    const Sentence *a = s->a ? sentence_rename(s->a, from, to) : NULL, *b = s->b ? sentence_rename(s->b, from, to) : NULL;
+    if (left == s->left && right == s->right && a == s->a && b == s->b) return s;
+    Sentence *copy = arena_alloc(sizeof *copy);
+    if (!copy) { exhausted = 1; return s; }
+    *copy = *s;
+    copy->left = left;
+    copy->right = right;
+    copy->a = (Sentence *)a;
+    copy->b = (Sentence *)b;
+    return copy;
+}
+
+/* Il simbolo che deve stare in una copia al posto di symbol: to[i] se
+ * symbol è from[i], per qualche i < count; altrimenti lui stesso. */
+static int renamed_symbol(int symbol, const short *from, const short *to, int count) {
+    for (int i = 0; i < count; i++)
+        if (from[i] == symbol) return to[i];
+    return symbol;
+}
+
+/* Ritorna 1 se l'elemento e è scritto come original con to[i] al posto di
+ * from[i], per ogni i < count (con count = 0: scritto allo stesso modo). */
+static int elem_renamed(const Elem *e, const Elem *original, const short *from, const short *to, int count) {
+    if (!e || !original) return e == original;
+    if (e->symbol < 0 || original->symbol < 0) return e->symbol == original->symbol && e->slot == original->slot;
+    return e->symbol == renamed_symbol(original->symbol, from, to, count) && elem_renamed(e->arg[0], original->arg[0], from, to, count) &&
+           elem_renamed(e->arg[1], original->arg[1], from, to, count);
+}
+
+/* Ritorna 1 se la condizione s è scritta come original con to[i] al posto
+ * della parte legata from[i], per ogni i < count: il controllo di una copia
+ * fatta da sentence_rename(), che guarda solo come sono scritti i due
+ * alberi. Sotto un quantificatore che lega di nuovo from[i], from[i] resta
+ * com'è. Con count = 0 dice se i due alberi sono scritti allo stesso modo. */
+static int sentence_renamed(const Sentence *s, const Sentence *original, const short *from, const short *to, int count) {
+    short inner_from[MAX_BOUND], inner_to[MAX_BOUND];
+    int inner = 0;
+    if (!s || !original) return s == original;
+    if (s->kind != original->kind || s->slot != original->slot || s->part != original->part) return 0;
+    for (int i = 0; i < count; i++) {
+        if (part_quantifier(original) && original->part == from[i]) continue;
+        inner_from[inner] = from[i];
+        inner_to[inner++] = to[i];
+    }
+    return elem_renamed(s->left, original->left, from, to, count) && elem_renamed(s->right, original->right, from, to, count) &&
+           sentence_renamed(s->a, original->a, inner_from, inner_to, inner) && sentence_renamed(s->b, original->b, inner_from, inner_to, inner);
+}
+
+/* Ritorna 1 se il simbolo symbol compare nell'elemento e. */
+static int elem_mentions(const Elem *e, int symbol) {
+    return e && (e->symbol == symbol || elem_mentions(e->arg[0], symbol) || elem_mentions(e->arg[1], symbol));
+}
+
+/* Ritorna 1 se il simbolo symbol compare nella condizione s. */
+static int sentence_mentions(const Sentence *s, int symbol) {
+    return s && (elem_mentions(s->left, symbol) || elem_mentions(s->right, symbol) || sentence_mentions(s->a, symbol) ||
+                 sentence_mentions(s->b, symbol));
+}
+
+/* Ritorna 1 se il simbolo di posto symbol è una parte che si può mettere al
+ * posto di una parte legata di sort: una parte dell'insieme sort, non
+ * legata, non una famiglia. */
+static int part_of(int symbol, int sort) {
+    if (symbol < 0 || symbol >= symbol_count) return 0;
+    const Symbol *s = &symbols[symbol];
+    return !symbol_bound[symbol] && s->arity == 1 && s->range == TRUTH && !s->family && s->domain[0] == sort;
+}
+
+/* Registra una parte nuova dell'insieme sort, che si chiama con la lettera
+ * letter e il primo pedice da first in su che nessun simbolo abbia, e le dà
+ * il numero d'ordine dei nomi (28f). Ritorna il suo posto in symbols[], o -1
+ * se non c'è più posto (e annota exhausted). */
+static int part_symbol_new(int letter, int sort, int first) {
+    Symbol part = {letter, first, 1, {sort, 0}, TRUTH, 0, 0};
+    while (symbol_find(part.name, part.index) >= 0) part.index++;
+    if (symbol_count == MAX_SYMBOLS) { exhausted = 1; return -1; }
+    symbols[symbol_count] = part;
+    name_serial[symbol_count] = ++names_given;
+    name_known[symbol_count] = -1;
+    return symbol_count++;
+}
+
+/* 28-2 per una parte: dalla condizione nota di posto i, "esiste una parte X
+ * di S con P(X)" (o "non per ogni parte X di S vale P(X)"), dà alla parte un
+ * nome nuovo, la lettera di X con il primo pedice libero, e aggiunge P del
+ * nome con il segno della condizione. */
+static void part_name(int i) {
+    const Sentence *s = now->known[i].source;
+    int part = part_symbol_new(symbols[s->part].name, symbols[s->part].domain[0], 0);
+    if (part < 0) return;
+    int named = known_add(sentence_rename(s->a, s->part, part), now->known[i].negated, now->known[i].value, K_NAMED, i);
+    if (named < 0) return;
+    now->known[named].part[0] = (short)part;
+    name_known[part] = named;
+}
 
 /* Guarda per la prima volta la condizione nota di posto i, e ne trae ciò
  * che non richiede scelte: un fatto entra tra le uguaglianze o tra i
@@ -24581,6 +24822,12 @@ static void known_open(int i) {
         }
         sentence_ground(s, k->value);
         k->stage = K_WAITING;
+        return;
+    case S_FORALL_PART: case S_EXISTS_PART:
+        /* 28j. Un "per ogni parte" aspetta le sue parti (28k); un "esiste
+         * una parte" dà un nome. */
+        if ((s->kind == S_FORALL_PART) != k->negated) k->stage = K_RULE;
+        else part_name(i);
         return;
     case S_FORALL: case S_EXISTS:
         break;
@@ -24758,7 +25005,7 @@ static int instance_rewrite_elem(const Rule *rule, const Elem *e) {
 
 /* Come instance_rewrite_elem(), per tutti gli elementi dei confronti di s. */
 static int instance_rewrite(const Rule *rule, const Sentence *s) {
-    if (s->kind == S_FORALL || s->kind == S_EXISTS || s->kind == S_TRUE) return 0;
+    if (s->kind == S_FORALL || s->kind == S_EXISTS || part_quantifier(s) || s->kind == S_TRUE) return 0;
     if (s->kind == S_EQUAL || s->kind == S_HOLDS) return instance_rewrite_elem(rule, s->left) + (s->right ? instance_rewrite_elem(rule, s->right) : 0);
     return instance_rewrite(rule, s->a) + (s->b ? instance_rewrite(rule, s->b) : 0);
 }
@@ -24784,7 +25031,7 @@ static int instance_elem(const Elem *e, const short *value, int *missing) {
  * stanno sotto un quantificatore; annota in più in *decided se di uno di
  * quei confronti si sa già se è vero o falso. */
 static void instance_survey(const Sentence *s, const short *value, int *missing, int *decided) {
-    if (s->kind == S_FORALL || s->kind == S_EXISTS || s->kind == S_TRUE) return;
+    if (s->kind == S_FORALL || s->kind == S_EXISTS || part_quantifier(s) || s->kind == S_TRUE) return;
     if (s->kind == S_EQUAL || s->kind == S_HOLDS) {
         int a = instance_elem(s->left, value, missing), b = s->kind == S_EQUAL ? instance_elem(s->right, value, missing) : 0;
         if (a >= 0 && b >= 0 && (now->rep[a] == now->rep[b] || different_fact(a, b) >= 0)) *decided = 1;
@@ -24832,15 +25079,106 @@ static int instance_choices(const Rule *rule, int named) {
     return made;
 }
 
+/* 28l. LE DIMOSTRAZIONI PIÙ LUNGHE: ISTANZE SUGGERITE, CASI CHE SI
+ * CHIUDONO SUBITO
+ *
+ * (Sta qui, dentro 28d, perché le istanze servono a instantiate(); i casi
+ * sono più avanti, con cheap_split(), prima di refute(). La lettera è venuta
+ * dopo le altre.)
+ *
+ * Le dimostrazioni con le immagini e le controimmagini svolte sono più
+ * lunghe delle altre del capitolo, e chiedono due cose che 28-3 e 28-5 da
+ * sole non fanno.
+ *
+ * Le istanze suggerite da un'uguaglianza.
+ * "f(X) \subseteq f(Y)" svolto è "per ogni t di T, se esiste u in X con
+ * f(u) = t, allora esiste v in Y con f(v) = t". Chi lo usa sa che x sta in X
+ * e prende t = f(x): "f(x) sta in f(X), quindi in f(Y)". Nessuna delle istanze
+ * di 28-3 lo fa: f(x) non ha un nome, e nel corpo, fuori dai quantificatori
+ * interni, non c'è un confronto che l'istanza decida. Ma il corpo dice quali
+ * valori di t contano: t è il valore di f, f(u) = t. Per un "per ogni" su una
+ * sola variabile t, ogni uguaglianza del corpo, anche sotto i quantificatori
+ * interni, tra t e un simbolo applicato P suggerisce t := G per ogni elemento
+ * presente G scritto come P (stessi simboli; al posto delle variabili di P,
+ * qualsiasi cosa). Le istanze sono vere comunque (28-3); la regola dice solo
+ * quali provare, al più MAX_FREE_TUPLES per giro, e non introduce elementi:
+ * G c'è già.
+ *
+ * I casi che si chiudono subito. Un'istanza come "t \in f(X \cap Y) se e
+ * solo se t \in f(X) \cap f(Y)" su un t che non c'entra è una disgiunzione
+ * in attesa come quella che serve; distinguendo i casi della prima (28-5),
+ * le distinzioni una dentro l'altra (MAX_SPLITS) finiscono su quelle che
+ * non c'entrano. Spesso però uno dei due casi di una disgiunzione si chiude
+ * con i soli giri di istanze: allora vale l'altro, ed è un passo che non
+ * apre davvero due strade. cheap_split() cerca, tra le prime MAX_PROBES
+ * disgiunzioni in attesa, una così, ne chiude il caso (la sua dimostrazione
+ * scritta è quella di un caso, ricontrollata come le altre) e continua
+ * nell'altro senza contarla tra le distinzioni. Se nessuna ha un caso così,
+ * si torna a 28-5. La profondità dei rami resta limitata da MAX_BRANCHES. */
+
+/* Ritorna 1 se l'elemento presente id è scritto come lo schema p: gli stessi
+ * simboli negli stessi posti, e qualsiasi cosa al posto delle variabili. */
+static int ground_fits(int id, const Elem *p) {
+    if (p->symbol < 0) return 1;
+    const Ground *g = &ground[id];
+    if (g->symbol != p->symbol) return 0;
+    for (int i = 0; i < 2 && p->arg[i]; i++)
+        if (g->arg[i] < 0 || !ground_fits(g->arg[i], p->arg[i])) return 0;
+    return 1;
+}
+
+/* Aggiunge le istanze del "per ogni" rule, su una sola variabile, suggerite
+ * dalle uguaglianze della condizione s tra la variabile e un simbolo
+ * applicato (vedi sopra). Ritorna quante ne ha aggiunte; *budget è quante
+ * ne può ancora aggiungere. */
+static int instance_trigger(const Rule *rule, const Sentence *s, int *budget) {
+    if (!s) return 0;
+    int made = instance_trigger(rule, s->a, budget) + instance_trigger(rule, s->b, budget), slot = rule->slot[0];
+    if (s->kind != S_EQUAL) return made;
+    for (int side = 0; side < 2; side++) {
+        const Elem *bare = side ? s->right : s->left, *pattern = side ? s->left : s->right;
+        if (bare->symbol >= 0 || bare->slot != slot || pattern->symbol < 0 || (elem_slots(pattern) & rule->all)) continue;
+        for (int id = 1, last = now->grounds; id < last && *budget > 0 && !exhausted; id++) {
+            if (!ground_fits(id, pattern)) continue;
+            short value[MAX_SLOTS];
+            memcpy(value, now->known[rule->known].value, sizeof value);
+            value[slot] = (short)id;
+            if (instance_add(rule, value)) { made++; --*budget; }
+        }
+    }
+    return made;
+}
+
+/* 28j. Le istanze della definizione di una parte D (rule, la sua condizione
+ * K_DEFINED, "per ogni x, x \in D se e solo se c(x)"): una per ogni elemento
+ * e di cui si parla come membro di D, cioè con D(e) presente. È come si usa
+ * una definizione a mano, dove serve: provarla su tutti gli elementi con un
+ * nome riempirebbe il ramo di equivalenze "s \in D se e solo se s = a" su
+ * elementi che non c'entrano, che la distinzione dei casi (28-5) prenderebbe
+ * per prime. Ritorna quante istanze ha aggiunto. */
+static int instance_definition(const Rule *rule) {
+    int part = now->known[rule->known].part[0], made = 0;
+    for (int id = 1, last = now->grounds; id < last && !exhausted; id++) {
+        if (ground[id].symbol != part) continue;
+        short value[MAX_SLOTS];
+        memcpy(value, now->known[rule->known].value, sizeof value);
+        value[rule->slot[0]] = ground[id].arg[0];
+        made += instance_add(rule, value);
+    }
+    return made;
+}
+
 /* 28-3. Aggiunge le istanze dei "per ogni" noti che vale la pena provare,
  * come descritto in testa al capitolo ("Quali istanze"), e ritorna quante
  * ne ha aggiunte. Va chiamata dopo settle(), con le classi aggiornate: le
  * istanze aggiunte non vengono aperte qui, quindi le classi non cambiano
- * mentre si cerca. */
+ * mentre si cerca. Le definizioni di 28j hanno le loro (instance_definition()),
+ * più quelle che decidono un confronto. */
 static int instantiate(void) {
     int made = 0, before = now->knowns;
     for (int r = 0; r < before && !exhausted; r++) {
-        if (now->known[r].stage != K_RULE) continue;
+        /* Un "per ogni parte" ha le sue istanze in 28k. */
+        if (now->known[r].stage != K_RULE || part_quantifier(now->known[r].source)) continue;
         Rule rule = {r, {0}, 0, 0, now->known[r].source, now->known[r].negated};
         while (rule.slots < MAX_BOUND && (rule.body->kind == S_FORALL || rule.body->kind == S_EXISTS) &&
                (rule.body->kind == S_FORALL) != rule.negated) {
@@ -24848,9 +25186,15 @@ static int instantiate(void) {
             rule.slot[rule.slots++] = rule.body->slot;
             rule.body = rule.body->a;
         }
+        if (now->known[r].origin == K_DEFINED) {
+            made += instance_definition(&rule) + instance_choices(&rule, 0);
+            continue;
+        }
         made += instance_choices(&rule, 1);
         made += instance_rewrite(&rule, rule.body);
         made += instance_choices(&rule, 0);
+        int budget = MAX_FREE_TUPLES;
+        if (rule.slots == 1) made += instance_trigger(&rule, rule.body, &budget);
     }
     return made;
 }
@@ -25035,6 +25379,71 @@ static int known_is(const Known *k, const Sentence *written, int negated) {
     return k->source == written && k->negated == negated;
 }
 
+/* 28j. Ritorna 1 se l'elemento e non ha variabili libere fuori da bound (il
+ * bit i per la variabile di posto i). */
+static int elem_closed(const Elem *e, unsigned long long bound) {
+    if (!e) return 1;
+    if (e->symbol < 0) return bound >> e->slot & 1;
+    return elem_closed(e->arg[0], bound) && elem_closed(e->arg[1], bound);
+}
+
+/* 28j. Ritorna 1 se la condizione s non ha variabili libere fuori da bound. */
+static int sentence_closed(const Sentence *s, unsigned long long bound) {
+    if (!s) return 1;
+    if (s->kind == S_FORALL || s->kind == S_EXISTS) bound |= 1ull << s->slot;
+    return elem_closed(s->left, bound) && elem_closed(s->right, bound) && sentence_closed(s->a, bound) && sentence_closed(s->b, bound);
+}
+
+/* 28j. Controlla la definizione di posto i: è "per ogni x di S, x \in D se
+ * e solo se c", chiusa, con D una parte di S nuova, che c non nomina e
+ * nessuna condizione nota prima di questa nomina. Ritorna 1 se regge. */
+static int definition_derived(int i) {
+    const Known *k = &now->known[i];
+    const Sentence *s = k->source;
+    int part = k->part[0];
+    if (k->negated || s->kind != S_FORALL || s->a->kind != S_IFF || s->a->a->kind != S_HOLDS || !sentence_closed(s, 0)) return 0;
+    const Elem *member = s->a->a->left;
+    if (member->symbol != part || part < declared_symbols || !part_of(part, slot_sort[s->slot]) || member->arg[0]->symbol >= 0 ||
+        member->arg[0]->slot != s->slot || sentence_mentions(s->a->b, part))
+        return 0;
+    for (int j = 0; j < i; j++)
+        if (sentence_mentions(now->known[j].source, part)) return 0;
+    return 1;
+}
+
+/* 28j. Controlla che la condizione nota k venga dal "per ogni parte" p con
+ * le parti di k->part[] al posto delle parti legate in testa a p: ognuna una
+ * parte del suo insieme con un nome, e k il corpo di p con loro al posto
+ * delle legate, riletto da sentence_renamed(). Ritorna 1 se regge. */
+static int part_instance_derived(const Known *k, const Known *p) {
+    const Sentence *body = p->source;
+    short from[MAX_BOUND];
+    int count = 0, negated = p->negated;
+    while (count < MAX_BOUND && part_quantifier(body) && (body->kind == S_FORALL_PART) != p->negated) {
+        if (!part_of(k->part[count], symbols[body->part].domain[0])) return 0;
+        from[count++] = (short)body->part;
+        body = body->a;
+    }
+    while (body->kind == S_NOT) { body = body->a; negated = !negated; }
+    return count > 0 && k->negated == negated && sentence_renamed(k->source, body, from, k->part, count);
+}
+
+/* 28j. Controlla che la condizione nota di posto i venga dall'"esiste una
+ * parte" (o dal "non per ogni parte") p, con al posto della parte legata
+ * una parte nuova, k->part[0], che nessuna condizione nota prima di questa
+ * nomina. Ritorna 1 se regge. */
+static int part_name_derived(int i, const Known *p) {
+    const Known *k = &now->known[i];
+    const Sentence *body = p->source->a;
+    short from = (short)p->source->part, to = k->part[0];
+    int negated = p->negated;
+    if ((p->source->kind == S_EXISTS_PART) == p->negated || to < declared_symbols || !part_of(to, symbols[from].domain[0])) return 0;
+    for (int j = 0; j < i; j++)
+        if (sentence_mentions(now->known[j].source, to)) return 0;
+    while (body->kind == S_NOT) { body = body->a; negated = !negated; }
+    return k->negated == negated && sentence_renamed(k->source, body, &from, &to, 1);
+}
+
 /* Controlla che la condizione nota di posto i, che non è un passo 28-1,
  * venga davvero da parent nel modo che origin dice: è un controllo sulla
  * forma, fatto rileggendo l'albero dell'enunciato. Ritorna 1 se regge. */
@@ -25044,6 +25453,8 @@ static int known_derived(int i) {
     Parts parts;
     switch (k->origin) {
     case K_INSTANCE:
+        if (part_quantifier(body)) return part_instance_derived(k, p);
+
         /* Il corpo dei "per ogni" con cui parent comincia, con un elemento
          * del suo insieme al posto di ogni variabile. */
         while ((body->kind == S_FORALL || body->kind == S_EXISTS) && (body->kind == S_FORALL) != p->negated) {
@@ -25055,6 +25466,7 @@ static int known_derived(int i) {
     case K_NAMED:
         /* parent è un "esiste", e il nome è nuovo: nessuna condizione nota
          * prima di questa lo usa. */
+        if (part_quantifier(body)) return part_name_derived(i, p);
         if ((body->kind != S_FORALL && body->kind != S_EXISTS) || (body->kind == S_EXISTS) == p->negated) return 0;
         if (k->value[body->slot] < 1 || ground[k->value[body->slot]].arg[0] >= 0) return 0;
         for (int j = 0; j < i; j++)
@@ -25078,6 +25490,34 @@ static int known_derived(int i) {
     default:
         return 1;
     }
+}
+
+/* 28j. Segna in needed[] le condizioni che hanno dato un nome (28-2) o una
+ * definizione (K_DEFINED) ai simboli che l'elemento e nomina: chi legge la
+ * dimostrazione deve averli visti nascere. */
+static void need_names_elem(const Elem *e) {
+    if (!e) return;
+    if (e->symbol >= declared_symbols && name_known[e->symbol] >= 0) needed[name_known[e->symbol]] = 1;
+    need_names_elem(e->arg[0]);
+    need_names_elem(e->arg[1]);
+}
+
+/* 28j. Come need_names_elem(), per tutti gli elementi della condizione s. */
+static void need_names(const Sentence *s) {
+    if (!s) return;
+    need_names_elem(s->left);
+    need_names_elem(s->right);
+    need_names(s->a);
+    need_names(s->b);
+}
+
+/* 28j. Come need_names_elem(), per i nomi dentro l'elemento presente id: un
+ * elemento con un nome usato in un'istanza va presentato anche se nessun
+ * fatto su di lui serve, e con lui la catena da cui è nato. */
+static void need_ground_names(int id) {
+    const Ground *g = &ground[id];
+    if (g->symbol >= declared_symbols && name_known[g->symbol] >= 0) needed[name_known[g->symbol]] = 1;
+    for (int i = 0; i < 2 && g->arg[i] >= 0; i++) need_ground_names(g->arg[i]);
 }
 
 /* Scrive la dimostrazione del ramo che si è appena chiuso: le sole
@@ -25108,7 +25548,17 @@ static int leaf_write(int leaf) {
      * passo viene ricontrollato qui, prima di scrivere qualcosa. */
     for (int i = now->knowns - 1; i >= 0; i--) {
         const Known *k = &now->known[i];
-        if (!needed[i] || k->parent < 0) continue;
+        if (!needed[i]) continue;
+
+        /* 28j. Le parti scelte, e i nomi che la condizione nomina (in una
+         * copia o in una definizione), vanno presentati prima di usarli. */
+        need_names(k->source);
+        for (int v = 0; v < MAX_SLOTS; v++)
+            if (k->value[v] > 0) need_ground_names(k->value[v]);
+        for (int j = 0; j < MAX_BOUND; j++)
+            if (k->part[j] >= declared_symbols && name_known[k->part[j]] >= 0) needed[name_known[k->part[j]]] = 1;
+        if (k->origin == K_DEFINED && !definition_derived(i)) { unjustified_steps++; return 0; }
+        if (k->parent < 0) continue;
         needed[k->parent] = 1;
         if (k->origin != K_PART) {
             if (!known_derived(i)) { unjustified_steps++; return 0; }
@@ -25142,16 +25592,39 @@ static int leaf_write(int leaf) {
                 put_ground(k->value[q->slot], 0);
                 proof_add("$");
             }
+
+            /* 28j. Le parti scelte per le parti legate. */
+            const Sentence *q = p->source;
+            for (int j = 0; j < MAX_BOUND && k->part[j] >= 0 && part_quantifier(q); j++, q = q->a) {
+                proof_add("%s $", written++ ? "," : "");
+                put_symbol(q->part);
+                proof_add(" := ");
+                put_symbol(k->part[j]);
+                proof_add("$");
+            }
         } else if (k->origin == K_NAMED) {
             /* Un "esiste" vero dà l'elemento; un "per ogni" falso dà un
-             * elemento per cui non vale. */
+             * elemento per cui non vale. Lo stesso per una parte (28j). */
             const Sentence *q = now->known[k->parent].source;
+            int some = q->kind == S_EXISTS || q->kind == S_EXISTS_PART, part = part_quantifier(q);
             proof_add("By ");
             put_label(k->parent);
-            proof_add(q->kind == S_EXISTS ? " there is such an element of $%c$; call it $" : " some element of $%c$ makes it fail; call it $",
-                      sort_name[slot_sort[q->slot]]);
-            put_ground(k->value[q->slot], 0);
+            if (some) proof_add(" there is such %s of $%c$; call it $", part ? "a part" : "an element", sort_name[part ? symbols[q->part].domain[0] : slot_sort[q->slot]]);
+            else proof_add(" some %s of $%c$ makes it fail; call it $", part ? "part" : "element", sort_name[part ? symbols[q->part].domain[0] : slot_sort[q->slot]]);
+            if (part) put_symbol(k->part[0]); else put_ground(k->value[q->slot], 0);
             proof_add("$. For it");
+        } else if (k->origin == K_DEFINED) {
+            /* 28j. La parte nuova, con la sua regola. */
+            const Sentence *definition = k->source;
+            short nothing[MAX_SLOTS];
+            memset(nothing, -1, sizeof nothing);
+            proof_add("Consider the part $");
+            put_symbol(k->part[0]);
+            proof_add(" = \\{");
+            put_slot(definition->slot);
+            proof_add(" \\in %c \\mid ", sort_name[slot_sort[definition->slot]]);
+            put_sentence(definition->a->b, 0, nothing, 0);
+            proof_add("\\}$ of $%c$", sort_name[slot_sort[definition->slot]]);
         } else if (k->origin == K_CASE) {
             proof_add("By ");
             put_label(k->parent);
@@ -25218,9 +25691,6 @@ static int leaf_write(int leaf) {
  * un'affermazione stanno insieme, devono restare distinti. I simboli
  * dichiarati si scrivono senza _ (R_{1} diventa R1), e le variabili legate
  * con la loro lettera, quindi non si confondono con i nomi. */
-
-/* Quanti simboli ha dichiarato l'enunciato: gli altri sono nomi (28-2). */
-static int declared_symbols;
 
 /* name_written[n] è 1 se la voce witness del nome di numero d'ordine n è
  * già nel certificato dell'affermazione in corso. */
@@ -25295,6 +25765,15 @@ static void cert_sentence(const Sentence *s, const short *value) {
         cert_sentence(s->a, value);
         cert_add(")");
         return;
+    case S_FORALL_PART: case S_EXISTS_PART:
+        /* 28j. La parte legata si scrive con il suo nome, come una variabile
+         * (11g di checker.c). */
+        cert_add("(%s ", s->kind == S_FORALL_PART ? "forallpart" : "existspart");
+        cert_symbol(s->part);
+        cert_add(" %c ", sort_name[symbols[s->part].domain[0]]);
+        cert_sentence(s->a, value);
+        cert_add(")");
+        return;
     case S_MEMBER: case S_INCLUDED: case S_SAME: case S_UNIQUE:
         /* Non arrivano qui (17q); se arrivassero, il certificato non le sa
          * dire. */
@@ -25324,6 +25803,7 @@ static void cert_abstract_head(const char *kind, const Sentence *root, const Mod
         cert_add("\n");
     }
     for (int s = 0; s < declared_symbols; s++) {
+        if (symbol_bound[s]) continue;  /* una parte legata (17u) non è dichiarata */
         cert_add("symbol ");
         cert_symbol(s);
         for (int i = 0; i < symbols[s].arity; i++) cert_add(" %c", sort_name[symbols[s].domain[i]]);
@@ -25344,17 +25824,56 @@ static void cert_names_in(int id) {
     for (int i = 0; i < 2 && g->arg[i] >= 0; i++) cert_names_in(g->arg[i]);
 }
 
-/* Scrive la voce witness del nome di posto symbol, se non c'è già: la
- * condizione "esiste" (o "per ogni", negata) da cui è nato, preceduta dalle
- * voci dei nomi che quella condizione usa. */
+/* 28j. Come cert_names_in(), per i nomi che compaiono nell'elemento e: i
+ * suoi simboli (una copia o una definizione ne hanno di dati dalla
+ * dimostrazione) e gli elementi di value[] al posto delle sue variabili. */
+static void cert_names_in_elem(const Elem *e, const short *value) {
+    if (!e) return;
+    if (e->symbol < 0) {
+        if (value[e->slot] >= 0) cert_names_in(value[e->slot]);
+        return;
+    }
+    if (e->symbol >= declared_symbols) cert_witness(e->symbol);
+    cert_names_in_elem(e->arg[0], value);
+    cert_names_in_elem(e->arg[1], value);
+}
+
+/* 28j. Come cert_names_in_elem(), per tutti gli elementi della condizione s. */
+static void cert_names_in_sentence(const Sentence *s, const short *value) {
+    if (!s) return;
+    cert_names_in_elem(s->left, value);
+    cert_names_in_elem(s->right, value);
+    cert_names_in_sentence(s->a, value);
+    cert_names_in_sentence(s->b, value);
+}
+
+/* Scrive la voce del nome di posto symbol, se non c'è già, preceduta dalle
+ * voci dei nomi che usa. Per un nome dato da 28-2 è la voce witness: la
+ * condizione "esiste" (o "per ogni", negata) da cui è nato. Per una parte
+ * definita (28j) è la voce part: "part D x S c", la parte degli x di S per
+ * cui vale c. */
 static void cert_witness(int symbol) {
     int serial = name_serial[symbol];
     if (serial > MAX_NAMES_GIVEN || name_known[symbol] < 0) { certificate_broken = 1; return; }
     if (name_written[serial]) return;
     name_written[serial] = 1;
-    const Known *p = &now->known[now->known[name_known[symbol]].parent];
+    const Known *named = &now->known[name_known[symbol]];
+    if (named->origin == K_DEFINED) {
+        const Sentence *definition = named->source;
+        cert_names_in_sentence(definition->a->b, named->value);
+        cert_add("part ");
+        cert_symbol(symbol);
+        cert_add(" ");
+        cert_slot(definition->slot);
+        cert_add(" %c ", sort_name[slot_sort[definition->slot]]);
+        cert_sentence(definition->a->b, named->value);
+        cert_add("\n");
+        return;
+    }
+    const Known *p = &now->known[named->parent];
     for (int v = 0; v < MAX_SLOTS; v++)
         if (p->value[v] >= 0) cert_names_in(p->value[v]);
+    cert_names_in_sentence(p->source, p->value);
     cert_add("witness ");
     cert_sentence(p->source, p->value);
     cert_add(" ");
@@ -25370,16 +25889,30 @@ static void cert_witness(int symbol) {
 static void cert_leaf(void) {
     for (int i = 0; i < now->knowns; i++) {
         const Known *k = &now->known[i];
-        if (!needed[i] || (k->origin != K_INSTANCE && k->origin != K_NAMED)) continue;
+        if (!needed[i] || (k->origin != K_INSTANCE && k->origin != K_NAMED && k->origin != K_DEFINED)) continue;
+        if (k->origin == K_DEFINED) { cert_witness(k->part[0]); continue; }
         const Known *p = &now->known[k->parent];
-        if (k->origin == K_NAMED) { cert_witness(ground[k->value[p->source->slot]].symbol); continue; }
+        if (k->origin == K_NAMED) {
+            cert_witness(part_quantifier(p->source) ? k->part[0] : ground[k->value[p->source->slot]].symbol);
+            continue;
+        }
         for (int v = 0; v < MAX_SLOTS; v++)
             if (k->value[v] >= 0) cert_names_in(k->value[v]);
+        cert_names_in_sentence(p->source, p->value);
+        for (int j = 0; j < MAX_BOUND; j++)
+            if (k->part[j] >= declared_symbols) cert_witness(k->part[j]);
         cert_add("instance ");
         cert_sentence(p->source, p->value);
         for (const Sentence *q = p->source; (q->kind == S_FORALL || q->kind == S_EXISTS) && k->value[q->slot] >= 0; q = q->a) {
             cert_add(" ");
             cert_ground(k->value[q->slot]);
+        }
+
+        /* 28j. Per un "per ogni parte", i nomi delle parti scelte. */
+        const Sentence *q = p->source;
+        for (int j = 0; j < MAX_BOUND && k->part[j] >= 0 && part_quantifier(q); j++, q = q->a) {
+            cert_add(" ");
+            cert_symbol(k->part[j]);
         }
         cert_add("\n");
     }
@@ -25415,49 +25948,424 @@ static Verdict abstract_certified(Verdict verdict, int required) {
  * a numerare i casi. */
 static int leaves_closed;
 
+/* 28k. QUALI PARTI PROVARE
+ *
+ * Le parti di S sono infinite quando S lo è, e anche quando è finito sono
+ * troppe per provarle tutte: come per gli elementi (28-3, "Quali istanze"),
+ * le regole dicono che cosa è lecito, non che cosa conviene. Si fa come a
+ * mano: per smentire "f è iniettiva" con l'ipotesi "per ogni X, Y,
+ * f(X) \subseteq f(Y) implica X \subseteq Y" si prendono X = \{a\} e Y =
+ * \{b\}, con a e b gli elementi che f manda nello stesso punto; per avere
+ * f(X) = Z si prende X = f^{-1}(Z). Le parti provate per una parte legata
+ * di S sono quelle che si scrivono con un solo passo da ciò che il ramo ha
+ * già:
+ *
+ *   - le parti di S che hanno un nome (dichiarate, o nate da 28-2);
+ *   - \{a\}, per ogni elemento a di S con un nome (dichiarato, o nato da
+ *     28-2), uno per classe di elementi uguali;
+ *   - \emptyset e S;
+ *   - f^{-1}(\{c\}) e f^{-1}(P), per ogni applicazione f da S a T, ogni c di T
+ *     con un nome e ogni parte P di T con un nome;
+ *   - f(P), per ogni applicazione f a valori in S e ogni parte P con un nome
+ *     del suo dominio;
+ *   - S \setminus P, per ogni parte P di S con un nome.
+ *
+ * Perché questo limite: sono le costruzioni che si fanno partendo dagli
+ * oggetti dell'enunciato senza inventarne di nuovi, e un passo solo, perché
+ * le parti costruite da parti costruite crescerebbero senza fine (f(f^{-1}(f(
+ * ...)))). Le dimostrazioni dei libri sulle immagini e le controimmagini
+ * stanno quasi tutte qui dentro.
+ *
+ * Come si provano. Aggiungere tutte le istanze insieme, come per gli
+ * elementi, non funziona: un'istanza come "f(X) \subseteq f(Y) implica X
+ * \subseteq Y" è un'implicazione tra due "per ogni", che si usa solo
+ * distinguendo i casi (28-5), e i casi di trenta istanze inutili
+ * esaurirebbero la profondità prima di arrivare a quella giusta. Si prova
+ * invece una scelta per volta, come chi cerca l'esempio giusto: per un
+ * "per ogni parte" del ramo e una scelta delle sue parti, una copia del ramo
+ * con le definizioni delle parti e l'istanza; se la copia si chiude, il ramo
+ * è chiuso, altrimenti si butta la copia, con ciò che ha scritto, e si prova
+ * la scelta successiva. Non è una distinzione di casi: basta che una scelta
+ * riesca, perché ciò che si aggiunge è vero comunque.
+ *
+ * Le scelte vengono prima dei casi, così un'istanza vale in tutti i casi che
+ * seguono; se nessuna basta si distinguono i casi, e in ognuno si può
+ * scegliere di nuovo, perché casi diversi possono volere parti diverse. Una
+ * scelta dentro l'altra al più MAX_PART_CHOICES volte in un ramo, e al più
+ * MAX_PART_ATTEMPTS scelte per un'affermazione: oltre, NON DIMOSTRATO. Non
+ * trovare la scelta giusta non vuol dire mai FALSO. */
+
+/* Una parte da provare per una parte legata (vedi sopra), prima di
+ * averla: come si scrive con ciò che c'è. */
+typedef enum {
+    P_SYMBOL,          /* una parte con un nome: part */
+    P_SINGLE,          /* \{element\} */
+    P_EMPTY,           /* \emptyset */
+    P_WHOLE,           /* l'insieme sort, tutto */
+    P_POINT_PREIMAGE,  /* map^{-1}(\{element\}) */
+    P_PREIMAGE,        /* map^{-1}(part) */
+    P_IMAGE,           /* map(part) */
+    P_COMPLEMENT       /* sort \setminus part */
+} PartKind;
+
+/* Una parte dell'insieme sort da provare (PartKind dice quale). I
+ * simboli sono posti in symbols[]: element un elemento con un nome, map
+ * un'applicazione di un argomento, part una parte con un nome; -1 dove non
+ * servono. */
+typedef struct {
+    PartKind kind;
+    int sort, part, map, element;
+} PartCandidate;
+
+/* Le variabili delle definizioni (28j): per ogni insieme, la x di "\{x \in
+ * S \mid ...\}" e la u di un'immagine, "esiste u con f(u) = x". Si creano la
+ * prima volta che servono, con una lettera che l'enunciato non usa; -1
+ * finché mancano. Tutte le definizioni le condividono: ognuna è una
+ * condizione chiusa, che le lega. */
+static int definition_slot[MAX_SORTS][2];
+
+/* Ritorna la variabile which (0 per x, 1 per u) delle definizioni di parti
+ * di sort, o -1 (annotando exhausted) se le variabili o le lettere sono
+ * finite. */
+static int definition_variable(int sort, int which) {
+    if (definition_slot[sort][which] < 0) {
+        int slot = slot_new(fresh_letter(), 0, sort);
+        if (slot < 0 || syntax_error) { syntax_error = NULL; exhausted = 1; return -1; }
+        definition_slot[sort][which] = slot;
+    }
+    return definition_slot[sort][which];
+}
+
+/* Ritorna 1 se il simbolo symbol è un nome dato da 28-2 (o dichiarato) e non
+ * una parte definita: solo da questi si costruiscono altre parti. */
+static int part_named(int symbol) {
+    return symbol < declared_symbols || (name_known[symbol] >= 0 && now->known[name_known[symbol]].origin == K_NAMED);
+}
+
+/* Mette in element[] gli elementi di sort con un nome nel ramo corrente,
+ * uno per classe di elementi uguali, e ritorna quanti sono. */
+static int named_elements(int sort, int *element) {
+    int count = 0, rep[MAX_SYMBOLS];
+    for (int s = 0; s < symbol_count; s++) {
+        int id = symbols[s].arity == 0 && symbols[s].range == sort ? ground_lookup(s, -1, -1, G_EXACT) : -1, fresh = id >= 0;
+        for (int i = 0; i < count && fresh; i++) fresh = rep[i] != now->rep[id];
+        if (!fresh) continue;
+        rep[count] = now->rep[id];
+        element[count++] = s;
+    }
+    return count;
+}
+
+/* Mette in out[] le parti di sort da provare, nell'ordine della testa del
+ * paragrafo, al più MAX_PART_CANDIDATES, e ritorna quante sono. */
+static int part_candidates(int sort, PartCandidate *out) {
+    int count = 0, element[MAX_SYMBOLS], elements;
+#define CANDIDATE(...) do { if (count < MAX_PART_CANDIDATES) out[count++] = (PartCandidate){__VA_ARGS__}; } while (0)
+    for (int s = 0; s < symbol_count; s++)
+        if (part_of(s, sort) && part_named(s)) CANDIDATE(P_SYMBOL, sort, s, -1, -1);
+    elements = named_elements(sort, element);
+    for (int i = 0; i < elements; i++) CANDIDATE(P_SINGLE, sort, -1, -1, element[i]);
+    CANDIDATE(P_EMPTY, sort, -1, -1, -1);
+    CANDIDATE(P_WHOLE, sort, -1, -1, -1);
+
+    /* Un passo da ciò che ha un nome: controimmagini, immagini,
+     * complementari. Le applicazioni sono quelle dichiarate, di un
+     * argomento. */
+    for (int f = 0; f < declared_symbols; f++) {
+        const Symbol *map = &symbols[f];
+        if (map->arity != 1 || map->range == TRUTH || symbol_bound[f]) continue;
+        if (map->domain[0] == sort) {
+            elements = named_elements(map->range, element);
+            for (int i = 0; i < elements; i++) CANDIDATE(P_POINT_PREIMAGE, sort, -1, f, element[i]);
+            for (int s = 0; s < symbol_count; s++)
+                if (part_of(s, map->range) && part_named(s)) CANDIDATE(P_PREIMAGE, sort, s, f, -1);
+        }
+        if (map->range == sort)
+            for (int s = 0; s < symbol_count; s++)
+                if (part_of(s, map->domain[0]) && part_named(s)) CANDIDATE(P_IMAGE, sort, s, f, -1);
+    }
+    for (int s = 0; s < symbol_count; s++)
+        if (part_of(s, sort) && part_named(s)) CANDIDATE(P_COMPLEMENT, sort, s, -1, -1);
+#undef CANDIDATE
+    return count;
+}
+
+/* Ritorna la regola della parte candidate, la condizione c di "\{x \in S
+ * \mid c\}", con la variabile x di posto x; NULL se mancano le variabili. */
+static Sentence *candidate_rule(const PartCandidate *c, int x) {
+    Elem *element = elem_new(-1, x, NULL, NULL), *named = c->element >= 0 ? elem_new(c->element, 0, NULL, NULL) : NULL;
+    Sentence *s, *member;
+    switch (c->kind) {
+    case P_SINGLE:
+        s = sentence_new(S_EQUAL, NULL, NULL, NULL);
+        s->left = element;
+        s->right = named;
+        return s;
+    case P_EMPTY:
+        return sentence_new(S_NOT, sentence_new(S_TRUE, NULL, NULL, NULL), NULL, NULL);
+    case P_POINT_PREIMAGE:
+        s = sentence_new(S_EQUAL, NULL, NULL, NULL);
+        s->left = elem_new(c->map, 0, element, NULL);
+        s->right = named;
+        return s;
+    case P_PREIMAGE:
+        s = sentence_new(S_HOLDS, NULL, NULL, NULL);
+        s->left = elem_new(c->part, 0, elem_new(c->map, 0, element, NULL), NULL);
+        return s;
+    case P_IMAGE: {
+        /* Esiste u nel dominio, in part, con map(u) = x. */
+        int u = definition_variable(symbols[c->map].domain[0], 1);
+        if (u < 0) return NULL;
+        Elem *argument = elem_new(-1, u, NULL, NULL);
+        member = sentence_new(S_HOLDS, NULL, NULL, NULL);
+        member->left = elem_new(c->part, 0, argument, NULL);
+        s = sentence_new(S_EQUAL, NULL, NULL, NULL);
+        s->left = elem_new(c->map, 0, argument, NULL);
+        s->right = element;
+        s = sentence_new(S_EXISTS, sentence_new(S_AND, member, s, NULL), NULL, NULL);
+        s->slot = u;
+        return s;
+    }
+    case P_COMPLEMENT:
+        member = sentence_new(S_HOLDS, NULL, NULL, NULL);
+        member->left = elem_new(c->part, 0, element, NULL);
+        return sentence_new(S_NOT, member, NULL, NULL);
+    default:
+        return sentence_new(S_TRUE, NULL, NULL, NULL);
+    }
+}
+
+/* Dà nel ramo corrente un nome alla parte candidate, che non è P_SYMBOL: se
+ * una parte con la stessa regola è già definita la riusa, altrimenti
+ * registra una parte nuova, con la lettera letter e un pedice, e la sua
+ * definizione "per ogni x di S, x sta nella parte se e solo se c(x)"
+ * (K_DEFINED, 28j). Ritorna il simbolo, o -1. */
+static int part_define(const PartCandidate *candidate, int letter) {
+    short nothing[MAX_SLOTS];
+    int x = definition_variable(candidate->sort, 0);
+    Sentence *rule = x >= 0 ? candidate_rule(candidate, x) : NULL;
+    if (!rule || exhausted) return -1;
+
+    /* La stessa regola sulla stessa variabile, quindi parte dello stesso
+     * insieme: \emptyset di S e \emptyset di T hanno la stessa regola, ma
+     * sono parti diverse (un errore di questo genere è stato trovato così). */
+    for (int i = 0; i < now->knowns; i++)
+        if (now->known[i].origin == K_DEFINED && now->known[i].source->slot == x && sentence_renamed(now->known[i].source->a->b, rule, NULL, NULL, 0))
+            return now->known[i].part[0];
+    int part = part_symbol_new(letter, candidate->sort, 1);
+    if (part < 0) return -1;
+    Sentence *member = sentence_new(S_HOLDS, NULL, NULL, NULL);
+    member->left = elem_new(part, 0, elem_new(-1, x, NULL, NULL), NULL);
+    Sentence *definition = sentence_new(S_FORALL, sentence_new(S_IFF, member, rule, NULL), NULL, NULL);
+    definition->slot = x;
+    memset(nothing, -1, sizeof nothing);
+    int at = known_add(definition, 0, nothing, K_DEFINED, -1);
+    if (at < 0) return -1;
+    now->known[at].part[0] = (short)part;
+    name_known[part] = at;
+    return part;
+}
+
+static int refute(int depth, int splits, int choices);
+
+/* Le scelte provate finora per l'affermazione in corso, e 1 se una scelta,
+ * o una prova di 28l, si è fermata a un limite del programma (exhausted):
+ * allora non aver trovato la dimostrazione non dice nulla. */
+static int part_attempts, part_interrupted;
+
+/* Quante scelte di parti una dentro l'altra sono ammesse in un ramo nella
+ * ricerca in corso: da 1 a MAX_PART_CHOICES (vedi abstract_claim()). */
+static int part_limit;
+
+/* Il punto a cui torna un tentativo non riuscito (una scelta di parti, 28k,
+ * o una prova di 28l): quanto erano lunghi la dimostrazione scritta e il
+ * certificato, la memoria usata, i rami chiusi, i nomi dati e le loro voci
+ * già scritte, i simboli. */
+typedef struct {
+    size_t proof, certificate, arena;
+    int leaves, names, broken, symbols;
+    unsigned char written[MAX_NAMES_GIVEN + 1];
+} SearchMark;
+
+/* Annota in *mark il punto in cui si trova la ricerca. */
+static void search_mark(SearchMark *mark) {
+    *mark = (SearchMark){proof_length, certificate_length, arena_used, leaves_closed, names_given, certificate_broken, symbol_count, {0}};
+    memcpy(mark->written, name_written, sizeof name_written);
+}
+
+/* Riporta la ricerca al punto mark, sul ramo di profondità depth: ciò che il
+ * tentativo ha scritto e dato si dimentica. Un tentativo fermato a un limite
+ * lo annota in part_interrupted, e non ferma gli altri. */
+static void search_back(const SearchMark *mark, int depth) {
+    proof_cut(mark->proof);
+    certificate_length = mark->certificate;
+    certificate_text[mark->certificate] = 0;
+    certificate_broken = mark->broken;
+    arena_used = mark->arena;
+    leaves_closed = mark->leaves;
+    names_given = mark->names;
+    memcpy(name_written, mark->written, sizeof name_written);
+    symbol_count = mark->symbols;
+    now = &branch[depth];
+    ground_reindex();
+    if (exhausted) { part_interrupted = 1; exhausted = 0; }
+}
+
+/* Prova a chiudere il ramo di profondità depth con una scelta di parti per
+ * uno dei suoi "per ogni parte" (vedi la testa del paragrafo); splits e
+ * choices sono le distinzioni di casi e le scelte già fatte sopra di lui.
+ * Ritorna 1 se una scelta chiude il ramo, con la dimostrazione e le voci del
+ * certificato di quella sola; 0 se nessuna, e allora non lascia nulla:
+ * testo, certificato, nomi, memoria e il ramo tornano come erano. */
+static int part_choose(int depth, int splits, int choices) {
+    static PartCandidate candidate[MAX_PART_CHOICES][MAX_BOUND][MAX_PART_CANDIDATES];
+    Branch *here = &branch[depth];
+    for (int r = 0; r < here->knowns; r++) {
+        const Known *rule = &here->known[r];
+        if (rule->stage != K_RULE || !part_quantifier(rule->source)) continue;
+
+        /* Le parti legate in testa alla regola, e le parti da provare per
+         * ognuna. */
+        const Sentence *body = rule->source;
+        short bound[MAX_BOUND], chosen[MAX_BOUND];
+        int parts = 0, candidates[MAX_BOUND], pick[MAX_BOUND] = {0}, more = 1;
+        while (parts < MAX_BOUND && part_quantifier(body) && (body->kind == S_FORALL_PART) != rule->negated) {
+            bound[parts] = (short)body->part;
+            candidates[parts] = part_candidates(symbols[body->part].domain[0], candidate[choices][parts]);
+            more = more && candidates[parts++] > 0;
+            body = body->a;
+        }
+
+        /* Ogni scelta, come un contachilometri. */
+        for (; more; ) {
+            static SearchMark mark[MAX_PART_CHOICES];
+            if (part_attempts++ >= MAX_PART_ATTEMPTS || failure) return 0;
+            search_mark(&mark[choices]);
+
+            /* La copia del ramo, con le definizioni delle parti scelte e
+             * l'istanza, se non c'è già. */
+            int fresh = 1;
+            here->symbols = symbol_count;
+            branch[depth + 1] = *here;
+            now = &branch[depth + 1];
+            ground_reindex();
+            for (int j = 0; j < parts && fresh; j++) {
+                const PartCandidate *c = &candidate[choices][j][pick[j]];
+                chosen[j] = (short)(c->kind == P_SYMBOL ? c->part : part_define(c, symbols[bound[j]].name));
+                fresh = chosen[j] >= 0;
+            }
+            for (int i = r + 1; i < now->knowns && fresh; i++)
+                fresh = now->known[i].parent != r || memcmp(now->known[i].part, chosen, sizeof *chosen * (size_t)parts) != 0;
+            if (fresh) {
+                const Sentence *instance = body;
+                for (int j = 0; j < parts; j++) instance = sentence_rename(instance, bound[j], chosen[j]);
+                int at = known_add(instance, rule->negated, rule->value, K_INSTANCE, r);
+                if (at >= 0) {
+                    memcpy(now->known[at].part, chosen, sizeof *chosen * (size_t)parts);
+                    if (!exhausted && refute(depth + 1, splits, choices + 1)) return 1;
+                }
+            }
+
+            /* Non è bastata: si torna com'era, e alla scelta successiva. */
+            search_back(&mark[choices], depth);
+            more = 0;
+            for (int j = 0; j < parts && !more; j++) {
+                if (++pick[j] < candidates[j]) more = 1; else pick[j] = 0;
+            }
+        }
+    }
+    return 0;
+}
+
+/* 28-5. Fa del ramo di profondità depth + 1 una copia di quello di
+ * profondità depth, con in più il caso side (0 o 1) della disgiunzione in
+ * attesa di posto open, e lo rende il ramo corrente. */
+static void case_open(int depth, int open, int side) {
+    Parts parts;
+    branch[depth].symbols = symbol_count;
+    branch[depth + 1] = branch[depth];
+    now = &branch[depth + 1];
+    ground_reindex();
+    Known *k = &now->known[open];
+    k->stage = K_DONE;
+    if (k->source->kind == S_IFF) {
+        /* "A se e solo se B": o tutte e due vere, o tutte e due false; se è
+         * negato, una vera e l'altra falsa. Il caso fissa A, e con lei B. */
+        known_add(k->source->a, side, k->value, K_CASE, open);
+        known_add(k->source->b, side != k->negated, k->value, K_CASE, open);
+    } else if (sentence_parts(k->source, k->negated, &parts)) {
+        known_add(side ? parts.y : parts.x, side ? parts.ny : parts.nx, k->value, K_CASE, open);
+    }
+}
+
+/* 28l. Il valore di splits con cui refute() fa solo i suoi giri di istanze,
+ * senza casi né scelte: è la prova di un caso. */
+#define PROBE (MAX_SPLITS + 1)
+
+/* 28l. Cerca, tra le prime MAX_PROBES disgiunzioni in attesa del ramo di
+ * profondità depth, una con un caso che si chiude con i soli giri di
+ * istanze; se la trova, chiude quel caso e poi l'altro, con le stesse
+ * distinzioni di casi (splits) e scelte (choices) che restano al ramo.
+ * Ritorna 1 se il ramo si è chiuso così; 0 se nessuna disgiunzione ha un
+ * caso così, e allora non lascia nulla; -1 se ce n'era una ma l'altro caso
+ * non si è chiuso: allora nemmeno il ramo si chiuderebbe (l'altro caso sa
+ * tutto ciò che sa il ramo, e una cosa in più), e non lascia nulla. */
+static int cheap_split(int depth, int splits, int choices) {
+    static SearchMark mark[MAX_BRANCHES];
+    Branch *here = &branch[depth];
+    for (int open = 0, probes = 0; open < here->knowns && probes < MAX_PROBES && !failure; open++) {
+        if (here->known[open].stage != K_WAITING) continue;
+        probes++;
+        for (int side = 0; side < 2; side++) {
+            search_mark(&mark[depth]);
+            case_open(depth, open, side);
+            if (!refute(depth + 1, PROBE, choices)) { search_back(&mark[depth], depth); continue; }
+            now = here;
+            symbol_count = here->symbols;
+            case_open(depth, open, !side);
+            if (refute(depth + 1, splits, choices)) return 1;
+            search_back(&mark[depth], depth);
+            return -1;
+        }
+    }
+    return 0;
+}
+
 /* Cerca una contraddizione in ogni continuazione del ramo di profondità
  * depth, e scrive la dimostrazione di ogni ramo che chiude. Ritorna 1 se li
- * chiude tutti, e allora ciò che il ramo suppone è impossibile.
+ * chiude tutti, e allora ciò che il ramo suppone è impossibile. splits e
+ * choices sono le distinzioni di casi e le scelte di parti (28k) fatte
+ * sopra di lui; con splits uguale a PROBE fa solo i giri di istanze (28l).
  *
  * Prima ciò che segue senza scelte e le istanze, per un numero fisso di
- * giri. Se non basta, 28-5: la prima disgiunzione in attesa dà due casi,
- * ognuno una copia del ramo con una parte in più tra le cose note, e
- * devono chiudersi tutti e due. */
-static int refute(int depth) {
+ * giri. Se non basta, una disgiunzione con un caso che si chiude subito
+ * (28l), che non conta tra le distinzioni di casi; poi una scelta di parti
+ * (28k); poi 28-5: la prima disgiunzione in attesa dà due casi, ognuno una
+ * copia del ramo con una parte in più tra le cose note, e devono chiudersi
+ * tutti e due. */
+static int refute(int depth, int splits, int choices) {
     now = &branch[depth];
     for (int round = 0; !exhausted; round++) {
         if (settle()) {
             /* Il ramo è chiuso: la sua dimostrazione scritta, e le sue voci
              * del certificato. */
-            if (!leaf_write(depth || leaves_closed ? ++leaves_closed : 0)) return 0;
+            if (!leaf_write(splits || leaves_closed ? ++leaves_closed : 0)) return 0;
             cert_leaf();
             return 1;
         }
         if (round == MAX_ROUNDS || !instantiate()) break;
     }
+    if (exhausted || splits == PROBE || depth + 1 == MAX_BRANCHES) return 0;
+    int cheap = cheap_split(depth, splits, choices);
+    if (cheap) return cheap > 0;
+    if (choices < part_limit && part_choose(depth, splits, choices)) return 1;
     int open = -1;
     for (int i = 0; i < now->knowns && open < 0; i++)
         if (now->known[i].stage == K_WAITING) open = i;
-    if (exhausted || open < 0 || depth == MAX_SPLITS) return 0;
+    if (exhausted || open < 0 || splits == MAX_SPLITS) return 0;
     for (int side = 0; side < 2; side++) {
-        /* Il caso: una copia del ramo, con i suoi elementi e i suoi nomi. */
-        branch[depth].symbols = symbol_count;
-        branch[depth + 1] = branch[depth];
-        now = &branch[depth + 1];
-        ground_reindex();
-        Known *k = &now->known[open];
-        Parts parts;
-        k->stage = K_DONE;
-        if (k->source->kind == S_IFF) {
-            /* "A se e solo se B": o tutte e due vere, o tutte e due false;
-             * se è negato, una vera e l'altra falsa. Il caso fissa A, e con
-             * lei B. */
-            known_add(k->source->a, side, k->value, K_CASE, open);
-            known_add(k->source->b, side != k->negated, k->value, K_CASE, open);
-        } else if (sentence_parts(k->source, k->negated, &parts)) {
-            known_add(side ? parts.y : parts.x, side ? parts.ny : parts.nx, k->value, K_CASE, open);
-        }
-        if (!refute(depth + 1)) return 0;
+        case_open(depth, open, side);
+        if (!refute(depth + 1, splits + 1, choices)) return 0;
         now = &branch[depth];
         symbol_count = now->symbols;
     }
@@ -25466,47 +26374,61 @@ static int refute(int depth) {
 
 /* Ritorna 1 se dalle ipotesi, le condizioni di hypothesis[0..hypotheses),
  * segue claim: lo dimostra per assurdo, e scrive la dimostrazione. Se
- * ritorna 0 non lascia testo. */
+ * ritorna 0 non lascia testo.
+ *
+ * 28k. La ricerca si fa con al più una scelta di parti per ramo, poi, se non
+ * basta e qualche scelta c'è stata, da capo con due: così una scelta in più
+ * non viene provata prima di una distinzione di casi che basterebbe, e la
+ * dimostrazione non si porta dietro parti che non servono. */
 static int abstract_claim(const Sentence **hypothesis, int hypotheses, const Sentence *claim) {
     short nothing[MAX_SLOTS];
-    size_t start = proof_length;
-    int declared = symbol_count;
+    size_t start = proof_length, certificate_start = certificate_length, arena_start = arena_used;
+    int declared = symbol_count, proved = 0;
     memset(nothing, -1, sizeof nothing);
+    for (part_limit = 1; part_limit <= MAX_PART_CHOICES && !proved && !exhausted; part_limit++) {
+        proof_cut(start);
+        certificate_length = certificate_start;
+        certificate_text[certificate_start] = 0;
+        arena_used = arena_start;
+        symbol_count = declared;
 
-    /* Il ramo di partenza: "vero" al posto 0, gli elementi con un nome che
-     * l'enunciato dichiara, le ipotesi, la tesi negata.
-     *
-     * Perché gli elementi dichiarati subito. Un elemento entra nella tabella
-     * quando lo nomina un fatto; ma u, dichiarato con u \in S, può comparire
-     * solo sotto un quantificatore, come in f(u) \in f(\{u\}), e allora
-     * nessuna istanza lo proverebbe. Metterlo in tabella è lecito: u è un
-     * elemento di S, e un'istanza su u è un'istanza su un termine chiuso
-     * fatto di simboli dichiarati, che il verificatore accetta (11d, 11f di
-     * checker.c). */
-    now = &branch[0];
-    now->knowns = now->differents = now->clock = 0;
-    now->grounds = 0;
-    memset(exact, -1, sizeof exact);
-    ground_lookup(-1, -1, -1, G_CREATE);
-    for (int s = 0; s < declared; s++)
-        if (symbols[s].arity == 0) ground_lookup(s, -1, -1, G_CREATE);
-    for (int i = 0; i < hypotheses; i++) known_add(hypothesis[i], 0, nothing, K_GIVEN, -1);
-    known_add(claim, 1, nothing, K_DENIED, -1);
+        /* Il ramo di partenza: "vero" al posto 0, gli elementi con un nome
+         * che l'enunciato dichiara, le ipotesi, la tesi negata.
+         *
+         * Perché gli elementi dichiarati subito. Un elemento entra nella
+         * tabella quando lo nomina un fatto; ma u, dichiarato con u \in S,
+         * può comparire solo sotto un quantificatore, come in f(u) \in
+         * f(\{u\}), e allora nessuna istanza lo proverebbe. Metterlo in
+         * tabella è lecito: u è un elemento di S, e un'istanza su u è
+         * un'istanza su un termine chiuso fatto di simboli dichiarati, che il
+         * verificatore accetta (11d, 11f di checker.c). */
+        now = &branch[0];
+        now->knowns = now->differents = now->clock = 0;
+        now->grounds = 0;
+        memset(exact, -1, sizeof exact);
+        ground_lookup(-1, -1, -1, G_CREATE);
+        for (int s = 0; s < declared; s++)
+            if (symbols[s].arity == 0) ground_lookup(s, -1, -1, G_CREATE);
+        for (int i = 0; i < hypotheses; i++) known_add(hypothesis[i], 0, nothing, K_GIVEN, -1);
+        known_add(claim, 1, nothing, K_DENIED, -1);
 
-    proof_add("\\item \\emph{Claim:} $");
-    put_sentence(claim, 0, nothing, 0);
-    proof_add("$.\n\\begin{itemize}\n");
-    leaves_closed = 0;
+        proof_add("\\item \\emph{Claim:} $");
+        put_sentence(claim, 0, nothing, 0);
+        proof_add("$.\n\\begin{itemize}\n");
+        leaves_closed = 0;
 
-    /* Nel certificato, un caso per l'affermazione: la si suppone falsa. I
-     * nomi ripartono da capo, come nel verificatore. */
-    cert_add("case (not ");
-    cert_sentence(claim, nothing);
-    cert_add(")\n");
-    names_given = 0;
-    memset(name_written, 0, sizeof name_written);
-    int proved = refute(0);
-    proof_add("\\end{itemize}\n");
+        /* Nel certificato, un caso per l'affermazione: la si suppone falsa.
+         * I nomi ripartono da capo, come nel verificatore. */
+        cert_add("case (not ");
+        cert_sentence(claim, nothing);
+        cert_add(")\n");
+        names_given = 0;
+        memset(name_written, 0, sizeof name_written);
+        part_attempts = 0;
+        proved = refute(0, 0, 0);
+        proof_add("\\end{itemize}\n");
+        if (!part_attempts) break;
+    }
 
     /* I nomi dati durante la dimostrazione valgono solo per lei. */
     symbol_count = declared;
@@ -25613,6 +26535,7 @@ static Verdict prove_abstract(const char *formula) {
         cert_abstract_head(abstract_example ? "example" : "counterexample", root, &model);
         for (int s = 0; s < symbol_count; s++) {
             int cells;
+            if (symbol_bound[s]) continue;  /* una parte legata (28i) non ha tabella */
             model_cells(&model, s, &cells);
             cert_add("table ");
             cert_symbol(s);
@@ -25640,7 +26563,8 @@ static Verdict prove_abstract(const char *formula) {
     const Sentence *thesis = root->kind == S_IMPLIES ? root->b : root;
     int hypotheses = root->kind == S_IMPLIES ? conjuncts(root->a, hypothesis, 0, MAX_KNOWN / 8) : 0;
     int claims = conjuncts(thesis, claim, 0, MAX_KNOWN / 8), proved = 1;
-    exhausted = 0;
+    exhausted = part_interrupted = 0;
+    memset(definition_slot, -1, sizeof definition_slot);
     cert_abstract_head("structure", root, NULL);
     proof_add("\\textbf{Proof.} By contradiction: we suppose that the hypotheses hold and that a claim fails.");
     for (int i = 0; i < hypotheses; i++) {
@@ -25650,8 +26574,14 @@ static Verdict prove_abstract(const char *formula) {
     }
     proof_add("%s\n\\begin{itemize}\n", hypotheses ? "." : "");
     for (int i = 0; i < claims && proved; i++) proved = abstract_claim(hypothesis, hypotheses, claim[i]);
+    if (failure) {
+        /* La memoria è finita durante la ricerca (le copie di 28j): ciò che
+         * è stato scritto dopo non vale nulla. */
+        verdict.reason = failure;
+        return verdict;
+    }
     if (!proved) {
-        verdict.reason = exhausted ? "la ricerca è stata interrotta: troppi elementi o troppe istanze senza arrivare a una dimostrazione"
+        verdict.reason = exhausted || part_interrupted ? "la ricerca è stata interrotta: troppi elementi o troppe istanze senza arrivare a una dimostrazione"
                                    : "nessun controesempio tra gli insiemi con pochi elementi, ma le istanze provate non bastano a dimostrarlo";
         return verdict;
     }

@@ -17,7 +17,16 @@
  *
  *   - accettati: dimostrazioni per assurdo con istanze e nomi (11c-11f), un
  *     controesempio e un esempio calcolati sul modello (11a, 11b), anche con
- *     un insieme vuoto;
+ *     un insieme vuoto; e con le parti (11g): un'ipotesi su ogni parte usata
+ *     con parti definite da una voce part, l'esistenza di una parte che dà
+ *     un nome o che si dimostra con una parte definita, un modello in cui si
+ *     provano tutti i sottoinsiemi;
+ *   - respinti, per le parti: una definizione con la regola sbagliata, che
+ *     nomina sé stessa o una variabile libera, o con un nome già usato;
+ *     un'istanza con una parte dell'insieme sbagliato, con un elemento o con
+ *     un'applicazione al posto di una parte; un \{c\} con c inventato per un
+ *     insieme che può essere vuoto; un modello in cui l'ipotesi su ogni parte
+ *     non vale; un esempio smentito dalla parte vuota;
  *   - respinti: un'istanza mancante, su un termine dell'insieme sbagliato o
  *     su un elemento mai nominato, di una condizione che non c'è; un nome
  *     già usato; un caso dimenticato; l'enunciato cambiato; una cella della
@@ -96,6 +105,36 @@ typedef struct {
 #define REACHED "(forall z S (exists x S (exists y T (= (pi x y) z))))"
 #define PROJECTION_HEAD "certificate structure\nsort T\nsort S\nsymbol pi S T S\n"
 
+/* 11g. "Se f(X) \subseteq f(Y) implica X \subseteq Y per ogni X, Y, f è
+ * iniettiva": l'ipotesi su tutte le parti usata con X = \{b\} e Y = \{a\},
+ * definite con due voci part. PART_PROOF ha per argomenti la definizione di
+ * X_3, che le alterazioni cambiano, l'elemento che le istanze di quella
+ * definizione nominano, e le parti scelte. */
+#define PART_RULE "(forallpart X S (forallpart Y S (implies (forall c T (implies (exists d S (and (X d) (= (f d) c))) " \
+    "(exists g S (and (Y g) (= (f g) c))))) (forall h S (implies (X h) (Y h))))))"
+#define PART_INJECTIVE "(forall a S (forall b S (implies (= (f a) (f b)) (= a b))))"
+#define PART_HEAD "certificate structure\nsort S\nsort T\nsymbol f S T\nstatement (implies " PART_RULE " " PART_INJECTIVE ")\n" \
+    "case (not " PART_INJECTIVE ")\nwitness " PART_INJECTIVE " a_1\nwitness (forall b S (implies (= (f a_1) (f b)) (= a_1 b))) b_2\n"
+#define PART_PROOF(single_x, x, choice) PART_HEAD single_x "part Y_4 j S (= j a_1)\ninstance " PART_RULE " " choice "\n" \
+    "instance (forall j S (iff (Y_4 j) (= j a_1))) a_1\n" \
+    "witness (forall c T (implies (exists d S (and (X_3 d) (= (f d) c))) (exists g S (and (Y_4 g) (= (f g) c))))) c_5\n" \
+    "witness (exists d S (and (X_3 d) (= (f d) c_5))) d_6\ninstance (forall j S (iff (X_3 j) (= j " x "))) d_6\n" \
+    "instance (exists g S (and (Y_4 g) (= (f g) c_5))) a_1\ninstance (forall j S (iff (X_3 j) (= j " x "))) b_2\n" \
+    "instance (forall j S (iff (Y_4 j) (= j a_1))) b_2\ninstance (forall h S (implies (X_3 h) (Y_4 h))) b_2\nend\n"
+#define SINGLE_X "part X_3 j S (= j b_2)\n"
+
+/* 11g. "Se f(X) = T per una parte X, f è suriettiva": l'esistenza di una
+ * parte, tra le ipotesi, dà una parte con un nome. */
+#define PART_EXISTS "(existspart X S (forall a T (exists b S (and (X b) (= (f b) a)))))"
+#define PART_SURJECTIVE "(forall y T (exists x S (= (f x) y)))"
+
+/* 11g. "Esiste X con f(X) = f(S)": X = S, che c'è anche quando S è vuoto. */
+#define WHOLE "(existspart X S (forall a T (iff (exists b S (and (X b) (= (f b) a))) (exists c S (= (f c) a)))))"
+
+/* 11g. Un'ipotesi che vale per ogni parte di un insieme con un solo
+ * elemento o vuoto, e una conclusione che chiede un elemento. */
+#define TWO_PARTS "(forallpart X S (or (forall y S (X y)) (forall y S (not (X y)))))"
+
 /* Due elementi neutri a sinistra, u e v: un modello in cui sono diversi. */
 #define LEFT_LEFT "statement (implies (and (and (and (and true true) true) " LEFT ") (forall x S (= (perp v x) x))) (= u v))\n"
 #define MODEL_HEAD "sort S 2\nsymbol perp S S S\nsymbol u S\nsymbol v S\n"
@@ -143,6 +182,28 @@ static const Case cases[] = {
      "certificate structure\nsort S\nsymbol f S S\nstatement (forall x S (= (f x) (f x)))\n"
      "case (not (forall x S (= (f x) (f x))))\nwitness (forall x S (= (f x) (f x))) x_1\nend\n"},
 
+    /* Le parti (11g), scritte dal motore. */
+    {"a hypothesis on every part used with two singletons defined by part", CK_ACCEPTED, "", PART_PROOF(SINGLE_X, "b_2", "X_3 Y_4")},
+    {"an existence of a part among the hypotheses gives a named part", CK_ACCEPTED, "",
+     "certificate structure\nsort S\nsort T\nsymbol f S T\nstatement (implies " PART_EXISTS " " PART_SURJECTIVE ")\n"
+     "case (not " PART_SURJECTIVE ")\nwitness " PART_EXISTS " X_1\nwitness " PART_SURJECTIVE " y_2\n"
+     "instance (forall a T (exists b S (and (X_1 b) (= (f b) a)))) y_2\nwitness (exists b S (and (X_1 b) (= (f b) y_2))) b_3\n"
+     "instance (exists x S (= (f x) y_2)) b_3\nend\n"},
+    {"an existence of a part proved with the whole set, even when S is empty", CK_ACCEPTED, "",
+     "certificate structure\nsort S\nsort T\nsymbol f S T\nstatement " WHOLE "\ncase (not " WHOLE ")\npart X_1 d S true\n"
+     "instance " WHOLE " X_1\nwitness (forall a T (iff (exists b S (and (X_1 b) (= (f b) a))) (exists c S (= (f c) a)))) a_2\n"
+     "witness (exists b S (and (X_1 b) (= (f b) a_2))) b_3\ninstance (exists c S (= (f c) a_2)) b_3\n"
+     "witness (exists c S (= (f c) a_2)) c_4\ninstance (forall d S (iff (X_1 d) true)) c_4\n"
+     "instance (exists b S (and (X_1 b) (= (f b) a_2))) c_4\nend\n"},
+    {"an image defined by part is the witness of an existence of a part", CK_ACCEPTED, "",
+     "certificate structure\nsort S\nsort T\nsymbol f S T\nsymbol Z S bool\n"
+     "statement (implies (forall a S (forall b S (implies (= (f a) (f b)) (= a b)))) (existspart Y T (forall c S (iff (Y (f c)) (Z c)))))\n"
+     "case (not (existspart Y T (forall c S (iff (Y (f c)) (Z c)))))\npart Y_1 d T (exists g S (and (Z g) (= (f g) d)))\n"
+     "instance (existspart Y T (forall c S (iff (Y (f c)) (Z c)))) Y_1\nwitness (forall c S (iff (Y_1 (f c)) (Z c))) c_2\n"
+     "instance (forall d T (iff (Y_1 d) (exists g S (and (Z g) (= (f g) d))))) (f c_2)\n"
+     "witness (exists g S (and (Z g) (= (f g) (f c_2)))) g_3\ninstance (forall a S (forall b S (implies (= (f a) (f b)) (= a b)))) g_3 c_2\n"
+     "instance (exists g S (and (Z g) (= (f g) (f c_2)))) c_2\nend\n"},
+
     /* Modelli. */
     {"two left neutral elements: a counterexample with two elements", CK_ACCEPTED, "",
      "certificate counterexample\n" MODEL_HEAD LEFT_LEFT "table perp 0 0 1 1\ntable u 1\ntable v 0\nend\n"},
@@ -158,6 +219,12 @@ static const Case cases[] = {
      "(forall x S (forall y S (implies (R x y) (R y x)))))\ntable R 0 1 0 0\nend\n"},
     {"an empty set refutes a statement that needs an element", CK_ACCEPTED, "",
      "certificate counterexample\nsort S 0\nsymbol f S S\nstatement (exists x S (= (f x) (f x)))\ntable f\nend\n"},
+    {"a counterexample to a hypothesis on every part: every subset is tried", CK_ACCEPTED, "",
+     "certificate counterexample\nsort S 2\nsort T 1\nsymbol f S T\n"
+     "statement (implies (forallpart Y T (iff (forall c S (not (Y (f c)))) (forall d T (not (Y d))))) " PART_INJECTIVE ")\ntable f 0 0\nend\n"},
+    {"an example where a condition holds for every part", CK_ACCEPTED, "",
+     "certificate example\nsort S 2\nsymbol f S S\nstatement (forallpart X S (forall a S (implies (exists b S (and (X b) (= (f b) a))) (X a))))\n"
+     "table f 0 1\nend\n"},
 
     /* Dimostrazioni sbagliate. */
     {"an instance missing: the facts are not contradictory", CK_REJECTED, "non sono contraddittorie",
@@ -202,6 +269,28 @@ static const Case cases[] = {
      "instance (exists x S (exists y T (= (pi x y) z_1))) z_1\nwitness (exists y T (= (pi z_1 y) z_1)) t_1\n"
      "instance " PROJECTION " z_1 t_1\ninstance (exists x S (exists y T (= (pi x y) z_1))) z_1 t_1\nend\n"},
 
+    /* Parti sbagliate (11g). */
+    {"a part defined by the wrong rule: both singletons are {a}", CK_REJECTED, "non sono contraddittorie",
+     PART_PROOF("part X_3 j S (= j a_1)\n", "a_1", "X_3 Y_4")},
+    {"an instance on parts with a map in place of a part", CK_REJECTED, "parte dell'insieme giusto", PART_PROOF(SINGLE_X, "b_2", "X_3 f")},
+    {"an instance on parts with elements in place of parts", CK_REJECTED, "parte dell'insieme giusto", PART_PROOF(SINGLE_X, "b_2", "a_1 b_2")},
+    {"an instance on parts with a part of the other set", CK_REJECTED, "parte dell'insieme giusto",
+     PART_PROOF(SINGLE_X "part W_9 k T (= k (f a_1))\n", "b_2", "X_3 W_9")},
+    {"an instance on parts with one part too many", CK_REJECTED, "di troppo", PART_PROOF(SINGLE_X, "b_2", "X_3 Y_4 Y_4")},
+    {"a part named like a declared symbol", CK_REJECTED, "non c'è ancora", PART_PROOF("part f j S (= j b_2)\n", "b_2", "X_3 Y_4")},
+    {"a part whose rule names the part itself", CK_REJECTED, "non è dichiarato", PART_PROOF("part X_3 j S (X_3 j)\n", "b_2", "X_3 Y_4")},
+    {"a part whose rule has a variable that is not bound", CK_REJECTED, "non è dichiarato", PART_PROOF("part X_3 j S (= j k)\n", "b_2", "X_3 Y_4")},
+    {"a part of a set that is not declared", CK_REJECTED, "insieme dichiarato", PART_PROOF("part X_3 j V (= j b_2)\n", "b_2", "X_3 Y_4")},
+    {"a singleton of an element invented for a set that may be empty", CK_REJECTED, "con vuoti: S",
+     "certificate structure\nsort S\nstatement (implies " TWO_PARTS " (exists x S (= x x)))\ncase (not (implies " TWO_PARTS " (exists x S (= x x))))\n"
+     "witness (exists x S (= x x)) c\npart D y S (= y c)\ninstance " TWO_PARTS " D\ninstance (exists x S (= x x)) c\nend\n"},
+    {"a named part for a statement on every part that is not in the case", CK_REJECTED, "non è comparsa",
+     PART_HEAD "witness (forallpart X S (forall h S (X h))) X_3\nend\n"},
+    {"a bound part written where an element is needed", CK_REJECTED, "dove serve un elemento",
+     "certificate structure\nsort S\nstatement (forallpart X S (exists y S (= y X)))\nend\n"},
+    {"a part entry before any case", CK_REJECTED, "fuori posto",
+     "certificate structure\nsort S\nstatement true\npart D x S true\nend\n"},
+
     /* Modelli sbagliati. */
     {"a table cell changed: in that model the statement holds", CK_REJECTED, "non è un controesempio",
      "certificate counterexample\n" MODEL_HEAD LEFT_LEFT "table perp 1 0 1 1\ntable u 1\ntable v 0\nend\n"},
@@ -223,6 +312,12 @@ static const Case cases[] = {
      "certificate counterexample\nsort S 0\nsymbol u S\nstatement (exists x S (= x u))\ntable u 0\nend\n"},
     {"a map from a set with elements into an empty one", CK_REJECTED, "fuori dal suo insieme",
      "certificate counterexample\nsort S 1\nsort T 0\nsymbol f S T\nstatement (forall x S (= (f x) (f x)))\ntable f 0\nend\n"},
+    {"a model where the hypothesis on every part fails is no counterexample", CK_REJECTED, "non è un controesempio",
+     "certificate counterexample\nsort S 2\nsort T 2\nsymbol f S T\n"
+     "statement (implies (forallpart Y T (iff (forall c S (not (Y (f c)))) (forall d T (not (Y d))))) " PART_INJECTIVE ")\ntable f 0 0\nend\n"},
+    {"an example that fails on the empty part", CK_REJECTED, "non è un esempio",
+     "certificate example\nsort S 2\nsymbol f S S\nstatement (forallpart X S (not (forall a S (iff (exists b S (and (X b) (= (f b) a))) (X a)))))\n"
+     "table f 1 0\nend\n"},
 
     /* Certificati scritti male. */
     {"a size in a proof", CK_REJECTED, "nei soli modelli",

@@ -6,7 +6,7 @@
  * insiemi finiti e infiniti. Gli enunciati sono dati: il motore non ne conosce
  * nessuno in anticipo.
  *
- * Oggi il motore dimostra 14 dei 16 enunciati di correspondences.tex, 23
+ * Oggi il motore dimostra 14 dei 16 enunciati di correspondences.tex, 31
  * dei 54 di maps.tex, 11 dei 28 di equivalence_relations.tex, 1 dei 14 di
  * order_relations.tex, e nessuno di finite_sets.tex e infinite_sets.tex: il
  * test fallisce, e indica il lavoro ancora da fare. Gli enunciati dimostrati
@@ -15,8 +15,10 @@
  * e quelli su insiemi qualsiasi scritti come nei libri: immagini e
  * controimmagini, relazioni come insiemi di coppie, inverse e
  * composizioni, coppie, relazioni e applicazioni tra le parti di un insieme
- * (17p-17r di parser.c, capitoli 28 e 15). Mancano soprattutto le ipotesi su
- * tutte le parti di un insieme, le applicazioni da costruire, il numero di
+ * (17p-17r di parser.c, capitoli 28 e 15), e quelli con un'ipotesi su
+ * tutte le parti di un insieme, come le caratterizzazioni delle applicazioni
+ * iniettive e suriettive con le immagini e le controimmagini (17u, 28i-28l).
+ * Mancano soprattutto le applicazioni da costruire, il numero di
  * elementi e l'equipotenza, il massimo comun divisore e i numeri primi, le
  * relazioni d'ordine scritte tra gli elementi: il verdetto dice quale.
  *

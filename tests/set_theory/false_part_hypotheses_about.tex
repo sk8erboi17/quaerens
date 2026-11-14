@@ -1,0 +1,33 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_part\_hypotheses.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_part\_hypotheses.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_set\_theory.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} Anti-regression. The file holds 26 false statements with a quantifier over the parts of a set used as a hypothesis: the classical characterizations of injective and surjective maps with the two words swapped, with $\cup$ in place of $\cap$ (the image of a union is the union of the images for every map), with an inclusion turned around, with two quantifiers swapped, with a hypothesis dropped or the conclusion changed.
+
+\item \textbf{The traps.} Items 15 to 17 hold on every finite set and fail on an infinite one ($n \mapsto n + 1$ and $n \mapsto \lfloor n / 2 \rfloor$ on the natural numbers): no finite model refutes them. Items 18, 19 and 24 fail only when $S$ is empty, which no finite model of chapter 28 tries: a proof would have to use a singleton $\{a\}$, or an element, that does not exist, and the checker redoes every proof for every choice of empty sets (paragraphs 11f and 11g of \texttt{checker.c}). Item 20 asks for an example that does not exist ($f(\emptyset) = \emptyset$ for every map). Before paragraph 17u of \texttt{parser.c} the reader took the $\forall X$ in the condition of an example as a declaration, so that the condition was asked only for some $X$, and item 20 was ``proved'': it must stay unproved.
+
+\item \textbf{What is being tested.} That none is proved. Most are refuted by a finite model, with a certificate the checker accepts (paragraph 11a, where a quantifier over parts tries every subset); the traps stay unproved.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_set_theory \
+    tests/set_theory/test_set_theory.c && /tmp/test_set_theory
+\end{verbatim}
+
+\item \textbf{Expected result.} One \texttt{PASS} line for the file: none of the statements is proved; and one \texttt{PASS} line for the certificates of its refutations.
+\end{enumerate}
+\end{document}
