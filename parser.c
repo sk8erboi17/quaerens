@@ -53,6 +53,8 @@
  *
  * Il capitolo 21 legge il documento: trova gli \item, la formula di
  * ognuno e le poche parole che possono seguirla ("per ogni intero n \ge 2").
+ * I commenti LaTeX intorno alla formula non sono condizioni o elementi
+ * dell'elenco; la formula mantiene invece la sua grammatica matematica.
  *
  * COME STA NEL PROGRAMMA
  *
@@ -8622,10 +8624,18 @@ static Sentence *abstract_unfold(const Sentence *root) {
  *
  * Il formato è quello dei file in tests/: un documento LaTeX in cui ogni
  * \item di un elenco è un enunciato. Un \item vale come enunciato se comincia
- * con una formula in evidenza, in una di queste due forme:
+ * con una formula in evidenza, preceduta eventualmente da spazi e commenti
+ * LaTeX, in una di queste due forme:
  *
  *     \item $\displaystyle FORMULA$
  *     \item \[ FORMULA \]
+ *
+ * Fuori dalla formula, % apre una nota fino all'a capo: non introduce
+ * condizioni, \item o chiusure dell'elenco. La riga successiva si legge
+ * comunque, per non perdere le condizioni che contiene. Le barre protette
+ * non aprono comandi e \% non apre una nota. Dentro la formula, una nota non
+ * nasconde il suo delimitatore vero, ma resta fuori dalla grammatica delle
+ * espressioni: se il lettore non la capisce, rifiuta l'enunciato intero.
  *
  * oppure con una formula in linea che comincia con il segno di derivata,
  * \frac{d^n}{dx^n} o \dfrac{d^n}{dx^n}: è così che gli eserciziari scrivono
@@ -8673,6 +8683,24 @@ static char *read_file(const char *path) {
     return text;
 }
 
+/* Cerca il delimitatore non vuoto literal in [from, to), saltando i commenti LaTeX
+ * e i caratteri preceduti da una barra. Un comando che finisce con una
+ * lettera deve finire davvero: \itemize non è \item. Ritorna NULL se non
+ * trova nulla; non modifica il testo né legge oltre to. */
+static const char *tex_find(const char *from, const char *to, const char *literal) {
+    size_t length = strlen(literal);
+    for (const char *p = from; p < to; ) {
+        if (*p == '%') {
+            while (p < to && *p != '\n' && *p != '\r') p++;
+            continue;
+        }
+        if ((size_t)(to - p) >= length && memcmp(p, literal, length) == 0 &&
+            (!isalpha((unsigned char)literal[length - 1]) || p + length == to || !isalpha((unsigned char)p[length]))) return p;
+        p += *p == '\\' && p + 1 < to ? 2 : 1;
+    }
+    return NULL;
+}
+
 /* Le parole che, nel testo dopo una formula, non dicono nulla dell'enunciato:
  * quelle di "per ogni intero ... con ...", in italiano e in inglese. Ogni
  * altra parola può essere una condizione, come "pari" o "primo", e il
@@ -8716,6 +8744,7 @@ static int is_remark(const char *from, const char *to) {
     int words = 0;
     for (const char *p = from; p < to; ) {
         unsigned char ch = (unsigned char)*p;
+
         if (isalpha(ch) || ch >= 128) {
             const char *stop = p;
             while (stop < to && (isalpha((unsigned char)*stop) || (unsigned char)*stop >= 128)) stop++;
@@ -8773,6 +8802,13 @@ static int read_conditions(const char *from, const char *to, int *variable, long
     for (const char *p = from; p < to; ) {
         unsigned char ch = (unsigned char)*p;
 
+        /* Una nota con % non restringe l'enunciato. Si riprende dalla riga
+         * successiva, dove può esserci ancora una condizione da leggere. */
+        if (ch == '%') {
+            while (p < to && *p != '\n' && *p != '\r') p++;
+            continue;
+        }
+
         /* Un inciso tra parentesi, se è un commento. Altrimenti la parentesi
          * è punteggiatura, e ciò che contiene si legge come il resto. */
         if (ch == '(') {
@@ -8810,7 +8846,7 @@ static int read_conditions(const char *from, const char *to, int *variable, long
         /* Una formula: da un dollaro al successivo. Un dollaro senza il suo
          * compagno è una formula non letta, ma senza dimenticare
          * un'uguaglianza già trovata prima. */
-        const char *open = p, *close = memchr(open + 1, '$', (size_t)(to - open - 1));
+        const char *open = p, *close = tex_find(open + 1, to, "$");
         if (!close) {
             if (!*unread) *unread = 1;
             break;
@@ -8848,19 +8884,17 @@ typedef struct {
  * 1; altrimenti ritorna 0. Il testo finisce al \item successivo o alla
  * chiusura dell'elenco. */
 static int next_item(const char **position, const char **item, const char **end) {
-    const char *p = *position;
-    while ((p = strstr(p, "\\item")) != NULL) {
-        p += 5;
-        if (isalpha((unsigned char)*p)) continue;  /* \itemize, \itemsep, ... */
-        const char *stop = strstr(p, "\\item");
-        const char *list_end = strstr(p, "\\end{enumerate}");
-        if (!stop || (list_end && list_end < stop)) stop = list_end;
-        if (!stop) stop = p + strlen(p);
-        *item = p;
-        *end = *position = stop;
-        return 1;
-    }
-    return 0;
+    const char *limit = *position + strlen(*position);
+    const char *p = tex_find(*position, limit, "\\item");
+    if (!p) return 0;
+    p += 5;
+    const char *stop = tex_find(p, limit, "\\item");
+    const char *list_end = tex_find(p, limit, "\\end{enumerate}");
+    if (!stop || (list_end && list_end < stop)) stop = list_end;
+    if (!stop) stop = limit;
+    *item = p;
+    *end = *position = stop;
+    return 1;
 }
 
 /* Il motivo per cui un \item scritto a parole non è un enunciato. */
@@ -8979,7 +9013,13 @@ static const char *read_sequence_item(const char *item, const char *end, Item *o
  * Ritorna NULL se riesce; altrimenti ritorna il motivo, in italiano, per cui
  * il testo non è un enunciato utilizzabile. */
 static const char *read_item(const char *item, const char *end, Item *out) {
-    while (item < end && isspace((unsigned char)*item)) item++;
+    /* Prima della formula sono ammessi spazi e commenti: un \item seguito
+     * da una nota sulla fonte resta lo stesso enunciato. */
+    while (item < end) {
+        if (isspace((unsigned char)*item)) { item++; continue; }
+        if (*item != '%') break;
+        while (item < end && *item != '\n' && *item != '\r') item++;
+    }
 
     /* Individua la formula: \[ ... \] oppure $\displaystyle ... $. Un \item
      * che comincia con una parola può definire una successione (vedi
@@ -8989,7 +9029,7 @@ static const char *read_item(const char *item, const char *end, Item *out) {
     int given_unread = 0;
     if (end - item >= 2 && strncmp(item, "\\[", 2) == 0) {
         start = item + 2;
-        stop = strstr(start, "\\]");
+        stop = tex_find(start, end, "\\]");
         closing = 2;
     } else if (item < end && *item == '$') {
         /* In linea, la formula è l'enunciato solo se lo dice \displaystyle,
@@ -8998,7 +9038,7 @@ static const char *read_item(const char *item, const char *end, Item *out) {
         start = item + 1;
         while (start < end && isspace((unsigned char)*start)) start++;
         if (strncmp(start, "\\displaystyle", 13) != 0 && !starts_with_derivative(start)) return PROSE;
-        stop = strchr(start, '$');
+        stop = tex_find(start, end, "$");
     } else {
         const char *problem = read_sequence_item(item, end, out, &tail, &given_unread);
         if (problem) return problem;

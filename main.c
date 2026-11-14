@@ -34228,17 +34228,27 @@ static void put_t_power(Frac e) {
 
 /* Scrive la serie s, al più shown termini con un coefficiente scritto
  * diverso da zero, e il resto. Ritorna 0, senza scrivere nulla, se un
- * coefficiente non si sa scrivere (contiene seni e coseni di costanti). */
+ * coefficiente non si sa scrivere (contiene seni e coseni di costanti).
+ *
+ * Il resto scritto deve contenere tutto ciò che non si scrive. Se restano
+ * termini non nulli oltre i primi shown, il resto parte dal primo di loro:
+ * per t -> 0^+ i termini seguenti, con esponenti più alti, e il resto
+ * calcolato O(t^{end}) sono tutti O(t^{e}), con e l'esponente del primo
+ * omesso. Scrivere O(t^{end}) dopo aver tolto dei termini sarebbe falso: era
+ * l'errore per cui 1/(1 + t) diventava "1 - t + O(t^{4})", dove manca
+ * t^{2} - t^{3}. Una serie esatta (una somma finita) scrive invece i
+ * puntini, che non dicono nulla di falso. */
 static int put_series(Series s, int shown) {
     size_t start = proof_length;
-    int written = 0;
+    int written = 0, omitted = -1;
     unwritable = 0;
     s = series_trim(s);
-    for (int i = 0; i < s.count && written < shown; i++) {
+    for (int i = 0; i < s.count; i++) {
         Rat c = s.coef[i];
         Num number;
         Frac e = frac_make(s.low + i, s.den);
         if (c.num.count == 0) continue;
+        if (written == shown) { omitted = i; break; }
         if (rat_number(c, &number) && number.im.num == 0) {
             Frac size = number.re.num < 0 ? frac_neg(number.re) : number.re;
             int unit = size.num == 1 && size.den == 1 && e.num != 0;
@@ -34255,12 +34265,11 @@ static int put_series(Series s, int shown) {
         put_t_power(e);
         written++;
     }
-    int more = 0;
-    for (int i = 0; i < s.count; i++) if (s.coef[i].num.count) more++;
-    if (s.exact && more > written) proof_add(" + \\dots");
-    if (!s.exact && s.end >= SERIES_FLAT) proof_add("%so\\left(t^{k}\\right) \\text{ for every } k", written ? " + " : "");
+    /* Il resto: dal primo termine omesso, se c'è (vedi sopra). */
+    if (s.exact && omitted >= 0) proof_add(" + \\dots");
+    if (!s.exact && omitted < 0 && s.end >= SERIES_FLAT) proof_add("%so\\left(t^{k}\\right) \\text{ for every } k", written ? " + " : "");
     else if (!s.exact) {
-        Frac e = frac_make(s.end, s.den);
+        Frac e = frac_make(omitted >= 0 ? s.low + omitted : s.end, s.den);
         proof_add("%sO\\left(", written ? " + " : "");
         if (e.num == 0) proof_add("1"); else put_t_power(e);
         proof_add("\\right)");
@@ -35892,6 +35901,10 @@ static int exponential_method(const Node *f, int x, int depth, char *text, size_
         /* Il corpo comune: costanti, x^m, e^{a x}; poi cos e sin di b x. */
         char body[512] = "", piece[160] = "";
         if (!mono_latex(&t->constant, body, sizeof body)) return 0;
+        /* Una costante puo finire con un comando senza graffe, come \pi:
+         * accostarle x o e scriverebbe \pix o \pie, comandi diversi. Il
+         * prodotto esplicito conserva i fattori anche quando si rileggono. */
+        if (body[0] && (t->power > 0 || t->a.num != 0)) text_add(body, sizeof body, " \\cdot ");
         if (t->power == 1) text_add(body, sizeof body, "%c", x);
         else if (t->power > 1) text_add(body, sizeof body, "%c^{%d}", x, t->power);
         if (t->a.num != 0) {
@@ -37508,7 +37521,12 @@ static int improper_domain(const char *conditions, int x) {
         else if (q->infinite) wanted = snprintf(question, sizeof question, "\\forall %c \\in \\mathbb{R}\\ (%s < %c \\implies %s)", x, low, x, conditions);
         else wanted = snprintf(question, sizeof question, "\\forall %c \\in \\mathbb{R}\\ (%s < %c \\land %c < %s \\implies %s)", x, low, x, x, high, conditions);
         if (wanted < 0 || (size_t)wanted >= sizeof question) return 0;
-        proof_add("\n\\emph{Where the functions are defined}, on $(%s, %s)$: the conditions $%s$ must hold there.\n", low, high, conditions);
+        /* Si scrive la domanda intera, con l'implicazione: la tabella che
+         * segue ha righe anche fuori dall'intervallo, dove l'implicazione
+         * vale perché la sua ipotesi è falsa. Con le sole condizioni, una riga
+         * come "x = 0: la condizione vale" sembrava dire x \ne 0 in x = 0. */
+        proof_add("\n\\emph{Where the functions are defined}, on $(%s, %s)$: the conditions $%s$ must hold there, that is $%s$; "
+                  "outside the interval the implication holds because its hypothesis is false.\n", low, high, conditions, question);
         Verdict table = ask_method(prove_quantified, question, "The sign table, too long to be written here, shows that the conditions hold on every row.", 1);
         proof_add("\n");
         if (table.outcome == PROVED) { i++; continue; }

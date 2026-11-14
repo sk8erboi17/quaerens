@@ -2,7 +2,7 @@
  * integrali definiti e impropri da verificare e da calcolare (capitolo 30 di
  * main.c, paragrafo 9j di parser.c).
  *
- * Undici controlli. I primi quattro sono quelli di tests/statement_checks.h:
+ * Dodici controlli. I primi quattro sono quelli di tests/statement_checks.h:
  *
  *   1. ogni enunciato di book_integrals.tex viene dimostrato: una primitiva
  *      o un valore stampati su un libro (corretti nei due esercizi in cui il
@@ -41,7 +41,11 @@
  *      con la primitiva che scrive verificata come ogni altra, e un
  *      denominatore con un fattore irriducibile di terzo grado, che deve
  *      essere rifiutato;
- *  11. nessun passo smentito dai controlli indipendenti (unjustified_steps).
+ *  11. la dimostrazione di un integrale improprio dice quale condizione
+ *      decide la tabella dei segni del dominio, con l'implicazione: prima
+ *      scriveva solo "x \ne 0 deve valere su (1, +\infty)", e la riga
+ *      "x = 0: la condizione vale" sembrava falsa (check_domain_sentence());
+ *  12. nessun passo smentito dai controlli indipendenti (unjustified_steps).
  *
  * I dati vengono da photos/dati_esercizi/integrali.jsonl (i libri, e un
  * oracolo numerico indipendente) e, per i file delle convenzioni, da conti a
@@ -392,6 +396,18 @@ static int check_improper_requests(const char *path) {
     return check_result(asked > 0 && right == asked, summary);
 }
 
+/* Controllo 11: nella dimostrazione di un integrale improprio, la frase sul
+ * dominio scrive la domanda che decide la tabella dei segni, con
+ * l'implicazione dall'intervallo alle condizioni. Ritorna 1 se il controllo è
+ * riuscito. */
+static int check_domain_sentence(void) {
+    Verdict verdict = prove("\\int_{1}^{+\\infty} \\frac{1}{x^{2}} \\, dx = 1", 'n', 0, 0);
+    const char *wanted = "that is $\\forall x \\in \\mathbb{R}\\ (1 < x \\implies";
+    int found = verdict.outcome == PROVED && verdict.proof && strstr(verdict.proof, wanted);
+    if (!found) printf("  the proof of \\int_1^{+\\infty} 1/x^2 dx = 1 does not contain: %s\n", wanted);
+    return check_result(found, "the domain of an improper integral is checked with the implication written in the proof");
+}
+
 int main(void) {
     engine_init();
     int ok = 1;
@@ -408,6 +424,7 @@ int main(void) {
     ok &= check_improper_requests("tests/integrals/improper_integrals.tex");
     ok &= check_reader();
     ok &= check_rational();
+    ok &= check_domain_sentence();
     ok &= check_result(unjustified_steps == 0, "every step of the written proofs passed its independent check");
     return ok ? 0 : 1;
 }

@@ -1,6 +1,6 @@
 /* Test di dominio: limiti (capitolo 29 di main.c).
  *
- * Nove controlli. I primi tre sono quelli di tests/statement_checks.h:
+ * Dieci controlli. I primi tre sono quelli di tests/statement_checks.h:
  *
  *   1. ogni enunciato di book_limits.tex viene dimostrato: dice che un limite
  *      ha il valore stampato come risultato in una raccolta di esercizi
@@ -30,7 +30,9 @@
  *   9. nessun passo scartato dai controlli indipendenti: né dal controllo
  *      con i numeri, né dalla rilettura, né dal verificatore, che riceve il
  *      certificato di ogni verdetto (29n; i certificati da soli sono in
- *      tests/checker/test_limit_certificates.c).
+ *      tests/checker/test_limit_certificates.c);
+ *  10. uno sviluppo accorciato nella dimostrazione scritta ha come resto
+ *      quello del primo termine omesso (check_written_expansions()).
  *
  * Il metodo sotto esame sono le serie troncate del capitolo 29, con il
  * fattore e^{G} della scala delle crescite (29k), la sostituzione
@@ -319,6 +321,35 @@ static int check_special_cases(void) {
     return check_result(right == total, summary);
 }
 
+/* Uno sviluppo scritto nella dimostrazione, e quello che deve comparire nel
+ * testo. Invariante: expansion è esattamente come la scrive put_series(). */
+typedef struct {
+    const char *statement;  /* il limite, in LaTeX */
+    const char *expansion;  /* lo sviluppo che il testo deve contenere */
+} WrittenExpansion;
+
+/* Controllo 10: uno sviluppo accorciato nel testo ha come resto quello del
+ * primo termine omesso. Prima della correzione il resto era quello calcolato
+ * su tutti i termini: 1/(1 + t) diventava "1 - t + O(t^{4})", che è falso,
+ * perché mancano t^{2} - t^{3}; il verdetto e il certificato erano giusti,
+ * sbagliata era la riga scritta. Ritorna 1 se il controllo è riuscito. */
+static int check_written_expansions(void) {
+    static const WrittenExpansion cases[] = {
+        {"\\lim_{t \\to 0^{+}} \\frac{1}{1 + t} = 1", "1 - t + O\\left(t^{2}\\right)"},
+        {"\\lim_{x \\to 1^{+}} -\\frac{1}{x} = -1", "-1 + t - t^{2} + O\\left(t^{3}\\right)"},
+        {"\\lim_{x \\to 2^{+}} \\frac{1}{x} = \\frac{1}{2}", "\\frac{1}{2} - \\frac{1}{4}\\,t + O\\left(t^{2}\\right)"},
+    };
+    int total = (int)(sizeof cases / sizeof *cases), right = 0;
+    for (int i = 0; i < total; i++) {
+        Verdict verdict = prove(cases[i].statement, 'n', 0, 0);
+        if (verdict.outcome == PROVED && verdict.proof && strstr(verdict.proof, cases[i].expansion)) right++;
+        else printf("  %s: the proof does not contain %s\n", cases[i].statement, cases[i].expansion);
+    }
+    char summary[256];
+    snprintf(summary, sizeof summary, "%d of %d truncated expansions written with the remainder of their first omitted term", right, total);
+    return check_result(right == total, summary);
+}
+
 int main(void) {
     engine_init();
 
@@ -335,6 +366,7 @@ int main(void) {
     passed = check_outcomes("tests/limits/false_growth_scale_limits.tex", PROVED, REFUTED, 101) && passed;
     passed = check_book_requests("tests/limits/growth_scale_limits.tex") && passed;
     passed = check_special_cases() && passed;
+    passed = check_written_expansions() && passed;
 
     /* Ogni limite calcolato passa il controllo con i numeri, e ogni valore
      * scritto viene riletto: nessuno deve essere stato scartato. */
