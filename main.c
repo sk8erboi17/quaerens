@@ -63,7 +63,8 @@
  *     le istanze si scelgono dalla forma, e dove non basta con un modello
  *     candidato fatto degli elementi di cui si parla (28r).
  *     Le cardinalita dei modelli crescono entro budget di lavoro e memoria;
- *     variabili, sostituzioni e insiemi di variabili hanno depositi dinamici.
+ *     variabili, sostituzioni, insiemi di variabili e scelte di parti hanno
+ *     depositi dinamici, anche nella ricerca per istanze.
  *     Vi si scrive anche come nei libri: immagini f(X) e controimmagini
  *     f^{-1}(Y) di parti, relazioni come insiemi di coppie \{(x, y) \mid
  *     ...\}, le loro inverse e composizioni, uguaglianze e inclusioni tra
@@ -561,7 +562,6 @@
 #define MAX_REGION_DEPTH 4   /* distinzioni di casi su una variabile, una dentro l'altra (18v-2) */
 #define MAX_REGION_POINTS 8  /* numeri elencati uno per uno quando una distinzione lascia un pezzo finito (18v-2) */
 #define MAX_HOLES 4          /* punti tolti da un insieme numerico con \setminus */
-#define MAX_BOUND 12         /* ampiezza dei gruppi nella ricerca per istanze di 28; parser e calcolo numerico sono dinamici */
 #define MAX_LITERALS 8       /* confronti in una disgiunzione (18z ne sostituisce fino a due: quattro ipotesi e la tesi) */
 #define SAMPLE_SIZE 12       /* elementi di un insieme numerico provati uno a uno */
 #define MAX_CHECKS 4096      /* combinazioni di valori provate dalla verifica sul campione */
@@ -28996,7 +28996,9 @@ typedef enum {
  * 1. Per un'appartenenza right è 0, "vero".
  *
  * Invariante: source non è una negazione (le negazioni sono nel segno), e
- * parent, quando c'è, viene prima nell'elenco. */
+ * parent, quando c'è, viene prima nell'elenco. Sostituzioni e parti sono
+ * snapshot nell'arena: copiarli in un ramo non introduce memoria mutabile
+ * condivisa, e nessun prefisso di quantificatori viene troncato. */
 typedef struct {
     const Sentence *source;  /* la condizione, com'è nell'enunciato */
     signed char negated;     /* 1 se è vera la sua negazione */
@@ -29006,7 +29008,8 @@ typedef struct {
     short left, right;       /* fatto: i due elementi; -1 altrimenti */
     int stamp;               /* numero d'ordine: vedi Branch.clock */
     SlotValues value;       /* snapshot immutabile delle sostituzioni */
-    short part[MAX_BOUND];   /* 28j: per un'istanza di un "per ogni parte", la
+    int parts;              /* numero di simboli nella copia immutabile part */
+    const short *part;      /* 28j: per un'istanza di un "per ogni parte", la
                                 parte al posto di ogni parte legata, dalla più
                                 esterna; per un nome dato a una parte (K_NAMED)
                                 o per una definizione (K_DEFINED), in part[0]
@@ -29015,7 +29018,7 @@ typedef struct {
                                 componenti di quella da A a B, poi quelle
                                 dell'inversa; per K_MAPDEF, in part[0]
                                 l'applicazione definita. Posti in symbols[];
-                                -1 dove non servono */
+                                nell'arena della prova; NULL se parts = 0 */
 } Known;
 
 /* Un ramo della ricerca: tutto ciò che si sa dopo certe scelte di casi.
@@ -29492,8 +29495,22 @@ static int known_add(const Sentence *source, int negated, SlotValues value, Orig
     k->stamp = now->clock++;
     k->value = slot_values_copy(value);
     if (work_allocation_failed) { exhausted = 1; return -1; }
-    memset(k->part, -1, sizeof k->part);
+    k->parts = 0;
+    k->part = NULL;
     return now->knowns++;
+}
+
+/* Conserva nel passo at una copia immutabile dei count simboli scelti.
+ * at indica un Known valido e count e non negativo.
+ * I rami possono condividere la copia: un tentativo nuovo non la modifica.
+ * Ritorna zero e interrompe la ricerca se manca la memoria per la copia. */
+static int known_parts(int at, const short *part, int count) {
+    short *copy = work_arena_array((size_t)count, sizeof *copy);
+    if (count && !copy) { exhausted = 1; return 0; }
+    if (count) memcpy(copy, part, (size_t)count * sizeof *copy);
+    now->known[at].parts = count;
+    now->known[at].part = copy;
+    return 1;
 }
 
 /* Come si legge un connettivo tenuto conto del segno: le due parti con il
@@ -29712,19 +29729,30 @@ static int elem_renamed(const Elem *e, const Elem *original, const short *from, 
  * della parte legata from[i], per ogni i < count: il controllo di una copia
  * fatta da sentence_rename(), che guarda solo come sono scritti i due
  * alberi. Sotto un quantificatore che lega di nuovo from[i], from[i] resta
- * com'è. Con count = 0 dice se i due alberi sono scritti allo stesso modo. */
+ * com'è. Con count = 0 dice se i due alberi sono scritti allo stesso modo.
+ * Una copia temporanea fallita segnala failure e ritorna zero. */
 static int sentence_renamed(const Sentence *s, const Sentence *original, const short *from, const short *to, int count) {
-    short inner_from[MAX_BOUND], inner_to[MAX_BOUND];
-    int inner = 0;
     if (!s || !original) return s == original;
     if (s->kind != original->kind || s->slot != original->slot || s->part != original->part) return 0;
-    for (int i = 0; i < count; i++) {
-        if (part_quantifier(original) && original->part == from[i]) continue;
-        inner_from[inner] = from[i];
-        inner_to[inner++] = to[i];
+    if (!elem_renamed(s->left, original->left, from, to, count) || !elem_renamed(s->right, original->right, from, to, count)) return 0;
+
+    /* Solo un quantificatore che nasconde un nome richiede una mappa nuova.
+     * Negli altri nodi si condividono i vettori del chiamante, senza copie. */
+    int hidden = 0;
+    if (part_quantifier(original))
+        for (int i = 0; i < count; i++) hidden |= original->part == from[i];
+    if (!hidden)
+        return sentence_renamed(s->a, original->a, from, to, count) && sentence_renamed(s->b, original->b, from, to, count);
+    short *inner = NULL; size_t capacity = 0;
+    if (!work_reserve((void **)&inner, &capacity, 2 * (size_t)count, sizeof *inner)) return 0;
+    int used = 0;
+    for (int i = 0; i < count; i++) if (original->part != from[i]) {
+        inner[used] = from[i]; inner[count + used++] = to[i];
     }
-    return elem_renamed(s->left, original->left, from, to, count) && elem_renamed(s->right, original->right, from, to, count) &&
-           sentence_renamed(s->a, original->a, inner_from, inner_to, inner) && sentence_renamed(s->b, original->b, inner_from, inner_to, inner);
+    int same = sentence_renamed(s->a, original->a, inner, inner + count, used) &&
+               sentence_renamed(s->b, original->b, inner, inner + count, used);
+    free(inner);
+    return same;
 }
 
 /* Ritorna 1 se il simbolo symbol compare nell'elemento e. */
@@ -29772,7 +29800,8 @@ static void part_name(int i) {
     if (part < 0) return;
     int named = known_add(sentence_rename(s->a, s->part, part), now->known[i].negated, now->known[i].value, K_NAMED, i);
     if (named < 0) return;
-    now->known[named].part[0] = (short)part;
+    short chosen = (short)part;
+    if (!known_parts(named, &chosen, 1)) return;
     name_known[part] = named;
 }
 
@@ -29968,10 +29997,8 @@ static void bijection_name(int i) {
     }
     int named = known_add(equipotent_identities(e, map), 0, now->known[i].value, K_BIJECTION, i);
     if (named < 0) return;
-    for (int j = 0; j < count; j++) {
-        now->known[named].part[j] = map[j];
-        name_known[map[j]] = named;
-    }
+    if (!known_parts(named, map, count)) return;
+    for (int j = 0; j < count; j++) name_known[map[j]] = named;
 }
 
 /* Guarda per la prima volta la condizione nota di posto i, e ne trae ciò
@@ -30117,8 +30144,8 @@ static int settle(void) {
  * segue. */
 typedef struct {
     int known;             /* il suo posto in known[] */
-    int slot[MAX_BOUND];   /* le variabili, dalla più esterna */
-    int slots;
+    const int *slot;       /* variabili dalla piu esterna, prestito dal chiamante */
+    int slots;             /* numero di variabili nel vettore slot */
     SlotSet all;     /* le stesse, come bit: il bit i è la variabile di posto i */
     const Sentence *body;  /* la condizione che segue i "per ogni" */
     int negated;           /* il segno con cui è vera */
@@ -30275,19 +30302,39 @@ static int instance_guarded(const Rule *rule, SlotValues value) {
  * confronto già deciso. Se le scelte sono troppe non ne prova nessuna.
  * Ritorna quante istanze ha aggiunto. */
 static int instance_choices(const Rule *rule, int named) {
-    static short candidate[MAX_BOUND][MAX_GROUND];
-    int candidates[MAX_BOUND], pick[MAX_BOUND] = {0}, made = 0, law = known_law(rule->known);
-    long long choices = 1;
-    for (int j = 0; j < rule->slots && choices <= MAX_TUPLES; j++) {
-        candidates[j] = 0;
+    /* Depositi sullo heap riusati fra i giri; nessun Known ne conserva un
+     * indirizzo. La routine non richiama ricorsivamente questa ricerca. */
+    static short *candidate;
+    static int *index;
+    static size_t candidate_capacity, index_capacity;
+    size_t sorts = (size_t)sort_count;
+    if (!work_reserve((void **)&candidate, &candidate_capacity, (size_t)now->grounds, sizeof *candidate) ||
+        !work_reserve((void **)&index, &index_capacity, 2 * sorts + (size_t)rule->slots, sizeof *index)) {
+        exhausted = 1; return 0;
+    }
+    int *first = index, *candidates = index + sorts, *pick = index + 2 * sorts;
+    int made = 0, law = known_law(rule->known), used = 0;
+    for (int sort = 0; sort < sort_count; sort++) first[sort] = -1;
+    for (int j = 0; j < rule->slots; j++) first[slot_data[rule->slot[j]].sort] = 0;
+
+    /* Le variabili dello stesso insieme condividono gli stessi candidati.
+     * Ogni elemento entra in una sola lista: la memoria non e il prodotto
+     * del numero di quantificatori per quello degli elementi presenti. */
+    for (int sort = 0; sort < sort_count; sort++) {
+        if (first[sort] < 0) continue;
+        first[sort] = used; candidates[sort] = 0;
         for (int id = 1; id < now->grounds; id++) {
-            if (symbols[ground[id].symbol].range != slot_data[rule->slot[j]].sort || (named && ground[id].arg[0] >= 0)) continue;
+            if (symbols[ground[id].symbol].range != sort || (named && ground[id].arg[0] >= 0)) continue;
             if (law == LAW_COMPREHENSION && symbol_law[ground[id].symbol]) continue;
             int fresh = 1;
-            for (int c = 0; c < candidates[j] && fresh; c++) fresh = now->rep[candidate[j][c]] != now->rep[id];
-            if (fresh) candidate[j][candidates[j]++] = (short)id;
+            for (int c = first[sort]; c < used && fresh; c++) fresh = now->rep[candidate[c]] != now->rep[id];
+            if (fresh) { candidate[used++] = (short)id; candidates[sort]++; }
         }
-        choices *= candidates[j];
+    }
+    long long choices = 1;
+    for (int j = 0; j < rule->slots && choices <= MAX_TUPLES; j++) {
+        pick[j] = 0;
+        choices *= candidates[slot_data[rule->slot[j]].sort];
     }
     if (choices == 0 || choices > (named ? MAX_FREE_TUPLES : MAX_TUPLES)) return 0;
 
@@ -30299,13 +30346,16 @@ static int instance_choices(const Rule *rule, int named) {
     for (int more = 1; more && !exhausted; ) {
         int missing = 0, decided = 0;
         slot_values_load(value, now->known[rule->known].value);
-        for (int j = 0; j < rule->slots; j++) value.data[rule->slot[j]] = candidate[j][pick[j]];
+        for (int j = 0; j < rule->slots; j++) {
+            int sort = slot_data[rule->slot[j]].sort;
+            value.data[rule->slot[j]] = candidate[first[sort] + pick[j]];
+        }
         if (!named) instance_survey(rule->body, value, &missing, &decided);
         int kept = !split_lookahead || rule->slots < 2 || instance_guarded(rule, value);
         if (kept && (named || (!missing && decided))) made += instance_add(rule, value);
         more = 0;
         for (int j = 0; j < rule->slots && !more; j++) {
-            if (++pick[j] < candidates[j]) more = 1; else pick[j] = 0;
+            if (++pick[j] < candidates[slot_data[rule->slot[j]].sort]) more = 1; else pick[j] = 0;
         }
     }
     return made;
@@ -30565,7 +30615,8 @@ static int mapdef_add(Sentence *spec, int map) {
 
     int i = known_add(spec, 0, nothing, K_MAPDEF, -1);
     if (i < 0) return 0;
-    now->known[i].part[0] = (short)map;
+    short chosen = (short)map;
+    if (!known_parts(i, &chosen, 1)) return 0;
     name_known[map] = i;
     return 1;
 }
@@ -30672,8 +30723,7 @@ static int bijection_witness(int r) {
     }
     int instance = known_add(equipotent_identities(e, map), 1, now->known[r].value, K_BIJECTION, r);
     if (instance < 0) return 0;
-    for (int j = 0; j < n + m; j++) now->known[instance].part[j] = map[j];
-    return 1;
+    return known_parts(instance, map, n + m);
 }
 
 /* 28q. Le istanze della definizione di un'applicazione (rule, una
@@ -30921,10 +30971,19 @@ static int candidate_complete(void) {
  * nessuna. Ritorna 1 se l'ha aggiunta. Un'istanza falsa che c'è già (una
  * disgiunzione in attesa) non conta, e si passa alla scelta successiva. */
 static int instance_model(const Rule *rule) {
-    int pick[MAX_BOUND] = {0};
+    static int *pick;
+    static size_t capacity;
+    if (!work_reserve((void **)&pick, &capacity, (size_t)rule->slots, sizeof *pick)) { exhausted = 1; return 0; }
     long long tuples = 1;
     SlotValues value = SLOT_VALUES_EMPTY;
-    for (int j = 0; j < rule->slots; j++) tuples *= candidate_size[slot_data[rule->slot[j]].sort];
+    /* Un prodotto interrotto al budget evita overflow con molte variabili.
+     * Un dominio vuoto, anche dopo il prefisso gia grande, da zero istanze. */
+    for (int j = 0; j < rule->slots; j++) {
+        int size = candidate_size[slot_data[rule->slot[j]].sort];
+        if (!size) return 0;
+        if (tuples <= MAX_TUPLES) tuples *= size;
+        pick[j] = 0;
+    }
     if (!tuples || tuples > MAX_TUPLES) return 0;
     value = slot_values_copy(now->known[rule->known].value);
     if (work_allocation_failed) return 0;
@@ -30950,6 +31009,7 @@ static int instance_model(const Rule *rule) {
  * quelle di 28r, scelte con il modello candidato. */
 static int instantiate(void) {
     int made = 0, before = now->knowns;
+    int *slot = NULL; size_t capacity = 0;
 
     /* 28r. Il modello candidato, con gli elementi che gli mancano (28r-1). */
     if (model_guided) {
@@ -30962,11 +31022,16 @@ static int instantiate(void) {
          * falsa il suo testimone (28q-2). */
         if (now->known[r].stage != K_RULE || part_quantifier(now->known[r].source)) continue;
         if (now->known[r].source->kind == S_EQUIPOTENT) { made += bijection_witness(r); continue; }
-        Rule rule = {r, {0}, 0, SLOT_EMPTY, now->known[r].source, now->known[r].negated};
-        while (rule.slots < MAX_BOUND && (rule.body->kind == S_FORALL || rule.body->kind == S_EXISTS) &&
+        Rule rule = {.known=r, .all=SLOT_EMPTY, .body=now->known[r].source, .negated=now->known[r].negated};
+        for (const Sentence *q = rule.body; (q->kind == S_FORALL || q->kind == S_EXISTS) && (q->kind == S_FORALL) != rule.negated; q = q->a)
+            rule.slots++;
+        if (!work_reserve((void **)&slot, &capacity, (size_t)rule.slots, sizeof *slot)) { exhausted = 1; break; }
+        rule.slot = slot;
+        int at = 0;
+        while ((rule.body->kind == S_FORALL || rule.body->kind == S_EXISTS) &&
                (rule.body->kind == S_FORALL) != rule.negated) {
             rule.all = slot_set_with(rule.all, rule.body->slot);
-            rule.slot[rule.slots++] = rule.body->slot;
+            slot[at++] = rule.body->slot;
             rule.body = rule.body->a;
         }
 
@@ -30997,6 +31062,7 @@ static int instantiate(void) {
         if (law != LAW_COMPREHENSION) made += instance_choices(&rule, 0);
         if (!law && rule.slots == 1) made += instance_trigger(&rule, rule.body, &budget);
     }
+    free(slot);
     return made;
 }
 
@@ -31202,6 +31268,7 @@ static int sentence_closed(const Sentence *s, SlotSet bound) {
 static int definition_derived(int i) {
     const Known *k = &now->known[i];
     const Sentence *s = k->source;
+    if (k->parts != 1) return 0;
     int part = k->part[0];
     if (k->negated || s->kind != S_FORALL || s->a->kind != S_IFF || s->a->a->kind != S_HOLDS || !sentence_closed(s, SLOT_EMPTY)) return 0;
     const Elem *member = s->a->a->left;
@@ -31303,7 +31370,8 @@ static int bijection_derived(int i) {
     const Known *k = &now->known[i], *p = &now->known[k->parent];
     const Sentence *e = p->source;
     if (e->kind != S_EQUIPOTENT || k->negated != p->negated) return 0;
-    for (int j = 0; j < e->sides[0] + e->sides[1]; j++) {
+    if (k->parts != e->sides[0] + e->sides[1]) return 0;
+    for (int j = 0; j < k->parts; j++) {
         int map = k->part[j], domain[2], range, arity = identity_map_sorts(e, j, domain, &range);
         if (map < 0 || map >= symbol_count) return 0;
         const Symbol *s = &symbols[map];
@@ -31342,6 +31410,7 @@ static int spec_defines(const Sentence *spec, Elem *value, int sort, int map, Sl
 static int mapdef_derived(int i) {
     const Known *k = &now->known[i];
     const Sentence *s = k->source;
+    if (k->parts != 1) return 0;
     int map = k->part[0];
     if (k->negated || map < declared_symbols || map >= symbol_count || !sentence_closed(s, SLOT_EMPTY) || !sentence_typed(s) || mentioned_before(i, map)) return 0;
     const Symbol *f = &symbols[map];
@@ -31362,15 +31431,19 @@ static int mapdef_derived(int i) {
  * delle legate, riletto da sentence_renamed(). Ritorna 1 se regge. */
 static int part_instance_derived(const Known *k, const Known *p) {
     const Sentence *body = p->source;
-    short from[MAX_BOUND];
-    int count = 0, negated = p->negated;
-    while (count < MAX_BOUND && part_quantifier(body) && (body->kind == S_FORALL_PART) != p->negated) {
-        if (!part_of(k->part[count], symbols[body->part].domain[0])) return 0;
-        from[count++] = (short)body->part;
-        body = body->a;
+    int count = 0, negated = p->negated, valid = 1;
+    for (const Sentence *q = body; part_quantifier(q) && (q->kind == S_FORALL_PART) != p->negated; q = q->a) count++;
+    if (!count || count != k->parts) return 0;
+    short *from = NULL; size_t capacity = 0;
+    if (!work_reserve((void **)&from, &capacity, (size_t)count, sizeof *from)) return 0;
+    for (int j = 0; j < count; j++, body = body->a) {
+        valid &= part_of(k->part[j], symbols[body->part].domain[0]);
+        from[j] = (short)body->part;
     }
     while (body->kind == S_NOT) { body = body->a; negated = !negated; }
-    return count > 0 && k->negated == negated && sentence_renamed(k->source, body, from, k->part, count);
+    valid = valid && k->negated == negated && sentence_renamed(k->source, body, from, k->part, count);
+    free(from);
+    return valid;
 }
 
 /* 28j. Controlla che la condizione nota di posto i venga dall'"esiste una
@@ -31380,6 +31453,7 @@ static int part_instance_derived(const Known *k, const Known *p) {
 static int part_name_derived(int i, const Known *p) {
     const Known *k = &now->known[i];
     const Sentence *body = p->source->a;
+    if (k->parts != 1) return 0;
     short from = (short)p->source->part, to = k->part[0];
     int negated = p->negated;
     if ((p->source->kind == S_EXISTS_PART) == p->negated || to < declared_symbols || !part_of(to, symbols[from].domain[0])) return 0;
@@ -31618,13 +31692,21 @@ static int leaf_write(int leaf) {
         need_names(k->source);
         for (int v = 0; v < slot_count; v++)
             if (slot_values_get(k->value, v) > 0) need_ground_names(slot_values_get(k->value, v));
-        for (int j = 0; j < MAX_BOUND; j++)
+        for (int j = 0; j < k->parts; j++)
             if (k->part[j] >= declared_symbols && name_known[k->part[j]] >= 0) needed[name_known[k->part[j]]] = 1;
-        if ((k->origin == K_DEFINED && !definition_derived(i)) || (k->origin == K_MAPDEF && !mapdef_derived(i))) { unjustified_steps++; return 0; }
+        if ((k->origin == K_DEFINED && !definition_derived(i)) || (k->origin == K_MAPDEF && !mapdef_derived(i))) {
+            if (!work_allocation_failed) unjustified_steps++;
+            return 0;
+        }
         if (k->parent < 0) continue;
         needed[k->parent] = 1;
         if (k->origin != K_PART) {
-            if (!known_derived(i)) { unjustified_steps++; return 0; }
+            if (!known_derived(i)) {
+                /* Un controllo interrotto per memoria non e una deduzione
+                 * falsa: il fallimento persistente scarta comunque la prova. */
+                if (!work_allocation_failed) unjustified_steps++;
+                return 0;
+            }
             continue;
         }
         if (!deduction_read(k->parent, k->source, k->negated, k->stamp, &d)) return 0;
@@ -31658,7 +31740,7 @@ static int leaf_write(int leaf) {
 
             /* 28j. Le parti scelte per le parti legate. */
             const Sentence *q = p->source;
-            for (int j = 0; j < MAX_BOUND && k->part[j] >= 0 && part_quantifier(q); j++, q = q->a) {
+            for (int j = 0; j < k->parts && part_quantifier(q); j++, q = q->a) {
                 proof_add("%s $", written++ ? "," : "");
                 put_symbol(q->part);
                 proof_add(" := ");
@@ -32101,7 +32183,7 @@ static void cert_leaf(void) {
         for (int v = 0; v < slot_count; v++)
             if (slot_values_get(k->value, v) >= 0) cert_names_in(slot_values_get(k->value, v));
         cert_names_in_sentence(p->source, p->value);
-        for (int j = 0; j < MAX_BOUND; j++)
+        for (int j = 0; j < k->parts; j++)
             if (k->part[j] >= declared_symbols) cert_witness(k->part[j]);
         cert_add("instance ");
         cert_sentence(p->source, p->value);
@@ -32112,7 +32194,7 @@ static void cert_leaf(void) {
 
         /* 28j. Per un "per ogni parte", i nomi delle parti scelte. */
         const Sentence *q = p->source;
-        for (int j = 0; j < MAX_BOUND && k->part[j] >= 0 && part_quantifier(q); j++, q = q->a) {
+        for (int j = 0; j < k->parts && part_quantifier(q); j++, q = q->a) {
             cert_add(" ");
             cert_symbol(k->part[j]);
         }
@@ -32635,7 +32717,8 @@ static int part_define(const PartCandidate *candidate, int letter) {
 
     int at = known_add(definition, 0, nothing, K_DEFINED, -1);
     if (at < 0) return -1;
-    now->known[at].part[0] = (short)part;
+    short chosen = (short)part;
+    if (!known_parts(at, &chosen, 1)) return -1;
     name_known[part] = at;
     return part;
 }
@@ -32693,60 +32776,73 @@ static void search_back(const SearchMark *mark, int depth) {
  * certificato di quella sola; 0 se nessuna, e allora non lascia nulla:
  * testo, certificato, nomi, memoria e il ramo tornano come erano. */
 static int part_choose(int depth, int splits, int choices) {
-    static PartCandidate candidate[MAX_PART_CHOICES][MAX_BOUND][MAX_PART_CANDIDATES];
+    PartCandidate *candidate = NULL;
+    short *names = NULL;
+    int *index = NULL, closed = 0;
+    size_t candidate_capacity = 0, name_capacity = 0, index_capacity = 0;
     Branch *here = &branch[depth];
     for (int r = 0; r < here->knowns; r++) {
         const Known *rule = &here->known[r];
         if (rule->stage != K_RULE || !part_quantifier(rule->source)) continue;
 
         /* Le parti legate in testa alla regola, e le parti da provare per
-         * ognuna. */
+         * ognuna. I temporanei appartengono a questa chiamata: una scelta
+         * ricorsiva puo crescere senza spostare i vettori del suo genitore. */
         const Sentence *body = rule->source;
-        short bound[MAX_BOUND], chosen[MAX_BOUND];
-        int parts = 0, candidates[MAX_BOUND], pick[MAX_BOUND] = {0}, more = 1;
-        while (parts < MAX_BOUND && part_quantifier(body) && (body->kind == S_FORALL_PART) != rule->negated) {
-            bound[parts] = (short)body->part;
-            candidates[parts] = part_candidates(symbols[body->part].domain[0], candidate[choices][parts]);
-            more = more && candidates[parts++] > 0;
-            body = body->a;
+        int parts = 0, more = 1;
+        for (const Sentence *q = body; part_quantifier(q) && (q->kind == S_FORALL_PART) != rule->negated; q = q->a) parts++;
+        if (!work_reserve((void **)&candidate, &candidate_capacity, (size_t)parts * MAX_PART_CANDIDATES, sizeof *candidate) ||
+            !work_reserve((void **)&names, &name_capacity, 2 * (size_t)parts, sizeof *names) ||
+            !work_reserve((void **)&index, &index_capacity, 2 * (size_t)parts, sizeof *index)) {
+            exhausted = 1; goto done;
+        }
+        short *bound = names, *chosen = names + parts;
+        int *candidates = index, *pick = index + parts;
+        for (int j = 0; j < parts; j++, body = body->a) {
+            bound[j] = (short)body->part;
+            candidates[j] = part_candidates(symbols[body->part].domain[0], candidate + (size_t)j * MAX_PART_CANDIDATES);
+            pick[j] = 0;
+            more = more && candidates[j] > 0;
         }
 
         /* Ogni scelta, come un contachilometri. */
         for (; more; ) {
-            static SearchMark mark[MAX_PART_CHOICES];
-            if (part_attempts++ >= MAX_PART_ATTEMPTS || failure) return 0;
-            search_mark(&mark[choices]);
+            SearchMark mark;
+            if (part_attempts++ >= MAX_PART_ATTEMPTS || failure) goto done;
+            search_mark(&mark);
 
             /* La copia del ramo, con le definizioni delle parti scelte e
              * l'istanza, se non c'è già. */
             int fresh = 1;
             branch_copy(depth);
             for (int j = 0; j < parts && fresh; j++) {
-                const PartCandidate *c = &candidate[choices][j][pick[j]];
+                const PartCandidate *c = &candidate[(size_t)j * MAX_PART_CANDIDATES + (size_t)pick[j]];
                 chosen[j] = (short)(c->kind == P_SYMBOL ? c->part : part_define(c, symbols[bound[j]].name));
                 fresh = chosen[j] >= 0;
             }
             for (int i = r + 1; i < now->knowns && fresh; i++)
-                fresh = now->known[i].parent != r || memcmp(now->known[i].part, chosen, sizeof *chosen * (size_t)parts) != 0;
+                fresh = now->known[i].parent != r || now->known[i].parts != parts ||
+                        memcmp(now->known[i].part, chosen, sizeof *chosen * (size_t)parts) != 0;
             if (fresh) {
                 const Sentence *instance = body;
                 for (int j = 0; j < parts; j++) instance = sentence_rename(instance, bound[j], chosen[j]);
                 int at = known_add(instance, rule->negated, rule->value, K_INSTANCE, r);
-                if (at >= 0) {
-                    memcpy(now->known[at].part, chosen, sizeof *chosen * (size_t)parts);
-                    if (!exhausted && refute(depth + 1, splits, choices + 1)) return 1;
+                if (at >= 0 && known_parts(at, chosen, parts)) {
+                    if (!exhausted && refute(depth + 1, splits, choices + 1)) { closed = 1; goto done; }
                 }
             }
 
             /* Non è bastata: si torna com'era, e alla scelta successiva. */
-            search_back(&mark[choices], depth);
+            search_back(&mark, depth);
             more = 0;
             for (int j = 0; j < parts && !more; j++) {
                 if (++pick[j] < candidates[j]) more = 1; else pick[j] = 0;
             }
         }
     }
-    return 0;
+done:
+    free(candidate); free(names); free(index);
+    return closed;
 }
 
 /* 28-5. Aggiunge alle cose note del ramo in corso il caso side della
