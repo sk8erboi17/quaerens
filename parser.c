@@ -2847,31 +2847,59 @@ static int fresh_letter(void) {
     return 'a';
 }
 
-/* 17v. letter_written[c] è 1 se la lettera c compare nell'enunciato in
- * corso; fresh_used conta i nomi con un pedice già dati da fresh_name(). */
-static char letter_written[128];
-static int fresh_used;
+/* Un nome latino riservato dal testo sorgente. index e zero senza pedice,
+ * ZERO_INDEX per lo zero esplicito, oppure un intero positivo. Il vettore
+ * possiede le coppie, ordinate per ricerca binaria dopo unfolding_reset. */
+typedef struct { int letter,index; } FreshName;
+static FreshName *fresh_reserved;
+static size_t fresh_reserved_count,fresh_reserved_capacity;
+static int fresh_used; /* Prossima coppia sintetica; si azzera per enunciato. */
 
-/* 17v. Come fresh_letter(), ma quando le lettere sono finite dà una lettera
- * che l'enunciato non scrive mai, con un pedice da 1 a 9, e mette il pedice
- * in *index (0 per una lettera sola). Un nome così non si confonde con quelli
- * dell'enunciato, perché la sua lettera non vi compare affatto, né con un
- * altro nome dato qui. Gli svolgimenti dei libri sugli insiemi di parti ne
- * chiedono molti più di una lettera per variabile. */
-static int fresh_name(int *index) {
-    static const char letters[] = "abcdfghjkmnpqrstuvwxyzABCDFGHJKLMNPQRSTUVWXYZ";
-    *index = 0;
-    for (const char *c = letters; *c; c++)
-        if (!letter_taken[(int)*c]) { letter_taken[(int)*c] = 1; return *c; }
-    while (fresh_used < 9 * (int)(sizeof letters - 1)) {
-        int letter = letters[fresh_used % (int)(sizeof letters - 1)], digit = 1 + fresh_used / (int)(sizeof letters - 1);
-        fresh_used++;
-        if (letter_written[letter]) continue;
-        *index = digit;
-        return letter;
+/* Ordina i nomi senza sottrarre indici che possono raggiungere INT_MAX. */
+static int fresh_order(const void *left,const void *right) {
+    const FreshName *a=left,*b=right;
+    if (a->letter!=b->letter) return a->letter<b->letter?-1:1;
+    return a->index==b->index?0:a->index<b->index?-1:1;
+}
+
+/* Registra un nome del testo; le ripetizioni si eliminano dopo la lettura.
+ * Una crescita fallita resta un errore di risorse dell'intero enunciato. */
+static int fresh_reserve_name(int letter,int index) {
+    if (fresh_reserved_count==(size_t)-1 || !work_reserve((void **)&fresh_reserved,
+        &fresh_reserved_capacity,fresh_reserved_count+1,sizeof *fresh_reserved)) {
+        work_allocation_failed=1;fail(OUT_OF_MEMORY);return 0;
     }
-    syntax("le lettere non bastano per svolgere le definizioni dell'enunciato");
-    return 'a';
+    fresh_reserved[fresh_reserved_count++]=(FreshName){letter,index};return 1;
+}
+
+/* Cerca una coppia nel prefisso ordinato; non confonde x con x_0 o x_12. */
+static int fresh_is_reserved(int letter,int index) {
+    FreshName key={letter,index};size_t low=0,high=fresh_reserved_count;
+    while (low<high) {
+        size_t mid=low+(high-low)/2;
+        int order=fresh_order(&key,&fresh_reserved[mid]);
+        if (!order) return 1;
+        if (order<0) high=mid;else low=mid+1;
+    }
+    return 0;
+}
+
+/* Come fresh_letter, poi usa pedici numerici crescenti. Il contatore rende
+ * diverse le coppie generate; la ricerca nel testo evita catture anche
+ * quando tutte le lettere compaiono nell'input. Nessun tetto di una cifra
+ * limita variabili sintetiche o condizioni di non vuotezza. */
+static int fresh_name(int *index) {
+    static const char letters[]="abcdfghjkmnpqrstuvwxyzABCDFGHJKLMNPQRSTUVWXYZ";
+    *index=0;
+    for (const char *c=letters;*c;c++)
+        if (!letter_taken[(int)*c]) { letter_taken[(int)*c]=1;return *c; }
+    while (fresh_used<INT_MAX) {
+        int letter=letters[fresh_used%(int)(sizeof letters-1)],digit=1+fresh_used/(int)(sizeof letters-1);
+        fresh_used++;
+        if (fresh_is_reserved(letter,digit)) continue;
+        *index=digit;return letter;
+    }
+    syntax(OUT_OF_MEMORY);return 'a';
 }
 
 /* Un'appartenenza (s, t) \in R che obbliga una lettera a stare in un insieme:
@@ -4196,14 +4224,30 @@ static void unfolding_reset(const char *text) {
     ParserState here = parser_save();
     const char *here_consumed = consumed;
     cursor = text;
-    for (next_token(); token.kind != T_END; next_token())
-        if (token.kind == T_LETTER) letter_taken[token.ch & 127] = 1;
+    fresh_reserved_count=0;
+    for (next_token();token.kind!=T_END;next_token()) if (token.kind==T_LETTER) {
+        int letter=token.ch;
+        letter_taken[letter&127]=1;
+        if (!fresh_reserve_name(letter,0)) break;
+        ParserState look=parser_save();const char *kept=consumed;
+        next_token();
+        if (is_char('_')) {
+            next_token();if (is_char('{')) next_token();
+            if (token.kind==T_NUM && token.value>=0 && token.value<=INT_MAX)
+                fresh_reserve_name(letter,token.value?(int)token.value:ZERO_INDEX);
+        }
+        parser_restore(look);consumed=kept;
+    }
     parser_restore(here);
     consumed = here_consumed;
 
-    /* 17v. Per fresh_name(). */
-    memcpy(letter_written, letter_taken, sizeof letter_written);
-    fresh_used = 0;
+    /* Il deposito non cambia mentre si generano nomi; qsort e deduplica
+     * rendono la prova di non cattura logaritmica nella lunghezza del testo. */
+    if (fresh_reserved_count>1) qsort(fresh_reserved,fresh_reserved_count,sizeof *fresh_reserved,fresh_order);
+    size_t count=0;
+    for (size_t i=0;i<fresh_reserved_count;i++)
+        if (!count || fresh_order(&fresh_reserved[i],&fresh_reserved[count-1])) fresh_reserved[count++]=fresh_reserved[i];
+    fresh_reserved_count=count;fresh_used=0;
 }
 
 /* unary: vedi la grammatica in testa al capitolo. */
@@ -5441,8 +5485,8 @@ static void pair_sets_check(void) {
 
 /* Il "tipo" di ciò che vale vero o falso: il valore di una parte o di una
  * relazione applicata ai suoi argomenti. Non è un insieme dell'enunciato:
- * occupa il posto dopo l'ultimo. */
-#define TRUTH MAX_SORTS
+ * ha un tag distinto da ogni indice di insieme rappresentabile. */
+#define TRUTH INT_MAX
 
 /* Le lettere greche che possono fare da nome di un'applicazione. Il nome
  * interno di quella di posto i è GREEK_NAMES + i. */
@@ -5457,12 +5501,12 @@ static const char *const greek_letters[] = {"alpha", "beta", "gamma", "delta", "
  * Invariante: due simboli diversi non hanno lo stesso nome e lo stesso
  * pedice. */
 typedef struct {
-    int name;       /* una lettera; oppure OPERATION_NAMES + i per un simbolo
-                       di operazione, GREEK_NAMES + i per una lettera greca */
+    int name;       /* Lettera o codice positivo di operazione, greco, relazione
+                       o numero; -1 meno l'indice di insieme per una struttura. */
     int index;      /* 0 senza pedice, ZERO_INDEX per zero, positivo per un numero,
                        LETTER_INDEX meno la lettera per un pedice letterale */
     int arity;      /* quanti argomenti: 0 per un elemento, 1 o 2 */
-    int domain[2];  /* l'insieme di ogni argomento: un posto in sort_name[] */
+    int domain[2];  /* l'insieme di ogni argomento: un posto in sort_data[] */
     int range;      /* l'insieme del valore, o TRUTH per parti e relazioni */
     int family;     /* 1 per una famiglia di parti X_{i} (17p): una relazione
                        tra un insieme e quello degli indici, che si scrive
@@ -5474,14 +5518,13 @@ typedef struct {
 } Symbol;
 
 /* I simboli dell'enunciato in corso, e i suoi insiemi: l'insieme di posto i
- * è la lettera sort_name[i], con il pedice sort_sub[i] (17w: S_{12}, positivo
+ * è la lettera sort_data[i].name, con il pedice sort_data[i].index (17w: S_{12}, positivo
  * e rappresentabile in int; 0 se non c'è). I simboli e i loro ruoli hanno vettori posseduti
  * dinamici: i contatori sono il solo prefisso valido, le capacita contano
  * celle e possono crescere senza un tetto compilato alle dichiarazioni. */
 static Symbol *symbols;
 static size_t symbol_capacity;
 static int symbol_count;
-static int sort_name[MAX_SORTS], sort_sub[MAX_SORTS];
 static int sort_count;
 
 /* 17v. LE PARTI, LE APPLICAZIONI E GLI ORDINI COME OGGETTI
@@ -5550,7 +5593,7 @@ static int sort_count;
  * con il nome di una lettera; ma può essere anche l'insieme delle parti di
  * un altro, \mathcal{P}(S), o l'insieme delle applicazioni tra due, T^{S},
  * presi come insiemi di oggetti (vedi la testa di 17v). Un insieme di questi
- * due tipi non ha una lettera (sort_name[i] è 0) e ha un simbolo di
+ * due tipi non ha una lettera (sort_data[i].name è 0) e ha un simbolo di
  * struttura, che dice che cosa sono i suoi elementi: l'appartenenza "t sta
  * nella parte X" o l'applicazione "f applicata a x".
  *
@@ -5560,17 +5603,27 @@ static int sort_count;
  * cert_abstract_head(), e la sua lettura al verificatore (ck_derived_sort()
  * e ck_numbers_sort() in checker.c). */
 typedef enum {
-    SORT_PLAIN,   /* un insieme qualsiasi, di nome sort_name[i] */
-    SORT_PARTS,   /* le parti di sort_base[i] */
-    SORT_MAPS,    /* le applicazioni da sort_base[i] a sort_target[i] */
+    SORT_PLAIN,   /* un insieme qualsiasi, di nome sort_data[i].name */
+    SORT_PARTS,   /* le parti di sort_data[i].base */
+    SORT_MAPS,    /* le applicazioni da sort_data[i].base a sort_data[i].target */
     SORT_NUMBERS  /* i numeri scritti nell'enunciato, come elementi di una
                      relazione data da un elenco di coppie: ognuno è un
                      elemento con un nome (numeral_symbol()), tutti diversi,
                      e non ce ne sono altri */
 } SortKind;
-static SortKind sort_kind[MAX_SORTS];
-static int sort_base[MAX_SORTS], sort_target[MAX_SORTS];  /* -1 dove non servono */
-static int sort_symbol[MAX_SORTS];  /* il simbolo di struttura, posto in symbols[]; -1 per SORT_PLAIN */
+/* Un insieme dell'enunciato, identificato dal suo indice nel vettore.
+ * Le dipendenze base/target precedono sempre l'insieme derivato; nessun
+ * nodo conserva indirizzi nel vettore che puo essere riallocato. */
+typedef struct {
+    int name;       /* Lettera maiuscola per SORT_PLAIN, zero per gli altri. */
+    int index;      /* Pedice numerico del nome, zero se assente. */
+    SortKind kind;  /* Insieme arbitrario, parti, mappe o numeri scritti. */
+    int base;       /* Dominio di una costruzione derivata, -1 se assente. */
+    int target;     /* Codominio delle mappe, -1 negli altri casi. */
+    int symbol;     /* Simbolo di appartenenza o valutazione, -1 se assente. */
+} SortData;
+static SortData *sort_data;      /* Vettore posseduto dal parser. */
+static size_t sort_capacity;    /* Celle allocate; sort_count e il prefisso valido. */
 /* 17u. Che cosa è il simbolo di posto i rispetto ai quantificatori su parti.
  * PART_FREE: un simbolo dichiarato, o un nome dato dalla dimostrazione.
  * PART_BOUND: la parte legata da un \forall X \subseteq S o da un \exists X
@@ -5759,7 +5812,7 @@ static int symbol_append(Symbol symbol) {
  * simbolo, da un insieme o da una variabile in vista, è un errore. */
 static void symbol_add(Symbol symbol) {
     int taken = symbol_find(symbol.name, symbol.index) >= 0 || visible_find(symbol.name, symbol.index) >= 0;
-    for (int i = 0; i < sort_count; i++) taken = taken || (sort_sub[i] == symbol.index && sort_name[i] == symbol.name);
+    for (int i = 0; i < sort_count; i++) taken = taken || (sort_data[i].index == symbol.index && sort_data[i].name == symbol.name);
     if (taken) syntax("la stessa lettera ha due significati nello stesso enunciato");
     else symbol_append(symbol);
 }
@@ -5857,7 +5910,16 @@ static const Definition *definition_find(int name, int index, int starred) {
     return NULL;
 }
 
-/* Ritorna il posto in sort_name[] dell'insieme di lettera letter e pedice
+/* Aggiunge un insieme completo dopo la crescita del deposito. Gli indici
+ * validi restano inferiori a TRUTH; un errore non pubblica una cella nuova. */
+static int sort_append(SortData value) {
+    if (sort_count==INT_MAX || !work_reserve((void **)&sort_data,&sort_capacity,(size_t)sort_count+1,sizeof *sort_data)) {
+        syntax(OUT_OF_MEMORY);return -1;
+    }
+    int id=sort_count++;sort_data[id]=value;return id;
+}
+
+/* Ritorna il posto nel vettore degli insiemi della lettera letter e pedice
  * sub (17w: positivo, o 0 se non c'è), registrandolo se è nuovo. Una
  * lettera che non può indicare un insieme è un errore: una minuscola, o il
  * nome di una parte, di una relazione o di un insieme definito (17p). */
@@ -5867,13 +5929,9 @@ static int sort_index_sub(int letter, int sub) {
         return 0;
     }
     for (int i = 0; i < sort_count; i++)
-        if (sort_kind[i] == SORT_PLAIN && sort_name[i] == letter && sort_sub[i] == sub) return i;
-    if (sort_count == MAX_SORTS) { syntax("troppi insiemi distinti in un enunciato: al massimo 6, contando anche gli insiemi di parti e di applicazioni"); return 0; }
-    sort_name[sort_count] = letter;
-    sort_sub[sort_count] = sub;
-    sort_kind[sort_count] = SORT_PLAIN;
-    sort_base[sort_count] = sort_target[sort_count] = sort_symbol[sort_count] = -1;
-    return sort_count++;
+        if (sort_data[i].kind == SORT_PLAIN && sort_data[i].name == letter && sort_data[i].index == sub) return i;
+    int id=sort_append((SortData){letter,sub,SORT_PLAIN,-1,-1,-1});
+    return id<0?0:id;
 }
 
 /* Come sort_index_sub(), per una lettera senza pedice. */
@@ -5884,7 +5942,7 @@ static int sort_index(int letter) { return sort_index_sub(letter, 0); }
  * nulla. */
 static int sort_index_find(int letter) {
     for (int i = 0; i < sort_count; i++)
-        if (sort_kind[i] == SORT_PLAIN && sort_name[i] == letter && !sort_sub[i]) return i;
+        if (sort_data[i].kind == SORT_PLAIN && sort_data[i].name == letter && !sort_data[i].index) return i;
     return -1;
 }
 
@@ -5893,7 +5951,7 @@ static int sort_index_find(int letter) {
  * ha ancora nominato. */
 static int sort_derived_find(SortKind kind, int base, int target) {
     for (int i = 0; i < sort_count; i++)
-        if (sort_kind[i] == kind && sort_base[i] == base && sort_target[i] == target) return i;
+        if (sort_data[i].kind == kind && sort_data[i].base == base && sort_data[i].target == target) return i;
     return -1;
 }
 
@@ -5904,19 +5962,15 @@ static int sort_derived_find(SortKind kind, int base, int target) {
  * Il simbolo di struttura ha due argomenti. Per le parti è l'appartenenza,
  * una relazione tra base e l'insieme nuovo: (t, X) vale quando t sta in X.
  * Per le applicazioni è l'applicazione stessa, dall'insieme nuovo e da base
- * a target: (f, x) vale f(x). Il suo nome è STRUCTURE_NAMES più il posto
- * dell'insieme, così due insiemi diversi non danno lo stesso nome. */
+ * a target: (f, x) vale f(x). Il suo nome interno e -1 meno l'indice
+ * dell'insieme: resta distinto dai nomi e dai numerali positivi anche
+ * quando il numero di insiemi supera i vecchi intervalli dei codici. */
 static int sort_derived(SortKind kind, int base, int target) {
     int found = sort_derived_find(kind, base, target);
     if (found >= 0) return found;
-    if (sort_count == MAX_SORTS) { syntax("troppi insiemi distinti in un enunciato: al massimo 6, contando anche gli insiemi di parti e di applicazioni"); return 0; }
-    int i = sort_count++;
-    sort_name[i] = sort_sub[i] = 0;
-    sort_kind[i] = kind;
-    sort_base[i] = base;
-    sort_target[i] = target;
-    sort_symbol[i] = symbol_count;
-    Symbol structure = {STRUCTURE_NAMES + i, 0, 2, {kind == SORT_PARTS ? base : i, kind == SORT_PARTS ? i : base},
+    int i=sort_append((SortData){0,0,kind,base,target,symbol_count});
+    if (i<0) return 0;
+    Symbol structure = {-1-i, 0, 2, {kind == SORT_PARTS ? base : i, kind == SORT_PARTS ? i : base},
                         kind == SORT_PARTS ? TRUTH : target, 0, 0};
     symbol_add(structure);
     return i;
@@ -5925,15 +5979,15 @@ static int sort_derived(SortKind kind, int base, int target) {
 /* 17v. Ritorna il posto dell'insieme di cui il simbolo symbol è il simbolo
  * di struttura, o -1 se non lo è di nessuno. */
 static int symbol_structure(int symbol) {
-    int sort = symbol >= 0 ? symbols[symbol].name - STRUCTURE_NAMES : -1;
-    return sort >= 0 && sort < sort_count && sort_symbol[sort] == symbol ? sort : -1;
+    int sort = symbol >= 0 && symbols[symbol].name<0 ? -1-symbols[symbol].name : -1;
+    return sort >= 0 && sort < sort_count && sort_data[sort].symbol == symbol ? sort : -1;
 }
 
 static int abstract_power_sort(void);
 
 /* Set: legge la lettera di un insieme qualsiasi, con il suo pedice se c'è
  * (17w: S_{12}, intero positivo), e la supera. Ritorna il suo posto in
- * sort_name[]. Anche \mathcal{P}(Set), l'insieme delle parti preso come
+ * sort_data[]. Anche \mathcal{P}(Set), l'insieme delle parti preso come
  * insieme di oggetti (17v): il codominio di un'applicazione a valori parti,
  * l'insieme di una famiglia di parti, una componente di un prodotto.
  *
@@ -6033,12 +6087,12 @@ static Elem *abstract_application(int symbol) {
  * altrimenti ritorna e. L'argomento sta nel dominio, S. */
 static Elem *abstract_apply_object(Elem *e) {
     int sort = elem_sort(e);
-    if (sort < 0 || sort_kind[sort] != SORT_MAPS || token.kind != T_OPEN) return e;
+    if (sort < 0 || sort>=sort_count || sort_data[sort].kind != SORT_MAPS || token.kind != T_OPEN) return e;
     next_token();
     Elem *point = abstract_term();
     if (token.kind == T_CLOSE) next_token(); else syntax("manca la parentesi chiusa");
-    if (!syntax_error) elem_expect(point, sort_base[sort]);
-    return elem_new(sort_symbol[sort], 0, e, point);
+    if (!syntax_error) elem_expect(point, sort_data[sort].base);
+    return elem_new(sort_data[sort].symbol, 0, e, point);
 }
 
 /* 17v. Le parti scritte come insiemi dove serve un elemento di un insieme
@@ -6082,13 +6136,10 @@ static int numeral_symbol(long long value) {
     int found = symbol_find(NUMERAL_NAMES + (int)value, 0), sort = -1;
     if (found >= 0) return found;
     for (int i = 0; i < sort_count && sort < 0; i++)
-        if (sort_kind[i] == SORT_NUMBERS) sort = i;
+        if (sort_data[i].kind == SORT_NUMBERS) sort = i;
     if (sort < 0) {
-        if (sort_count == MAX_SORTS) { syntax("troppi insiemi distinti in un enunciato: al massimo 6, contando anche gli insiemi di parti e di applicazioni"); return 0; }
-        sort = sort_count++;
-        sort_name[sort] = sort_sub[sort] = 0;
-        sort_kind[sort] = SORT_NUMBERS;
-        sort_base[sort] = sort_target[sort] = sort_symbol[sort] = -1;
+        sort=sort_append((SortData){0,0,SORT_NUMBERS,-1,-1,-1});
+        if (sort<0) return 0;
     }
     symbol_add((Symbol){NUMERAL_NAMES + (int)value, 0, 0, {0, 0}, sort, 0, 0});
     return symbol_find(NUMERAL_NAMES + (int)value, 0);
@@ -6122,7 +6173,7 @@ static Elem *abstract_factor(void) {
     /* 17v. Una lettera nuova nella condizione di \{E \mid C\}. */
     if (slot < 0 && symbol < 0 && replace_frame && name < 128 && name && !definition_find(name, index, 0)) {
         int fresh = 1;
-        for (int i = 0; i < sort_count; i++) fresh = fresh && (index != sort_sub[i] || sort_name[i] != name);
+        for (int i = 0; i < sort_count; i++) fresh = fresh && (index != sort_data[i].index || sort_data[i].name != name);
         if (fresh && replace_frame->slots < MAX_ARITY) {
             slot = slot_new(name, index, -1);
             if (slot >= 0) {
@@ -6573,7 +6624,7 @@ typedef enum {
 
 /* Un termine d'insieme (17p): un insieme di elementi o di coppie scritto
  * come nei libri. I suoi membri hanno `arity` componenti, la componente i
- * nell'insieme sort[i] (un posto in sort_name[]). arity è 0 solo per un
+ * nell'insieme sort[i] (un posto in sort_data[]). arity è 0 solo per un
  * insieme vuoto che non è ancora stato confrontato con nulla. I campi non
  * usati dal tipo sono zero, symbol è -1. I nodi vivono nell'arena e non
  * cambiano dopo la lettura: un termine definito si usa dove serve senza
@@ -6633,9 +6684,9 @@ static void set_term_shape(SetTerm *t, const SetTerm *model) {
 static void describe_settle(SetTerm *d) {
     int sort = slot_data[d->bound[0]].sort;
     if (sort < 0 || syntax_error) return;
-    if (sort_kind[sort] != SORT_PARTS) { syntax("un insieme è scritto dove serve un elemento che non è una parte"); return; }
-    if (!d->a->arity) { d->a->arity = 1; d->a->sort[0] = sort_base[sort]; }
-    if (d->a->sort[0] != sort_base[sort]) syntax("un insieme è scritto dove serve una parte di un altro insieme");
+    if (sort>=sort_count || sort_data[sort].kind != SORT_PARTS) { syntax("un insieme è scritto dove serve un elemento che non è una parte"); return; }
+    if (!d->a->arity) { d->a->arity = 1; d->a->sort[0] = sort_data[sort].base; }
+    if (d->a->sort[0] != sort_data[sort].base) syntax("un insieme è scritto dove serve una parte di un altro insieme");
 }
 
 /* 17v. Dà all'elenco t, i cui elementi non sanno ancora in quale insieme
@@ -6917,7 +6968,7 @@ static SetTerm *abstract_replacement(void) {
         if (e->arity != 1 || e->sort[0] < 0) { syntax("in \\{E \\mid C\\} E è un elemento o un insieme di elementi"); return t; }
         t->a = e;
         t->sort[0] = sort_derived(SORT_PARTS, e->sort[0], -1);
-        t->symbol = sort_symbol[t->sort[0]];
+        t->symbol = sort_data[t->sort[0]].symbol;
         if (part_template_count < MAX_TEMPLATES) part_template[part_template_count++] = e;
     } else {
         t->item[0] = value;
@@ -7029,8 +7080,8 @@ static SetTerm *set_term_part(Elem *e) {
     int sort = elem_sort(e);
     t->item[0] = e;
     t->items = t->arity = 1;
-    t->sort[0] = sort_base[sort];
-    t->symbol = sort_symbol[sort];
+    t->sort[0] = sort_data[sort].base;
+    t->symbol = sort_data[sort].symbol;
     return t;
 }
 
@@ -7040,7 +7091,7 @@ static SetTerm *set_term_part(Elem *e) {
  * un insieme di parti e x un elemento di S, f(x) è invece la parte f(x). */
 static SetTerm *set_term_map(Elem *e, int apply, int mark) {
     int sort = elem_sort(e);
-    if (!mark && sort_kind[sort_target[sort]] == SORT_PARTS) {
+    if (!mark && sort_data[sort_data[sort].target].kind == SORT_PARTS) {
         ReaderMark before = reader_mark();
         Elem *value = abstract_apply_object(e);
         if (!syntax_error && value != e) return set_term_part(value);
@@ -7054,8 +7105,8 @@ static SetTerm *set_term_map(Elem *e, int apply, int mark) {
     t->a = abstract_set_term();
     if (token.kind == T_CLOSE) next_token(); else syntax("manca la parentesi chiusa");
     want.arity = t->arity = 1;
-    want.sort[0] = mark ? sort_target[sort] : sort_base[sort];
-    t->sort[0] = mark ? sort_base[sort] : sort_target[sort];
+    want.sort[0] = mark ? sort_data[sort].target : sort_data[sort].base;
+    t->sort[0] = mark ? sort_data[sort].base : sort_data[sort].target;
     if (!syntax_error) set_terms_match(t->a, &want);
     return t;
 }
@@ -7119,7 +7170,7 @@ static SetTerm *abstract_set_factor(void) {
         SetTerm *t = set_term_new(inner->kind == ST_SORT ? ST_SORT : ST_POWERSET);
         t->arity = 1;
         t->sort[0] = sort_derived(SORT_PARTS, inner->sort[0], -1);
-        t->symbol = inner->kind == ST_SORT ? -1 : sort_symbol[t->sort[0]];
+        t->symbol = inner->kind == ST_SORT ? -1 : sort_data[t->sort[0]].symbol;
         t->a = inner->kind == ST_SORT ? NULL : inner;
         return t;
     }
@@ -7157,18 +7208,18 @@ static SetTerm *abstract_set_factor(void) {
      * un insieme di applicazioni, seguita da un insieme tra parentesi, ne
      * dà l'immagine o la controimmagine. */
     int slot = visible_find(name, index), symbol = symbol_find(name, index);
-    if (slot >= 0 && slot_data[slot].sort >= 0) {
+    if (slot >= 0 && slot_data[slot].sort >= 0 && slot_data[slot].sort<sort_count) {
         Elem *e = elem_new(-1, slot, NULL, NULL);
-        if (sort_kind[slot_data[slot].sort] == SORT_PARTS && !mark) return set_term_part(e);
+        if (sort_data[slot_data[slot].sort].kind == SORT_PARTS && !mark) return set_term_part(e);
         /* Solo un oggetto applicazione ha un codominio: un numero, o una
          * parte con ^{-1}, non puo passare da set_term_map(). Il fuzz 19046
          * aveva fatto leggere sort_target=-1 come indice di sort_kind. */
-        if (sort_kind[slot_data[slot].sort] == SORT_MAPS && mark != 1) return set_term_map(e, sort_symbol[slot_data[slot].sort], mark);
+        if (sort_data[slot_data[slot].sort].kind == SORT_MAPS && mark != 1) return set_term_map(e, sort_data[slot_data[slot].sort].symbol, mark);
     }
 
     /* 17v. f(x), con f a valori parti e x un elemento del dominio, è la
      * parte f(x); altrimenti f(E) è un'immagine, qui sotto. */
-    if (symbol >= 0 && !mark && symbols[symbol].arity && symbols[symbol].range != TRUTH && sort_kind[symbols[symbol].range] == SORT_PARTS) {
+    if (symbol >= 0 && !mark && symbols[symbol].arity && symbols[symbol].range != TRUTH && sort_data[symbols[symbol].range].kind == SORT_PARTS) {
         ReaderMark before = reader_mark();
         Elem *e = abstract_application(symbol);
         if (!syntax_error) return set_term_part(e);
@@ -7243,9 +7294,9 @@ static Sentence *describe_wrap(Sentence *s, int from, const char *start) {
     while (describe_count > from && !syntax_error) {
         int slot = describe_slot[--describe_count];
         SetTerm *e = describe_term[describe_count];
-        if (slot_data[slot].sort < 0 || sort_kind[slot_data[slot].sort] != SORT_PARTS) { syntax("un insieme è scritto dove serve un elemento che non è una parte"); break; }
-        if (!e->arity) { e->arity = 1; e->sort[0] = sort_base[slot_data[slot].sort]; }
-        if (e->sort[0] != sort_base[slot_data[slot].sort]) { syntax("un insieme è scritto dove serve una parte di un altro insieme"); break; }
+        if (slot_data[slot].sort < 0 || sort_data[slot_data[slot].sort].kind != SORT_PARTS) { syntax("un insieme è scritto dove serve un elemento che non è una parte"); break; }
+        if (!e->arity) { e->arity = 1; e->sort[0] = sort_data[slot_data[slot].sort].base; }
+        if (e->sort[0] != sort_data[slot_data[slot].sort].base) { syntax("un insieme è scritto dove serve una parte di un altro insieme"); break; }
         Sentence *same = sentence_new(S_SAME, NULL, NULL, start);
         same->set = set_term_part(elem_new(-1, slot, NULL, NULL));
         same->other = e;
@@ -7494,7 +7545,7 @@ static Sentence *abstract_declaration(const char *start) {
      * da R. */
     int fresh = symbol.name && !definition_find(symbol.name, symbol.index, starred) &&
                 (starred || (symbol_find(symbol.name, symbol.index) < 0 && visible_find(symbol.name, symbol.index) < 0));
-    for (int i = 0; i < sort_count && fresh && !starred; i++) fresh = symbol.index != sort_sub[i] || sort_name[i] != symbol.name;
+    for (int i = 0; i < sort_count && fresh && !starred; i++) fresh = symbol.index != sort_data[i].index || sort_data[i].name != symbol.name;
 
     /* 17p. X_{i} \subseteq S, sotto \forall i \in I: una famiglia di parti di
      * S, che per il capitolo 28 è una relazione tra S e I. */
@@ -7584,7 +7635,7 @@ static Sentence *abstract_declaration(const char *start) {
     if (symbol.name && !operation && symbol.name < 128 && isupper(symbol.name) && symbol.index >= 1) {
         int known = symbol_find(symbol.name, symbol.index);
         subscripted = fresh || (known >= 0 && symbols[known].range == TRUTH && symbols[known].arity == 1);
-        for (int i = 0; i < sort_count; i++) subscripted = subscripted || (sort_kind[i] == SORT_PLAIN && sort_name[i] == symbol.name && sort_sub[i] == symbol.index);
+        for (int i = 0; i < sort_count; i++) subscripted = subscripted || (sort_data[i].kind == SORT_PLAIN && sort_data[i].name == symbol.name && sort_data[i].index == symbol.index);
     }
     if ((plain || subscripted) && isupper(symbol.name) && (is_command("neq") || is_command("ne"))) {
         next_token();
@@ -8193,8 +8244,12 @@ static int declared_inside(int letter,int index) {
 static Sentence *abstract_statement(void) {
     QuantifierName *names = NULL;
     size_t name_capacity = 0;
-    unsigned nonempty = 0;  /* Gli insiemi detti esplicitamente non vuoti negli esistenziali iniziali. */
+    SlotSet nonempty=SLOT_EMPTY; /* Indici degli insiemi esplicitamente non vuoti. */
     symbol_count = sort_count = slot_count = visible_count = definition_count = builder_depth = 0;
+    /* La prima cella resta un approdo sicuro anche se una regola segnala
+     * un errore e restituisce il suo indice di riserva zero. */
+    if (!work_reserve((void **)&sort_data,&sort_capacity,1,sizeof *sort_data))
+        return sentence_new(S_TRUE,NULL,NULL,token.start);
     describe_count = describe_allowed = part_template_count = 0;
     if (symbol_bound_capacity) memset(symbol_bound, 0, symbol_bound_capacity * sizeof *symbol_bound);
     abstract_positive = 1;
@@ -8287,13 +8342,12 @@ static Sentence *abstract_statement(void) {
          * modelli ammette insiemi vuoti, quindi saltarla cambierebbe la
          * richiesta. La condizione diventera un normale esistenziale. */
         if (!parts && !map) {
-            unsigned declared = 0;
-            for (int i = 0; i < count; i++) declared |= 1u << sort_index_sub(names[i].letter,names[i].index);
             if (is_command("neq") || is_command("ne")) {
-                nonempty |= declared;
+                for (int i = 0; i < count; i++)
+                    nonempty=slot_set_with(nonempty,sort_index_sub(names[i].letter,names[i].index));
                 next_token();
                 if (is_command("emptyset") || is_command("varnothing")) next_token(); else syntax("dopo \\exists S \\neq serve \\emptyset");
-            }
+            } else for (int i=0;i<count;i++) sort_index_sub(names[i].letter,names[i].index);
             continue;
         }
 
@@ -8322,13 +8376,14 @@ static Sentence *abstract_statement(void) {
      * insiemi di parti e di applicazioni (17v) non contano: sono fatti di
      * quelli introdotti. */
     int sorts_declared = 0, sorts_used = 0;
-    for (int i = 0; i < sort_count; i++) sorts_declared += sort_kind[i] == SORT_PLAIN;
+    for (int i = 0; i < sort_count; i++) sorts_declared += sort_data[i].kind == SORT_PLAIN;
     Sentence *root = abstract_formula();
     /* S non vuoto equivale a esiste x in S con x=x. Scriverlo nell'albero
      * porta l'ipotesi anche al certificato: un esempio vuoto non puo piu
      * soddisfare per vacuita una condizione chiesta su un insieme non vuoto. */
-    for (int i = 0; i < sort_count && !syntax_error; i++) if (nonempty >> i & 1) {
-        int slot = slot_new(fresh_letter(), 0, i);
+    for (int i = 0; i < sort_count && !syntax_error; i++) if (slot_set_contains(nonempty,i)) {
+        int index,letter=fresh_name(&index);
+        int slot=slot_new(letter,index,i);
         if (slot < 0) break;
         Elem *x = elem_new(-1, slot, NULL, NULL);
         Sentence *equal = sentence_new(S_EQUAL, NULL, NULL, root->start);
@@ -8338,7 +8393,7 @@ static Sentence *abstract_statement(void) {
         root = sentence_new(S_AND, exists, root, root->start);
     }
     if (token.kind != T_END) syntax("testo inatteso dopo l'enunciato");
-    for (int i = 0; i < sort_count; i++) sorts_used += sort_kind[i] == SORT_PLAIN;
+    for (int i = 0; i < sort_count; i++) sorts_used += sort_data[i].kind == SORT_PLAIN;
     if (abstract_example && sorts_used != sorts_declared) syntax("in un enunciato che chiede un esempio ogni insieme va introdotto con \\exists");
 
     /* 17u. Dove un "per ogni parte" vale quanto una dichiarazione. Nella
@@ -8626,7 +8681,7 @@ static Sentence *unfold_member(Elem *const *t, const SetTerm *set, const Sentenc
     case ST_POWERSET: {
         /* 17v. La parte t sta in \mathcal{P}(E) se ogni suo elemento sta
          * in E: \forall u\ ((u, t) \implies u \in E). */
-        int u = unfold_slot(sort_base[set->sort[0]]);
+        int u = unfold_slot(sort_data[set->sort[0]].base);
         Elem *member = unfold_variable(u);
         x = unfold_node(S_HOLDS, NULL, NULL, from);
         x->left = elem_new(set->symbol, 0, member, t[0]);

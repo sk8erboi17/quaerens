@@ -18,6 +18,11 @@ di 64 e 256 simboli. I nomi alternano pedici a una cifra e numeri oltre 99;
 anche insiemi, mappe e variabili possono ricevere pedici numerici grandi.
 Una rinomina iniettiva non modifica l'oracolo sui cicli.
 
+Alcune implicazioni dichiarano anche costanti in 7, 33 o 129 insiemi nuovi.
+Ogni modello della formula originaria si estende scegliendo per questi
+insiemi un singleton: la verita e l'oracolo restano gli stessi, mentre il
+parser, il SAT e i certificati attraversano i vecchi tetti sui tipi.
+
 BUG: un falso DIMOSTRATO, un vero FALSO, oppure un errore del controllo
 indipendente. NOTE: un esempio possibile o un controesempio non trovato.
 """
@@ -60,6 +65,10 @@ def main():
                 declarations = r" \land ".join("%s_{%d} \\subseteq S" %
                     ("A" if numeric else letters[i // 9], i + 1 if numeric else i % 9 + 1) for i in range(extra))
                 formula = formula.replace(r"(f \colon S \to S \land ", "(f \\colon S \\to S \\land " + declarations + r" \land ", 1)
+            if rng.randrange(8)==0:
+                sorts=rng.choice([7,33,129])
+                declarations=r" \land ".join(r"q_{%d} \in T_{%d}" % (1001+i,1001+i) for i in range(sorts))
+                formula=formula.replace(r"(f \colon S \to S \land ","(f \\colon S \\to S \\land "+declarations+r" \land ",1)
             cases.append((formula, power % order == 0, False))
 
         # Una rinomina iniettiva cambia soltanto i nomi, non i cicli.

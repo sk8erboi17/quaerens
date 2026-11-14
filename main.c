@@ -610,11 +610,9 @@
 #define MAX_RECORDS 32       /* valori trovati da 18u-3 in una dimostrazione, annotati per la verifica (capitolo 19) */
 #define MIN_SATISFIED 1      /* valori del campione che soddisfano le ipotesi, almeno, perché la verifica di 18u conti (capitolo 19).
                                 Warning: se lo alzi, cambia anche i motivi scritti in decide_quantified() e in records_doubt() */
-#define MAX_SORTS 6          /* insiemi distinti in un enunciato su insiemi qualsiasi (17o), contando quelli di parti e
-                                di applicazioni (17v): sei per T_{1}^{S_{1}} \sim T_{2}^{S_{2}} (17w). Non più di
-                                CK_MAX_SORTS */
 
-/* Un insieme finito di indici di variabili. low conserva le prime due
+/* Un insieme finito di indici: variabili della ricerca o tipi non vuoti
+ * del parser, in contesti separati. low conserva le prime due
  * parole senza allocazioni, per non rallentare i problemi gia trattati;
  * extra conta le parole successive, high ne e la coda immutabile,
  * posseduta dall'arena della prova. Fuori da queste parole ogni bit e zero.
@@ -638,7 +636,7 @@ typedef struct {
 #define PAIR_NAMES 4000      /* "nomi" delle seconde componenti delle applicazioni a valori in coppie (17s):
                                 PAIR_NAMES più la lettera dell'applicazione */
 #define MAX_MODEL_SIZE 4     /* prefisso esaustivo di 28a; 28t prosegue senza tetto di cardinalita */
-#define MAX_MODEL_CODES 4096 /* scelte delle grandezze degli insiemi di un modello: MAX_MODEL_SIZE alla MAX_SORTS (28a) */
+#define MAX_MODEL_CODES 4096 /* quota di configurazioni del solo prefisso esaustivo; SAT non la usa */
 #define MAX_MODEL_OBJECTS 8  /* elementi di un insieme di parti o di applicazioni in un modello finito (28m):
                                 le parti di un insieme di 3 elementi, nel solo prefisso esaustivo */
 #define MAX_MODEL_CELLS 64   /* celle della tabella di un simbolo in un modello finito (28a, 28m) */
@@ -648,8 +646,6 @@ typedef struct {
 #define MAX_DESCRIBED 8      /* parti scritte come insiemi dove serve un elemento, in una condizione (17v) */
 #define MAX_TEMPLATES 8      /* insiemi scritti dall'enunciato come parti, usati per le comprensioni (17v, 28n) */
 #define MAX_LISTED_TUPLES 32 /* coppie in un elenco scritto tra graffe, \{(1, 1), (1, 2)\} (17v) */
-#define STRUCTURE_NAMES 4000 /* "nomi" dei simboli di struttura degli insiemi di parti e di applicazioni (17v):
-                                non sono caratteri, e stanno dopo quelli delle lettere greche */
 #define RELATION_NAMES 3500  /* "nomi" delle relazioni scritte con un comando, come \le (17v): non sono
                                 caratteri, e stanno tra le lettere greche e i simboli di struttura */
 #define LETTER_INDEX (-2)    /* un pedice letterale, \le_{S}, vale LETTER_INDEX meno la lettera (17v) */
@@ -27416,20 +27412,63 @@ static const char *derivative_doubt(const Formula *thesis) {
  * una relazione. Un elemento con un nome ha la sola cella 0. Le tabelle dei
  * simboli di struttura degli insiemi di parti e di applicazioni non si
  * scelgono: le fissa model_structure() (28m). */
+/* Una coordinata della ricerca dei modelli: size e la cardinalita
+ * corrente, minimum un limite inferiore dedotto dalla formula e dai tipi.
+ * Entrambi contano elementi; minimum non e mai una dimensione massima. */
 typedef struct {
-    size_t size[MAX_SORTS];          /* Cardinalita; gli elementi sono indici size_t. */
+    size_t size;
+    size_t minimum;
+    size_t extra;   /* Stato dell'enumeratore: size=minimum+extra dove indirizzabile. */
+} ModelDimension;
+
+/* Un modello finito possiede coordinate e tabelle. Gli indici di insieme
+ * e simbolo si riferiscono al problema corrente; la pulizia usa soltanto
+ * le capacita e le lunghezze possedute, non i contatori del parser. */
+typedef struct {
+    ModelDimension *dimension;      /* Coordinate possedute, indicizzate per insieme. */
+    size_t dimension_capacity;      /* Celle allocate nel vettore dimension. */
     size_t **table;                 /* Tabelle possedute, una per simbolo, NULL senza celle. */
     unsigned char **part;           /* Contesti temporanei presi in prestito dai quantificatori su parti. */
     size_t symbols;                 /* Numero di celle allocate in table e part, indipendente dal parser. */
-    size_t bytes;                    /* Byte delle tabelle allocate, entro model_memory_limit. */
+    size_t bytes;                    /* Byte di coordinate, puntatori e tabelle posseduti. */
     int limited;                     /* Ultima allocazione interrotta per risorse, non per dominio vuoto. */
 } Model;
 
-/* Libera le tabelle possedute; le cardinalita restano disponibili. */
-static void model_clear(Model *m) {
+/* Libera solo le tabelle; le coordinate restano valide per il tentativo
+ * successivo della stessa enumerazione. Anche la loro memoria e contata. */
+static void model_tables_clear(Model *m) {
     if (m->table) for (size_t i = 0; i < m->symbols; i++) free(m->table[i]);
     free(m->table); free(m->part); m->table = NULL; m->part = NULL; m->symbols = 0;
-    m->bytes = 0;
+    m->bytes = m->dimension_capacity*sizeof *m->dimension;
+}
+
+/* Dimensiona le coordinate entro il budget dei modelli. Una crescita
+ * conserva le cardinalita, azzera le celle nuove e non pubblica memoria
+ * parziale. Risorse finite fermano questa ricerca, non altre dimostrazioni. */
+static int model_dimensions(Model *m) {
+    size_t need=(size_t)sort_count,unit=sizeof *m->dimension;
+    if (m->bytes>model_memory_limit || need>model_memory_limit/unit) { m->limited=1;return 0; }
+    if (need<=m->dimension_capacity) return 1;
+    size_t cap=m->dimension_capacity?m->dimension_capacity:16;
+    while (cap<need) {
+        if (cap>(size_t)-1/2) { cap=need;break; }
+        cap*=2;
+    }
+    size_t other=m->bytes-m->dimension_capacity*unit;
+    if (cap>(model_memory_limit-other)/unit) cap=need;
+    if (cap>(model_memory_limit-other)/unit) { m->limited=1;return 0; }
+    ModelDimension *data=realloc(m->dimension,cap*unit);
+    if (!data) { m->limited=1;return 0; }
+    memset(data+m->dimension_capacity,0,(cap-m->dimension_capacity)*unit);
+    m->dimension=data;m->dimension_capacity=cap;m->bytes=other+cap*unit;
+    return 1;
+}
+
+/* Libera tutto cio che il modello possiede, senza dipendere dai contatori
+ * del parser che possono gia appartenere all'enunciato successivo. */
+static void model_clear(Model *m) {
+    model_tables_clear(m);
+    free(m->dimension);m->dimension=NULL;m->dimension_capacity=0;m->bytes=0;
 }
 
 /* Moltiplica dimensioni solo se il risultato e indirizzabile. */
@@ -27458,7 +27497,7 @@ static int model_product(size_t a, size_t b, size_t *out) {
 static size_t model_cell(const Model *m, int symbol, size_t a, size_t b) {
     if (symbol_bound[symbol]) return m->part[symbol][a];
     size_t cell = symbols[symbol].arity ? a : 0;
-    if (symbols[symbol].arity == 2) cell += b * m->size[symbols[symbol].domain[0]];
+    if (symbols[symbol].arity == 2) cell += b * m->dimension[symbols[symbol].domain[0]].size;
     return m->table[symbol][cell];
 }
 
@@ -27490,7 +27529,7 @@ typedef int (*ModelHolds)(const Model *m, const Sentence *s, size_t *value);
  * copie di 17q): per questo il valore di fuori si salva e si rimette. */
 static int model_part_quantifier(const Model *m, const Sentence *s, size_t *value, ModelHolds holds) {
     int every = s->kind == S_FORALL_PART, result = every;
-    size_t n = m->size[symbols[s->part].domain[0]];
+    size_t n = m->dimension[symbols[s->part].domain[0]].size;
     if (n > model_memory_limit) { model_steps = MAX_MODEL_STEPS + 1LL; return 0; }
     unsigned char *saved = m->part[s->part], *bits = calloc(n ? n : 1, 1);
     if (!bits) { model_steps = MAX_MODEL_STEPS + 1LL; return 0; }
@@ -27523,7 +27562,7 @@ static int model_equipotent(const Model *m, const Sentence *s) {
     size_t size[2] = {1, 1};
     for (int k = 0; k < 2; k++)
         for (int i = 0; i < s->sides[k]; i++)
-            if (!model_product(size[k], m->size[slot_data[s->side_slot[k][i]].sort], &size[k])) {
+            if (!model_product(size[k], m->dimension[slot_data[s->side_slot[k][i]].sort].size, &size[k])) {
                 model_steps = MAX_MODEL_STEPS + 1LL;
                 return 0;
             }
@@ -27565,7 +27604,7 @@ static int model_holds(const Model *m, const Sentence *s, size_t *value) {
         return 0;
     }
     int every = s->kind == S_FORALL;
-    for (size_t x = 0; x < m->size[slot_data[s->slot].sort]; x++) {
+    for (size_t x = 0; x < m->dimension[slot_data[s->slot].sort].size; x++) {
         if (++model_steps > MAX_MODEL_STEPS) return 0;
         value[s->slot] = x;
         if (model_holds(m, s->a, value) != every) return !every;
@@ -27580,36 +27619,37 @@ static size_t model_cells(const Model *m, int symbol, size_t *cells) {
     const Symbol *s = &symbols[symbol];
     *cells = 1;
     for (int i = 0; i < s->arity; i++)
-        if (!model_product(*cells, m->size[s->domain[i]], cells)) { *cells = (size_t)-1; return 0; }
+        if (!model_product(*cells, m->dimension[s->domain[i]].size, cells)) { *cells = (size_t)-1; return 0; }
     if (symbol_bound[symbol]) { *cells = 0; return 1; }
-    return s->range == TRUTH ? 2 : m->size[s->range];
+    return s->range == TRUTH ? 2 : m->dimension[s->range].size;
 }
 
 /* Alloca tabelle azzerate delle cardinalita correnti. Celle e valori non
  * hanno un tetto prefissato; overflow, budget o malloc fallita danno 0.
  * Una funzione con dominio non vuoto e codominio vuoto non esiste. */
 static int model_allocate(Model *m) {
-    model_clear(m);
+    model_tables_clear(m);
     m->limited = 0;
+    if (!model_dimensions(m)) return 0;
     size_t pointers;
-    if (!model_product((size_t)symbol_count, sizeof *m->table + sizeof *m->part, &pointers) || pointers > model_memory_limit) {
+    if (!model_product((size_t)symbol_count, sizeof *m->table + sizeof *m->part, &pointers) || pointers > model_memory_limit-m->bytes) {
         m->limited = 1; return 0;
     }
     if (symbol_count) {
         m->symbols = (size_t)symbol_count;
         m->table = calloc(m->symbols, sizeof *m->table);
         m->part = calloc(m->symbols, sizeof *m->part);
-        if (!m->table || !m->part) { m->limited = 1; model_clear(m); return 0; }
+        if (!m->table || !m->part) { m->limited = 1; model_tables_clear(m); return 0; }
     }
-    m->bytes = pointers;
+    m->bytes += pointers;
     for (int s = 0; s < symbol_count; s++) {
         size_t cells, bytes, values = model_cells(m, s, &cells);
-        if (cells && !values && cells != (size_t)-1) { model_clear(m); return 0; }
+        if (cells && !values && cells != (size_t)-1) { model_tables_clear(m); return 0; }
         if (!model_product(cells, sizeof(size_t), &bytes) || bytes > model_memory_limit - m->bytes) {
-            m->limited = 1; model_clear(m); return 0;
+            m->limited = 1; model_tables_clear(m); return 0;
         }
         if (bytes) m->table[s] = calloc(bytes, 1);
-        if (bytes && !m->table[s]) { m->limited = 1; model_clear(m); return 0; }
+        if (bytes && !m->table[s]) { m->limited = 1; model_tables_clear(m); return 0; }
         m->bytes += bytes;
     }
     return 1;
@@ -27660,37 +27700,38 @@ static int numeral_position(int sort, int s) {
  * una potenza enorme. model_allocate controlla poi il budget di memoria. */
 static int model_derived_sizes(Model *m) {
     for (int i = 0; i < sort_count; i++) {
-        if (sort_kind[i] == SORT_PLAIN) continue;
-        if (sort_kind[i] == SORT_NUMBERS) {
-            m->size[i] = 0;
-            for (int s = 0; s < symbol_count; s++) m->size[i] += symbols[s].name >= NUMERAL_NAMES && symbols[s].range == i;
+        if (sort_data[i].kind == SORT_PLAIN) continue;
+        if (sort_data[i].kind == SORT_NUMBERS) {
+            m->dimension[i].size = 0;
+            for (int s = 0; s < symbol_count; s++) m->dimension[i].size += symbols[s].name >= NUMERAL_NAMES && symbols[s].range == i;
             continue;
         }
-        size_t values = sort_kind[i] == SORT_PARTS ? 2 : m->size[sort_target[i]], size = 1;
-        size_t power = m->size[sort_base[i]];
+        size_t values = sort_data[i].kind == SORT_PARTS ? 2 : m->dimension[sort_data[i].target].size, size = 1;
+        size_t power = m->dimension[sort_data[i].base].size;
         /* L'esponenziazione binaria evita un ciclo lungo anche per 0^n e 1^n. */
         for (; power; power /= 2) {
             if ((power & 1) && !model_product(size, values, &size)) return 0;
             if (power > 1 && !model_product(values, values, &values)) return 0;
         }
-        m->size[i] = size;
+        m->dimension[i].size = size;
     }
     return 1;
 }
 
-/* Le cifre in base base scelgono solo le grandezze del prefisso esaustivo.
- * Ritorna la somma, -1 per un codice ridondante, -2 fuori dal prefisso.
- * I limiti qui riguardano questa strategia breve, non il successivo SAT. */
+/* Le cifre in base base scelgono solo le grandezze degli insiemi arbitrari
+ * del prefisso esaustivo; gli altri non consumano cifre. Ritorna la somma,
+ * o -2 fuori dal prefisso. I limiti non riguardano il successivo SAT. */
 static int model_sizes_at(Model *m, int code, int base) {
+    if (!model_dimensions(m)) return -2;
     int sum = 0;
-    for (int i = 0; i < sort_count; i++, code /= base) {
-        int digit = code % base;
-        if (sort_kind[i] == SORT_PLAIN) sum += (int)(m->size[i] = 1 + digit);
-        else if (digit) return -1;
+    for (int i = 0; i < sort_count; i++) {
+        if (sort_data[i].kind == SORT_PLAIN) {
+            sum += (int)(m->dimension[i].size=1+code%base);code/=base;
+        }
     }
     if (!model_derived_sizes(m)) return -2;
     for (int i = 0; i < sort_count; i++)
-        if (sort_kind[i] != SORT_PLAIN && m->size[i] > MAX_MODEL_OBJECTS) return -2;
+        if (sort_data[i].kind != SORT_PLAIN && m->dimension[i].size > MAX_MODEL_OBJECTS) return -2;
     for (int s = 0; s < symbol_count; s++) {
         size_t cells;
         model_cells(m, s, &cells);
@@ -27713,16 +27754,16 @@ static void model_structure(Model *m) {
     for (int s = 0; s < symbol_count; s++)
         if (symbols[s].name >= NUMERAL_NAMES) m->table[s][0] = (size_t)numeral_position(symbols[s].range, s);
     for (int i = 0; i < sort_count; i++) {
-        if (sort_kind[i] == SORT_PLAIN || sort_kind[i] == SORT_NUMBERS) continue;
-        size_t *cell = m->table[sort_symbol[i]];
-        size_t base = m->size[sort_base[i]];
-        for (size_t x = 0; x < m->size[i]; x++)
+        if (sort_data[i].kind == SORT_PLAIN || sort_data[i].kind == SORT_NUMBERS) continue;
+        size_t *cell = m->table[sort_data[i].symbol];
+        size_t base = m->dimension[sort_data[i].base].size;
+        for (size_t x = 0; x < m->dimension[i].size; x++)
             for (size_t a = 0, rest = x; a < base; a++) {
                 /* Le parti: la cella di (a, x) dice se a sta nella parte x.
                  * Le applicazioni: quella di (x, a) è il valore di x in a. */
-                if (sort_kind[i] == SORT_PARTS) { cell[a + x * base] = (size_t)(x >> a & 1); continue; }
-                cell[x + a * m->size[i]] = (rest % m->size[sort_target[i]]);
-                rest /= m->size[sort_target[i]];
+                if (sort_data[i].kind == SORT_PARTS) { cell[a + x * base] = (size_t)(x >> a & 1); continue; }
+                cell[x + a * m->dimension[i].size] = (rest % m->dimension[sort_data[i].target].size);
+                rest /= m->dimension[sort_data[i].target].size;
             }
     }
 }
@@ -27731,8 +27772,59 @@ static void model_structure(Model *m) {
  * di parti o di applicazioni, la cui grandezza non si sceglie. */
 static int plain_sorts(void) {
     int count = 0;
-    for (int i = 0; i < sort_count; i++) count += sort_kind[i] == SORT_PLAIN;
+    for (int i = 0; i < sort_count; i++) count += sort_data[i].kind == SORT_PLAIN;
     return count;
+}
+
+/* Prima composizione di total negli insiemi arbitrari: tutto nell'ultima
+ * coordinata, zero nelle altre. Non usa una pila proporzionale ai tipi. */
+static int model_composition_start(Model *m,size_t total) {
+    int last=-1;
+    for (int i=0;i<sort_count;i++) if (sort_data[i].kind==SORT_PLAIN) {
+        m->dimension[i].extra=0;last=i;
+    }
+    if (last>=0) m->dimension[last].extra=total;
+    return last>=0 || !total;
+}
+
+/* Composizione successiva, in ordine lessicografico. La coda non nulla
+ * cede un elemento alla coordinata precedente; quelle attraversate sono
+ * azzerate. La somma resta total, quindi l'incremento non puo traboccare.
+ * Ogni composizione appare una volta, senza codificare base^sort_count. */
+static int model_composition_next(Model *m) {
+    int last=sort_count-1;
+    while (last>=0 && sort_data[last].kind!=SORT_PLAIN) last--;
+    if (last<0) return 0;
+    size_t tail=m->dimension[last].extra;
+    for (int i=last-1;i>=0;i--) if (sort_data[i].kind==SORT_PLAIN) {
+        if (tail) {
+            m->dimension[i].extra++;m->dimension[last].extra=tail-1;return 1;
+        }
+        tail=m->dimension[i].extra;m->dimension[i].extra=0;
+    }
+    return 0;
+}
+
+/* Materializza i valori della composizione e le cardinalita derivate.
+ * maximum>0 delimita soltanto il campione indipendente dei libri: ripete
+ * i vincoli del prefisso esaustivo. SAT chiama con zero e non li usa. */
+static int model_composition_values(Model *m,size_t maximum) {
+    for (int i=0;i<sort_count;i++) if (sort_data[i].kind==SORT_PLAIN) {
+        ModelDimension *d=&m->dimension[i];
+        if (d->extra>(size_t)-1-d->minimum) return 0;
+        d->size=d->minimum+d->extra;
+        if (maximum && d->size>maximum) return 0;
+    }
+    if (!model_derived_sizes(m)) return 0;
+    for (int i=0;i<sort_count;i++) {
+        if (m->dimension[i].size<m->dimension[i].minimum) return 0;
+        if (maximum && sort_data[i].kind!=SORT_PLAIN && m->dimension[i].size>MAX_MODEL_OBJECTS) return 0;
+    }
+    if (maximum) for (int f=0;f<symbol_count;f++) {
+        size_t cells;model_cells(m,f,&cells);
+        if (cells>MAX_MODEL_CELLS) return 0;
+    }
+    return 1;
 }
 
 /* Ambiente riutilizzabile dei valutatori finiti. Il vettore possiede le
@@ -27767,7 +27859,14 @@ static int model_search(const Sentence *root, int wanted, Model *m, long long *t
     *bound = 0;
     if (work_allocation_failed) return 0;
     model_steps = 0;
-    for (int i = 0; i < sort_count; i++) codes *= MAX_MODEL_SIZE;
+    if (!model_dimensions(m)) return 0;
+    /* Questa strategia deve completare tutte le configurazioni per
+     * certificare bound. Quando non entrano nella sua quota, passa a SAT;
+     * non tronca un prodotto e non inventa un prefisso completato. */
+    for (int i=0;i<plain;i++) {
+        if (codes>MAX_MODEL_CODES/MAX_MODEL_SIZE) return 0;
+        codes*=MAX_MODEL_SIZE;
+    }
 
     /* Le grandezze, per numero totale di elementi degli insiemi qualsiasi:
      * code le elenca tutte, e a ogni giro si tengono quelle con quel totale.
@@ -27812,15 +27911,16 @@ static int model_search(const Sentence *root, int wanted, Model *m, long long *t
         }
     }
 
-    /* Il più grande k con tutte le grandezze fino a k provate per intero.
-     * Un codice con una cifra dove la grandezza si calcola non è una
-     * scelta; uno che darebbe un insieme di parti troppo grande sì, e non
-     * provato. */
+    /* Il piu grande k con tutte le grandezze fino a k provate per intero.
+     * Ogni codice indica una scelta degli insiemi arbitrari: anche una
+     * costruzione derivata troppo grande resta una scelta non completata. */
     for (int k = 1; k <= MAX_MODEL_SIZE; k++) {
         int all = 1;
         for (int code = 0; code < codes; code++) {
-            int inside = model_sizes(m, code) != -1, rest = code;
-            for (int i = 0; i < sort_count; i++, rest /= MAX_MODEL_SIZE) inside = inside && 1 + rest % MAX_MODEL_SIZE <= k;
+            int inside=1,rest=code;
+            for (int i=0;i<sort_count;i++) if (sort_data[i].kind==SORT_PLAIN) {
+                inside=inside && 1+rest%MAX_MODEL_SIZE<=k;rest/=MAX_MODEL_SIZE;
+            }
             if (inside && !complete[code]) all = 0;
         }
         if (!all) break;
@@ -27888,6 +27988,11 @@ typedef struct {
     SatLiteral *literal;
 } SatTerm;
 
+/* Metadati SAT di un insieme. named conta le costanti dichiarate, seen
+ * quelle gia codificate; ordered_map e la sola mappa S->S ordinata per
+ * simmetria, -1 se assente. Le celle sono possedute dallo stato SAT. */
+typedef struct { size_t named,seen;int ordered_map; } SatSort;
+
 /* Una ricerca possiede tutti i depositi, ognuno con capacita dinamica.
  * I contatori indicano le voci valide; i suffissi _cap le celle allocate.
  * var e term partono da 1; la variabile 1 e vera. trail contiene le
@@ -27913,6 +28018,8 @@ typedef struct {
     size_t watch_cap, limit_cap, term_cap, hash_cap;
     size_t **table, *slots;
     size_t table_cap, slots_cap;
+    SatSort *sort;
+    size_t sort_cap;
 } SatState;
 
 /* Registra lavoro prima di eseguirlo; un budget esaurito non e UNSAT. */
@@ -27952,6 +28059,7 @@ static void sat_clear(SatState *s) {
     for (size_t i = 1; i <= s->terms; i++) free(s->term[i].literal);
     for (size_t i = 0; i < s->table_cap; i++) free(s->table[i]);
     free(s->table);
+    free(s->sort);
     free(s->var); free(s->clause); free(s->literal); free(s->trail);
     free(s->learned); free(s->watch); free(s->limit); free(s->hash); free(s->term); free(s->slots);
     memset(s, 0, sizeof *s);
@@ -28245,22 +28353,22 @@ static size_t sat_application(SatState *s, const Model *m, int symbol, size_t a,
     const Symbol *f = &symbols[symbol];
     if (symbol_bound[symbol]) {
         SatLiteral truth = -1;
-        for (size_t v = 0; v < m->size[f->domain[0]] && !s->broken; v++)
+        for (size_t v = 0; v < m->dimension[f->domain[0]].size && !s->broken; v++)
             if (m->part[symbol][v]) truth = sat_or(s, truth, sat_at(s, a, v));
         return sat_boolean(s, truth);
     }
     size_t av = a ? s->term[a].known : 0, bv = b ? s->term[b].known : 0;
-    if (av != (size_t)-1 && bv != (size_t)-1) return s->table[symbol][av + bv * (a ? m->size[f->domain[0]] : 1)];
+    if (av != (size_t)-1 && bv != (size_t)-1) return s->table[symbol][av + bv * (a ? m->dimension[f->domain[0]].size : 1)];
     size_t at = sat_term_hash(symbol, a, b) % s->hash_cap;
     for (size_t i = s->hash[at]; i; i = s->term[i].next)
         if (s->term[i].symbol == symbol && s->term[i].arg[0] == a && s->term[i].arg[1] == b) return i;
-    size_t size = f->range == TRUTH ? 2 : m->size[f->range], id = sat_vector(s, size);
+    size_t size = f->range == TRUTH ? 2 : m->dimension[f->range].size, id = sat_vector(s, size);
     if (s->broken) return 0;
     /* sat_vector puo aver spostato sia term sia hash. */
     SatTerm *out = &s->term[id];
     at = sat_term_hash(symbol, a, b) % s->hash_cap;
     out->symbol = symbol; out->arg[0] = a; out->arg[1] = b; out->next = s->hash[at]; s->hash[at] = id;
-    size_t na = a ? m->size[f->domain[0]] : 1, nb = b ? m->size[f->domain[1]] : 1;
+    size_t na = a ? m->dimension[f->domain[0]].size : 1, nb = b ? m->dimension[f->domain[1]].size : 1;
     for (size_t y = 0; y < nb && !s->broken; y++)
         for (size_t x = 0; x < na && !s->broken; x++) {
             SatLiteral la = a ? sat_at(s, a, x) : 1, lb = b ? sat_at(s, b, y) : 1;
@@ -28275,7 +28383,7 @@ static size_t sat_application(SatState *s, const Model *m, int symbol, size_t a,
 /* Il vettore di un termine con i legami correnti. */
 static size_t sat_element(SatState *s, const Model *m, const Elem *e) {
     if (s->broken) return 0;
-    if (e->symbol < 0) return sat_constant(s, m->size[slot_data[e->slot].sort], s->slots[e->slot]);
+    if (e->symbol < 0) return sat_constant(s, m->dimension[slot_data[e->slot].sort].size, s->slots[e->slot]);
     size_t a = e->arg[0] ? sat_element(s, m, e->arg[0]) : 0;
     size_t b = e->arg[1] ? sat_element(s, m, e->arg[1]) : 0;
     return sat_application(s, m, e->symbol, a, b);
@@ -28329,7 +28437,7 @@ static SatLiteral sat_sentence(SatState *s, const Model *m, const Sentence *f) {
         int every = f->kind == S_FORALL;
         SatLiteral result = every ? 1 : -1;
         size_t saved = s->slots[f->slot];
-        for (size_t x = 0; x < m->size[slot_data[f->slot].sort] && !s->broken; x++) {
+        for (size_t x = 0; x < m->dimension[slot_data[f->slot].sort].size && !s->broken; x++) {
             s->slots[f->slot] = x; a = sat_sentence(s, m, f->a);
             result = every ? sat_and(s, result, a) : sat_or(s, result, a);
         }
@@ -28339,7 +28447,7 @@ static SatLiteral sat_sentence(SatState *s, const Model *m, const Sentence *f) {
     case S_FORALL_PART: case S_EXISTS_PART: {
         int every = f->kind == S_FORALL_PART;
         SatLiteral result = every ? 1 : -1;
-        size_t n = m->size[symbols[f->part].domain[0]], cap = 0;
+        size_t n = m->dimension[symbols[f->part].domain[0]].size, cap = 0;
         unsigned char *saved = m->part[f->part], *bits = NULL;
         if (!sat_reserve(s, (void **)&bits, &cap, n ? n : 1, 1)) return -1;
         m->part[f->part] = bits;
@@ -28374,14 +28482,13 @@ static int model_sat(const Sentence *root, int wanted, Model *m, unsigned long l
     sat_variable(&s); sat_assign(&s, 1, 0);
     model_steps = 0;
     model_structure(m);
-    size_t named[MAX_SORTS] = {0}, seen[MAX_SORTS] = {0};
-    int ordered_map[MAX_SORTS];
-    for (int i = 0; i < MAX_SORTS; i++) ordered_map[i] = -1;
-    for (int f = 0; f < symbol_count; f++) {
+    sat_reserve(&s,(void **)&s.sort,&s.sort_cap,(size_t)sort_count,sizeof *s.sort);
+    for (int i=0;i<sort_count && !s.broken;i++) s.sort[i].ordered_map=-1;
+    for (int f = 0; f < symbol_count && !s.broken; f++) {
         int sort = symbols[f].range;
-        if (sort < 0 || sort >= sort_count || sort_kind[sort] != SORT_PLAIN || symbol_fixed(f) || symbol_bound[f]) continue;
-        if (!symbols[f].arity) named[sort]++;
-        if (symbols[f].arity == 1 && symbols[f].domain[0] == sort && ordered_map[sort] < 0) ordered_map[sort] = f;
+        if (sort < 0 || sort >= sort_count || sort_data[sort].kind != SORT_PLAIN || symbol_fixed(f) || symbol_bound[f]) continue;
+        if (!symbols[f].arity) s.sort[sort].named++;
+        if (symbols[f].arity == 1 && symbols[f].domain[0] == sort && s.sort[sort].ordered_map < 0) s.sort[sort].ordered_map = f;
     }
     sat_reserve(&s, (void **)&s.table, &s.table_cap, (size_t)symbol_count, sizeof *s.table);
     for (int f = 0; f < symbol_count && !s.broken; f++) {
@@ -28404,15 +28511,15 @@ static int model_sat(const Sentence *root, int wanted, Model *m, unsigned long l
          * elemento arbitrario. Ogni modello ammette questa rinumerazione;
          * non si ordina una seconda mappa, che potrebbe contraddirla. */
         int sort = symbols[f].range;
-        if (!s.broken && sort >= 0 && sort < sort_count && sort_kind[sort] == SORT_PLAIN) {
+        if (!s.broken && sort >= 0 && sort < sort_count && sort_data[sort].kind == SORT_PLAIN) {
             if (!symbols[f].arity) {
-                size_t last = seen[sort]++;
+                size_t last = s.sort[sort].seen++;
                 for (size_t v = last + 1; v < values && !s.broken; v++) {
                     SatLiteral excluded = -sat_at(&s, s.table[f][0], v);
                     sat_clause(&s, &excluded, 1);
                 }
-            } else if (ordered_map[sort] == f) {
-                size_t seed = named[sort] ? named[sort] : 1;
+            } else if (s.sort[sort].ordered_map == f) {
+                size_t seed = s.sort[sort].named ? s.sort[sort].named : 1;
                 for (size_t c = 0; c < cells && c < values && seed < values - c && !s.broken; c++)
                     for (size_t v = seed + c + 1; v < values && !s.broken; v++) {
                         SatLiteral excluded = -sat_at(&s, s.table[f][c], v);
@@ -28447,37 +28554,74 @@ static int model_sat(const Sentence *root, int wanted, Model *m, unsigned long l
     return found;
 }
 
-/* Enumera le composizioni di total nelle cardinalita degli insiemi
- * qualsiasi, includendo zero. Per ogni totale sono finitissime: crescendo
- * total ogni vettore finito viene raggiunto se le risorse bastano. Il
- * prefisso esaustivo gia completato viene saltato solo per insiemi non vuoti. */
-static int model_sat_dimensions(const Sentence *root, int wanted, Model *m, int sort, size_t total,
-                                unsigned long long *work, int bound) {
-    if (*work >= model_work_limit) return 0;
-    ++*work;
-    while (sort < sort_count && sort_kind[sort] != SORT_PLAIN) sort++;
-    if (sort == sort_count) {
-        if (total || *work >= model_work_limit) return 0;
-        int small = bound > 0;
-        for (int i = 0; i < sort_count; i++)
-            if (sort_kind[i] == SORT_PLAIN && (!m->size[i] || m->size[i] > (size_t)bound)) small = 0;
-        if (small || !model_derived_sizes(m)) return 0;
-        return model_sat(root, wanted, m, work);
+/* Consuma visite delle coordinate e dei tipi senza overflow del contatore.
+ * Un budget esaurito non e una risposta di UNSAT. */
+static int model_visit(unsigned long long *work,unsigned long long count) {
+    if (*work>model_work_limit || count>model_work_limit-*work) { *work=model_work_limit;return 0; }
+    *work+=count;return 1;
+}
+
+/* Se la polarita richiede un testimone ordinario, il suo insieme non e
+ * vuoto. Congiunzioni vere e disgiunzioni false obbligano entrambi i lati;
+ * un'implicazione falsa obbliga premessa vera e conclusione falsa. Le altre
+ * alternative non sono assunte. Un testimone di una parte non obbliga il
+ * suo insieme base: anche l'insieme vuoto ha una parte. */
+static int model_required_sorts(Model *m,const Sentence *s,int wanted,unsigned long long *work) {
+    if (!s || !model_visit(work,1)) return s==NULL;
+    if (s->kind==S_NOT) return model_required_sorts(m,s->a,!wanted,work);
+    if ((s->kind==S_AND && wanted) || (s->kind==S_OR && !wanted))
+        return model_required_sorts(m,s->a,wanted,work) && model_required_sorts(m,s->b,wanted,work);
+    if (s->kind==S_IMPLIES && !wanted)
+        return model_required_sorts(m,s->a,1,work) && model_required_sorts(m,s->b,0,work);
+    if ((s->kind==S_EXISTS && wanted) || (s->kind==S_FORALL && !wanted)) {
+        m->dimension[slot_data[s->slot].sort].minimum=1;
+        return model_required_sorts(m,s->a,wanted,work);
     }
-    /* L'ultima coordinata e determinata dalla somma: provarne tutti i
-     * valori intermedi non produce nuovi vettori e costerebbe un fattore
-     * total fuori dal budget SAT. Anche le visite senza traduzione contano. */
-    int next = sort + 1;
-    while (next < sort_count && sort_kind[next] != SORT_PLAIN) next++;
-    if (next == sort_count) {
-        m->size[sort] = total;
-        return model_sat_dimensions(root, wanted, m, next, 0, work, bound);
+    if ((s->kind==S_EXISTS_PART && wanted) || (s->kind==S_FORALL_PART && !wanted))
+        return model_required_sorts(m,s->a,wanted,work);
+    return 1;
+}
+
+/* Limiti inferiori logicamente necessari, non scelte euristiche. Una
+ * costante esige un valore; una funzione con argomenti in insiemi non
+ * vuoti esige un codominio non vuoto. Il punto fisso propaga solo queste
+ * implicazioni. Saltare cardinalita inferiori non perde alcun modello. */
+static int model_minimums(Model *m,const Sentence *root,int wanted,unsigned long long *work) {
+    if (!model_dimensions(m)) return 0;
+    for (int i=0;i<sort_count;i++) {
+        if (!model_visit(work,1)) return 0;
+        m->dimension[i].minimum=sort_data[i].kind==SORT_PARTS || sort_data[i].kind==SORT_NUMBERS;
     }
-    for (size_t n = 0; n <= total && *work < model_work_limit; n++) {
-        m->size[sort] = n;
-        if (model_sat_dimensions(root, wanted, m, sort + 1, total - n, work, bound)) return 1;
-        if (n == total) break;
+    if (!model_required_sorts(m,root,wanted,work)) return 0;
+    for (int changed=1;changed;) {
+        changed=0;
+        for (int f=0;f<symbol_count;f++) {
+            if (!model_visit(work,1)) return 0;
+            const Symbol *symbol=&symbols[f];
+            if (symbol->range==TRUTH || m->dimension[symbol->range].minimum) continue;
+            int nonempty=1;
+            for (int a=0;a<symbol->arity;a++) nonempty &= m->dimension[symbol->domain[a]].minimum>0;
+            if (nonempty) { m->dimension[symbol->range].minimum=1;changed=1; }
+        }
     }
+    return 1;
+}
+
+/* Enumera le composizioni dell'eccesso total oltre i limiti inferiori.
+ * Per ogni totale sono finitissime, e ogni vettore ammissibile viene
+ * raggiunto. Visite, modelli scartati e coordinata finale consumano lavoro;
+ * nessuna ricorsione o potenza codifica il numero degli insiemi. */
+static int model_sat_total(const Sentence *root,int wanted,Model *m,size_t total,
+                           unsigned long long *work,int bound) {
+    if (!model_dimensions(m) || !model_composition_start(m,total)) return 0;
+    do {
+        if (!model_visit(work,(unsigned long long)sort_count+1)) return 0;
+        if (!model_composition_values(m,0)) continue;
+        int small=bound>0;
+        for (int i=0;i<sort_count;i++)
+            if (sort_data[i].kind==SORT_PLAIN && (!m->dimension[i].size || m->dimension[i].size>(size_t)bound)) small=0;
+        if (!small && model_sat(root,wanted,m,work)) return 1;
+    } while (*work<model_work_limit && model_composition_next(m));
     return 0;
 }
 
@@ -28486,8 +28630,9 @@ static int model_sat_dimensions(const Sentence *root, int wanted, Model *m, int 
  * configurabile; esaurirlo non autorizza un verdetto matematico positivo. */
 static int model_sat_search(const Sentence *root, int wanted, Model *m, long long *tried, int bound) {
     unsigned long long work = 0;
+    if (!model_minimums(m,root,wanted,&work)) return 0;
     for (size_t total = 0; work < model_work_limit; total++) {
-        if (model_sat_dimensions(root, wanted, m, 0, total, &work, bound)) { ++*tried; return 1; }
+        if (model_sat_total(root, wanted, m, total, &work, bound)) { ++*tried; return 1; }
         if (!plain_sorts() || total == (size_t)-1) break;
     }
     return 0;
@@ -28502,7 +28647,7 @@ static int index_digits(int index) { return index == ZERO_INDEX ? 0 : index; }
 static void put_symbol(int symbol) {
     const Symbol *s = &symbols[symbol];
     if (s->name >= NUMERAL_NAMES) { proof_add("%d", s->name - NUMERAL_NAMES); return; }
-    if (s->name >= STRUCTURE_NAMES) { proof_add(sort_kind[symbol_structure(symbol)] == SORT_PARTS ? "\\in" : "\\operatorname{ev}"); return; }
+    if (s->name < 0) { proof_add(sort_data[symbol_structure(symbol)].kind == SORT_PARTS ? "\\in" : "\\operatorname{ev}"); return; }
     if (s->name >= RELATION_NAMES) proof_add("\\%s", relation_commands[s->name - RELATION_NAMES]);
     else if (s->name >= GREEK_NAMES) proof_add("\\%s", greek_letters[s->name - GREEK_NAMES]);
     else if (s->name >= OPERATION_NAMES) proof_add("\\%s", operation_symbols[s->name - OPERATION_NAMES]);
@@ -28514,12 +28659,12 @@ static void put_symbol(int symbol) {
 /* Scrive il nome dell'insieme di posto sort: la lettera, o (17v)
  * \mathcal{P}(S) e T^{S}. */
 static void put_sort(int sort) {
-    if (sort_kind[sort] == SORT_PLAIN) {
-        proof_add("%c", sort_name[sort]);
-        if (sort_sub[sort]) proof_add("_{%d}", sort_sub[sort]);  /* 17w */
+    if (sort_data[sort].kind == SORT_PLAIN) {
+        proof_add("%c", sort_data[sort].name);
+        if (sort_data[sort].index) proof_add("_{%d}", sort_data[sort].index);  /* 17w */
         return;
     }
-    if (sort_kind[sort] == SORT_NUMBERS) {
+    if (sort_data[sort].kind == SORT_NUMBERS) {
         /* 17v. I numeri che l'enunciato scrive. */
         proof_add("\\{");
         for (int s = 0, written = 0; s < symbol_count; s++)
@@ -28527,10 +28672,10 @@ static void put_sort(int sort) {
         proof_add("\\}");
         return;
     }
-    if (sort_kind[sort] == SORT_PARTS) { proof_add("\\mathcal{P}("); put_sort(sort_base[sort]); proof_add(")"); return; }
-    put_sort(sort_target[sort]);
+    if (sort_data[sort].kind == SORT_PARTS) { proof_add("\\mathcal{P}("); put_sort(sort_data[sort].base); proof_add(")"); return; }
+    put_sort(sort_data[sort].target);
     proof_add("^{");
-    put_sort(sort_base[sort]);
+    put_sort(sort_data[sort].base);
     proof_add("}");
 }
 
@@ -28541,25 +28686,25 @@ static void put_sort(int sort) {
  * un insieme di applicazioni con i suoi valori, (s_{0} \mapsto t_{1}, ...),
  * con la numerazione di 28m. */
 static void put_model_element(const Model *m, int sort, size_t x) {
-    if (sort_kind[sort] == SORT_PLAIN && sort_sub[sort]) { proof_add("%c_{%d,%zu}", tolower(sort_name[sort]), sort_sub[sort], x); return; }  /* 17w */
-    if (sort_kind[sort] == SORT_PLAIN) { proof_add("%c_{%zu}", tolower(sort_name[sort]), x); return; }
-    if (sort_kind[sort] == SORT_NUMBERS) {
+    if (sort_data[sort].kind == SORT_PLAIN && sort_data[sort].index) { proof_add("%c_{%d,%zu}", tolower(sort_data[sort].name), sort_data[sort].index, x); return; }  /* 17w */
+    if (sort_data[sort].kind == SORT_PLAIN) { proof_add("%c_{%zu}", tolower(sort_data[sort].name), x); return; }
+    if (sort_data[sort].kind == SORT_NUMBERS) {
         /* 17v. Il numero che l'elemento x rappresenta. */
         for (int s = 0; s < symbol_count; s++)
             if (symbols[s].name >= NUMERAL_NAMES && symbols[s].range == sort && (size_t)numeral_position(sort, s) == x) put_symbol(s);
         return;
     }
-    proof_add(sort_kind[sort] == SORT_PARTS ? "\\{" : "(");
-    for (size_t a = 0, written = 0, rest = x; a < m->size[sort_base[sort]]; a++) {
-        if (sort_kind[sort] == SORT_PARTS && !(x >> a & 1)) continue;
+    proof_add(sort_data[sort].kind == SORT_PARTS ? "\\{" : "(");
+    for (size_t a = 0, written = 0, rest = x; a < m->dimension[sort_data[sort].base].size; a++) {
+        if (sort_data[sort].kind == SORT_PARTS && !(x >> a & 1)) continue;
         if (written++) proof_add(", ");
-        put_model_element(m, sort_base[sort], a);
-        if (sort_kind[sort] == SORT_PARTS) continue;
+        put_model_element(m, sort_data[sort].base, a);
+        if (sort_data[sort].kind == SORT_PARTS) continue;
         proof_add(" \\mapsto ");
-        put_model_element(m, sort_target[sort], rest % m->size[sort_target[sort]]);
-        rest /= m->size[sort_target[sort]];
+        put_model_element(m, sort_data[sort].target, rest % m->dimension[sort_data[sort].target].size);
+        rest /= m->dimension[sort_data[sort].target].size;
     }
-    proof_add(sort_kind[sort] == SORT_PARTS ? "\\}" : ")");
+    proof_add(sort_data[sort].kind == SORT_PARTS ? "\\}" : ")");
 }
 
 /* Scrive il modello m: gli insiemi, poi ogni simbolo dichiarato con la sua
@@ -28570,18 +28715,18 @@ static void put_model_element(const Model *m, int sort, size_t x) {
 static void put_model(const Model *m) {
     for (int i = 0, written = 0; i < sort_count; i++) {
         /* 17v. I numeri scritti sono i soli elementi del loro insieme. */
-        if (sort_kind[i] == SORT_NUMBERS) { proof_add("%s$", written++ ? ", " : ""); put_sort(i); proof_add("$"); }
-        if (sort_kind[i] != SORT_PLAIN) continue;
+        if (sort_data[i].kind == SORT_NUMBERS) { proof_add("%s$", written++ ? ", " : ""); put_sort(i); proof_add("$"); }
+        if (sort_data[i].kind != SORT_PLAIN) continue;
         proof_add("%s$", written++ ? ", " : "");
         put_sort(i);
         proof_add(" = \\{");
-        for (size_t x = 0; x < m->size[i]; x++) { if (x) proof_add(", "); put_model_element(m, i, x); }
+        for (size_t x = 0; x < m->dimension[i].size; x++) { if (x) proof_add(", "); put_model_element(m, i, x); }
         proof_add("\\}$");
     }
     for (int s = 0; s < symbol_count; s++) {
         if (symbol_fixed(s)) continue;
         const Symbol *symbol = &symbols[s];
-        size_t cells, first = m->size[symbol->arity ? symbol->domain[0] : 0], written = 0;
+        size_t cells, first = m->dimension[symbol->arity ? symbol->domain[0] : 0].size, written = 0;
         if (symbol_bound[s]) continue;  /* una parte legata (28i) non ha tabella */
         model_cells(m, s, &cells);
         proof_add("; $");
@@ -28669,7 +28814,7 @@ static int book_member(const Model *m, const size_t *t, const SetTerm *set, size
         int possible = 1;
         for (int i = 0; i < set->bounds; i++) {
             saved[i] = value[set->bound[i]]; value[set->bound[i]] = 0;
-            possible = possible && m->size[slot_data[set->bound[i]].sort] != 0;
+            possible = possible && m->dimension[slot_data[set->bound[i]].sort].size != 0;
         }
         for (int more = possible; more && !found; ) {
             if (++model_steps > MAX_MODEL_STEPS) break;
@@ -28678,7 +28823,7 @@ static int book_member(const Model *m, const size_t *t, const SetTerm *set, size
             found = same && book_holds(m, set->condition, value);
             more = 0;
             for (int i = 0; i < set->bounds && !more; i++) {
-                if (++value[set->bound[i]] < m->size[slot_data[set->bound[i]].sort]) more = 1; else value[set->bound[i]] = 0;
+                if (++value[set->bound[i]] < m->dimension[slot_data[set->bound[i]].sort].size) more = 1; else value[set->bound[i]] = 0;
             }
         }
         for (int i = 0; i < set->bounds; i++) value[set->bound[i]] = saved[i];
@@ -28693,7 +28838,7 @@ static int book_member(const Model *m, const size_t *t, const SetTerm *set, size
             arg = set->items ? model_cell(m, set->symbol, map, t[0]) : model_cell(m, set->symbol, t[0], 0);
             return book_member(m, &arg, set->a, value);
         }
-        for (arg = 0; arg < m->size[sort] && !found; arg++)
+        for (arg = 0; arg < m->dimension[sort].size && !found; arg++)
             found = (set->items ? model_cell(m, set->symbol, map, arg) : model_cell(m, set->symbol, arg, 0)) == t[0] && book_member(m, &arg, set->a, value);
         return found;
     }
@@ -28714,7 +28859,7 @@ static int book_member(const Model *m, const size_t *t, const SetTerm *set, size
         int possible = 1;
         for (int i = 0; i < set->bounds; i++) {
             saved[i] = value[set->bound[i]]; value[set->bound[i]] = 0;
-            possible = possible && m->size[slot_data[set->bound[i]].sort] != 0;
+            possible = possible && m->dimension[slot_data[set->bound[i]].sort].size != 0;
         }
         for (int more = possible; more && !found; ) {
             if (++model_steps > MAX_MODEL_STEPS) break;
@@ -28723,13 +28868,13 @@ static int book_member(const Model *m, const size_t *t, const SetTerm *set, size
                     found = model_element(m, set->item[0], value) == t[0];
                 } else {
                     found = 1;
-                    for (arg = 0; arg < m->size[sort_base[set->sort[0]]] && found; arg++)
+                    for (arg = 0; arg < m->dimension[sort_data[set->sort[0]].base].size && found; arg++)
                         found = (int)model_cell(m, set->symbol, arg, t[0]) == book_member(m, &arg, set->a, value);
                 }
             }
             more = 0;
             for (int i = 0; i < set->bounds && !more; i++) {
-                if (++value[set->bound[i]] < m->size[slot_data[set->bound[i]].sort]) more = 1; else value[set->bound[i]] = 0;
+                if (++value[set->bound[i]] < m->dimension[slot_data[set->bound[i]].sort].size) more = 1; else value[set->bound[i]] = 0;
             }
         }
         for (int i = 0; i < set->bounds; i++) value[set->bound[i]] = saved[i];
@@ -28740,10 +28885,10 @@ static int book_member(const Model *m, const size_t *t, const SetTerm *set, size
          * modelli ce n'è una sola, 28m) dà t \in b. */
         int z = set->bound[0], sort = slot_data[z].sort, result = 1;
         saved[0] = value[z];
-        for (size_t x = 0; x < m->size[sort] && result; x++) {
+        for (size_t x = 0; x < m->dimension[sort].size && result; x++) {
             int same = 1;
-            for (arg = 0; arg < m->size[sort_base[sort]] && same; arg++)
-                same = (int)model_cell(m, sort_symbol[sort], arg, x) == book_member(m, &arg, set->a, value);
+            for (arg = 0; arg < m->dimension[sort_data[sort].base].size && same; arg++)
+                same = (int)model_cell(m, sort_data[sort].symbol, arg, x) == book_member(m, &arg, set->a, value);
             if (!same) continue;
             value[z] = x;
             result = book_member(m, t, set->b, value);
@@ -28753,7 +28898,7 @@ static int book_member(const Model *m, const size_t *t, const SetTerm *set, size
     }
     case ST_POWERSET:
         /* 17v. Ogni elemento della parte t sta in a. */
-        for (arg = 0; arg < m->size[sort_base[set->sort[0]]]; arg++)
+        for (arg = 0; arg < m->dimension[sort_data[set->sort[0]].base].size; arg++)
             if (model_cell(m, set->symbol, arg, t[0]) && !book_member(m, &arg, set->a, value)) return 0;
         return 1;
     case ST_UNION:
@@ -28768,7 +28913,7 @@ static int book_member(const Model *m, const size_t *t, const SetTerm *set, size
         /* Ogni valore dell'indice, nel suo insieme o nella sua parte. */
         int index = set->bound[0], every = set->kind == ST_BIG_INTER, result = every;
         saved[0] = value[index];
-        for (size_t i = 0; i < m->size[slot_data[index].sort] && result == every; i++) {
+        for (size_t i = 0; i < m->dimension[slot_data[index].sort].size && result == every; i++) {
             if (set->symbol >= 0 && !model_cell(m, set->symbol, i, 0)) continue;
             if (set->b && !book_member(m, &i, set->b, value)) continue;
             value[index] = i;
@@ -28787,7 +28932,7 @@ static int book_member(const Model *m, const size_t *t, const SetTerm *set, size
  * Con how = 2 ritorna 1 se c'è un t che sta in other e non in set. */
 static int book_compare(const Model *m, const SetTerm *set, const SetTerm *other, int how, size_t *value) {
     size_t t[MAX_ARITY] = {0};
-    for (int i = 0; i < set->arity; i++) if (!m->size[set->sort[i]]) return how != 2;
+    for (int i = 0; i < set->arity; i++) if (!m->dimension[set->sort[i]].size) return how != 2;
     for (;;) {
         if (++model_steps > MAX_MODEL_STEPS) return 0;
         int in_set = book_member(m, t, set, value), in_other = book_member(m, t, other, value);
@@ -28796,7 +28941,7 @@ static int book_compare(const Model *m, const SetTerm *set, const SetTerm *other
         if (how == 2 && in_other && !in_set) return 1;
         int i = 0;
         for (; i < set->arity; i++) {
-            if (++t[i] < m->size[set->sort[i]]) break;
+            if (++t[i] < m->dimension[set->sort[i]].size) break;
             t[i] = 0;
         }
         if (i == set->arity) return how != 2;
@@ -28832,7 +28977,7 @@ static int book_holds(const Model *m, const Sentence *s, size_t *value) {
         return model_part_quantifier(m, s, value, book_holds);
     case S_UNIQUE:
         /* Si contano gli elementi per cui vale. */
-        for (size_t x = 0; x < m->size[slot_data[s->slot].sort] && count < 2; x++) {
+        for (size_t x = 0; x < m->dimension[slot_data[s->slot].sort].size && count < 2; x++) {
             if (++model_steps > MAX_MODEL_STEPS) return 0;
             value[s->slot] = x;
             count += book_holds(m, s->a, value);
@@ -28842,7 +28987,7 @@ static int book_holds(const Model *m, const Sentence *s, size_t *value) {
         break;
     }
     every = s->kind == S_FORALL;
-    for (size_t x = 0; x < m->size[slot_data[s->slot].sort]; x++) {
+    for (size_t x = 0; x < m->dimension[slot_data[s->slot].sort].size; x++) {
         if (++model_steps > MAX_MODEL_STEPS) return 0;
         value[s->slot] = x;
         if (book_holds(m, s->a, value) != every) return !every;
@@ -28870,47 +29015,57 @@ static void book_random_tables(Model *m, unsigned *state) {
  * descritti in testa al paragrafo. Ritorna quanti modelli ha confrontato, o
  * -1 se in uno i due valori sono diversi. */
 static long long book_check(const Sentence *written, const Sentence *unfolded) {
-    Model m = {0};
-    size_t *value = model_variables();
-    if (work_allocation_failed) return 0;
-    int codes = 1;
-    unsigned state = 2463534242u;
-    long long compared = 0;
-    model_steps = 0;
-    for (int i = 0; i < sort_count; i++) codes *= MAX_MODEL_SIZE;
-    for (int total = plain_sorts(); sort_count && total <= plain_sorts() * MAX_MODEL_SIZE; total++) {
-        for (int code = 0; code < codes; code++) {
-            if (model_sizes(&m, code) != total) continue;
+    Model m={0};
+    size_t *value=model_variables();
+    if (work_allocation_failed || !model_dimensions(&m)) { model_clear(&m);return 0; }
+    for (int i=0;i<sort_count;i++) m.dimension[i].minimum=sort_data[i].kind==SORT_PLAIN;
+    unsigned state=2463534242u;
+    unsigned long long visits=0,cost=(unsigned long long)sort_count+1;
+    long long compared=0;
+    model_steps=0;
 
-            /* Tutte le tabelle se sono al più 256, altrimenti 256 a caso.
-             * Quelle fissate dalla struttura (28m) non si scelgono. */
-            double count = 1;
-            for (int s = 0; s < symbol_count && count <= 256; s++) {
-                size_t cells, values = model_cells(&m, s, &cells);
-                for (size_t c = 0; c < cells && count <= 256 && !symbol_fixed(s); c++) count *= values;
+    /* Le composizioni visitano direttamente i totali possibili: non
+     * calcolano 4^sort_count e non attraversano codici di insiemi derivati.
+     * La quota conta anche configurazioni scartate e scansioni dei tipi. */
+    size_t last;
+    if (!model_product((size_t)plain_sorts(),MAX_MODEL_SIZE-1,&last)) goto finished;
+    for (size_t total=0;total<=last;total++) {
+        model_composition_start(&m,total);
+        do {
+            if (cost>MAX_MODEL_WORK-visits) goto finished;
+            visits+=cost;
+            if (!model_composition_values(&m,MAX_MODEL_SIZE)) continue;
+
+            /* Tutte le tabelle se sono al piu 256, altrimenti 256 a caso.
+             * I simboli di struttura non si scelgono. La valutazione del
+             * testo scritto resta indipendente da quella dello svolto. */
+            double count=1;
+            for (int f=0;f<symbol_count && count<=256;f++) {
+                size_t cells,values=model_cells(&m,f,&cells);
+                for (size_t c=0;c<cells && count<=256 && !symbol_fixed(f);c++) count*=values;
             }
             if (!model_allocate(&m)) continue;
             model_structure(&m);
-            for (int tried = 0, more = 1; more; tried++) {
-                if (count > 256) book_random_tables(&m, &state);
-                int book = book_holds(&m, written, value), plain = model_holds(&m, unfolded, value);
-                if (model_steps > MAX_MODEL_STEPS) { model_clear(&m); return compared; }
-                if (book != plain) { model_clear(&m); return -1; }
-                if (++compared >= MAX_CHECK_MODELS) { model_clear(&m); return compared; }
-
-                /* La tabella successiva, come in model_search(). */
-                more = 0;
-                if (count > 256) { more = tried + 1 < 256; continue; }
-                for (int s = 0; s < symbol_count && !more; s++) {
-                    if (symbol_fixed(s)) continue;
-                    size_t cells, values = model_cells(&m, s, &cells);
-                    for (size_t c = 0; c < cells && !more; c++) {
-                        if (++m.table[s][c] < values) more = 1; else m.table[s][c] = 0;
+            for (int tried=0,more=1;more;tried++) {
+                if (count>256) book_random_tables(&m,&state);
+                int book=book_holds(&m,written,value),plain=model_holds(&m,unfolded,value);
+                if (model_steps>MAX_MODEL_STEPS) goto finished;
+                if (book!=plain) { model_clear(&m);return -1; }
+                if (++compared>=MAX_CHECK_MODELS) goto finished;
+                more=0;
+                if (count>256) { more=tried+1<256;continue; }
+                for (int f=0;f<symbol_count && !more;f++) {
+                    if (symbol_fixed(f)) continue;
+                    size_t cells,values=model_cells(&m,f,&cells);
+                    for (size_t c=0;c<cells && !more;c++) {
+                        if (++m.table[f][c]<values) more=1;else m.table[f][c]=0;
                     }
                 }
             }
-        }
+            model_tables_clear(&m);
+        } while (model_composition_next(&m));
     }
+finished:
     model_clear(&m);
     return compared;
 }
@@ -30572,7 +30727,8 @@ static int bij_count;
 
 /* 28q. Le variabili delle definizioni: due per insieme, nate una volta per
  * enunciato da bijection_prepare(); bij_ready è 0 se non ci sono. */
-static int bij_slot[MAX_SORTS][2], bij_ready;
+static int (*bij_slot)[2],bij_ready;
+static size_t bij_slot_capacity;
 
 /* 28q. Quale testimone provare, dal più corto (0), e quanti se ne sono
  * trovati al più in un ramo: li usa claim_attempts(). */
@@ -30598,7 +30754,7 @@ static void bij_keep(int *list, int *count, int max, int t) {
     list[at] = t;
 }
 
-static int bij_terms(int from, int to, unsigned visited, int *list, int max);
+static int bij_terms(int from, int to, SlotSet visited, int *list, int max);
 
 /* 28q. Mette in list[] i passi da from all'insieme step (w2 con un nome, w3,
  * w4), al più max, dai più corti. */
@@ -30616,27 +30772,27 @@ static void bij_steps(int from, int step, int *list, int *count, int max) {
 
     /* w3 e w4: termini tra gli insiemi su cui sono costruiti. */
     int a[MAX_WITNESSES], b[MAX_WITNESSES], na = 0, nb = 1;
-    if (sort_kind[from] != sort_kind[step] || (sort_kind[from] != SORT_PARTS && sort_kind[from] != SORT_MAPS)) return;
-    na = bij_terms(sort_base[from], sort_base[step], 0, a, max);
-    if (sort_kind[from] == SORT_MAPS) nb = bij_terms(sort_target[from], sort_target[step], 0, b, max);
+    if (sort_data[from].kind != sort_data[step].kind || (sort_data[from].kind != SORT_PARTS && sort_data[from].kind != SORT_MAPS)) return;
+    na = bij_terms(sort_data[from].base, sort_data[step].base, SLOT_EMPTY, a, max);
+    if (sort_data[from].kind == SORT_MAPS) nb = bij_terms(sort_data[from].target, sort_data[step].target, SLOT_EMPTY, b, max);
     for (int i = 0; i < na; i++)
         for (int j = 0; j < nb; j++) {
             Bij made = {BIJ_PARTS, from, step, -1, -1, {a[i], -1}, -1, 1 + bij[a[i]].size};
-            if (sort_kind[from] == SORT_MAPS) { made.kind = BIJ_MAPS; made.inner[1] = b[j]; made.size += bij[b[j]].size; }
+            if (sort_data[from].kind == SORT_MAPS) { made.kind = BIJ_MAPS; made.inner[1] = b[j]; made.size += bij[b[j]].size; }
             bij_keep(list, count, max, bij_new(made));
         }
 }
 
 /* 28q. Mette in list[] i termini da from a to che non passano per gli
- * insiemi di visited (bit i: l'insieme di posto i), al più max, dai più
+ * insiemi di visited (indice i: l'insieme di posto i), al più max, dai più
  * corti, e ritorna quanti sono. */
-static int bij_terms(int from, int to, unsigned visited, int *list, int max) {
+static int bij_terms(int from, int to, SlotSet visited, int *list, int max) {
     int count = 0;
     if (from == to) bij_keep(list, &count, max, bij_new((Bij){BIJ_SAME, from, to, -1, -1, {-1, -1}, -1, 0}));
-    visited |= 1u << from;
+    visited=slot_set_with(visited,from);
     for (int step = 0; step < sort_count; step++) {
         int first[MAX_WITNESSES], rest[MAX_WITNESSES], steps = 0, rests;
-        if (visited >> step & 1) continue;
+        if (slot_set_contains(visited,step)) continue;
         bij_steps(from, step, first, &steps, max);
         if (!steps) continue;
         rests = bij_terms(step, to, visited, rest, max);
@@ -30691,16 +30847,16 @@ static int bij_write(int t) {
     b->backward = backward;
     for (int side = 0; side < 2; side++) {
         /* side 0: \gamma da from a to; side 1: \delta da to a from. */
-        int map = side ? backward : forward, arg = side ? b->to : b->from, value = side ? b->from : b->to, base = sort_base[value];
+        int map = side ? backward : forward, arg = side ? b->to : b->from, value = side ? b->from : b->to, base = sort_data[value].base;
         Elem *object = slot_elem(bij_slot[arg][0]), *y = slot_elem(bij_slot[base][0]), *image = elem_new(map, 0, object, NULL);
         Sentence *spec;
         if (b->kind == BIJ_PARTS) {
             /* d2: y \in \gamma(X) \iff \beta^{-1}(y) \in X; y \in \delta(Y) \iff \beta(y) \in Y. */
-            spec = axiom_join(S_IFF, axiom_atom(S_HOLDS, sort_symbol[value], y, image), axiom_atom(S_HOLDS, sort_symbol[arg], bij_apply(b->inner[0], y, !side), object));
+            spec = axiom_join(S_IFF, axiom_atom(S_HOLDS, sort_data[value].symbol, y, image), axiom_atom(S_HOLDS, sort_data[arg].symbol, bij_apply(b->inner[0], y, !side), object));
         } else {
             /* d3: \gamma(f)(y) = \beta(f(\alpha^{-1}(y))); \delta(F)(y) = \beta^{-1}(F(\alpha(y))). */
-            Elem *inside = elem_new(sort_symbol[arg], 0, object, bij_apply(b->inner[0], y, !side));
-            spec = axiom_atom(S_EQUAL, -1, elem_new(sort_symbol[value], 0, image, y), bij_apply(b->inner[1], inside, side));
+            Elem *inside = elem_new(sort_data[arg].symbol, 0, object, bij_apply(b->inner[0], y, !side));
+            spec = axiom_atom(S_EQUAL, -1, elem_new(sort_data[value].symbol, 0, image, y), bij_apply(b->inner[1], inside, side));
         }
         if (!mapdef_add(axiom_bind(S_FORALL, bij_slot[arg][0], axiom_bind(S_FORALL, bij_slot[base][0], spec)), map)) return 0;
     }
@@ -30734,7 +30890,7 @@ static int bijection_witness(int r) {
     bij_count = 0;
     for (int swap = 0; swap < m; swap++) {
         int list[2][MAX_WITNESSES], length[2];
-        for (int j = 0; j < n; j++) length[j] = bij_terms(side_sort(e, 0, swap ? 1 - j : j), side_sort(e, 1, j), 0, list[j], MAX_WITNESSES);
+        for (int j = 0; j < n; j++) length[j] = bij_terms(side_sort(e, 0, swap ? 1 - j : j), side_sort(e, 1, j), SLOT_EMPTY, list[j], MAX_WITNESSES);
         for (int a = 0; a < length[0]; a++)
             for (int b = 0; b < (n == 2 ? length[1] : 1); b++) {
                 Witness w = {{list[0][a], n == 2 ? list[1][b] : -1}, swap, bij[list[0][a]].size + (n == 2 ? bij[list[1][b]].size : 0)};
@@ -30808,15 +30964,16 @@ static int sentence_has_equipotence(const Sentence *s) {
 }
 
 /* 28q. Prepara le variabili delle definizioni, due per insieme, se
- * l'enunciato root ha un'equipotenza; se le lettere non bastano, i testimoni
- * non si costruiscono. */
+ * l'enunciato root ha un'equipotenza. Un errore di risorse interrompe la
+ * preparazione; una rinuncia lessicale non contamina la prova successiva. */
 static void bijection_prepare(const Sentence *root) {
     const char *before = syntax_error;
     bij_ready = 0;
     if (!sentence_has_equipotence(root)) return;
-    for (int i = 0; i < sort_count; i++)
-        for (int j = 0; j < 2; j++) bij_slot[i][j] = unfold_slot(i);
-    bij_ready = syntax_error == before;
+    if (!work_reserve((void **)&bij_slot,&bij_slot_capacity,(size_t)sort_count,sizeof *bij_slot)) return;
+    for (int i=0;i<sort_count && syntax_error==before && !work_allocation_failed;i++)
+        for (int j=0;j<2 && syntax_error==before && !work_allocation_failed;j++) bij_slot[i][j]=unfold_slot(i);
+    bij_ready=syntax_error==before && !work_allocation_failed;
     syntax_error = before;
 }
 
@@ -30912,8 +31069,9 @@ static int generation_limit;
  * presente per ogni classe (il più vecchio, posto in ground[]), in ordine di
  * età, e quanti sono. Lo rifà candidate_prepare(). candidate_steps conta i
  * passi del calcolo, fino a MAX_CANDIDATE_STEPS per giro di istanze. */
-static short candidate_domain[MAX_SORTS][MAX_GROUND];
-static int candidate_size[MAX_SORTS];
+static short (*candidate_domain)[MAX_GROUND];
+static int *candidate_size;
+static size_t candidate_domain_capacity,candidate_size_capacity;
 static long long candidate_steps;
 
 /* Ritorna il valore dell'elemento e nel modello candidato, con le variabili
@@ -31446,14 +31604,14 @@ static int bijection_derived(int i) {
  * d3 è nuova: non è tra quelle di bound. */
 static int spec_defines(const Sentence *spec, Elem *value, int sort, int map, SlotSet bound) {
     if (spec->kind == S_EQUAL) return elem_renamed(spec->left, value, NULL, NULL, 0) && !elem_mentions(spec->right, map);
-    if (spec->kind != S_FORALL || slot_set_contains(bound, spec->slot) || (sort_kind[sort] != SORT_PARTS && sort_kind[sort] != SORT_MAPS) ||
-        slot_data[spec->slot].sort != sort_base[sort])
+    if (spec->kind != S_FORALL || slot_set_contains(bound, spec->slot) || (sort_data[sort].kind != SORT_PARTS && sort_data[sort].kind != SORT_MAPS) ||
+        slot_data[spec->slot].sort != sort_data[sort].base)
         return 0;
     Elem *y = slot_elem(spec->slot);
     const Sentence *body = spec->a;
     bound = slot_set_with(bound, spec->slot);
-    if (sort_kind[sort] == SORT_MAPS) return spec_defines(body, elem_new(sort_symbol[sort], 0, value, y), sort_target[sort], map, bound);
-    return body->kind == S_IFF && body->a->kind == S_HOLDS && elem_renamed(body->a->left, elem_new(sort_symbol[sort], 0, y, value), NULL, NULL, 0) &&
+    if (sort_data[sort].kind == SORT_MAPS) return spec_defines(body, elem_new(sort_data[sort].symbol, 0, value, y), sort_data[sort].target, map, bound);
+    return body->kind == S_IFF && body->a->kind == S_HOLDS && elem_renamed(body->a->left, elem_new(sort_data[sort].symbol, 0, y, value), NULL, NULL, 0) &&
            !sentence_mentions(body->b, map);
 }
 
@@ -31927,21 +32085,19 @@ static int leaf_write(int leaf) {
  * già nel certificato dell'affermazione in corso. */
 static unsigned char name_written[MAX_NAMES_GIVEN + 1];
 
-/* Scrive nel certificato il nome dell'insieme di posto sort: la lettera,
- * oppure (17v) P seguito dal nome di S per \mathcal{P}(S), M seguito dai
- * nomi di S e di T per T^{S}. Le lettere degli insiemi sono maiuscole
- * singole, quindi un nome di più lettere non è mai quello di un insieme
- * qualsiasi, e la scrittura si rilegge in un modo solo. */
+/* Scrive un'etichetta univoca dell'insieme. I nomi arbitrari conservano
+ * lettera e pedice; quelli derivati hanno un prefisso con underscore e
+ * l'indice del tipo, distinto dai nomi arbitrari. Concatenare gli alberi
+ * non basta: mappe parti(P)->S e P->parti(S) darebbero entrambe MPPS.
+ * Il significato resta nei dati parts/maps, mai nell'etichetta. */
 static void cert_sort(int sort) {
-    if (sort_kind[sort] == SORT_PLAIN) {
-        cert_add("%c", sort_name[sort]);
-        if (sort_sub[sort]) cert_add("%d", sort_sub[sort]);  /* 17w */
+    if (sort_data[sort].kind == SORT_PLAIN) {
+        cert_add("%c", sort_data[sort].name);
+        if (sort_data[sort].index) cert_add("%d", sort_data[sort].index);  /* 17w */
         return;
     }
-    if (sort_kind[sort] == SORT_NUMBERS) { cert_add("Num"); return; }
-    cert_add(sort_kind[sort] == SORT_PARTS ? "P" : "M");
-    cert_sort(sort_base[sort]);
-    if (sort_kind[sort] == SORT_MAPS) cert_sort(sort_target[sort]);
+    if (sort_data[sort].kind == SORT_NUMBERS) { cert_add("Num"); return; }
+    cert_add("%c_%d",sort_data[sort].kind==SORT_PARTS?'P':'M',sort);
 }
 
 /* Scrive nel certificato il nome del simbolo di posto symbol. Un simbolo
@@ -31949,7 +32105,7 @@ static void cert_sort(int sort) {
 static void cert_symbol(int symbol) {
     const Symbol *s = &symbols[symbol];
     if (symbol_structure(symbol) >= 0) {
-        cert_add(sort_kind[symbol_structure(symbol)] == SORT_PARTS ? "in" : "ap");
+        cert_add(sort_data[symbol_structure(symbol)].kind == SORT_PARTS ? "in" : "ap");
         cert_sort(symbol_structure(symbol));
         return;
     }
@@ -32075,19 +32231,19 @@ static void cert_abstract_head(const char *kind, const Sentence *root, const Mod
          * tabella il verificatore le calcola da sé. */
         cert_add("sort ");
         cert_sort(i);
-        if (sort_kind[i] == SORT_NUMBERS) {
+        if (sort_data[i].kind == SORT_NUMBERS) {
             /* 17v. I numeri scritti, nel loro ordine (numeral_position()). */
             cert_add(" numbers");
             for (int s = 0; s < declared_symbols; s++)
                 if (symbols[s].name >= NUMERAL_NAMES && symbols[s].range == i) { cert_add(" "); cert_symbol(s); }
-        } else if (sort_kind[i] != SORT_PLAIN) {
-            cert_add(sort_kind[i] == SORT_PARTS ? " parts " : " maps ");
-            cert_sort(sort_base[i]);
-            if (sort_kind[i] == SORT_MAPS) { cert_add(" "); cert_sort(sort_target[i]); }
+        } else if (sort_data[i].kind != SORT_PLAIN) {
+            cert_add(sort_data[i].kind == SORT_PARTS ? " parts " : " maps ");
+            cert_sort(sort_data[i].base);
+            if (sort_data[i].kind == SORT_MAPS) { cert_add(" "); cert_sort(sort_data[i].target); }
             cert_add(" ");
-            cert_symbol(sort_symbol[i]);
+            cert_symbol(sort_data[i].symbol);
         } else if (m) {
-            cert_add(" %zu", m->size[i]);
+            cert_add(" %zu", m->dimension[i].size);
         }
         cert_add("\n");
     }
@@ -32353,9 +32509,9 @@ static void axiom_add(const Sentence *a, Law law) {
 /* 28n-1 e 28n-2. L'estensionalità dell'insieme di posto sort, di parti o
  * di applicazioni. */
 static void axiom_extensionality(int sort) {
-    int x, y, t, symbol = sort_symbol[sort];
-    Elem *a = axiom_variable(sort, &x), *b = axiom_variable(sort, &y), *point = axiom_variable(sort_base[sort], &t);
-    Sentence *same = sort_kind[sort] == SORT_PARTS
+    int x, y, t, symbol = sort_data[sort].symbol;
+    Elem *a = axiom_variable(sort, &x), *b = axiom_variable(sort, &y), *point = axiom_variable(sort_data[sort].base, &t);
+    Sentence *same = sort_data[sort].kind == SORT_PARTS
                          ? axiom_join(S_IFF, axiom_atom(S_HOLDS, symbol, point, a), axiom_atom(S_HOLDS, symbol, point, b))
                          : axiom_atom(S_EQUAL, -1, elem_new(symbol, 0, a, point), elem_new(symbol, 0, b, point));
     Sentence *law = axiom_join(S_IMPLIES, axiom_bind(S_FORALL, t, same), axiom_atom(S_EQUAL, -1, a, b));
@@ -32367,11 +32523,11 @@ static void axiom_extensionality(int sort) {
  * falsa), 1 per tutto S (P vera), 2 per \{a\} (P è t = a, con a
  * parametro). */
 static void axiom_part(int sort, int kind) {
-    int z, t, a = -1, symbol = sort_symbol[sort];
-    Elem *part = axiom_variable(sort, &z), *point = axiom_variable(sort_base[sort], &t);
+    int z, t, a = -1, symbol = sort_data[sort].symbol;
+    Elem *part = axiom_variable(sort, &z), *point = axiom_variable(sort_data[sort].base, &t);
     Sentence *condition = axiom_join(S_TRUE, NULL, NULL);
     if (kind == 0) condition = axiom_join(S_NOT, condition, NULL);
-    if (kind == 2) condition = axiom_atom(S_EQUAL, -1, point, axiom_variable(sort_base[sort], &a));
+    if (kind == 2) condition = axiom_atom(S_EQUAL, -1, point, axiom_variable(sort_data[sort].base, &a));
     Sentence *law = axiom_bind(S_EXISTS, z, axiom_bind(S_FORALL, t, axiom_join(S_IFF, axiom_atom(S_HOLDS, symbol, point, part), condition)));
     axiom_add(kind == 2 ? axiom_bind(S_FORALL, a, law) : law, LAW_COMPREHENSION);
 }
@@ -32438,7 +32594,7 @@ static void axiom_template(const SetTerm *e) {
     Sentence *condition = unfold_member(&point, e, from);
     unfold_copying--;
     if (unfold_capacity) memset(unfold_to, 0, unfold_capacity * sizeof *unfold_to);
-    Sentence *law = axiom_bind(S_EXISTS, z, axiom_bind(S_FORALL, t, axiom_join(S_IFF, axiom_atom(S_HOLDS, sort_symbol[sort], point, part), condition)));
+    Sentence *law = axiom_bind(S_EXISTS, z, axiom_bind(S_FORALL, t, axiom_join(S_IFF, axiom_atom(S_HOLDS, sort_data[sort].symbol, point, part), condition)));
     while (count > 0) law = axiom_bind(S_FORALL, slot[--count], law);
     axiom_add(law, LAW_COMPREHENSION);
 }
@@ -32476,9 +32632,9 @@ static void axiom_template(const SetTerm *e) {
  * T^{S}\ \forall x \in S\ ((x = p \implies h(x) = u) \land (x \neq p
  * \implies h(x) = v)). */
 static void axiom_map_point(int sort) {
-    int p, u, v, h, x, symbol = sort_symbol[sort];
-    Elem *point = axiom_variable(sort_base[sort], &p), *first = axiom_variable(sort_target[sort], &u), *other = axiom_variable(sort_target[sort], &v);
-    Elem *map = axiom_variable(sort, &h), *at = axiom_variable(sort_base[sort], &x);
+    int p, u, v, h, x, symbol = sort_data[sort].symbol;
+    Elem *point = axiom_variable(sort_data[sort].base, &p), *first = axiom_variable(sort_data[sort].target, &u), *other = axiom_variable(sort_data[sort].target, &v);
+    Elem *map = axiom_variable(sort, &h), *at = axiom_variable(sort_data[sort].base, &x);
     Sentence *here = axiom_atom(S_EQUAL, -1, at, point);
     Sentence *body = axiom_join(S_AND, axiom_join(S_IMPLIES, here, axiom_atom(S_EQUAL, -1, elem_new(symbol, 0, map, at), first)),
                                 axiom_join(S_IMPLIES, axiom_join(S_NOT, here, NULL), axiom_atom(S_EQUAL, -1, elem_new(symbol, 0, map, at), other)));
@@ -32498,11 +32654,11 @@ static void axioms_prepare(void) {
         /* I numeri elencati non sono insiemi di oggetti con un simbolo
          * di struttura: non hanno un'appartenenza o un'applicazione da
          * rendere estensionale. Trattarli come mappe userebbe sort_symbol=-1. */
-        if (sort_kind[i] == SORT_PARTS || sort_kind[i] == SORT_MAPS) axiom_extensionality(i);
+        if (sort_data[i].kind == SORT_PARTS || sort_data[i].kind == SORT_MAPS) axiom_extensionality(i);
     for (int i = 0; i < sort_count; i++)
-        for (int kind = 0; kind < 3 && sort_kind[i] == SORT_PARTS; kind++) axiom_part(i, kind);
+        for (int kind = 0; kind < 3 && sort_data[i].kind == SORT_PARTS; kind++) axiom_part(i, kind);
     for (int i = 0; i < sort_count; i++)
-        if (sort_kind[i] == SORT_MAPS) axiom_map_point(i);
+        if (sort_data[i].kind == SORT_MAPS) axiom_map_point(i);
     for (int i = 0; i < part_template_count; i++)
         if (part_template[i]->kind != ST_EMPTY && part_template[i]->kind != ST_SORT) axiom_template(part_template[i]);
 }
@@ -32632,7 +32788,17 @@ typedef struct {
  * prima volta che servono, con una lettera che l'enunciato non usa; -1
  * finché mancano. Tutte le definizioni le condividono: ognuna è una
  * condizione chiusa, che le lega. */
-static int definition_slot[MAX_SORTS][2];
+static int (*definition_slot)[2];
+static size_t definition_slot_capacity;
+
+/* Dimensiona i depositi della sola ricerca legacy per istanze. Sono
+ * separati dai modelli e da Sp, che non devono pagarne le cache. */
+static int instance_sorts_reserve(void) {
+    size_t need=(size_t)sort_count;
+    return work_reserve((void **)&candidate_domain,&candidate_domain_capacity,need,sizeof *candidate_domain) &&
+           work_reserve((void **)&candidate_size,&candidate_size_capacity,need,sizeof *candidate_size) &&
+           work_reserve((void **)&definition_slot,&definition_slot_capacity,need,sizeof *definition_slot);
+}
 
 /* Ritorna la variabile which (0 per x, 1 per u) delle definizioni di parti
  * di sort, o -1 (annotando exhausted) se le variabili o le lettere sono
@@ -34384,10 +34550,10 @@ static int sp_prepare(SpState *s, const Sentence *root, const Sentence *const *l
      * i simboli impliciti nelle sort, poi le dichiarazioni esplicite. Il
      * parser puo aver incontrato una funzione prima di un insieme di parti. */
     for (int i = 0; i < sort_count; i++) {
-        if (sort_kind[i] == SORT_NUMBERS) {
+        if (sort_data[i].kind == SORT_NUMBERS) {
             for (int f = 0; f < declared_symbols; f++)
                 if (symbols[f].name >= NUMERAL_NAMES && symbols[f].range == i) sp_input_symbol(s, f);
-        } else if (sort_kind[i] != SORT_PLAIN) sp_input_symbol(s, sort_symbol[i]);
+        } else if (sort_data[i].kind != SORT_PLAIN) sp_input_symbol(s, sort_data[i].symbol);
     }
     for (int i = 0; i < declared_symbols; i++)
         if (!symbol_fixed(i) && !symbol_bound[i]) sp_input_symbol(s, i);
@@ -35977,7 +36143,8 @@ static Verdict prove_abstract(const char *formula) {
     int hypotheses = root->kind == S_IMPLIES ? conjuncts(root->a, hypothesis, 0, MAX_KNOWN / 8) : 0;
     int claims = conjuncts(thesis, claim, 0, MAX_KNOWN / 8), proved = 1;
     exhausted = part_interrupted = 0;
-    memset(definition_slot, -1, sizeof definition_slot);
+    if (!instance_sorts_reserve()) { verdict.reason=OUT_OF_MEMORY;return verdict; }
+    memset(definition_slot,-1,(size_t)sort_count*sizeof *definition_slot);
     cert_abstract_head("structure", root, NULL);
 
     int given = hypotheses;

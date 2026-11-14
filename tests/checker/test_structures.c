@@ -593,10 +593,10 @@ static const Case cases[] = {
     {"missing end", CK_REJECTED, "scritto male",
      "certificate structure\n" NEUTRAL_HEAD NEUTRAL "case (not (= u v))\ninstance " LEFT " v\ninstance " RIGHT " u\n"},
 
-    /* Certificati che il verificatore non sa controllare. */
+    /* Risorse e dichiarazioni: anche varianti grandi ma controllabili. */
     {"a larger set does not make a false counterexample valid", CK_REJECTED, "nel modello",
      "certificate counterexample\nsort S 9\nsymbol u S\nstatement (= u u)\ntable u 0\nend\n"},
-    {"more sets than the checker handles", CK_UNSUPPORTED, "troppi insiemi",
+    {"seven declared sets have no compiled declaration ceiling", CK_ACCEPTED, "",
      "certificate structure\nsort A\nsort B\nsort C\nsort D\nsort E\nsort F\nsort G\nstatement true\nend\n"},
     {"a model where the statement takes too long to compute", CK_UNSUPPORTED, "troppo grande per calcolarvi",
      "certificate counterexample\nsort S 8\nstatement (forall a S (forall b S (forall c S (forall d S (forall e S (forall f S (forall g S "

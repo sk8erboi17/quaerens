@@ -60,6 +60,22 @@ int main(void) {
     passed=expect("a different last character cannot resolve to a declared long name",text,CK_REJECTED) && passed;
     quantifiers(text,sizeof text);
     passed=expect("long bound names differing only at their ends remain distinct in a two-element countermodel",text,CK_ACCEPTED) && passed;
+    /* Due contraddizioni condizionate impediscono i contesti in cui
+     * almeno un insieme e non vuoto. Il contesto con entrambi vuoti resta
+     * possibile: il messaggio deve contenere entrambi i nomi completi. */
+    ck_status=CK_ACCEPTED;ck_used=0;ck_declared=ck_symbol_count=0;
+    int complete=ck_sorts_reserve(2);
+    if (complete) {
+        ck_sort_count=2;memset(ck_sorts,0,2*sizeof *ck_sorts);
+        char first[513],second[513];long_name(first,'S','s');long_name(second,'T','t');
+        ck_sorts[0].name=first;ck_sorts[1].name=second;
+        ck_case_start();
+        const CkNode *contradiction=ck_make(CK_NOT,0,ck_make(CK_TRUE,0,NULL,NULL),NULL);
+        ck_suppose(contradiction,1u);ck_suppose(contradiction,2u);ck_check_case();
+        complete=ck_status==CK_REJECTED && strstr(ck_reason,first) && strstr(ck_reason,second);
+    }
+    printf("%s: rejecting an uncovered empty-set case retains both complete long names without overflowing its diagnostic\n",complete?"PASS":"FAIL");passed &= complete;
+    ck_structure_clear();
     char name[513];long_name(name,'P','p');
     ck_cursor=name;ck_status=CK_ACCEPTED;ck_used=CK_ARENA_BYTES-16;
     const char *copy=NULL;

@@ -21,7 +21,9 @@ static int recursive_growth(void) {
     int f=symbol_find('f',0),ok=!failure && !syntax_error && symbol_count==65 && f>=0 && symbols[f].domain[0]==0 && symbols[f].range==1;
     const Sentence *plain=ok?abstract_unfold(root):root;
     for (size_t n=0;n<=2 && ok;n++) {
-        Model m={0};m.size[0]=m.size[1]=n;
+        Model m={0};
+        if (!model_dimensions(&m)) return check_result(0,"recursive model coordinates can be allocated");
+        m.dimension[0].size=m.dimension[1].size=n;
         ok=model_allocate(&m);
         if (ok) {
             size_t *values=model_variables();model_steps=0;
@@ -54,7 +56,8 @@ static int many_parts(void) {
     cursor=text;next_token();const Sentence *root=abstract_statement();declared_symbols=symbol_count;
     int ok=!failure && !syntax_error && symbol_count==321;
     Model m={0};unsigned long long work=0;
-    m.size[0]=2;
+    if (!model_dimensions(&m)) return check_result(0,"SAT model coordinates can be allocated");
+    m.dimension[0].size=2;
     ok &= model_sat(root,0,&m,&work);
     int last=320,c=symbol_find('c',0);
     ok &= m.symbols==321 && m.table && m.part && c>=0 && m.table[last][m.table[c][0]]==0;
@@ -85,12 +88,16 @@ static int many_parts(void) {
 /* I modelli possiedono il numero delle loro tabelle. Cambiare enunciato
  * non deve modificare quanti puntatori il modello precedente libera. */
 static int model_ownership(void) {
-    Model m={0};m.size[0]=1;
+    Model m={0};
+    if (!model_dimensions(&m)) return check_result(0,"owned model coordinates can be allocated");
+    m.dimension[0].size=1;
     int ok=model_allocate(&m) && m.symbols==(size_t)symbol_count;
     int saved=symbol_count;symbol_count=1;model_clear(&m);symbol_count=saved;
     size_t limit=model_memory_limit;model_memory_limit=1;
     ok &= !model_allocate(&m) && m.limited && !m.table && !m.part && !m.symbols;
     model_memory_limit=limit;
+    ok &= model_dimensions(&m);
+    if (ok) m.dimension[0].size=1;
     ok &= model_allocate(&m) && !m.limited;
     model_clear(&m);
     return check_result(ok,"model pointer tables own their lengths and memory exhaustion cannot leave a partial model");

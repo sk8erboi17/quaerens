@@ -23,7 +23,8 @@ int main(void) {
     const Sentence *root = read_model_statement("(f \\colon S \\to S) \\implies \\forall x \\in S\\ (f(x) = x)");
     int passed = check_result(root != NULL, "an identity condition is parsed as data");
     if (!root) return 1;
-    m.size[0] = 257;
+    if (!model_dimensions(&m)) return 1;
+    m.dimension[0].size = 257;
     unsigned long long work = 0;
     int found = model_sat(root, 1, &m, &work);
     int exact = found;
@@ -45,7 +46,8 @@ int main(void) {
      * ricontrolla tutti i valori, senza condividere il conto del motore. */
     root = read_model_statement("(f \\colon S \\times S \\to S) \\implies "
                                 "\\forall x,y \\in S\\ (f(x,y) = x)");
-    m.size[0] = 300;
+    if (!model_dimensions(&m)) return 1;
+    m.dimension[0].size = 300;
     if (root && model_allocate(&m)) {
         for (size_t c = 0; c < 90000; c++) m.table[0][c] = c % 300;
         proof_reset(); proof_growable = 1;
@@ -67,7 +69,8 @@ int main(void) {
      * tabella dichiarata nell'intestazione della richiesta di esempio. */
     root = read_model_statement("\\exists S\\ (\\exists X \\subseteq S\\ \\forall x \\in S\\ (x \\notin X))");
     if (root) {
-        m.size[0] = 257; work = 0;
+        if (!model_dimensions(&m)) return 1;
+        m.dimension[0].size = 257; work = 0;
         found = model_sat(root, 1, &m, &work);
         passed = check_result(found, "SAT supports subsets of a 257-element domain") && passed;
         model_clear(&m);
@@ -85,7 +88,8 @@ int main(void) {
     root = read_model_statement("\\exists S \\neq \\emptyset\\ (\\forall x \\in S\\ (x = x))");
     if (root) {
         size_t *values = model_variables();
-        m.size[0] = 0; model_steps = 0;
+        if (!model_dimensions(&m)) return 1;
+        m.dimension[0].size = 0; model_steps = 0;
         passed = check_result(!work_allocation_failed && !model_holds(&m, root, values),
                               "the certificate statement retains explicit nonemptiness") && passed;
     } else passed = check_result(0, "an explicit nonempty example is parsed") && passed;
@@ -93,11 +97,13 @@ int main(void) {
     /* Budget insufficiente: nessuna tabella parziale diventa un risultato. */
     root = read_model_statement("(f \\colon S \\to S) \\implies \\forall x \\in S\\ (f(x) = x)");
     unsigned long long saved_work = model_work_limit;
-    model_work_limit = 1; m.size[0] = 257; work = 0;
+    if (!model_dimensions(&m)) return 1;
+    model_work_limit = 1; m.dimension[0].size = 257; work = 0;
     passed = check_result(root && !model_sat(root, 1, &m, &work), "work exhaustion returns no model") && passed;
     model_work_limit = saved_work; model_clear(&m);
     size_t saved_memory = model_memory_limit;
-    model_memory_limit = 1024; m.size[0] = 257; work = 0;
+    if (!model_dimensions(&m)) return 1;
+    model_memory_limit = 1024; m.dimension[0].size = 257; work = 0;
     passed = check_result(!model_sat(root, 1, &m, &work), "memory exhaustion returns no model") && passed;
     model_memory_limit = saved_memory; model_clear(&m);
 
@@ -106,9 +112,9 @@ int main(void) {
      * ogni modello: esaurire il budget non puo produrre un controesempio. */
     Sentence truth = {.kind=S_TRUE};
     sort_count = 2; symbol_count = 0;
-    sort_kind[0] = sort_kind[1] = SORT_PLAIN;
+    sort_data[0].kind = sort_data[1].kind = SORT_PLAIN;
     saved_work = model_work_limit; model_work_limit = 100; work = 0;
-    found = model_sat_dimensions(&truth, 0, &m, 0, (size_t)-1, &work, 0);
+    found = model_sat_total(&truth,0,&m,(size_t)-1,&work,0);
     passed = check_result(!found && work >= model_work_limit,
                           "dimension enumeration respects its work budget even for an unaddressably large total") && passed;
     model_work_limit = saved_work; model_clear(&m);

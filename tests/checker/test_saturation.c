@@ -137,7 +137,8 @@ static int clausification(void) {
         ck_used = ck_depth = 0;
         ck_sort_count = 2;
         ck_symbol_count = ck_declared = 1;
-        memset(ck_sorts, 0, sizeof ck_sorts);
+        if (!ck_sorts_reserve((size_t)ck_sort_count)) return 0;
+        memset(ck_sorts,0,(size_t)ck_sort_count*sizeof *ck_sorts);
         if (!ck_symbols_reserve(1)) return 0;
         memset(ck_symbols, 0, sizeof *ck_symbols);
         ck_symbols[0].arity = 2; ck_symbols[0].arg[1] = 1; ck_symbols[0].result = CK_BOOL;

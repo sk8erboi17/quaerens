@@ -254,7 +254,6 @@
 #define CK_MAX_SCAN 100000   /* valori di n provati uno a uno per un polinomio */
 #define CK_MAX_BRICKS 32     /* voci "brick" di un certificato */
 #define CK_MAX_FACTORED 1000000000000LL  /* il più grande numero scomposto in fattori primi */
-#define CK_MAX_SORTS 6       /* insiemi di un enunciato su insiemi qualsiasi: i casi vuoti sono 2^6 */
 #define CK_MAX_EVAL 100000000LL  /* elementi provati dai quantificatori calcolando su un modello */
 #define CK_MAX_GROUND 4096   /* termini chiusi di un caso */
 #define CK_MAX_ATOMS 2048    /* condizioni elementari di un caso */
@@ -781,8 +780,8 @@ typedef enum {
  *   EQ: a = b tra due termini; con b NULL, a è una parte o una relazione
  *       applicata, e la condizione è che valga.
  *   ATOM: value è una condizione elementare (11e), in uno scheletro.
- *   EQUIPOTENT (11j): i due lati, ognuno un insieme o il prodotto di due,
- *        scritti in value da ck_sides_code().
+ *   EQUIPOTENT (11j): value e l'indice canonico dei due lati nel deposito
+ *        ck_sides, ognuno un insieme o il prodotto di due.
  * Nel capitolo 12:
  *   LESS, LESS_EQ: a < b, a <= b, come EQ e NEQ i due membri a e b.
  *   ABS, SQRT: il valore assoluto, la radice quadrata di a.
@@ -2248,8 +2247,8 @@ typedef struct {
 } CkSort;
 
 /* Il "valore" di una parte o di una relazione: vero o falso. Occupa il posto
- * dopo l'ultimo insieme possibile. */
-#define CK_BOOL CK_MAX_SORTS
+ * distinto da ogni indice di insieme rappresentabile. */
+#define CK_BOOL INT_MAX
 
 /* Un simbolo: dichiarato da una voce symbol, oppure un nome nuovo dato da una
  * voce witness (11d) o part (11g), che vale solo nel suo caso. */
@@ -2267,12 +2266,21 @@ typedef struct {
     size_t *table; /* 11a, 11b: valori delle celle sullo heap del modello; NULL se manca. */
 } CkSymbol;
 
-static CkSort ck_sorts[CK_MAX_SORTS];
+static CkSort *ck_sorts;
+static size_t ck_sort_capacity;
 static int ck_sort_count;
 static CkSymbol *ck_symbols;
 static size_t ck_symbol_capacity;
 static int ck_symbol_count;
 static int ck_declared;  /* i simboli dichiarati: i primi ck_declared di ck_symbols[] */
+
+/* Dimensiona gli insiemi dichiarati; ogni nodo conserva indici e i nomi
+ * vivono nell'arena, quindi spostare il vettore non invalida riferimenti.
+ * INT_MAX e riservato al tipo booleano, non a un insieme dichiarato. */
+static int ck_sorts_reserve(size_t need) {
+    if (need>INT_MAX) { ck_unsupported("troppi insiemi per la memoria disponibile");return 0; }
+    return ck_reserve((void **)&ck_sorts,&ck_sort_capacity,need,sizeof *ck_sorts);
+}
 
 /* Dimensiona il deposito indipendente dei simboli. La memoria e posseduta
  * dal certificato; i nodi conservano soltanto indici, non indirizzi delle
@@ -2362,20 +2370,38 @@ static CkNode *ck_make(CkKind kind, long long value, const CkNode *a, const CkNo
     return node;
 }
 
-/* 11j. I lati di (equipotent A B) stanno nel valore del nodo, quattro bit per
- * componente: per il lato k (0 per A, 1 per B) la prima componente ai bit da
- * 8k, la seconda più uno da 8k + 4 (0 se il lato ne ha una sola). Gli insiemi
- * sono meno di 15 (CK_MAX_SORTS), quindi i bit bastano. sort[k][1] è -1 per un
- * lato di una componente. */
+/* I due lati di un'equipotenza: ogni riga ha una o due componenti,
+ * indicate da indici di insieme; -1 nella seconda cella indica un lato
+ * semplice. Il vettore e posseduto dal certificato, i nodi ne tengono solo
+ * l'indice canonico. Non si impacchettano identificatori in quattro bit. */
+typedef struct { int sort[2][2]; } CkSides;
+static CkSides *ck_sides;
+static size_t ck_sides_capacity;
+static int ck_sides_count;
+
+/* Registra i lati canonici, riusando l'indice quando tutte le componenti
+ * coincidono. Cosi l'uguaglianza strutturale dei nodi resta indipendente
+ * dall'ordine di lettura delle occorrenze dello stesso enunciato. */
 static long long ck_sides_code(int sort[2][2]) {
-    return (long long)sort[0][0] | (long long)(sort[0][1] + 1) << 4 | (long long)sort[1][0] << 8 | (long long)(sort[1][1] + 1) << 12;
+    for (int n=0;n<ck_sides_count;n++) {
+        int same=1;
+        for (int k=0;k<2;k++) for (int i=0;i<2;i++) same &= ck_sides[n].sort[k][i]==sort[k][i];
+        if (same) return n;
+    }
+    if (ck_sides_count==INT_MAX || !ck_reserve((void **)&ck_sides,&ck_sides_capacity,
+                                             (size_t)ck_sides_count+1,sizeof *ck_sides)) {
+        ck_unsupported("memoria del verificatore esaurita per i lati");return 0;
+    }
+    int id=ck_sides_count++;
+    memcpy(ck_sides[id].sort,sort,sizeof ck_sides[id].sort);
+    return id;
 }
 
-/* 11j. Ritorna quante componenti ha il lato k dei lati value: 1 o 2. */
-static int ck_side_count(long long value, int k) { return (value >> (8 * k + 4) & 15) ? 2 : 1; }
+/* Ritorna quante componenti ha il lato k dei lati value: 1 o 2. */
+static int ck_side_count(long long value,int k) { return ck_sides[value].sort[k][1]>=0?2:1; }
 
-/* 11j. Ritorna l'insieme della componente i del lato k dei lati value. */
-static int ck_side_sort(long long value, int k, int i) { return i ? (int)(value >> (8 * k + 4) & 15) - 1 : (int)(value >> 8 * k & 15); }
+/* Ritorna l'insieme della componente i del lato k dei lati value. */
+static int ck_side_sort(long long value,int k,int i) { return ck_sides[value].sort[k][i]; }
 
 /* 11j. Ritorna gli insiemi del lato k, come bit: il lato è vuoto quando lo è
  * uno di loro. */
@@ -3500,12 +3526,29 @@ static void ck_case_start(void) {
  * degli insiemi vuoti (bit in empty). Se non lo è, il certificato è
  * sbagliato, e il motivo dice quali insiemi erano vuoti. */
 static void ck_check_case(void) {
-    static char text[128];
     for (unsigned empty = 0; empty < 1u << ck_sort_count && ck_status == CK_ACCEPTED; empty++) {
         if (!ck_empty_possible(empty) || !ck_consistent(empty)) continue;
-        int length = snprintf(text, sizeof text, "le condizioni di un caso non sono contraddittorie%s", empty ? ", con vuoti:" : "");
-        for (int i = 0; i < ck_sort_count; i++)
-            if (empty >> i & 1) length += snprintf(text + length, sizeof text - (size_t)length, " %s", ck_sorts[i].name);
+        /* Anche la spiegazione cresce coi nomi. Accumulare il valore di
+         * ritorno di snprintf oltre un buffer fisso farebbe diventare
+         * negativa la lunghezza residua al nome successivo. */
+        const char *prefix=empty?"le condizioni di un caso non sono contraddittorie, con vuoti:":
+                                 "le condizioni di un caso non sono contraddittorie";
+        size_t length=strlen(prefix);
+        for (int i=0;i<ck_sort_count;i++) if (empty>>i&1) {
+            size_t n=strlen(ck_sorts[i].name);
+            if (length>=CK_ARENA_BYTES-1 || n>CK_ARENA_BYTES-length-2) {
+                ck_unsupported("memoria del verificatore esaurita per la spiegazione del caso");return;
+            }
+            length+=n+1;
+        }
+        char *text=ck_alloc(length+1);
+        if (ck_status!=CK_ACCEPTED) return;
+        size_t used=strlen(prefix);memcpy(text,prefix,used);
+        for (int i=0;i<ck_sort_count;i++) if (empty>>i&1) {
+            size_t n=strlen(ck_sorts[i].name);text[used++]=' ';
+            memcpy(text+used,ck_sorts[i].name,n);used+=n;
+        }
+        text[used]=0;
         ck_reject(text);
     }
 }
@@ -4425,6 +4468,8 @@ static size_t ck_assumed_capacity;
  * verificatore. Le parti del modello sono gia liberate dai quantificatori;
  * le tabelle hanno il deposito separato liberato da ck_model_clear(). */
 static void ck_structure_clear(void) {
+    free(ck_sorts);ck_sorts=NULL;ck_sort_capacity=0;ck_sort_count=0;
+    free(ck_sides);ck_sides=NULL;ck_sides_capacity=0;ck_sides_count=0;
     free(ck_symbols); ck_symbols = NULL; ck_symbol_capacity = 0;
     free(ck_bound); ck_bound = NULL; ck_bound_capacity = 0;
     free(ck_assumed); ck_assumed = NULL; ck_assumed_capacity = 0;
@@ -4449,7 +4494,7 @@ static void ck_check_structure(int kind) {
             ended = 1;
         } else if (!statement && ck_word("sort")) {
             /* Un insieme, con il numero di elementi nei soli modelli. */
-            if (ck_sort_count == CK_MAX_SORTS) { ck_unsupported("troppi insiemi per il verificatore"); return; }
+            if (!ck_sorts_reserve((size_t)ck_sort_count+1)) return;
             if (!ck_name(&name) || ck_sort_of(name) >= 0) { ck_reject("certificato scritto male: sort senza nome, o due volte"); return; }
             CkSort *sort = &ck_sorts[ck_sort_count];
             sort->name = name;
@@ -4490,6 +4535,19 @@ static void ck_check_structure(int kind) {
         } else if (!statement && ck_word("statement")) {
             statement = ck_read_condition();
             ck_declared = ck_symbol_count;
+            /* Solo il vecchio formato structure enumera vuoto/non vuoto
+             * con maschere unsigned. Non limita i modelli ne saturation,
+             * che verificano anche piu tipi. Un conteggio non rappresentabile
+             * non puo diventare una copertura parziale accettata. */
+            if (kind==2 && ck_sort_count>=(int)(sizeof(unsigned)*CHAR_BIT)) {
+                ck_unsupported("il formato per casi supera la rappresentazione delle sue maschere; usare saturation");return;
+            }
+            /* Anche un conteggio rappresentabile puo richiedere miliardi
+             * di contesti. La quota del calcolo finito limita il formato
+             * legacy, senza accettarne un'enumerazione incompleta. */
+            if (kind==2 && (1u<<ck_sort_count)>CK_MAX_EVAL/(ck_sort_count+1)) {
+                ck_unsupported("i contesti vuoto/non vuoto superano il budget del formato per casi");return;
+            }
         } else if (kind < 2 && statement && ck_word("table")) {
             /* I valori di un simbolo, cella per cella. */
             int s = ck_name(&name) ? ck_symbol_of(name) : -1;

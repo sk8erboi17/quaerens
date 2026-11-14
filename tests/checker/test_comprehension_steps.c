@@ -36,8 +36,9 @@ static const CkNode *prepare(const char *text,int constant) {
     ck_r_clear(); ck_structure_clear(); ck_used=ck_depth=ck_nodes=0;
     ck_status=CK_ACCEPTED; ck_reason="";
     ck_sort_count=1; ck_symbol_count=ck_declared=2+constant;
+    if (!ck_sorts_reserve((size_t)ck_sort_count)) return NULL;
     if (!ck_symbols_reserve((size_t)ck_symbol_count)) return NULL;
-    memset(ck_sorts,0,sizeof ck_sorts); memset(ck_symbols,0,(size_t)ck_symbol_count*sizeof *ck_symbols);
+    memset(ck_sorts,0,(size_t)ck_sort_count*sizeof *ck_sorts); memset(ck_symbols,0,(size_t)ck_symbol_count*sizeof *ck_symbols);
     ck_sorts[0].name="S";
     if (constant) { ck_symbols[0].name="c"; ck_symbols[0].result=0; }
     for (int i=0;i<2;i++) {

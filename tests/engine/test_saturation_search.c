@@ -105,7 +105,7 @@ static int storage_checks(void) {
     cursor = "(f \\colon S \\to T \\land F \\subseteq \\mathcal{P}(T)) \\implies \\forall x \\in S\\ (f(x)=f(x))";
     next_token(); const Sentence *reordered = abstract_statement(); declared_symbols = symbol_count;
     int built = !syntax_error && sp_prepare(&s, reordered, NULL, 0), original = symbol_find('f', 0), implicit = -1;
-    for (int i = 0; i < sort_count; i++) if (sort_kind[i] == SORT_PARTS) implicit = sort_symbol[i];
+    for (int i = 0; i < sort_count; i++) if (sort_data[i].kind == SORT_PARTS) implicit = sort_data[i].symbol;
     int mapped = built && original >= 0 && implicit >= 0 && s.input_symbol[implicit] < s.input_symbol[original] &&
                  s.symbol[s.input_symbol[implicit]].predicate && !s.symbol[s.input_symbol[original]].predicate;
     if (mapped && sp_search(&s)) {
