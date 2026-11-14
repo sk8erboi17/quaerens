@@ -234,8 +234,11 @@ static inline int alter_structure(const char *certificate, char *out, size_t siz
     }
     if (strncmp(certificate, "certificate saturation\n", 23) == 0) {
         const char *where = strstr(certificate, "\nclausify\n");
+        if (!where) where = strstr(certificate, "\nclausify forward\n");
         if (!where) return 0;
-        return snprintf(out, size, "%.*s%s", (int)(where - certificate + 1), certificate, where + 10) < (int)size;
+        const char *next = strchr(where + 1, '\n');
+        if (!next) return 0;
+        return snprintf(out, size, "%.*s%s", (int)(where - certificate + 1), certificate, next + 1) < (int)size;
     }
     if (strncmp(certificate, "certificate structure\n", 22) != 0) return 0;
 

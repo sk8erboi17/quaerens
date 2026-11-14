@@ -37,7 +37,7 @@ static int value(int t, unsigned vars, const int *model, const int *labels) {
     if (t < 0) return (int)(vars >> (-t - 1) & 1u);
     CkRTerm n = ck_r.term[t];
     if (n.symbol < 2) return model[n.symbol] >> value(ck_r.argument[n.first], vars, model, labels) & 1;
-    return n.symbol == 2 ? model[2] : labels[n.symbol - ck_r.component_first];
+    return n.symbol == 2 ? model[2] : labels[ck_r.symbol[n.symbol].component - 1];
 }
 
 /* Una clausola e vera se lo e per tutte le assegnazioni alle sue variabili.

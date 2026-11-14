@@ -3,7 +3,7 @@
 Uso: python3 -I fuzz_structure_certificates.py <checker> <seme> <quanti> <cartella di lavoro> <file di certificati>...
 
 I file di certificati sono quelli scritti da mathresearcher --certificates:
-se ne prendono i certificati structure, example e counterexample, e se ne
+se ne prendono i certificati structure, saturation, example e counterexample, e se ne
 ricavano <quanti> alterati a caso: una riga tolta o ripetuta, un nome al
 posto di un altro, forall al posto di exists, un connettivo cambiato, un
 valore di una tabella cambiato, il tipo scambiato. Il verificatore li
@@ -13,7 +13,7 @@ controlla tutti, e per ognuno che ACCETTA l'oracolo rifà il conto da sé:
     nel modello l'enunciato vale (counterexample) o non vale (example), o se
     una tabella non è un'interpretazione, il verificatore ha accettato il
     falso: BUG.
-  - structure: prova ogni interpretazione con insiemi di 0, 1, 2 elementi
+  - structure, saturation: prova ogni interpretazione con insiemi di 0, 1, 2 elementi
     (e 3, quando le tabelle sono poche). Se in una l'enunciato è falso, il
     verificatore ha accettato la dimostrazione di un falso: BUG. Gli insiemi
     vuoti sono provati apposta: lì sbaglia chi inventa un elemento.
@@ -52,7 +52,7 @@ CHECKER, SEED, COUNT, WORK = sys.argv[1], int(sys.argv[2]), int(sys.argv[3]), sy
 rnd = random.Random(SEED)
 sys.setrecursionlimit(20000)
 MAX_MODELS = 20000  # interpretazioni provate, al più, per una scelta delle grandezze
-KINDS = ("structure", "example", "counterexample")
+KINDS = ("structure", "saturation", "example", "counterexample")
 
 
 def read_certificates(paths):
@@ -297,7 +297,7 @@ def mutate(text):
                     body[i] = " ".join(parts)
         else:
             kind = head.split()[1]
-            if kind != "structure":
+            if kind not in ("structure", "saturation"):
                 head = "certificate " + ("example" if kind == "counterexample" else "counterexample")
         lines = [head] + body + ["end"]
     return "\n".join(lines) + "\n"

@@ -1,0 +1,23 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Induction from an explicit generation principle}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+
+The generation hypothesis is part of the statement. No standard natural-number
+structure is assumed for the arbitrary set $S$.
+
+\begin{enumerate}
+\item $\displaystyle (z \in S \land s \colon S \to S \land f \colon S \to S \land (\forall X \subseteq S\ ((z \in X \land \forall y \in S\ (y \in X \implies s(y) \in X)) \implies \forall y \in S\ (y \in X))) \land f(z)=z \land (\forall y \in S\ (f(s(y))=s(f(y))))) \implies \forall y \in S\ (f(y)=y)$
+\end{enumerate}
+\end{document}

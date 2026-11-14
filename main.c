@@ -33314,12 +33314,24 @@ static int model_sat_slice(const Sentence *root, int wanted, Model *model, long 
  * SAT, replay e clausole condividono i budget di lavoro e memoria; una
  * quota locale lascia al ciclo ordinario le trasformazioni gia valide.
  *
+ * I principi universali su parti vengono istanziati con comprensioni
+ * {x in S | L(x)}, da proprieta letterali ricavate dai controesempi ground.
+ * Questo permette di usare principi induttivi forniti come ipotesi: non
+ * attribuisce a un insieme arbitrario la semantica standard dei naturali.
+ * Le istanze hanno contesti copiati, nomi freschi e gruppi di clausole
+ * ricostruiti dal checker. Una clausificazione direzionale della NNF e
+ * l'eliminazione booleana dei nomi tecnici limitano i passaggi ausiliari;
+ * tutte le semplificazioni conservano risoluzioni esplicite. Non si assume
+ * mai vera la proprieta scelta per la comprensione.
+ *
  * Riferimenti: Kovacs e Voronkov, First-Order Theorem Proving and Vampire
  * (2013); Sternagel e Thiemann, Formalizing Knuth-Bendix Orders and
  * Knuth-Bendix Completion (2013); Hoder e Voronkov, Sine Qua Non for Large
  * Theory Reasoning (2011), selezione applicata qui alle clausole e ai soli
  * simboli originali, non ai nomi tecnici della traduzione; Voronkov,
- * AVATAR (2014). Si implementano
+ * AVATAR (2014); Plaisted e Greenbaum, A Structure-Preserving Clause Form
+ * Translation (1986); Reger e Voronkov, Induction in Saturation-Based
+ * Proof Search (2019). Si implementano
  * le regole, senza codice o risolutori esterni.
  */
 
@@ -33338,8 +33350,9 @@ struct SpBlock {
 typedef struct { SpBlock *first, *current; } SpArena;
 
 /* Un simbolo della traduzione: arity conta gli argomenti; predicate
- * distingue un atomo da una funzione. Il numero e quello nel certificato. */
-typedef struct { int arity, predicate; } SpSymbol;
+ * distingue un atomo da una funzione. component vale indice AVATAR piu
+ * uno, zero negli altri casi. Il numero e quello nel certificato. */
+typedef struct { int arity, predicate, component; } SpSymbol;
 
 /* Un termine condiviso, con argomenti contigui in argument. weight e il
  * numero di occorrenze di simboli e variabili, per KBO e la scelta in coda.
@@ -33356,11 +33369,12 @@ typedef struct { int left, right, negative; } SpLiteral;
 typedef struct { int variable, term; } SpBinding;
 
 /* Regole del calcolo: INPUT viene ricostruita dal checker; COMPONENT e
- * COMPLEMENT sono definizioni conservative, SPLIT astrae una partizione.
+ * COMPLEMENT sono definizioni conservative, SPLIT astrae una partizione,
+ * COMPREHEND ricostruisce un'istanza universale su parti.
  * Le altre sono le inferenze esplicite del primo ordine.
  * Warning: una nuova regola richiede l'aggiornamento di sp_write(). */
 typedef enum { SP_INPUT, SP_RESOLVE, SP_REFLEX, SP_FACTOR, SP_SUPER, SP_EQUAL_FACTOR,
-               SP_COMPONENT, SP_COMPLEMENT, SP_SPLIT } SpRule;
+               SP_COMPONENT, SP_COMPLEMENT, SP_SPLIT, SP_COMPREHEND } SpRule;
 
 /* Un gruppo dello split: component identifica la chiusura universale,
  * negative il complemento ground. literal ha count indici nel genitore;
@@ -33372,7 +33386,8 @@ typedef struct { int component, negative, count; const int *literal; } SpGroup;
  * side/position individuano il sotto-termine in visita preorder. binding
  * ha bindings immagini simultanee, possedute dall'arena della clausola.
  * groups/group descrivono soltanto SPLIT; per le due definizioni p e
- * invece l'indice della componente e non un genitore. */
+ * invece l'indice della componente e non un genitore. Per COMPREHEND p
+ * identifica l'istanza, senza genitori fra le clausole della ricerca. */
 typedef struct {
     SpRule rule;
     int p, lp, q, lq, flip, otherflip, side, position;
@@ -33418,6 +33433,41 @@ typedef struct {
  * ne ha interrotto la costruzione. value conserva il modello SAT fra due
  * chiamate CDCL: non dipende dalle assegnazioni temporanee del risolutore. */
 typedef struct { SpClause key; int symbol, atom, forward, reverse, value; } SpComponent;
+
+/* Una parte definita nel contesto di lettura: literal ha il solo parametro
+ * v0 e definisce {x in sort | literal(x)}. left=0 indica un posto non legato
+ * a una comprensione. I termini sono condivisi nel deposito della ricerca. */
+typedef struct { SpLiteral literal; int sort; } SpProperty;
+
+/* Una formula con quantificatore su parti, rinviata fino alle istanze.
+ * source appartiene all'albero del parser; name e il suo nome nella NNF,
+ * positive la polarita e every l'ammissibilita delle istanze universali.
+ * binding ha slot_count celle, property declared_symbols celle; universals
+ * ha universal parametri. Le copie appartengono all'arena persistente. */
+typedef struct {
+    const Sentence *source;
+    SpLiteral name;
+    int positive, every, universal;
+    const int *binding, *universals;
+    const SpProperty *property;
+} SpSchema;
+
+/* Un'istanza universale eseguita nella ricerca: schema identifica la
+ * formula, property la comprensione canonica. first..past delimita tutte
+ * le clausole ricostruite da quel comando nel certificato, incluse quelle
+ * ridondanti. complete distingue il comando intero da un prefisso terminale;
+ * symbol_first..symbol_past delimita i simboli freschi introdotti dal corpo.
+ * Il deposito della ricerca possiede la voce e i suoi termini. */
+typedef struct {
+    int schema, first, past, complete;
+    int symbol_first, symbol_past;
+    SpLiteral property;
+} SpExpansion;
+
+/* Un comando che introduce simboli dopo la clausificazione iniziale.
+ * kind e COMPONENT o COMPREHEND; index individua la voce corrispondente.
+ * L'ordine posseduto dal vettore e quello della firma del certificato. */
+typedef struct { SpRule kind; int index; } SpIntroduction;
 
 /* Una coppia di termini ancora da unificare o confrontare. Gli elementi
  * della pila sono valori: una crescita non lascia puntatori pendenti. */
@@ -33470,8 +33520,8 @@ typedef struct {
     int resumable;              /* limited dipende dalla quota locale, non da memoria o budget globale */
     unsigned age_interval;      /* una scelta per eta ogni age_interval turni; zero mantiene cinque */
     int strategy;               /* zero diretto, 1/2 SInE, 3 AVATAR, 4 tutte le ipotesi */
-    SpComponent *component;     /* componenti possedute; component_first inizia il suffisso dei simboli */
-    int components, component_first;
+    SpComponent *component;     /* componenti possedute, identificate anche nei simboli */
+    int components;
     size_t component_cap;
     SatState sat;              /* SAT delle componenti, con budget condivisi */
     int avatar;                /* abilita la gestione dei rami SAT in questo tentativo */
@@ -33484,6 +33534,24 @@ typedef struct {
     signed char *rup_value;    /* assegnazioni temporanee del replay, indicizzate per componente */
     int *rup_reason, *rup_trail;/* ragioni FO piu uno e ordine delle propagazioni; zero e un'assunzione */
     size_t rup_value_cap, rup_reason_cap, rup_trail_cap;
+    SpProperty *property;       /* parti definite, indicizzate per simbolo originale del parser */
+    size_t property_cap;
+    SpSchema *schema;           /* formule quantificate astratte, possedute dalla ricerca */
+    SpExpansion *expansion;     /* gruppi di clausole delle istanze, in ordine cronologico */
+    int schemas, expansions;
+    size_t schema_cap, expansion_cap;
+    SpIntroduction *introduction;/* ordine comune dei nomi SAT e delle istanze */
+    int introductions;
+    size_t introduction_cap;
+    int comprehension;          /* abilita le istanze nei tentativi AVATAR e ordinario finale */
+    int forward;                /* clausificazione direzionale in forma normale negativa */
+    int emitting;               /* espansione piu uno durante la sua clausificazione, zero altrimenti */
+    int seed_schema;            /* prossima formula a cui proporre le parti vuota e intera */
+    int eliminate_expansion;    /* prossima istanza da semplificare per eliminazione booleana */
+    int eliminate_symbol;       /* prossimo simbolo nell'intervallo dell'istanza corrente */
+    int *unit;                  /* clausole unitarie disponibili, anche universalmente quantificate */
+    int units, unit_cursor;     /* numero di unitarie e prossimo indice da semplificare */
+    size_t unit_cap;
     SpArena storage, scratch;
 } SpState;
 
@@ -33573,6 +33641,9 @@ static void sp_clear(SpState *s) {
     free(s->heap); free(s->symbol); free(s->clause); free(s->sub); free(s->match);
     free(s->trail); free(s->occurs); free(s->todo); free(s->balance); free(s->path);
     free(s->component); free(s->sat_proof); free(s->rup_value); free(s->rup_reason); free(s->rup_trail);
+    free(s->property); free(s->schema); free(s->expansion);
+    free(s->introduction);
+    free(s->unit);
     sat_clear(&s->sat);
     SpArena *arenas[2] = {&s->storage, &s->scratch};
     for (int i = 0; i < 2; i++) for (SpBlock *b = arenas[i]->first; b;) {
@@ -33587,7 +33658,7 @@ static int sp_symbol(SpState *s, int arity, int predicate) {
         s->limited = 1; return 0;
     }
     int id = s->symbols++;
-    s->symbol[id] = (SpSymbol){arity, predicate};
+    s->symbol[id] = (SpSymbol){.arity=arity, .predicate=predicate};
     return id;
 }
 
@@ -33864,6 +33935,9 @@ static SpClause sp_normal(SpState *s, const SpLiteral *literal, int count) {
         SpLiteral l = literal[i];
         if (!l.left && l.negative) continue;
         l.left = sp_rename(s, l.left, &names); l.right = sp_rename(s, l.right, &names);
+        /* Una quota puo fermare soltanto il secondo membro di t=t:
+         * quel prefisso non e un predicato e non va indicizzato come tale. */
+        if (s->limited || s->unsupported) break;
         int repeated = 0;
         for (int j = 0; j < c.count; j++)
             repeated |= out[j].left == l.left && out[j].right == l.right && out[j].negative == l.negative;
@@ -33986,12 +34060,11 @@ static int sp_select(SpState *s) {
 }
 
 /* Restituisce componente piu uno per una guardia, zero per un letterale
- * ordinario. I nomi delle componenti formano un suffisso della firma. */
+ * ordinario. Il ruolo resta esplicito anche fra simboli di nuove istanze. */
 static int sp_guard(const SpState *s, SpLiteral l) {
     if (l.right || l.left <= 0) return 0;
     int symbol = s->term[l.left].symbol;
-    return symbol >= s->component_first && symbol - s->component_first < s->components
-           ? symbol - s->component_first + 1 : 0;
+    return s->symbol[symbol].component;
 }
 
 /* Le guardie sono disgiunti della clausola completa: la parte FO e
@@ -34019,7 +34092,7 @@ static SpStage sp_available(const SpState *s, SpClause c) {
 static int sp_keep(SpState *s, const SpLiteral *literal, int count, SpStep step, int replaced) {
     SpClause c = sp_normal(s, literal, count);
     if (s->limited || s->unsupported) return -1;
-    int trivial = sp_tautology(&c), retained = step.rule == SP_INPUT || step.rule == SP_COMPONENT || step.rule == SP_COMPLEMENT;
+    int trivial = sp_tautology(&c), retained = step.rule == SP_INPUT || step.rule == SP_COMPONENT || step.rule == SP_COMPLEMENT || step.rule == SP_COMPREHEND;
     if (!retained && trivial) return -1;
     if (!retained && !s->replaying) for (int i = 0; i < s->clauses && sp_visit(s); i++)
         if (i != replaced && s->clause[i].stage != SP_DELETED && s->clause[i].stage != SP_HELD &&
@@ -34056,7 +34129,8 @@ static int sp_keep(SpState *s, const SpLiteral *literal, int count, SpStep step,
 /* Scrive una delle clausole di Tseitin, di al piu tre letterali. */
 static void sp_emit(SpState *s, SpLiteral a, SpLiteral b, SpLiteral c, int count) {
     SpLiteral literal[3] = {a, b, c};
-    sp_keep(s, literal, count, (SpStep){.rule=SP_INPUT}, -1);
+    SpStep step = {.rule=s->emitting ? SP_COMPREHEND : SP_INPUT, .p=s->emitting ? s->emitting - 1 : 0};
+    sp_keep(s, literal, count, step, -1);
 }
 
 /* Il complemento di un letterale conserva il suo atomo. */
@@ -34077,10 +34151,21 @@ static int sp_name_order(const void *a, const void *b) {
     return (y > x) - (y < x);
 }
 
+/* La riflessivita rende t=t vero per ogni interpretazione. Ridurre questo
+ * atomo prima di nominare una sottoformula evita nomi per costanti logiche. */
+static SpLiteral sp_constant_literal(SpLiteral l) {
+    return l.right && l.left == l.right ? (SpLiteral){0, 0, l.negative} : l;
+}
+
 /* Introduce q(vars) equivalente ad a AND b, oppure a OR b. Le tre
  * implicazioni garantiscono entrambi i versi, anche sotto una negazione.
+ * Con forward basta q=>F: i nomi interni della NNF compaiono positivamente.
+ * Ogni modello di F si estende assegnando q=F, mentre q vero impone F.
+ * E la trasformazione di Plaisted e Greenbaum; i membri di comprensioni
+ * usati sotto negazione mantengono invece entrambi i versi.
  * I parametri sono tutte e sole le variabili libere, in ordine crescente. */
 static SpLiteral sp_connect(SpState *s, SpLiteral a, SpLiteral b, int conjunction) {
+    if (s->forward) { a = sp_constant_literal(a); b = sp_constant_literal(b); }
     if (!a.left) return a.negative == conjunction ? a : b;
     if (!b.left) return b.negative == conjunction ? b : a;
     SpNames names = {0};
@@ -34093,9 +34178,9 @@ static SpLiteral sp_connect(SpState *s, SpLiteral a, SpLiteral b, int conjunctio
     SpLiteral q = {sp_term(s, sp_symbol(s, names.count, 1), args), 0, 0};
     if (conjunction) {
         sp_emit(s, sp_not(q), a, a, 2); sp_emit(s, sp_not(q), b, b, 2);
-        sp_emit(s, q, sp_not(a), sp_not(b), 3);
+        if (!s->forward) sp_emit(s, q, sp_not(a), sp_not(b), 3);
     } else {
-        sp_emit(s, q, sp_not(a), a, 2); sp_emit(s, q, sp_not(b), b, 2);
+        if (!s->forward) { sp_emit(s, q, sp_not(a), a, 2); sp_emit(s, q, sp_not(b), b, 2); }
         sp_emit(s, sp_not(q), a, b, 3);
     }
     return q;
@@ -34115,20 +34200,84 @@ static int sp_input_term(SpState *s, const Elem *e) {
     return sp_term(s, s->input_symbol[e->symbol], args);
 }
 
+/* Sostituisce tutte le occorrenze strutturali di from con to. L'immagine
+ * non viene attraversata: si usa sia per astrarre un termine ground in
+ * v0, sia per applicare la proprieta a un argomento senza cattura. */
+static int sp_replace_term(SpState *s, int term, int from, int to) {
+    if (!term || !sp_visit(s)) return 0;
+    if (term == from) return to;
+    if (term < 0) return term;
+    SpTerm n = s->term[term];
+    int *args = sp_allocate(s, &s->scratch, (size_t)n.count, sizeof *args);
+    if (n.count && !args) return 0;
+    for (int i = 0; i < n.count; i++) args[i] = sp_replace_term(s, s->argument[n.first + i], from, to);
+    return sp_term(s, n.symbol, args);
+}
+
+/* Rinomina una formula quantificata su parti conservandone l'ambiente.
+ * Il nome denota la formula nella polarita della NNF. Lasciarlo inizialmente
+ * libero indebolisce i vincoli; le istanze universali verranno aggiunte
+ * durante la ricerca. Le parti non diventano elementi del dominio comune. */
+static SpLiteral sp_schema(SpState *s, const Sentence *n, int positive) {
+    SpLiteral none = {0, 0, 1};
+    if (s->schemas == INT_MAX || !sp_reserve(s, (void **)&s->schema, &s->schema_cap,
+            (size_t)s->schemas + 1, sizeof *s->schema)) { s->limited = 1; return none; }
+    int *binding = sp_allocate(s, &s->storage, (size_t)slot_count, sizeof *binding);
+    int *universals = sp_allocate(s, &s->storage, (size_t)s->universal, sizeof *universals);
+    SpProperty *property = sp_allocate(s, &s->storage, (size_t)declared_symbols, sizeof *property);
+    if (s->limited) return none;
+    if (slot_count) memcpy(binding, s->binding, (size_t)slot_count * sizeof *binding);
+    if (s->universal) memcpy(universals, s->universals, (size_t)s->universal * sizeof *universals);
+    if (declared_symbols) memcpy(property, s->property, (size_t)declared_symbols * sizeof *property);
+    int symbol = sp_symbol(s, s->universal, 1);
+    SpLiteral name = {sp_term(s, symbol, universals), 0, 0};
+    if (!s->limited) s->schema[s->schemas++] = (SpSchema){.source=n, .name=name,
+        .positive=positive, .every=(n->kind == S_FORALL_PART) == positive, .universal=s->universal,
+        .binding=binding, .universals=universals, .property=property};
+    return name;
+}
+
+/* L'appartenenza a una parte definita da L e D_S(t) AND L(t). Il parametro
+ * v0 viene sostituito una sola volta; gli altri termini restano chiusi. */
+static SpLiteral sp_property_member(SpState *s, const Elem *e) {
+    SpLiteral none = {0, 0, 1};
+    if (e->symbol < 0 || e->symbol >= declared_symbols || !s->property[e->symbol].literal.left) {
+        s->unsupported = 1; return none;
+    }
+    SpProperty p = s->property[e->symbol];
+    int value = sp_input_term(s, e->arg[0]);
+    SpLiteral l = p.literal;
+    l.left = sp_replace_term(s, l.left, -1, value); l.right = sp_replace_term(s, l.right, -1, value);
+    SpLiteral domain = {sp_term(s, s->inputs + p.sort, &value), 0, 0};
+    if (s->forward) l = sp_constant_literal(l);
+    int forward = s->forward; s->forward = 0;
+    SpLiteral member = sp_connect(s, domain, l, 1);
+    s->forward = forward;
+    return member;
+}
+
 /* NNF, Skolem e Tseitin sull'albero. positive indica la polarita richiesta.
  * Un quantificatore su S diventa un quantificatore del dominio comune con
  * il vincolo D_S: lo Skolem di un esiste non impone mai D_S incondizionatamente.
- * Le parti quantificate e l'equipotenza richiedono le altre strategie. */
+ * Le parti quantificate ricevono un'astrazione e successive istanze di
+ * comprensione; l'equipotenza conserva le proprie strategie. */
 static SpLiteral sp_formula(SpState *s, const Sentence *n, int positive) {
     SpLiteral constant = {0, 0, !positive}, a, b;
     if (!sp_visit(s)) return constant;
     switch (n->kind) {
     case S_TRUE: return constant;
     case S_EQUAL: case S_HOLDS:
+        if (n->kind == S_HOLDS && n->left->symbol >= 0 && n->left->symbol < declared_symbols && symbol_bound[n->left->symbol]) {
+            a = sp_property_member(s, n->left); return positive ? a : sp_not(a);
+        }
         return (SpLiteral){sp_input_term(s, n->left), n->right ? sp_input_term(s, n->right) : 0, !positive};
     case S_NOT: return sp_formula(s, n->a, !positive);
     case S_AND: case S_OR: case S_IMPLIES:
         a = sp_formula(s, n->a, n->kind == S_IMPLIES ? !positive : positive);
+        if (s->forward) {
+            a = sp_constant_literal(a);
+            if (!a.left && a.negative == ((n->kind == S_AND) == positive)) return a;
+        }
         b = sp_formula(s, n->b, positive);
         return sp_connect(s, a, b, (n->kind == S_AND) == positive);
     case S_IFF:
@@ -34150,6 +34299,7 @@ static SpLiteral sp_formula(SpState *s, const Sentence *n, int positive) {
         s->binding[n->slot] = saved;
         return sp_connect(s, a, b, !every);
     }
+    case S_FORALL_PART: case S_EXISTS_PART: return sp_schema(s, n, positive);
     default: s->unsupported = 1; return constant;
     }
 }
@@ -34171,7 +34321,9 @@ static void sp_input_symbol(SpState *s, int original) {
  * predicati e simboli di Skolem non si inventano vincoli ulteriori. */
 static int sp_prepare(SpState *s, const Sentence *root, const Sentence *const *laws, int count) {
     s->empty = -1;
+    for (int i = 0; i < declared_symbols; i++) if (symbol_bound[i]) s->forward = 1;
     if (!sp_reserve(s, (void **)&s->binding, &s->binding_cap, (size_t)slot_count, sizeof *s->binding)) return 0;
+    if (!sp_reserve(s, (void **)&s->property, &s->property_cap, (size_t)declared_symbols, sizeof *s->property)) return 0;
     if (!sp_reserve(s, (void **)&s->input_symbol, &s->input_cap, (size_t)declared_symbols, sizeof *s->input_symbol)) return 0;
     for (int i = 0; i < declared_symbols; i++) s->input_symbol[i] = -1;
     /* Warning: questo ordine e quello scritto da cert_abstract_head: prima
@@ -34222,14 +34374,17 @@ static int sp_component(SpState *s, SpClause key) {
         !sp_reserve(s, (void **)&s->component, &s->component_cap, (size_t)s->components + 1, sizeof *s->component)) {
         s->limited = 1; return -1;
     }
+    if (s->introductions == INT_MAX || !sp_reserve(s, (void **)&s->introduction, &s->introduction_cap,
+            (size_t)s->introductions + 1, sizeof *s->introduction)) { s->limited = 1; return -1; }
     SpLiteral *copy = sp_allocate(s, &s->storage, (size_t)key.count, sizeof *copy);
     if (!copy) return -1;
     memcpy(copy, key.literal, (size_t)key.count * sizeof *copy); key.literal = copy;
     int symbol = sp_symbol(s, 0, 1);
     if (s->limited) return -1;
-    if (!s->components) s->component_first = symbol;
     int id = s->components++;
     s->component[id] = (SpComponent){.key=key, .symbol=symbol, .forward=-1, .reverse=-1};
+    s->symbol[symbol].component = id + 1;
+    s->introduction[s->introductions++] = (SpIntroduction){SP_COMPONENT, id};
     int atom = sp_term(s, symbol, NULL);
     s->component[id].atom = atom; s->avatar_dirty = 1;
     SpLiteral *definition = sp_allocate(s, &s->scratch, (size_t)key.count + 1, sizeof *definition);
@@ -34279,6 +34434,10 @@ static void sp_split(SpState *s, int p) {
     SpClause a = s->clause[p];
     if (!a.count || a.stage == SP_DELETED || a.stage == SP_HELD || a.stage == SP_BOOLEAN ||
         a.step.rule == SP_COMPONENT || a.step.rule == SP_COMPLEMENT) return;
+    /* La strategia con istanze propaga direttamente i fatti unitari:
+     * astrarli di nuovo li nasconderebbe dietro guardie senza offrire una
+     * scelta fra rami. Le disgiunzioni restano affidate allo split. */
+    if (s->comprehension && a.count == 1) return;
     sp_scratch_reset(s);
     int *parent = sp_allocate(s, &s->scratch, (size_t)a.count, sizeof *parent);
     int *owner = sp_allocate(s, &s->scratch, (size_t)a.variables, sizeof *owner);
@@ -34336,6 +34495,154 @@ static void sp_split(SpState *s, int p) {
     if (!s->limited) s->clause[p].stage = SP_DELETED;
 }
 
+/* Istanzia una formula universale su parti con una proprieta letterale.
+ * Tutte le clausole emesse restano indicizzate, perche il checker ricrea
+ * l'intero gruppo. Nessuna verita della proprieta viene assunta. L'istanza
+ * puo introdurre altre formule quantificate, con le proprie copie di contesto.
+ * Una quota interrompe onestamente il tentativo finale: un gruppo parziale
+ * non viene esportato. Ritorna uno anche per un'istanza gia presente. */
+static int sp_comprehend(SpState *s, int id, SpLiteral literal) {
+    if (!sp_visit(s)) return 0;
+    if (s->emitting || id < 0 || id >= s->schemas || !s->schema[id].every) {
+        s->unsupported = 1; return 0;
+    }
+    SpClause property = sp_normal(s, &literal, 1);
+    if (s->limited) return 0;
+    if (property.count != 1 || property.variables > 1 || !property.literal[0].left) { s->unsupported = 1; return 0; }
+    literal = property.literal[0];
+    for (int i = 0; i < s->expansions && sp_visit(s); i++) {
+        SpExpansion old = s->expansion[i];
+        if (old.schema == id && old.property.left == literal.left && old.property.right == literal.right && old.property.negative == literal.negative) {
+            if (!old.complete) { s->limited = 1; s->resumable = 0; return 0; }
+            return 1;
+        }
+    }
+    if (s->limited) return 0;
+    if (s->expansions == INT_MAX || !sp_reserve(s, (void **)&s->expansion, &s->expansion_cap,
+            (size_t)s->expansions + 1, sizeof *s->expansion)) { s->limited = 1; return 0; }
+    if (s->introductions == INT_MAX || !sp_reserve(s, (void **)&s->introduction, &s->introduction_cap,
+            (size_t)s->introductions + 1, sizeof *s->introduction)) { s->limited = 1; return 0; }
+    SpSchema schema = s->schema[id];
+    if (!sp_reserve(s, (void **)&s->universals, &s->universal_cap, (size_t)schema.universal, sizeof *s->universals)) return 0;
+    if (slot_count) memcpy(s->binding, schema.binding, (size_t)slot_count * sizeof *s->binding);
+    if (declared_symbols) memcpy(s->property, schema.property, (size_t)declared_symbols * sizeof *s->property);
+    if (schema.universal) memcpy(s->universals, schema.universals, (size_t)schema.universal * sizeof *s->universals);
+    s->universal = schema.universal;
+    int part = schema.source->part;
+    s->property[part] = (SpProperty){literal, symbols[part].domain[0]};
+    int expansion = s->expansions++;
+    s->expansion[expansion] = (SpExpansion){.schema=id, .first=s->clauses, .past=s->clauses, .symbol_first=s->symbols, .property=literal};
+    s->introduction[s->introductions++] = (SpIntroduction){SP_COMPREHEND, expansion};
+    s->emitting = expansion + 1;
+    /* Una quota locale puo fermare la strategia, ma non lascia un comando
+     * a meta. Il budget globale e la memoria restano sempre vincolanti. */
+    unsigned long long quota = s->quota; clock_t cpu_quota = s->cpu_quota;
+    s->quota = 0; s->cpu_quota = 0;
+    SpLiteral result = sp_formula(s, schema.source->a, schema.positive);
+    sp_emit(s, sp_not(schema.name), result, result, 2);
+    s->quota = quota; s->cpu_quota = cpu_quota;
+    s->emitting = 0;
+    s->expansion[expansion].past = s->clauses;
+    s->expansion[expansion].symbol_past = s->symbols;
+    s->expansion[expansion].complete = !s->limited && !s->unsupported;
+    if (!s->expansion[expansion].complete) s->resumable = 0;
+    s->universal = 0;
+    if (slot_count) memset(s->binding, 0, (size_t)slot_count * sizeof *s->binding);
+    if (declared_symbols) memset(s->property, 0, (size_t)declared_symbols * sizeof *s->property);
+    return !s->limited && !s->unsupported;
+}
+
+/* Le parti vuota e intera sono comprensioni valide anche senza elementi
+ * nominati. Si propone una sola formula per turno; le formule annidate
+ * entrano nella stessa agenda dinamica, senza un limite di profondita.
+ * Le proprieta x=x e x!=x sono dati generali, non casi di un esercizio. */
+static void sp_seed_comprehensions(SpState *s) {
+    while (s->seed_schema < s->schemas && sp_visit(s)) {
+        int id = s->seed_schema++;
+        if (!s->schema[id].every) continue;
+        sp_scratch_reset(s);
+        if (sp_comprehend(s, id, (SpLiteral){-1, -1, 0})) sp_comprehend(s, id, (SpLiteral){-1, -1, 1});
+        return;
+    }
+}
+
+/* Una proprieta proposta deve avere solo il parametro da astrarre.
+ * Qui il controllo di groundness e sintattico, senza assegnazioni a caso. */
+static int sp_ground_term(SpState *s, int term) {
+    if (!term) return 1;
+    if (!sp_visit(s) || term < 0) return 0;
+    SpTerm n = s->term[term];
+    for (int i = 0; i < n.count; i++) if (!sp_ground_term(s, s->argument[n.first + i])) return 0;
+    return 1;
+}
+
+/* Una proprieta gia proposta copre i suoi casi particolari. Il matching
+ * separa i due parametri: P(s(x)) non richiede un'altra istanza induttiva
+ * quando P(x) e gia nell'agenda. E solo una selezione della ricerca, non
+ * una prova di P(x); il checker riceve sempre le istanze effettive. */
+static int sp_property_covered(SpState *s, int schema, SpLiteral property) {
+    for (int i = 0; i < s->expansions && sp_visit(s); i++) {
+        SpExpansion e = s->expansion[i]; SpLiteral old = e.property;
+        if (e.schema != schema || old.negative != property.negative || !!old.right != !!property.right) continue;
+        for (int flip = 0; flip < (old.right ? 2 : 1) && sp_visit(s); flip++) {
+            sp_scratch_reset(s);
+            if (!sp_match_start(s, 1)) return 0;
+            /* Ogni proprieta ha al piu v0: v1 separa il candidato dalla
+             * variabile sostituibile della proprieta gia proposta. */
+            int left = sp_apply(s, flip ? property.right : property.left, 1, NULL, 0, 0);
+            int right = sp_apply(s, flip ? property.left : property.right, 1, NULL, 0, 0);
+            if (sp_match(s, old.left, left) && (!old.right || sp_match(s, old.right, right))) return 1;
+        }
+    }
+    return 0;
+}
+
+/* Dalla clausola selezionata L[t] si propone la proprieta complementare
+ * NOT L[x]. Le sottoespressioni piu piccole vengono prima: per f(a)!=a
+ * la scelta a produce f(x)=x. Si applica la stessa operazione strutturale
+ * alle costanti del letterale, senza riconoscere un teorema o un costruttore.
+ * Questa e la selezione leggera su unita ground di Reger e Voronkov:
+ * applicare subito tutte le proprieta di ogni clausola moltiplicherebbe
+ * i corpi prima di poter lavorare sull'obiettivo induttivo corrente. */
+static void sp_propose_term(SpState *s, SpLiteral literal, int term) {
+    if (term <= 0 || !sp_visit(s)) return;
+    SpTerm n = s->term[term];
+    for (int i = 0; i < n.count && !s->limited; i++) sp_propose_term(s, literal, s->argument[n.first + i]);
+    if (n.count || s->symbol[n.symbol].predicate || s->limited || s->unsupported) return;
+    sp_scratch_reset(s);
+    SpLiteral property = sp_not(literal);
+    property.left = sp_replace_term(s, property.left, term, -1);
+    property.right = sp_replace_term(s, property.right, term, -1);
+    int schemas = s->schemas;
+    for (int i = 0; i < schemas && sp_visit(s); i++) if (s->schema[i].every) {
+        if (sp_property_covered(s, i, property)) continue;
+        if (!sp_comprehend(s, i, property)) return;
+    }
+}
+
+/* I predicati tecnici di domini e Tseitin guidano la saturazione, ma non
+ * sono nuovi obiettivi induttivi. Si considerano uguaglianze e predicati
+ * originali ground; il budget globale limita i tentativi, non un tetto
+ * compilato al numero di proprieta o istanze. */
+static void sp_propose_comprehensions(SpState *s, int id) {
+    if (!s->schemas) return;
+    SpClause c = s->clause[id];
+    int ordinary = 0;
+    for (int i = 0; i < c.count; i++) ordinary += !sp_guard(s, c.literal[i]);
+    if (ordinary != 1) return;
+    for (int i = 0; i < c.count && sp_visit(s); i++) {
+        SpLiteral l = c.literal[i];
+        if (sp_guard(s, l)) continue;
+        /* Nel ramo SAT si anticipano i controesempi negativi: dai fatti
+         * gia veri non si generano subito proprieta complementari. Il
+         * tentativo ordinario finale considera entrambi i segni. */
+        if (s->avatar && !l.negative) continue;
+        if (!l.left || (!l.right && (l.left < 0 || s->term[l.left].symbol >= s->inputs))) continue;
+        if (!sp_ground_term(s, l.left) || !sp_ground_term(s, l.right)) continue;
+        sp_propose_term(s, l, l.left); sp_propose_term(s, l, l.right);
+    }
+}
+
 /* Congela le immagini di una sostituzione. Risolvere qui tutte le catene
  * permette al checker di applicarla una sola volta, simultaneamente. */
 static SpStep sp_snapshot(SpState *s, SpStep step, const int *sub, int count, int recursive) {
@@ -34377,16 +34684,49 @@ static void sp_combination(SpState *s, SpStep step, SpClause a, int omit_a,
     sp_keep(s, out, used, step, -1);
 }
 
+/* La selezione vale 1 se sono presenti letterali negativi ordinari, 2
+ * per una clausola composta soltanto da domini, zero negli altri casi.
+ * Le guardie AVATAR non partecipano alla scelta dei letterali FO. */
+static int sp_resolution_selection(const SpState *s, SpClause c) {
+    int negative = 0, domains = s->inputs != 0;
+    for (int i = 0; i < c.count; i++) {
+        SpLiteral l = c.literal[i];
+        if (s->avatar && sp_guard(s, l)) continue;
+        negative |= l.negative;
+        if (l.right || l.left <= 0) domains = 0;
+        else {
+            int symbol = s->term[l.left].symbol;
+            domains &= symbol >= s->inputs && symbol < s->inputs + sort_count;
+        }
+    }
+    return domains ? 2 : negative;
+}
+
+/* Si privilegiano i negativi, ma le clausole dei domini usano il massimo
+ * KBO. In D(f(x)) OR NOT D(x) il massimo e D(f(x)): si risponde cosi a
+ * richieste su un termine gia presente, invece di generare D(f^n(a)) per
+ * tutti i termini possibili. Nessun vincolo di dominio viene cancellato.
+ * La selezione decide soltanto quali risoluzioni valide tentare. */
+static int sp_resolution_literal(SpState *s, SpClause c, int index, int selection) {
+    SpLiteral l = c.literal[index];
+    if (s->avatar && sp_guard(s, l)) return 0;
+    if (selection != 2) return !selection || l.negative;
+    for (int i = 0; i < c.count && sp_visit(s); i++)
+        if ((!s->avatar || !sp_guard(s, c.literal[i])) && sp_greater(s, c.literal[i].left, l.left)) return 0;
+    return !s->limited;
+}
+
 /* Risoluzione binaria: da C o A e D o non B, se A e B si unificano,
  * segue (C o D) sigma. Per le uguaglianze si provano entrambi i versi.
  * Non si identificano le variabili dei genitori prima dell'unificazione. */
 static void sp_resolve(SpState *s, int p, int q) {
     SpClause a = s->clause[p], b = s->clause[q];
+    int selection_a = sp_resolution_selection(s, a), selection_b = sp_resolution_selection(s, b);
     int offset, count = sp_context(s, p, q, &offset);
     for (int i = 0; i < a.count && s->empty < 0 && sp_visit(s); i++)
         for (int j = 0; j < b.count && s->empty < 0 && sp_visit(s); j++) {
             SpLiteral x = a.literal[i], y = b.literal[j];
-            if (s->avatar && (sp_guard(s, x) || sp_guard(s, y))) continue;
+            if (!sp_resolution_literal(s, a, i, selection_a) || !sp_resolution_literal(s, b, j, selection_b)) continue;
             if (x.negative == y.negative || !!x.right != !!y.right || !x.left || !y.left) continue;
             for (int flip = 0; flip < (x.right ? 2 : 1) && s->empty < 0 && sp_visit(s); flip++) {
                 sp_scratch_reset(s);
@@ -34397,6 +34737,64 @@ static void sp_resolve(SpState *s, int p, int q) {
                 sp_combination(s, (SpStep){.rule=SP_RESOLVE, .p=p, .lp=i, .q=q, .lq=j}, a, i, b, j, offset, NULL);
             }
         }
+}
+
+/* Trova un letterale proposizionale esatto, oppure restituisce -1.
+ * I duplicati sono gia contratti dalla normalizzazione delle clausole. */
+static int sp_proposition(SpClause c, int atom, int negative) {
+    for (int i = 0; i < c.count; i++)
+        if (!c.literal[i].right && c.literal[i].left == atom && c.literal[i].negative == negative) return i;
+    return -1;
+}
+
+/* Elimina un nome tecnico senza argomenti con Davis-Putnam: da tutte le
+ * coppie C OR q, D OR NOT q conserva C OR D, poi ritira le clausole con q.
+ * Ogni risolvente ha una risoluzione esplicita, ricontrollabile dal checker.
+ * Teacher: un modello dei risolventi si estende scegliendo q vero se un C
+ * e falso, falso se un D e falso; entrambe le richieste non possono esserci
+ * insieme, perche falsificherebbero C OR D. L'argomento vale anche quando
+ * C e D sono universalmente quantificate, separandone prima le variabili.
+ * Se una quota interrompe le coppie, i genitori restano nella ricerca.
+ * Non si eliminano nomi di parti o componenti, che altre istanze possono
+ * riutilizzare. Nessun predicato con argomenti viene trattato da Booleano. */
+static void sp_eliminate_comprehensions(SpState *s) {
+    while (s->eliminate_expansion < s->expansions && s->empty < 0 && sp_visit(s)) {
+        SpExpansion e = s->expansion[s->eliminate_expansion];
+        if (s->eliminate_symbol < e.symbol_first) s->eliminate_symbol = e.symbol_first;
+        if (s->eliminate_symbol >= e.symbol_past) {
+            s->eliminate_expansion++; s->eliminate_symbol = 0; continue;
+        }
+        int symbol = s->eliminate_symbol, protected = 0;
+        if (!s->symbol[symbol].predicate || s->symbol[symbol].arity || s->symbol[symbol].component) {
+            s->eliminate_symbol++; continue;
+        }
+        int atom = sp_term(s, symbol, NULL);
+        for (int i = 0; i < s->schemas && sp_visit(s); i++) protected |= s->schema[i].name.left == atom;
+        for (int i = 0; i < s->components && sp_visit(s); i++)
+            protected |= sp_proposition(s->component[i].key, atom, 0) >= 0 || sp_proposition(s->component[i].key, atom, 1) >= 0;
+        if (s->limited) return;
+        if (protected) { s->eliminate_symbol++; continue; }
+        int last = s->clauses;
+        for (int p = 0; p < last && s->empty < 0 && sp_visit(s); p++) {
+            if (s->clause[p].stage == SP_DELETED) continue;
+            SpClause a = s->clause[p]; int x = sp_proposition(a, atom, 0);
+            if (x < 0) continue;
+            for (int q = 0; q < last && s->empty < 0 && sp_visit(s); q++) {
+                if (s->clause[q].stage == SP_DELETED) continue;
+                SpClause b = s->clause[q]; int y = sp_proposition(b, atom, 1);
+                if (y < 0) continue;
+                sp_scratch_reset(s);
+                int offset, count = sp_context(s, p, q, &offset);
+                if (!sp_unify_start(s, count)) return;
+                sp_combination(s, (SpStep){.rule=SP_RESOLVE, .p=p, .lp=x, .q=q, .lq=y}, a, x, b, y, offset, NULL);
+            }
+        }
+        if (s->limited) return;
+        for (int i = 0; i < last && sp_visit(s); i++)
+            if (sp_proposition(s->clause[i], atom, 0) >= 0 || sp_proposition(s->clause[i], atom, 1) >= 0) s->clause[i].stage = SP_DELETED;
+        if (s->limited) return;
+        s->eliminate_symbol++;
+    }
 }
 
 /* Inferenze a un genitore. l!=r si cancella quando l e r si unificano.
@@ -34597,19 +34995,33 @@ static int sp_demodulate(SpState *s, int p, int q) {
  * Non si rianima una clausola eliminata per tautologia o sussunzione.
  * Anche gli ACTIVE tornano PENDING: una quota puo avere fermato le loro
  * inferenze prima di esaurirle. L'eta riparte da zero senza perdere equita.
- * selected=NULL riattiva tutte le ipotesi. Ritorna quante ne sono sospese;
+ * selected=NULL riattiva tutte le ipotesi. keep_active e ammesso solo
+ * quando il modello SAT precedente viene esteso senza cambiarne i valori;
+ * conserva allora anche l'eta e l'agenda unitaria. Ritorna quante sono sospese;
  * con limited la coda e incompleta e il chiamante non deve usarla. */
-static int sp_requeue(SpState *s, const unsigned char *selected) {
+static int sp_requeue_mode(SpState *s, const unsigned char *selected, int keep_active) {
     int held = 0;
-    s->heap_count = s->age = 0; s->rounds = 0;
+    s->heap_count = 0;
+    if (!keep_active) {
+        s->age = 0; s->rounds = 0;
+        s->units = s->unit_cursor = 0;
+    }
     for (int i = 0; i < s->clauses && sp_visit(s); i++) {
         if (s->clause[i].stage == SP_DELETED) continue;
         int keep = i >= s->initial || !selected || selected[i];
-        s->clause[i].stage = keep ? sp_available(s, s->clause[i]) : SP_HELD;
+        SpStage stage = keep ? sp_available(s, s->clause[i]) : SP_HELD;
+        if (keep_active && stage == SP_PENDING && s->clause[i].stage == SP_ACTIVE) stage = SP_ACTIVE;
+        s->clause[i].stage = stage;
         if (s->clause[i].stage == SP_PENDING) sp_enqueue(s, i);
         if (!keep) held++;
     }
     return held;
+}
+
+/* Una strategia nuova riprende anche le inferenze eventualmente interrotte
+ * dal tentativo precedente. Nessuna clausola elaborata resta esclusa. */
+static int sp_requeue(SpState *s, const unsigned char *selected) {
+    return sp_requeue_mode(s, selected, 0);
 }
 
 /* Converte una guardia nel letterale del SAT. La variabile SAT uno e la
@@ -34799,24 +35211,160 @@ static int sp_avatar_update(SpState *s) {
         if (!satisfied) return 0;
     }
     if (s->limited) return 0;
+    int changed = 0;
     for (int i = 0; i < s->components; i++) {
         int value = b->var[(size_t)i + 2].value;
         if (!value) return 0;
+        changed |= s->component[i].value && s->component[i].value != value;
         s->component[i].value = value;
     }
     s->sat_models++; s->avatar_dirty = 0;
-    sp_requeue(s, NULL);
+    /* Un'estensione del medesimo modello non cambia le inferenze gia
+     * esaurite. Riattivarle a ogni nuovo nome darebbe sempre precedenza
+     * ai fatti vecchi e affamerebbe le clausole delle istanze. Il ciclo
+     * marca invece PENDING la singola clausola interrotta da un vincolo.
+     * Se cambia una decisione esistente si riesamina l'intero ramo. */
+    int age = s->age; unsigned long long rounds = s->rounds;
+    sp_requeue_mode(s, NULL, !changed);
+    s->age = age; s->rounds = rounds;
+    /* Un contenuto FO unitario del ramo puo avere guardie nel testo della
+     * clausola. Proporlo subito evita che la coda dei nomi tecnici rinvii
+     * l'obiettivo induttivo; la proprieta resta solo un candidato, non un
+     * fatto del ramo. I corpi nuovi verranno suddivisi al giro successivo. */
+    if (s->comprehension && !s->limited) {
+        int clauses = s->clauses, expansions = s->expansions;
+        for (int i = 0; i < clauses && sp_visit(s); i++) if (s->clause[i].stage == SP_PENDING)
+            sp_propose_comprehensions(s, i);
+        if (s->expansions != expansions) s->avatar_dirty = 1;
+    }
     return !s->limited;
+}
+
+/* Individua l'unico letterale FO di una clausola, oppure restituisce -1.
+ * In AVATAR le altre posizioni possono essere guardie ground; fuori da
+ * AVATAR occorre una clausola unitaria nel senso ordinario. */
+static int sp_unit_literal(const SpState *s, SpClause c) {
+    int at = -1;
+    for (int i = 0; i < c.count; i++) if (!s->avatar || !sp_guard(s, c.literal[i])) {
+        if (at >= 0) return -1;
+        at = i;
+    }
+    return at;
+}
+
+/* Cancella un letterale complementare a un'istanza di una clausola unitaria.
+ * Il matching istanzia soltanto l'unita; il bersaglio resta universale sulle
+ * sue variabili, rinominate a parte. Risoluzione e sostituzione esplicite
+ * giustificano la riduzione. Le guardie dell'unita restano nel risultato:
+ * il bersaglio si elimina soltanto se gia le contiene tutte, altrimenti
+ * il risolvente vale sotto ipotesi piu forti e non puo sostituirlo. */
+static int sp_unit_resolve(SpState *s, int target, int unit) {
+    SpClause c = s->clause[target], a = s->clause[unit];
+    int at = sp_unit_literal(s, a);
+    if (at < 0) return 0;
+    SpLiteral u = a.literal[at];
+    int redundant = 1;
+    for (int i = 0; i < a.count; i++) if (i != at) {
+        int present = 0;
+        for (int j = 0; j < c.count; j++)
+            present |= a.literal[i].negative == c.literal[j].negative && sp_same_atom(a.literal[i], c.literal[j]);
+        redundant &= present;
+    }
+    int offset;
+    sp_context(s, unit, target, &offset);
+    for (int i = 0; i < c.count && sp_visit(s); i++) {
+        SpLiteral l = c.literal[i];
+        if (u.negative == l.negative || !!u.right != !!l.right) continue;
+        for (int flip = 0; flip < (u.right ? 2 : 1) && sp_visit(s); flip++) {
+            sp_scratch_reset(s);
+            if (!sp_match_start(s, s->clause[unit].variables)) return 0;
+            int left = sp_apply(s, flip ? l.right : l.left, offset, NULL, 0, 0);
+            int right = sp_apply(s, flip ? l.left : l.right, offset, NULL, 0, 0);
+            if (!sp_match(s, u.left, left) || (u.right && !sp_match(s, u.right, right))) continue;
+            SpLiteral *instance = sp_instance(s, c, offset, s->match, s->match_count, 0);
+            SpLiteral *source = sp_instance(s, a, 0, s->match, s->match_count, 0);
+            if (a.count > INT_MAX - c.count) { s->limited = 1; return 0; }
+            SpLiteral *out = sp_allocate(s, &s->scratch, (size_t)a.count + (size_t)c.count, sizeof *out);
+            if (!instance || !source || !out) return 0;
+            int count = 0;
+            for (int j = 0; j < a.count; j++) if (j != at) out[count++] = source[j];
+            for (int j = 0; j < c.count; j++) if (j != i) out[count++] = instance[j];
+            SpStep step = {.rule=SP_RESOLVE, .p=unit, .lp=at, .q=target, .lq=i};
+            step = sp_snapshot(s, step, s->match, s->match_count, 0);
+            sp_keep(s, out, count, step, -1);
+            if (s->limited) return 0;
+            if (redundant) s->clause[target].stage = SP_DELETED;
+            return redundant;
+        }
+    }
+    return 0;
+}
+
+/* Propagazione unitaria per le clausole nuove delle istanze. Si conserva
+ * la prova di ogni riduzione, inclusi i nomi di Tseitin: altrimenti i corpi
+ * delle comprensioni si moltiplicherebbero prima di usare base e passo.
+ * L'agenda visita ogni clausola nuova; una nuova unita raggiunge anche le
+ * clausole precedenti. Un turno visita soltanto il prefisso presente al
+ * suo inizio: D(a), D(x)=>D(f(x)) genererebbero altrimenti D(f^n(a)) senza
+ * mai lasciare lavorare il ciclo given-clause. Le nuove unita restano
+ * nell'agenda del turno successivo, senza un tetto al numero di istanze.
+ * Fuori da AVATAR le guardie sono disgiunti ordinari. */
+static void sp_unit_propagate(SpState *s) {
+    int last = s->clauses;
+    while (s->unit_cursor < last && s->empty < 0 && sp_visit(s)) {
+        int id = s->unit_cursor++;
+        SpClause c = s->clause[id];
+        if (c.stage == SP_DELETED || c.stage == SP_HELD || c.stage == SP_LOCKED) continue;
+        if (c.stage == SP_BOOLEAN) continue;
+        int at = sp_unit_literal(s, c);
+        if (at >= 0) {
+            int duplicate = 0;
+            for (int i = 0; i < s->units && sp_visit(s); i++) {
+                SpClause old = s->clause[s->unit[i]];
+                if (old.count != c.count || old.variables != c.variables) continue;
+                int same = 1;
+                for (int j = 0; j < c.count; j++) {
+                    int present = 0;
+                    for (int k = 0; k < old.count; k++)
+                        present |= old.literal[k].negative == c.literal[j].negative && sp_same_atom(old.literal[k], c.literal[j]);
+                    same &= present;
+                }
+                duplicate |= same;
+            }
+            if (duplicate) { s->clause[id].stage = SP_DELETED; continue; }
+            if (s->units == INT_MAX || !sp_reserve(s, (void **)&s->unit, &s->unit_cap, (size_t)s->units + 1, sizeof *s->unit)) {
+                s->limited = 1; return;
+            }
+            s->unit[s->units++] = id;
+            for (int i = 0; i < id && s->empty < 0 && sp_visit(s); i++)
+                if (s->clause[i].stage != SP_DELETED && s->clause[i].stage != SP_HELD && s->clause[i].stage != SP_LOCKED) sp_unit_resolve(s, i, id);
+        } else for (int i = 0; i < s->units && s->empty < 0 && sp_visit(s); i++)
+            if (sp_unit_resolve(s, id, s->unit[i])) break;
+    }
 }
 
 /* Il ciclo given-clause. Le semplificazioni conservano le loro deduzioni;
  * i genitori elaborati restano indirizzabili anche quando diventano
  * ridondanti. Una coda vuota senza contraddizione restituisce sconosciuto. */
 static int sp_search(SpState *s) {
+    if (s->expansions && !s->expansion[s->expansions - 1].complete) { s->limited = 1; s->resumable = 0; return 0; }
     while (s->empty < 0 && sp_visit(s)) {
+        if (s->comprehension) {
+            sp_seed_comprehensions(s);
+            if (s->empty >= 0 || s->limited) break;
+            sp_eliminate_comprehensions(s);
+            if (s->empty >= 0 || s->limited) break;
+            sp_unit_propagate(s);
+            if (s->empty >= 0 || s->limited) break;
+        }
         if (s->avatar && (!sp_avatar_update(s) || s->empty >= 0)) break;
+        if (s->avatar && s->avatar_dirty) continue;
         int given = sp_select(s);
-        if (given < 0 || s->limited) break;
+        if (s->limited) break;
+        if (given < 0) {
+            if (s->comprehension && s->seed_schema < s->schemas) continue;
+            break;
+        }
         int last = s->clauses, redundant = 0;
         sp_scratch_reset(s);
         for (int i = 0; i < last && !redundant && sp_visit(s); i++)
@@ -34826,8 +35374,12 @@ static int sp_search(SpState *s) {
             if (s->clause[i].stage == SP_ACTIVE) redundant = sp_demodulate(s, i, given);
         if (redundant) continue;
         s->clause[given].stage = SP_ACTIVE;
+        if (s->comprehension) sp_propose_comprehensions(s, given);
         sp_unary(s, given);
-        if (s->avatar && s->avatar_dirty) continue;
+        if (s->avatar && s->avatar_dirty) {
+            if (s->clause[given].stage == SP_ACTIVE) s->clause[given].stage = SP_PENDING;
+            continue;
+        }
         for (int i = 0; i < last && s->empty < 0 && s->clause[given].stage == SP_ACTIVE && sp_visit(s); i++) {
             if (s->clause[i].stage != SP_ACTIVE) continue;
             sp_resolve(s, given, i);
@@ -34842,6 +35394,7 @@ static int sp_search(SpState *s) {
         for (int i = 0; i < last && s->empty < 0 && (!s->avatar || !s->avatar_dirty) && sp_visit(s); i++)
             if (i != given && s->clause[i].stage != SP_DELETED &&
                 s->clause[i].stage != SP_HELD && s->clause[i].stage != SP_LOCKED) sp_demodulate(s, given, i);
+        if (s->avatar && s->avatar_dirty && s->clause[given].stage == SP_ACTIVE) s->clause[given].stage = SP_PENDING;
     }
     return s->empty >= 0 && !s->limited && !s->unsupported;
 }
@@ -34969,15 +35522,17 @@ static int sp_sine_select(SpState *s, const unsigned char *goal, unsigned tolera
  * frequenza delle scelte per eta, AVATAR, infine il ciclo ordinario con
  * tutte le ipotesi. AVATAR ha meta del lavoro rimasto e un secondo CPU;
  * le sue definizioni e clausole conservano validita nella ripartenza.
- * Ogni tentativo filtrato ha al piu un ottavo del lavoro rimasto e un quarto di secondo
- * CPU; l'ultimo usa il budget globale. Una firma vuota o un insieme gia
+ * Ogni tentativo filtrato ha al piu un ottavo del lavoro rimasto e un
+ * quarto di secondo CPU; con formule su parti usa un trentaduesimo,
+ * perche i filtri FO non ne generano ancora le istanze. L'ultimo usa
+ * il budget globale. Una firma vuota o un insieme gia
  * ristretto al massimo non richiedono ricerche filtrate ridondanti.
  * s contiene la clausificazione completa di root. Ritorna uno soltanto
  * per una refutazione, zero per una ricerca incompleta; tutti i passi
  * continuano a riferirsi alle clausole originali. */
 static int sp_portfolio(SpState *s, const Sentence *root) {
     if (s->limited || s->unsupported) return 0;
-    if (s->empty >= 0 || !s->inputs) return sp_search(s);
+    if (s->empty >= 0 || !s->inputs) { s->comprehension = s->schemas != 0; return sp_search(s); }
     sp_scratch_reset(s);
     if (!sp_sine_prepare(s)) return 0;
     unsigned char *goal = sp_allocate(s, &s->storage, (size_t)s->inputs, 1);
@@ -34989,6 +35544,7 @@ static int sp_portfolio(SpState *s, const Sentence *root) {
         s->strategy = phase;
         s->quota = 0; s->cpu_quota = 0;
         s->avatar = phase == 3;
+        s->comprehension = phase >= 3 && s->schemas != 0;
         if (phase == 3) s->avatar_dirty = 1;
         if (phase == 4) sat_clear(&s->sat);
         sp_scratch_reset(s);
@@ -35001,7 +35557,7 @@ static int sp_portfolio(SpState *s, const Sentence *root) {
         int held = sp_requeue(s, selected);
         if (s->limited) return 0;
         if (phase < 3) {
-            unsigned long long share = (saturation_work_limit - s->work) / 8;
+            unsigned long long share = (saturation_work_limit - s->work) / (s->schemas ? 32 : 8);
             if (!held || !share) continue;
             s->quota = s->work + share;
             s->started = clock(); s->cpu_quota = CLOCKS_PER_SEC / 4 ? CLOCKS_PER_SEC / 4 : 1;
@@ -35052,7 +35608,7 @@ static void sp_put_term(const SpState *s, int t) {
     if (t < 0) { proof_add("x_{%d}", -t - 1); return; }
     SpTerm n = s->term[t];
     if (n.symbol < s->inputs) put_symbol(s->original_symbol[n.symbol]);
-    else if (n.symbol >= s->component_first && n.symbol - s->component_first < s->components) proof_add("b_{%d}", n.symbol - s->component_first);
+    else if (s->symbol[n.symbol].component) proof_add("b_{%d}", s->symbol[n.symbol].component - 1);
     else if (n.symbol < s->inputs + sort_count) proof_add("D_{%d}", n.symbol - s->inputs);
     else proof_add("%s_{%d}", s->symbol[n.symbol].predicate ? "P" : "k", n.symbol);
     if (n.count) proof_add("(");
@@ -35075,10 +35631,13 @@ static void sp_put_clause(const SpState *s, SpClause c) {
     }
 }
 
-/* Scrive soltanto gli antenati del vuoto. Le clausole iniziali mantengono
+/* Scrive gli antenati del vuoto e tutti i comandi che introducono nomi.
+ * I comandi mantengono la firma e gli indici anche quando la loro prima
+ * clausola non e fra gli antenati. Le clausole iniziali mantengono
  * i loro indici; gli altri passi vengono rinumerati dopo quelle iniziali,
  * cosi omettere ricerche inutilizzate non cambia un riferimento del checker. */
 static void sp_write(SpState *s, const Sentence *root, const Sentence *const *laws, int law_count, long long compared) {
+    if (s->empty < 0 || (s->expansions && !s->expansion[s->expansions - 1].complete)) { s->limited = 1; return; }
     sp_scratch_reset(s);
     unsigned char *needed = sp_allocate(s, &s->scratch, (size_t)s->clauses, 1);
     int *number = sp_allocate(s, &s->scratch, (size_t)s->clauses, sizeof *number);
@@ -35087,53 +35646,74 @@ static void sp_write(SpState *s, const Sentence *root, const Sentence *const *la
     needed[s->empty] = 1;
     for (int i = s->empty; i >= s->initial; i--) if (needed[i]) {
         SpStep step = s->clause[i].step;
-        if (step.rule == SP_COMPONENT || step.rule == SP_COMPLEMENT) continue;
+        if (step.rule == SP_COMPONENT || step.rule == SP_COMPLEMENT || step.rule == SP_COMPREHEND) continue;
         needed[step.p] = 1;
         if (step.rule == SP_RESOLVE || step.rule == SP_SUPER) needed[step.q] = 1;
     }
     int count = s->initial;
     for (int i = 0; i < s->clauses; i++) number[i] = i < s->initial ? i : -1;
-    /* Le definizioni precedono i passi: non hanno genitori e le loro
-     * chiavi usano soltanto simboli della clausificazione originale.
-     * Anche una componente inutilizzata mantiene il numero del simbolo. */
-    for (int i = 0; i < s->components; i++) {
-        SpComponent c = s->component[i];
-        if (count > INT_MAX - 2) { s->limited = 1; return; }
-        if (c.forward >= 0) number[c.forward] = count;
-        count++;
-        if (!c.key.variables && c.key.count == 1) {
-            if (c.reverse >= 0) number[c.reverse] = count;
+    /* I comandi non dipendono da genitori FO: le proprieta sono formule,
+     * non fatti assunti. Si possono anticipare ai passi conservando il
+     * loro ordine comune, necessario per simboli e formule annidate. */
+    for (int i = 0; i < s->introductions; i++) {
+        SpIntroduction event = s->introduction[i];
+        if (event.kind == SP_COMPONENT) {
+            SpComponent c = s->component[event.index];
+            if (count > INT_MAX - 2) { s->limited = 1; return; }
+            if (c.forward >= 0) number[c.forward] = count;
             count++;
+            if (!c.key.variables && c.key.count == 1) {
+                if (c.reverse >= 0) number[c.reverse] = count;
+                count++;
+            }
+        } else {
+            SpExpansion e = s->expansion[event.index];
+            if (!e.complete || e.past - e.first > INT_MAX - count) { s->limited = 1; return; }
+            for (int j = e.first; j < e.past; j++) number[j] = count++;
         }
     }
-    for (int i = s->initial; i < s->clauses; i++) if (needed[i] && s->clause[i].step.rule != SP_COMPONENT && s->clause[i].step.rule != SP_COMPLEMENT) {
+    for (int i = s->initial; i < s->clauses; i++) if (needed[i] && s->clause[i].step.rule != SP_COMPONENT &&
+            s->clause[i].step.rule != SP_COMPLEMENT && s->clause[i].step.rule != SP_COMPREHEND) {
         if (count == INT_MAX) { s->limited = 1; return; }
         number[i] = count++;
     }
     cert_abstract_head("saturation", root, NULL);
     for (int i = 0; i < law_count; i++) { cert_add("axiom "); cert_sentence(laws[i], SLOT_VALUES_EMPTY); cert_add("\n"); }
-    cert_add("clausify\n");
-    for (int i = 0; i < s->components; i++) {
-        cert_add("component "); sp_cert_clause(s, s->component[i].key); cert_add("\n");
-        if (!s->component[i].key.variables && s->component[i].key.count == 1) cert_add("complement %d\n", i);
-    }
+    cert_add(s->forward ? "clausify forward\n" : "clausify\n");
     proof_reset(); proof_growable = 1;
     proof_add("\\textbf{Proof.} By contradiction and saturation. Each domain predicate $D_i$ denotes membership in its set. "
               "Negation normal form, Skolem functions with their universal parameters, and predicates for subformulas give clauses; "
               "all free variables of each clause are universal and are renamed apart before an inference. "
               "The initial clauses used below and every derived step are:\n\\begin{itemize}\n");
-    for (int i = 0; i < s->components; i++) {
-        proof_add("\\item Define $b_{%d}\\iff ", i);
-        for (int j = 0; j < s->component[i].key.variables; j++) proof_add("\\forall x_{%d}\\ ", j);
-        proof_add("("); sp_put_clause(s, s->component[i].key); proof_add(")$.\n");
+    for (int i = 0; i < s->introductions; i++) {
+        SpIntroduction event = s->introduction[i];
+        if (event.kind == SP_COMPONENT) {
+            SpComponent c = s->component[event.index];
+            cert_add("component "); sp_cert_clause(s, c.key); cert_add("\n");
+            if (!c.key.variables && c.key.count == 1) cert_add("complement %d\n", event.index);
+            proof_add("\\item Define $b_{%d}\\iff ", event.index);
+            for (int j = 0; j < c.key.variables; j++) proof_add("\\forall x_{%d}\\ ", j);
+            proof_add("("); sp_put_clause(s, c.key); proof_add(")$.\n");
+        } else {
+            SpExpansion e = s->expansion[event.index];
+            SpClause property = {.count=1, .literal=&e.property};
+            cert_add("comprehend %d ", e.schema); sp_cert_clause(s, property); cert_add("\n");
+            proof_add("\\item Instantiate the universal part formula $ ");
+            SpSchema schema = s->schema[e.schema];
+            put_sentence(schema.source, !schema.positive, SLOT_VALUES_EMPTY, 0);
+            proof_add("$ with $\\{x_0\\in "); put_sort(symbols[schema.source->part].domain[0]);
+            proof_add("\\mid "); sp_put_clause(s, property); proof_add("\\}$.\n");
+        }
     }
-    static const char *const rule[] = {"input", "resolve", "reflex", "factor", "super", "equalfactor", "component", "complement", "split"};
-    static const char *const description[] = {"clausification", "resolution", "equality resolution", "factoring", "superposition", "equality factoring", "component definition", "ground complement", "variable-disjoint splitting"};
-    for (int i = 0; i < s->clauses; i++) if (needed[i]) {
+    static const char *const rule[] = {"input", "resolve", "reflex", "factor", "super", "equalfactor", "component", "complement", "split", "comprehend"};
+    static const char *const description[] = {"clausification", "resolution", "equality resolution", "factoring", "superposition", "equality factoring", "component definition", "ground complement", "variable-disjoint splitting", "comprehension instantiation"};
+    for (int i = 0; i < s->clauses; i++) {
         SpClause c = s->clause[i]; SpStep step = c.step;
+        if (!needed[i]) continue;
         proof_add("\\item $(C_{%d})\\quad ", number[i]); sp_put_clause(s, c); proof_add("$.");
         if (i < s->initial) { proof_add(" By clausification.\n"); continue; }
         if (step.rule == SP_COMPONENT || step.rule == SP_COMPLEMENT) { proof_add(" By %s.\n", description[step.rule]); continue; }
+        if (step.rule == SP_COMPREHEND) { proof_add(" By comprehension and clausification.\n"); continue; }
         proof_add(" By %s from $(C_{%d})$", description[step.rule], number[step.p]);
         if (step.rule == SP_RESOLVE || step.rule == SP_SUPER) proof_add(" and $(C_{%d})$", number[step.q]);
         if (step.bindings) {
@@ -35173,14 +35753,14 @@ static void sp_write(SpState *s, const Sentence *root, const Sentence *const *la
     put_unfolding_note(compared); proof_add(" $\\Box$");
 }
 
-/* La strategia tratta il primo ordine con uguaglianza. Gli altri nodi
- * conservano le loro strategie dedicate: non si approssima un quantificatore
- * su tutte le parti con un quantificatore su elementi qualsiasi. */
-static int sp_first_order(const Sentence *root) {
+/* Nodi trattati dalla saturazione: primo ordine e astrazioni dei
+ * quantificatori su parti con istanze di comprensione. Una parte non viene
+ * confusa con un elemento; l'equipotenza conserva la propria strategia. */
+static int sp_supported_formula(const Sentence *root) {
     switch (root->kind) {
     case S_TRUE: case S_EQUAL: case S_HOLDS: return 1;
-    case S_NOT: case S_FORALL: case S_EXISTS: return sp_first_order(root->a);
-    case S_AND: case S_OR: case S_IMPLIES: case S_IFF: return sp_first_order(root->a) && sp_first_order(root->b);
+    case S_NOT: case S_FORALL: case S_EXISTS: case S_FORALL_PART: case S_EXISTS_PART: return sp_supported_formula(root->a);
+    case S_AND: case S_OR: case S_IMPLIES: case S_IFF: return sp_supported_formula(root->a) && sp_supported_formula(root->b);
     default: return 0;
     }
 }
@@ -35191,7 +35771,7 @@ static int sp_first_order(const Sentence *root) {
  * Zero significa ricerca incompleta: le altre strategie possono proseguire. */
 static int saturation_attempt(const Sentence *root, const Sentence *const *laws, int law_count,
                                long long compared, Verdict *verdict) {
-    if (!sp_first_order(root)) return 0;
+    if (!sp_supported_formula(root)) return 0;
     SpState state = {0};
     if (!sp_prepare(&state, root, laws, law_count) || !sp_portfolio(&state, root)) { sp_clear(&state); return 0; }
     /* Se il vuoto e gia nella negazione della tesi, non servono leggi

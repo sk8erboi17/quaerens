@@ -169,6 +169,9 @@
  *     componenti e separare gruppi a variabili disgiunte. Ogni modello
  *     dell'enunciato negato si estende alle nuove definizioni: un'eventuale
  *     clausola vuota continua a escludere tutti i controesempi originali.
+ *     Le formule con quantificatori su parti possono restare astratte;
+ *     comprehend ne aggiunge istanze universali con comprensioni esplicite.
+ *     Non assume un principio induttivo: deve comparire nell'enunciato.
  *     Il controllo non cerca genitori, sostituzioni o unificatori.
  *   - "certificate signs" (capitolo 12): con C la condizione nella variabile
  *     x, e un confronto che vale in x solo dove i suoi due membri sono
@@ -3513,6 +3516,16 @@ static void ck_check_case(void) {
  * astrae una partizione esplicita a variabili disgiunte. I nomi nuovi sono
  * un'estensione conservativa; la verifica del SAT resta una sequenza delle
  * normali risoluzioni, non una risposta UNSAT accettata sulla fiducia.
+ *
+ * Un quantificatore su parti riceve un nome con i parametri visibili.
+ * Senza istanze il nome e libero: e un indebolimento dei vincoli, mai una
+ * nuova ipotesi. comprehend j (clause L(v0)) ricostruisce q_j => F(A),
+ * con A={x in S | L(x)}, soltanto per una forma normale universale.
+ * Il corpo puo produrre altri nomi quantificati, che conservano contesti e
+ * comprensioni esterne. I nomi AVATAR e quelli delle istanze possono
+ * alternarsi: ogni simbolo dichiara il proprio ruolo, senza un suffisso
+ * riservato. La forma opzionale clausify forward usa implicazioni nella
+ * direzione positiva della NNF, preservando ogni controesempio originale.
  * Riferimenti: Kovacs e Voronkov (2013), First-Order Theorem Proving and
  * Vampire; Bachmair e Ganzinger (1994), Rewrite-based Equational Theorem
  * Proving with Selection and Simplification.
@@ -3529,8 +3542,10 @@ typedef struct { int symbol, first, count; } CkRTerm;
 
 /* Un simbolo della traduzione: arity conta gli argomenti, predicate vale
  * uno per un predicato e zero per una funzione. I simboli dichiarati vengono
- * prima dei domini, dei simboli di Skolem e dei nomi delle sottoformule. */
-typedef struct { int arity, predicate; } CkRSymbol;
+ * prima dei domini, dei simboli di Skolem e dei nomi delle sottoformule.
+ * component vale indice della componente piu uno, zero per un simbolo
+ * ordinario: il ruolo non dipende dalla sua posizione nella firma. */
+typedef struct { int arity, predicate, component; } CkRSymbol;
 
 /* Un letterale: left/right sono i membri dell'uguaglianza; con right=0,
  * left e un predicato applicato. left=right=0 significa vero. negative
@@ -3554,24 +3569,52 @@ typedef struct {
  * ground e una chiave senza variabili. */
 typedef struct { CkRClause key; int symbol; } CkRComponent;
 
+/* Una parte definita durante una comprensione: predicate e una proprieta
+ * letterale con la sola variabile segnaposto v0; sort limita la parte al
+ * proprio insieme. left=0 indica che quel posto lega invece un elemento.
+ * I termini della proprieta appartengono all'arena del certificato. */
+typedef struct { CkRLiteral predicate; int sort; } CkRPart;
+
+/* Una formula con quantificatore su parti, astratta da un predicato name.
+ * body e l'albero originale; positive la polarita della sua condizione,
+ * every indica che la forma normale e universale e ammette istanze.
+ * sort e la base delle parti. binding/part e universals sono copie stabili
+ * dei contesti, con bound/universal celle, possedute dall'arena. */
+typedef struct {
+    const CkNode *body;
+    int positive, every, sort, bound, universal;
+    CkRLiteral name;
+    const int *binding, *universals;
+    const CkRPart *part;
+} CkRSchema;
+
 /* Stato di un controllo, indipendente dal motore. I contatori delimitano
  * i depositi term/argument/symbol/clause e le pile binding/universals.
  * variable numera i nomi prima della normalizzazione; started distingue
  * le dichiarazioni dalla traduzione eseguita. I suffissi _cap contano le
  * celle allocate sullo heap; hash condivide termini strutturalmente uguali.
  * work e il numero di visite eseguite, non una stima della prova.
- * components conta le definizioni, component_first il loro primo simbolo;
- * component/component_cap sono il deposito posseduto e la sua capacita. */
+ * components conta le definizioni;
+ * component/component_cap sono il deposito posseduto e la sua capacita.
+ * schema/schema_cap conservano schemas astrazioni; part e parallelo a
+ * binding per distinguere elementi e comprensioni. forward seleziona la
+ * forma direzionale della clausificazione; zero conserva il protocollo
+ * storico con equivalenze complete e gli stessi indici di clausola. */
 typedef struct {
     int terms, args, symbols, clauses, variable, bound, universal, started;
-    int components, component_first;
+    int components;
+    int forward;                 /* nomi positivi della NNF: solo q=>F */
     CkRSymbol *symbol;
     int *argument, *binding, *universals, *hash;
     CkRTerm *term;
     CkRClause *clause;
     CkRComponent *component;       /* definizioni conservative, possedute dal controllo */
+    CkRPart *part;                /* contesto delle parti, parallelo a binding */
+    CkRSchema *schema;            /* formule astratte con quantificatori su parti */
+    int schemas;                 /* numero delle formule quantificate astratte */
     size_t symbol_cap, argument_cap, binding_cap, universal_cap, hash_cap;
     size_t term_cap, clause_cap, component_cap;
+    size_t part_cap, schema_cap;
     unsigned long long work;
 } CkRState;
 static CkRState ck_r;
@@ -3582,6 +3625,7 @@ static void ck_r_clear(void) {
     free(ck_r.symbol); free(ck_r.argument); free(ck_r.binding);
     free(ck_r.universals); free(ck_r.hash); free(ck_r.term); free(ck_r.clause);
     free(ck_r.component);
+    free(ck_r.part); free(ck_r.schema);
     memset(&ck_r, 0, sizeof ck_r);
 }
 
@@ -3607,7 +3651,7 @@ static int ck_r_symbol(int count, int predicate) {
     if (ck_r.symbols == INT_MAX || count < 0) { ck_unsupported("troppi simboli nella clausificazione"); return 0; }
     if (!ck_reserve((void **)&ck_r.symbol, &ck_r.symbol_cap, (size_t)ck_r.symbols + 1, sizeof *ck_r.symbol)) return 0;
     int id = ck_r.symbols++;
-    ck_r.symbol[id] = (CkRSymbol){count, predicate};
+    ck_r.symbol[id] = (CkRSymbol){.arity=count, .predicate=predicate};
     return id;
 }
 
@@ -3735,9 +3779,23 @@ static int ck_r_name_order(const void *a, const void *b) {
     return (x > y) - (x < y);
 }
 
+/* La riflessivita dell'uguaglianza riduce t=t a vero e t!=t a falso.
+ * Non e un confronto fra valori numerici o una valutazione euristica. */
+static CkRLiteral ck_r_constant_literal(CkRLiteral l) {
+    return l.right && l.left == l.right ? (CkRLiteral){0, 0, l.negative} : l;
+}
+
 /* Un nome equivalente ad a AND b oppure a OR b, con tutte le variabili
- * libere come argomenti. Prima si riducono le costanti vere e false. */
+ * libere come argomenti. Prima si riducono le costanti vere e false.
+ * Teacher: nella NNF ogni nome interno fresco compare positivamente:
+ * basta q=>F. Un modello originale si estende ponendo q uguale a F;
+ * viceversa, dal nome imposto vero si scende fino agli atomi originali.
+ * E la clausificazione direzionale di Plaisted e Greenbaum. Le
+ * appartenenze alle parti mantengono l'equivalenza perche il chiamante
+ * puo negarne il nome. Il checker ricostruisce tutte le clausole, senza
+ * fidarsi della traduzione del motore. */
 static CkRLiteral ck_r_connect(CkRLiteral a, CkRLiteral b, int conjunction) {
+    if (ck_r.forward) { a = ck_r_constant_literal(a); b = ck_r_constant_literal(b); }
     if (!a.left) return a.negative == conjunction ? a : b;
     if (!b.left) return b.negative == conjunction ? b : a;
     int *args = NULL, count = 0; size_t capacity = 0;
@@ -3749,9 +3807,9 @@ static CkRLiteral ck_r_connect(CkRLiteral a, CkRLiteral b, int conjunction) {
     free(args);
     if (conjunction) {
         ck_r_emit(ck_r_not(q), a, a, 2); ck_r_emit(ck_r_not(q), b, b, 2);
-        ck_r_emit(q, ck_r_not(a), ck_r_not(b), 3);
+        if (!ck_r.forward) ck_r_emit(q, ck_r_not(a), ck_r_not(b), 3);
     } else {
-        ck_r_emit(q, ck_r_not(a), a, 2); ck_r_emit(q, ck_r_not(b), b, 2);
+        if (!ck_r.forward) { ck_r_emit(q, ck_r_not(a), a, 2); ck_r_emit(q, ck_r_not(b), b, 2); }
         ck_r_emit(ck_r_not(q), a, b, 3);
     }
     return q;
@@ -3762,7 +3820,9 @@ static int ck_r_input_term(const CkNode *n) {
     if (ck_status != CK_ACCEPTED) return 0;
     if (n->kind == CK_VAR) {
         if (n->value < 0 || n->value >= ck_r.bound) { ck_reject("variabile libera nell'enunciato"); return 0; }
-        return ck_r.binding[ck_r.bound - 1 - (int)n->value];
+        int value = ck_r.binding[ck_r.bound - 1 - (int)n->value];
+        if (!value) ck_reject("una parte non e un termine del primo ordine");
+        return value;
     }
     if (n->kind != CK_APP || n->value < 0 || n->value >= ck_declared) {
         ck_unsupported("termine fuori dal primo ordine nella saturazione"); return 0;
@@ -3773,6 +3833,70 @@ static int ck_r_input_term(const CkNode *n) {
     return ck_r_term(id, args);
 }
 
+/* Sostituisce il solo parametro v0 di una proprieta con un termine.
+ * Il sostituente non viene attraversato: nessuna sua variabile puo essere
+ * catturata o risostituita se ha lo stesso numero del segnaposto. */
+static int ck_r_parameter(int term, int value) {
+    if (!term || !ck_r_visit()) return 0;
+    if (term == -1) return value;
+    if (term < 0) { ck_reject("una comprensione ha piu di un parametro libero"); return 0; }
+    CkRTerm n = ck_r.term[term];
+    int *args = ck_r_array((size_t)n.count, sizeof *args);
+    if (n.count && !args) return 0;
+    for (int i = 0; i < n.count; i++) args[i] = ck_r_parameter(ck_r.argument[n.first + i], value);
+    return ck_r_term(n.symbol, args);
+}
+
+/* Dà un nome alla formula con quantificatore su parti, senza assumerla.
+ * Ogni modello originale si estende dando al nome il valore della formula
+ * per ciascuna assegnazione dei parametri universali. La sola astrazione
+ * indebolisce i vincoli; soltanto la forma universale ricevera istanze.
+ * Tutti i contesti sono copiati prima che una crescita sposti i depositi. */
+static CkRLiteral ck_r_schema(const CkNode *n, int positive) {
+    CkRLiteral none = {0, 0, 1};
+    if (ck_r.schemas == INT_MAX || !ck_reserve((void **)&ck_r.schema, &ck_r.schema_cap,
+            (size_t)ck_r.schemas + 1, sizeof *ck_r.schema)) {
+        ck_unsupported("troppe formule con quantificatori su parti"); return none;
+    }
+    int *binding = ck_r_array((size_t)ck_r.bound, sizeof *binding);
+    int *universals = ck_r_array((size_t)ck_r.universal, sizeof *universals);
+    CkRPart *part = ck_r_array((size_t)ck_r.bound, sizeof *part);
+    if (ck_status != CK_ACCEPTED) return none;
+    if (ck_r.bound) {
+        memcpy(binding, ck_r.binding, (size_t)ck_r.bound * sizeof *binding);
+        memcpy(part, ck_r.part, (size_t)ck_r.bound * sizeof *part);
+    }
+    if (ck_r.universal) memcpy(universals, ck_r.universals, (size_t)ck_r.universal * sizeof *universals);
+    int symbol = ck_r_symbol(ck_r.universal, 1);
+    CkRLiteral name = {ck_r_term(symbol, universals), 0, 0};
+    if (ck_status == CK_ACCEPTED) ck_r.schema[ck_r.schemas++] = (CkRSchema){
+        .body=n->a, .positive=positive, .every=(n->kind == CK_FORALLPART) == positive,
+        .sort=(int)n->value, .bound=ck_r.bound, .universal=ck_r.universal,
+        .name=name, .binding=binding, .universals=universals, .part=part};
+    return name;
+}
+
+/* Interpreta l'appartenenza alla parte definita: X(t) vale D_S(t) AND P(t).
+ * La restrizione al dominio rende la comprensione una parte di S anche
+ * quando l'universo comune contiene elementi di altri insiemi. */
+static CkRLiteral ck_r_part_member(const CkNode *n) {
+    CkRLiteral none = {0, 0, 1};
+    if (n->value < 0 || n->value >= ck_r.bound) { ck_reject("parte libera nell'enunciato"); return none; }
+    int at = ck_r.bound - 1 - (int)n->value;
+    CkRPart part = ck_r.part[at];
+    if (ck_r.binding[at] || !part.predicate.left) { ck_reject("la parte non ha una comprensione nel contesto"); return none; }
+    int value = ck_r_input_term(n->a);
+    CkRLiteral property = part.predicate;
+    property.left = ck_r_parameter(property.left, value);
+    property.right = ck_r_parameter(property.right, value);
+    CkRLiteral domain = {ck_r_term(ck_declared + part.sort, &value), 0, 0};
+    if (ck_r.forward) property = ck_r_constant_literal(property);
+    int forward = ck_r.forward; ck_r.forward = 0;
+    CkRLiteral member = ck_r_connect(domain, property, 1);
+    ck_r.forward = forward;
+    return member;
+}
+
 /* Negazione normale e Skolem, con positive che indica la polarita cercata.
  * I quantificatori tipati mantengono esplicitamente i propri domini. */
 static CkRLiteral ck_r_formula(const CkNode *n, int positive) {
@@ -3781,11 +3905,19 @@ static CkRLiteral ck_r_formula(const CkNode *n, int positive) {
     switch (n->kind) {
     case CK_TRUE: return zero;
     case CK_EQ:
+        if (!n->b && n->a->kind == CK_PARTVAR) {
+            a = ck_r_part_member(n->a);
+            return positive ? a : ck_r_not(a);
+        }
         a = (CkRLiteral){ck_r_input_term(n->a), n->b ? ck_r_input_term(n->b) : 0, !positive};
         return a;
     case CK_NOT: return ck_r_formula(n->a, !positive);
     case CK_AND: case CK_OR: case CK_IMPLIES:
         a = ck_r_formula(n->a, n->kind == CK_IMPLIES ? !positive : positive);
+        if (ck_r.forward) {
+            a = ck_r_constant_literal(a);
+            if (!a.left && a.negative == ((n->kind == CK_AND) == positive)) return a;
+        }
         b = ck_r_formula(n->b, positive);
         return ck_r_connect(a, b, (n->kind == CK_AND) == positive);
     case CK_IFF:
@@ -3797,9 +3929,11 @@ static CkRLiteral ck_r_formula(const CkNode *n, int positive) {
     case CK_FORALL: case CK_EXISTS: {
         if (ck_r.variable == INT_MAX || ck_r.bound == INT_MAX) { ck_unsupported("troppi quantificatori nel certificato"); return zero; }
         if (!ck_reserve((void **)&ck_r.binding, &ck_r.binding_cap, (size_t)ck_r.bound + 1, sizeof *ck_r.binding) ||
+            !ck_reserve((void **)&ck_r.part, &ck_r.part_cap, (size_t)ck_r.bound + 1, sizeof *ck_r.part) ||
             !ck_reserve((void **)&ck_r.universals, &ck_r.universal_cap, (size_t)ck_r.universal + 1, sizeof *ck_r.universals)) return zero;
         int every = (n->kind == CK_FORALL) == positive;
         int value = every ? -1 - ck_r.variable++ : ck_r_term(ck_r_symbol(ck_r.universal, 0), ck_r.universals);
+        ck_r.part[ck_r.bound] = (CkRPart){0};
         ck_r.binding[ck_r.bound++] = value;
         if (every) ck_r.universals[ck_r.universal++] = value;
         a = (CkRLiteral){ck_r_term(ck_declared + (int)n->value, &value), 0, every};
@@ -3808,17 +3942,20 @@ static CkRLiteral ck_r_formula(const CkNode *n, int positive) {
         if (every) ck_r.universal--;
         return ck_r_connect(a, b, !every);
     }
+    case CK_FORALLPART: case CK_EXISTSPART: return ck_r_schema(n, positive);
     default:
-        ck_unsupported("la saturazione tratta il primo ordine, non quantificatori su parti o equipotenze");
+        ck_unsupported("la saturazione non tratta questo nodo dell'enunciato");
         return zero;
     }
 }
 
 /* Ricostruisce le clausole iniziali: chiusura delle funzioni dichiarate,
- * negazione della tesi e leggi delle parti gia validate da 11h. */
-static void ck_r_prepare(const CkNode *statement, const CkNode *const *laws, int count) {
+ * negazione della tesi e leggi delle parti gia validate da 11h. forward
+ * sceglie implicazioni positive nella NNF, zero equivalenze complete. */
+static void ck_r_prepare_mode(const CkNode *statement, const CkNode *const *laws, int count, int forward) {
     ck_r_clear();
     ck_r.started = 1;
+    ck_r.forward = forward;
     for (int i = 0; i < ck_declared; i++) ck_r_symbol(ck_symbols[i].arity, ck_symbols[i].result == CK_BOOL);
     for (int i = 0; i < ck_sort_count; i++) ck_r_symbol(1, 1);
     for (int f = 0; f < ck_declared && ck_status == CK_ACCEPTED; f++) {
@@ -3837,6 +3974,12 @@ static void ck_r_prepare(const CkNode *statement, const CkNode *const *laws, int
         root = ck_r_formula(laws[i], 1);
         ck_r_emit(root, root, root, 1);
     }
+}
+
+/* La notazione storica conserva le equivalenze complete e gli indici dei
+ * certificati gia scritti. La forma direzionale e una scelta esplicita. */
+static void ck_r_prepare(const CkNode *statement, const CkNode *const *laws, int count) {
+    ck_r_prepare_mode(statement, laws, count, 0);
 }
 
 /* Legge un indice fino a limit-1, oppure respinge il certificato. */
@@ -3939,11 +4082,10 @@ static int ck_r_same_clause(CkRClause a, CkRClause b) {
     return ck_status == CK_ACCEPTED;
 }
 
-/* Riconosce una proposizione introdotta da component. I simboli sono un
- * suffisso della firma e ciascuno e un predicato senza argomenti. */
+/* Riconosce una proposizione introdotta da component attraverso il suo
+ * ruolo, anche quando comprensioni successive introducono altri simboli. */
 static int ck_r_component_atom(int t) {
-    return t > 0 && ck_r.term[t].symbol >= ck_r.component_first &&
-           ck_r.term[t].symbol - ck_r.component_first < ck_r.components;
+    return t > 0 && ck_r.symbol[ck_r.term[t].symbol].component != 0;
 }
 
 /* Verifica che un termine della chiave non usi componenti precedenti.
@@ -3955,6 +4097,45 @@ static int ck_r_component_free(int t) {
     for (int i = 0; i < term.count; i++)
         if (!ck_r_component_free(ck_r.argument[term.first + i])) return 0;
     return 1;
+}
+
+/* comprehend j (clause L(v0)) istanzia la formula universale su parti j
+ * con {x in S | L(x)}. L e un solo letterale canonico, con al piu v0
+ * libera; gli altri termini sono chiusi. Non viene assunta L.
+ *
+ * Teacher: se q denota forall X subseteq S F(X), allora q implica F(A)
+ * per ogni A subseteq S. Ogni interpretazione totale dei termini definisce
+ * A={x | D_S(x) AND L(x)}; quindi anche un modello originale ammette questa
+ * istanza, con i suoi parametri e le sue parti esterne immutati. Per un
+ * esistenziale la stessa implicazione sarebbe falsa e viene respinta.
+ * La traduzione ricostruisce tutti i nuovi nomi di Tseitin e Skolem: il
+ * certificato non puo scegliere una clausola piu forte del risultato. */
+static void ck_r_comprehend(void) {
+    int id = ck_r_index(ck_r.schemas);
+    if (ck_status != CK_ACCEPTED) return;
+    CkRClause given = ck_r_read_clause(), property = ck_r_normal(given);
+    if (ck_status != CK_ACCEPTED) return;
+    if (property.count != 1 || property.variables > 1 || !ck_r_same_clause(given, property) ||
+        !property.literal[0].left || !ck_r_component_free(property.literal[0].left) || !ck_r_component_free(property.literal[0].right)) {
+        ck_reject("una comprensione richiede un letterale canonico con il solo parametro v0"); return;
+    }
+    CkRSchema schema = ck_r.schema[id];
+    if (!schema.every) { ck_reject("un quantificatore esistenziale su parti non ammette questa istanza universale"); return; }
+    if (ck_r.bound || ck_r.universal || schema.bound == INT_MAX) { ck_reject("contesto non valido per la comprensione"); return; }
+    if (!ck_reserve((void **)&ck_r.binding, &ck_r.binding_cap, (size_t)schema.bound + 1, sizeof *ck_r.binding) ||
+        !ck_reserve((void **)&ck_r.part, &ck_r.part_cap, (size_t)schema.bound + 1, sizeof *ck_r.part) ||
+        !ck_reserve((void **)&ck_r.universals, &ck_r.universal_cap, (size_t)schema.universal, sizeof *ck_r.universals)) return;
+    if (schema.bound) {
+        memcpy(ck_r.binding, schema.binding, (size_t)schema.bound * sizeof *ck_r.binding);
+        memcpy(ck_r.part, schema.part, (size_t)schema.bound * sizeof *ck_r.part);
+    }
+    if (schema.universal) memcpy(ck_r.universals, schema.universals, (size_t)schema.universal * sizeof *ck_r.universals);
+    ck_r.bound = schema.bound; ck_r.universal = schema.universal;
+    ck_r.binding[ck_r.bound] = 0;
+    ck_r.part[ck_r.bound++] = (CkRPart){property.literal[0], schema.sort};
+    CkRLiteral result = ck_r_formula(schema.body, schema.positive);
+    ck_r_emit(ck_r_not(schema.name), result, result, 2);
+    ck_r.bound = ck_r.universal = 0;
 }
 
 /* component C introduce b come nome di forall(vars(C)) C e aggiunge
@@ -3974,10 +4155,10 @@ static void ck_r_define_component(void) {
     if (ck_status != CK_ACCEPTED) return;
     if (ck_r.components == INT_MAX) { ck_unsupported("troppe componenti nel certificato"); return; }
     if (!ck_reserve((void **)&ck_r.component, &ck_r.component_cap, (size_t)ck_r.components + 1, sizeof *ck_r.component)) return;
-    if (!ck_r.components) ck_r.component_first = ck_r.symbols;
     int symbol = ck_r_symbol(0, 1);
     if (ck_status != CK_ACCEPTED) return;
     ck_r.component[ck_r.components++] = (CkRComponent){key, symbol};
+    ck_r.symbol[symbol].component = ck_r.components;
     CkRClause definition = {0};
     for (int i = 0; i < key.count; i++) ck_r_push(&definition, key.literal[i]);
     ck_r_push(&definition, (CkRLiteral){ck_r_term(symbol, NULL), 0, 1});
@@ -4311,11 +4492,14 @@ static void ck_check_structure(int kind) {
             if (ck_status == CK_ACCEPTED && !ck_axiom_valid(laws[axioms])) { ck_reject("una voce axiom non è una legge delle parti o delle applicazioni"); return; }
             axioms++;
         } else if (kind == 3 && statement && !ck_r.started && ck_word("clausify")) {
-            ck_r_prepare(statement, laws, axioms);
+            if (ck_word("forward")) ck_r_prepare_mode(statement, laws, axioms, 1);
+            else ck_r_prepare(statement, laws, axioms);
         } else if (kind == 3 && ck_r.started && ck_word("component")) {
             ck_r_define_component();
         } else if (kind == 3 && ck_r.started && ck_word("complement")) {
             ck_r_complement_component();
+        } else if (kind == 3 && ck_r.started && ck_word("comprehend")) {
+            ck_r_comprehend();
         } else if (kind == 3 && ck_r.started && ck_word("step")) {
             ck_r_step();
         } else if (kind == 2 && statement && ck_word("case")) {
