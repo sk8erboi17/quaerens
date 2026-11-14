@@ -6051,13 +6051,22 @@ static Elem *elem_new(int symbol, int slot, Elem *a, Elem *b) {
 }
 
 /* Ritorna l'insieme a cui appartiene e: quello della variabile, che può
- * essere -1 (non ancora noto), o il codominio del simbolo. */
-static int elem_sort(const Elem *e) { return e->symbol < 0 ? slot_data[e->slot].sort : symbols[e->symbol].range; }
+ * essere -1 (non ancora noto), o il codominio del simbolo.
+ *
+ * Una variabile che non esiste non sta in nessun insieme: dopo un errore il
+ * lettore ritorna come segnaposto la variabile di posto 0, anche quando
+ * l'enunciato non ne ha ancora nessuna. Chi ne chiedeva l'insieme senza
+ * guardare l'errore (un elenco tra graffe) leggeva una cella che non c'è:
+ * su un enunciato danneggiato, il primo di un file, il programma si fermava. */
+static int elem_sort(const Elem *e) {
+    if (e->symbol >= 0) return symbols[e->symbol].range;
+    return e->slot >= 0 && e->slot < slot_count ? slot_data[e->slot].sort : -1;
+}
 
 /* Controlla che e sia un elemento dell'insieme sort. Una variabile che non
- * sa ancora dove varia lo impara qui. */
+ * sa ancora dove varia lo impara qui; una che non esiste (elem_sort()) no. */
 static void elem_expect(const Elem *e, int sort) {
-    if (e->symbol < 0 && slot_data[e->slot].sort < 0) slot_data[e->slot].sort = sort;
+    if (e->symbol < 0 && e->slot >= 0 && e->slot < slot_count && slot_data[e->slot].sort < 0) slot_data[e->slot].sort = sort;
     if (elem_sort(e) != sort) syntax("un elemento è usato dove serve un elemento di un altro insieme");
 }
 

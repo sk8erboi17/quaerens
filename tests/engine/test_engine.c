@@ -451,6 +451,11 @@ static const Case cases[] = {
      "R = \\{(1,2)\\} \\implies \\forall x,y\\ ((x,y) \\in R \\implies x \\subseteq R)", UNSUPPORTED},
     {"an inverse image requires a map rather than a subset object",
      "\\forall X \\in \\mathcal{P}(S)\\ (X^{-1}(S) = S)", UNSUPPORTED},
+    /* L'input danneggiato trovato dal fuzz 47507: dopo l'errore il lettore
+     * ritorna un elemento segnaposto, e l'elenco tra graffe ne chiedeva
+     * l'insieme in una tabella delle variabili che non c'era ancora. */
+    {"a damaged list in braces is rejected without reading a variable that does not exist",
+     "\\{ \\right) x \\in \\mathbmathbb{R} : x^{< 2\\}2}", UNSUPPORTED},
     {"missing relation", "\\sum_{k=1}^{n} k", UNSUPPORTED},
     {"sequence that is not in the library", "a_{n} = 1", UNSUPPORTED},
     {"logarithm of a negative number", "\\ln\\left(-2\\right) = \\ln 2", UNSUPPORTED},
@@ -1325,6 +1330,16 @@ int main(void) {
         fclose(memory);
         check(strcmp(line, lines[i][1]) == 0, lines[i][1]);
     }
+
+    /* Il segnaposto di un errore, la variabile di posto 0, non sta in
+     * nessun insieme quando l'enunciato non ha variabili: prima se ne
+     * leggeva l'insieme dalla cella lasciata dall'enunciato precedente, o
+     * da una tabella nulla se era il primo. Qui la cella c'è, con un
+     * insieme, ma nessuna variabile è in uso. */
+    Verdict before = prove("\\forall x \\in S\\ (x = x)", 'n', 0, 0);
+    slot_count = 0;
+    check(before.outcome == PROVED && elem_sort(elem_new(-1, 0, NULL, NULL)) == -1,
+          "the placeholder element of a reading error has no set");
 
     /* Un file che non esiste è un errore, non un file vuoto. */
     Report report;

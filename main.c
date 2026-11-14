@@ -6980,6 +6980,23 @@ static void cert_poly(Poly p);
 
 static void cert_atom(int atom);
 
+/* Ritorna 1 se la base dell'atomo LN a si può suggerire al verificatore come
+ * fattore degli argomenti dei logaritmi (una voce "brick", 8g in checker.c).
+ * Un numero primo no: il verificatore i numeri li scompone da sé. Un
+ * polinomio con un esponente negativo, come x^{-4} + 1, nemmeno: per il
+ * verificatore è una frazione, e una voce brick che non è un polinomio gli
+ * fa respingere tutto il certificato, non solo ignorare il suggerimento
+ * (la derivata di \ln(x^{-4} + 1) restava senza verdetto per questo). */
+static int brick_fits(const Atom *a) {
+    if (a->kind != ATOM_LN || a->base == BASE_PRIME) return 0;
+    if (a->base != BASE_POLY) return 1;
+    Poly p = base_polys[a->id];
+    for (int i = 0; i < p.count; i++)
+        for (int f = 0; f < p.term[i].mono.count; f++)
+            if (p.term[i].mono.factor[f].exp.num < 0) return 0;
+    return 1;
+}
+
 /* Scrive la base di un atomo POW o LN che non sia e^i: un numero primo, un
  * altro atomo, o un polinomio. */
 static void cert_base(const Atom *a) {
@@ -7110,7 +7127,7 @@ static void write_certificate(const Statement *statement, long long base, Poly t
      * le basi dei suoi atomi LN. Il verificatore li prova con una divisione
      * (vedi 8g in checker.c), quindi uno in più non fa danno. */
     for (int i = 0, written = 0; i < atom_count && written < MAX_BRICKS; i++) {
-        if (atoms[i].kind != ATOM_LN || atoms[i].base == BASE_PRIME) continue;
+        if (!brick_fits(&atoms[i])) continue;
         cert_add("\nbrick ");
         cert_base(&atoms[i]);
         written++;
@@ -26704,7 +26721,7 @@ static const char *calculus_certificate(const char *kind, int x, const char *ord
      * toglie, e con lui il guasto che ha segnato. */
     for (int i = 0, written = 0; i < atom_count && written < MAX_BRICKS && !why; i++) {
         size_t before = certificate_length;
-        if (atoms[i].kind != ATOM_LN || atoms[i].base == BASE_PRIME) continue;
+        if (!brick_fits(&atoms[i])) continue;
         cert_add("\nbrick ");
         cert_base(&atoms[i]);
         if (certificate_broken) {

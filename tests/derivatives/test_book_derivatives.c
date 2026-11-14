@@ -40,7 +40,10 @@
  *  10. alcuni enunciati ricevono proprio il verdetto atteso;
  *  11. nei passaggi scritti un coefficiente ln(3) resta separato dai fattori
  *      successivi, anche con un caso base diverso da zero, e le formule
- *      alterate restano smentite (regressione dal fuzz, seme 18005).
+ *      alterate restano smentite (regressione dal fuzz, seme 18005);
+ *  12. la derivata di un logaritmo con una potenza negativa nell'argomento ha
+ *      un certificato accettato, e le formule alterate restano smentite
+ *      (regressione dal fuzz, seme 47209).
  *
  * I dati vengono dalle raccolte di esercizi, e i risultati sono stati
  * confermati da un oracolo indipendente (vedi i file _about.tex); il
@@ -355,6 +358,29 @@ static int check_written_logarithm_products(void) {
     return passed;
 }
 
+/* Antiregressione dal fuzz, seme 47209: l'argomento x^{-4} + 1 di un
+ * logaritmo finiva nel certificato come fattore suggerito, e il verificatore,
+ * che come fattori vuole polinomi, respingeva tutto il certificato: la
+ * derivata restava senza verdetto, con un passo scartato. La derivata è
+ * -4x^{-5}/(x^{-4} + 1), cioè -4/(x^{5} + x); le formule false hanno il
+ * segno cambiato e una costante cambiata. */
+static int check_negative_power_logarithms(void) {
+    int before = unjustified_steps;
+    Verdict v = prove("\\frac{d}{dx} \\ln\\left(x^{-4} + 1\\right)", 'n', 0, 0);
+    int passed = check_result(v.outcome == SOLVED && v.certificate && unjustified_steps == before,
+                              "the derivative of a logarithm of a negative power is solved with an accepted certificate");
+    v = prove("\\frac{d}{dx} \\log_{x^{2} + 2}\\left(\\left(x^{-2}\\right)^{2} + 1\\right)", 'n', 0, 0);
+    passed = check_result(v.outcome == SOLVED && v.certificate && unjustified_steps == before,
+                          "the statement found by the fuzz, with a polynomial base, is solved with an accepted certificate") && passed;
+    v = prove("\\frac{d}{dx} \\ln\\left(x^{-4} + 1\\right) = -\\frac{4}{x^{5} + x}", 'n', 0, 0);
+    passed = check_result(v.outcome == PROVED && v.certificate && unjustified_steps == before,
+                          "the same derivative written without negative powers is proved with a certificate") && passed;
+    v = prove("\\frac{d}{dx} \\ln\\left(x^{-4} + 1\\right) = \\frac{4 x^{-5}}{x^{-4} + 1}", 'n', 0, 0);
+    passed = check_result(v.outcome == REFUTED, "the derivative with the wrong sign is refuted") && passed;
+    v = prove("\\frac{d}{dx} \\ln\\left(x^{-4} + 1\\right) = -\\frac{4 x^{-5}}{x^{-4} + 2}", 'n', 0, 0);
+    return check_result(v.outcome == REFUTED, "the derivative with a changed constant is refuted") && passed;
+}
+
 int main(void) {
     engine_init();
 
@@ -371,6 +397,7 @@ int main(void) {
     passed = check_studies() && passed;
     passed = check_expected() && passed;
     passed = check_written_logarithm_products() && passed;
+    passed = check_negative_power_logarithms() && passed;
 
     /* Ogni derivata, riga della tabella dei segni e formula scritta viene
      * ricontrollata dal programma con un metodo indipendente: nessuna deve
