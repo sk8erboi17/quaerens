@@ -165,6 +165,10 @@
  *   - "certificate saturation" (11m): lo stesso teorema di structure,
  *     attraverso clausificazione ricostruita e passi espliciti di
  *     risoluzione, superposizione e fattorizzazione fino alla clausola vuota.
+ *     Puo introdurre nomi proposizionali per chiusure universali di
+ *     componenti e separare gruppi a variabili disgiunte. Ogni modello
+ *     dell'enunciato negato si estende alle nuove definizioni: un'eventuale
+ *     clausola vuota continua a escludere tutti i controesempi originali.
  *     Il controllo non cerca genitori, sostituzioni o unificatori.
  *   - "certificate signs" (capitolo 12): con C la condizione nella variabile
  *     x, e un confronto che vale in x solo dove i suoi due membri sono
@@ -3502,6 +3506,13 @@ static void ck_check_case(void) {
  * applica la sostituzione simultanea e si ricostruisce la deduzione, senza
  * cercare o unificare. L'ultima clausola deve essere vuota. L'ordinamento
  * guida solo il motore: accettare una deduzione valida non lo richiede.
+ *
+ * component C introduce una proposizione fresca per la chiusura universale
+ * di C e aggiunge C OR NOT b. complement j aggiunge NOT C OR b solo per
+ * un letterale ground. step split conserva i guardiani proposizionali e
+ * astrae una partizione esplicita a variabili disgiunte. I nomi nuovi sono
+ * un'estensione conservativa; la verifica del SAT resta una sequenza delle
+ * normali risoluzioni, non una risposta UNSAT accettata sulla fiducia.
  * Riferimenti: Kovacs e Voronkov (2013), First-Order Theorem Proving and
  * Vampire; Bachmair e Ganzinger (1994), Rewrite-based Equational Theorem
  * Proving with Selection and Simplification.
@@ -3536,20 +3547,31 @@ typedef struct {
     CkRLiteral *literal;
 } CkRClause;
 
+/* Una componente di AVATAR: key e la disgiunzione universalmente chiusa
+ * rappresentata dalla proposizione fresca symbol. La chiave normalizzata
+ * appartiene all'arena, il simbolo e un predicato senza argomenti. Una
+ * componente non puo riferirsi ad altre proposizioni di AVATAR. Una chiave
+ * ground e una chiave senza variabili. */
+typedef struct { CkRClause key; int symbol; } CkRComponent;
+
 /* Stato di un controllo, indipendente dal motore. I contatori delimitano
  * i depositi term/argument/symbol/clause e le pile binding/universals.
  * variable numera i nomi prima della normalizzazione; started distingue
  * le dichiarazioni dalla traduzione eseguita. I suffissi _cap contano le
  * celle allocate sullo heap; hash condivide termini strutturalmente uguali.
- * work e il numero di visite eseguite, non una stima della prova. */
+ * work e il numero di visite eseguite, non una stima della prova.
+ * components conta le definizioni, component_first il loro primo simbolo;
+ * component/component_cap sono il deposito posseduto e la sua capacita. */
 typedef struct {
     int terms, args, symbols, clauses, variable, bound, universal, started;
+    int components, component_first;
     CkRSymbol *symbol;
     int *argument, *binding, *universals, *hash;
     CkRTerm *term;
     CkRClause *clause;
+    CkRComponent *component;       /* definizioni conservative, possedute dal controllo */
     size_t symbol_cap, argument_cap, binding_cap, universal_cap, hash_cap;
-    size_t term_cap, clause_cap;
+    size_t term_cap, clause_cap, component_cap;
     unsigned long long work;
 } CkRState;
 static CkRState ck_r;
@@ -3559,6 +3581,7 @@ static CkRState ck_r;
 static void ck_r_clear(void) {
     free(ck_r.symbol); free(ck_r.argument); free(ck_r.binding);
     free(ck_r.universals); free(ck_r.hash); free(ck_r.term); free(ck_r.clause);
+    free(ck_r.component);
     memset(&ck_r, 0, sizeof ck_r);
 }
 
@@ -3907,6 +3930,156 @@ static CkRClause ck_r_read_clause(void) {
     return c;
 }
 
+/* Confronto esatto di clausole gia normalizzate: ordine, segni e termini
+ * appartengono al protocollo. Non prova equivalenze logiche ulteriori. */
+static int ck_r_same_clause(CkRClause a, CkRClause b) {
+    if (a.count != b.count) return 0;
+    for (int i = 0; i < a.count && ck_r_visit(); i++)
+        if (a.literal[i].left != b.literal[i].left || a.literal[i].right != b.literal[i].right || a.literal[i].negative != b.literal[i].negative) return 0;
+    return ck_status == CK_ACCEPTED;
+}
+
+/* Riconosce una proposizione introdotta da component. I simboli sono un
+ * suffisso della firma e ciascuno e un predicato senza argomenti. */
+static int ck_r_component_atom(int t) {
+    return t > 0 && ck_r.term[t].symbol >= ck_r.component_first &&
+           ck_r.term[t].symbol - ck_r.component_first < ck_r.components;
+}
+
+/* Verifica che un termine della chiave non usi componenti precedenti.
+ * Il divieto mantiene esplicita l'indipendenza delle definizioni nuove. */
+static int ck_r_component_free(int t) {
+    if (t <= 0) return 1;
+    if (!ck_r_visit() || ck_r_component_atom(t)) return 0;
+    CkRTerm term = ck_r.term[t];
+    for (int i = 0; i < term.count; i++)
+        if (!ck_r_component_free(ck_r.argument[term.first + i])) return 0;
+    return 1;
+}
+
+/* component C introduce b come nome di forall(vars(C)) C e aggiunge
+ * C OR NOT b. Ogni modello precedente si estende interpretando b con il
+ * valore di quella chiusura universale: e un'estensione conservativa,
+ * anche se C e falsa. Non si assume mai C. Le chiavi devono essere
+ * non vuote, canoniche e prive di proposizioni di componenti precedenti. */
+static void ck_r_define_component(void) {
+    CkRClause given = ck_r_read_clause(), key = ck_r_normal(given);
+    if (ck_status != CK_ACCEPTED) return;
+    if (!key.count || !ck_r_same_clause(given, key)) { ck_reject("componente vuota o non normalizzata"); return; }
+    for (int i = 0; i < key.count && ck_status == CK_ACCEPTED; i++) {
+        CkRLiteral l = key.literal[i];
+        if (!l.left || !ck_r_component_free(l.left) || !ck_r_component_free(l.right))
+            ck_reject("una componente usa una costante logica o un'altra proposizione di componente");
+    }
+    if (ck_status != CK_ACCEPTED) return;
+    if (ck_r.components == INT_MAX) { ck_unsupported("troppe componenti nel certificato"); return; }
+    if (!ck_reserve((void **)&ck_r.component, &ck_r.component_cap, (size_t)ck_r.components + 1, sizeof *ck_r.component)) return;
+    if (!ck_r.components) ck_r.component_first = ck_r.symbols;
+    int symbol = ck_r_symbol(0, 1);
+    if (ck_status != CK_ACCEPTED) return;
+    ck_r.component[ck_r.components++] = (CkRComponent){key, symbol};
+    CkRClause definition = {0};
+    for (int i = 0; i < key.count; i++) ck_r_push(&definition, key.literal[i]);
+    ck_r_push(&definition, (CkRLiteral){ck_r_term(symbol, NULL), 0, 1});
+    ck_r_add(definition);
+}
+
+/* complement j aggiunge NOT A OR b_j solo per una componente ground A
+ * con un solo letterale. In questo caso b_j significa proprio A.
+ * Per una componente con variabili, NOT forall x C(x) significa exists x
+ * NOT C(x), non forall x NOT C(x): una clausola complementata sarebbe
+ * falsa e viene respinta. Per piu letterali servirebbe una congiunzione. */
+static void ck_r_complement_component(void) {
+    int id = ck_r_index(ck_r.components);
+    if (ck_status != CK_ACCEPTED) return;
+    CkRComponent c = ck_r.component[id];
+    if (c.key.variables || c.key.count != 1) { ck_reject("il complemento richiede una componente ground con un solo letterale"); return; }
+    CkRClause result = {0};
+    ck_r_push(&result, ck_r_not(c.key.literal[0]));
+    ck_r_push(&result, (CkRLiteral){ck_r_term(c.symbol, NULL), 0, 0});
+    ck_r_add(result);
+}
+
+/* Una variabile della clausola genitore puo appartenere a una sola
+ * componente della partizione. owner ha variables celle, inizialmente -1.
+ * La visita ricostruisce le occorrenze; non cerca una partizione. */
+static void ck_r_component_variables(int t, int group, int *owner, int variables) {
+    if (!t || !ck_r_visit()) return;
+    if (t < 0) {
+        int v = -t - 1;
+        if (v >= variables || (owner[v] >= 0 && owner[v] != group)) ck_reject("le componenti condividono una variabile");
+        else owner[v] = group;
+        return;
+    }
+    CkRTerm term = ck_r.term[t];
+    for (int i = 0; i < term.count; i++) ck_r_component_variables(ck_r.argument[term.first + i], group, owner, variables);
+}
+
+/* step split p (groups (componente segno indici...) ...) risultato.
+ * La partizione copre esattamente i letterali non proposizionali di p,
+ * con variabili disgiunte fra gruppi. Ogni gruppo e confrontato con la
+ * definizione indicata; segno=1 e ammesso solo per il complemento ground.
+ *
+ * Teacher: nel dominio comune non vuoto, forall X,Y (C(X) OR D(Y)) equivale
+ * a (forall X C(X)) OR (forall Y D(Y)) quando X e Y sono disgiunte. Se nessuna delle due
+ * chiusure e vera, si combinano due assegnazioni che le rendono false.
+ * L'argomento vale per ogni numero finito di gruppi. I letterali delle
+ * proposizioni gia presenti sono condizioni ground e restano nel risultato.
+ * Il checker verifica la partizione fornita, senza cercare o chiamare SAT. */
+static void ck_r_split(void) {
+    int p = ck_r_index(ck_r.clauses);
+    if (ck_status != CK_ACCEPTED) return;
+    CkRClause parent = ck_r.clause[p], result = {0};
+    unsigned char *covered = ck_r_array((size_t)parent.count, 1);
+    int *owner = ck_r_array((size_t)parent.variables, sizeof *owner);
+    if (ck_status != CK_ACCEPTED) return;
+    if (parent.count) memset(covered, 0, (size_t)parent.count);
+    for (int i = 0; i < parent.variables; i++) owner[i] = -1;
+    ck_r_delimiter('(');
+    if (!ck_r_word("groups")) ck_reject("partizione delle componenti attesa");
+    int groups = 0;
+    for (ck_skip(); *ck_cursor != ')' && ck_status == CK_ACCEPTED; ck_skip()) {
+        ck_r_delimiter('(');
+        int component = ck_r_index(ck_r.components), negative = ck_r_index(2);
+        if (ck_status != CK_ACCEPTED) return;
+        CkRClause part = {0};
+        for (ck_skip(); *ck_cursor != ')' && ck_status == CK_ACCEPTED; ck_skip()) {
+            int at = ck_r_index(parent.count);
+            if (ck_status != CK_ACCEPTED) return;
+            CkRLiteral l = parent.literal[at];
+            if (covered[at] || (!l.right && ck_r_component_atom(l.left))) { ck_reject("letterale ripetuto o proposizionale nella partizione"); return; }
+            covered[at] = 1;
+            ck_r_component_variables(l.left, groups, owner, parent.variables);
+            ck_r_component_variables(l.right, groups, owner, parent.variables);
+            ck_r_push(&part, l);
+        }
+        ck_r_delimiter(')');
+        part = ck_r_normal(part);
+        CkRComponent c = ck_r.component[component];
+        CkRClause expected = c.key;
+        CkRLiteral opposite;
+        if (negative) {
+            if (c.key.variables || c.key.count != 1) { ck_reject("una componente con variabili non ha un complemento proposizionale"); return; }
+            opposite = ck_r_not(c.key.literal[0]); expected.literal = &opposite;
+        }
+        if (!part.count || !ck_r_same_clause(part, expected)) { ck_reject("il gruppo non coincide con la componente dichiarata"); return; }
+        ck_r_push(&result, (CkRLiteral){ck_r_term(c.symbol, NULL), 0, negative});
+        if (groups == INT_MAX) { ck_unsupported("troppe componenti nella partizione"); return; }
+        groups++;
+    }
+    ck_r_delimiter(')');
+    if (!groups) ck_reject("partizione senza componenti");
+    for (int i = 0; i < parent.count && ck_status == CK_ACCEPTED; i++) {
+        CkRLiteral l = parent.literal[i];
+        if (!l.right && ck_r_component_atom(l.left)) ck_r_push(&result, l);
+        else if (!covered[i]) ck_reject("la partizione omette un letterale");
+    }
+    CkRClause given = ck_r_read_clause();
+    result = ck_r_normal(result);
+    if (ck_status == CK_ACCEPTED && !ck_r_same_clause(result, given)) ck_reject("il risultato dello split non coincide con quello scritto");
+    ck_r_add(result);
+}
+
 /* Applica una sostituzione simultanea; le variabili del secondo genitore
  * sono traslate oltre il contesto del primo, con un prefisso minimo di 64. Non si risostituiscono i termini sostituenti:
  * x->f(x) e una sostituzione finita, non un invito a una ricorsione infinita. */
@@ -3964,6 +4137,7 @@ static int ck_r_replace(int t, int position, int *cursor, int expected, int repl
  * sono standardizzati separatamente prima di applicare la sostituzione:
  * le loro variabili non possono essere identificate soltanto per nome. */
 static void ck_r_step(void) {
+    if (ck_r_word("split")) { ck_r_split(); return; }
     int kind = ck_r_word("resolve") ? 0 : ck_r_word("reflex") ? 1 : ck_r_word("factor") ? 2 : ck_r_word("super") ? 3 : ck_r_word("equalfactor") ? 4 : -1;
     if (kind < 0) { ck_reject("regola di saturazione sconosciuta"); return; }
     int p = ck_r_index(ck_r.clauses);
@@ -4138,6 +4312,10 @@ static void ck_check_structure(int kind) {
             axioms++;
         } else if (kind == 3 && statement && !ck_r.started && ck_word("clausify")) {
             ck_r_prepare(statement, laws, axioms);
+        } else if (kind == 3 && ck_r.started && ck_word("component")) {
+            ck_r_define_component();
+        } else if (kind == 3 && ck_r.started && ck_word("complement")) {
+            ck_r_complement_component();
         } else if (kind == 3 && ck_r.started && ck_word("step")) {
             ck_r_step();
         } else if (kind == 2 && statement && ck_word("case")) {

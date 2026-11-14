@@ -1276,8 +1276,14 @@ int main(void) {
 
     /* Capitolo 28: la dimostrazione è una catena di uguaglianze, il
      * controesempio un modello con le sue tabelle. */
+    /* Questo controllo fissa la scrittura della ricerca per istanze. La
+     * saturazione puo trovare una prova diversa, verificata nei suoi test;
+     * qui una quota minima seleziona esplicitamente il formato storico. */
+    unsigned long long saved_saturation_work=saturation_work_limit;
+    saturation_work_limit=1;
     Verdict neutral = prove("(\\perp \\colon S \\times S \\to S \\land u \\in S \\land v \\in S \\land \\forall x \\in S\\ (u \\perp x = x) \\land "
                             "\\forall x \\in S\\ (x \\perp v = x)) \\implies u = v", 'n', 0, 0);
+    saturation_work_limit=saved_saturation_work;
     check(neutral.outcome == PROVED && neutral.proof && strstr(neutral.proof, "$u = u \\perp v = v$") && strstr(neutral.proof, "Independent check"),
           "the proof that the two neutral elements coincide should show the chain u = u \\perp v = v");
     Verdict model = prove("(u \\in S \\land X \\subseteq S) \\implies u \\in X", 'n', 0, 0);

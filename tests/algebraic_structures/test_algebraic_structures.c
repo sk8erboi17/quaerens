@@ -115,8 +115,13 @@ int main(void) {
 
     /* 10. Due testi fissati: una dimostrazione, con un caso e due istanze;
      * un controesempio, con le sue tabelle. */
+    /* Il testo fissato appartiene al formato per istanze, non al formato
+     * per clausole. Quest'ultimo e controllato separatamente con AVATAR. */
+    unsigned long long saved_saturation_work=saturation_work_limit;
+    saturation_work_limit=1;
     Verdict neutral = prove("(\\perp \\colon S \\times S \\to S \\land u \\in S \\land v \\in S \\land \\forall x \\in S\\ (u \\perp x = x) \\land "
                             "\\forall x \\in S\\ (x \\perp v = x)) \\implies u = v", 'n', 0, 0);
+    saturation_work_limit=saved_saturation_work;
     const char *proof = "certificate structure\nsort S\nsymbol perp S S S\nsymbol u S\nsymbol v S\n"
                         "statement (implies (and (and (and (and true true) true) (forall x S (= (perp u x) x))) (forall x S (= (perp x v) x))) (= u v))\n"
                         "case (not (= u v))\ninstance (forall x S (= (perp u x) x)) v\ninstance (forall x S (= (perp x v) x)) u\nend\n";
