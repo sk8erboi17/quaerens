@@ -174,6 +174,8 @@ static int bigop_same(const Node *a, const Node *b) {
 typedef struct {
     int integers;             /* 1: solo numeri interi; 0: tutti i razionali */
     int reals;                /* 1: tutti i numeri reali, non solo i razionali */
+    int complex;              /* 1: i numeri complessi, che il lettore legge come coppie di
+                                 reali (17s): resta 1 solo finché pairs_second() non li divide */
     int bounded;              /* 1: c'è un estremo inferiore, `low` */
     long long low;            /* l'estremo inferiore, se bounded */
     int strict;               /* 1: low è escluso (x > low); 0: è compreso */
@@ -2659,6 +2661,12 @@ static int square_follows(void) {
 }
 
 /* numbers: vedi la grammatica in testa al capitolo. */
+/* 17s. 1 mentre si legge l'insieme di un quantificatore o di una
+ * dichiarazione f \colon A \to B: solo lì \mathbb{C} si legge, come coppie
+ * di reali (pairs_second()). Altrove, come insieme di una relazione o in
+ * un'appartenenza, i suoi elementi sarebbero presi per reali. */
+static int complex_wanted;
+
 static NumberSet parse_numbers(void) {
     NumberSet set = {0};
     set.start = token.start;
@@ -2690,7 +2698,9 @@ static NumberSet parse_numbers(void) {
     if (letter == 'N' && !plus) { set.integers = 1; set.bounded = 1; set.low = zero ? 0 : 1; }
     else if (letter == 'Z' && !zero && !plus) set.integers = 1;
     else if ((letter == 'Q' || letter == 'R') && !zero) { set.bounded = set.strict = plus; set.reals = letter == 'R'; }
-    else syntax("insieme numerico non trattato: sono ammessi \\mathbb{N}, \\mathbb{N}_{0}, \\mathbb{Z}, \\mathbb{Q}, \\mathbb{Q}^{+}, \\mathbb{R} e \\mathbb{R}^{+}");
+    else if (letter == 'C' && !zero && !plus && complex_wanted) set.reals = set.complex = 1;
+    else syntax("insieme numerico non trattato: sono ammessi \\mathbb{N}, \\mathbb{N}_{0}, \\mathbb{Z}, \\mathbb{Q}, \\mathbb{Q}^{+}, \\mathbb{R} e \\mathbb{R}^{+}, "
+                "e \\mathbb{C} dopo un quantificatore o in una dichiarazione f \\colon A \\to B");
 
     /* I punti tolti. Devono appartenere all'insieme ed essere distinti: è
      * l'invariante di NumberSet. */
@@ -2712,6 +2722,10 @@ static NumberSet parse_numbers(void) {
         }
         expect_char(ESCAPED + '}', "manca \\}");
     }
+
+    /* Why: \mathbb{C} \setminus \{0\} non è il prodotto di due insiemi di
+     * reali, e letto come coppia toglierebbe lo zero da ogni componente. */
+    if (set.complex && set.holes) syntax("\\mathbb{C} si legge solo intero, senza punti tolti");
     set.end = consumed;
 
     /* Un insieme di interi privato del suo primo elemento comincia da quello
@@ -3097,11 +3111,16 @@ static void bound_letters(const Formula *f, PairSet *set) {
  *          pair_comparison(), con i confronti tra coppie di 17s: anche x =
  *          (1, 2), o f(t) = x con f a valori in coppie.
  *
- * Che cosa non c'è: una coppia come argomento di un'applicazione o dentro
- * un'espressione (le operazioni tra numeri complessi, f(a + ib)), i numeri
- * complessi scritti con dei numeri, come (0, z) \in R o 1 + 2i, l'insieme
- * \mathbb{C} e una relazione dichiarata con a, b, c, d \in \mathbb{R}
- * dentro la condizione, le coppie di coppie. */
+ * Anche \forall z \in \mathbb{C} si legge così, con due componenti reali, e
+ * f(z), per un'applicazione di \mathbb{C}, è f calcolata nelle due
+ * componenti (17s, "I numeri complessi come coppie").
+ *
+ * Che cosa non c'è: una coppia come argomento di un'applicazione che non sia
+ * di \mathbb{C}, o dentro un'espressione (le operazioni tra numeri
+ * complessi fuori dalla regola di un'applicazione), i numeri complessi
+ * scritti con dei numeri, come (0, z) \in R o 1 + 2i, una relazione
+ * dichiarata con a, b, c, d \in \mathbb{R} dentro la condizione, le coppie
+ * di coppie. */
 
 /* 17t. Il nome di una componente nella dichiarazione di una relazione tra
  * coppie: una lettera, con un pedice di una cifra (x_{1}) oppure senza
@@ -3727,6 +3746,34 @@ static PairVariable *pair_variable_for(int letter, const NumberSet *side, int co
     return pair_variable_add(letter, variable->numbers, side, complex);
 }
 
+/* 17t-2. La coppia per cui sta la lettera letter, se è la lettera di un
+ * quantificatore su un insieme di coppie in vista in questo punto della
+ * lettura; altrimenti NULL. */
+static const PairVariable *pair_in_scope(int letter) {
+    const Bound *variable = scope_find(letter);
+    return variable && variable->numbers ? pair_variable_find(letter, variable->numbers) : NULL;
+}
+
+/* Come si sono lette le lettere di coppie dell'enunciato in corso, da
+ * riportare accanto al verdetto: "y = (a, b)", "z = c + id". La scrive
+ * pairs_note_write(). */
+static char pairs_note[200];
+
+/* Scrive in pairs_note le coppie dell'enunciato appena letto, da
+ * pairs_seen[]; la lascia vuota se non ce ne sono. Va chiamata prima di
+ * leggere un altro enunciato, che svuota pairs_seen[]. */
+static void pairs_note_write(void) {
+    size_t used = 0;
+    pairs_note[0] = 0;
+    for (int i = 0; i < pairs_seen_count; i++) {
+        const PairVariable *v = &pairs_seen[i];
+        int n = snprintf(pairs_note + used, sizeof pairs_note - used, v->complex ? "%s%c = %c + i%c" : "%s%c = (%c, %c)", used ? ", " : "",
+                         v->letter, v->part[0], v->part[1]);
+        if (n < 0 || (size_t)n >= sizeof pairs_note - used) { pairs_note[used] = 0; break; }
+        used += (size_t)n;
+    }
+}
+
 /* 17t-3. Prova a leggere "((s_1, s_2), (t_1, t_2)) \in R", o con \notin,
  * con R una relazione tra coppie; al posto di una coppia ci può essere la
  * lettera di una coppia (17t-2). Il token corrente è la parentesi aperta.
@@ -3941,7 +3988,16 @@ static Formula *logic_unique(const char *start) {
 /* Se dopo l'insieme first c'è ^{2} o \times B, lo legge, mette in *second
  * l'insieme della seconda componente e ritorna 1: first era quello della
  * prima. Altrimenti ritorna 0 e non legge nulla. */
-static int pairs_second(const NumberSet *first, NumberSet *second) {
+static int pairs_second(NumberSet *first, NumberSet *second) {
+    /* \mathbb{C} è la coppia della parte reale e di quella immaginaria. */
+    static const char *const reals_text = "\\mathbb{R}";
+    if (first->complex) {
+        first->complex = 0;
+        first->start = reals_text;
+        first->end = reals_text + strlen(reals_text);
+        *second = *first;
+        return 1;
+    }
     if (is_command("times")) {
         next_token();
         *second = parse_side();
@@ -3958,8 +4014,7 @@ static int pairs_second(const NumberSet *first, NumberSet *second) {
  * in part[] e ritorna 1. */
 static int pair_parts(Node *node, Node **part) {
     if (node->kind == N_VAR) {
-        const Bound *variable = scope_find(node->name);
-        const PairVariable *pair = variable && variable->numbers ? pair_variable_find(node->name, variable->numbers) : NULL;
+        const PairVariable *pair = pair_in_scope(node->name);
         if (!pair) return 0;
         for (int k = 0; k < 2; k++) {
             part[k] = node_new(N_VAR, NULL, NULL);
@@ -3967,7 +4022,25 @@ static int pair_parts(Node *node, Node **part) {
         }
         return 1;
     }
-    int partner = node->kind == N_APPLY && map_find(node->name) ? map_find(node->name)->partner : 0;
+
+    /* f(z), con f un'applicazione di \mathbb{C} e z una lettera che sta per un
+     * numero complesso: i due argomenti sono le due componenti di z, la parte
+     * reale e il coefficiente di i. */
+    const Map *map = node->kind == N_APPLY ? map_find(node->name) : NULL;
+    int complex_map = map && map->binary && map->name < OPERATION_NAMES;
+    const PairVariable *argument = complex_map && !node->b && node->a->kind == N_VAR ? pair_in_scope(node->a->name) : NULL;
+    if (argument && argument->complex) {
+        for (int k = 0; k < 2; k++) {
+            Node *letter = node_new(N_VAR, NULL, NULL);
+            letter->name = argument->part[k];
+            if (k) node->b = letter; else node->a = letter;
+        }
+    }
+
+    /* Con un altro argomento non è una coppia: è la regola, f(a + ib) = E,
+     * che legge complex_rule_read(). */
+    if (complex_map && !node->b) return 0;
+    int partner = map ? map->partner : 0;
     if (!partner) return 0;
     part[0] = node;
     part[1] = node_new(node->kind, node->a, node->b);
@@ -4162,11 +4235,20 @@ static Formula *logic_unary(void) {
             const ComplexSet *complex = token.kind == T_LETTER ? complex_set_find(token.ch) : NULL;
             ParserState here = parser_save();
             const char *here_consumed = consumed;
+            complex_wanted = 1;
             if (complex) next_token(); else numbers[0] = parse_numbers();
-            if (!syntax_error && (complex || square_follows() || is_command("times"))) {
+            complex_wanted = 0;
+
+            /* 17s. \mathbb{C}: ogni lettera sta per un numero complesso, la
+             * coppia di due reali, come per un insieme dichiarato (17t-4). */
+            int complex_numbers = !complex && numbers[0].complex;
+            if (!syntax_error && (complex || complex_numbers || square_follows() || is_command("times"))) {
                 NumberSet side[2];
                 if (complex) {
                     side[0] = side[1] = complex->part;
+                } else if (complex_numbers) {
+                    pairs_second(&numbers[0], &side[1]);
+                    side[0] = numbers[0];
                 } else {
                     parser_restore(here);
                     consumed = here_consumed;
@@ -4174,7 +4256,7 @@ static Formula *logic_unary(void) {
                 }
                 memset(numbers, 0, sizeof numbers);
                 for (int i = 0; i < names; i++)
-                    if (!pair_variable_add(name[i], &numbers[i], side, complex != NULL)) syntax("troppe lettere che stanno per una coppia");
+                    if (!pair_variable_add(name[i], &numbers[i], side, complex || complex_numbers)) syntax("troppe lettere che stanno per una coppia");
             }
             for (int i = 1; i < names && numbers[0].start; i++) numbers[i] = numbers[0];
         }
@@ -4266,22 +4348,31 @@ static Formula *logic_unary(void) {
         if (is_command("colon")) {
             NumberSet domain[2];
             next_token();
+            complex_wanted = !symbol;
             if (symbol) parse_pairs(domain); else domain[0] = domain[1] = parse_numbers();
-            NumberSet ignored;
-            if (!symbol && !syntax_error && pairs_second(&domain[0], &ignored))
+            complex_wanted = 0;
+
+            /* 17s. Un'applicazione di \mathbb{C} ha per argomento una coppia di
+             * reali, ed è di due argomenti, come un'operazione; le altre di
+             * due argomenti non sono trattate. */
+            int complex_domain = !symbol && domain[0].complex;
+            if (!symbol && !syntax_error && pairs_second(&domain[0], &domain[1]) && !complex_domain)
                 syntax("un'applicazione di due argomenti, f \\colon A \\times B \\to C, non è trattata: si leggono solo le "
-                       "operazioni scritte con un simbolo, x \\ast y");
+                       "operazioni scritte con un simbolo, x \\ast y, e le applicazioni di \\mathbb{C}");
             if (is_command("to") || is_command("rightarrow") || is_command("longrightarrow")) next_token();
             else syntax("in una dichiarazione f \\colon A \\to B manca \\to");
+            complex_wanted = !symbol;
             NumberSet codomain = parse_numbers(), second;
+            complex_wanted = 0;
 
             /* 17s. A valori in coppie: due applicazioni, una per componente. */
             int paired = !symbol && pairs_second(&codomain, &second);
             if (map_find(name) || pair_set_find(name)) syntax("la stessa applicazione è dichiarata due volte");
             else if (map_count + 1 + paired > MAX_MAPS) syntax("troppe applicazioni dichiarate in un enunciato");
             else if (!syntax_error) {
-                maps[map_count++] = (Map){name, domain[0], codomain, 0, NULL, symbol != 0, domain[1], 0, 0, {{0}}, paired ? PAIR_NAMES + name : 0, 0, 0, 0, 0};
-                if (paired) maps[map_count++] = (Map){PAIR_NAMES + name, domain[0], second, 0, NULL, 0, domain[1], 0, 0, {{0}}, 0, 2, 0, 0, 0};
+                int binary = symbol != 0 || complex_domain;
+                maps[map_count++] = (Map){name, domain[0], codomain, 0, NULL, binary, domain[1], 0, 0, {{0}}, paired ? PAIR_NAMES + name : 0, 0, 0, 0, 0};
+                if (paired) maps[map_count++] = (Map){PAIR_NAMES + name, domain[0], second, 0, NULL, binary, domain[1], 0, 0, {{0}}, 0, 2, 0, 0, 0};
             }
             return formula_node(F_MAP, NULL, NULL, start);
         }
@@ -4335,6 +4426,31 @@ static Formula *logic_unary(void) {
     Node *pair[2];
     if (!syntax_error && pair_parts(left, pair) && (is_char('=') || is_command("neq") || is_command("ne")))
         return pair_comparison(start, consumed, pair);
+
+    /* 17s. "a, b \in A" è "a \in A \land b \in A": lettere separate da
+     * virgole, poi l'appartenenza, che si legge una volta e vale per tutte. */
+    if (!syntax_error && left->kind == N_VAR && is_char(',')) {
+        int letters[MAX_BOUND], count = 0;
+        letters[count++] = left->name;
+        while (is_char(',') && count < MAX_BOUND) {
+            next_token();
+            if (token.kind != T_LETTER) break;
+            letters[count++] = token.ch;
+            next_token();
+        }
+        if (!is_command("in")) { syntax("dopo delle lettere separate da virgole servono \\in e un insieme numerico"); return logic_nothing(start); }
+        next_token();
+        NumberSet numbers = parse_numbers();
+        Formula *all = NULL;
+        for (int i = 0; i < count; i++) {
+            Formula *node = formula_node(F_IN, NULL, NULL, start);
+            node->left = node_new(N_VAR, NULL, NULL);
+            node->left->name = letters[i];
+            node->numbers = numbers;
+            all = all ? formula_node(F_AND, all, node, start) : node;
+        }
+        return all;
+    }
 
     /* 17k. Appartenenza a un insieme numerico: non una catena di confronti
      * ma una condizione a sé, che il motore stabilisce con la regola 18e.
@@ -4570,6 +4686,7 @@ static void term_check(const Node *node) {
         if (node->c && map->iterates != 3) fail("un'iterata f^{n} è usata senza la sua definizione: f^{c} = f e f^{n+1} = f \\circ f^{n}");
         term_check(node->c);
         if (!map->body && !map->cases) fail("un'applicazione è usata prima della regola che la definisce");
+        else if (map->binary && !node->b) fail("un'applicazione di \\mathbb{C} si calcola in una variabile che varia in \\mathbb{C}");
         else if (!argument_in(node->a, &map->domain) || (map->binary && !argument_in(node->b, &map->second)))
             fail("un'applicazione va applicata a un elemento del suo dominio: una variabile che vi varia, un numero che vi appartiene, o un valore di un'applicazione che vi arriva");
         return;
@@ -4636,6 +4753,7 @@ static void formula_check(const Formula *f) {
         term_check(f->right);
         return;
     case F_IN:
+        if (f->numbers.complex) fail("\\mathbb{C} si legge, come coppie di reali, solo dopo un quantificatore e in una dichiarazione f \\colon A \\to B");
         term_check(f->left);
         return;
     case F_DIVIDES:
@@ -4646,6 +4764,7 @@ static void formula_check(const Formula *f) {
         fail("un'applicazione, un'operazione o una relazione si possono dichiarare solo tra le ipotesi");
         return;
     case F_FORALL: case F_EXISTS: case F_SOLVE:
+        if (f->numbers.complex) { fail("\\mathbb{C} si legge, come coppie di reali, solo dopo un quantificatore e in una dichiarazione f \\colon A \\to B"); return; }
         if (scope_find(f->variable) || map_find(f->variable) || pair_set_find(f->variable)) { fail("la stessa lettera ha due significati nello stesso punto dell'enunciato"); return; }
         if (scope_count == MAX_BOUND) { fail("troppi quantificatori uno dentro l'altro"); return; }
         scope[scope_count++] = (Bound){f->variable, &f->numbers};
@@ -4693,7 +4812,13 @@ static void formula_check(const Formula *f) {
  * \mathbb{N}: le regole e la tesi possono nominarlo, e ciò che si dimostra
  * vale per ogni suo valore. Il lettore lo annota in statement_parameters[],
  * e lo mette tra le lettere visibili (scope) dovunque; il motore lo tratta
- * come una variabile generica introdotta prima di tutto il resto.
+ * come una variabile generica introdotta prima di tutto il resto. Più
+ * parametri si dichiarano anche insieme, "a, b \in \mathbb{Z}", che si legge
+ * dove si legge un confronto ed è "a \in \mathbb{Z} \land b \in \mathbb{Z}".
+ * Una lettera legata da un quantificatore della tesi con il nome di un
+ * parametro è un'altra lettera, che dentro il quantificatore lo nasconde: il
+ * lettore le dà un nome nuovo (parameters_unshadowed()), e il verdetto lo
+ * dice.
  */
 
 /* I parametri dichiarati dalle ipotesi dell'enunciato in corso, con
@@ -4852,6 +4977,55 @@ static int parameter_read(const Formula *f) {
     return 1;
 }
 
+/* 17s. Una lettera legata che nasconde un parametro. Nella tesi
+ *
+ *     \forall a, b \in \mathbb{Z}\ (f(a) = f(b) \implies a = b) \iff a \neq 0
+ *
+ * con a e b parametri, le a e b del "per ogni" sono altre: dentro il
+ * quantificatore la lettera legata nasconde il parametro, come sempre in
+ * logica, e fuori resta il parametro. Il motore riconosce una variabile dalla
+ * sua lettera, quindi la lettera legata si cambia: si riscrive il testo del
+ * quantificatore con una lettera nuova al posto di quella (draft_rewrite(),
+ * come per 17j) e lo si rilegge. La regola dell'applicazione, che nomina il
+ * parametro, non sta in quel testo, e non cambia. */
+/* Che cosa parameters_unshadowed() ha rinominato, da riportare accanto al
+ * verdetto: "la k legata si chiama a". Vuoto se nulla. */
+static char unshadowed_note[200];
+
+/* Rinomina, in ogni quantificatore di f e dei suoi pezzi, le lettere legate
+ * che hanno il nome di un parametro, come descritto sopra: il quantificatore
+ * si riscrive con una lettera nuova e si rilegge, e *f prende il posto del
+ * vecchio. Annota ogni cambio in unshadowed_note; un errore di lettura resta
+ * in syntax_error. */
+static void parameters_unshadowed(Formula *f) {
+    if (!f || syntax_error) return;
+    if ((f->kind == F_FORALL || f->kind == F_EXISTS || f->kind == F_SOLVE) && f->start && f->end) {
+        int from[MAX_PARAMETERS], hidden = 0;
+        char word[MAX_PARAMETERS][2];
+        const char *to[MAX_PARAMETERS];
+        for (const Formula *q = f; q && (q->kind == F_FORALL || q->kind == F_EXISTS || q->kind == F_SOLVE) && q->start == f->start; q = q->a)
+            for (int i = 0; i < statement_parameter_count; i++)
+                if (q->variable == statement_parameters[i].name && hidden < MAX_PARAMETERS) {
+                    from[hidden] = q->variable;
+                    word[hidden][0] = (char)fresh_letter();
+                    word[hidden][1] = 0;
+                    to[hidden] = word[hidden];
+                    size_t used = strlen(unshadowed_note);
+                    snprintf(unshadowed_note + used, sizeof unshadowed_note - used, "%sla %c legata, che nasconde il parametro, si chiama %c",
+                             used ? "; " : "", q->variable, word[hidden][0]);
+                    hidden++;
+                }
+        if (hidden) {
+            draft_length = 0;
+            draft_rewrite(f->start, f->end, from, to, hidden);
+            Formula *renamed = unfold();
+            if (!syntax_error) *f = *renamed;
+        }
+    }
+    parameters_unshadowed(f->a);
+    parameters_unshadowed(f->b);
+}
+
 /* Registra i parametri dichiarati nella congiunzione di ipotesi f. Si fa
  * prima di leggere le regole, che possono nominarli in qualunque ordine. */
 static void parameters_read(const Formula *f) {
@@ -4895,6 +5069,145 @@ static int iterates_read(const Formula *f) {
     return 1;
 }
 
+/* 17s. I numeri complessi come coppie. Un enunciato su \mathbb{C} si legge
+ * con le coppie: una variabile complessa, \forall z \in \mathbb{C}, è la
+ * coppia della parte reale e della parte immaginaria, due lettere nuove,
+ * come ogni lettera di coppie (17t-2, la stessa lettura degli insiemi di
+ * complessi dichiarati di 17t-4); un'applicazione di \mathbb{C} in
+ * \mathbb{C} è di due argomenti reali e a valori in coppie, e f(z) è f
+ * calcolata nelle due componenti di z (pair_parts()). La sua regola si
+ * scrive come nei libri, \forall a, b \in \mathbb{R}\ (f(a + ib) = E), con i
+ * l'unità immaginaria: l'argomento deve essere a + ib, e il valore si divide
+ * nella parte reale e in quella immaginaria con le regole dell'aritmetica
+ * dei complessi, i^{2} = -1 (complex_parts()).
+ *
+ * \mathbb{C} si legge solo intero, e solo dopo un quantificatore o in una
+ * dichiarazione (complex_wanted): \mathbb{C} \setminus \{0\}, letto come
+ * coppia, toglierebbe lo zero da ogni componente, e lascerebbe fuori i =
+ * (0, 1); così il motore ha dimostrato una volta che nessun z \neq 0 ha
+ * f(z) = i per l'identità (false_maps_by_cases.tex, 46). */
+
+/* Ritorna 1 se la lettera name compare in node come variabile. */
+static int node_uses_letter_parser(const Node *node, int name) {
+    if (!node) return 0;
+    if (node->kind == N_VAR && node->name == name) return 1;
+    return node_uses_letter_parser(node->a, name) || node_uses_letter_parser(node->b, name) || node_uses_letter_parser(node->c, name);
+}
+
+/* Ritorna la somma di a e b, o la differenza se subtract; NULL vale zero, e
+ * una somma con zero è l'altro termine. */
+static Node *complex_sum(Node *a, Node *b, int subtract) {
+    if (!b) return a;
+    if (!a) return subtract ? node_new(N_NEG, b, NULL) : b;
+    return node_new(subtract ? N_SUB : N_ADD, a, b);
+}
+
+/* Il prodotto di a e b; NULL vale zero, e un fattore 1 non si scrive. */
+static Node *complex_product(Node *a, Node *b) {
+    if (!a || !b) return NULL;
+    if (a->kind == N_NUM && a->value == 1) return b;
+    if (b->kind == N_NUM && b->value == 1) return a;
+    return node_new(N_MUL, a, b);
+}
+
+/* Divide l'espressione e, scritta con la lettera i come unità immaginaria,
+ * nella parte reale *re e nella parte immaginaria *im (NULL vale zero), e
+ * ritorna 1. Somme, differenze, prodotti, divisioni per un reale e potenze
+ * con un esponente in cifre seguono (a + ib)(c + id) = (ac - bd) + i(ad + bc);
+ * un'altra espressione è reale se non contiene i. Ritorna 0 se e non si sa
+ * dividere. */
+static int complex_parts(const Node *e, Node **re, Node **im) {
+    Node *ar, *ai, *br, *bi;
+    if (!e) { *re = *im = NULL; return 1; }
+    switch (e->kind) {
+    case N_VAR:
+        if (e->name == 'i') { *re = NULL; *im = node_num(1); }
+        else { *re = (Node *)e; *im = NULL; }
+        return 1;
+    case N_NUM:
+        *re = (Node *)e;
+        *im = NULL;
+        return 1;
+    case N_NEG:
+        if (!complex_parts(e->a, &ar, &ai)) return 0;
+        *re = ar ? node_new(N_NEG, ar, NULL) : NULL;
+        *im = ai ? node_new(N_NEG, ai, NULL) : NULL;
+        return 1;
+    case N_ADD: case N_SUB:
+        if (!complex_parts(e->a, &ar, &ai) || !complex_parts(e->b, &br, &bi)) return 0;
+        *re = complex_sum(ar, br, e->kind == N_SUB);
+        *im = complex_sum(ai, bi, e->kind == N_SUB);
+        return 1;
+    case N_MUL:
+        if (!complex_parts(e->a, &ar, &ai) || !complex_parts(e->b, &br, &bi)) return 0;
+        *re = complex_sum(complex_product(ar, br), complex_product(ai, bi), 1);
+        *im = complex_sum(complex_product(ar, bi), complex_product(ai, br), 0);
+        return 1;
+    case N_DIV:
+        if (!complex_parts(e->a, &ar, &ai) || !complex_parts(e->b, &br, &bi) || bi || !br) return 0;
+        *re = ar ? node_new(N_DIV, ar, br) : NULL;
+        *im = ai ? node_new(N_DIV, ai, br) : NULL;
+        return 1;
+    case N_POW:
+        if (e->b->kind != N_NUM || e->b->value < 1 || e->b->value > 8 || !complex_parts(e->a, &ar, &ai)) return 0;
+        if (!ai) { *re = (Node *)e; *im = NULL; return 1; }
+        *re = ar;
+        *im = ai;
+        for (long long k = 1; k < e->b->value; k++) {
+            Node *r = complex_sum(complex_product(*re, ar), complex_product(*im, ai), 1);
+            *im = complex_sum(complex_product(*re, ai), complex_product(*im, ar), 0);
+            *re = r;
+        }
+        return 1;
+    default:
+        if (node_uses_letter_parser(e, 'i')) return 0;
+        *re = (Node *)e;
+        *im = NULL;
+        return 1;
+    }
+}
+
+/* 17s. Se f è la regola \forall a, b \in \mathbb{R}\ (f(a + ib) = E) di
+ * un'applicazione di \mathbb{C} (map), la registra, con la parte reale di E
+ * per map e quella immaginaria per la sua compagna, e ritorna 1. Annota con
+ * fail() una scrittura diversa. */
+static int complex_rule_read(const Formula *f, Map *map) {
+    const Formula *inner = f->a, *rule = inner->a;
+    const Node *applied = rule->left;
+    Node *re, *im, *value[2];
+    Map *partner = map_find(map->partner);
+    if (!partner) {
+        fail("un'applicazione di \\mathbb{C} è trattata solo a valori in \\mathbb{C}, dove il valore ha una parte reale e una immaginaria");
+        return 1;
+    }
+    if (!complex_parts(applied->a, &re, &im) || !re || !im || re->kind != N_VAR || im->kind != N_VAR ||
+        re->name == im->name || re->name == 'i' || im->name == 'i') {
+        fail("la regola di un'applicazione di \\mathbb{C} si scrive \\forall a, b \\in \\mathbb{R}\\ (f(a + ib) = \\ldots)");
+        return 1;
+    }
+    int bound[2] = {f->variable, inner->variable};
+    if (!((re->name == bound[0] && im->name == bound[1]) || (re->name == bound[1] && im->name == bound[0])) ||
+        !numbers_equal(&f->numbers, &map->domain) || !numbers_equal(&inner->numbers, &map->second)) {
+        fail("la regola di un'applicazione di \\mathbb{C} deve valere per ogni parte reale e immaginaria");
+        return 1;
+    }
+    if (!complex_parts(rule->right, &value[0], &value[1])) { fail("il valore di un'applicazione di \\mathbb{C} non si divide in parte reale e immaginaria"); return 1; }
+    for (int k = 0; k < 2; k++) {
+        if (!value[k]) value[k] = node_num(0);
+        scope_parameters();
+        scope[scope_count++] = (Bound){re->name, &map->domain};
+        scope[scope_count++] = (Bound){im->name, &map->second};
+        term_check(value[k]);
+        scope_count = 0;
+        if (!term_is_rational(value[k])) { fail("la regola di un'applicazione deve essere un'espressione razionale"); return 1; }
+    }
+    map->parameter = partner->parameter = re->name;
+    map->parameter2 = partner->parameter2 = im->name;
+    map->body = value[0];
+    partner->body = value[1];
+    return 1;
+}
+
 /* Il lavoro di read_definitions(), che ne descrive il contratto, su una
  * parte f delle ipotesi; i parametri sono già stati letti. */
 static void definitions_read(const Formula *f) {
@@ -4925,6 +5238,7 @@ static void definitions_read(const Formula *f) {
     }
     const Node *applied = rule && rule->kind == F_EQUAL && rule->left->kind == N_APPLY ? rule->left : NULL;
     Map *map = applied ? map_find(applied->name) : NULL;
+    if (map && inner && map->binary && map->name < OPERATION_NAMES && !applied->b && !map->body && complex_rule_read(f, map)) return;
     if (!map || map->binary != (inner != NULL) || applied->a->kind != N_VAR || (inner && applied->b->kind != N_VAR)) {
         fail("ipotesi non trattata: sono ammesse la dichiarazione di un'applicazione, di un'operazione o di una relazione, "
              "di un parametro, e la regola di un'applicazione o di un'operazione, anche per casi");

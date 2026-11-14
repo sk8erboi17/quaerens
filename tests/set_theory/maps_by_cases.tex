@@ -8,12 +8,12 @@
 \setlength{\emergencystretch}{3em}
 \allowdisplaybreaks
 
-\title{Maps defined by cases, with values in pairs, and iterates: true statements (22)}
+\title{Maps defined by cases, with values in pairs, iterates, maps between real or complex numbers, and parameters: true statements (33)}
 \author{}
 \date{}
 \begin{document}
 \maketitle
-$\mathbb{N} = \{1, 2, 3, \ldots\}$, $\mathbb{N}_{0} = \mathbb{N} \cup \{0\}$. Each map is defined by cases (on a remainder, on an order, on a point, on being an integer, on a parameter), or with an absolute value, which is a definition by cases. Items 13--17 have values in pairs: $(a, b) = (c, d)$ means $a = c$ and $b = d$. Items 18 and 19 compare a variable over a set of pairs with a pair written out. The last three are about the iterates $f^{n}$, defined by $f^{1} = f$ and $f^{n + 1} = f \circ f^{n}$.
+$\mathbb{N} = \{1, 2, 3, \ldots\}$, $\mathbb{N}_{0} = \mathbb{N} \cup \{0\}$. Each map is defined by cases (on a remainder, on an order, on a point, on being an integer, on a parameter), or with an absolute value, which is a definition by cases. Items 13--17 have values in pairs: $(a, b) = (c, d)$ means $a = c$ and $b = d$. Items 18 and 19 compare a variable over a set of pairs with a pair written out. Items 20--22 are about the iterates $f^{n}$, defined by $f^{1} = f$ and $f^{n + 1} = f \circ f^{n}$. Items 23--26 are maps from $\mathbb{R}$, where the preimage of $y$ can be $\sqrt{y}$. Items 27--30 have parameters declared among the hypotheses, which a bound letter with the same name hides. The last three are maps from $\mathbb{C}$, whose elements are pairs of real numbers, $a + ib$.
 
 \begin{enumerate}
 \item $\displaystyle (f \colon \mathbb{Z} \to \mathbb{Z} \land \forall n \in \mathbb{Z}\ ((2 \mid n \implies f(n) = n + 3) \land (\lnot (2 \mid n) \implies f(n) = n - 1))) \implies ((\forall a, b \in \mathbb{Z}\ (f(a) = f(b) \implies a = b)) \land (\forall y \in \mathbb{Z}\ \exists x \in \mathbb{Z}\ (f(x) = y)))$
@@ -38,5 +38,16 @@ $\mathbb{N} = \{1, 2, 3, \ldots\}$, $\mathbb{N}_{0} = \mathbb{N} \cup \{0\}$. Ea
 \item $\displaystyle (f \colon \mathbb{Z} \to \mathbb{Z} \land \forall x \in \mathbb{Z}\ (f(x) = x + 2) \land f^{1} = f \land \forall n \in \mathbb{N}\ (f^{n + 1} = f \circ f^{n})) \implies (\forall n \in \mathbb{N}\ \forall x \in \mathbb{Z}\ (f^{n}(x) = x + 2n))$
 \item $\displaystyle (f \colon \mathbb{Z} \to \mathbb{Z} \land \forall x \in \mathbb{Z}\ (f(x) = 1 - x) \land f^{1} = f \land \forall n \in \mathbb{N}\ (f^{n + 1} = f \circ f^{n})) \implies (\forall n \in \mathbb{N}\ \forall x \in \mathbb{Z}\ (f^{n}(x) = \frac{1 - (-1)^{n}}{2} + (-1)^{n} x))$
 \item $\displaystyle (f \colon \mathbb{Q} \to \mathbb{Q} \land \forall x \in \mathbb{Q}\ (f(x) = 2x - 1) \land f^{1} = f \land \forall n \in \mathbb{N}\ (f^{n + 1} = f \circ f^{n})) \implies (\forall x \in \mathbb{Q}\ \forall n \in \mathbb{N}\ (f^{n}(x) = 2^{n}(x - 1) + 1))$
+\item $\displaystyle (f \colon \mathbb{R} \to \mathbb{R} \land \forall x \in \mathbb{R}\ (f(x) = x^{3})) \implies ((\forall a, b \in \mathbb{R}\ (f(a) = f(b) \implies a = b)) \land (\forall y \in \mathbb{R}\ \exists x \in \mathbb{R}\ (f(x) = y)))$
+\item $\displaystyle (f \colon \mathbb{R} \to \mathbb{R}^{+} \land \forall x \in \mathbb{R}\ (f(x) = x^{2} + 1)) \implies ((\lnot (\forall a, b \in \mathbb{R}\ (f(a) = f(b) \implies a = b))) \land (\lnot (\forall y \in \mathbb{R}^{+}\ \exists x \in \mathbb{R}\ (f(x) = y))))$
+\item $\displaystyle (f \colon \mathbb{R} \to \mathbb{R} \land \forall x \in \mathbb{R}\ ((x \ge 1 \implies f(x) = 2x - 1) \land (x < 1 \implies f(x) = x^{2}))) \implies ((\lnot (\forall a, b \in \mathbb{R}\ (f(a) = f(b) \implies a = b))) \land (\lnot (\forall y \in \mathbb{R}\ \exists x \in \mathbb{R}\ (f(x) = y))))$
+\item $\displaystyle (f \colon \mathbb{R} \to \mathbb{R} \land \forall x \in \mathbb{R}\ (f(x) = 2x + |x|)) \implies ((\forall a, b \in \mathbb{R}\ (f(a) = f(b) \implies a = b)) \land (\forall y \in \mathbb{R}\ \exists x \in \mathbb{R}\ (f(x) = y)))$
+\item $\displaystyle (f \colon \mathbb{Z} \to \mathbb{Z} \land (k \in \mathbb{Z} \land \forall n \in \mathbb{Z}\ (f(n) = kn))) \implies ((\forall a, b \in \mathbb{Z}\ (f(a) = f(b) \implies a = b)) \iff k \neq 0)$
+\item $\displaystyle (f \colon \mathbb{Q} \to \mathbb{Q} \land (a, b \in \mathbb{Q} \land \forall x \in \mathbb{Q}\ (f(x) = ax + b))) \implies ((\forall y \in \mathbb{Q}\ \exists x \in \mathbb{Q}\ (f(x) = y)) \iff a \neq 0)$
+\item $\displaystyle (f \colon \mathbb{Z} \to \mathbb{Z} \land (k \in \mathbb{N} \land \forall n \in \mathbb{Z}\ (f(n) = n + k))) \implies (\forall k \in \mathbb{Z}\ (f(k) \neq k))$
+\item $\displaystyle (f \colon \mathbb{Z} \to \mathbb{Z} \land (a \in \mathbb{N} \setminus \{1\} \land \forall n \in \mathbb{Z}\ (f(n) = an))) \implies (\forall x \in \mathbb{Z}\ (f(x) \neq 1))$
+\item $\displaystyle (f \colon \mathbb{C} \to \mathbb{C} \land \forall a, b \in \mathbb{R}\ (f(a + ib) = a^{2} + b^{2})) \implies ((\lnot (\forall a, b \in \mathbb{C}\ (f(a) = f(b) \implies a = b))) \land (\lnot (\forall y \in \mathbb{C}\ \exists x \in \mathbb{C}\ (f(x) = y))))$
+\item $\displaystyle (f \colon \mathbb{C} \to \mathbb{C} \land \forall a, b \in \mathbb{R}\ (f(a + ib) = (a + ib)^{2})) \implies (\lnot (\forall a, b \in \mathbb{C}\ (f(a) = f(b) \implies a = b)))$
+\item $\displaystyle (f \colon \mathbb{C} \to \mathbb{C} \land \forall a, b \in \mathbb{R}\ (f(a + ib) = a + ib)) \implies (\forall z \in \mathbb{C}\ (f(z) = z))$
 \end{enumerate}
 \end{document}

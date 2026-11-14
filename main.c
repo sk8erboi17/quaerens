@@ -240,30 +240,36 @@
  *     secondo grado, i parametri; negli impropri, le oscillazioni
  *     (\int_0^{+\infty} \cos x \, dx) e i domini che la tabella dei segni
  *     non sa decidere. Il capitolo 30 dice dove andrebbero.
- *   - Negli enunciati con quantificatori: i numeri complessi fuori dalle
- *     relazioni (le operazioni tra loro, f(a + ib), \mathbb{C}; dentro una
- *     relazione sono coppie, 17t-4), i reali insieme alle disuguaglianze o
- *     alle applicazioni (senza, li trattano le regole del capitolo 18, 18y),
- *     le disuguaglianze nella tesi e tra più variabili, le applicazioni di
- *     due argomenti, e le definizioni per casi tra numeri reali, dove la
- *     suriettività vorrebbe una radice come \sqrt{y} nel valore di un
- *     "esiste". Le applicazioni definite per casi tra interi e razionali, il
- *     valore assoluto nella loro regola e i valori in coppie ci sono (17s,
- *     18v); di un enunciato con un parametro (17s) il motore dimostra
- *     la tesi per ogni valore del parametro, e la smentisce per ogni valore
- *     o per uno dei primi, mai con un valore cercato dalle condizioni.
- *     Mancano anche i parametri dichiarati insieme (a, b \in \mathbb{Z}) e
- *     le lettere usate sia come parametri sia come variabili legate, e le
- *     coppie di coppie. Nella teoria dei numeri mancano il massimo comun
- *     divisore, i numeri primi come insieme, il numero dei divisori di una
- *     lettera (quelli di un numero li prova tutti 18w), e le uguaglianze tra
- *     potenze della stessa base: x^{n m} = x non dà n m = 1, perché le
- *     potenze sono lettere indipendenti (18x), e così l'antisimmetria di "y
- *     è una potenza di x" resta fuori. La verifica del capitolo 19 non sa
- *     calcolare potenze di potenze troppo grandi, e allora non conferma. Il
- *     linguaggio è nel capitolo 17; ogni nuovo modo di ragionare è una
- *     regola in più nel capitolo 18. L'induzione vi entra solo per un "per
- *     ogni n" senza altre variabili intorno.
+ *   - Negli enunciati con quantificatori: i numeri complessi scritti con dei
+ *     numeri (1 + 2i) e le operazioni tra loro fuori dalla regola di
+ *     un'applicazione; le disuguaglianze nella tesi insieme ad applicazioni
+ *     tra interi o razionali, e tra più variabili; le applicazioni di due
+ *     argomenti (tranne le operazioni scritte con un simbolo e quelle di
+ *     \mathbb{C}, 17s), e quindi anche la scrittura 2^{m-1}(2n - 1) di ogni
+ *     intero positivo; le coppie di coppie. Le applicazioni tra reali o tra
+ *     complessi si svolgono nella loro definizione, e decide la tabella dei
+ *     segni (18v-8): restano fuori le regole con divisioni per lettere,
+ *     radici o funzioni, i parametri, le iterate, e le parti che dopo lo
+ *     svolgimento hanno più lettere reali di quante la tabella ne decida,
+ *     salvo gli "esiste" in testa a cui bastano dei razionali (18v-11). I
+ *     reali senza disuguaglianze e senza applicazioni li trattano le regole
+ *     del capitolo 18 (18y). Le applicazioni definite per casi tra interi e
+ *     razionali, il valore assoluto nella loro regola e i valori in coppie
+ *     ci sono (17s, 18v); di un enunciato con dei parametri (17s: anche
+ *     dichiarati insieme, a, b \in \mathbb{Z}, e nascosti da una lettera
+ *     legata con lo stesso nome) il motore dimostra la tesi per ogni valore
+ *     dei parametri, distinguendo i casi che servono (18v-2), e la smentisce
+ *     per ogni valore o per uno dei primi, mai con un valore cercato dalle
+ *     condizioni. Nella teoria dei numeri mancano il massimo comun divisore,
+ *     i numeri primi come insieme, il numero dei divisori di una lettera
+ *     (quelli di un numero li prova tutti 18w), e le uguaglianze tra potenze
+ *     della stessa base: x^{n m} = x non dà n m = 1, perché le potenze sono
+ *     lettere indipendenti (18x), e così l'antisimmetria di "y è una potenza
+ *     di x" resta fuori. La verifica del capitolo 19 non sa calcolare
+ *     potenze di potenze troppo grandi, e allora non conferma. Il linguaggio
+ *     è nel capitolo 17; ogni nuovo modo di ragionare è una regola in più
+ *     nel capitolo 18. L'induzione vi entra solo per un "per ogni n" senza
+ *     altre variabili intorno.
  *   - Negli enunciati su insiemi qualsiasi: le applicazioni e le parti da
  *     costruire, le ipotesi su tutte le parti di un insieme (\forall X
  *     \subseteq S tra le ipotesi, o in un'equivalenza), l'insieme delle
@@ -532,6 +538,8 @@
 #define MAX_BRICKS 32        /* fattori suggeriti in un certificato: di più il verificatore non ne legge */
 #define MAX_MAPS 4           /* applicazioni dichiarate in un enunciato */
 #define MAX_PARAMETERS 4     /* parametri dichiarati tra le ipotesi con "k \in A" (17s) */
+#define MAX_UNFOLDINGS 24    /* enunciati tra reali in cui 18v-8 svolge uno con applicazioni */
+#define MAX_WITNESS_LETTERS 4  /* "esiste" tra i reali a cui 18v-11 dà un razionale, in testa a un enunciato */
 #define PARAMETER_TRIES 4    /* valori di ogni parametro con cui si cerca di smentire un enunciato (17s) */
 #define MAX_MAP_CASES 8      /* casi di un'applicazione definita per casi, contati dopo aver letto i valori assoluti (17s) */
 #define MAX_CASE_CHOICES 16  /* casi scelti insieme, in un confronto, per le applicazioni definite per casi (18v-1) */
@@ -9427,7 +9435,16 @@ static Range poly_range(Poly p) {
  *        disgiunzione di "diversi" vale quando le loro condizioni non
  *        possono mancare insieme: 1 è una combinazione dei polinomi
  *        (18v-7, il seguito di 18s), come per le coppie (x + 1, 2x) \neq
- *        (0, 0).
+ *        (0, 0). Tra gli interi c + k M non si annulla se le variabili di M
+ *        non possono dividere -c/k (18v-10, accanto a 18w e alla regola dei
+ *        segni di 18z: vedi divisor_excludes()). Il valore di un "esiste"
+ *        che è un parametro più un numero, y = b + 1, lo trovano i testimoni
+ *        di primo grado di 18z, che contano anche le lettere scritte nella
+ *        regola di un'applicazione (la regola 18v-9 di prima). Tra i reali
+ *        le applicazioni si svolgono nella definizione e decide la tabella
+ *        dei segni (18v-8), dando dei razionali agli "esiste" in testa a ciò
+ *        che resta quando le lettere sono troppe (18v-11): queste due stanno
+ *        nel capitolo 19, perché decidono da capo gli enunciati svolti.
  *   18w. Una variabile intera che deve dividere un numero diverso da zero:
  *        i valori che contano sono i divisori di quel numero, finiti, e si
  *        provano tutti. Un "per ogni" diventa un caso per divisore, un
@@ -9452,7 +9469,7 @@ static Range poly_range(Poly p) {
  *        polinomio con un fattore monomio che non si annulla è zero solo
  *        dove lo è l'altro fattore (m (1 - 2a) con m naturale); un "esiste"
  *        prova anche le espressioni di primo grado più semplici nelle
- *        variabili generiche (x = 2m).
+ *        variabili generiche (x = 2m, y = b + 1).
  *
  * I capitoli che seguono, numerati da 18.1 a 18.19, raccolgono queste regole
  * per argomento, nell'ordine in cui un lettore ne ha bisogno: ognuno usa solo
@@ -9461,7 +9478,7 @@ static Range poly_range(Poly p) {
  *
  *   18.1   Lo stato della dimostrazione e la scrittura dei polinomi    18x
  *   18.2   Polinomi nelle variabili generiche              18a-18f, 18v-4, 18v-5,
- *                                                          18y, 18z
+ *                                                          18v-10, 18y, 18z
  *   18.3   Confronti e disgiunzioni di confronti           18g, 18h, 18s, 18v-7,
  *                                                          18z
  *   18.4   "Per ogni" ed "esiste": induzione, resti,       18n, 18o, 18v,
@@ -10223,6 +10240,26 @@ static int excluded_root(Poly p) {
     return 0;
 }
 
+/* Controllo del passo di 18v-5 e 18v-10: p, che la regola dichiara mai
+ * nullo, non deve annullarsi in nessuna scelta dei primi elementi degli
+ * insiemi delle sue variabili, dalla variabile di posto from in su. È un
+ * conto diverso dalla regola: sostituisce numeri e guarda il risultato.
+ * Ritorna 0 se trova uno zero (o se un conto non riesce). */
+static int no_zero_on_sample(Poly p, int from) {
+    Num value;
+    if (failure) return 0;
+    if (from == universal_count) return !rat_number((Rat){p, poly_const(num_int(1))}, &value) || !num_is_zero(value);
+    int x = atom_var(universal[from].name);
+    if (!poly_uses(p, x)) return no_zero_on_sample(p, from + 1);
+    Frac sample[5];
+    numbers_sample(universal[from].numbers, sample, 5);
+    for (int i = 0; i < 5; i++) {
+        Rat moved = poly_substitute(p, x, rat_frac(sample[i]));
+        if (failure || !poly_is_one(moved.den) || !no_zero_on_sample(moved.num, from + 1)) return 0;
+    }
+    return 1;
+}
+
 /* 18v-5. Dimostra che p, a coefficienti razionali in variabili generiche
  * intere, non si annulla guardando i resti: scrive il ragionamento e ritorna
  * 1 se ci riesce.
@@ -10253,6 +10290,7 @@ static int content_excludes(Poly p) {
         else g = gcd128(g, value);
     }
     if (g < 2 || c % g == 0) return 0;
+    if (!no_zero_on_sample(p, 0)) { if (!failure) unjustified_steps++; return 0; }
     proof_add(" The variables are integers, and every coefficient of $");
     if (scale != 1) proof_add("%lld\\left(", scale);
     put_poly(p);
@@ -10260,6 +10298,59 @@ static int content_excludes(Poly p) {
     proof_add("$ except the constant term is a multiple of $%lld$, while the constant term $%lld$ is not: so it is never zero.",
               (long long)g, (long long)c);
     return 1;
+}
+
+/* 18v-10. Dimostra che p = c + k M, con c e k numeri, c diverso da zero, e M
+ * un prodotto di potenze di variabili generiche intere, non si annulla
+ * perché una delle variabili non può dividere il numero che servirebbe.
+ * Scrive il ragionamento e ritorna 1 se ci riesce.
+ *
+ * Se p = 0 allora M = -c/k: questo deve essere un intero N (M lo è), e ogni
+ * variabile x di M divide M, cioè N: x è uno dei divisori di N, positivi o
+ * negativi, che sono in numero finito perché N non è zero. Se nessuno di
+ * loro sta nell'insieme di x, p non si annulla mai. Così a x - 1 non è mai
+ * zero con a intero diverso da 1 e da -1: a dovrebbe dividere 1.
+ *
+ * Le altre due regole sui divisori e sui prodotti che valgono 1. È lo stesso
+ * fatto di 18w, che prova uno per uno i divisori di un numero quando la
+ * condizione dice "d divide c"; qui la divisibilità non è scritta, e nasce
+ * dal polinomio. E un prodotto di naturali che vale 1 ha ogni fattore uguale
+ * a 1 lo dice la regola dei segni con la guardia (18c, dopo la sostituzione
+ * di 18z): quella dice dove p può annullarsi, a = b = 1 in 1 - a b, questa
+ * che non si annulla mai, anche tra gli interi e con -c/k diverso da 1. Le
+ * tre restano, perché nessuna fa ciò che fanno le altre; un enunciato che due
+ * di loro sanno dimostrare lo dimostra la prima che lo prova. */
+static int divisor_excludes(Poly p) {
+    if (p.count != 2) return 0;
+    const Term *constant = p.term[0].mono.count == 0 ? &p.term[0] : &p.term[1], *product = constant == &p.term[0] ? &p.term[1] : &p.term[0];
+    if (constant->mono.count != 0 || product->mono.count == 0 || constant->coef.im.num || product->coef.im.num) return 0;
+    Frac needed = frac_neg(frac_div(constant->coef.re, product->coef.re));
+    if (failure || needed.den != 1 || needed.num == 0 || llabs(needed.num) > 1000000) return 0;
+    for (int k = 0; k < product->mono.count; k++) {
+        const Factor *f = &product->mono.factor[k];
+        int who = universal_index(f->atom);
+        if (who < 0 || !universal[who].numbers->integers || f->exp.den != 1 || f->exp.num < 1) return 0;
+    }
+    for (int k = 0; k < product->mono.count; k++) {
+        int who = universal_index(product->mono.factor[k].atom), inside = 0;
+        for (long long d = 1; d * d <= llabs(needed.num) && !inside; d++) {
+            if (llabs(needed.num) % d) continue;
+            long long pair[4] = {d, -d, llabs(needed.num) / d, -(llabs(needed.num) / d)};
+            for (int j = 0; j < 4; j++) inside = inside || numbers_contain(universal[who].numbers, frac_int(pair[j]));
+        }
+        if (inside) continue;
+        if (!no_zero_on_sample(p, 0)) { if (!failure) unjustified_steps++; return 0; }
+        proof_add(" If it were zero, then $");
+        Term alone = *product;
+        alone.coef = num_int(1);
+        put_poly(poly_term(alone));
+        proof_add(" = %lld$, and $%c$, an integer that divides it, would be one of the divisors of $%lld$; none of them is in $",
+                  needed.num, universal[who].name, needed.num);
+        put_numbers(universal[who].numbers);
+        proof_add("$.");
+        return 1;
+    }
+    return 0;
 }
 
 /* 18a, 18b, 18c. Dimostra che il polinomio p non si annulla per nessun valore
@@ -10370,14 +10461,14 @@ static int zero_only_where(Poly p, const Poly *guard) {
     }
 
     /* 18c. Più variabili, o radici non determinabili: la regola dei segni.
-     * Se non basta, il testo che ha scritto si toglie, e resta 18v-5, i
-     * resti. Viene dopo perché dove la regola dei segni basta la
-     * dimostrazione resta quella di sempre. */
+     * Se non basta, il testo che ha scritto si toglie, e restano 18v-5, i
+     * resti, e 18v-10, i divisori. Vengono dopo perché dove la regola dei
+     * segni basta la dimostrazione resta quella di sempre. */
     size_t before = proof_length;
     if (signs(p, p, guard, 0, SIGN_NONZERO)) return 1;
     if (failure) return 0;
     proof_cut(before);
-    return content_excludes(p);
+    return content_excludes(p) || divisor_excludes(p);
 }
 
 /* 18d. Dimostra che il polinomio p è un numero intero per ogni valore delle
@@ -11120,6 +11211,11 @@ static int prove_combination(Literal *literal, int count) {
     return 1;
 }
 
+/* Prototipo in avanti inevitabile: quando il fattore che resta a 18h si
+ * annulla in un punto, la regola chiede di distinguere quel punto (18v-2, nel
+ * capitolo 18.4, che usa le regole di questo). */
+static void split_at_zero(Rat gap);
+
 /* 18g, 18h. Dimostra che, per ogni valore delle variabili generiche, vale
  * almeno uno dei `count` confronti di literal[]. Scrive il ragionamento, come
  * seguito di un \item già aperto, e ritorna 1 se ci riesce.
@@ -11225,7 +11321,10 @@ static int prove_clause(Literal *literal, int count) {
         if (times > 1) proof_add("^{%d}", times);
         proof_add("$.");
     }
-    if (!poly_is_one(h) && !zero_only_where(h, &e)) return 0;
+    if (!poly_is_one(h) && !zero_only_where(h, &e)) {
+        split_at_zero((Rat){h, poly_const(num_int(1))});
+        return 0;
+    }
     proof_add(" Hence $");
     put_poly(e);
     proof_add(" = 0$, ");
@@ -11365,6 +11464,27 @@ static int formula_uses_letter(const Formula *f, int name) {
     if ((f->kind == F_FORALL || f->kind == F_EXISTS) && f->variable == name) return 1;
     return node_uses_letter(f->left, name) || node_uses_letter(f->right, name) ||
            formula_uses_letter(f->a, name) || formula_uses_letter(f->b, name);
+}
+
+/* Ritorna 1 se l'espressione node dipende dalla lettera name: la scrive,
+ * oppure la scrive la regola, o uno dei casi, di un'applicazione che node
+ * calcola, come il parametro b di f(n) = a n + b (17s). */
+static int node_mentions(const Node *node, int name) {
+    if (!node) return 0;
+    if (node->kind == N_VAR && node->name == name) return 1;
+    const Map *map = node->kind == N_APPLY ? map_find(node->name) : NULL;
+    if (map && node_uses_letter(map->body, name)) return 1;
+    for (int k = 0; map && k < map->cases; k++)
+        if (node_uses_letter(map->piece[k].value, name) || formula_uses_letter(map->piece[k].when, name)) return 1;
+    return node_mentions(node->a, name) || node_mentions(node->b, name) || node_mentions(node->c, name);
+}
+
+/* Come formula_uses_letter(), contando anche le lettere delle regole delle
+ * applicazioni calcolate (node_mentions()). */
+static int formula_mentions(const Formula *f, int name) {
+    if (!f) return 0;
+    if ((f->kind == F_FORALL || f->kind == F_EXISTS) && f->variable == name) return 1;
+    return node_mentions(f->left, name) || node_mentions(f->right, name) || formula_mentions(f->a, name) || formula_mentions(f->b, name);
 }
 
 /* 18n. Dimostra "per ogni n in A vale L = R" per induzione su n, quando A è
@@ -11656,20 +11776,23 @@ static int not_multiple(Rat u, Rat v) {
         }
     }
 
-    /* v = w + u q, con "u non divide w" noto nel caso in esame. Se v è w
-     * stessa, è il fatto del caso. */
-    for (int e = 0; e < excluded_count && !failure; e++) {
-        Rat same = rat_add(excluded[e].divisor, u, 1);
+    /* v = w + u q, o v = -w + u q, con "u non divide w" noto nel caso in
+     * esame: u divide v esattamente quando divide w, perché divide w
+     * quando divide -w. Se v è w stessa, è il fatto del caso. */
+    for (int e = 0; e < 2 * excluded_count && !failure; e++) {
+        const Exclusion *x = &excluded[e / 2];
+        int opposite = e % 2;
+        Rat same = rat_add(x->divisor, u, 1);
         if (failure || same.num.count != 0) continue;
-        Rat rest = rat_div(rat_add(v, (Rat){excluded[e].value, one}, 1), u);
+        Rat rest = rat_div(rat_add(v, (Rat){x->value, one}, !opposite), u);
         if (failure || !rat_polynomials(rest, &q, &d) || !poly_is_one(d)) continue;
-        if (q.count == 0) { proof_add(" It is the fact of this case."); return 1; }
+        if (q.count == 0 && !opposite) { proof_add(" It is the fact of this case."); return 1; }
         size_t start = proof_length;
         proof_add(" Indeed $");
         put_fraction(v);
-        proof_add(" = ");
-        put_poly(excluded[e].value);
-        proof_add(" + ");
+        proof_add(" = %s", opposite ? "-\\left(" : "");
+        put_poly(x->value);
+        proof_add("%s + ", opposite ? "\\right)" : "");
         put_fraction(u);
         proof_add(" q$ with $q = ");
         put_poly(q);
@@ -11677,12 +11800,12 @@ static int not_multiple(Rat u, Rat v) {
         if (always_integer(q)) {
             proof_add(" In this case $");
             if (rat_number(u, &m) && num_equal(m, num_int(1))) {
-                put_poly(excluded[e].value);
+                put_poly(x->value);
                 proof_add(" \\notin \\mathbb{Z}$.");
             } else {
                 put_fraction(u);
                 proof_add(" \\nmid ");
-                put_poly(excluded[e].value);
+                put_poly(x->value);
                 proof_add("$.");
             }
             return 1;
@@ -12125,8 +12248,11 @@ static int regions_of(int index, const Split *s, const Formula *body, Region *ou
             Rat value = rat_add(rat_mul(rat_frac(period), fresh), rat_frac(offset), 0);
             out[count++] = (Region){REGION_VALUE, numbers_made(any), letter, value, {rat_int(0), {0, NULL}}};
         }
-        Rat linear = rat_add(rat_mul(rat_frac(s->alpha), rat_atom(s->atom)), rat_frac(s->beta), 0);
-        out[count++] = (Region){REGION_EXCLUDED, NULL, 0, rat_int(0), {s->divisor, linear.num}};
+        /* Il fatto del secondo caso, scritto come "P non divide y - o": dice
+         * lo stesso di "m non divide alpha y + beta", e nella forma in cui lo
+         * riconosce not_multiple(), che guarda le differenze con y. */
+        Rat shifted = rat_add(rat_atom(s->atom), rat_frac(offset), 1);
+        out[count++] = (Region){REGION_EXCLUDED, NULL, 0, rat_int(0), {rat_frac(period), shifted.num}};
         return count;
     }
     case SPLIT_DIVISOR:
@@ -12197,12 +12323,13 @@ static void region_intro(int name, const Split *s, const Region *region) {
         for (long long r = 1; r < s->modulus; r++) proof_add(", %lld", r);
         proof_add("$: division by $%lld$ with remainder. So there are $%lld$ cases.\n", s->modulus, s->modulus);
         return;
-    case SPLIT_MEMBER:
+    case SPLIT_MEMBER: {
+        Rat linear = rat_add(rat_mul(rat_frac(s->alpha), rat_atom(s->atom)), rat_frac(s->beta), 0);
         proof_add("\\item Either $");
-        put_poly(region[1].excluded.value);
+        put_fraction(linear);
         if (rat_number(s->divisor, &m) && num_equal(m, num_int(1))) {
             proof_add(" \\in \\mathbb{Z}$ or $");
-            put_poly(region[1].excluded.value);
+            put_fraction(linear);
             proof_add(" \\notin \\mathbb{Z}$.\n");
         } else {
             proof_add("$ is a multiple of $");
@@ -12210,6 +12337,7 @@ static void region_intro(int name, const Split *s, const Region *region) {
             proof_add("$ or it is not.\n");
         }
         return;
+    }
     case SPLIT_DIVISOR:
         proof_add("\\item Either $");
         put_fraction(s->divisor);
@@ -13820,6 +13948,10 @@ static int establish_rules(Formula *f, int negated) {
             proof_add("\\item");
             proved = prove_by_substitution(literal, count, MAX_SUBSTITUTIONS);
         }
+        /* 18v-2. Un confronto che vale tranne in un punto di una variabile:
+         * quel punto, e il resto, sono due casi da distinguere. */
+        if (!proved && !failure)
+            for (int i = 0; i < count && !split_pending; i++) split_at_zero((Rat){literal[i].value, poly_const(num_int(1))});
         if (polys == base_poly_count && atans == atan_count && failure != OUT_OF_MEMORY) arena_used = before;
         if (proved) { proof_add("\n"); return 1; }
         rollback(mark);
@@ -14014,18 +14146,22 @@ static int establish_rules(Formula *f, int negated) {
      * un x fisso, ma x = 2m va bene per ogni m. Il valore va dimostrato
      * nell'insieme e la condizione con quel valore, come ogni altro: chi
      * cerca propone, la dimostrazione decide. Una variabile intera dà valori
-     * interi, una razionale razionali. */
+     * interi, una razionale razionali. È anche la regola che prima si
+     * chiamava 18v-9 (v, v + 1, v - 1), che questo elenco contiene: "esiste
+     * y per cui nessun x dà f(x) = y", con f(x) = a x + b e a, b parametri,
+     * vuole y = b + 1. */
     static const int line[][2] = {{1, 0}, {1, 1}, {2, 0}, {1, -1}, {2, 1}, {3, 0}};
     const Formula *equation[MAX_EQUATIONS];
 
     /* Solo quando nessuna uguaglianza dà il valore, e solo con le variabili
-     * di cui la condizione parla: dove 18i ha già un'equazione da risolvere
-     * questi tentativi non aggiungono nulla, e dentro più "esiste" annidati
-     * costavano migliaia di passi. */
+     * di cui la condizione parla, anche attraverso la regola di
+     * un'applicazione che calcola (b, nella regola di f): dove 18i ha già
+     * un'equazione da risolvere questi tentativi non aggiungono nulla, e
+     * dentro più "esiste" annidati costavano migliaia di passi. */
     if (find_equations(f->a, negated, equation, 0)) return 0;
     for (int v = 0; v < universal_count && !failure && search_left > 0; v++) {
         if (env_lookup(universal[v].name) || (f->numbers.integers && !universal[v].numbers->integers) ||
-            !formula_uses_letter(f->a, universal[v].name)) continue;
+            !formula_mentions(f->a, universal[v].name)) continue;
         for (size_t k = 0; k < sizeof line / sizeof *line && !failure && search_left > 0; k++) {
             Rat value = rat_add(rat_mul(rat_int(line[k][0]), rat_atom(atom_var(universal[v].name))), rat_int(line[k][1]), 0);
             proof_add("\\item Take $%c = ", f->variable);
@@ -14212,7 +14348,7 @@ static int prove_claims(Formula *f) {
     proof_add("\\item \\emph{Claim:} $");
     put_source(f);
     proof_add("$.\n\\begin{itemize}\n");
-    int holds = establish(f, 0);
+    int holds = establish_in_regions(f, 0, 0);
     proof_add("\\end{itemize}\n");
     return holds;
 }
@@ -22824,6 +22960,12 @@ static int formula_has_order(const Formula *f) {
  * del capitolo 26, che viene dopo (26c). */
 static Verdict decide_iterates(const Formula *thesis);
 
+/* Prototipi in avanti inevitabili: un enunciato con applicazioni tra reali si
+ * decide svolgendo le definizioni (18v-8), e ciò che si ottiene è di nuovo un
+ * enunciato con quantificatori, che decide questa stessa funzione. */
+static int real_maps_unfoldable(void);
+static Verdict decide_real_maps(const Formula *thesis);
+
 /* Ritorna 1 se l'enunciato in corso definisce le iterate di
  * un'applicazione (17s). */
 static int iterates_declared(void) {
@@ -22858,6 +23000,10 @@ static Verdict decide_quantified(const char *formula) {
     Formula *thesis = logic_statement();
     if (token.kind != T_END) syntax("testo inatteso dopo l'enunciato");
 
+    /* Come si sono lette le lettere di coppie (17t-2), per il verdetto:
+     * subito, prima che una rilettura ne aggiunga altre. */
+    pairs_note_write();
+
     /* 27j. I segni di derivata dentro le espressioni diventano derivate,
      * prima di ogni altro conto. */
     derivative_signs = 0;
@@ -22873,8 +23019,11 @@ static Verdict decide_quantified(const char *formula) {
             if (!maps[i].body && !maps[i].cases) fail("un'applicazione è dichiarata senza la regola che la definisce");
         pair_sets_check();
 
-        /* I parametri (17s) sono visibili in tutta la tesi, e contano tra le
-         * variabili a cui la verifica dà un valore. */
+        /* I parametri (17s) sono visibili in tutta la tesi, salvo dove una
+         * lettera legata li nasconde, e contano tra le variabili a cui la
+         * verifica dà un valore. */
+        unshadowed_note[0] = 0;
+        if (statement_parameter_count && !failure) parameters_unshadowed(thesis);
         scope_parameters();
         quantifier_depth = statement_parameter_count;
         if (!failure) formula_check(thesis);
@@ -22925,10 +23074,11 @@ static Verdict decide_quantified(const char *formula) {
     if (!syntax_error && !failure && formula_needs_signs(thesis) && !real_membership) {
         int reals = 0;
         for (int i = 0; i < map_count; i++) reals = reals || maps[i].domain.reals || maps[i].codomain.reals;
+        if (reals && real_maps_unfoldable()) return decide_real_maps(thesis);
         if (reals)
-            verdict.reason = "le applicazioni tra numeri reali non sono trattate: le regole sui quantificatori lavorano sui razionali, "
-                             "dove manca per esempio la radice \\sqrt{y} che servirebbe come valore di un \"esiste\", e la tabella "
-                             "dei segni decide una sola variabile reale";
+            verdict.reason = "le applicazioni tra numeri reali si decidono svolgendo la definizione solo se regole e condizioni sono "
+                             "polinomi, divisi al più per dei numeri, senza parametri né iterate, e con due argomenti solo se vengono "
+                             "da \\mathbb{C}, senza casi";
         else if (map_count > 0) verdict.reason = "le relazioni d'ordine e i numeri reali non sono ancora trattati insieme alle applicazioni";
         else if (formula_has_kind(thesis, F_IN) || formula_has_kind(thesis, F_DIVIDES))
             verdict.reason = "le relazioni d'ordine e i numeri reali non sono ancora trattati insieme all'appartenenza a un insieme numerico e alla divisibilità";
@@ -23022,7 +23172,7 @@ static Verdict decide_quantified(const char *formula) {
         power_letters = 1;
         if (negated) {
             proof_add("\\item \\emph{The conclusion fails.}\n\\begin{itemize}\n");
-            found = establish(thesis, 1);
+            found = establish_in_regions(thesis, 1, 0);
             proof_add("\\end{itemize}\n");
         } else {
             found = prove_claims(thesis);
@@ -23055,6 +23205,9 @@ static Verdict decide_quantified(const char *formula) {
             verdict.outcome = negated ? REFUTED : PROVED;
             verdict.detail = negated ? describe_choices() : NULL;
             verdict.proof = proof_text;
+            /* Le lettere di coppie le dicono già la dimostrazione e il
+             * controesempio (17t-2); una lettera rinominata no. */
+            if (unshadowed_note[0]) verdict.note = unshadowed_note;
         }
         return verdict;
     }
@@ -23103,6 +23256,483 @@ static Verdict prove_quantified(const char *formula) {
      * delle espressioni, che serve anche agli altri metodi, non deve più
      * vederle (vedi `maps`, capitolo 8). Lo stesso per i parametri (17s). */
     map_count = statement_parameter_count = 0;
+    return verdict;
+}
+
+/* 18v-8. LE APPLICAZIONI TRA NUMERI REALI: LA DEFINIZIONE SVOLTA
+ *
+ * A che cosa serve. "f(x) = x^{2} per x \ge 0, x(3 - x) per x < 0: f è
+ * suriettiva su \mathbb{R}." Le regole 18a-18v lavorano sui razionali: tra i
+ * reali la controimmagine di y è \sqrt{y}, che come valore di un "esiste" non
+ * si scrive con un polinomio. Ma tra i reali c'è un'altra strada: tolta
+ * l'applicazione, ciò che resta è un enunciato con confronti tra polinomi in
+ * lettere reali, che la tabella dei segni decide da sola, con una lettera
+ * (18p) o con due, una per parametro (18t, che proietta, divide la retta del
+ * parametro in celle e ricontrolla la proiezione con un altro conto, 18t-h).
+ * "Per ogni y esiste x con f(x) = y" diventa
+ *
+ *     \forall y\ \exists x\ ((x \ge 0 \land x^{2} = y) \lor (x < 0 \land x(3 - x) = y))
+ *
+ * e 18t trova, caso per caso su y, se l'insieme degli x è vuoto.
+ *
+ * Svolgere la definizione. Una condizione P in cui compare f(t), con f data
+ * dai casi (c_i, e_i), vale esattamente quando vale una delle c_i(t) \land
+ * P(e_i(t)): se i casi coprono il dominio, uno vale in t, e dove vale c_i è
+ * f(t) = e_i(t) (lo dice l'ipotesi); viceversa, se valgono c_i(t) e P(e_i(t)),
+ * è f(t) = e_i(t), quindi P(f(t)). Con una regola sola, f(t) è e(t). Si
+ * svolge prima l'applicazione più interna, il cui argomento non ne contiene
+ * altre. Le ipotesi su cui poggia lo svolgimento (i casi coprono il dominio,
+ * dove si sovrappongono danno lo stesso valore, i valori stanno nel
+ * codominio) sono anch'esse enunciati tra reali senza applicazioni, e le
+ * decide prima la tabella dei segni.
+ *
+ * Il testo. Lo svolgimento si fa sugli alberi, e il risultato si scrive in
+ * LaTeX (put_formula()) e si rilegge da capo, come ogni enunciato: è la via
+ * di 17j, e la dimostrazione scritta cita ciò che è stato davvero dimostrato.
+ * La tesi si divide nelle sue affermazioni, una congiunzione alla volta,
+ * perché 18t vuole un parametro solo per enunciato.
+ *
+ * Che cosa si chiede. Applicazioni tra insiemi di reali, con regole e
+ * condizioni che sono polinomi, o divise soltanto per numeri: dove
+ * l'applicazione è definita, il valore svolto lo è sempre, e la tabella dei
+ * segni non deve occuparsi di punti in cui un membro non esiste. Nessun
+ * parametro, nessuna iterata. Le applicazioni a valori in coppie arrivano
+ * già divise nelle loro componenti (17s). Di due argomenti ci sono solo
+ * quelle di \mathbb{C}, che il lettore ha scritto come applicazioni di due
+ * reali, la parte reale e la parte immaginaria (17s): con una regola sola,
+ * senza casi, e il codominio senza estremi né punti tolti, perché le due
+ * componenti del valore non hanno condizioni proprie.
+ *
+ * Gli "esiste" tra i reali (18v-11). Svolta la definizione, una parte può
+ * avere più lettere di quante la tabella dei segni ne decida: per f di
+ * \mathbb{C}, "f non è iniettiva" diventa "esistono a, A, b, B reali con ...",
+ * quattro lettere. Se la parte comincia con degli "esiste" su tutto
+ * \mathbb{R} (un "non per ogni" è un "esiste"), si danno loro i primi
+ * razionali, e ciò che resta, con i numeri al posto delle lettere, è un
+ * enunciato nuovo da decidere da capo: se è dimostrato, quei numeri sono i
+ * valori degli "esiste", perché un razionale è un reale. È la regola 18j
+ * portata tra i reali: prova degli esempi, e quando nessuno va bene la parte
+ * resta non dimostrata, mai smentita, perché un esempio che manca tra i
+ * primi razionali non dice nulla degli altri reali.
+ *
+ * Il certificato. Ogni enunciato svolto porta il suo, quando la tabella dei
+ * segni lo scrive; l'enunciato con l'applicazione no, perché il passaggio
+ * dall'uno agli altri, lo svolgimento, non è nella notazione dei
+ * certificati: il verdetto lo dice.
+ */
+
+/* Ritorna 1 se in node ogni divisione è per un numero, senza lettere. */
+static int divisions_by_numbers(const Node *node) {
+    if (!node) return 1;
+    if (node->kind == N_DIV && !node_is_numeral(node->b)) return 0;
+    return divisions_by_numbers(node->a) && divisions_by_numbers(node->b) && divisions_by_numbers(node->c);
+}
+
+/* Ritorna un'applicazione di node il cui argomento non ne contiene altre, o
+ * NULL se node non ne ha. */
+static const Node *application_innermost(const Node *node) {
+    if (!node) return NULL;
+    const Node *inside = application_innermost(node->a);
+    if (!inside) inside = application_innermost(node->b);
+    if (!inside) inside = application_innermost(node->c);
+    return inside ? inside : node->kind == N_APPLY ? node : NULL;
+}
+
+/* Ritorna una copia di f nell'arena, con le stesse componenti. */
+static Formula *formula_copy(const Formula *f) {
+    Formula *copy = formula_node(f->kind, NULL, NULL, f->start);
+    *copy = *f;
+    return copy;
+}
+
+/* Ritorna la congiunzione di a e b, o b se a è NULL. */
+static Formula *conjoined(Formula *a, Formula *b) {
+    if (!a) return b;
+    Formula *both = formula_node(F_AND, a, b, NULL);
+    both->start = both->end = NULL;
+    return both;
+}
+
+/* 18v-8. Ritorna la condizione f con ogni applicazione svolta come descritto
+ * in testa al paragrafo: un albero nuovo, nell'arena; NULL, con fail(), se
+ * un'applicazione non si svolge: un'iterata, o una di due argomenti con dei
+ * casi o scritta con un argomento solo. */
+static Formula *applications_unfolded(const Formula *f) {
+    if (!f || failure) return NULL;
+    Formula *copy = formula_copy(f);
+    if (f->a) copy->a = applications_unfolded(f->a);
+    if (f->b) copy->b = applications_unfolded(f->b);
+
+    /* Un confronto, un'appartenenza o una divisibilità: l'applicazione più
+     * interna, poi di nuovo. */
+    const Node *apply = application_innermost(f->left);
+    if (!apply) apply = application_innermost(f->right);
+    if (!apply) return copy;
+    const Map *map = map_find(apply->name);
+    if (!map || apply->c || (!map->body && !map->cases) || (map->binary && (map->cases || !apply->b))) {
+        fail("un'applicazione che lo svolgimento non tratta");
+        return NULL;
+    }
+    const Node *const argument[2] = {apply->a, apply->b};
+    const int parameter[2] = {map->parameter, map->parameter2};
+    int cases = map->cases ? map->cases : 1, arity = map->binary ? 2 : 1;
+    Formula *any = NULL;
+    for (int i = 0; i < cases && !failure; i++) {
+        Node *value = node_substitute(map->cases ? map->piece[i].value : map->body, parameter, argument, arity);
+        Formula *atom = formula_copy(f);
+        atom->left = node_replaced(f->left, apply, value);
+        atom->right = node_replaced(f->right, apply, value);
+        Formula *piece = applications_unfolded(atom);
+        if (map->cases) piece = conjoined(formula_substitute(map->piece[i].when, &map->parameter, argument, 1), piece);
+        if (!any) { any = piece; continue; }
+        Formula *either = formula_node(F_OR, any, piece, NULL);
+        either->start = either->end = NULL;
+        any = either;
+    }
+    return any;
+}
+
+/* Scrive la condizione f in LaTeX, dall'albero, con una parentesi intorno a
+ * ogni parte: il testo si rilegge con la grammatica del capitolo 17. */
+static void put_formula(const Formula *f) {
+    static const char *const joint[] = {[F_AND] = "\\land", [F_OR] = "\\lor", [F_IMPLIES] = "\\implies", [F_IFF] = "\\iff"};
+    switch (f->kind) {
+    case F_EQUAL: case F_DISTINCT: case F_LESS: case F_LESS_EQ:
+        put_node(f->left, 0);
+        proof_add(f->kind == F_EQUAL ? " = " : f->kind == F_DISTINCT ? " \\neq " : f->kind == F_LESS ? " < " : " \\le ");
+        put_node(f->right, 0);
+        return;
+    case F_IN:
+        put_node(f->left, 0);
+        proof_add(f->swapped ? " \\notin " : " \\in ");
+        put_numbers(&f->numbers);
+        return;
+    case F_DIVIDES:
+        put_node(f->left, 0);
+        proof_add(f->swapped ? " \\nmid " : " \\mid ");
+        put_node(f->right, 0);
+        return;
+    case F_NOT:
+        proof_add("\\lnot (");
+        put_formula(f->a);
+        proof_add(")");
+        return;
+    case F_AND: case F_OR: case F_IMPLIES: case F_IFF:
+        proof_add("(");
+        put_formula(f->a);
+        proof_add(") %s (", joint[f->kind]);
+        put_formula(f->b);
+        proof_add(")");
+        return;
+    case F_FORALL: case F_EXISTS: case F_SOLVE: {
+        /* Una parte dei reali, con un estremo o dei punti tolti, diventa
+         * \mathbb{R} con la condizione di appartenenza scritta con dei
+         * confronti: "per ogni y in A vale P" è "per ogni reale y, y in A
+         * implica P", "esiste" vuole y in A e P. La tabella dei segni, che
+         * con due lettere le vuole su tutta la retta, le riceve così. */
+        const NumberSet *set = &f->numbers;
+        int part = set->reals && (set->bounded || set->holes);
+        if (f->kind == F_SOLVE) proof_add("\\{%c \\in ", f->variable);
+        else proof_add("%s %c \\in ", f->kind == F_FORALL ? "\\forall" : "\\exists", f->variable);
+        if (part) proof_add("\\mathbb{R}");
+        else put_numbers(set);
+        proof_add(f->kind == F_SOLVE ? " \\mid " : "\\ (");
+        if (part) {
+            proof_add("(");
+            if (set->bounded) proof_add("%c %s %lld", f->variable, set->strict ? ">" : "\\ge", set->low);
+            for (int i = 0; i < set->holes; i++) {
+                proof_add("%s%c \\neq ", set->bounded || i ? " \\land " : "", f->variable);
+                put_frac(set->hole[i]);
+            }
+            proof_add(f->kind == F_FORALL ? ") \\implies (" : ") \\land (");
+        }
+        put_formula(f->a);
+        if (part) proof_add(")");
+        proof_add(f->kind == F_SOLVE ? "\\}" : ")");
+        return;
+    }
+    default:
+        fail("una condizione che lo svolgimento non sa scrivere");
+    }
+}
+
+/* Mette in out, di size byte, il testo di f scritto da put_formula(), e
+ * ritorna 1; 0 se non ci sta o se la scrittura non riesce. Il testo nasce
+ * nella dimostrazione, che resta com'era. */
+static int formula_text(const Formula *f, char *out, size_t size) {
+    size_t start = proof_length;
+    put_formula(f);
+    size_t length = proof_length - start;
+    int fits = length + 1 < size && !failure && proof_length + 1 < PROOF_BYTES;
+    if (fits) {
+        memcpy(out, proof_text + start, length);
+        out[length] = 0;
+    }
+    proof_cut(start);
+    return fits;
+}
+
+/* Ritorna 1 se l'espressione node è un polinomio, o una sua divisione per
+ * numeri: un'espressione razionale definita ovunque. */
+static int node_everywhere(const Node *node) { return term_is_rational(node) && divisions_by_numbers(node); }
+
+/* Ritorna 1 se ogni condizione atomica di f confronta espressioni definite
+ * ovunque. */
+static int formula_everywhere(const Formula *f) {
+    if (!f) return 1;
+    return node_everywhere(f->left) && node_everywhere(f->right) && formula_everywhere(f->a) && formula_everywhere(f->b);
+}
+
+/* Ritorna 1 se le applicazioni dell'enunciato in corso sono di quelle che
+ * 18v-8 svolge: tra insiemi di reali, con regole e condizioni definite
+ * ovunque, senza parametri né iterate; di due argomenti solo quelle di
+ * \mathbb{C} (non un'operazione scritta con un simbolo), senza casi e con il
+ * codominio intero. */
+static int real_maps_unfoldable(void) {
+    if (!map_count || statement_parameter_count) return 0;
+    for (int i = 0; i < map_count; i++) {
+        const Map *map = &maps[i];
+        if (map->iterates || !map->domain.reals || !map->codomain.reals) return 0;
+        if (map->binary && (map->cases || map->codomain.bounded || map->codomain.holes || !map->second.reals || (map->name >= OPERATION_NAMES && map->name < GREEK_NAMES))) return 0;
+        if (!map->cases && !node_everywhere(map->body)) return 0;
+        for (int k = 0; k < map->cases; k++)
+            if (!node_everywhere(map->piece[k].value) || !formula_everywhere(map->piece[k].when)) return 0;
+    }
+    return 1;
+}
+
+/* Il nodo del numero razionale v. */
+static Node *node_of_frac(Frac v) {
+    Node *size = v.den == 1 ? node_num(llabs(v.num)) : node_new(N_DIV, node_num(llabs(v.num)), node_num(v.den));
+    return v.num < 0 ? node_new(N_NEG, size, NULL) : size;
+}
+
+/* Ritorna "\forall x \in A\ (body)", con x e A la variabile e il dominio di
+ * map. */
+static Formula *over_domain(const Map *map, Formula *body) {
+    Formula *all = formula_node(F_FORALL, body, NULL, NULL);
+    all->start = all->end = NULL;
+    all->variable = map->parameter;
+    all->numbers = map->domain;
+    return all;
+}
+
+/* Le affermazioni di 18v-8, in testo: le ipotesi su cui poggia lo
+ * svolgimento, e le parti della tesi svolte. */
+typedef struct {
+    int count;                        /* quante, in text[] */
+    int definitions;                  /* le prime: le ipotesi sulle definizioni */
+    char text[MAX_UNFOLDINGS][MAX_FORMULA];
+    const char *source[MAX_UNFOLDINGS];  /* le parti della tesi come sono scritte; per un'ipotesi, che cosa dice */
+    size_t length[MAX_UNFOLDINGS];
+    int letters[MAX_UNFOLDINGS];         /* 18v-11: le lettere degli "esiste" in testa alla parte, in letter[] */
+    int letter[MAX_UNFOLDINGS][MAX_WITNESS_LETTERS];
+    char rest[MAX_UNFOLDINGS][MAX_FORMULA];  /* e ciò che segue, con le negazioni portate dentro */
+} Unfolded;
+
+/* Aggiunge f, scritta, alle affermazioni u; ritorna 0 se non c'è posto. */
+static int unfolded_add(Unfolded *u, const Formula *f, const char *source, size_t length) {
+    if (u->count == (int)(sizeof u->text / sizeof *u->text) || !formula_text(f, u->text[u->count], MAX_FORMULA)) return 0;
+    u->source[u->count] = source;
+    u->length[u->count++] = length;
+    return 1;
+}
+
+/* 18v-11. Mette in u, per l'ultima parte aggiunta, le lettere degli
+ * "esiste" su tutto \mathbb{R} con cui comincia f (letta negata se negated:
+ * un "non per ogni" è un "esiste"), al più MAX_WITNESS_LETTERS, e il testo di
+ * ciò che segue, con la negazione portata davanti. */
+static int witness_prefix(Unfolded *u, const Formula *f, int negated) {
+    int k = u->count - 1, count = 0;
+    for (;;) {
+        if (f->kind == F_NOT) { negated = !negated; f = f->a; continue; }
+        int exists = (f->kind == F_EXISTS) != negated && (f->kind == F_EXISTS || f->kind == F_FORALL);
+        if (!exists || !f->numbers.reals || f->numbers.bounded || f->numbers.holes || count == MAX_WITNESS_LETTERS) break;
+        u->letter[k][count++] = f->variable;
+        f = f->a;
+    }
+    u->letters[k] = count;
+    if (!count) return 1;
+    char *rest = u->rest[k];
+    size_t used = 0;
+    if (negated) { strcpy(rest, "\\lnot ("); used = strlen(rest); }
+    if (!formula_text(f, rest + used, MAX_FORMULA - used - 2)) return 0;
+    if (negated) strcat(rest, ")");
+    return 1;
+}
+
+/* Aggiunge a u le parti della congiunzione f, svolte. */
+static int claims_unfolded(Unfolded *u, const Formula *f) {
+    if (f->kind == F_AND) return claims_unfolded(u, f->a) && claims_unfolded(u, f->b);
+    Formula *plain = applications_unfolded(f);
+    return plain && unfolded_add(u, plain, f->start, (size_t)(f->end - f->start)) && witness_prefix(u, plain, 0);
+}
+
+/* 18v-11. Prova a dimostrare la parte k di u, che comincia con degli
+ * "esiste" tra i reali, dando a ognuno un razionale: i primi elementi di
+ * \mathbb{Q}, tanti quanti le lettere permettono. Ciò che segue, con i numeri
+ * al posto delle lettere, si riscrive (draft_rewrite()) e si decide da capo:
+ * se è dimostrato, quei numeri sono i valori degli "esiste", e la parte è
+ * dimostrata, perché un razionale è un reale. Ritorna il verdetto della
+ * prima scelta dimostrata, o uno con outcome NOT_PROVED; in *values le
+ * scelte, scritte. */
+static Verdict witnesses_tried(const Unfolded *u, int k, char *values, size_t size) {
+    Verdict none = {NOT_PROVED, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL};
+    int letters = u->letters[k], width = letters <= 2 ? 5 : 3;
+    Frac sample[5];
+    numbers_sample(&(NumberSet){.reals = 0}, sample, width);
+    long long combinations = 1;
+    for (int i = 0; i < letters; i++) combinations *= width;
+    for (long long c = 0; c < combinations; c++) {
+        char number[MAX_WITNESS_LETTERS][48];
+        const char *to[MAX_WITNESS_LETTERS];
+        size_t written = 0;
+        for (long long i = 0, rest = c; i < letters; i++, rest /= width) {
+            Frac v = sample[rest % width];
+            if (v.den == 1) snprintf(number[i], sizeof number[i], "(%lld)", v.num);
+            else snprintf(number[i], sizeof number[i], "(%s\\frac{%lld}{%lld})", v.num < 0 ? "-" : "", llabs(v.num), v.den);
+            to[i] = number[i];
+            written += (size_t)snprintf(values + written, size > written ? size - written : 0, "%s%c = %s", i ? ", " : "", u->letter[k][i], number[i]);
+        }
+
+        /* Il testo con i numeri: nasce nella bozza del lettore. */
+        static char closed[MAX_FORMULA];
+        syntax_error = NULL;
+        draft_length = 0;
+        draft_rewrite(u->rest[k], u->rest[k] + strlen(u->rest[k]), u->letter[k], to, letters);
+        if (syntax_error || draft_length >= sizeof closed) { syntax_error = NULL; continue; }
+        memcpy(closed, draft, draft_length);
+        closed[draft_length] = 0;
+        Verdict tried = prove_quantified(closed);
+        if (tried.outcome == PROVED) return tried;
+    }
+    return none;
+}
+
+/* Aggiunge a u, per ogni applicazione, gli enunciati tra reali che dicono
+ * che la sua definizione dà un valore, uno solo, nel codominio: i casi
+ * coprono il dominio, dove due valgono insieme i valori coincidono, e ogni
+ * valore sta sopra l'estremo del codominio e lontano dai suoi punti tolti. */
+static int definitions_unfolded(Unfolded *u) {
+    for (int i = 0; i < map_count; i++) {
+        const Map *map = &maps[i];
+        const NumberSet *to = &map->codomain;
+        int cases = map->cases ? map->cases : 1;
+        if (map->cases) {
+            Formula *cover = NULL;
+            for (int k = 0; k < map->cases; k++) {
+                if (!cover) { cover = (Formula *)map->piece[k].when; continue; }
+                Formula *either = formula_node(F_OR, cover, (Formula *)map->piece[k].when, NULL);
+                either->start = either->end = NULL;
+                cover = either;
+            }
+            if (!unfolded_add(u, over_domain(map, cover), "The cases cover the domain", 0)) return 0;
+            for (int j = 0; j < map->cases; j++)
+                for (int k = j + 1; k < map->cases; k++) {
+                    Formula *same = formula_node(F_EQUAL, NULL, NULL, NULL), *both = conjoined((Formula *)map->piece[j].when, (Formula *)map->piece[k].when);
+                    same->start = same->end = NULL;
+                    same->left = map->piece[j].value;
+                    same->right = map->piece[k].value;
+                    Formula *agree = formula_node(F_IMPLIES, both, same, NULL);
+                    agree->start = agree->end = NULL;
+                    if (!unfolded_add(u, over_domain(map, agree), "Where two cases hold together, they give the same value", 0)) return 0;
+                }
+        }
+        if (!to->bounded && !to->holes) continue;
+        for (int k = 0; k < cases; k++) {
+            Node *value = map->cases ? map->piece[k].value : map->body;
+            Formula *inside = NULL;
+            if (to->bounded) {
+                inside = formula_node(to->strict ? F_LESS : F_LESS_EQ, NULL, NULL, NULL);
+                inside->left = node_num(to->low);
+                inside->right = value;
+            }
+            for (int h = 0; h < to->holes; h++) {
+                Formula *away = formula_node(F_DISTINCT, NULL, NULL, NULL);
+                away->left = value;
+                away->right = node_of_frac(to->hole[h]);
+                inside = conjoined(inside, away);
+            }
+            if (map->cases) {
+                inside = formula_node(F_IMPLIES, (Formula *)map->piece[k].when, inside, NULL);
+            }
+            if (!unfolded_add(u, over_domain(map, inside), "The values lie in the codomain", 0)) return 0;
+        }
+    }
+    u->definitions = u->count;
+    return 1;
+}
+
+/* 18v-8. Decide la tesi thesis, di un enunciato con applicazioni tra reali
+ * che real_maps_unfoldable() accetta, svolgendo le definizioni come
+ * descritto in testa al paragrafo, e ne ritorna il verdetto. Ogni enunciato
+ * svolto si decide da capo con prove_quantified(): al ritorno le
+ * applicazioni e gli alberi dell'enunciato non valgono più. */
+static Verdict decide_real_maps(const Formula *thesis) {
+    static Unfolded u;
+    static char composed[PROOF_BYTES], counterexample[400];
+    Verdict verdict = {UNSUPPORTED, 0, 0, 0, NULL, NULL, NULL, "con la tabella dei segni, sulla definizione svolta", NULL, NULL};
+    verdict.reason = "la definizione svolta non si scrive: troppo lunga, o con applicazioni che lo svolgimento non tratta";
+
+    /* I testi, tutti prima di decidere il primo: ogni decisione riparte da
+     * zero, e gli alberi non varrebbero più. Il controesempio di un
+     * enunciato precedente non vale per questo: prima restava, e un
+     * enunciato falso per un'altra ragione lo riportava (fuzz_cases.py). */
+    static char reading[200];
+    u.count = u.definitions = 0;
+    counterexample[0] = 0;
+    snprintf(reading, sizeof reading, "%s", pairs_note);
+    if (!definitions_unfolded(&u) || !claims_unfolded(&u, thesis) || failure) { failure = NULL; return verdict; }
+
+    /* Le ipotesi della definizione devono valere; le parti della tesi tutte
+     * valere, o una fallire. */
+    size_t length = 0;
+    int refuted = -1;
+    for (int k = 0; k < u.count && refuted < 0; k++) {
+        static char values[400];
+        Verdict part = prove_quantified(u.text[k]);
+        int definition = k < u.definitions, witnessed = 0;
+        if (!definition && part.outcome != PROVED && part.outcome != REFUTED && u.letters[k]) {
+            Verdict tried = witnesses_tried(&u, k, values, sizeof values);
+            if (tried.outcome == PROVED) { part = tried; witnessed = 1; }
+        }
+        if (part.outcome == REFUTED && !definition) {
+            refuted = k;
+            if (part.detail) snprintf(counterexample, sizeof counterexample, "%s", part.detail);
+        } else if (part.outcome != PROVED) {
+            verdict.outcome = part.outcome == UNSUPPORTED ? UNSUPPORTED : NOT_PROVED;
+            verdict.reason = definition ? (part.outcome == REFUTED ? "la definizione per casi non definisce un'applicazione: la tabella dei segni lo smentisce"
+                                                                    : "non riesco a dimostrare che la definizione dà un valore, uno solo, nel codominio")
+                                        : part.reason;
+            return verdict;
+        }
+
+        /* La sua dimostrazione, dopo il titolo, nel testo che si compone. */
+        if (!part.proof) continue;
+        int n = 0;
+        if (definition) n = snprintf(composed + length, sizeof composed - length, "\\item \\emph{%s:} $%s$.\n\n%s\n", u.source[k], u.text[k], part.proof);
+        else if (witnessed)
+            n = snprintf(composed + length, sizeof composed - length, "\\item \\emph{Claim:} $%.*s$, that is, with the definition unfolded, $%s$. "
+                         "It holds with the rational values $%s$, which are real numbers: with them in place of the letters,\n\n%s\n",
+                         (int)u.length[k], u.source[k], u.text[k], values, part.proof);
+        else n = snprintf(composed + length, sizeof composed - length, "\\item \\emph{Claim:} $%.*s$, that is, with the definition unfolded, $%s$.\n\n%s\n",
+                          (int)u.length[k], u.source[k], u.text[k], part.proof);
+        if (n < 0 || (size_t)n >= sizeof composed - length) { verdict.reason = "dimostrazione troppo lunga"; return verdict; }
+        length += (size_t)n;
+    }
+
+    /* Il verdetto, e la dimostrazione: le parti, dentro un elenco. */
+    proof_reset();
+    proof_add(refuted >= 0 ? "\\textbf{The statement is false.} " : "\\textbf{Proof.} ");
+    proof_add("Each value $f(t)$ is replaced by its definition: by the value of the case that holds in $t$, joined to its condition. "
+              "The statements without the map are decided by the sign table.\n\\begin{itemize}\n");
+    if (proof_length + length + 64 >= PROOF_BYTES) { verdict.reason = "dimostrazione troppo lunga"; return verdict; }
+    proof_add("%s\\end{itemize}\n%s", composed, refuted >= 0 ? "" : "$\\Box$");
+    verdict.outcome = refuted >= 0 ? REFUTED : PROVED;
+    verdict.reason = "lo svolgimento della definizione non è nella notazione dei certificati";
+    verdict.detail = refuted >= 0 && counterexample[0] ? counterexample : NULL;
+    verdict.proof = proof_text;
+    verdict.note = reading[0] ? reading : NULL;
     return verdict;
 }
 
@@ -24449,13 +25079,6 @@ static Verdict prove_sequence(const char *formula, int variable, int has_base, l
  * La successione si scrive nella notazione di parse_sequence_statement(),
  * con una lettera nuova, e la si passa a prove_sequence(): da lì in poi è un
  * enunciato del capitolo 26 come gli altri, con i suoi controlli. */
-
-/* Ritorna 1 se in node ogni divisione è per un numero, senza lettere. */
-static int divisions_by_numbers(const Node *node) {
-    if (!node) return 1;
-    if (node->kind == N_DIV && !node_is_numeral(node->b)) return 0;
-    return divisions_by_numbers(node->a) && divisions_by_numbers(node->b) && divisions_by_numbers(node->c);
-}
 
 /* Ritorna 1 se in node compare un'iterata di un'applicazione. */
 static int node_iterates(const Node *node) {

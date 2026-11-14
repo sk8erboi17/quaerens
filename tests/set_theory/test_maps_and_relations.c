@@ -6,13 +6,15 @@
  * insiemi finiti e infiniti. Gli enunciati sono dati: il motore non ne conosce
  * nessuno in anticipo.
  *
- * Oggi il motore dimostra tutti i 16 enunciati di correspondences.tex, 43
+ * Oggi il motore dimostra tutti i 16 enunciati di correspondences.tex, 47
  * dei 54 di maps.tex, 19 dei 28 di equivalence_relations.tex, 5 dei 14 di
  * order_relations.tex, 1 dei 7 di finite_sets.tex e nessuno di
  * infinite_sets.tex: il test fallisce, e indica il lavoro ancora da fare.
  * Gli enunciati dimostrati sono quelli sulle applicazioni tra insiemi di
- * numeri date da una formula, anche per casi, con un valore assoluto, con un
- * parametro o a valori in coppie (17s, 18v), sulle loro iterate (26c), e
+ * numeri date da una formula, anche per casi, con un valore assoluto, con
+ * dei parametri o a valori in coppie (17s, 18v), anche tra numeri reali o
+ * complessi, con la definizione svolta (18v-8, 18v-11), sulle loro iterate
+ * (26c), e
  * sulle relazioni tra numeri date da una regola, anche con i divisori, le
  * potenze, i numeri reali senza ordine, le coppie e i numeri complessi a +
  * ib (capitoli 17-18, 17t, 18w-18z), e quelli su insiemi qualsiasi
@@ -27,8 +29,8 @@
  * elementi, e le relazioni date dall'elenco delle loro coppie di numeri
  * (17v, 28m-28o). Mancano soprattutto le applicazioni da costruire, il
  * numero di elementi e l'equipotenza, il massimo comun divisore e i numeri
- * primi, le applicazioni tra numeri reali o complessi e quelle di due
- * argomenti, e le dimostrazioni più lunghe sulle famiglie di parti, che la
+ * primi, le applicazioni di due argomenti che non vengono da \mathbb{C}, e
+ * le dimostrazioni più lunghe sulle famiglie di parti, che la
  * ricerca non trova: il verdetto dice quale.
  *
  * Ciò che deve restare vero da subito ha un test a parte,

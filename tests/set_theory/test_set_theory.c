@@ -1,7 +1,7 @@
 /* Test di dominio: teoria degli insiemi.
  *
- * Diciannove controlli, descritti in tests/statement_checks.h, e due scritti
- * qui (16 e 17):
+ * Diciannove controlli, descritti in tests/statement_checks.h, e tre scritti
+ * qui (16, 17 e 22):
  *
  *   1. ogni enunciato di set_operations.tex viene dimostrato, con la sua
  *      dimostrazione scritta;
@@ -10,8 +10,10 @@
  *   4. lo stesso per set_quantifiers.tex;
  *   5. lo stesso per book_notation.tex: immagini, controimmagini e
  *      relazioni scritte come insiemi di coppie (17p e 17q di parser.c);
- *   6. lo stesso per maps_by_cases.tex: applicazioni definite per casi e
- *      con valori assoluti (17s di parser.c, 18v di main.c);
+ *   6. lo stesso per maps_by_cases.tex: applicazioni definite per casi, con
+ *      valori assoluti, a valori in coppie, iterate, tra reali o complessi,
+ *      con dei parametri, anche nascosti da una lettera legata (17s di
+ *      parser.c, 18v e 26c di main.c);
  *   7. nessun enunciato di false_set_statements.tex viene dimostrato;
  *   8. nessun enunciato di false_map_statements.tex viene dimostrato;
  *   9. nessun enunciato di false_relation_statements.tex viene dimostrato;
@@ -41,20 +43,22 @@
  *  20. ogni enunciato di parts_and_maps.tex viene dimostrato: le parti e le
  *      applicazioni come oggetti, gli ordini scritti tra gli elementi, le
  *      relazioni date dall'elenco delle loro coppie (17v, 28m-28o);
- *  21. nessun enunciato di false_parts_and_maps.tex viene dimostrato.
+ *  21. nessun enunciato di false_parts_and_maps.tex viene dimostrato;
+ *  22. un enunciato smentito su un'applicazione tra reali non riporta il
+ *      controesempio dell'enunciato precedente.
  *
  * Inoltre i verdetti del capitolo 28 portano un certificato che il
  * verificatore accetta (check_structure_certificates()), e ogni passo delle
  * dimostrazioni scritte supera il suo controllo indipendente.
  *
- * I controlli da 7 a 13, il 15, il 16, il 19 e il 21 sono
+ * I controlli da 7 a 13, il 15, il 16, il 19, il 21 e il 22 sono
  * l'antiregressione: impediscono che il motore cominci ad approvare
  * enunciati falsi. Qui non si usano le varianti false ricavate dagli
  * enunciati veri, perché aggiungere 1 a un membro ha senso solo per le
  * uguaglianze tra numeri. Gli enunciati sono dati: il motore non ne conosce
  * nessuno in anticipo.
  *
- * I controlli 3, 5 e da 6 a 21 stanno qui, e non in
+ * I controlli 3, 5 e da 6 a 22 stanno qui, e non in
  * test_maps_and_relations.c, perché questo test deve passare sempre: l'altro
  * elenca enunciati ancora da dimostrare, e fallisce finché non lo sono
  * tutti.
@@ -145,6 +149,20 @@ int main(void) {
     passed = check_none_proved("tests/set_theory/false_parts_and_maps.tex") && passed;
     passed = check_structure_certificates("tests/set_theory/parts_and_maps.tex", 16) && passed;
     passed = check_structure_certificates("tests/set_theory/false_parts_and_maps.tex", 16) && passed;
+
+    /* Controllo 22: un controesempio vale per il suo enunciato. Un enunciato con
+     * un'applicazione tra reali (18v-8), falso perché una sua parte non vale
+     * e senza un controesempio, riportava quello dell'enunciato precedente:
+     * qui il primo ne ha uno (a = -2, b = 0), e il secondo non deve averlo. */
+    Verdict first = prove("(f \\colon \\mathbb{R} \\to \\mathbb{R} \\land \\forall x \\in \\mathbb{R}\\ ((x \\ge 0 \\implies f(x) = 1 - x) "
+                          "\\land (x < 0 \\implies f(x) = (1 + x)^{2}))) \\implies (\\forall a, b \\in \\mathbb{R}\\ (f(a) = f(b) \\implies a = b))",
+                          'n', 0, 0);
+    int first_refuted = first.outcome == REFUTED && first.detail != NULL;
+    Verdict second = prove("(f \\colon \\mathbb{R} \\to \\mathbb{R} \\land \\forall x \\in \\mathbb{R}\\ (f(x) = -3x - 3 + |x - 1|)) \\implies "
+                           "(\\lnot (\\forall y \\in \\mathbb{R}\\ \\exists z \\in \\mathbb{R}\\ (f(z) = y)))",
+                           'n', 0, 0);
+    passed = check_result(first_refuted && second.outcome == REFUTED && second.detail == NULL,
+                          "a refuted statement about a real map does not report the counterexample of the previous one") && passed;
 
     /* Ogni fatto scritto in una dimostrazione viene ricontrollato dal
      * programma con un metodo indipendente: nessuno deve essere stato

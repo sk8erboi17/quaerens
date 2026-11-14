@@ -7,8 +7,10 @@ programma non ha deciso: non sono errori, ma dicono dove le regole non
 arrivano.
 
 Genera applicazioni tra insiemi numerici definite per casi, applicazioni a
-valori in coppie, f(x) = (P(x), Q(x)), e formule chiuse per le iterate f^{n}
-di f(x) = a x + b (17s, 26c). Le prime sono definite sul resto
+valori in coppie, f(x) = (P(x), Q(x)), formule chiuse per le iterate f^{n}
+di f(x) = a x + b (17s, 26c), applicazioni a n + b con i parametri a, b e
+lettere legate che li nascondono, e applicazioni lineari di \\mathbb{C} in
+\\mathbb{C} (17s, 18v-8, 18v-11). Le prime sono definite sul resto
 (2 | n, 3 \\nmid n), su un lato di un numero (n \\ge c, x < c), su un punto
 (x = c, x \\neq c), sull'essere un intero (x \\in Z), oppure con un valore
 assoluto (f(x) = a x + b |x - c| + d), con una tesi su iniettività e
@@ -26,10 +28,17 @@ verdetto con un oracolo scritto qui, indipendente dal programma:
     del caso e stanno nel dominio; per una coppia, le radici comuni delle
     due componenti;
   - le iterate applicando f n volte, e confrontandole con la formula per i
-    primi n e su una finestra di x.
+    primi n e su una finestra di x;
+  - per a n + b: iniettiva se e solo se a non è 0, suriettiva se e solo se a
+    è 1 o -1, confrontate con la condizione della tesi per a da -6 a 6;
+  - per le applicazioni lineari di C: non iniettiva e non suriettiva
+    esattamente quando il determinante è zero;
+  - un controesempio si rilegge e si ricontrolla: anche irrazionale, come
+    b = 1 + 3\\sqrt{3}, con i conti esatti in Q(sqrt(r)) (Surd).
 
 Stampa BUG quando il verdetto contraddice un fatto certo, SUSPECT quando
-contraddice solo ciò che si vede sulla finestra.
+contraddice solo ciò che si vede sulla finestra, o quando un controesempio
+non si sa rileggere.
 """
 import math
 import os
@@ -52,20 +61,30 @@ def ftex(v):
 
 
 class NS:
-    """Un insieme numerico: N, N0, Z, Q."""
-    BASE = {"N": r"\mathbb{N}", "N0": r"\mathbb{N}_{0}", "Z": r"\mathbb{Z}", "Q": r"\mathbb{Q}"}
+    """Un insieme numerico: N, N0, Z, Q, R, R+. Dei reali si guardano i
+    razionali, e i punti irrazionali dove servono si trattano a parte
+    (RealRoot)."""
+    BASE = {"N": r"\mathbb{N}", "N0": r"\mathbb{N}_{0}", "Z": r"\mathbb{Z}", "Q": r"\mathbb{Q}",
+            "R": r"\mathbb{R}", "R+": r"\mathbb{R}^{+}"}
 
     def __init__(self, kind):
         self.kind = kind
 
     def integers(self):
-        return self.kind != "Q"
+        return self.kind in ("N", "N0", "Z")
+
+    def reals(self):
+        return self.kind in ("R", "R+")
 
     def has(self, v):
+        if isinstance(v, RealRoot):
+            return self.reals() and (self.kind == "R" or v.compare(0) > 0)
+        if isinstance(v, Surd):
+            return self.reals() and (self.kind == "R" or v > 0)
         v = Fr(v)
-        if self.kind != "Q" and v.denominator != 1:
+        if self.integers() and v.denominator != 1:
             return False
-        return not ((self.kind == "N" and v < 1) or (self.kind == "N0" and v < 0))
+        return not ((self.kind == "N" and v < 1) or (self.kind == "N0" and v < 0) or (self.kind == "R+" and v <= 0))
 
     def tex(self):
         return self.BASE[self.kind]
@@ -74,6 +93,174 @@ class NS:
         if self.integers():
             return [Fr(i) for i in range(-size, size + 1) if self.has(i)]
         return sorted({Fr(p, q) for q in range(1, 7) for p in range(-size * q // 3, size * q // 3 + 1)})
+
+
+class RealRoot:
+    """Una radice irrazionale (-b + s sqrt(D)) / (2a) di a x^2 + b x + c, con D
+    il discriminante, positivo e non un quadrato: un numero reale esatto, di
+    cui si sa dire il segno della differenza con un razionale."""
+
+    def __init__(self, a, b, d, sign):
+        self.a, self.b, self.d, self.sign = Fr(a), Fr(b), Fr(d), sign
+
+    def compare(self, t):
+        """Il segno di questa radice meno t: quello di (u + s sqrt(D)) / (2a),
+        con u = -b - 2 a t."""
+        u = -self.b - 2 * self.a * Fr(t)
+        if self.sign > 0:
+            top = 1 if u >= 0 else (1 if self.d > u * u else -1)
+        else:
+            top = -1 if u <= 0 else (1 if u * u > self.d else -1)
+        return top if self.a > 0 else -top
+
+
+class Surd:
+    """Un numero p + q sqrt(r), con p e q razionali e r un intero positivo
+    senza fattori quadrati: serve a rileggere un controesempio irrazionale,
+    come b = 1 + 3\\sqrt{3}, che la tabella dei segni trova tra le radici
+    (18t). Somme, prodotti e confronti sono esatti."""
+
+    def __init__(self, p, q=0, r=1):
+        self.p, self.q, self.r = Fr(p), Fr(q), r if q else 1
+
+    @staticmethod
+    def of(v):
+        return v if isinstance(v, Surd) else Surd(v)
+
+    def same_field(self, other):
+        if self.q and other.q and self.r != other.r:
+            raise ValueError("two different square roots")
+        return self.r if self.q else other.r
+
+    def __add__(self, other):
+        o = Surd.of(other)
+        return Surd(self.p + o.p, self.q + o.q, self.same_field(o))
+
+    __radd__ = __add__
+
+    def __neg__(self):
+        return Surd(-self.p, -self.q, self.r)
+
+    def __sub__(self, other):
+        return self + (-Surd.of(other))
+
+    def __rsub__(self, other):
+        return Surd.of(other) - self
+
+    def __mul__(self, other):
+        o = Surd.of(other)
+        r = self.same_field(o)
+        return Surd(self.p * o.p + self.q * o.q * r, self.p * o.q + self.q * o.p, r)
+
+    __rmul__ = __mul__
+
+    def sign(self):
+        """Il segno esatto: p e q sqrt(r) con lo stesso segno, o il confronto
+        tra p^2 e q^2 r."""
+        sp, sq = (self.p > 0) - (self.p < 0), (self.q > 0) - (self.q < 0)
+        if sq == 0 or sp == sq:
+            return sp or sq
+        if sp == 0:
+            return sq
+        big = self.p * self.p - self.q * self.q * self.r
+        return sp if big > 0 else (sq if big < 0 else 0)
+
+    def __eq__(self, other):
+        return isinstance(other, (int, Fr, Surd)) and (self - other).sign() == 0
+
+    def __ne__(self, other):
+        return not self == other
+
+    def __lt__(self, other):
+        return (self - other).sign() < 0
+
+    def __le__(self, other):
+        return (self - other).sign() <= 0
+
+    def __gt__(self, other):
+        return (self - other).sign() > 0
+
+    def __ge__(self, other):
+        return (self - other).sign() >= 0
+
+    def __hash__(self):
+        return hash((self.p, self.q, self.r))
+
+    def __repr__(self):
+        return "%s + %s sqrt(%d)" % (self.p, self.q, self.r)
+
+
+def read_value(text):
+    """Il numero scritto in text dal programma, in un controesempio: un
+    razionale (Fr), oppure p + q\\sqrt{r} (Surd), anche dentro \\frac{...}{d}.
+    None se la scrittura è un'altra: chi chiama allora non sa ricontrollare."""
+    text = text.replace(" ", "")
+    m = re.fullmatch(r"(-?)\\frac\{(.+)\}\{(\d+)\}", text)
+    if m and "frac" not in m.group(2):
+        inner = read_value(m.group(2))
+        if inner is None:
+            return None
+        value = Surd.of(inner) * Fr(1, int(m.group(3)))
+        return -value if m.group(1) else value
+    terms = list(re.finditer(r"([+-]?)(\d*(?:/\d+)?)(\\sqrt\{(\d+)\})?", text))
+    if "".join(t.group(0) for t in terms) != text:
+        return None
+    value, used = Surd(0), False
+    for t in terms:
+        if not t.group(0):
+            continue
+        if not t.group(2) and not t.group(3):
+            return None
+        size = Fr(t.group(2)) if t.group(2) else Fr(1)
+        if t.group(1) == "-":
+            size = -size
+        value = value + (Surd(0, size, int(t.group(4))) if t.group(3) else Surd(size))
+        used = True
+    if not used:
+        return None
+    return value.p if value.q == 0 else value
+
+
+def read_choices(detail):
+    """Le scelte di un controesempio, "a = -4, b = 1 + 3\\sqrt{3}", lettera
+    per lettera, con i valori letti da read_value()."""
+    out = {}
+    # Il controesempio finisce al punto e virgola del verdetto, e prima della
+    # nota tra parentesi su come si sono lette le coppie, (z = c + id).
+    detail = re.sub(r"\s+\(\w = .*$", "", (detail or "").split(";")[0])
+    for part in re.split(r",\s*(?=\w = )", detail):
+        m = re.match(r"\s*(\w) = (.+?)\s*$", part)
+        if m:
+            out[m.group(1)] = read_value(m.group(2))
+    return out
+
+
+def is_square(v):
+    v = Fr(v)
+    if v < 0:
+        return False
+    n, d = math.isqrt(v.numerator), math.isqrt(v.denominator)
+    return n * n == v.numerator and d * d == v.denominator
+
+
+def real_roots(c):
+    """Le radici reali di un polinomio di grado al più 2: razionali, o RealRoot;
+    None se è il polinomio nullo."""
+    c = [Fr(k) for k in c]
+    while c and c[-1] == 0:
+        c.pop()
+    if not c:
+        return None
+    if len(c) <= 2:
+        return [] if len(c) == 1 else [-c[0] / c[1]]
+    a, b, k = c[2], c[1], c[0]
+    d = b * b - 4 * a * k
+    if d < 0:
+        return []
+    if is_square(d):
+        r = Fr(math.isqrt(d.numerator), math.isqrt(d.denominator))
+        return sorted({(-b + r) / (2 * a), (-b - r) / (2 * a)})
+    return [RealRoot(a, b, d, 1), RealRoot(a, b, d, -1)]
 
 
 # --- Polinomi in una variabile, come liste di coefficienti razionali -----------
@@ -144,6 +331,17 @@ class Cond:
 
     def holds(self, x):
         k, c = self.kind, self.value
+        if isinstance(x, RealRoot):
+            # Un irrazionale: solo confronti, e mai uguale a un razionale.
+            if k in ("eq", "ne"):
+                return k == "ne"
+            side = x.compare(c)
+            return {"ge": side >= 0, "le": side <= 0, "lt": side < 0, "gt": side > 0}[k]
+        if isinstance(x, Surd):
+            # Un irrazionale p + q sqrt(r): non è un intero, né un multiplo.
+            if k in ("div", "ndiv", "int", "nint"):
+                return k in ("ndiv", "nint")
+            return {"ge": x >= c, "le": x <= c, "lt": x < c, "gt": x > c, "eq": x == c, "ne": x != c}[k]
         if k in ("div", "ndiv"):
             divides = (Fr(x) / c).denominator == 1
             return divides == (k == "div")
@@ -168,7 +366,8 @@ class Cond:
 def condition_pair(domain, broken):
     """Due condizioni che dividono il dominio; con broken, spesso sbagliate apposta."""
     integers = domain.integers()
-    family = rnd.choice(["div", "order", "point"] + ([] if integers else ["int", "int"]))
+    families = ["order", "order", "point"] if domain.reals() else ["div", "order", "point"] + ([] if integers else ["int", "int"])
+    family = rnd.choice(families)
     c = rnd.choice([-2, -1, 0, 1, 2, 3])
     if family == "div":
         m = rnd.choice([2, 2, 3])
@@ -194,8 +393,8 @@ class CaseMap:
     """f: A -> B definita per casi, o con un valore assoluto, e una tesi."""
 
     def __init__(self):
-        self.A = NS(rnd.choice(["N", "N0", "Z", "Z", "Q", "Q"]))
-        self.B = NS(rnd.choice(["N", "N0", "Z", "Z", "Q"]))
+        self.A = NS(rnd.choice(["N", "N0", "Z", "Z", "Q", "Q", "R", "R"]))
+        self.B = NS(rnd.choice(["R", "R", "R+"]) if self.A.reals() else rnd.choice(["N", "N0", "Z", "Z", "Q"]))
         self.x = rnd.choice("nxm")
         broken = rnd.random() < 0.25
         small = lambda: rnd.choice([-3, -2, -1, -1, 0, 1, 1, 1, 2, 3])
@@ -221,7 +420,7 @@ class CaseMap:
             for _ in range(30):
                 if self.ill_defined() is None:
                     break
-                self.B = NS(rnd.choice(["N", "N0", "Z", "Q"]))
+                self.B = NS(rnd.choice(["R", "R+"]) if self.A.reals() else rnd.choice(["N", "N0", "Z", "Q"]))
         self.claim = rnd.choice(["inj", "ninj", "surj", "nsurj", "inj&surj", "inj&nsurj", "ninj&surj", "ninj&nsurj"])
 
     # --- Il valore -------------------------------------------------------------
@@ -264,7 +463,7 @@ class CaseMap:
     def collision(self):
         """Due elementi con la stessa immagine: per ogni x della finestra, le
         controimmagini esatte di f(x) diverse da x."""
-        for x in self.A.window(30 if self.A.integers() else 9):
+        for x in self.A.window(30 if self.A.integers() or self.A.reals() else 9):
             others = [r for r in self.preimages(self.f(x)) if r != x]
             if others:
                 return x, others[0]
@@ -277,14 +476,22 @@ class CaseMap:
         piccole, e la finestra le contiene)."""
         found = []
         for cond, poly in self.cases:
-            roots = rational_roots([poly[0] - y] + list(poly[1:]))
+            shifted = [poly[0] - y] + list(poly[1:])
+            roots = real_roots(shifted) if self.A.reals() else rational_roots(shifted)
             if roots is None:
                 roots = [x for x in self.A.window(40) if cond.holds(x)]
-            found += [r for r in roots if self.A.has(r) and cond.holds(r) and self.f(r) == y]
+            for r in roots:
+                if not (self.A.has(r) and cond.holds(r)):
+                    continue
+                # Una radice irrazionale sta in un caso solo dei due di una
+                # coppia complementare, quindi lì f vale y; una razionale si
+                # ricontrolla calcolando.
+                if isinstance(r, RealRoot) or self.f(r) == y:
+                    found.append(r)
         return found
 
     def missed(self):
-        for y in self.B.window(30 if self.B.integers() else 9):
+        for y in self.B.window(30 if self.B.integers() or self.B.reals() else 9):
             if not self.preimages(y):
                 return y
         return None
@@ -312,13 +519,17 @@ class CaseMap:
                 if p == "nsurj" and missed is None:
                     out.append(("SUSPECT", "proved not surjective but every y of the window has a preimage"))
             return out
-        values = dict((name, Fr(v)) for name, v in re.findall(r"(\w) = (-?\d+(?:/\d+)?)", detail or ""))
+        values = read_choices(detail)
+        if any(values.get(k, 0) is None for k in "aby"):
+            return [("SUSPECT", "a value of the counterexample cannot be read back: %s" % detail)]
         if "a" in values and "b" in values and "inj" in parts:
             a, b = values["a"], values["b"]
             if not (self.A.has(a) and self.A.has(b) and a != b and self.f(a) == self.f(b)):
                 out.append(("BUG", "refuted injectivity with a=%s, b=%s, which is not a collision" % (a, b)))
         elif "y" in values and "surj" in parts:
             y = values["y"]
+            if isinstance(y, Surd):
+                return [("SUSPECT", "an irrational missed value, y = %s, is not checked" % detail)]
             if not self.B.has(y) or self.preimages(y):
                 out.append(("BUG", "refuted surjectivity with y=%s, which has a preimage or is outside B" % y))
         else:
@@ -512,11 +723,93 @@ class IterateMap:
         return []
 
 
+class ParamMap:
+    """f(n) = a n + b su Z, con i parametri a, b dichiarati insieme, e una tesi
+    "iniettiva (o suriettiva) se e solo se cond(a)", scritta con le lettere a e
+    b legate che nascondono i parametri. Iniettiva vuol dire a diverso da 0,
+    suriettiva a = 1 oppure a = -1: la tesi vale se cond(a) dice lo stesso
+    per ogni intero a."""
+
+    CONDS = [("a \\neq 0", lambda a: a != 0), ("a \\neq 1", lambda a: a != 1), ("(a = 1 \\lor a = -1)", lambda a: a in (1, -1)),
+             ("a = 1", lambda a: a == 1), ("(a \\neq 0 \\land a \\neq 2)", lambda a: a not in (0, 2)), ("a = -1", lambda a: a == -1)]
+
+    def __init__(self):
+        self.surj = rnd.random() < 0.5
+        self.cond = rnd.choice(self.CONDS)
+
+    def truth(self, a):
+        return a in (1, -1) if self.surj else a != 0
+
+    def tex(self):
+        prop = (r"\forall y \in \mathbb{Z}\ \exists x \in \mathbb{Z}\ (f(x) = y)" if self.surj
+                else r"\forall a, b \in \mathbb{Z}\ (f(a) = f(b) \implies a = b)")
+        return (r"(f \colon \mathbb{Z} \to \mathbb{Z} \land (a, b \in \mathbb{Z} \land \forall n \in \mathbb{Z}\ (f(n) = an + b))) \implies ((%s) \iff %s)"
+                % (prop, self.cond[0]))
+
+    def check(self, verdict, detail):
+        wrong = [a for a in range(-6, 7) if self.cond[1](a) != self.truth(a)]
+        if verdict == "P" and wrong:
+            return [("BUG", "proved, but for a = %d the two sides differ" % wrong[0])]
+        if verdict == "R":
+            values = dict((name, Fr(v)) for name, v in re.findall(r"(\w) = (-?\d+(?:/\d+)?)", detail or ""))
+            if "a" in values and values["a"].denominator == 1 and int(values["a"]) not in wrong:
+                return [("BUG", "refuted with a = %s, where the two sides agree" % values["a"])]
+            if not wrong:
+                return [("BUG", "refuted, but the two sides agree for every a")]
+        return []
+
+
+class ComplexMap:
+    """f(a + ib) = (p a + q b + r) + i (s a + t b + u), da C in C, e la tesi
+    "non iniettiva" o "non suriettiva": tutte e due valgono esattamente quando
+    il determinante p t - q s è zero."""
+
+    def __init__(self):
+        small = lambda: rnd.choice([-2, -1, 0, 0, 1, 1, 2])
+        self.c = [small() for _ in range(6)]
+        if rnd.random() < 0.5:
+            # Spesso il determinante zero: righe proporzionali.
+            k = rnd.choice([-2, -1, 1, 2])
+            self.c[3], self.c[4] = k * self.c[0], k * self.c[1]
+        self.claim = rnd.choice(["ninj", "nsurj"])
+
+    def det(self):
+        p, q, r, s_, t, u = self.c
+        return p * t - q * s_
+
+    def tex(self):
+        p, q, r, s_, t, u = self.c
+        def lin(x, y, z):
+            text = ptex([z, x], "a").replace("a", "@")
+            body = []
+            for coef, letter in ((x, "a"), (y, "b")):
+                if coef:
+                    body.append(("-" if coef < 0 else "+", ("" if abs(coef) == 1 else str(abs(coef))) + letter))
+            if z or not body:
+                body.append(("-" if z < 0 else "+", str(abs(z))))
+            out = ("-" if body[0][0] == "-" else "") + body[0][1]
+            for sign, b in body[1:]:
+                out += " %s %s" % (sign, b)
+            return out
+        value = "(%s) + i(%s)" % (lin(p, q, r), lin(s_, t, u))
+        claim = (r"\lnot (\forall a, b \in \mathbb{C}\ (f(a) = f(b) \implies a = b))" if self.claim == "ninj"
+                 else r"\lnot (\forall y \in \mathbb{C}\ \exists x \in \mathbb{C}\ (f(x) = y))")
+        return r"(f \colon \mathbb{C} \to \mathbb{C} \land \forall a, b \in \mathbb{R}\ (f(a + ib) = %s)) \implies (%s)" % (value, claim)
+
+    def check(self, verdict, detail):
+        true = self.det() == 0
+        if verdict == "P" and not true:
+            return [("BUG", "proved %s, but the determinant is %d" % (self.claim, self.det()))]
+        if verdict == "R" and true:
+            return [("BUG", "refuted %s, but the determinant is zero" % self.claim)]
+        return []
+
+
 def main():
     cases = []
     for _ in range(COUNT):
         r = rnd.random()
-        cases.append(CaseMap() if r < 0.65 else PairMap() if r < 0.85 else IterateMap())
+        cases.append(CaseMap() if r < 0.55 else PairMap() if r < 0.7 else IterateMap() if r < 0.8 else ParamMap() if r < 0.9 else ComplexMap())
     path = os.path.join(WORK, "fuzz_cases_%d.tex" % SEED)
     with open(path, "w", encoding="utf-8") as out:
         out.write("\\begin{enumerate}\n")

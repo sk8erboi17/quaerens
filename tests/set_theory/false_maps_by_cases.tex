@@ -8,12 +8,12 @@
 \setlength{\emergencystretch}{3em}
 \allowdisplaybreaks
 
-\title{Maps defined by cases, with values in pairs, and iterates: false statements (28)}
+\title{Maps defined by cases, with values in pairs, iterates, maps between real or complex numbers, and parameters: false statements (46)}
 \author{}
 \date{}
 \begin{document}
 \maketitle
-$\mathbb{N} = \{1, 2, 3, \ldots\}$, $\mathbb{N}_{0} = \mathbb{N} \cup \{0\}$. Each statement is a true one about a map defined by cases, changed a little: a case condition moved, a coefficient changed, a property swapped, cases that overlap with different values, cases that leave a point out, a value outside the codomain. Items 17--21 have values in pairs, items 22 and 23 compare a variable over a set of pairs with a pair written out, the last five are about the iterates $f^{n}$.
+$\mathbb{N} = \{1, 2, 3, \ldots\}$, $\mathbb{N}_{0} = \mathbb{N} \cup \{0\}$. Each statement is a true one about a map defined by cases, changed a little: a case condition moved, a coefficient changed, a property swapped, cases that overlap with different values, cases that leave a point out, a value outside the codomain. Items 17--21 have values in pairs, items 22 and 23 compare a variable over a set of pairs with a pair written out, items 24--28 are about the iterates $f^{n}$, items 29--34 are maps from $\mathbb{R}$, items 35--39 have parameters, the last seven are maps from $\mathbb{C}$.
 
 \begin{enumerate}
 \item $\displaystyle (f \colon \mathbb{N}_{0} \to \mathbb{N}_{0} \land \forall n \in \mathbb{N}_{0}\ ((n \ge 1 \implies f(n) = n^{2} - 2) \land (n \le 1 \implies f(n) = n + 2))) \implies (\lnot (\forall y \in \mathbb{N}_{0}\ \exists x \in \mathbb{N}_{0}\ (f(x) = y)))$
@@ -44,5 +44,23 @@ $\mathbb{N} = \{1, 2, 3, \ldots\}$, $\mathbb{N}_{0} = \mathbb{N} \cup \{0\}$. Ea
 \item $\displaystyle (f \colon \mathbb{Z} \to \mathbb{Q} \land \forall x \in \mathbb{Z}\ (f(x) = \frac{x}{2}) \land f^{1} = f \land \forall n \in \mathbb{N}\ (f^{n + 1} = f \circ f^{n})) \implies (\forall n \in \mathbb{N}\ \forall x \in \mathbb{Z}\ (f^{n}(x) = \frac{x}{2^{n}}))$
 \item $\displaystyle (f \colon \mathbb{Z} \to \mathbb{Z} \land \forall x \in \mathbb{Z}\ (f(x) = x + 2) \land f^{2} = f \land \forall n \in \mathbb{N}\ (f^{n + 1} = f \circ f^{n})) \implies (\forall n \in \mathbb{N}\ \forall x \in \mathbb{Z}\ (f^{n}(x) = x + 2n))$
 \item $\displaystyle (f \colon \mathbb{N} \to \mathbb{Z} \land \forall x \in \mathbb{N}\ (f(x) = x - 1) \land f^{1} = f \land \forall n \in \mathbb{N}\ (f^{n + 1} = f \circ f^{n})) \implies (\forall n \in \mathbb{N}\ \forall x \in \mathbb{N}\ (f^{n}(x) = x - n))$
+\item $\displaystyle (f \colon \mathbb{R} \to \mathbb{R} \land \forall x \in \mathbb{R}\ ((x \ge 0 \implies f(x) = x^{2}) \land (x < 0 \implies f(x) = x(3 + x)))) \implies (\forall y \in \mathbb{R}\ \exists x \in \mathbb{R}\ (f(x) = y))$
+\item $\displaystyle (f \colon \mathbb{R} \to \mathbb{R} \land \forall x \in \mathbb{R}\ ((x \ge 0 \implies f(x) = 1 - x) \land (x < 0 \implies f(x) = (1 + x)^{2}))) \implies (\forall a, b \in \mathbb{R}\ (f(a) = f(b) \implies a = b))$
+\item $\displaystyle (f \colon \mathbb{R} \to \mathbb{R} \land \forall x \in \mathbb{R}\ ((x \ge 0 \implies f(x) = x) \land (x \le 0 \implies f(x) = x + 1))) \implies (\forall a, b \in \mathbb{R}\ (f(a) = f(b) \implies a = b))$
+\item $\displaystyle (f \colon \mathbb{R} \to \mathbb{R} \land \forall x \in \mathbb{R}\ ((x > 0 \implies f(x) = x) \land (x < 0 \implies f(x) = x))) \implies (\forall a, b \in \mathbb{R}\ (f(a) = f(b) \implies a = b))$
+\item $\displaystyle (f \colon \mathbb{R} \to \mathbb{R}^{+} \land \forall x \in \mathbb{R}\ (f(x) = x^{2})) \implies (\lnot (\forall y \in \mathbb{R}^{+}\ \exists x \in \mathbb{R}\ (f(x) = y)))$
+\item $\displaystyle (f \colon \mathbb{R} \to \mathbb{R} \land \forall x \in \mathbb{R}\ (f(x) = x^{3} - x)) \implies (\forall a, b \in \mathbb{R}\ (f(a) = f(b) \implies a = b))$
+\item $\displaystyle (f \colon \mathbb{Z} \to \mathbb{Z} \land (k \in \mathbb{N} \land \forall n \in \mathbb{Z}\ (f(n) = n + k))) \implies (\forall k \in \mathbb{Z}\ (f(k) = 2k))$
+\item $\displaystyle (f \colon \mathbb{Z} \to \mathbb{Z} \land (a, b \in \mathbb{Z} \land \forall n \in \mathbb{Z}\ (f(n) = an + b))) \implies ((\forall y \in \mathbb{Z}\ \exists x \in \mathbb{Z}\ (f(x) = y)) \iff a = 1)$
+\item $\displaystyle (f \colon \mathbb{Z} \to \mathbb{Z} \land (a, b \in \mathbb{Z} \land \forall n \in \mathbb{Z}\ (f(n) = an + b))) \implies ((\forall a, b \in \mathbb{Z}\ (f(a) = f(b) \implies a = b)) \iff a \neq 1)$
+\item $\displaystyle (f \colon \mathbb{Z} \to \mathbb{Z} \land (a, b \in \mathbb{Z} \land \forall n \in \mathbb{Z}\ (f(n) = an + b))) \implies (\forall a, b \in \mathbb{Z}\ (f(a) = f(b) \implies a = b))$
+\item $\displaystyle (f \colon \mathbb{Z} \to \mathbb{Z} \land (a \in \mathbb{N} \setminus \{2\} \land \forall n \in \mathbb{Z}\ (f(n) = an))) \implies (\forall x \in \mathbb{Z}\ (f(x) \neq 1))$
+\item $\displaystyle (f \colon \mathbb{C} \to \mathbb{C} \land \forall a, b \in \mathbb{R}\ (f(a + ib) = a + b + iab)) \implies (\forall a, b \in \mathbb{C}\ (f(a) = f(b) \implies a = b))$
+\item $\displaystyle (f \colon \mathbb{C} \to \mathbb{C} \land \forall a, b \in \mathbb{R}\ (f(a + ib) = a + b + iab)) \implies (\forall y \in \mathbb{C}\ \exists x \in \mathbb{C}\ (f(x) = y))$
+\item $\displaystyle (f \colon \mathbb{C} \to \mathbb{C} \land \forall a, b \in \mathbb{R}\ (f(a + ib) = a + ib)) \implies (\lnot (\forall a, b \in \mathbb{C}\ (f(a) = f(b) \implies a = b)))$
+\item $\displaystyle (f \colon \mathbb{C} \to \mathbb{C} \land \forall a, b \in \mathbb{R}\ (f(a + ib) = (a + ib)^{2})) \implies (\lnot (\forall y \in \mathbb{C}\ \exists x \in \mathbb{C}\ (f(x) = y)))$
+\item $\displaystyle (f \colon \mathbb{C} \to \mathbb{C} \land \forall a, b \in \mathbb{R}\ (f(a + ib) = a + b + iab)) \implies (\lnot (\forall y \in \mathbb{C}\ \exists x \in \mathbb{C}\ (f(x) = y)) \land \forall a, b \in \mathbb{C}\ (f(a) = f(b) \implies a = b))$
+\item $\displaystyle (f \colon \mathbb{C} \to \mathbb{C} \land \forall a, b \in \mathbb{R}\ (f(a + ib) = b + ia)) \implies (\forall z \in \mathbb{C}\ (f(z) = z))$
+\item $\displaystyle (f \colon \mathbb{C} \to \mathbb{C} \land \forall a, b \in \mathbb{R}\ (f(a + ib) = a + ib)) \implies (\lnot (\exists z \in \mathbb{C} \setminus \{0\}\ (f(z) = (0, 1))))$
 \end{enumerate}
 \end{document}
