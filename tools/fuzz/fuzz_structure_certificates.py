@@ -18,6 +18,11 @@ controlla tutti, e per ognuno che ACCETTA l'oracolo rifà il conto da sé:
     verificatore ha accettato la dimostrazione di un falso: BUG. Gli insiemi
     vuoti sono provati apposta: lì sbaglia chi inventa un elemento.
 
+Un'equipotenza (11j), (equipotent A B), l'oracolo la calcola contando: tra
+insiemi finiti c'è una biiezione se e solo se hanno tanti elementi quanti.
+Le voci define non le legge: contano per la dimostrazione, non per il valore
+dell'enunciato.
+
 Un quantificatore su parti (11g), (forallpart X S c) o (existspart X S c),
 l'oracolo lo calcola provando ogni sottoinsieme di S, come frozenset, e (X t)
 dice che t vi sta. Le alterazioni scambiano anche forallpart ed existspart.
@@ -172,6 +177,15 @@ def holds(c, env, model, size, symbols):
     if head in ("forall", "exists"):
         values = (holds(c[3], dict(env, **{c[1]: x}), model, size, symbols) for x in range(size[c[2]]))
         return all(values) if head == "forall" else any(values)
+    if head == "equipotent":
+        # 11j: tra insiemi finiti c'è una biiezione se e solo se hanno tanti
+        # elementi quanti; un lato è un insieme o il prodotto di due.
+        def count(side):
+            out = 1
+            for name in [side] if isinstance(side, str) else side:
+                out *= size[name]
+            return out
+        return count(c[1]) == count(c[2])
     if head in ("forallpart", "existspart"):
         n = size[c[2]]
         parts = (frozenset(p) for k in range(n + 1) for p in itertools.combinations(range(n), k))
@@ -249,7 +263,7 @@ def mutate(text):
         head, body = lines[0], lines[1:-1]
         what = rnd.randrange(7)
         pick = rnd.randrange(len(body))
-        names = sorted(set(re.findall(r"[A-Za-z][A-Za-z0-9_]*", " ".join(body))) - {"forall", "exists", "forallpart", "existspart", "and", "or", "not", "implies", "iff", "true", "bool"} - set(KINDS) - {"sort", "symbol", "statement", "table", "case", "instance", "witness", "part"})
+        names = sorted(set(re.findall(r"[A-Za-z][A-Za-z0-9_]*", " ".join(body))) - {"forall", "exists", "forallpart", "existspart", "and", "or", "not", "implies", "iff", "true", "bool"} - set(KINDS) - {"sort", "symbol", "statement", "table", "case", "instance", "witness", "part", "equipotent", "define"})
         if what == 0 and len(body) > 1:
             del body[pick]
         elif what == 1:

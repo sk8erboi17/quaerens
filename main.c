@@ -66,7 +66,11 @@
  *     (17q), e lo svolgimento si ricontrolla sui modelli finiti (28h).
  *     Le relazioni e le applicazioni tra le parti di un insieme date da una
  *     regola, come (X, Y) \in G con X \cap Y = \emptyset, si svolgono invece
- *     in un enunciato del capitolo 14 (17r).
+ *     in un enunciato del capitolo 14 (17r). E l'equipotenza, A \sim B: c'è
+ *     una biiezione da A a B, e la si costruisce, con una grammatica piccola,
+ *     da quelle delle ipotesi e dalla forma degli insiemi (17w in parser.c,
+ *     28q): \mathcal{P}(S) \sim \mathcal{P}(T) e T_{1}^{S_{1}} \sim
+ *     T_{2}^{S_{2}} da S \sim T e dai suoi simili.
  *
  * I metodi si combinano dove serve. Dentro un enunciato con quantificatori
  * un "per ogni n naturale" seguito da un'uguaglianza con somme viene
@@ -278,9 +282,12 @@
  *     relazioni scritte tra gli elementi (x \le y), la composizione come
  *     operazione, le potenze di un elemento. E un insieme qualsiasi insieme
  *     a un insieme numerico nello stesso enunciato: i due linguaggi non si
- *     parlano. Il numero di elementi di un insieme e l'equipotenza non sono
- *     trattati, e il verdetto lo dice (capitolo 20). Vedi i capitoli 17
- *     (17p) e 28.
+ *     parlano. L'equipotenza c'è (17w, 28q), ma non il numero di elementi
+ *     di un insieme, |S|, e il verdetto lo dice (capitolo 20): contare
+ *     chiederebbe l'induzione sul numero degli elementi, con le biiezioni
+ *     che il passo chiede (S = S' \cup \{a\}), e dire infinito un insieme,
+ *     per le sue parti numerabili, l'assioma della scelta numerabile. Vedi i
+ *     capitoli 17 (17p) e 28.
  *   - Un certificato per tutto. Lo hanno le induzioni scritte con somme,
  *     prodotti, potenze, fattoriali, binomiali, successioni per ricorrenza
  *     e logaritmi, gli enunciati sugli insiemi senza "esiste", quelli su
@@ -376,9 +383,10 @@
  * regioni del diagramma di Venn (prove_sets()). Per un enunciato su insiemi
  * qualsiasi (28f) il certificato è il modello finito che lo smentisce, o
  * l'esempio che chiede, su cui il verificatore ricalcola l'enunciato; oppure,
- * per una dimostrazione, i nomi e le istanze usati, di cui il verificatore
- * controlla da sé, con un conto finito, che portino a una contraddizione
- * anche quando qualche insieme è vuoto. Lì il verdetto, DIMOSTRATO o FALSO,
+ * per una dimostrazione, i nomi e le istanze usati, con le applicazioni
+ * definite di un'equipotenza (28q), di cui il verificatore controlla da sé la
+ * forma, e con un conto finito che portino a una contraddizione anche quando
+ * qualche insieme è vuoto. Lì il verdetto, DIMOSTRATO o FALSO,
  * vuole che il certificato sia accettato. Per un enunciato deciso con la
  * tabella dei segni (18p-15) il certificato è la tabella: il verificatore ne
  * ricava da capo i polinomi, ne riconta le radici con Sturm, ricalcola la
@@ -592,7 +600,9 @@
 #define MAX_RECORDS 32       /* valori trovati da 18u-3 in una dimostrazione, annotati per la verifica (capitolo 19) */
 #define MIN_SATISFIED 1      /* valori del campione che soddisfano le ipotesi, almeno, perché la verifica di 18u conti (capitolo 19).
                                 Warning: se lo alzi, cambia anche i motivi scritti in decide_quantified() e in records_doubt() */
-#define MAX_SORTS 4          /* insiemi qualsiasi distinti in un enunciato (17o) */
+#define MAX_SORTS 6          /* insiemi distinti in un enunciato su insiemi qualsiasi (17o), contando quelli di parti e
+                                di applicazioni (17v): sei per T_{1}^{S_{1}} \sim T_{2}^{S_{2}} (17w). Non più di
+                                CK_MAX_SORTS */
 #define MAX_SYMBOLS 64       /* simboli di un enunciato su insiemi qualsiasi, compresi gli elementi a cui la dimostrazione dà un nome */
 #define MAX_SLOTS 128        /* variabili quantificate in un enunciato su insiemi qualsiasi, comprese quelle
                                 che nascono svolgendo le definizioni (17q) e le leggi delle parti (28n). Non
@@ -612,6 +622,7 @@ typedef unsigned __int128 SlotSet;
 #define PAIR_NAMES 4000      /* "nomi" delle seconde componenti delle applicazioni a valori in coppie (17s):
                                 PAIR_NAMES più la lettera dell'applicazione */
 #define MAX_MODEL_SIZE 4     /* elementi di un insieme in un modello finito (28a) */
+#define MAX_MODEL_CODES 4096 /* scelte delle grandezze degli insiemi di un modello: MAX_MODEL_SIZE alla MAX_SORTS (28a) */
 #define MAX_MODEL_OBJECTS 8  /* elementi di un insieme di parti o di applicazioni in un modello finito (28m):
                                 le parti di un insieme di 3 elementi. Non più di CK_MAX_SIZE */
 #define MAX_MODEL_CELLS 64   /* celle della tabella di un simbolo in un modello finito (28a, 28m) */
@@ -649,6 +660,8 @@ typedef unsigned __int128 SlotSet;
 #define MAX_PART_CANDIDATES 24  /* parti provate per una parte legata da un "per ogni parte" (28k) */
 #define MAX_PART_CHOICES 2   /* scelte di parti una dentro l'altra, in un ramo (28k) */
 #define MAX_PART_ATTEMPTS 600  /* scelte di parti provate in tutto per un'affermazione (28k) */
+#define MAX_WITNESSES 8      /* testimoni di un'equipotenza provati, dal più corto, uno per tentativo (28q) */
+#define MAX_BIJ 512          /* termini della grammatica dei testimoni costruiti per un'equipotenza (28q) */
 #define MAX_BRANCHES 16      /* rami uno dentro l'altro: casi, scelte di parti e prove (28k, 28l) */
 #define MAX_PROBES 8         /* disgiunzioni provate per trovarne una con un caso che si chiude subito (28l) */
 #define MAX_CONGRUENCES 32   /* condizioni "m divide P" in un enunciato deciso sui resti (18r) */
@@ -27045,18 +27058,43 @@ static const char *derivative_doubt(const Formula *thesis) {
  * tutti diversi: lì il calcolo decide, come per un esempio, e il verdetto
  * DIMOSTRATO viene da quel conto, con il certificato del modello.
  *
+ * L'EQUIPOTENZA (28q)
+ *
+ * A \sim B (17w in parser.c) vuol dire che c'è una biiezione da A a B: è un
+ * "esiste" su due applicazioni, una l'inversa dell'altra, e il capitolo lo
+ * usa con le sue due regole. Vera, dà un nome alla biiezione e alla sua
+ * inversa, come 28-2. Falsa, ha per istanza due applicazioni costruite,
+ * come 28-3: un testimone, fatto da una grammatica piccola e limitata con le
+ * biiezioni con un nome e la forma degli insiemi (l'immagine delle parti, f
+ * \mapsto \beta \circ f \circ \alpha^{-1} sulle applicazioni, le componenti di
+ * un prodotto, scambiate o no), con una definizione per ogni applicazione
+ * nuova; che siano una l'inversa dell'altra lo deve mostrare la
+ * dimostrazione, con le definizioni e l'estensionalità (28n). Il numero
+ * degli elementi non entra mai in una dimostrazione: solo nei modelli
+ * finiti, dove A \sim B è "tanti elementi quanti". Il certificato porta i
+ * nomi, le definizioni e il testimone, e il verificatore controlla da sé la
+ * forma di ogni definizione (11j di checker.c).
+ *
  * CHE COSA NON C'È
  *
- * Applicazioni da costruire (\exists f \in S^{S} dentro l'enunciato),
- * ipotesi su tutte le applicazioni quando T^{S} non è un insieme di oggetti
- * dell'enunciato, applicazioni definite per casi o come inverse
- * (servirebbero comprensioni di applicazioni, che 28n non ha), il quoziente
+ * Applicazioni da costruire (\exists f \in S^{S} dentro l'enunciato) fuori
+ * da un'equipotenza, ipotesi su tutte le applicazioni quando T^{S} non è un
+ * insieme di oggetti dell'enunciato, applicazioni definite per casi o come
+ * inverse (servirebbero comprensioni di applicazioni tra le leggi di 28n: le
+ * definizioni di 28q nascono solo per un testimone), il quoziente
  * (\exists T\ \exists f), potenze x^{n} con n numero: il lettore le
  * respinge, dicendo quale. Le parti costruite con più di un passo, come
  * f(f^{-1}(\{c\})) o \{a, b\}, non vengono provate (28k): un enunciato che
  * ne ha bisogno resta NON DIMOSTRATO, come le dimostrazioni lunghe sulle
  * famiglie di parti (una partizione comune, la controimmagine di una
- * partizione), che la ricerca spesso non trova.
+ * partizione), che la ricerca spesso non trova. Dell'equipotenza (28q)
+ * mancano le biiezioni che la grammatica non costruisce (\mathcal{P}(S) \sim
+ * \{0, 1\}^{S}, l'associatività dei prodotti), i passi w3 e w4 uno dentro
+ * l'altro, come \mathcal{P}(\mathcal{P}(S)) \sim \mathcal{P}(\mathcal{P}(T)),
+ * le cui identità chiederebbero un lemma con l'estensionalità a metà della
+ * dimostrazione, che la ricerca non fa; e nel lettore gli esponenti che sono
+ * un prodotto o un'unione, S^{T \times V} e S^{T \cup V} (17w), e i lati di
+ * tre componenti. Il numero degli elementi, |S|, non c'è (capitolo 20).
  *
  * I modelli finiti dimostrano solo un esempio; un enunciato "per ogni" lo
  * dimostrano le istanze. Una dimostrazione dai soli modelli sarebbe lecita
@@ -27149,6 +27187,24 @@ static int model_part_quantifier(const Model *m, const Sentence *s, int *value, 
     return result;
 }
 
+/* 17w. Ritorna 1 se i due lati dell'equipotenza s hanno nel modello m lo
+ * stesso numero di elementi: un lato è un insieme o il prodotto di due, e ne
+ * ha il prodotto delle grandezze.
+ *
+ * Perché basta contare. Tra due insiemi finiti c'è una biiezione se e solo
+ * se hanno lo stesso numero di elementi: se ne hanno n tutti e due, li si
+ * numera da 0 a n - 1, e l'elemento numero i dell'uno va nell'elemento
+ * numero i dell'altro; se c'è una biiezione, ogni elemento dell'uno ne ha
+ * uno solo dell'altro e viceversa, quindi sono tanti quanti (è il principio
+ * dei cassetti, letto nei due versi). È un fatto sugli insiemi finiti dei
+ * modelli: le dimostrazioni non lo usano mai (28q). */
+static int model_equipotent(const Model *m, const Sentence *s) {
+    long long size[2] = {1, 1};
+    for (int k = 0; k < 2; k++)
+        for (int i = 0; i < s->sides[k]; i++) size[k] *= m->size[slot_sort[s->side_slot[k][i]]];
+    return size[0] == size[1];
+}
+
 /* Ritorna 1 se la condizione s vale nel modello m, con le variabili libere
  * ai valori di value[]. È un conto finito e completo: ogni quantificatore
  * prova tutti gli elementi del suo insieme. value[] viene usato anche per
@@ -27158,6 +27214,8 @@ static int model_holds(const Model *m, const Sentence *s, int *value) {
     switch (s->kind) {
     case S_TRUE:
         return 1;
+    case S_EQUIPOTENT:
+        return model_equipotent(m, s);
     case S_EQUAL:
         return model_element(m, s->left, value) == model_element(m, s->right, value);
     case S_HOLDS:
@@ -27316,7 +27374,7 @@ static int plain_sorts(void) {
  * *bound il più grande k per cui ha provato tutti i modelli con insiemi di
  * al più k elementi: è ciò che il verdetto può dire di aver controllato. */
 static int model_search(const Sentence *root, int wanted, Model *m, long long *tried, int *bound) {
-    int value[MAX_SLOTS], codes = 1, complete[MAX_MODEL_SIZE * MAX_MODEL_SIZE * MAX_MODEL_SIZE * MAX_MODEL_SIZE] = {0}, plain = plain_sorts();
+    int value[MAX_SLOTS], codes = 1, complete[MAX_MODEL_CODES] = {0}, plain = plain_sorts();
     *tried = 0;
     *bound = 0;
     model_steps = 0;
@@ -27403,7 +27461,11 @@ static void put_symbol(int symbol) {
 /* Scrive il nome dell'insieme di posto sort: la lettera, o (17v)
  * \mathcal{P}(S) e T^{S}. */
 static void put_sort(int sort) {
-    if (sort_kind[sort] == SORT_PLAIN) { proof_add("%c", sort_name[sort]); return; }
+    if (sort_kind[sort] == SORT_PLAIN) {
+        proof_add("%c", sort_name[sort]);
+        if (sort_sub[sort]) proof_add("_{%d}", sort_sub[sort]);  /* 17w */
+        return;
+    }
     if (sort_kind[sort] == SORT_NUMBERS) {
         /* 17v. I numeri che l'enunciato scrive. */
         proof_add("\\{");
@@ -27426,6 +27488,7 @@ static void put_sort(int sort) {
  * un insieme di applicazioni con i suoi valori, (s_{0} \mapsto t_{1}, ...),
  * con la numerazione di 28m. */
 static void put_model_element(const Model *m, int sort, int x) {
+    if (sort_kind[sort] == SORT_PLAIN && sort_sub[sort]) { proof_add("%c_{%d,%d}", tolower(sort_name[sort]), sort_sub[sort], x); return; }  /* 17w */
     if (sort_kind[sort] == SORT_PLAIN) { proof_add("%c_{%d}", tolower(sort_name[sort]), x); return; }
     if (sort_kind[sort] == SORT_NUMBERS) {
         /* 17v. Il numero che l'elemento x rappresenta. */
@@ -27456,7 +27519,9 @@ static void put_model(const Model *m) {
         /* 17v. I numeri scritti sono i soli elementi del loro insieme. */
         if (sort_kind[i] == SORT_NUMBERS) { proof_add("%s$", written++ ? ", " : ""); put_sort(i); proof_add("$"); }
         if (sort_kind[i] != SORT_PLAIN) continue;
-        proof_add("%s$%c = \\{", written++ ? ", " : "", sort_name[i]);
+        proof_add("%s$", written++ ? ", " : "");
+        put_sort(i);
+        proof_add(" = \\{");
         for (int x = 0; x < m->size[i]; x++) { if (x) proof_add(", "); put_model_element(m, i, x); }
         proof_add("\\}$");
     }
@@ -27680,6 +27745,7 @@ static int book_holds(const Model *m, const Sentence *s, int *value) {
     int t[MAX_ARITY], count = 0, every;
     switch (s->kind) {
     case S_TRUE:    return 1;
+    case S_EQUIPOTENT: return model_equipotent(m, s);
     case S_EQUAL:   return model_element(m, s->left, value) == model_element(m, s->right, value);
     case S_HOLDS:   return model_element(m, s->left, value);
     case S_NOT:     return !book_holds(m, s->a, value);
@@ -27818,7 +27884,11 @@ typedef enum {
     K_INSTANCE,  /* 28-3: parent, un "per ogni", su degli elementi */
     K_NAMED,     /* 28-2: parent, un "esiste", su un elemento con un nome nuovo */
     K_CASE,      /* 28-5: uno dei due casi lasciati aperti da parent */
-    K_DEFINED    /* 28j: la definizione di una parte nuova, data da una regola */
+    K_DEFINED,   /* 28j: la definizione di una parte nuova, data da una regola */
+    K_BIJECTION, /* 28q: parent è un'equipotenza; vera, le identità di una
+                    biiezione nuova e della sua inversa (28q-1); falsa, la
+                    loro negazione per due applicazioni costruite (28q-2) */
+    K_MAPDEF     /* 28q: la definizione di un'applicazione nuova (d1-d3) */
 } Origin;
 
 /* A che punto è una condizione nota. */
@@ -27849,8 +27919,12 @@ typedef struct {
                                 parte al posto di ogni parte legata, dalla più
                                 esterna; per un nome dato a una parte (K_NAMED)
                                 o per una definizione (K_DEFINED), in part[0]
-                                la parte nuova. Posti in symbols[]; -1 dove
-                                non servono */
+                                la parte nuova. 28q: per K_BIJECTION le
+                                applicazioni delle identità, prima le
+                                componenti di quella da A a B, poi quelle
+                                dell'inversa; per K_MAPDEF, in part[0]
+                                l'applicazione definita. Posti in symbols[];
+                                -1 dove non servono */
 } Known;
 
 /* Un ramo della ricerca: tutto ciò che si sa dopo certe scelte di casi.
@@ -28046,6 +28120,15 @@ static void put_elem(const Elem *e, const short *value, int tight) {
     proof_add("\\right)");
 }
 
+/* 17w. Scrive il lato k dell'equipotenza s: un insieme, o il prodotto di
+ * due. */
+static void put_equipotent_side(const Sentence *s, int k) {
+    for (int i = 0; i < s->sides[k]; i++) {
+        if (i) proof_add(" \\times ");
+        put_sort(slot_sort[s->side_slot[k][i]]);
+    }
+}
+
 /* Scrive la condizione s, negata se negated, con gli elementi di value[] al
  * posto delle variabili sostituite. tight chiede le parentesi intorno a ciò
  * che non è un confronto. */
@@ -28054,6 +28137,11 @@ static void put_sentence(const Sentence *s, int negated, const short *value, int
     switch (s->kind) {
     case S_TRUE:
         proof_add(negated ? "\\bot" : "\\top");
+        return;
+    case S_EQUIPOTENT:
+        put_equipotent_side(s, 0);
+        proof_add(negated ? " \\not\\sim " : " \\sim ");
+        put_equipotent_side(s, 1);
         return;
     case S_NOT:
         put_sentence(s->a, !negated, value, tight);
@@ -28119,7 +28207,9 @@ static void put_sentence(const Sentence *s, int negated, const short *value, int
     case S_FORALL_PART: case S_EXISTS_PART:
         proof_add("%s\\%s ", negated ? "\\lnot " : "", s->kind == S_FORALL_PART ? "forall" : "exists");
         put_symbol(s->part);
-        proof_add(" \\subseteq %c\\ (", sort_name[symbols[s->part].domain[0]]);
+        proof_add(" \\subseteq ");
+        put_sort(symbols[s->part].domain[0]);
+        proof_add("\\ (");
         put_sentence(s->a, 0, value, 0);
         proof_add(")");
         return;
@@ -28334,7 +28424,9 @@ static int sentence_parts(const Sentence *s, int negated, Parts *p) {
  * sotto un quantificatore: così truth() li trova, e la chiusura per
  * congruenza li confronta con gli altri. */
 static void sentence_ground(const Sentence *s, const short *value) {
-    if (s->kind == S_FORALL || s->kind == S_EXISTS || s->kind == S_FORALL_PART || s->kind == S_EXISTS_PART || s->kind == S_TRUE) return;
+    if (s->kind == S_FORALL || s->kind == S_EXISTS || s->kind == S_FORALL_PART || s->kind == S_EXISTS_PART || s->kind == S_TRUE ||
+        s->kind == S_EQUIPOTENT)
+        return;
     if (s->kind == S_EQUAL || s->kind == S_HOLDS) {
         elem_ground(s->left, value, G_CREATE);
         if (s->right) elem_ground(s->right, value, G_CREATE);
@@ -28378,7 +28470,7 @@ static int truth(const Sentence *s, int negated, const short *value) {
         b = truth(s->b, 0, value);
         if (a >= 0 && b >= 0) known = a == b;
         break;
-    case S_FORALL: case S_EXISTS: case S_FORALL_PART: case S_EXISTS_PART:
+    case S_FORALL: case S_EXISTS: case S_FORALL_PART: case S_EXISTS_PART: case S_EQUIPOTENT:
     case S_MEMBER: case S_INCLUDED: case S_SAME: case S_UNIQUE:  /* questi non arrivano qui (17q) */
         break;
     }
@@ -28557,6 +28649,203 @@ static void part_name(int i) {
     name_known[part] = named;
 }
 
+/* 28q. L'EQUIPOTENZA: BIIEZIONI CON UN NOME, BIIEZIONI COSTRUITE
+ *
+ * (Sta qui, dentro 28d, perché known_open() e instantiate() la usano; la
+ * lettera è venuta dopo le altre. La seconda metà, la grammatica dei
+ * testimoni, sta più avanti, accanto alle istanze.)
+ *
+ * A \sim B (17w di parser.c) vuol dire che c'è una biiezione da A a B. Il
+ * capitolo la usa nella forma "ci sono \varphi \colon A \to B e \psi \colon
+ * B \to A, una l'inversa dell'altra":
+ *
+ *     D(\varphi, \psi) =  \forall x \in A\ (\psi(\varphi(x)) = x)
+ *                         \land \forall y \in B\ (\varphi(\psi(y)) = y).
+ *
+ * Le due forme sono equivalenti, e senza l'assioma della scelta. Se \varphi è
+ * una biiezione, per ogni y di B c'è uno e un solo x con \varphi(x) = y (uno
+ * perché \varphi è suriettiva, uno solo perché è iniettiva): \psi(y) è quel
+ * x, una descrizione e non una scelta, e D vale. Viceversa da D: se
+ * \varphi(a) = \varphi(b) allora a = \psi(\varphi(a)) = \psi(\varphi(b)) = b,
+ * e ogni y è \varphi(\psi(y)). Con un lato prodotto, A = A_{1} \times A_{2},
+ * x è una coppia e \psi(\varphi(x)) = x vale componente per componente; una
+ * applicazione verso un prodotto sono le sue due componenti, ognuna di due
+ * argomenti se parte da un prodotto (17w).
+ *
+ * L'equipotenza è dunque un "esiste" su due applicazioni, e il capitolo la
+ * usa con le due regole di sempre:
+ *
+ *   28q-1. Un nome. Da A \sim B vera nel ramo nascono due applicazioni nuove,
+ *          \varphi_{k} e \psi_{k}, e vale D(\varphi_{k}, \psi_{k}): è 28-2 per
+ *          una biiezione. I nomi sono nuovi, quindi nulla di ciò che si
+ *          sapeva cambia.
+ *   28q-2. Un'istanza. Da A \sim B falsa, cioè "per ogni \varphi e \psi, non
+ *          D(\varphi, \psi)", segue \lnot D(\gamma, \delta) per due
+ *          applicazioni \gamma e \delta che ci sono: è 28-3. Le si costruisce
+ *          con la grammatica dei testimoni (più avanti), dando un nome a
+ *          ognuna con la sua DEFINIZIONE (K_MAPDEF), in una di tre forme:
+ *
+ *     d1. \gamma(x) = t, con t un termine in cui \gamma non compare;
+ *     d2. \gamma(X) parte di C: \forall y \in C\ (y \in \gamma(X) \iff c), con c
+ *         una condizione in cui \gamma non compare;
+ *     d3. \gamma(f) applicazione da E: \forall y \in E, e per \gamma(f)(y) una
+ *         delle tre forme, ricorsivamente.
+ *
+ * Una definizione è un passo valido. Per ogni valore degli argomenti c'è
+ * uno e un solo oggetto che la soddisfa: il valore di t; la parte \{y \in C
+ * \mid c\}, che sta in \mathcal{P}(C) perché lì ci sono tutte le parti; la
+ * applicazione che a ogni y dà l'oggetto della forma interna, che sta in
+ * C^{E} perché lì ci sono tutte le applicazioni. Uno solo, perché due parti
+ * con gli stessi elementi, e due applicazioni con gli stessi valori, sono la
+ * stessa (28n). Quindi l'applicazione \gamma esiste, senza scegliere nulla,
+ * e il suo nome è nuovo: come per le parti definite (28j), darglielo non
+ * cambia nulla di ciò che si sapeva. Il verificatore controlla da sé la forma
+ * di ogni definizione (11j di checker.c).
+ *
+ * Che \gamma e \delta siano una l'inversa dell'altra non lo si suppone mai: è
+ * ciò che la dimostrazione deve ottenere, per assurdo, dalle definizioni,
+ * dalle identità delle biiezioni con un nome e dall'estensionalità (28n),
+ * con le istanze di sempre. Le istanze di una definizione si prendono dove
+ * l'applicazione definita compare (instance_mapdef()), come per le parti di
+ * 28j. Il numero degli elementi non entra mai: nessuna regola dice che
+ * equipotenti vuol dire "con tanti elementi quanti"; lo dicono solo i
+ * modelli finiti, dove è un conto (model_equipotent()).
+ *
+ * Le variabili delle identità sono quelle del nodo (17w); quelle delle
+ * definizioni, due per insieme, nascono una volta per enunciato
+ * (bijection_prepare()): una definizione è una condizione chiusa, e due
+ * condizioni chiuse possono legare la stessa variabile senza confondersi. */
+
+/* 28q. Ritorna il quantificatore kind sulla variabile di posto slot davanti a
+ * body. I nodi costruiti qui e dalle leggi delle parti (28n) non hanno
+ * testo nell'enunciato: start ed end sono vuoti, e non si stampano mai come
+ * testo. */
+static Sentence *axiom_bind(SentenceKind kind, int slot, Sentence *body) {
+    Sentence *s = sentence_new(kind, body, NULL, "");
+    s->end = s->start;
+    s->slot = slot;
+    return s;
+}
+
+/* 28q. Ritorna la condizione kind tra gli elementi left e right:
+ * un'uguaglianza (S_EQUAL), o l'appartenenza (S_HOLDS) del simbolo symbol
+ * applicato a left e right. */
+static Sentence *axiom_atom(SentenceKind kind, int symbol, Elem *left, Elem *right) {
+    Sentence *s = sentence_new(kind, NULL, NULL, "");
+    s->end = s->start;
+    s->left = kind == S_HOLDS ? elem_new(symbol, 0, left, right) : left;
+    s->right = kind == S_HOLDS ? NULL : right;
+    return s;
+}
+
+/* 28q. Ritorna il connettivo kind tra a e b, senza semplificare nulla: la
+ * forma è quella che il verificatore riconosce. */
+static Sentence *axiom_join(SentenceKind kind, Sentence *a, Sentence *b) {
+    Sentence *s = sentence_new(kind, a, b, "");
+    s->end = s->start;
+    return s;
+}
+
+/* 28q. Ritorna la variabile di posto slot, come elemento. */
+static Elem *slot_elem(int slot) { return elem_new(-1, slot, NULL, NULL); }
+
+/* 28q. Ritorna il simbolo di posto symbol applicato ai primi count elementi
+ * di arg[] (count da 0 a 2). */
+static Elem *map_apply(int symbol, Elem *const *arg, int count) {
+    return elem_new(symbol, 0, count > 0 ? arg[0] : NULL, count > 1 ? arg[1] : NULL);
+}
+
+/* 28q. Ritorna l'insieme della componente i del lato k dell'equipotenza e. */
+static int side_sort(const Sentence *e, int k, int i) { return slot_sort[e->side_slot[k][i]]; }
+
+/* 28q. Ritorna il nome interno della lettera greca word (greek_letters[],
+ * 17o). */
+static int greek_name(const char *word) {
+    for (size_t i = 0; i < sizeof greek_letters / sizeof *greek_letters; i++)
+        if (strcmp(greek_letters[i], word) == 0) return GREEK_NAMES + (int)i;
+    return GREEK_NAMES;
+}
+
+/* 28q. Registra un'applicazione nuova, di nome la lettera greca word con il
+ * primo pedice da 1 in su che nessun simbolo abbia, con arity argomenti
+ * negli insiemi domain[] e il valore nell'insieme range; le dà il numero
+ * d'ordine dei nomi (28f). Ritorna il suo posto in symbols[], o -1 se non c'è
+ * più posto (e annota exhausted). */
+static int map_symbol_new(const char *word, int arity, const int *domain, int range) {
+    Symbol map = {greek_name(word), 1, arity, {arity > 0 ? domain[0] : 0, arity > 1 ? domain[1] : 0}, range, 0, 0};
+    while (symbol_find(map.name, map.index) >= 0) map.index++;
+    if (symbol_count == MAX_SYMBOLS || map.index >= ZERO_INDEX) { exhausted = 1; return -1; }
+    symbols[symbol_count] = map;
+    symbol_law[symbol_count] = 0;
+    name_serial[symbol_count] = ++names_given;
+    name_known[symbol_count] = -1;
+    return symbol_count++;
+}
+
+/* 28q. Ritorna le identità D dell'equipotenza e (vedi la testa del
+ * paragrafo) per le applicazioni di map[]: in map[0..n) le componenti di
+ * quella da A a B, in map[n..n+m) quelle dell'inversa, con m e n le
+ * componenti dei lati A e B. La forma, che il verificatore costruisce allo
+ * stesso modo (ck_identities() in checker.c), è
+ *
+ *     (\forall x_{1} \forall x_{2}\ (\psi_{1}(\varphi(x)) = x_{1} \land \psi_{2}(\varphi(x)) = x_{2}))
+ *     \land (\forall y_{1} ... )
+ *
+ * con le variabili del nodo, la più esterna per prima, e \varphi(x) scritto
+ * come le n componenti \varphi_{j}(x_{1}, x_{2}). Con una componente sola
+ * l'uguaglianza è una, senza congiunzione. */
+static Sentence *equipotent_identities(const Sentence *e, const short *map) {
+    Sentence *half[2];
+    for (int k = 0; k < 2; k++) {
+        /* Per k = 0: le variabili di A, e \psi dopo \varphi; per k = 1 quelle
+         * di B, e \varphi dopo \psi. */
+        int m = e->sides[k], n = e->sides[1 - k];
+        const short *first = k ? map + e->sides[1] : map, *second = k ? map : map + e->sides[1];
+        Elem *x[2], *inner[2];
+        Sentence *body = NULL;
+        for (int i = 0; i < m; i++) x[i] = slot_elem(e->side_slot[k][i]);
+        for (int j = 0; j < n; j++) inner[j] = map_apply(first[j], x, m);
+        for (int i = 0; i < m; i++) {
+            Sentence *equal = axiom_atom(S_EQUAL, -1, map_apply(second[i], inner, n), x[i]);
+            body = body ? axiom_join(S_AND, body, equal) : equal;
+        }
+        for (int i = m - 1; i >= 0; i--) body = axiom_bind(S_FORALL, e->side_slot[k][i], body);
+        half[k] = body;
+    }
+    return axiom_join(S_AND, half[0], half[1]);
+}
+
+/* 28q. Gli insiemi della componente j delle applicazioni delle identità di
+ * e, nell'ordine di map[] in equipotent_identities(): mette quelli degli
+ * argomenti in domain[] e ne ritorna quanti sono, quello del valore in
+ * *range. */
+static int identity_map_sorts(const Sentence *e, int j, int *domain, int *range) {
+    int forward = j < e->sides[1], from = forward ? 0 : 1;
+    *range = forward ? side_sort(e, 1, j) : side_sort(e, 0, j - e->sides[1]);
+    for (int a = 0; a < e->sides[from]; a++) domain[a] = side_sort(e, from, a);
+    return e->sides[from];
+}
+
+/* 28q-1. Dalla condizione nota di posto i, l'equipotenza vera A \sim B, dà
+ * un nome alla biiezione da A a B, \varphi, e alla sua inversa, \psi (una
+ * applicazione per componente), e aggiunge le loro identità. */
+static void bijection_name(int i) {
+    const Sentence *e = now->known[i].source;
+    short map[4];
+    int count = e->sides[0] + e->sides[1];
+    for (int j = 0; j < count; j++) {
+        int domain[2], range, arity = identity_map_sorts(e, j, domain, &range);
+        map[j] = (short)map_symbol_new(j < e->sides[1] ? "varphi" : "psi", arity, domain, range);
+        if (map[j] < 0) return;
+    }
+    int named = known_add(equipotent_identities(e, map), 0, now->known[i].value, K_BIJECTION, i);
+    if (named < 0) return;
+    for (int j = 0; j < count; j++) {
+        now->known[named].part[j] = map[j];
+        name_known[map[j]] = named;
+    }
+}
+
 /* Guarda per la prima volta la condizione nota di posto i, e ne trae ciò
  * che non richiede scelte: un fatto entra tra le uguaglianze o tra i
  * "diversi"; di una congiunzione si aggiungono le due parti (28-1); un
@@ -28592,6 +28881,12 @@ static void known_open(int i) {
          * una parte" dà un nome. */
         if ((s->kind == S_FORALL_PART) != k->negated) k->stage = K_RULE;
         else part_name(i);
+        return;
+    case S_EQUIPOTENT:
+        /* 28q. Vera, una biiezione con un nome (28q-1); falsa, è un "per
+         * ogni" su due applicazioni, che aspetta il suo testimone (28q-2). */
+        if (k->negated) k->stage = K_RULE;
+        else bijection_name(i);
         return;
     case S_FORALL: case S_EXISTS:
         break;
@@ -28778,7 +29073,7 @@ static int instance_rewrite_elem(const Rule *rule, const Elem *e) {
 
 /* Come instance_rewrite_elem(), per tutti gli elementi dei confronti di s. */
 static int instance_rewrite(const Rule *rule, const Sentence *s) {
-    if (s->kind == S_FORALL || s->kind == S_EXISTS || part_quantifier(s) || s->kind == S_TRUE) return 0;
+    if (s->kind == S_FORALL || s->kind == S_EXISTS || part_quantifier(s) || s->kind == S_TRUE || s->kind == S_EQUIPOTENT) return 0;
     if (s->kind == S_EQUAL || s->kind == S_HOLDS) return instance_rewrite_elem(rule, s->left) + (s->right ? instance_rewrite_elem(rule, s->right) : 0);
     return instance_rewrite(rule, s->a) + (s->b ? instance_rewrite(rule, s->b) : 0);
 }
@@ -28804,7 +29099,7 @@ static int instance_elem(const Elem *e, const short *value, int *missing) {
  * stanno sotto un quantificatore; annota in più in *decided se di uno di
  * quei confronti si sa già se è vero o falso. */
 static void instance_survey(const Sentence *s, const short *value, int *missing, int *decided) {
-    if (s->kind == S_FORALL || s->kind == S_EXISTS || part_quantifier(s) || s->kind == S_TRUE) return;
+    if (s->kind == S_FORALL || s->kind == S_EXISTS || part_quantifier(s) || s->kind == S_TRUE || s->kind == S_EQUIPOTENT) return;
     if (s->kind == S_EQUAL || s->kind == S_HOLDS) {
         int a = instance_elem(s->left, value, missing), b = s->kind == S_EQUAL ? instance_elem(s->right, value, missing) : 0;
         if (a >= 0 && b >= 0 && (now->rep[a] == now->rep[b] || different_fact(a, b) >= 0)) *decided = 1;
@@ -28962,6 +29257,316 @@ static int instance_definition(const Rule *rule) {
     return made;
 }
 
+/* 28q. LA GRAMMATICA DEI TESTIMONI
+ *
+ * (La seconda metà di 28q: sta qui, accanto alle istanze, perché il
+ * testimone di 28q-2 è un'istanza.)
+ *
+ * Un testimone di A \sim B si costruisce con ciò che c'è: le biiezioni con un
+ * nome tra due insiemi (28q-1) e la forma degli insiemi. Un termine della
+ * grammatica è una biiezione da un insieme U a un insieme V:
+ *
+ *   w1. l'identità, se U = V;
+ *   w2. un passo da U a un insieme W, seguito da un termine da W a V. Il
+ *       passo è una biiezione con un nome, \varphi_{k} da U o \psi_{k}
+ *       all'indietro, oppure uno di w3 e w4;
+ *   w3. U = \mathcal{P}(U'), W = \mathcal{P}(W'), e un termine \beta da U' a
+ *       W': l'immagine X \mapsto \beta(X), definita con d2 come y \in \gamma(X)
+ *       \iff \beta^{-1}(y) \in X, e l'inversa Y \mapsto \beta^{-1}(Y), y \in
+ *       \delta(Y) \iff \beta(y) \in Y;
+ *   w4. U = U_{2}^{U_{1}}, W = W_{2}^{W_{1}}, e due termini, \alpha da U_{1} a
+ *       W_{1} e \beta da U_{2} a W_{2}: f \mapsto \beta \circ f \circ
+ *       \alpha^{-1}, definita con d3 come \gamma(f)(y) = \beta(f(\alpha^{-1}(y))),
+ *       e l'inversa F \mapsto \beta^{-1} \circ F \circ \alpha.
+ *
+ * I lati. Con una componente, un termine da A a B. Con due, da A_{1} \times
+ * A_{2} a B_{1} \times B_{2}, o componente per componente, (x_{1}, x_{2})
+ * \mapsto (\beta_{1}(x_{1}), \beta_{2}(x_{2})), o scambiando, (x_{1}, x_{2})
+ * \mapsto (\beta_{1}(x_{2}), \beta_{2}(x_{1})), e l'inversa allo stesso modo:
+ * le componenti sono applicazioni di due argomenti, definite con d1. Un
+ * termine fatto di un solo passo è già una coppia di applicazioni; ogni
+ * altro si scrive con d1, \gamma(x) = \beta(x).
+ *
+ * Perché i termini sono pochi. Un passo w2 non torna mai su un insieme già
+ * toccato, quindi una composizione ha al più tanti passi quanti sono gli
+ * insiemi, e w3 e w4 scendono negli insiemi su cui U è costruito, che
+ * vengono prima di lui (sort_derived() in parser.c). I termini sono quindi
+ * in numero finito; se ne tengono al più MAX_WITNESSES, dai più corti (il
+ * numero dei passi, compresi quelli dentro w3 e w4), e la ricerca li prova
+ * in quest'ordine, uno per tentativo (claim_attempts()). Il certificato porta
+ * quello che ha funzionato, con le sue definizioni.
+ *
+ * La grammatica non conosce l'enunciato: solo gli insiemi e le biiezioni con
+ * un nome nel ramo. Che cosa non costruisce: una biiezione che non è fatta
+ * così, come \mathcal{P}(S) \sim \{0, 1\}^{S} o S \times (T \times V) \sim (S
+ * \times T) \times V, e i passi con una biiezione con un nome tra prodotti,
+ * da un'ipotesi S \times T \sim V. Lì l'enunciato resta NON DIMOSTRATO. */
+
+/* 28q. Un termine della grammatica: una biiezione da from a to, scritta con
+ * una delle regole w1-w4. Un passo w2 porta in next il termine che lo
+ * segue. I termini vivono in bij[], rifatto per ogni testimone. */
+typedef enum { BIJ_SAME, BIJ_NAMED, BIJ_PARTS, BIJ_MAPS } BijKind;
+typedef struct {
+    BijKind kind;           /* w1, w2 con un nome, w3, w4 */
+    int from, to;           /* gli insiemi di partenza e di arrivo */
+    int forward, backward;  /* BIJ_NAMED: la biiezione con un nome e la sua inversa, scambiate per un passo
+                               all'indietro; BIJ_PARTS, BIJ_MAPS: le applicazioni definite, -1 finché il termine
+                               non è scritto (bij_write()). Posti in symbols[] */
+    int inner[2];           /* BIJ_PARTS: il termine tra le basi; BIJ_MAPS: quello tra gli insiemi di partenza,
+                               poi quello tra gli insiemi d'arrivo. Posti in bij[]; -1 dove non servono */
+    int next;               /* il termine da to in poi (w2), o -1 */
+    int size;               /* i passi, compresi quelli dentro w3 e w4 */
+} Bij;
+static Bij bij[MAX_BIJ];
+static int bij_count;
+
+/* 28q. Le variabili delle definizioni: due per insieme, nate una volta per
+ * enunciato da bijection_prepare(); bij_ready è 0 se non ci sono. */
+static int bij_slot[MAX_SORTS][2], bij_ready;
+
+/* 28q. Quale testimone provare, dal più corto (0), e quanti se ne sono
+ * trovati al più in un ramo: li usa claim_attempts(). */
+static int witness_choice, witness_options;
+
+/* 28q. Ritorna il posto in bij[] di una copia di b, o -1 se non c'è posto. */
+static int bij_new(Bij b) {
+    if (bij_count == MAX_BIJ) return -1;
+    bij[bij_count] = b;
+    return bij_count++;
+}
+
+/* 28q. Mette il termine t nella lista list[0..*count), ordinata dal più
+ * corto, se ci sta tra i primi max; a parità di passi dopo quelli che ci
+ * sono già. */
+static void bij_keep(int *list, int *count, int max, int t) {
+    if (t < 0) return;
+    int at = *count;
+    while (at > 0 && bij[list[at - 1]].size > bij[t].size) at--;
+    if (at >= max) return;
+    if (*count < max) ++*count;
+    for (int i = *count - 1; i > at; i--) list[i] = list[i - 1];
+    list[at] = t;
+}
+
+static int bij_terms(int from, int to, unsigned visited, int *list, int max);
+
+/* 28q. Mette in list[] i passi da from all'insieme step (w2 con un nome, w3,
+ * w4), al più max, dai più corti. */
+static void bij_steps(int from, int step, int *list, int *count, int max) {
+    /* w2: le biiezioni con un nome tra due insiemi, nei due versi. */
+    for (int i = 0; i < now->knowns; i++) {
+        const Known *k = &now->known[i];
+        if (k->origin != K_BIJECTION || k->negated) continue;
+        const Sentence *e = now->known[k->parent].source;
+        if (e->sides[0] != 1 || e->sides[1] != 1) continue;
+        int a = side_sort(e, 0, 0), b = side_sort(e, 1, 0);
+        if (a == from && b == step) bij_keep(list, count, max, bij_new((Bij){BIJ_NAMED, from, step, k->part[0], k->part[1], {-1, -1}, -1, 1}));
+        if (b == from && a == step) bij_keep(list, count, max, bij_new((Bij){BIJ_NAMED, from, step, k->part[1], k->part[0], {-1, -1}, -1, 1}));
+    }
+
+    /* w3 e w4: termini tra gli insiemi su cui sono costruiti. */
+    int a[MAX_WITNESSES], b[MAX_WITNESSES], na = 0, nb = 1;
+    if (sort_kind[from] != sort_kind[step] || (sort_kind[from] != SORT_PARTS && sort_kind[from] != SORT_MAPS)) return;
+    na = bij_terms(sort_base[from], sort_base[step], 0, a, max);
+    if (sort_kind[from] == SORT_MAPS) nb = bij_terms(sort_target[from], sort_target[step], 0, b, max);
+    for (int i = 0; i < na; i++)
+        for (int j = 0; j < nb; j++) {
+            Bij made = {BIJ_PARTS, from, step, -1, -1, {a[i], -1}, -1, 1 + bij[a[i]].size};
+            if (sort_kind[from] == SORT_MAPS) { made.kind = BIJ_MAPS; made.inner[1] = b[j]; made.size += bij[b[j]].size; }
+            bij_keep(list, count, max, bij_new(made));
+        }
+}
+
+/* 28q. Mette in list[] i termini da from a to che non passano per gli
+ * insiemi di visited (bit i: l'insieme di posto i), al più max, dai più
+ * corti, e ritorna quanti sono. */
+static int bij_terms(int from, int to, unsigned visited, int *list, int max) {
+    int count = 0;
+    if (from == to) bij_keep(list, &count, max, bij_new((Bij){BIJ_SAME, from, to, -1, -1, {-1, -1}, -1, 0}));
+    visited |= 1u << from;
+    for (int step = 0; step < sort_count; step++) {
+        int first[MAX_WITNESSES], rest[MAX_WITNESSES], steps = 0, rests;
+        if (visited >> step & 1) continue;
+        bij_steps(from, step, first, &steps, max);
+        if (!steps) continue;
+        rests = bij_terms(step, to, visited, rest, max);
+        for (int i = 0; i < steps; i++)
+            for (int j = 0; j < rests; j++) {
+                Bij made = bij[first[i]];
+                if (bij[rest[j]].kind != BIJ_SAME) { made.next = rest[j]; made.size += bij[rest[j]].size; }
+                bij_keep(list, &count, max, bij_new(made));
+            }
+    }
+    return count;
+}
+
+/* 28q. Ritorna l'elemento x mandato dal termine t, o dal suo inverso se
+ * back: la scrittura come termine, con le applicazioni di ogni passo al loro
+ * posto. Il termine deve essere scritto (bij_write()). L'inverso di una
+ * composizione fa i passi dall'ultimo, ognuno all'indietro. */
+static Elem *bij_apply(int t, Elem *x, int back) {
+    if (t < 0) return x;
+    const Bij *b = &bij[t];
+    if (!back) return bij_apply(b->next, b->kind == BIJ_SAME ? x : elem_new(b->forward, 0, x, NULL), 0);
+    Elem *rest = bij_apply(b->next, x, 1);
+    return b->kind == BIJ_SAME ? rest : elem_new(b->backward, 0, rest, NULL);
+}
+
+/* 28q. Aggiunge al ramo la definizione spec dell'applicazione nuova map
+ * (K_MAPDEF), e ritorna 0 se non c'è posto. */
+static int mapdef_add(Sentence *spec, int map) {
+    short nothing[MAX_SLOTS];
+    memset(nothing, -1, sizeof nothing);
+    int i = known_add(spec, 0, nothing, K_MAPDEF, -1);
+    if (i < 0) return 0;
+    now->known[i].part[0] = (short)map;
+    name_known[map] = i;
+    return 1;
+}
+
+/* 28q. Dà le loro applicazioni, con le definizioni, ai passi w3 e w4 del
+ * termine t e di quelli dentro e dopo di lui, dai più interni (vedi la
+ * testa del paragrafo per le forme). Ritorna 0 se non c'è stato posto. */
+static int bij_write(int t) {
+    if (t < 0) return 1;
+    Bij *b = &bij[t];
+    int defined = b->kind == BIJ_PARTS || b->kind == BIJ_MAPS;
+    if (defined && b->forward >= 0) return 1;  /* già scritto */
+    if (!bij_write(b->inner[0]) || !bij_write(b->inner[1]) || !bij_write(b->next)) return 0;
+    if (!defined) return 1;
+    int forward = map_symbol_new("gamma", 1, &b->from, b->to), backward = map_symbol_new("delta", 1, &b->to, b->from);
+    if (forward < 0 || backward < 0) return 0;
+    b->forward = forward;
+    b->backward = backward;
+    for (int side = 0; side < 2; side++) {
+        /* side 0: \gamma da from a to; side 1: \delta da to a from. */
+        int map = side ? backward : forward, arg = side ? b->to : b->from, value = side ? b->from : b->to, base = sort_base[value];
+        Elem *object = slot_elem(bij_slot[arg][0]), *y = slot_elem(bij_slot[base][0]), *image = elem_new(map, 0, object, NULL);
+        Sentence *spec;
+        if (b->kind == BIJ_PARTS) {
+            /* d2: y \in \gamma(X) \iff \beta^{-1}(y) \in X; y \in \delta(Y) \iff \beta(y) \in Y. */
+            spec = axiom_join(S_IFF, axiom_atom(S_HOLDS, sort_symbol[value], y, image), axiom_atom(S_HOLDS, sort_symbol[arg], bij_apply(b->inner[0], y, !side), object));
+        } else {
+            /* d3: \gamma(f)(y) = \beta(f(\alpha^{-1}(y))); \delta(F)(y) = \beta^{-1}(F(\alpha(y))). */
+            Elem *inside = elem_new(sort_symbol[arg], 0, object, bij_apply(b->inner[0], y, !side));
+            spec = axiom_atom(S_EQUAL, -1, elem_new(sort_symbol[value], 0, image, y), bij_apply(b->inner[1], inside, side));
+        }
+        if (!mapdef_add(axiom_bind(S_FORALL, bij_slot[arg][0], axiom_bind(S_FORALL, bij_slot[base][0], spec)), map)) return 0;
+    }
+    return 1;
+}
+
+/* 28q. Un testimone di un'equipotenza, prima di essere scritto con le sue
+ * definizioni: per ogni componente j del lato B il termine term[j] (un posto
+ * in bij[]; -1 per la seconda di un lato con una sola componente), che parte
+ * dalla componente swap ? 1 - j : j del lato A; size è la somma dei passi,
+ * che dà l'ordine in cui i testimoni si provano. */
+typedef struct {
+    int term[2], swap, size;
+} Witness;
+
+/* 28q-2. L'istanza della condizione nota di posto r, l'equipotenza falsa A
+ * \sim B: costruisce con la grammatica i testimoni, prende quello di numero
+ * witness_choice (dal più corto), ne scrive le definizioni e aggiunge
+ * \lnot D(\gamma, \delta). Una sola volta per ramo. Ritorna 1 se l'ha
+ * aggiunta. */
+static int bijection_witness(int r) {
+    const Sentence *e = now->known[r].source;
+    Witness found[2 * MAX_WITNESSES * MAX_WITNESSES], chosen;
+    int count = 0, m = e->sides[0], n = e->sides[1];
+    for (int i = r + 1; i < now->knowns; i++)
+        if (now->known[i].parent == r && now->known[i].origin == K_BIJECTION) return 0;
+    if (!bij_ready || m != n) return 0;
+
+    /* I testimoni: per ogni modo di accoppiare le componenti, un termine per
+     * componente; in ordine di passi, a parità prima senza scambio. */
+    bij_count = 0;
+    for (int swap = 0; swap < m; swap++) {
+        int list[2][MAX_WITNESSES], length[2];
+        for (int j = 0; j < n; j++) length[j] = bij_terms(side_sort(e, 0, swap ? 1 - j : j), side_sort(e, 1, j), 0, list[j], MAX_WITNESSES);
+        for (int a = 0; a < length[0]; a++)
+            for (int b = 0; b < (n == 2 ? length[1] : 1); b++) {
+                Witness w = {{list[0][a], n == 2 ? list[1][b] : -1}, swap, bij[list[0][a]].size + (n == 2 ? bij[list[1][b]].size : 0)};
+                int at = count++;
+                while (at > 0 && found[at - 1].size > w.size) { found[at] = found[at - 1]; at--; }
+                found[at] = w;
+            }
+    }
+    if (count > MAX_WITNESSES) count = MAX_WITNESSES;
+    if (count > witness_options) witness_options = count;
+    if (witness_choice >= count) return 0;
+    chosen = found[witness_choice];
+
+    /* Le applicazioni: quelle di un solo passo con un nome, w3 o w4 se il
+     * lato ha una componente; altrimenti nuove, definite con d1. */
+    short map[4];
+    for (int j = 0; j < n; j++)
+        if (!bij_write(chosen.term[j])) return 0;
+    const Bij *only = &bij[chosen.term[0]];
+    if (m == 1 && only->kind != BIJ_SAME && only->next < 0) {
+        map[0] = (short)only->forward;
+        map[1] = (short)only->backward;
+    } else {
+        int domain[2], range;
+        for (int j = 0; j < n + m; j++) {
+            int arity = identity_map_sorts(e, j, domain, &range);
+            if ((map[j] = (short)map_symbol_new(j < n ? "gamma" : "delta", arity, domain, range)) < 0) return 0;
+        }
+        for (int j = 0; j < n + m; j++) {
+            /* \gamma_{j}(x) = \beta_{j}(x_{i}), con i la componente da cui parte
+             * \beta_{j}; \delta_{i}(y) = \beta_{j}^{-1}(y_{j}). */
+            int forward = j < n, at = forward ? j : j - n, from = forward ? 0 : 1, count_args = e->sides[from];
+            int term = forward ? j : (chosen.swap ? 1 - at : at), source = forward ? (chosen.swap ? 1 - j : j) : term;
+            Elem *x[2];
+            for (int a = 0; a < count_args; a++) x[a] = slot_elem(bij_slot[side_sort(e, from, a)][a]);
+            Sentence *spec = axiom_atom(S_EQUAL, -1, map_apply(map[j], x, count_args), bij_apply(chosen.term[term], x[source], !forward));
+            for (int a = count_args - 1; a >= 0; a--) spec = axiom_bind(S_FORALL, bij_slot[side_sort(e, from, a)][a], spec);
+            if (!mapdef_add(spec, map[j])) return 0;
+        }
+    }
+    int instance = known_add(equipotent_identities(e, map), 1, now->known[r].value, K_BIJECTION, r);
+    if (instance < 0) return 0;
+    for (int j = 0; j < n + m; j++) now->known[instance].part[j] = map[j];
+    return 1;
+}
+
+/* 28q. Le istanze della definizione di un'applicazione (rule, una
+ * condizione K_MAPDEF): una per ogni elemento presente scritto come la sua
+ * forma, \gamma(x), y \in \gamma(X) o \gamma(f)(y), con al posto delle variabili
+ * ciò che vi compare. Come per le parti di 28j, la definizione si usa dove
+ * l'applicazione compare. Ritorna quante istanze ha aggiunto. */
+static int instance_mapdef(const Rule *rule) {
+    const Elem *shape = rule->body->kind == S_IFF ? rule->body->a->left : rule->body->left, *pattern[MAX_PATTERN];
+    short target[MAX_PATTERN], value[MAX_SLOTS];
+    int made = 0;
+    for (int id = 1, last = now->grounds; id < last && !exhausted; id++) {
+        if (ground[id].symbol != shape->symbol) continue;
+        int count = 0;
+        memcpy(value, now->known[rule->known].value, sizeof value);
+        for (int i = 0; i < 2 && shape->arg[i]; i++) { pattern[count] = shape->arg[i]; target[count++] = ground[id].arg[i]; }
+        made += instance_match(rule, pattern, target, count, value);
+    }
+    return made;
+}
+
+/* 28q. Ritorna 1 se nella condizione s c'è un'equipotenza. */
+static int sentence_has_equipotence(const Sentence *s) {
+    return s && (s->kind == S_EQUIPOTENT || sentence_has_equipotence(s->a) || sentence_has_equipotence(s->b));
+}
+
+/* 28q. Prepara le variabili delle definizioni, due per insieme, se
+ * l'enunciato root ha un'equipotenza; se le lettere non bastano, i testimoni
+ * non si costruiscono. */
+static void bijection_prepare(const Sentence *root) {
+    const char *before = syntax_error;
+    bij_ready = 0;
+    if (!sentence_has_equipotence(root)) return;
+    for (int i = 0; i < sort_count; i++)
+        for (int j = 0; j < 2; j++) bij_slot[i][j] = unfold_slot(i);
+    bij_ready = syntax_error == before;
+    syntax_error = before;
+}
+
 /* 28-3. Aggiunge le istanze dei "per ogni" noti che vale la pena provare,
  * come descritto in testa al capitolo ("Quali istanze"), e ritorna quante
  * ne ha aggiunte. Va chiamata dopo settle(), con le classi aggiornate: le
@@ -28971,8 +29576,10 @@ static int instance_definition(const Rule *rule) {
 static int instantiate(void) {
     int made = 0, before = now->knowns;
     for (int r = 0; r < before && !exhausted; r++) {
-        /* Un "per ogni parte" ha le sue istanze in 28k. */
+        /* Un "per ogni parte" ha le sue istanze in 28k; un'equipotenza
+         * falsa il suo testimone (28q-2). */
         if (now->known[r].stage != K_RULE || part_quantifier(now->known[r].source)) continue;
+        if (now->known[r].source->kind == S_EQUIPOTENT) { made += bijection_witness(r); continue; }
         Rule rule = {r, {0}, 0, 0, now->known[r].source, now->known[r].negated};
         while (rule.slots < MAX_BOUND && (rule.body->kind == S_FORALL || rule.body->kind == S_EXISTS) &&
                (rule.body->kind == S_FORALL) != rule.negated) {
@@ -28982,6 +29589,10 @@ static int instantiate(void) {
         }
         if (now->known[r].origin == K_DEFINED) {
             made += instance_definition(&rule) + instance_choices(&rule, 0);
+            continue;
+        }
+        if (now->known[r].origin == K_MAPDEF) {
+            made += instance_mapdef(&rule);
             continue;
         }
 
@@ -29178,17 +29789,19 @@ static int known_is(const Known *k, const Sentence *written, int negated) {
 }
 
 /* 28j. Ritorna 1 se l'elemento e non ha variabili libere fuori da bound (il
- * bit i per la variabile di posto i). */
-static int elem_closed(const Elem *e, unsigned long long bound) {
+ * bit i per la variabile di posto i). Un SlotSet, e non un intero di 64 bit:
+ * le variabili sono fino a MAX_SLOTS, e quelle delle definizioni di 28q
+ * nascono per ultime. */
+static int elem_closed(const Elem *e, SlotSet bound) {
     if (!e) return 1;
     if (e->symbol < 0) return bound >> e->slot & 1;
     return elem_closed(e->arg[0], bound) && elem_closed(e->arg[1], bound);
 }
 
 /* 28j. Ritorna 1 se la condizione s non ha variabili libere fuori da bound. */
-static int sentence_closed(const Sentence *s, unsigned long long bound) {
+static int sentence_closed(const Sentence *s, SlotSet bound) {
     if (!s) return 1;
-    if (s->kind == S_FORALL || s->kind == S_EXISTS) bound |= 1ull << s->slot;
+    if (s->kind == S_FORALL || s->kind == S_EXISTS) bound |= SLOT_BIT(s->slot);
     return elem_closed(s->left, bound) && elem_closed(s->right, bound) && sentence_closed(s->a, bound) && sentence_closed(s->b, bound);
 }
 
@@ -29207,6 +29820,149 @@ static int definition_derived(int i) {
     for (int j = 0; j < i; j++)
         if (sentence_mentions(now->known[j].source, part)) return 0;
     return 1;
+}
+
+/* 28q. Ritorna 1 se nell'elemento presente id compare il simbolo symbol. */
+static int ground_mentions(int id, int symbol) {
+    if (id < 0) return 0;
+    const Ground *g = &ground[id];
+    return g->symbol == symbol || ground_mentions(g->arg[0], symbol) || ground_mentions(g->arg[1], symbol);
+}
+
+/* 28q. Ritorna 1 se il simbolo symbol compare in una delle condizioni note
+ * prima di quella di posto i: nella condizione, o negli elementi al posto
+ * delle sue variabili. */
+static int mentioned_before(int i, int symbol) {
+    for (int j = 0; j < i; j++) {
+        const Known *k = &now->known[j];
+        if (sentence_mentions(k->source, symbol)) return 1;
+        for (int v = 0; v < MAX_SLOTS; v++)
+            if (k->value[v] > 0 && ground_mentions(k->value[v], symbol)) return 1;
+    }
+    return 0;
+}
+
+/* 28q. Ritorna 1 se t è la variabile di posto slot. */
+static int is_variable(const Elem *t, int slot) { return t && t->symbol < 0 && t->slot == slot; }
+
+/* 28q. Ritorna 1 se l'elemento e sta nell'insieme sort (TRUTH per una parte
+ * o una relazione applicata), con ogni simbolo applicato a tanti argomenti
+ * quanti ne chiede, ognuno nel suo insieme. Il lettore lo controlla per ciò
+ * che legge (elem_expect()); le identità e le definizioni di 28q le
+ * costruisce il motore, e questo è il loro controllo. */
+static int elem_typed(const Elem *e, int sort) {
+    if (!e) return 0;
+    if (e->symbol < 0) return slot_sort[e->slot] == sort;
+    const Symbol *s = &symbols[e->symbol];
+    if (s->range != sort) return 0;
+    for (int a = 0; a < 2; a++)
+        if ((a < s->arity) != (e->arg[a] != NULL) || (a < s->arity && !elem_typed(e->arg[a], s->domain[a]))) return 0;
+    return 1;
+}
+
+/* 28q. Come elem_typed(), per ogni confronto della condizione s: i due
+ * membri di un'uguaglianza nello stesso insieme, un'appartenenza che vale
+ * vero o falso. */
+static int sentence_typed(const Sentence *s) {
+    if (!s) return 1;
+    if (s->kind == S_EQUAL) return elem_typed(s->left, elem_sort(s->left)) && elem_typed(s->right, elem_sort(s->left));
+    if (s->kind == S_HOLDS) return elem_typed(s->left, TRUTH);
+    return sentence_typed(s->a) && sentence_typed(s->b);
+}
+
+/* 28q. Controlla, leggendo l'albero, che s sia scritta come le identità D
+ * dell'equipotenza e per le applicazioni di map[] (la forma è in testa a
+ * equipotent_identities()): per ogni lato i "per ogni" sulle sue variabili,
+ * poi un'uguaglianza per componente, ognuna con l'applicazione giusta
+ * applicata alle altre e alle variabili nel loro ordine. Ritorna 1 se
+ * regge. */
+static int identities_written(const Sentence *s, const Sentence *e, const short *map) {
+    if (s->kind != S_AND) return 0;
+    for (int k = 0; k < 2; k++) {
+        const Sentence *q = k ? s->b : s->a;
+        int m = e->sides[k], n = e->sides[1 - k];
+        const short *first = k ? map + e->sides[1] : map, *second = k ? map : map + e->sides[1];
+        for (int i = 0; i < m; i++, q = q->a)
+            if (q->kind != S_FORALL || q->slot != e->side_slot[k][i]) return 0;
+        if (m == 2 && q->kind != S_AND) return 0;
+        for (int i = 0; i < m; i++) {
+            const Sentence *equal = m == 2 ? (i ? q->b : q->a) : q;
+            if (equal->kind != S_EQUAL || !is_variable(equal->right, e->side_slot[k][i]) || equal->left->symbol != second[i]) return 0;
+            for (int j = 0; j < 2; j++) {
+                const Elem *inner = equal->left->arg[j];
+                if ((j < n) != (inner != NULL)) return 0;
+                if (j >= n) continue;
+                if (inner->symbol != first[j]) return 0;
+                for (int a = 0; a < 2; a++)
+                    if ((a < m) != (inner->arg[a] != NULL) || (a < m && !is_variable(inner->arg[a], e->side_slot[k][a]))) return 0;
+            }
+        }
+    }
+    return 1;
+}
+
+/* 28q. Controlla la condizione nota di posto i, che viene dall'equipotenza
+ * parent (K_BIJECTION): ha il suo segno, ed è D per le applicazioni di
+ * k->part[], ognuna con gli insiemi giusti. Da un'equipotenza vera (28q-1)
+ * le applicazioni sono nuove: nate dopo l'enunciato, tutte diverse, e mai
+ * nominate prima. Da una falsa (28q-2) devono esserci già: dichiarate, o con
+ * il loro nome o la loro definizione prima di questa condizione. Ritorna 1
+ * se regge. */
+static int bijection_derived(int i) {
+    const Known *k = &now->known[i], *p = &now->known[k->parent];
+    const Sentence *e = p->source;
+    if (e->kind != S_EQUIPOTENT || k->negated != p->negated) return 0;
+    for (int j = 0; j < e->sides[0] + e->sides[1]; j++) {
+        int map = k->part[j], domain[2], range, arity = identity_map_sorts(e, j, domain, &range);
+        if (map < 0 || map >= symbol_count) return 0;
+        const Symbol *s = &symbols[map];
+        if (s->arity != arity || s->range != range || s->family || symbol_bound[map] || symbol_structure(map) >= 0) return 0;
+        for (int a = 0; a < arity; a++)
+            if (s->domain[a] != domain[a]) return 0;
+        for (int other = 0; other < j && !p->negated; other++)
+            if (k->part[other] == map) return 0;
+        if (!p->negated && (map < declared_symbols || mentioned_before(i, map))) return 0;
+        if (p->negated && map >= declared_symbols && (name_known[map] < 0 || name_known[map] >= i)) return 0;
+    }
+    return identities_written(k->source, e, k->part) && sentence_typed(k->source);
+}
+
+/* 28q. Ritorna 1 se spec, sotto i "per ogni" sulle variabili di bound, è
+ * una forma d1-d3 (testa di 28q) che definisce l'oggetto value dell'insieme
+ * sort, senza nominare map in ciò che gli dà il valore. La variabile di d2 e
+ * d3 è nuova: non è tra quelle di bound. */
+static int spec_defines(const Sentence *spec, Elem *value, int sort, int map, SlotSet bound) {
+    if (spec->kind == S_EQUAL) return elem_renamed(spec->left, value, NULL, NULL, 0) && !elem_mentions(spec->right, map);
+    if (spec->kind != S_FORALL || (bound >> spec->slot & 1) || (sort_kind[sort] != SORT_PARTS && sort_kind[sort] != SORT_MAPS) ||
+        slot_sort[spec->slot] != sort_base[sort])
+        return 0;
+    Elem *y = slot_elem(spec->slot);
+    const Sentence *body = spec->a;
+    bound |= SLOT_BIT(spec->slot);
+    if (sort_kind[sort] == SORT_MAPS) return spec_defines(body, elem_new(sort_symbol[sort], 0, value, y), sort_target[sort], map, bound);
+    return body->kind == S_IFF && body->a->kind == S_HOLDS && elem_renamed(body->a->left, elem_new(sort_symbol[sort], 0, y, value), NULL, NULL, 0) &&
+           !sentence_mentions(body->b, map);
+}
+
+/* 28q. Controlla la definizione di posto i (K_MAPDEF): chiusa, per
+ * un'applicazione nuova k->part[0] mai nominata prima, con i "per ogni" sui
+ * suoi argomenti, ognuno nel suo insieme, e poi una forma d1-d3. Ritorna 1
+ * se regge. */
+static int mapdef_derived(int i) {
+    const Known *k = &now->known[i];
+    const Sentence *s = k->source;
+    int map = k->part[0];
+    if (k->negated || map < declared_symbols || map >= symbol_count || !sentence_closed(s, 0) || !sentence_typed(s) || mentioned_before(i, map)) return 0;
+    const Symbol *f = &symbols[map];
+    if (f->range == TRUTH || f->family || symbol_bound[map] || f->arity < 1) return 0;
+    Elem *arg[2];
+    SlotSet bound = 0;
+    for (int a = 0; a < f->arity; a++, s = s->a) {
+        if (s->kind != S_FORALL || slot_sort[s->slot] != f->domain[a] || (bound >> s->slot & 1)) return 0;
+        bound |= SLOT_BIT(s->slot);
+        arg[a] = slot_elem(s->slot);
+    }
+    return spec_defines(s, map_apply(map, arg, f->arity), f->range, map, bound);
 }
 
 /* 28j. Controlla che la condizione nota k venga dal "per ogni parte" p con
@@ -29285,6 +30041,8 @@ static int known_derived(int i) {
         }
         return sentence_parts(body, p->negated, &parts) && !parts.conjunction &&
                (known_is(k, parts.x, parts.nx) || known_is(k, parts.y, parts.ny));
+    case K_BIJECTION:
+        return bijection_derived(i);
     default:
         return 1;
     }
@@ -29456,7 +30214,7 @@ static int leaf_write(int leaf) {
             if (k->value[v] > 0) need_ground_names(k->value[v]);
         for (int j = 0; j < MAX_BOUND; j++)
             if (k->part[j] >= declared_symbols && name_known[k->part[j]] >= 0) needed[name_known[k->part[j]]] = 1;
-        if (k->origin == K_DEFINED && !definition_derived(i)) { unjustified_steps++; return 0; }
+        if ((k->origin == K_DEFINED && !definition_derived(i)) || (k->origin == K_MAPDEF && !mapdef_derived(i))) { unjustified_steps++; return 0; }
         if (k->parent < 0) continue;
         needed[k->parent] = 1;
         if (k->origin != K_PART) {
@@ -29523,9 +30281,38 @@ static int leaf_write(int leaf) {
             put_symbol(k->part[0]);
             proof_add(" = \\{");
             put_slot(definition->slot);
-            proof_add(" \\in %c \\mid ", sort_name[slot_sort[definition->slot]]);
+            proof_add(" \\in ");
+            put_sort(slot_sort[definition->slot]);
+            proof_add(" \\mid ");
             put_sentence(definition->a->b, 0, nothing, 0);
-            proof_add("\\}$ of $%c$", sort_name[slot_sort[definition->slot]]);
+            proof_add("\\}$ of $");
+            put_sort(slot_sort[definition->slot]);
+            proof_add("$");
+        } else if (k->origin == K_BIJECTION) {
+            /* 28q-1: la biiezione con un nome; 28q-2: il testimone. */
+            const Sentence *e = now->known[k->parent].source;
+            int n = e->sides[1], m = e->sides[0];
+            proof_add("By ");
+            put_label(k->parent);
+            proof_add(k->negated ? ", no map from $" : " there is a bijection from $");
+            put_equipotent_side(e, 0);
+            proof_add("$ to $");
+            put_equipotent_side(e, 1);
+            proof_add(k->negated ? "$ has an inverse; in particular not $" : "$; call it $");
+            for (int j = 0; j < n; j++) { if (j) proof_add(", "); put_symbol(k->part[j]); }
+            proof_add(k->negated ? "$, with $" : "$, and its inverse $");
+            for (int j = 0; j < m; j++) { if (j) proof_add(", "); put_symbol(k->part[n + j]); }
+            proof_add(k->negated ? "$ as inverse" : "$. For them");
+        } else if (k->origin == K_MAPDEF) {
+            /* 28q: un'applicazione nuova, con la sua definizione. */
+            const Symbol *f = &symbols[k->part[0]];
+            proof_add("Consider the map $");
+            put_symbol(k->part[0]);
+            proof_add(" \\colon ");
+            for (int a = 0; a < f->arity; a++) { if (a) proof_add(" \\times "); put_sort(f->domain[a]); }
+            proof_add(" \\to ");
+            put_sort(f->range);
+            proof_add("$ defined by");
         } else if (k->origin == K_CASE) {
             proof_add("By ");
             put_label(k->parent);
@@ -29604,7 +30391,11 @@ static unsigned char name_written[MAX_NAMES_GIVEN + 1];
  * singole, quindi un nome di più lettere non è mai quello di un insieme
  * qualsiasi, e la scrittura si rilegge in un modo solo. */
 static void cert_sort(int sort) {
-    if (sort_kind[sort] == SORT_PLAIN) { cert_add("%c", sort_name[sort]); return; }
+    if (sort_kind[sort] == SORT_PLAIN) {
+        cert_add("%c", sort_name[sort]);
+        if (sort_sub[sort]) cert_add("%d", sort_sub[sort]);  /* 17w */
+        return;
+    }
     if (sort_kind[sort] == SORT_NUMBERS) { cert_add("Num"); return; }
     cert_add(sort_kind[sort] == SORT_PARTS ? "P" : "M");
     cert_sort(sort_base[sort]);
@@ -29621,6 +30412,7 @@ static void cert_symbol(int symbol) {
         return;
     }
     if (s->name >= NUMERAL_NAMES) { cert_add("n%d", s->name - NUMERAL_NAMES); return; }
+    if (symbol >= declared_symbols && s->name >= GREEK_NAMES) { cert_add("%s_%d", greek_letters[s->name - GREEK_NAMES], name_serial[symbol]); return; }  /* 28q */
     if (symbol >= declared_symbols) { cert_add("%c_%d", s->name, name_serial[symbol]); return; }
     if (s->name >= RELATION_NAMES) cert_add("%s", relation_commands[s->name - RELATION_NAMES]);
     else if (s->name >= GREEK_NAMES) cert_add("%s", greek_letters[s->name - GREEK_NAMES]);
@@ -29672,6 +30464,16 @@ static void cert_sentence(const Sentence *s, const short *value) {
     case S_TRUE:
         cert_add("true");
         return;
+    case S_EQUIPOTENT:
+        /* 17w. (equipotent A B), con un lato prodotto tra parentesi: (S T). */
+        cert_add("(equipotent");
+        for (int k = 0; k < 2; k++) {
+            cert_add(s->sides[k] == 2 ? " (" : " ");
+            for (int i = 0; i < s->sides[k]; i++) { if (i) cert_add(" "); cert_sort(slot_sort[s->side_slot[k][i]]); }
+            if (s->sides[k] == 2) cert_add(")");
+        }
+        cert_add(")");
+        return;
     case S_EQUAL:
         cert_add("(= ");
         cert_elem(s->left, value);
@@ -29696,7 +30498,9 @@ static void cert_sentence(const Sentence *s, const short *value) {
          * (11g di checker.c). */
         cert_add("(%s ", s->kind == S_FORALL_PART ? "forallpart" : "existspart");
         cert_symbol(s->part);
-        cert_add(" %c ", sort_name[symbols[s->part].domain[0]]);
+        cert_add(" ");
+        cert_sort(symbols[s->part].domain[0]);
+        cert_add(" ");
         cert_sentence(s->a, value);
         cert_add(")");
         return;
@@ -29803,6 +30607,35 @@ static void cert_witness(int symbol) {
     if (name_written[serial]) return;
     name_written[serial] = 1;
     const Known *named = &now->known[name_known[symbol]];
+    if (named->origin == K_MAPDEF) {
+        /* 28q. "define NOME A1 [A2] B C": l'applicazione con i suoi insiemi e
+         * la sua definizione, dopo le voci dei nomi che usa. */
+        const Symbol *f = &symbols[symbol];
+        cert_names_in_sentence(named->source, named->value);
+        cert_add("define ");
+        cert_symbol(symbol);
+        for (int a = 0; a < f->arity; a++) { cert_add(" "); cert_sort(f->domain[a]); }
+        cert_add(" ");
+        cert_sort(f->range);
+        cert_add(" ");
+        cert_sentence(named->source, named->value);
+        cert_add("\n");
+        return;
+    }
+    if (named->origin == K_BIJECTION) {
+        /* 28q-1. "witness (equipotent A B) phi... psi...": i nomi di tutte le
+         * applicazioni della biiezione, in una voce. */
+        const Sentence *e = now->known[named->parent].source;
+        cert_add("witness ");
+        cert_sentence(e, named->value);
+        for (int j = 0; j < e->sides[0] + e->sides[1]; j++) {
+            if (name_serial[named->part[j]] <= MAX_NAMES_GIVEN) name_written[name_serial[named->part[j]]] = 1;
+            cert_add(" ");
+            cert_symbol(named->part[j]);
+        }
+        cert_add("\n");
+        return;
+    }
     if (named->origin == K_DEFINED) {
         const Sentence *definition = named->source;
         cert_names_in_sentence(definition->a->b, named->value);
@@ -29810,7 +30643,9 @@ static void cert_witness(int symbol) {
         cert_symbol(symbol);
         cert_add(" ");
         cert_slot(definition->slot);
-        cert_add(" %c ", sort_name[slot_sort[definition->slot]]);
+        cert_add(" ");
+        cert_sort(slot_sort[definition->slot]);
+        cert_add(" ");
         cert_sentence(definition->a->b, named->value);
         cert_add("\n");
         return;
@@ -29834,8 +30669,22 @@ static void cert_witness(int symbol) {
 static void cert_leaf(void) {
     for (int i = 0; i < now->knowns; i++) {
         const Known *k = &now->known[i];
-        if (!needed[i] || (k->origin != K_INSTANCE && k->origin != K_NAMED && k->origin != K_DEFINED)) continue;
-        if (k->origin == K_DEFINED) { cert_witness(k->part[0]); continue; }
+        if (!needed[i] || (k->origin != K_INSTANCE && k->origin != K_NAMED && k->origin != K_DEFINED && k->origin != K_MAPDEF && k->origin != K_BIJECTION))
+            continue;
+        if (k->origin == K_DEFINED || k->origin == K_MAPDEF || (k->origin == K_BIJECTION && !k->negated)) { cert_witness(k->part[0]); continue; }
+        if (k->origin == K_BIJECTION) {
+            /* 28q-2. "instance (equipotent A B) gamma... delta...", dopo le
+             * definizioni delle applicazioni. */
+            const Sentence *e = now->known[k->parent].source;
+            int count = e->sides[0] + e->sides[1];
+            for (int j = 0; j < count; j++)
+                if (k->part[j] >= declared_symbols) cert_witness(k->part[j]);
+            cert_add("instance ");
+            cert_sentence(e, k->value);
+            for (int j = 0; j < count; j++) { cert_add(" "); cert_symbol(k->part[j]); }
+            cert_add("\n");
+            continue;
+        }
         const Known *p = &now->known[k->parent];
         if (k->origin == K_NAMED) {
             cert_witness(part_quantifier(p->source) ? k->part[0] : ground[k->value[p->source->slot]].symbol);
@@ -29948,35 +30797,6 @@ static int known_law(int i) {
 static Elem *axiom_variable(int sort, int *slot) {
     *slot = unfold_slot(sort);
     return elem_new(-1, *slot, NULL, NULL);
-}
-
-/* Ritorna il quantificatore kind sulla variabile di posto slot davanti a
- * body. I nodi degli assiomi non hanno testo nell'enunciato: start ed end
- * sono vuoti, e non si stampano mai come testo. */
-static Sentence *axiom_bind(SentenceKind kind, int slot, Sentence *body) {
-    Sentence *s = sentence_new(kind, body, NULL, "");
-    s->end = s->start;
-    s->slot = slot;
-    return s;
-}
-
-/* Ritorna la condizione kind tra gli elementi left e right: un'uguaglianza
- * (S_EQUAL), o l'appartenenza (S_HOLDS) del simbolo symbol applicato a
- * left e right. */
-static Sentence *axiom_atom(SentenceKind kind, int symbol, Elem *left, Elem *right) {
-    Sentence *s = sentence_new(kind, NULL, NULL, "");
-    s->end = s->start;
-    s->left = kind == S_HOLDS ? elem_new(symbol, 0, left, right) : left;
-    s->right = kind == S_HOLDS ? NULL : right;
-    return s;
-}
-
-/* Ritorna il connettivo kind tra a e b, senza semplificare nulla: la forma
- * è quella che il verificatore riconosce. */
-static Sentence *axiom_join(SentenceKind kind, Sentence *a, Sentence *b) {
-    Sentence *s = sentence_new(kind, a, b, "");
-    s->end = s->start;
-    return s;
 }
 
 /* Aggiunge l'assioma a, caso della legge law, se c'è posto; altrimenti lo
@@ -30721,7 +31541,7 @@ static int abstract_claim(const Sentence **hypothesis, int hypotheses, const Sen
  * abstract_claim(), con le sole prime; poi (28o) guardando avanti e
  * distinguendo i casi dopo LOOKAHEAD_ROUNDS giri, prima che le istanze
  * riempiano le tabelle; poi, se ci sono, anche con le comprensioni. */
-static int claim_attempts(const Sentence **hypothesis, int hypotheses, int first_pass, const Sentence *claim) {
+static int claim_passes(const Sentence **hypothesis, int hypotheses, int first_pass, const Sentence *claim) {
     int proved = abstract_claim(hypothesis, first_pass < hypotheses ? first_pass : hypotheses, claim);
     for (int pass = 1; !proved && pass < 3; pass++) {
         if (pass == 2 && first_pass >= hypotheses) break;
@@ -30732,6 +31552,33 @@ static int claim_attempts(const Sentence **hypothesis, int hypotheses, int first
         split_lookahead = 0;
         rounds_before_split = MAX_ROUNDS;
     }
+    return proved;
+}
+
+/* Come claim_passes(), e (28q) con un testimone per volta per le
+ * equipotenze da dimostrare: dal più corto, finché la dimostrazione riesce o
+ * i testimoni finiscono. Senza equipotenze witness_options resta 0, e il
+ * giro è uno solo. */
+static int claim_attempts(const Sentence **hypothesis, int hypotheses, int first_pass, const Sentence *claim) {
+    int proved = 0;
+    witness_options = 0;
+    for (witness_choice = 0; !proved && (witness_choice == 0 || witness_choice < witness_options); witness_choice++) {
+        if (witness_choice) exhausted = 0;
+        proved = claim_passes(hypothesis, hypotheses, first_pass, claim);
+    }
+
+    /* Un testimone che ha dentro un passo w3 o w4 sotto un'altra applicazione
+     * (un prodotto, una composizione) chiede le identità di quel passo a metà
+     * della dimostrazione, con l'estensionalità, e quindi più giri di istanze
+     * prima di distinguere i casi: un ultimo tentativo con il doppio, per
+     * ogni testimone. */
+    for (witness_choice = 0; !proved && witness_choice < witness_options; witness_choice++) {
+        exhausted = 0;
+        rounds_before_split = 2 * MAX_ROUNDS;
+        proved = abstract_claim(hypothesis, first_pass < hypotheses ? first_pass : hypotheses, claim);
+        rounds_before_split = MAX_ROUNDS;
+    }
+    witness_choice = 0;
     return proved;
 }
 
@@ -30923,6 +31770,7 @@ static Verdict prove_abstract(const char *formula) {
     const char *before_axioms = syntax_error;
     axioms_prepare();
     if (syntax_error != before_axioms) { axiom_count = 0; syntax_error = before_axioms; }
+    bijection_prepare(root);
     int given = hypotheses;
     for (int i = 0; i < axiom_count && hypotheses < MAX_KNOWN / 8; i++) hypothesis[hypotheses++] = axioms[i];
     cert_axioms();
@@ -36833,10 +37681,11 @@ static Verdict prove_integral(const char *formula) {
  *
  * Il punto d'ingresso unico: sceglie il metodo guardando la notazione.
  *
- * Due notazioni vengono guardate subito, dopo il segno di integrale, perché
- * nessun metodo le tratta e il verdetto deve dirlo con il suo motivo: il numero di
- * elementi di un insieme, |S|, e l'equipotenza, A \sim B
- * (uses_cardinality()). Poi un enunciato che dichiara una relazione o
+ * Una notazione viene guardata subito, dopo il segno di integrale, perché
+ * nessun metodo la tratta e il verdetto deve dirlo con il suo motivo: il
+ * numero di elementi di un insieme, |S| (uses_cardinality()). Poi
+ * l'equipotenza, A \sim B, che va al capitolo 28 (17w, 28q), tranne che con un
+ * insieme di numeri (uses_equipotence()). Poi un enunciato che dichiara una relazione o
  * un'applicazione tra le parti di un insieme, con \mathcal{P}(S)^{2} o
  * \colon \mathcal{P}(S), va allo svolgimento di 17r e da lì al capitolo 15
  * (uses_parts_relations()); uno che scrive un insieme con una regola,
@@ -36927,13 +37776,13 @@ static int uses_elements(const char *formula) {
     return found;
 }
 
-/* Ritorna 1 se formula parla del numero di elementi di un insieme, |S|, o
- * dell'equipotenza di due insiemi, A \sim B. Nessun lettore conosce queste
- * notazioni, e nessuna regola le saprebbe decidere: |\mathcal{P}(S)| = 2^n,
- * "un insieme infinito ha una parte numerabile" chiedono di costruire delle
- * biiezioni, o di contare per induzione sul numero degli elementi. Il
- * verdetto deve dirlo, invece di riportare il simbolo su cui un lettore si
- * è fermato.
+/* Ritorna 1 se formula parla del numero di elementi di un insieme, |S|.
+ * Nessun lettore conosce questa notazione, e nessuna regola la saprebbe
+ * decidere: |\mathcal{P}(S)| = 2^n chiede di contare per induzione sul numero
+ * degli elementi, e "un insieme infinito ha una parte numerabile" l'assioma
+ * della scelta. Il verdetto deve dirlo, invece di riportare il simbolo su
+ * cui un lettore si è fermato. L'equipotenza da sola, A \sim B, va al
+ * capitolo 28 (17w, 28q).
  *
  * Una sbarra verticale è un numero di elementi quando la segue ciò che
  * indica un insieme: una graffa \{, \mathcal o \bigcup, e, se letters è 1,
@@ -36949,12 +37798,22 @@ static int uses_cardinality(const char *formula, int letters) {
     cursor = formula;
     for (next_token(); token.kind != T_END && !found; ) {
         int bar = is_char('|') || token.kind == T_ABS_OPEN;
-        found = is_command("sim");
         next_token();
-        if (!bar || found) continue;
+        if (!bar) continue;
         if (is_char(ESCAPED + '{') || is_command("mathcal") || is_command("bigcup") || is_command("bigcap")) found = 1;
         else if (letters && token.kind == T_LETTER && isupper(token.ch)) { next_token(); found = !is_char('_'); }
     }
+    syntax_error = NULL;
+    return found;
+}
+
+/* 17w. Ritorna 1 se formula scrive un'equipotenza, A \sim B. Usa il lettore
+ * di token del parser, e lascia il suo stato da reimpostare. */
+static int uses_equipotence(const char *formula) {
+    int found = 0;
+    syntax_error = NULL;
+    cursor = formula;
+    for (next_token(); token.kind != T_END && !found; next_token()) found = is_command("sim");
     syntax_error = NULL;
     return found;
 }
@@ -37008,11 +37867,23 @@ static Verdict prove(const char *formula, int variable, int has_base, long long 
     /* \int in testa: un integrale (capitolo 30), qualunque cosa segua. */
     if (starts_with_integral(formula)) return prove_integral(formula);
 
-    /* Il numero di elementi di un insieme, o l'equipotenza: nessun metodo
-     * del programma li tratta, e il verdetto lo dice (uses_cardinality()). */
+    /* Il numero di elementi di un insieme: nessun metodo del programma lo
+     * tratta, e il verdetto lo dice (uses_cardinality()). L'equipotenza sì,
+     * tra insiemi qualsiasi (17w, 28q); tra insiemi di numeri no. */
     if (uses_cardinality(formula, !strstr(formula, "\\mathbb")))
-        return (Verdict){UNSUPPORTED, variable, 0, 0, "il numero di elementi di un insieme, |S|, e l'equipotenza, A \\sim B, non sono trattati: "
-                         "deciderli chiede di costruire delle biiezioni, o di contare per induzione sul numero degli elementi", NULL, NULL, NULL, NULL, NULL};
+        return (Verdict){UNSUPPORTED, variable, 0, 0, "il numero di elementi di un insieme, |S|, non è trattato: contare chiede l'induzione sul numero "
+                         "degli elementi, che il capitolo 28 non fa, e dire infinito un insieme chiede, per le sue parti numerabili, l'assioma della scelta",
+                         NULL, NULL, NULL, NULL, NULL};
+    if (uses_equipotence(formula)) {
+        if (strstr(formula, "\\mathbb"))
+            return (Verdict){UNSUPPORTED, variable, 0, 0, "l'equipotenza è trattata solo tra insiemi qualsiasi, non con un insieme di numeri", NULL, NULL, NULL, NULL, NULL};
+        /* Un esponente che il lettore non sa leggere, S^{T \cup V}, è il
+         * motivo vero anche quando il lettore si ferma prima. */
+        int bad_exponent = equipotence_bad_exponent(formula);
+        Verdict verdict = prove_abstract(formula);
+        if (verdict.outcome == UNSUPPORTED && bad_exponent) verdict.reason = equipotence_exponent_reason;
+        return verdict;
+    }
     if (strstr(formula, "\\mathbb")) return prove_quantified(formula);
 
     /* Il segno di derivata in testa: l'enunciato è del capitolo 27, anche

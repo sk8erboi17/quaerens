@@ -5355,6 +5355,7 @@ static void pair_sets_check(void) {
  *                  | name \subseteq Set [ \times Set ]           (parte, relazione)
  *                  | lettera \in Set                             (un elemento con un nome)
  *                  | Set \neq \emptyset
+ *                  | lato \sim lato                              (17w)
  *                  | side ('=' | \neq) side
  *                  | side (\in | \notin) name
  *                  | '(' formula ')'
@@ -5365,9 +5366,9 @@ static void pair_sets_check(void) {
  *     name        := (lettera | lettera greca) [ '_' cifra ]
  *
  * Set è una lettera maiuscola che non è stata dichiarata come parte o come
- * relazione: un insieme qualsiasi, di cui non si sa nulla, nemmeno se è
- * vuoto. Le convenzioni di lettura, che sono tutto ciò che questo paragrafo
- * decide:
+ * relazione, anche con una cifra per pedice, S_{1} (17w): un insieme
+ * qualsiasi, di cui non si sa nulla, nemmeno se è vuoto. Le convenzioni di
+ * lettura, che sono tutto ciò che questo paragrafo decide:
  *
  *   - Le dichiarazioni stanno tra le ipotesi, in cima: l'enunciato è
  *     "dichiarazioni e ipotesi implicano tesi", e vale per ogni insieme e
@@ -5441,10 +5442,11 @@ typedef struct {
 } Symbol;
 
 /* I simboli dell'enunciato in corso, e i suoi insiemi: l'insieme di posto i
- * è la lettera sort_name[i]. */
+ * è la lettera sort_name[i], con il pedice sort_sub[i] (17w: S_{1}, da 1 a
+ * 9; 0 se non c'è). */
 static Symbol symbols[MAX_SYMBOLS];
 static int symbol_count;
-static int sort_name[MAX_SORTS];
+static int sort_name[MAX_SORTS], sort_sub[MAX_SORTS];
 static int sort_count;
 
 /* 17v. LE PARTI, LE APPLICAZIONI E GLI ORDINI COME OGGETTI
@@ -5563,8 +5565,10 @@ struct Elem {
  * in model_holds(), in known_open(), in truth(), in put_sentence() e in
  * cert_sentence(), e la sua parola al lettore del verificatore (capitolo 11
  * di checker.c); e il suo caso in unfold_sentence() (17q) e in book_holds()
- * (28h). Un tipo da S_MEMBER in poi è invece della notazione dei libri
- * (17p): va in unfold_sentence(), che lo traduce nei primi, e in
+ * (28h). Un tipo senza componenti a e b, come S_EQUIPOTENT (17w), va anche
+ * tra quelli che sentence_ground(), instance_rewrite() e instance_survey()
+ * non attraversano. Un tipo da S_MEMBER in poi è invece della notazione dei
+ * libri (17p): va in unfold_sentence(), che lo traduce nei primi, e in
  * book_holds(), e il capitolo 28 non lo vede mai. */
 typedef enum {
     S_TRUE,                         /* una dichiarazione: non afferma nulla */
@@ -5577,6 +5581,8 @@ typedef enum {
                                        variabile di posto slot: a */
     S_FORALL_PART, S_EXISTS_PART,   /* 17u: per ogni / esiste una parte, il
                                        simbolo legato part: a */
+    S_EQUIPOTENT,                   /* 17w: i due lati, prodotti di insiemi
+                                       (side_slot[]), sono equipotenti */
     S_MEMBER,                       /* 17p: gli elementi item[] stanno
                                        nell'insieme set */
     S_INCLUDED,                     /* 17p: set è contenuto in other, e se
@@ -5609,6 +5615,12 @@ struct Sentence {
                                     \subsetneq */
     int part;                    /* S_FORALL_PART, S_EXISTS_PART (17u): la
                                     parte legata, un posto in symbols[] */
+    int side_slot[2][2];         /* S_EQUIPOTENT (17w): per ogni lato, una
+                                    variabile per componente, nel suo insieme
+                                    (slot_sort[]): le usano le identità di due
+                                    applicazioni inverse (28q) */
+    int sides[2];                /* S_EQUIPOTENT: le componenti di ogni lato,
+                                    1 o 2 */
 };
 
 /* Le variabili quantificate dell'enunciato in corso. Ogni quantificatore ha
@@ -5678,7 +5690,7 @@ static int pair_find(int letter) {
  * simbolo, da un insieme o da una variabile in vista, è un errore. */
 static void symbol_add(Symbol symbol) {
     int taken = symbol_find(symbol.name, symbol.index) >= 0 || visible_find(symbol.name, symbol.index) >= 0;
-    for (int i = 0; i < sort_count; i++) taken = taken || (!symbol.index && sort_name[i] == symbol.name);
+    for (int i = 0; i < sort_count; i++) taken = taken || (sort_sub[i] == symbol.index && sort_name[i] == symbol.name);
     if (taken) syntax("la stessa lettera ha due significati nello stesso enunciato");
     else if (symbol_count == MAX_SYMBOLS) syntax("troppi simboli dichiarati in un enunciato");
     else symbols[symbol_count++] = symbol;
@@ -5776,29 +5788,34 @@ static const Definition *definition_find(int name, int index, int starred) {
     return NULL;
 }
 
-/* Ritorna il posto in sort_name[] dell'insieme di lettera letter,
- * registrandolo se è nuovo. Una lettera che non può indicare un insieme è un
- * errore: una minuscola, o il nome di una parte, di una relazione o di un
- * insieme definito (17p). */
-static int sort_index(int letter) {
-    if (letter >= 128 || !isupper(letter) || symbol_find(letter, 0) >= 0 || definition_find(letter, 0, 0)) {
+/* Ritorna il posto in sort_name[] dell'insieme di lettera letter e pedice
+ * sub (17w: da 1 a 9, o 0 se non c'è), registrandolo se è nuovo. Una
+ * lettera che non può indicare un insieme è un errore: una minuscola, o il
+ * nome di una parte, di una relazione o di un insieme definito (17p). */
+static int sort_index_sub(int letter, int sub) {
+    if (letter >= 128 || !isupper(letter) || symbol_find(letter, sub) >= 0 || definition_find(letter, sub, 0)) {
         syntax("serve un insieme: una lettera maiuscola che non sia stata dichiarata come parte o come relazione");
         return 0;
     }
     for (int i = 0; i < sort_count; i++)
-        if (sort_name[i] == letter) return i;
-    if (sort_count == MAX_SORTS) { syntax("troppi insiemi distinti in un enunciato: al massimo 4"); return 0; }
+        if (sort_kind[i] == SORT_PLAIN && sort_name[i] == letter && sort_sub[i] == sub) return i;
+    if (sort_count == MAX_SORTS) { syntax("troppi insiemi distinti in un enunciato: al massimo 6, contando anche gli insiemi di parti e di applicazioni"); return 0; }
     sort_name[sort_count] = letter;
+    sort_sub[sort_count] = sub;
     sort_kind[sort_count] = SORT_PLAIN;
     sort_base[sort_count] = sort_target[sort_count] = sort_symbol[sort_count] = -1;
     return sort_count++;
 }
 
-/* 17v. Ritorna il posto dell'insieme qualsiasi di lettera letter, o -1 se
- * l'enunciato non l'ha ancora nominato. Non registra nulla. */
+/* Come sort_index_sub(), per una lettera senza pedice. */
+static int sort_index(int letter) { return sort_index_sub(letter, 0); }
+
+/* 17v. Ritorna il posto dell'insieme qualsiasi di lettera letter, senza
+ * pedice, o -1 se l'enunciato non l'ha ancora nominato. Non registra
+ * nulla. */
 static int sort_index_find(int letter) {
     for (int i = 0; i < sort_count; i++)
-        if (sort_kind[i] == SORT_PLAIN && sort_name[i] == letter) return i;
+        if (sort_kind[i] == SORT_PLAIN && sort_name[i] == letter && !sort_sub[i]) return i;
     return -1;
 }
 
@@ -5823,9 +5840,9 @@ static int sort_derived_find(SortKind kind, int base, int target) {
 static int sort_derived(SortKind kind, int base, int target) {
     int found = sort_derived_find(kind, base, target);
     if (found >= 0) return found;
-    if (sort_count == MAX_SORTS) { syntax("troppi insiemi distinti in un enunciato: al massimo 4, contando anche gli insiemi di parti e di applicazioni"); return 0; }
+    if (sort_count == MAX_SORTS) { syntax("troppi insiemi distinti in un enunciato: al massimo 6, contando anche gli insiemi di parti e di applicazioni"); return 0; }
     int i = sort_count++;
-    sort_name[i] = 0;
+    sort_name[i] = sort_sub[i] = 0;
     sort_kind[i] = kind;
     sort_base[i] = base;
     sort_target[i] = target;
@@ -5845,10 +5862,11 @@ static int symbol_structure(int symbol) {
 
 static int abstract_power_sort(void);
 
-/* Set: legge la lettera di un insieme qualsiasi e la supera. Ritorna il suo
- * posto in sort_name[]. Anche \mathcal{P}(Set), l'insieme delle parti preso
- * come insieme di oggetti (17v): il codominio di un'applicazione a valori
- * parti, l'insieme di una famiglia di parti, una componente di un prodotto.
+/* Set: legge la lettera di un insieme qualsiasi, con il suo pedice se c'è
+ * (17w: S_{1}, una cifra da 1 a 9), e la supera. Ritorna il suo posto in
+ * sort_name[]. Anche \mathcal{P}(Set), l'insieme delle parti preso come
+ * insieme di oggetti (17v): il codominio di un'applicazione a valori parti,
+ * l'insieme di una famiglia di parti, una componente di un prodotto.
  *
  * Un nome tra graffe, {\le}, che i libri usano per una relazione scritta
  * tra gli elementi, qui non è un insieme: ha un motivo a sé, perché il
@@ -5857,9 +5875,17 @@ static int abstract_sort(void) {
     if (is_command("mathcal")) return sort_derived(SORT_PARTS, abstract_power_sort(), -1);
     if (is_char('{'))
         syntax("una relazione con un nome tra graffe, {\\le}, scritta tra gli elementi come x \\le y, non è trattata: si scrive (x, y) \\in R");
-    int letter = token.kind == T_LETTER ? token.ch : 0;
+    int letter = token.kind == T_LETTER ? token.ch : 0, sub = 0;
     if (letter) next_token();
-    return sort_index(letter);
+    if (letter && is_char('_')) {
+        next_token();
+        int braces = is_char('{');
+        if (braces) next_token();
+        if (token.kind == T_NUM && token.value >= 1 && token.value <= 9) { sub = (int)token.value; next_token(); }
+        else syntax("come pedice di un insieme è riconosciuta una cifra da 1 a 9");
+        if (braces) expect_char('}', "manca }");
+    }
+    return sort_index_sub(letter, sub);
 }
 
 /* Ritorna un nuovo elemento: il simbolo symbol applicato ad a e b, oppure,
@@ -5989,9 +6015,9 @@ static int numeral_symbol(long long value) {
     for (int i = 0; i < sort_count && sort < 0; i++)
         if (sort_kind[i] == SORT_NUMBERS) sort = i;
     if (sort < 0) {
-        if (sort_count == MAX_SORTS) { syntax("troppi insiemi distinti in un enunciato: al massimo 4"); return 0; }
+        if (sort_count == MAX_SORTS) { syntax("troppi insiemi distinti in un enunciato: al massimo 6, contando anche gli insiemi di parti e di applicazioni"); return 0; }
         sort = sort_count++;
-        sort_name[sort] = 0;
+        sort_name[sort] = sort_sub[sort] = 0;
         sort_kind[sort] = SORT_NUMBERS;
         sort_base[sort] = sort_target[sort] = sort_symbol[sort] = -1;
     }
@@ -6025,7 +6051,7 @@ static Elem *abstract_factor(void) {
     /* 17v. Una lettera nuova nella condizione di \{E \mid C\}. */
     if (slot < 0 && symbol < 0 && replace_frame && name < 128 && name && !definition_find(name, index, 0)) {
         int fresh = 1;
-        for (int i = 0; i < sort_count; i++) fresh = fresh && (index || sort_name[i] != name);
+        for (int i = 0; i < sort_count; i++) fresh = fresh && (index != sort_sub[i] || sort_name[i] != name);
         if (fresh && replace_frame->slots < MAX_ARITY) {
             slot = slot_new(name, index, -1);
             if (slot >= 0) {
@@ -7378,7 +7404,7 @@ static Sentence *abstract_declaration(const char *start) {
      * da R. */
     int fresh = symbol.name && !definition_find(symbol.name, symbol.index, starred) &&
                 (starred || (symbol_find(symbol.name, symbol.index) < 0 && visible_find(symbol.name, symbol.index) < 0));
-    for (int i = 0; i < sort_count && fresh && !starred; i++) fresh = symbol.index || sort_name[i] != symbol.name;
+    for (int i = 0; i < sort_count && fresh && !starred; i++) fresh = symbol.index != sort_sub[i] || sort_name[i] != symbol.name;
 
     /* 17p. X_{i} \subseteq S, sotto \forall i \in I: una famiglia di parti di
      * S, che per il capitolo 28 è una relazione tra S e I. */
@@ -7460,13 +7486,23 @@ static Sentence *abstract_declaration(const char *start) {
      * z = z, sempre vera. Così il motore non ha un caso in più: ne ricava
      * un elemento come da ogni altro "esiste". */
     int plain = symbol.name && !operation && !symbol.index && symbol.name < 128;
-    if (plain && isupper(symbol.name) && (is_command("neq") || is_command("ne"))) {
+
+    /* 17w. Anche S_{1} \neq \emptyset, con una cifra per pedice: un insieme
+     * con un pedice, se il nome non vuol dire ancora nulla o è già quello di
+     * un insieme, oppure una parte dichiarata con quel nome. */
+    int subscripted = 0;
+    if (symbol.name && !operation && symbol.name < 128 && isupper(symbol.name) && symbol.index >= 1 && symbol.index <= 9) {
+        int known = symbol_find(symbol.name, symbol.index);
+        subscripted = fresh || (known >= 0 && symbols[known].range == TRUTH && symbols[known].arity == 1);
+        for (int i = 0; i < sort_count; i++) subscripted = subscripted || (sort_kind[i] == SORT_PLAIN && sort_name[i] == symbol.name && sort_sub[i] == symbol.index);
+    }
+    if ((plain || subscripted) && isupper(symbol.name) && (is_command("neq") || is_command("ne"))) {
         next_token();
         if (is_command("emptyset") || is_command("varnothing")) {
             next_token();
-            int part = symbol_find(symbol.name, 0);
+            int part = symbol_find(symbol.name, symbol.index);
             if (part >= 0 && (symbols[part].range != TRUTH || symbols[part].arity != 1)) part = -1;
-            int sort = part >= 0 ? symbols[part].domain[0] : sort_index(symbol.name);
+            int sort = part >= 0 ? symbols[part].domain[0] : sort_index_sub(symbol.name, symbol.index);
             int slot = slot_new(tolower(symbol.name), 0, sort);
             if (slot < 0) return sentence_new(S_TRUE, NULL, NULL, start);
             Elem *some = elem_new(-1, slot, NULL, NULL);
@@ -7747,6 +7783,149 @@ static Sentence *abstract_unique(const char *start) {
     return unique;
 }
 
+/* 17w. L'EQUIPOTENZA
+ *
+ * (Sta qui, prima di abstract_unary() che la legge; la lettera è venuta dopo
+ * le altre.)
+ *
+ * A \sim B, "A e B sono equipotenti", vuol dire che c'è una biiezione da A a
+ * B. È una definizione, e il programma la usa solo come tale: non conosce il
+ * numero degli elementi di un insieme, e non ricava un'equipotenza da altre
+ * con regole sulle cardinalità, che sarebbero proprio i teoremi da
+ * dimostrare. Il lettore ne fa un nodo S_EQUIPOTENT, e il capitolo 28 lo usa
+ * come un "esiste" su due applicazioni, una l'inversa dell'altra (28q di
+ * main.c): da un'ipotesi A \sim B nascono una biiezione con un nome e la sua
+ * inversa; una tesi A \sim B si dimostra costruendone una.
+ *
+ * I lati sono insiemi di cui il capitolo 28 conosce gli elementi:
+ *
+ *     lato    := fattore [ \times fattore ]
+ *     fattore := base [ '^' ( '{' fattore '}' | Set ) ]
+ *     base    := Set | '(' fattore ')'
+ *
+ * con Set una lettera, anche con una cifra per pedice (S_{1}), o
+ * \mathcal{P}(Set). T^{S} è l'insieme delle applicazioni da S a T, e
+ * (S^{T})^{V} quello delle applicazioni da V a S^{T}: insiemi di oggetti
+ * come in 17v. Un prodotto S \times T non è un insieme dell'enunciato: i
+ * suoi elementi sono coppie, cioè due variabili (17p), e un'applicazione da
+ * un prodotto è un'applicazione di due argomenti. Per questo un lato ha al
+ * più due componenti, e un esponente non può essere un prodotto né
+ * un'unione, S^{T \times V} o S^{T \cup V}: le applicazioni di due argomenti,
+ * o da un'unione, non sono elementi di un insieme del capitolo 28, e il
+ * lettore lo dice.
+ *
+ * Il nodo porta, per ogni lato, una variabile nuova per componente: sono le
+ * variabili con cui il capitolo 28 scrive che due applicazioni sono una
+ * l'inversa dell'altra (28q). Le prende da qui perché siano le stesse in
+ * ogni ramo della ricerca: crearle lì consumerebbe un posto di slot_sort[]
+ * a ogni tentativo. */
+
+/* 17w. Ritorna 1 se tra il token corrente e la fine della condizione che vi
+ * comincia (un connettivo o una parentesi chiusa fuori dalle parentesi
+ * aperte nel frattempo, o la fine del testo) c'è un \sim, anche lui fuori
+ * da quelle parentesi. Non legge nulla. */
+static int equipotence_ahead(void) {
+    static const char *const ends[] = {"land", "wedge", "lor", "vee", "implies", "Rightarrow", "Longrightarrow",
+                                       "iff", "Leftrightarrow", "Longleftrightarrow"};
+    ParserState before = parser_save();
+    int depth = 0, found = 0;
+    for (int end = 0; token.kind != T_END && !found && !end; next_token()) {
+        if (token.kind == T_OPEN || is_char('{')) { depth++; continue; }
+        if (token.kind == T_CLOSE || is_char('}')) { end = --depth < 0; continue; }
+        for (size_t i = 0; i < sizeof ends / sizeof *ends && !depth; i++) end = end || is_command(ends[i]);
+        found = !depth && !end && is_command("sim");
+    }
+    parser_restore(before);
+    return found;
+}
+
+static int equipotence_factor(void);
+
+/* 17w. Il motivo per un esponente che è un prodotto o un'unione. Lo usa
+ * anche prove() (capitolo 20) quando il lettore si ferma prima, su
+ * un'ipotesi che non sa leggere, come T \cap V = \emptyset tra i due insiemi
+ * dell'unione. */
+static const char *const equipotence_exponent_reason =
+    "le applicazioni da un prodotto o da un'unione, S^{T \\times V} o S^{T \\cup V}, non sono un insieme di oggetti del capitolo 28: "
+    "un'applicazione di due argomenti, o definita su un'unione di due insiemi, non è elemento di un insieme dell'enunciato";
+
+/* 17w. Ritorna 1 se formula ha un esponente tra graffe con dentro \times o
+ * \cup, come S^{T \cup V}. Usa il lettore di token, e lascia il suo stato da
+ * reimpostare. */
+static int equipotence_bad_exponent(const char *formula) {
+    int found = 0, depth = 0, inside = 0;
+    syntax_error = NULL;
+    cursor = formula;
+    for (next_token(); token.kind != T_END && !found; next_token()) {
+        if (is_char('^')) { next_token(); if (is_char('{')) { inside = 1; depth = 1; } continue; }
+        if (!inside) continue;
+        if (is_char('{')) depth++;
+        if (is_char('}') && --depth == 0) inside = 0;
+        found = is_command("times") || is_command("cup");
+    }
+    syntax_error = NULL;
+    return found;
+}
+
+/* 17w. base := Set | '(' fattore ')': ritorna il posto dell'insieme. */
+static int equipotence_base(void) {
+    if (token.kind != T_OPEN) return abstract_sort();
+    next_token();
+    int sort = equipotence_factor();
+    if (token.kind == T_CLOSE) next_token(); else syntax("manca la parentesi chiusa");
+    return sort;
+}
+
+/* 17w. fattore := base [ '^' ( '{' fattore '}' | Set ) ]: con l'apice è
+ * l'insieme delle applicazioni dall'esponente alla base (17v). Ritorna il
+ * posto dell'insieme. */
+static int equipotence_factor(void) {
+    int target = equipotence_base();
+    if (!is_char('^') || syntax_error) return target;
+    next_token();
+    int braces = is_char('{');
+    if (braces) next_token();
+    int base = braces ? equipotence_factor() : abstract_sort();
+    if (braces && (is_command("times") || is_command("cup"))) {
+        syntax(equipotence_exponent_reason);
+        return target;
+    }
+    if (braces) expect_char('}', "manca }");
+    return syntax_error ? target : sort_derived(SORT_MAPS, base, target);
+}
+
+/* 17w. lato := fattore [ \times fattore ]: mette in sort[] gli insiemi delle
+ * componenti e ritorna quante sono. */
+static int equipotence_side(int *sort) {
+    sort[0] = equipotence_factor();
+    if (!is_command("times")) return 1;
+    next_token();
+    sort[1] = equipotence_factor();
+    if (is_command("times")) syntax("un lato di un'equipotenza è un insieme o il prodotto di due: un prodotto di tre insiemi non è trattato");
+    return 2;
+}
+
+/* 17w. Prova a leggere "lato \sim lato" (vedi la testa del paragrafo).
+ * Ritorna NULL, senza leggere nulla, se la condizione che comincia qui non
+ * ha un \sim; altrimenti il nodo, e gli errori sono annotati con syntax(). */
+static Sentence *abstract_equipotence(const char *start) {
+    if (!equipotence_ahead()) return NULL;
+    Sentence *s = sentence_new(S_EQUIPOTENT, NULL, NULL, start);
+    int sort[2][2] = {{0, 0}, {0, 0}};
+    s->sides[0] = equipotence_side(sort[0]);
+    if (!is_command("sim") && !syntax_error) syntax("in A \\sim B, ognuno dei due lati è un insieme o il prodotto di due insiemi");
+    if (syntax_error) return s;
+    next_token();
+    s->sides[1] = equipotence_side(sort[1]);
+    for (int k = 0; k < 2 && !syntax_error; k++)
+        for (int i = 0; i < s->sides[k]; i++) {
+            int index, letter = fresh_name(&index), slot = slot_new(letter, index, sort[k][i]);
+            s->side_slot[k][i] = slot < 0 ? 0 : slot;
+        }
+    s->end = consumed;
+    return s;
+}
+
 /* unary: vedi la grammatica in testa al paragrafo, e in 17p. */
 static Sentence *abstract_unary(void) {
     const char *start = token.start;
@@ -7778,6 +7957,10 @@ static Sentence *abstract_unary(void) {
     }
     parser_restore(braced);
     consumed = braced_consumed;
+
+    /* 17w. A \sim B. */
+    Sentence *equipotent = abstract_equipotence(start);
+    if (equipotent) return equipotent;
     Sentence *declared = abstract_declaration(start);
     if (declared) return declared;
 
@@ -8371,6 +8554,13 @@ static Sentence *unfold_sentence(const Sentence *s) {
          * la confondono con altre (vedi model_part_quantifier(), 28i). */
         copy = unfold_node(s->kind, unfold_sentence(s->a), NULL, s);
         copy->part = s->part;
+        return copy;
+    case S_EQUIPOTENT:
+        /* 17w. Non ha variabili libere: resta com'è, con le sue variabili
+         * anche dentro una copia, perché le lega solo il capitolo 28. */
+        copy = unfold_node(S_EQUIPOTENT, NULL, NULL, s);
+        memcpy(copy->side_slot, s->side_slot, sizeof copy->side_slot);
+        memcpy(copy->sides, s->sides, sizeof copy->sides);
         return copy;
     case S_UNIQUE: {
         /* \exists y\ (P \land \forall z\ (P[z / y] \implies z = y)): la

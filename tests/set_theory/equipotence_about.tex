@@ -1,0 +1,31 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{equipotence.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{equipotence.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_set\_theory.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 19 true statements about equipotence, $A \sim B$ (paragraph 17w of \texttt{parser.c}, 28q of \texttt{main.c}): reflexivity, symmetry and transitivity, the sets of parts and of maps of equipotent sets, products with the components exchanged, a hypothesis and a thesis negated, a disjunction of equipotences, and a step on maps inside a product (item 19), whose identities the proof needs halfway, with extensionality. They are variants of items 1 to 4 of \texttt{infinite\_sets.tex}, not copies. The engine proves each by building a bijection with the grammar of 28q (an identity, a named bijection or its inverse, a composition, the image $X \mapsto \beta(X)$ of parts, $f \mapsto \beta \circ f \circ \alpha^{-1}$ on maps, a product with or without the swap), giving every new map its definition, and proving by contradiction that the two maps built are inverse to each other.
+
+\item \textbf{What is being tested.} That every statement is proved by chapter 28 with a written proof whose steps pass their independent check, including the definitions of the maps (28q) and the bijections named from a hypothesis; and that each verdict carries a certificate that \texttt{checker.c} accepts (11j: the entries \texttt{witness} and \texttt{instance} on an equipotence, and \texttt{define}), while the same certificate without its \texttt{instance} and \texttt{witness} entries is not accepted. No step uses the number of elements of a set: the proofs hold for infinite sets and for empty ones, and the checker controls the empty ones by itself (11f).
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_set_theory \
+    tests/set_theory/test_set_theory.c && /tmp/test_set_theory
+\end{verbatim}
+
+\item \textbf{Expected result.} One \texttt{PASS} line for the file, and two for its certificates.
+\end{enumerate}
+\end{document}

@@ -41,7 +41,19 @@
  *     dimostrerebbe che nessun elemento è uguale a sé, una comprensione che
  *     nomina la sua parte, una comprensione in un insieme che non è di
  *     parti), una tabella per l'appartenenza, che il verificatore calcola da
- *     sé, e la dimostrazione senza la comprensione che usa.
+ *     sé, e la dimostrazione senza la comprensione che usa;
+ *   - 11j, l'equipotenza: accettate le dimostrazioni con una biiezione con
+ *     un nome (witness), un testimone (instance) e le applicazioni definite
+ *     (define), e i modelli in cui si contano gli elementi; respinti un
+ *     testimone che non è una biiezione (la diagonale di S \times S), un ramo
+ *     dimenticato, nessun testimone, le applicazioni nell'ordine sbagliato o
+ *     con gli insiemi sbagliati, un nome già usato, e le definizioni di forma
+ *     sbagliata: che nominano sé stesse (una parte che non contiene il suo
+ *     valore, un punto fisso di un'applicazione che non ne ha, che
+ *     dimostrerebbero il falso), su un insieme sbagliato, con i due lati
+ *     scambiati o con un valore che non è un insieme; e la biiezione con un
+ *     nome tra un insieme con elementi e uno vuoto, che non esiste, e
+ *     farebbe passare "S non vuoto implica T non vuoto".
  *
  * I casi respinti e non controllabili sono antiregressione: non si tolgono
  * e non si indeboliscono per far passare una modifica al verificatore.
@@ -181,7 +193,123 @@ typedef struct {
     "statement (implies (and (exists s S (= s s)) (forall x S (forall a S (iff (inPS a (f x)) (not (= a x)))))) (forall y PS (exists x S (= (f x) y))))\n" \
     "table f 0\n" extra "end\n"
 
+/* 11j. S \times T \sim T \times S: le quattro applicazioni del testimone,
+ * definite con d1, e i due rami della dimostrazione, come li scrive il
+ * motore. SWAP(gamma2) ha per argomento il valore di \gamma_{2}(f, j). */
+#define SWAP_HEAD "certificate structure\nsort S\nsort T\nstatement (equipotent (S T) (T S))\ncase (not (equipotent (S T) (T S)))\n"
+#define SWAP_DEFINE(gamma2) "define gamma_1 S T T (forall f S (forall j T (= (gamma_1 f j) j)))\n" \
+    "define gamma_2 S T S (forall f S (forall j T (= (gamma_2 f j) " gamma2 ")))\n" \
+    "define delta_3 T S S (forall h T (forall g S (= (delta_3 h g) g)))\n" \
+    "define delta_4 T S T (forall h T (forall g S (= (delta_4 h g) h)))\n" \
+    "instance (equipotent (S T) (T S)) gamma_1 gamma_2 delta_3 delta_4\n"
+#define SWAP_RULES "instance (forall f S (forall j T (= (gamma_1 f j) j))) a_5 b_6\n" \
+    "instance (forall f S (forall j T (= (gamma_2 f j) f))) a_5 b_6\n" \
+    "instance (forall h T (forall g S (= (delta_3 h g) g))) (gamma_1 a_5 b_6) (gamma_2 a_5 b_6)\n" \
+    "instance (forall h T (forall g S (= (delta_4 h g) h))) (gamma_1 a_5 b_6) (gamma_2 a_5 b_6)\n"
+#define SWAP_FIRST "witness (forall a S (forall b T (and (= (delta_3 (gamma_1 a b) (gamma_2 a b)) a) (= (delta_4 (gamma_1 a b) (gamma_2 a b)) b)))) a_5\n" \
+    "witness (forall b T (and (= (delta_3 (gamma_1 a_5 b) (gamma_2 a_5 b)) a_5) (= (delta_4 (gamma_1 a_5 b) (gamma_2 a_5 b)) b))) b_6\n" SWAP_RULES
+#define SWAP_SECOND "witness (forall c T (forall d S (and (= (gamma_1 (delta_3 c d) (delta_4 c d)) c) (= (gamma_2 (delta_3 c d) (delta_4 c d)) d)))) c_7\n" \
+    "witness (forall d S (and (= (gamma_1 (delta_3 c_7 d) (delta_4 c_7 d)) c_7) (= (gamma_2 (delta_3 c_7 d) (delta_4 c_7 d)) d))) d_8\n" \
+    "instance (forall f S (forall j T (= (gamma_1 f j) j))) (delta_3 c_7 d_8) (delta_4 c_7 d_8)\n" \
+    "instance (forall f S (forall j T (= (gamma_2 f j) f))) (delta_3 c_7 d_8) (delta_4 c_7 d_8)\n" \
+    "instance (forall h T (forall g S (= (delta_3 h g) g))) c_7 d_8\ninstance (forall h T (forall g S (= (delta_4 h g) h))) c_7 d_8\n"
+
+/* 11j. S \sim T \implies \mathcal{P}(S) \sim \mathcal{P}(T): la biiezione
+ * dell'ipotesi con un nome, l'immagine delle parti definita con d2, e i due
+ * rami. PARTS_IMAGE(define, inverse) ha per argomenti la voce define di
+ * \gamma_{3}, che le alterazioni cambiano, e l'istanza dell'equipotenza. */
+#define IMAGE_RULE "(forall H PS (forall F T (iff (inPT F (gamma_3 H)) (inPS (psi_2 F) H))))"
+#define INVERSE_RULE "(forall K PT (forall C S (iff (inPS C (delta_4 K)) (inPT (varphi_1 C) K))))"
+#define PS_LAW "(forall f PS (forall g PS (implies (forall h S (iff (inPS h f) (inPS h g))) (= f g))))"
+#define PT_LAW "(forall j PT (forall k PT (implies (forall m T (iff (inPT m j) (inPT m k))) (= j k))))"
+#define PARTS_IMAGE(define, instance) "certificate structure\nsort S\nsort T\nsort PS parts S inPS\nsort PT parts T inPT\n" \
+    "statement (implies (equipotent S T) (equipotent PS PT))\naxiom " PS_LAW "\naxiom " PT_LAW "\n" \
+    "case (not (equipotent PS PT))\nwitness (equipotent S T) varphi_1 psi_2\n" define \
+    "define delta_4 PT PS " INVERSE_RULE "\n" instance \
+    "witness (forall c PS (= (delta_4 (gamma_3 c)) c)) c_5\ninstance " PS_LAW " (delta_4 (gamma_3 c_5)) c_5\n" \
+    "witness (forall h S (iff (inPS h (delta_4 (gamma_3 c_5))) (inPS h c_5))) h_6\ninstance (forall a S (= (psi_2 (varphi_1 a)) a)) h_6\n" \
+    "instance " INVERSE_RULE " (gamma_3 c_5) h_6\ninstance " IMAGE_RULE " c_5 (varphi_1 h_6)\n" \
+    "witness (forall d PT (= (gamma_3 (delta_4 d)) d)) d_8\ninstance " PT_LAW " (gamma_3 (delta_4 d_8)) d_8\n" \
+    "witness (forall m T (iff (inPT m (gamma_3 (delta_4 d_8))) (inPT m d_8))) m_9\ninstance (forall b T (= (varphi_1 (psi_2 b)) b)) m_9\n" \
+    "instance " IMAGE_RULE " (delta_4 d_8) m_9\ninstance " INVERSE_RULE " d_8 (psi_2 m_9)\nend\n"
+#define IMAGE_DEFINE "define gamma_3 PS PT " IMAGE_RULE "\n"
+#define IMAGE_INSTANCE "instance (equipotent PS PT) gamma_3 delta_4\n"
+
+/* 11j. Gli insiemi vuoti e le biiezioni con un nome. Con S non vuoto e T
+ * vuoto nessuna funzione va da S a T: il nome varphi_1 di una voce witness
+ * equipotent non indica nulla, e l'istanza su (varphi_1 s_1) va lasciata
+ * fuori. Se non lo fosse, "S non vuoto implica T non vuoto" passerebbe, con
+ * l'equipotenza tra le ipotesi solo per poterle dare un nome. */
+#define EMPTY_TRAP(hypothesis) "certificate structure\nsort S\nsort T\n" \
+    "statement (implies (and " hypothesis " (exists s S (= s s))) (exists t T (= t t)))\n" \
+    "case (not (implies (and " hypothesis " (exists s S (= s s))) (exists t T (= t t))))\n" \
+    "witness (exists s S (= s s)) s_1\nwitness (equipotent S T) varphi_1 psi_2\ninstance (exists t T (= t t)) (varphi_1 s_1)\nend\n"
+
 static const Case cases[] = {
+    /* 11j. L'equipotenza, le biiezioni con un nome, le applicazioni
+     * definite. */
+    {"equipotence: the swap of a product, with maps of two arguments", CK_ACCEPTED, "", SWAP_HEAD SWAP_DEFINE("f") SWAP_FIRST SWAP_SECOND "end\n"},
+    {"a witness that is not a bijection: the diagonal of S times S", CK_REJECTED, "non sono contraddittorie",
+     "certificate structure\nsort S\nstatement (equipotent (S S) (S S))\ncase (not (equipotent (S S) (S S)))\n"
+     "define gamma_1 S S S (forall f S (forall j S (= (gamma_1 f j) f)))\ndefine gamma_2 S S S (forall f S (forall j S (= (gamma_2 f j) f)))\n"
+     "define delta_3 S S S (forall h S (forall g S (= (delta_3 h g) h)))\ndefine delta_4 S S S (forall h S (forall g S (= (delta_4 h g) g)))\n"
+     "instance (equipotent (S S) (S S)) gamma_1 gamma_2 delta_3 delta_4\n"
+     "witness (forall a S (forall b S (and (= (delta_3 (gamma_1 a b) (gamma_2 a b)) a) (= (delta_4 (gamma_1 a b) (gamma_2 a b)) b)))) a_5\n"
+     "witness (forall b S (and (= (delta_3 (gamma_1 a_5 b) (gamma_2 a_5 b)) a_5) (= (delta_4 (gamma_1 a_5 b) (gamma_2 a_5 b)) b))) b_6\n"
+     "instance (forall f S (forall j S (= (gamma_1 f j) f))) a_5 b_6\ninstance (forall f S (forall j S (= (gamma_2 f j) f))) a_5 b_6\n"
+     "instance (forall h S (forall g S (= (delta_3 h g) h))) (gamma_1 a_5 b_6) (gamma_2 a_5 b_6)\n"
+     "instance (forall h S (forall g S (= (delta_4 h g) g))) (gamma_1 a_5 b_6) (gamma_2 a_5 b_6)\nend\n"},
+    {"the swap without the second branch", CK_REJECTED, "non sono contraddittorie", SWAP_HEAD SWAP_DEFINE("f") SWAP_FIRST "end\n"},
+    {"a definition that names itself in its value", CK_REJECTED, "forme ammesse", SWAP_HEAD SWAP_DEFINE("(gamma_2 f j)") SWAP_FIRST SWAP_SECOND "end\n"},
+    {"a definition with a value in the wrong set", CK_REJECTED, "insiemi diversi", SWAP_HEAD SWAP_DEFINE("j") SWAP_FIRST SWAP_SECOND "end\n"},
+    {"the maps of an equipotence instance in the wrong order", CK_REJECTED, "insiemi giusti",
+     SWAP_HEAD "define gamma_1 S T T (forall f S (forall j T (= (gamma_1 f j) j)))\ndefine gamma_2 S T S (forall f S (forall j T (= (gamma_2 f j) f)))\n"
+     "instance (equipotent (S T) (T S)) gamma_2 gamma_1 gamma_1 gamma_2\nend\n"},
+    {"an equipotence with no witness at all", CK_REJECTED, "non sono contraddittorie",
+     "certificate structure\nsort S\nsort T\nstatement (equipotent S T)\ncase (not (equipotent S T))\nend\n"},
+    {"equipotence: the image of parts by a named bijection", CK_ACCEPTED, "", PARTS_IMAGE(IMAGE_DEFINE, IMAGE_INSTANCE)},
+    {"the image of parts without the instance of the equipotence", CK_REJECTED, "non è comparsa", PARTS_IMAGE(IMAGE_DEFINE, "")},
+    {"the image of parts defined over the wrong set", CK_REJECTED, "un forall per ogni argomento",
+     PARTS_IMAGE("define gamma_3 PS PT (forall H PT (forall F T (iff (inPT F H) (inPT F H))))\n", IMAGE_INSTANCE)},
+    {"a definition of parts with its two sides exchanged", CK_REJECTED, "forme ammesse",
+     PARTS_IMAGE("define gamma_3 PS PT (forall H PS (forall F T (iff (inPS (psi_2 F) H) (inPT F (gamma_3 H)))))\n", IMAGE_INSTANCE)},
+    {"a definition of parts by its own membership", CK_REJECTED, "forme ammesse",
+     PARTS_IMAGE("define gamma_3 PS PT (forall H PS (forall F T (iff (inPT F (gamma_3 H)) (not (inPT F (gamma_3 H))))))\n", IMAGE_INSTANCE)},
+    {"a map to parts defined by not containing its own value would prove that no element equals itself", CK_REJECTED, "forme ammesse",
+     "certificate structure\nsort S\nsort PS parts S inPS\nstatement (forall s S (not (= s s)))\ncase (not (forall s S (not (= s s))))\n"
+     "witness (forall s S (not (= s s))) s_1\n"
+     "define gamma_1 S PS (forall x S (forall y S (iff (inPS y (gamma_1 x)) (not (inPS y (gamma_1 x))))))\n"
+     "instance (forall x S (forall y S (iff (inPS y (gamma_1 x)) (not (inPS y (gamma_1 x)))))) s_1 s_1\nend\n"},
+    {"a map defined as a fixed point of a map without fixed points", CK_REJECTED, "forme ammesse",
+     "certificate structure\nsort S\nsymbol f S S\nstatement (implies (forall x S (not (= (f x) x))) (forall s S (not (= s s))))\n"
+     "case (not (implies (forall x S (not (= (f x) x))) (forall s S (not (= s s)))))\nwitness (forall s S (not (= s s))) s_1\n"
+     "define delta_1 S S (forall x S (= (delta_1 x) (f (delta_1 x))))\n"
+     "instance (forall x S (= (delta_1 x) (f (delta_1 x)))) s_1\ninstance (forall x S (not (= (f x) x))) (delta_1 s_1)\nend\n"},
+    {"a definition with a value that is not a set", CK_REJECTED, "insiemi dichiarati",
+     PARTS_IMAGE("define gamma_3 PS bool (forall H PS (= H H))\n", IMAGE_INSTANCE)},
+    {"an equipotence instance with the maps swapped", CK_REJECTED, "insiemi giusti",
+     PARTS_IMAGE(IMAGE_DEFINE, "instance (equipotent PS PT) delta_4 gamma_3\n")},
+    {"a named bijection given an old name", CK_REJECTED, "non c'è ancora",
+     "certificate structure\nsort S\nsort T\nstatement (implies (equipotent S T) (equipotent T S))\ncase (not (equipotent T S))\n"
+     "witness (equipotent S T) varphi_1 varphi_1\nend\n"},
+    {"equipotence: the inverse of a named bijection", CK_ACCEPTED, "",
+     "certificate structure\nsort S\nsort T\nstatement (implies (equipotent S T) (equipotent T S))\ncase (not (equipotent T S))\n"
+     "witness (equipotent S T) varphi_1 psi_2\ninstance (equipotent T S) psi_2 varphi_1\n"
+     "witness (forall c T (= (varphi_1 (psi_2 c)) c)) c_3\ninstance (forall b T (= (varphi_1 (psi_2 b)) b)) c_3\n"
+     "witness (forall d S (= (psi_2 (varphi_1 d)) d)) d_4\ninstance (forall a S (= (psi_2 (varphi_1 a)) a)) d_4\nend\n"},
+    {"a named bijection used the wrong way round", CK_REJECTED, "insiemi giusti",
+     "certificate structure\nsort S\nsort T\nstatement (implies (equipotent S T) (equipotent T S))\ncase (not (equipotent T S))\n"
+     "witness (equipotent S T) varphi_1 psi_2\ninstance (equipotent T S) varphi_1 psi_2\nend\n"},
+    {"an instance of an equipotence that is not in the case", CK_REJECTED, "non è comparsa",
+     "certificate structure\nsort S\nsort T\nstatement (equipotent S S)\ncase (not (equipotent S S))\ninstance (equipotent S T) gamma_1 delta_2\nend\n"},
+    {"a bijection from a set with elements to an empty one names nothing", CK_REJECTED, "con vuoti: T",
+     EMPTY_TRAP("(or (equipotent S T) (not (equipotent S T)))")},
+    {"with the equipotence as a hypothesis the same entries prove it", CK_ACCEPTED, "", EMPTY_TRAP("(equipotent S T)")},
+    {"equipotence in a model: S times T against S times S", CK_ACCEPTED, "",
+     "certificate counterexample\nsort S 2\nsort T 1\nstatement (equipotent (S T) (S S))\nend\n"},
+    {"equipotence in a model with as many elements on both sides", CK_REJECTED, "non è un controesempio",
+     "certificate counterexample\nsort S 2\nsort T 2\nstatement (equipotent (S T) (S S))\nend\n"},
+
     /* 11h. Gli insiemi di parti e di applicazioni, e le loro leggi. */
     {"parts as objects: S minus a point is injective and misses S", CK_ACCEPTED, "",
      PARTS_HEAD PARTS_EXTENSIONAL PARTS_WHOLE PARTS_CASES},

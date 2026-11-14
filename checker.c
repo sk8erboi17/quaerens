@@ -157,7 +157,9 @@
  *     funzione per un'applicazione, un sottoinsieme per una parte o una
  *     relazione). Nei tre teoremi un quantificatore su parti dell'enunciato,
  *     forallpart o existspart (11g), vuol dire "per ogni" o "esiste" un
- *     sottoinsieme qualsiasi dell'insieme, vuoto e insieme intero compresi.
+ *     sottoinsieme qualsiasi dell'insieme, vuoto e insieme intero compresi;
+ *     e (equipotent A B) (11j) "c'è una biiezione da A a B", senza che una
+ *     voce usi l'assioma della scelta.
  *   - "certificate signs" (capitolo 12): con C la condizione nella variabile
  *     x, e un confronto che vale in x solo dove i suoi due membri sono
  *     definiti, "per ogni x in D vale C", "esiste x in D in cui C non vale",
@@ -249,6 +251,7 @@
 #define CK_MAX_FORMULAS 2048 /* condizioni supposte vere in un caso */
 #define CK_MAX_CASES 64      /* voci case di un certificato */
 #define CK_MAX_AXIOMS 32     /* voci axiom di un certificato (11h) */
+#define CK_MAX_PAIRS 32      /* voci witness di un'equipotenza in un caso (11j): una per bit di un unsigned */
 #define CK_MAX_SEARCH 200000 /* scelte parziali provate cercando un'assegnazione coerente, per certificato */
 #define CK_MAX_DEGREE 48     /* grado di un polinomio in una variabile, nel capitolo 12 */
 #define CK_MAX_FACTORS 128   /* voci factor di una tabella dei segni */
@@ -714,7 +717,7 @@ typedef enum {
     CK_EMPTY, CK_ONLYEMPTY, CK_POWER, CK_UNION, CK_INTER, CK_DIFF, CK_SYMDIFF, CK_TIMES,
     CK_EQ, CK_SUBSET, CK_NEQ, CK_AND, CK_OR, CK_IMPLIES, CK_IFF, CK_NOT,
     /* Enunciati su insiemi qualsiasi (capitolo 11). */
-    CK_TRUE, CK_FORALL, CK_EXISTS, CK_APP, CK_VAR, CK_ATOM, CK_FORALLPART, CK_EXISTSPART, CK_PARTVAR,
+    CK_TRUE, CK_FORALL, CK_EXISTS, CK_APP, CK_VAR, CK_ATOM, CK_FORALLPART, CK_EXISTSPART, CK_PARTVAR, CK_EQUIPOTENT,
     /* Tabelle dei segni (capitolo 12). */
     CK_LESS, CK_LESS_EQ, CK_ABS, CK_SQRT,
     /* Le funzioni di una variabile reale: derivate e primitive (capitolo 13)
@@ -747,6 +750,8 @@ typedef enum {
  *   EQ: a = b tra due termini; con b NULL, a è una parte o una relazione
  *       applicata, e la condizione è che valga.
  *   ATOM: value è una condizione elementare (11e), in uno scheletro.
+ *   EQUIPOTENT (11j): i due lati, ognuno un insieme o il prodotto di due,
+ *        scritti in value da ck_sides_code().
  * Nel capitolo 12:
  *   LESS, LESS_EQ: a < b, a <= b, come EQ e NEQ i due membri a e b.
  *   ABS, SQRT: il valore assoluto, la radice quadrata di a.
@@ -1999,6 +2004,7 @@ static void ck_check_sets(const CkNode *statement) {
  *                 | (not c) | (and c c) | (or c c) | (implies c c) | (iff c c)
  *                 | (forall x S c) | (exists x S c)
  *                 | (forallpart X S c) | (existspart X S c)
+ *                 | (equipotent A B)                               (11j)
  *
  * In una condizione, (nome termine...) è una parte o una relazione
  * applicata: "x sta in X", "(x, y) sta in R". Un nome è la variabile legata
@@ -2021,8 +2027,9 @@ static void ck_check_sets(const CkNode *statement) {
  *        cui l'enunciato è vero. TEOREMA: esistono degli insiemi, con il
  *        numero di elementi indicato, e dei simboli per cui vale.
  *   11c. "certificate structure", con le voci case, instance e witness
- *        (11d), e part (11g). TEOREMA: l'enunciato vale per ogni scelta
- *        degli insiemi, finiti o infiniti, anche vuoti, e dei simboli.
+ *        (11d), part (11g) e define (11j). TEOREMA: l'enunciato vale per
+ *        ogni scelta degli insiemi, finiti o infiniti, anche vuoti, e dei
+ *        simboli.
  *
  * Per 11a e 11b si calcola: con insiemi finiti un quantificatore prova ogni
  * elemento (uno su parti, ogni sottoinsieme), un simbolo si legge nella sua
@@ -2091,11 +2098,95 @@ static void ck_check_sets(const CkNode *statement) {
  * quei nomi, senza leggi in più: ciò che vi si dimostra vale a maggior
  * ragione.
  *
+ * 11j. L'EQUIPOTENZA E LE APPLICAZIONI DEFINITE
+ *
+ *     (equipotent A B)    A e B sono equipotenti; un lato è un insieme
+ *                         dichiarato, o il prodotto di due tra parentesi,
+ *                         (equipotent (S T) (T S))
+ *
+ * In un'interpretazione vuol dire che c'è una biiezione da A a B, o, che è
+ * lo stesso, che ci sono due funzioni \varphi da A a B e \psi da B ad A con
+ * \psi(\varphi(x)) = x per ogni x di A e \varphi(\psi(y)) = y per ogni y di B.
+ * Le due forme si equivalgono senza l'assioma della scelta: l'inversa di una
+ * biiezione dà a y l'unico x con \varphi(x) = y, una descrizione e non una
+ * scelta; e da \psi(\varphi(x)) = x segue l'iniettività, da \varphi(\psi(y)) =
+ * y la suriettività. Con un lato prodotto x è una coppia, e una funzione verso
+ * un prodotto sono le sue componenti, ognuna di due argomenti se parte da un
+ * prodotto. Le due identità, scritte con i simboli, sono la condizione D che
+ * costruisce ck_identities(): per ogni lato i "per ogni" sulle sue
+ * componenti, poi un'uguaglianza per componente,
+ *
+ *     (and (forall x S (= (psi (phi x)) x)) (forall y T (= (phi (psi y)) y)))
+ *
+ * per (equipotent S T), e componente per componente con i prodotti.
+ *
+ * Nei modelli (11a, 11b) l'equipotenza vale se i due lati hanno tanti
+ * elementi quanti: tra insiemi finiti c'è una biiezione se e solo se è così
+ * (numerati da 0 a n - 1 gli elementi dei due, l'i-esimo va nell'i-esimo; e
+ * una biiezione accoppia ogni elemento dell'uno con uno solo dell'altro). È un
+ * conto finito e completo, e vale solo nei modelli: nelle dimostrazioni il
+ * numero degli elementi non entra.
+ *
+ * Nelle dimostrazioni (11c) un'equipotenza è una condizione elementare, come
+ * quelle che cominciano con un quantificatore (11e), e ha tre voci:
+ *
+ *   witness (equipotent A B) p... q...   nomi nuovi: le componenti di
+ *                    \varphi, una per componente di B, ognuna una funzione da
+ *                    A, poi quelle di \psi; se ne trae "(equipotent A B)
+ *                    implica D". È 11d per un "esiste" su delle funzioni: se
+ *                    in M A e B sono equipotenti, ai nomi si danno una
+ *                    biiezione e la sua inversa; se no, funzioni qualsiasi, che
+ *                    ci sono quando A e B sono vuoti insieme o non vuoti
+ *                    insieme (sotto, per gli altri casi).
+ *   instance (equipotent A B) g... h...  simboli che ci sono già, con gli
+ *                    insiemi giusti: se ne trae "D implica (equipotent A B)",
+ *                    vero in ogni M per la definizione stessa.
+ *   define G A1 [A2] R C                 un nome nuovo G, una funzione da A1
+ *                    [per A2] a R, e la sua definizione C, da cui si trae C.
+ *                    C deve essere (forall x1 A1 [(forall x2 A2] S((G x1
+ *                    [x2])))) con S(v) una di queste forme, in cui G compare
+ *                    solo dove è scritto:
+ *
+ *       d1. (= v t)                        il valore è il termine t;
+ *       d2. (forall y C (iff (inR y v) c))  R è l'insieme delle parti di C, e
+ *                                          v la parte degli y per cui vale c;
+ *       d3. (forall y E S((apR v y)))       R è l'insieme delle funzioni da E,
+ *                                          e v quella con i valori dati da S.
+ *
+ * Perché una voce define non fa accettare il falso. Per induzione sulla
+ * forma, per ogni valore degli argomenti c'è in M uno e un solo oggetto v che
+ * rende vera S(v): per d1 il valore di t, che non dipende da G; per d2 la parte
+ * {y di C : c}, che è un elemento di R perché in un'interpretazione ammessa R
+ * ha tutte le parti di C (11h), e una sola perché due parti con gli stessi
+ * elementi sono la stessa; per d3 la funzione che a ogni y di E dà l'unico
+ * oggetto della forma interna, che è un elemento di R perché R ha tutte le
+ * funzioni da E, e una sola perché due funzioni con gli stessi valori sono la
+ * stessa. La funzione G che a ogni argomento dà quel v esiste dunque, come
+ * insieme di coppie (per separazione nel prodotto), senza nessuna scelta,
+ * perché il valore è unico; G non compariva prima, quindi dargli quel valore
+ * non cambia nulla di ciò che c'era, e C è vera in M. Se G comparisse dentro t
+ * o c non sarebbe una definizione: (= (G x) (f (G x))) non ha soluzioni se f
+ * non ha punti fissi, e (iff (inR y (G x)) (not (inR y (G x)))) mai.
+ *
+ * Gli insiemi vuoti (11f). Un lato è vuoto quando lo è una sua componente.
+ * Un'equipotenza vale falso se uno solo dei due lati è vuoto (nessuna
+ * funzione va da un insieme con elementi a uno vuoto), vero se lo sono tutti e
+ * due (le funzioni vuote). I nomi di una voce witness equipotent esistono
+ * quando i due lati sono vuoti insieme o non vuoti insieme: per gli altri Z le
+ * voci che li nominano, lei compresa, sono lasciate fuori, come quelle con un
+ * nome di un insieme vuoto, e lì l'equipotenza è falsa in ogni M. Senza
+ * questa regola "S non vuoto implica T non vuoto" passerebbe, con una
+ * biiezione da S a T vuoto a cui si dà un nome. Un nome di una voce define
+ * esiste quando esistono quelli della sua definizione, e ne prende le
+ * condizioni (CkSymbol.need e CkSymbol.pairs).
+ *
  * TEOREMA, con le voci sort di 11h: per 11c, l'enunciato vale in ogni
  * interpretazione ammessa, cioè con gli insiemi qualsiasi scelti
  * liberamente, anche vuoti o infiniti, e quelli di parti e di applicazioni
  * fatti di tutte le parti e di tutte le applicazioni; per 11a e 11b, quanto
- * detto sopra, nel modello con le parti e le applicazioni vere.
+ * detto sopra, nel modello con le parti e le applicazioni vere. Con 11j, in
+ * ogni teorema (equipotent A B) vuol dire "c'è una biiezione da A a B", e
+ * nessuna voce usa l'assioma della scelta.
  */
 
 /* Un insieme dichiarato da una voce sort: un insieme qualsiasi, oppure
@@ -2120,7 +2211,12 @@ typedef struct {
     int arity;    /* 0, 1 o 2 argomenti */
     int arg[2];   /* gli insiemi degli argomenti: posti in ck_sorts[] */
     int result;   /* l'insieme del valore, o CK_BOOL */
-    int witness;  /* 1 per un nome dato da witness o da part (11g) */
+    int witness;  /* 1 per un nome dato da witness, da part (11g) o da define (11j) */
+    unsigned need;   /* 11f: gli insiemi (bit i: quello di posto i) che devono avere elementi perché il nome
+                        indichi qualcosa: il suo insieme per un elemento dato da witness; per un nome di
+                        define quelli della sua definizione; 0 per gli altri */
+    unsigned pairs;  /* 11j: le coppie di lati di ck_pairs[] (bit k: la coppia k) che devono essere vuoti
+                        insieme, o non vuoti insieme, perché il nome indichi qualcosa */
     int *table;   /* 11a, 11b: il valore di ogni cella, nell'arena; NULL finché manca la sua voce table */
 } CkSymbol;
 
@@ -2136,6 +2232,39 @@ static int ck_declared;  /* i simboli dichiarati: i primi ck_declared di ck_symb
 static char ck_bound[CK_MAX_BOUND][CK_MAX_NAME];
 static int ck_bound_sort[CK_MAX_BOUND], ck_bound_part[CK_MAX_BOUND];
 static int ck_bound_count;
+
+/* 11h, 11j. Ritorna un nodo nuovo di tipo kind, con valore value e operandi
+ * a e b. */
+static CkNode *ck_make(CkKind kind, long long value, const CkNode *a, const CkNode *b) {
+    CkNode *node = ck_node(kind);
+    node->value = value;
+    node->a = a;
+    node->b = b;
+    return node;
+}
+
+/* 11j. I lati di (equipotent A B) stanno nel valore del nodo, quattro bit per
+ * componente: per il lato k (0 per A, 1 per B) la prima componente ai bit da
+ * 8k, la seconda più uno da 8k + 4 (0 se il lato ne ha una sola). Gli insiemi
+ * sono meno di 15 (CK_MAX_SORTS), quindi i bit bastano. sort[k][1] è -1 per un
+ * lato di una componente. */
+static long long ck_sides_code(int sort[2][2]) {
+    return (long long)sort[0][0] | (long long)(sort[0][1] + 1) << 4 | (long long)sort[1][0] << 8 | (long long)(sort[1][1] + 1) << 12;
+}
+
+/* 11j. Ritorna quante componenti ha il lato k dei lati value: 1 o 2. */
+static int ck_side_count(long long value, int k) { return (value >> (8 * k + 4) & 15) ? 2 : 1; }
+
+/* 11j. Ritorna l'insieme della componente i del lato k dei lati value. */
+static int ck_side_sort(long long value, int k, int i) { return i ? (int)(value >> (8 * k + 4) & 15) - 1 : (int)(value >> 8 * k & 15); }
+
+/* 11j. Ritorna gli insiemi del lato k, come bit: il lato è vuoto quando lo è
+ * uno di loro. */
+static unsigned ck_side_mask(long long value, int k) {
+    unsigned mask = 0;
+    for (int i = 0; i < ck_side_count(value, k); i++) mask |= 1u << ck_side_sort(value, k, i);
+    return mask;
+}
 
 /* Legge un nome (una lettera, poi lettere, cifre e _) e lo mette in out.
  * Ritorna 0 se non c'è. */
@@ -2163,6 +2292,28 @@ static int ck_symbol_of(const char *name) {
     for (int i = 0; i < ck_symbol_count; i++)
         if (strcmp(ck_symbols[i].name, name) == 0) return i;
     return -1;
+}
+
+/* 11j. Legge i due lati di (equipotent A B), dopo la parola: ognuno il nome
+ * di un insieme dichiarato, o due tra parentesi, (S T). Ritorna il valore del
+ * nodo (ck_sides_code()). */
+static long long ck_read_sides(void) {
+    int sort[2][2] = {{-1, -1}, {-1, -1}};
+    for (int k = 0; k < 2; k++) {
+        char name[CK_MAX_NAME];
+        ck_skip();
+        int open = *ck_cursor == '(';
+        if (open) ck_cursor++;
+        for (int i = 0; i < 1 + open; i++)
+            if (!ck_name(name) || (sort[k][i] = ck_sort_of(name)) < 0) {
+                ck_reject("certificato scritto male: un lato di equipotent è un insieme dichiarato, o due tra parentesi");
+                return 0;
+            }
+        ck_skip();
+        if (open && *ck_cursor != ')') { ck_reject("certificato scritto male: parentesi chiusa attesa"); return 0; }
+        if (open) ck_cursor++;
+    }
+    return ck_sides_code(sort);
 }
 
 /* Legge un termine e ne ritorna l'albero; mette in *sort il suo insieme, o
@@ -2259,6 +2410,10 @@ static const CkNode *ck_read_condition(void) {
         if (sort[0] != sort[1] || sort[0] == CK_BOOL) ck_reject("un'uguaglianza tra elementi di insiemi diversi");
     } else if (!ck_name(word)) {
         ck_reject("certificato scritto male: condizione attesa");
+    } else if (strcmp(word, "equipotent") == 0) {
+        /* 11j. Due insiemi, o prodotti, equipotenti. */
+        node->kind = CK_EQUIPOTENT;
+        node->value = ck_read_sides();
     } else {
         for (int i = 0; i < (int)(sizeof table / sizeof *table); i++)
             if (strcmp(table[i].word, word) == 0) found = i;
@@ -2329,6 +2484,13 @@ static int ck_holds(const CkNode *c, int depth) {
     case CK_OR:      return ck_holds(c->a, depth) || ck_holds(c->b, depth);
     case CK_IMPLIES: return !ck_holds(c->a, depth) || ck_holds(c->b, depth);
     case CK_IFF:     return ck_holds(c->a, depth) == ck_holds(c->b, depth);
+    case CK_EQUIPOTENT: {
+        /* 11j. Lo stesso numero di elementi (vedi la testa del capitolo). */
+        long long size[2] = {1, 1};
+        for (int k = 0; k < 2; k++)
+            for (int i = 0; i < ck_side_count(c->value, k); i++) size[k] *= ck_sorts[ck_side_sort(c->value, k, i)].size;
+        return size[0] == size[1];
+    }
     default:         break;
     }
 
@@ -2510,10 +2672,33 @@ static int ck_ground_count;
 static CkAtom ck_atoms[CK_MAX_ATOMS];
 static int ck_atom_count;
 static const CkNode *ck_formulas[CK_MAX_FORMULAS];
-static unsigned ck_masks[CK_MAX_FORMULAS];
+static unsigned ck_masks[CK_MAX_FORMULAS], ck_pair_masks[CK_MAX_FORMULAS];
 static int ck_formula_count;
 static int ck_rep[CK_MAX_GROUND];
 static long long ck_nodes;
+
+/* 11j. Le coppie di lati delle voci witness equipotent del caso in corso,
+ * come bit di insiemi (ck_side_mask()): i nomi di una voce esistono quando i
+ * suoi due lati sono vuoti insieme o non vuoti insieme (11f). ck_pair_masks[]
+ * dice, per ogni condizione del caso, le coppie dei nomi che nomina. */
+static unsigned ck_pair_side[CK_MAX_PAIRS][2];
+static int ck_pair_count;
+
+/* 11j. Ritorna, come bit, le coppie di ck_pair_side[] dei nomi che compaiono
+ * nell'albero t. */
+static unsigned ck_pairs_of(const CkNode *t) {
+    if (!t) return 0;
+    unsigned here = t->kind == CK_APP ? ck_symbols[t->value].pairs : 0;
+    return here | ck_pairs_of(t->a) | ck_pairs_of(t->b);
+}
+
+/* 11j. Ritorna 1 se, con vuoti gli insiemi dei bit di empty, una delle
+ * coppie dei bit di pairs ha un lato vuoto e l'altro no. */
+static int ck_pairs_split(unsigned pairs, unsigned empty) {
+    for (int k = 0; k < ck_pair_count; k++)
+        if ((pairs >> k & 1) && !(empty & ck_pair_side[k][0]) != !(empty & ck_pair_side[k][1])) return 1;
+    return 0;
+}
 
 /* Ritorna 1 se la condizione c comincia con un quantificatore, su elementi
  * o su parti (11g). */
@@ -2538,7 +2723,7 @@ static int ck_ground_of(const CkNode *t) {
 static const CkNode *ck_skeleton(const CkNode *c) {
     CkNode *s = ck_node(c->kind);
     if (ck_status != CK_ACCEPTED || c->kind == CK_TRUE) return s;
-    if (c->kind != CK_EQ && !ck_quantifier(c)) {
+    if (c->kind != CK_EQ && c->kind != CK_EQUIPOTENT && !ck_quantifier(c)) {
         s->a = ck_skeleton(c->a);
         if (c->b) s->b = ck_skeleton(c->b);
         return s;
@@ -2564,16 +2749,17 @@ static const CkNode *ck_skeleton(const CkNode *c) {
 static void ck_suppose(const CkNode *c, unsigned mask) {
     if (ck_formula_count == CK_MAX_FORMULAS) { ck_unsupported("troppe condizioni in un caso"); return; }
     ck_masks[ck_formula_count] = mask;
+    ck_pair_masks[ck_formula_count] = ck_pairs_of(c);
     ck_formulas[ck_formula_count++] = ck_skeleton(c);
 }
 
-/* Ritorna, come bit, gli insiemi dei nomi di elementi dati da witness che
- * compaiono nell'albero t. Un nome di parte non porta bit: una parte c'è
- * sempre, anche di un insieme vuoto (11g). */
+/* Ritorna, come bit, gli insiemi che i nomi che compaiono nell'albero t
+ * chiedono non vuoti (CkSymbol.need): per un elemento dato da witness il suo
+ * insieme. Un nome di parte non porta bit: una parte c'è sempre, anche di un
+ * insieme vuoto (11g). */
 static unsigned ck_names(const CkNode *t) {
     if (!t) return 0;
-    const CkSymbol *s = t->kind == CK_APP ? &ck_symbols[t->value] : NULL;
-    unsigned here = s && s->witness && s->result != CK_BOOL ? 1u << s->result : 0;
+    unsigned here = t->kind == CK_APP ? ck_symbols[t->value].need : 0;
     return here | ck_names(t->a) | ck_names(t->b);
 }
 
@@ -2615,7 +2801,7 @@ static const CkNode *ck_subst_part(const CkNode *c, long long depth, int symbol)
 static const CkNode *ck_read_available(void) {
     const CkNode *q = ck_read_condition();
     if (ck_status != CK_ACCEPTED) return q;
-    if (!ck_quantifier(q)) { ck_reject("instance e witness vogliono una condizione che comincia con un quantificatore"); return q; }
+    if (!ck_quantifier(q) && q->kind != CK_EQUIPOTENT) { ck_reject("instance e witness vogliono una condizione che comincia con un quantificatore, o un'equipotenza"); return q; }
     for (int i = 0; i < ck_atom_count; i++)
         if (ck_atoms[i].quantified && ck_same(ck_atoms[i].quantified, q)) return q;
     ck_reject("instance o witness di una condizione che nel caso non è comparsa");
@@ -2643,10 +2829,69 @@ static int ck_read_part(int sort) {
     return s;
 }
 
+/* 11j. Gli insiemi della funzione j di una coppia \varphi, \psi per i lati
+ * value: prima le componenti di \varphi, una per componente di B, ognuna da
+ * A; poi quelle di \psi, una per componente di A, ognuna da B. Mette gli
+ * insiemi degli argomenti in arg[] e ritorna quanti sono; quello del valore
+ * in *result. */
+static int ck_identity_sorts(long long value, int j, int *arg, int *result) {
+    int forward = j < ck_side_count(value, 1), from = forward ? 0 : 1;
+    *result = forward ? ck_side_sort(value, 1, j) : ck_side_sort(value, 0, j - ck_side_count(value, 1));
+    for (int a = 0; a < ck_side_count(value, from); a++) arg[a] = ck_side_sort(value, from, a);
+    return ck_side_count(value, from);
+}
+
+/* 11j. Ritorna la condizione D per i lati value e le funzioni map[], nella
+ * forma della testa del capitolo: per ogni lato i "per ogni" sulle sue
+ * componenti, il primo il più esterno, poi un'uguaglianza per componente
+ * (una congiunzione se sono due). Sotto due "per ogni" la prima variabile è a
+ * distanza 1, la seconda a distanza 0. */
+static const CkNode *ck_identities(long long value, const int *map) {
+    const CkNode *half[2];
+    int nb = ck_side_count(value, 1);
+    for (int k = 0; k < 2; k++) {
+        int m = ck_side_count(value, k), n = ck_side_count(value, 1 - k);
+        const int *first = k ? map + nb : map, *second = k ? map : map + nb;
+        const CkNode *x[2], *inner[2], *body = NULL;
+        for (int i = 0; i < m; i++) x[i] = ck_make(CK_VAR, m - 1 - i, NULL, NULL);
+        for (int j = 0; j < n; j++) inner[j] = ck_make(CK_APP, first[j], x[0], m > 1 ? x[1] : NULL);
+        for (int i = 0; i < m; i++) {
+            const CkNode *equal = ck_make(CK_EQ, 0, ck_make(CK_APP, second[i], inner[0], n > 1 ? inner[1] : NULL), x[i]);
+            body = body ? ck_make(CK_AND, 0, body, equal) : equal;
+        }
+        for (int i = m - 1; i >= 0; i--) body = ck_make(CK_FORALL, ck_side_sort(value, k, i), body, NULL);
+        half[k] = body;
+    }
+    return ck_make(CK_AND, 0, half[0], half[1]);
+}
+
+/* 11j. La voce instance (equipotent A B) g1 ... h1 ...: i nomi di funzioni
+ * che ci sono già, con gli insiemi giusti (ck_identity_sorts()). Se ne trae
+ * "D implica (equipotent A B)". */
+static void ck_instance_equipotent(const CkNode *q) {
+    int map[4], count = ck_side_count(q->value, 0) + ck_side_count(q->value, 1);
+    for (int j = 0; j < count; j++) {
+        char name[CK_MAX_NAME];
+        int arg[2], result, arity = ck_identity_sorts(q->value, j, arg, &result);
+        int s = ck_name(name) ? ck_symbol_of(name) : -1;
+        if (s < 0 || ck_symbols[s].arity != arity || ck_symbols[s].result != result || (arity > 0 && ck_symbols[s].arg[0] != arg[0]) ||
+            (arity > 1 && ck_symbols[s].arg[1] != arg[1])) {
+            ck_reject("un'istanza di un'equipotenza vuole i nomi di funzioni tra gli insiemi giusti");
+            return;
+        }
+        map[j] = s;
+    }
+    ck_skip();
+    if (*ck_cursor && *ck_cursor != '\n') { ck_reject("un'istanza di un'equipotenza ha un nome di troppo"); return; }
+    const CkNode *d = ck_identities(q->value, map);
+    ck_suppose(ck_implies(d, q), ck_names(d));
+}
+
 /* La voce instance Q t1 ... tk (11d); per i quantificatori su parti, i
- * nomi delle parti (11g). */
+ * nomi delle parti (11g); per un'equipotenza, i nomi delle funzioni (11j). */
 static void ck_instance(void) {
     const CkNode *q = ck_read_available(), *body = q;
+    if (ck_status == CK_ACCEPTED && q->kind == CK_EQUIPOTENT) { ck_instance_equipotent(q); return; }
     unsigned mask = ck_names(q);
     int count = 0, parts = q->kind == CK_FORALLPART || q->kind == CK_EXISTSPART;
     for (ck_skip(); ck_status == CK_ACCEPTED && *ck_cursor && *ck_cursor != '\n'; ck_skip(), count++) {
@@ -2679,6 +2924,31 @@ static void ck_witness(void) {
     memset(c, 0, sizeof *c);
     if (!ck_name(c->name) || ck_symbol_of(c->name) >= 0) { ck_reject("witness: serve un nome che nel caso non c'è ancora"); return; }
     c->witness = 1;
+    if (q->kind == CK_EQUIPOTENT) {
+        /* 11j. Le funzioni di una biiezione e della sua inversa, nomi nuovi
+         * che esistono quando i due lati sono vuoti insieme o non vuoti
+         * insieme: la coppia nuova di ck_pair_side[]. */
+        int map[4], count = ck_side_count(q->value, 0) + ck_side_count(q->value, 1);
+        if (ck_pair_count == CK_MAX_PAIRS) { ck_unsupported("troppe biiezioni in un caso"); return; }
+        ck_pair_side[ck_pair_count][0] = ck_side_mask(q->value, 0);
+        ck_pair_side[ck_pair_count][1] = ck_side_mask(q->value, 1);
+        for (int j = 0; j < count; j++) {
+            /* Il primo nome è già letto; gli altri si leggono qui. */
+            CkSymbol *f = &ck_symbols[ck_symbol_count];
+            if (j && ck_symbol_count == CK_MAX_SYMBOLS) { ck_unsupported("troppi nomi in un caso"); return; }
+            if (j) memset(f, 0, sizeof *f);
+            if (j && (!ck_name(f->name) || ck_symbol_of(f->name) >= 0)) { ck_reject("witness: serve un nome che nel caso non c'è ancora"); return; }
+            f->witness = 1;
+            f->pairs = 1u << ck_pair_count;
+            f->arity = ck_identity_sorts(q->value, j, f->arg, &f->result);
+            map[j] = ck_symbol_count++;
+        }
+        ck_skip();
+        if (*ck_cursor && *ck_cursor != '\n') { ck_reject("witness di un'equipotenza con un nome di troppo"); return; }
+        ck_pair_count++;
+        ck_suppose(ck_implies(q, ck_identities(q->value, map)), 0);
+        return;
+    }
     if (q->kind == CK_FORALLPART || q->kind == CK_EXISTSPART) {
         c->arity = 1;
         c->arg[0] = (int)q->value;
@@ -2688,6 +2958,7 @@ static void ck_witness(void) {
         return;
     }
     c->result = (int)q->value;
+    c->need = 1u << q->value;
     CkNode *t = ck_node(CK_APP);
     t->value = ck_symbol_count++;
     const CkNode *body = ck_subst(q->a, 0, t);
@@ -2730,6 +3001,67 @@ static void ck_part(void) {
     every->value = sort;
     every->a = iff;
     ck_suppose(every, ck_names(rule));
+}
+
+/* 11j. Ritorna 1 se nell'albero t compare il simbolo symbol. */
+static int ck_uses_symbol(const CkNode *t, int symbol) {
+    return t && ((t->kind == CK_APP && t->value == symbol) || ck_uses_symbol(t->a, symbol) || ck_uses_symbol(t->b, symbol));
+}
+
+/* 11j. Ritorna una copia del termine t con ogni variabile legata a distanza
+ * by in più: è t scritto sotto by quantificatori nuovi. */
+static const CkNode *ck_lift(const CkNode *t, int by) {
+    if (!t) return NULL;
+    if (t->kind == CK_VAR) return ck_make(CK_VAR, t->value + by, NULL, NULL);
+    return ck_make(t->kind, t->value, ck_lift(t->a, by), ck_lift(t->b, by));
+}
+
+/* 11j. Ritorna 1 se c ha la forma S(v) di una definizione (testa del
+ * capitolo) per l'oggetto v dell'insieme sort, senza nominare symbol in ciò
+ * che gli dà il valore: (= v t), oppure, per un insieme di parti, (forall y
+ * C (iff (in y v) c)), oppure, per un insieme di funzioni, (forall y E
+ * S((ap v y))). v è scritto con le distanze delle variabili nel punto di c. */
+static int ck_spec(const CkNode *c, const CkNode *v, int sort, int symbol) {
+    if (c->kind == CK_EQ && c->b) return ck_same(c->a, v) && !ck_uses_symbol(c->b, symbol);
+    const CkSort *r = &ck_sorts[sort];
+    if (c->kind != CK_FORALL || (r->kind != 1 && r->kind != 2) || c->value != r->base) return 0;
+    const CkNode *y = ck_make(CK_VAR, 0, NULL, NULL), *inner = ck_lift(v, 1);
+    if (r->kind == 2) return ck_spec(c->a, ck_make(CK_APP, r->symbol, inner, y), r->target, symbol);
+    const CkNode *iff = c->a;
+    return iff->kind == CK_IFF && iff->a->kind == CK_EQ && !iff->a->b && ck_same(iff->a->a, ck_make(CK_APP, r->symbol, y, inner)) &&
+           !ck_uses_symbol(iff->b, symbol);
+}
+
+/* 11j. La voce define G A1 [A2] R C: G è un nome nuovo, una funzione da A1
+ * [per A2] a R, e C la sua definizione, (forall x1 A1 [(forall x2 A2] S((G x1
+ * [x2])))) con S una delle forme di ck_spec(). Se ne trae C. G è registrato
+ * prima di leggere C, che lo deve nominare; ck_spec() controlla che lo
+ * nomini solo dove va. Il nome esiste quando esistono quelli della sua
+ * definizione: ne prende need e pairs. */
+static void ck_define(void) {
+    char names[3][CK_MAX_NAME];
+    int sorts[3], count = 0;
+    if (ck_symbol_count == CK_MAX_SYMBOLS) { ck_unsupported("troppi nomi in un caso"); return; }
+    CkSymbol *g = &ck_symbols[ck_symbol_count];
+    memset(g, 0, sizeof *g);
+    if (!ck_name(g->name) || ck_symbol_of(g->name) >= 0) { ck_reject("define: serve un nome che nel caso non c'è ancora"); return; }
+    for (ck_skip(); *ck_cursor != '(' && count < 3; ck_skip(), count++)
+        if (!ck_name(names[count]) || (sorts[count] = ck_sort_of(names[count])) < 0) { ck_reject("define: dopo il nome servono gli insiemi dichiarati degli argomenti e del valore"); return; }
+    if (count < 2 || *ck_cursor != '(') { ck_reject("define: una funzione di uno o due argomenti, poi la sua definizione"); return; }
+    g->arity = count - 1;
+    g->result = sorts[count - 1];
+    for (int a = 0; a < g->arity; a++) g->arg[a] = sorts[a];
+    g->witness = 1;
+    int symbol = ck_symbol_count++;
+    const CkNode *rule = ck_read_condition(), *c = rule, *arg[2] = {NULL, NULL};
+    if (ck_status != CK_ACCEPTED) return;
+    for (int a = 0; a < g->arity; a++, c = c->a)
+        if (c->kind != CK_FORALL || c->value != g->arg[a]) { ck_reject("define: la definizione comincia con un forall per ogni argomento"); return; }
+    for (int a = 0; a < g->arity; a++) arg[a] = ck_make(CK_VAR, g->arity - 1 - a, NULL, NULL);
+    if (!ck_spec(c, ck_make(CK_APP, symbol, arg[0], arg[1]), g->result, symbol)) { ck_reject("define: la definizione non ha una delle forme ammesse"); return; }
+    g->need = ck_names(rule);
+    g->pairs = ck_pairs_of(rule);
+    ck_suppose(rule, g->need);
 }
 
 /* Ritorna il rappresentante della classe del termine t, accorciando la
@@ -2785,6 +3117,12 @@ static int ck_atom_value(const CkAtom *atom, unsigned empty) {
 
     /* Su parti no (11g): anche un insieme vuoto ha una parte, il vuoto. */
     const CkNode *q = atom->quantified;
+    if (q->kind == CK_EQUIPOTENT) {
+        /* 11j. Un lato vuoto e l'altro no: nessuna funzione dall'uno
+         * all'altro. Tutti e due vuoti: le funzioni vuote. */
+        int a = !!(empty & ck_side_mask(q->value, 0)), b = !!(empty & ck_side_mask(q->value, 1));
+        return a != b ? 0 : a ? 1 : -1;
+    }
     return (q->kind == CK_FORALL || q->kind == CK_EXISTS) && empty >> q->value & 1 ? q->kind == CK_FORALL : -1;
 }
 
@@ -2829,7 +3167,7 @@ static int ck_consistent(unsigned empty) {
      * prossima condizione elementare viene da quella con meno incognite. */
     for (int f = 0; f < ck_formula_count; f++) {
         int unknown = 0, first = -1;
-        if (ck_masks[f] & empty) continue;
+        if ((ck_masks[f] & empty) || ck_pairs_split(ck_pair_masks[f], empty)) continue;
         int truth = ck_truth(ck_formulas[f], empty, &unknown, &first);
         if (truth == 0) return 0;
         if (truth < 0 && (pick < 0 || unknown < fewest)) { pick = first; fewest = unknown; }
@@ -2883,16 +3221,6 @@ static void ck_derived_sort(int i, int kind, int models) {
             y->table[x + a * sort->size] = rest % values;
             rest /= values;
         }
-}
-
-/* 11h. Ritorna un nodo nuovo di tipo kind, con valore value e operandi a e
- * b. */
-static CkNode *ck_make(CkKind kind, long long value, const CkNode *a, const CkNode *b) {
-    CkNode *node = ck_node(kind);
-    node->value = value;
-    node->a = a;
-    node->b = b;
-    return node;
 }
 
 /* 11h. Ritorna la legge di estensionalità dell'insieme di posto i, di
@@ -2990,6 +3318,7 @@ static int ck_empty_possible(unsigned empty) {
 /* Svuota il caso, e i nomi dati nel precedente. */
 static void ck_case_start(void) {
     ck_symbol_count = ck_declared;
+    ck_pair_count = 0;
     ck_grounds[0] = (CkGround){-1, {-1, -1}};
     ck_ground_count = 1;
     ck_atom_count = ck_formula_count = 0;
@@ -3107,6 +3436,8 @@ static void ck_check_structure(int kind) {
             ck_witness();
         } else if (kind == 2 && cases && ck_word("part")) {
             ck_part();
+        } else if (kind == 2 && cases && ck_word("define")) {
+            ck_define();
         } else {
             ck_reject("certificato scritto male: voce sconosciuta o fuori posto, o \"end\" mancante");
         }

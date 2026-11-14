@@ -1,6 +1,6 @@
 /* Test di dominio: teoria degli insiemi.
  *
- * Diciannove controlli, descritti in tests/statement_checks.h, e tre scritti
+ * Ventiquattro controlli, descritti in tests/statement_checks.h, e tre scritti
  * qui (16, 17 e 22):
  *
  *   1. ogni enunciato di set_operations.tex viene dimostrato, con la sua
@@ -45,20 +45,23 @@
  *      relazioni date dall'elenco delle loro coppie (17v, 28m-28o);
  *  21. nessun enunciato di false_parts_and_maps.tex viene dimostrato;
  *  22. un enunciato smentito su un'applicazione tra reali non riporta il
- *      controesempio dell'enunciato precedente.
+ *      controesempio dell'enunciato precedente;
+ *  23. ogni enunciato di equipotence.tex viene dimostrato: l'equipotenza,
+ *      con una biiezione costruita (17w di parser.c, 28q di main.c);
+ *  24. nessun enunciato di false_equipotence.tex viene dimostrato.
  *
  * Inoltre i verdetti del capitolo 28 portano un certificato che il
  * verificatore accetta (check_structure_certificates()), e ogni passo delle
  * dimostrazioni scritte supera il suo controllo indipendente.
  *
- * I controlli da 7 a 13, il 15, il 16, il 19, il 21 e il 22 sono
+ * I controlli da 7 a 13, il 15, il 16, il 19, il 21, il 22 e il 24 sono
  * l'antiregressione: impediscono che il motore cominci ad approvare
  * enunciati falsi. Qui non si usano le varianti false ricavate dagli
  * enunciati veri, perché aggiungere 1 a un membro ha senso solo per le
  * uguaglianze tra numeri. Gli enunciati sono dati: il motore non ne conosce
  * nessuno in anticipo.
  *
- * I controlli 3, 5 e da 6 a 22 stanno qui, e non in
+ * I controlli 3, 5 e da 6 a 24 stanno qui, e non in
  * test_maps_and_relations.c, perché questo test deve passare sempre: l'altro
  * elenca enunciati ancora da dimostrare, e fallisce finché non lo sono
  * tutti.
@@ -163,6 +166,14 @@ int main(void) {
                            'n', 0, 0);
     passed = check_result(first_refuted && second.outcome == REFUTED && second.detail == NULL,
                           "a refuted statement about a real map does not report the counterexample of the previous one") && passed;
+
+    /* Controlli 23 e 24: l'equipotenza (17w, 28q), con i suoi certificati
+     * (11j di checker.c): le definizioni delle applicazioni, le biiezioni
+     * con un nome, il testimone. */
+    passed = check_all_proved("tests/set_theory/equipotence.tex") && passed;
+    passed = check_none_proved("tests/set_theory/false_equipotence.tex") && passed;
+    passed = check_structure_certificates("tests/set_theory/equipotence.tex", 19) && passed;
+    passed = check_structure_certificates("tests/set_theory/false_equipotence.tex", 18) && passed;
 
     /* Ogni fatto scritto in una dimostrazione viene ricontrollato dal
      * programma con un metodo indipendente: nessuno deve essere stato

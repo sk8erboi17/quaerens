@@ -1,0 +1,39 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Equipotent sets: statements that must not be proved (19)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+$A \sim B$ means that there is a bijection from $A$ to $B$. Each statement below is a small change of a true one: a hypothesis dropped, two sets exchanged, a factor added or removed. All but item 15 are false, and a finite model refutes them. Item 15 is not false for finite sets, but it is not a theorem either: that $\mathcal{P}(S) \sim \mathcal{P}(T)$ forces $S \sim T$ cannot be proved for infinite sets.
+
+\begin{enumerate}
+\item $\displaystyle (S \neq \emptyset \land T \neq \emptyset) \implies (S \times T \sim S \times S)$
+\item $\displaystyle (S \neq \emptyset \land T \neq \emptyset \land S \sim T) \implies (\mathcal{P}(S) \sim T)$
+\item $\displaystyle S \sim \mathcal{P}(S)$
+\item $\displaystyle (S \neq \emptyset \land T \neq \emptyset) \implies (\mathcal{P}(S) \sim \mathcal{P}(T))$
+\item $\displaystyle (S_{1} \neq \emptyset \land S_{2} \neq \emptyset \land T_{1} \neq \emptyset \land T_{2} \neq \emptyset \land S_{1} \sim S_{2}) \implies (T_{1}^{S_{1}} \sim T_{2}^{S_{2}})$
+\item $\displaystyle (S_{1} \neq \emptyset \land S_{2} \neq \emptyset \land T_{1} \neq \emptyset \land T_{2} \neq \emptyset \land T_{1} \sim T_{2}) \implies (S_{1} \times T_{1} \sim S_{2} \times T_{2})$
+\item $\displaystyle S \sim T \implies S^{V} \sim V^{T}$
+\item $\displaystyle S \sim T \implies \mathcal{P}(S) \sim S^{T}$
+\item $\displaystyle (S \sim T \land T \sim V) \implies S \sim W$
+\item $\displaystyle S \times T \sim S$
+\item $\displaystyle S \sim T \implies \mathcal{P}(S) \times V \sim \mathcal{P}(T)$
+\item $\displaystyle \lnot (S \sim S)$
+\item $\displaystyle S \sim T \implies S \times S \sim T$
+\item $\displaystyle (S \sim T) \iff (S \sim V)$
+\item $\displaystyle \lnot (S \sim T) \implies \lnot (\mathcal{P}(S) \sim \mathcal{P}(T))$
+\item $\displaystyle (S \neq \emptyset \land T \neq \emptyset \land S \sim T) \implies (T^{S} \sim S)$
+\item $\displaystyle S \sim T \lor S \sim V$
+\item $\displaystyle S \neq \emptyset \implies S \sim S \times S$
+\item $\displaystyle (S \sim T \land V \sim W) \implies V^{S} \sim T^{W}$
+\end{enumerate}
+\end{document}

@@ -1,0 +1,39 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Equipotent sets (19)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+$A \sim B$ means that there is a bijection from $A$ to $B$; $\mathcal{P}(S)$ is the set of the parts of $S$, $T^{S}$ the set of the maps from $S$ to $T$. Every statement below is true, for all sets, empty or not, finite or infinite. They are variants of items 1 to 4 of \texttt{infinite\_sets.tex}, not copies: the bijection is built from the ones in the hypotheses, never deduced from a number of elements. In item 19 a step on maps sits inside a product, and its two maps must be shown inverse in the middle of the proof.
+
+\begin{enumerate}
+\item $\displaystyle S \sim S$
+\item $\displaystyle S \sim T \implies T \sim S$
+\item $\displaystyle (S \sim T \land T \sim V) \implies S \sim V$
+\item $\displaystyle S \sim T \implies \mathcal{P}(S) \sim \mathcal{P}(T)$
+\item $\displaystyle (S \sim T \land T \sim V) \implies \mathcal{P}(S) \sim \mathcal{P}(V)$
+\item $\displaystyle S \sim T \implies S^{V} \sim T^{V}$
+\item $\displaystyle S \sim T \implies V^{S} \sim V^{T}$
+\item $\displaystyle S \sim T \implies S \times V \sim V \times T$
+\item $\displaystyle S \sim T \implies \mathcal{P}(S) \times V \sim V \times \mathcal{P}(T)$
+\item $\displaystyle (S \sim T) \iff (T \sim S)$
+\item $\displaystyle \lnot (\mathcal{P}(S) \sim \mathcal{P}(T)) \implies \lnot (S \sim T)$
+\item $\displaystyle S \times S \sim S \times S$
+\item $\displaystyle (S \sim T \land V \sim W) \implies V^{S} \sim W^{T}$
+\item $\displaystyle S \sim T \implies (S \times T \sim T \times S \land T \times T \sim S \times S)$
+\item $\displaystyle (S \sim T \land T \sim V) \implies V \times S \sim T \times T$
+\item $\displaystyle \mathcal{P}(S) \sim \mathcal{P}(S)$
+\item $\displaystyle (S \sim T \lor S \sim V) \implies (\mathcal{P}(S) \sim \mathcal{P}(T) \lor \mathcal{P}(S) \sim \mathcal{P}(V))$
+\item $\displaystyle (S_{1} \sim T_{1} \land S_{2} \sim T_{2}) \implies T_{2}^{S_{1}} \sim S_{2}^{T_{1}}$
+\item $\displaystyle S \sim V \implies \mathcal{P}(W) \times S^{W} \sim \mathcal{P}(W) \times V^{W}$
+\end{enumerate}
+\end{document}
