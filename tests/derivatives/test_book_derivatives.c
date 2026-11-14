@@ -37,7 +37,10 @@
  *      falso;
  *   9. ogni richiesta di study_requests.tex riceve le soluzioni attese, o il
  *      verdetto atteso quando la derivata non si decide in un punto (27l);
- *  10. alcuni enunciati ricevono proprio il verdetto atteso.
+ *  10. alcuni enunciati ricevono proprio il verdetto atteso;
+ *  11. nei passaggi scritti un coefficiente ln(3) resta separato dai fattori
+ *      successivi, anche con un caso base diverso da zero, e le formule
+ *      alterate restano smentite (regressione dal fuzz, seme 18005).
  *
  * I dati vengono dalle raccolte di esercizi, e i risultati sono stati
  * confermati da un oracolo indipendente (vedi i file _about.tex); il
@@ -329,6 +332,29 @@ static int check_expected(void) {
     return check_result(passed == count, summary);
 }
 
+/* Antiregressione dal fuzz, seme 18005: nei conti del passo induttivo una
+ * costante ln(3) precedeva e^x, e il testo senza parentesi cambiava argomento
+ * al logaritmo. La derivata n-esima di log_3(x+1) si ricava derivando 1/(x+1)
+ * n-1 volte e dividendo per ln(3); per x e^x e (x+n)e^x, per Leibniz.
+ * Si verificano la rilettura di ogni riga, il certificato e una formula
+ * falsa con un termine e^x in piu. */
+static int check_written_logarithm_products(void) {
+    const char *correct = "\\frac{d^{n}}{dx^{n}}(\\log_{3}(x+1) + x e^x) = "
+                          "\\frac{(-1)^{n-1}(n-1)!}{(x+1)^n \\ln(3)} + (x+n)e^x";
+    const char *wrong = "\\frac{d^{n}}{dx^{n}}(\\log_{3}(x+1) + x e^x) = "
+                        "\\frac{(-1)^{n-1}(n-1)!}{(x+1)^n \\ln(3)} + (x+n+1)e^x";
+    int passed = 1;
+    for (int base = 1; base <= 4; base++) {
+        int before = unjustified_steps;
+        Verdict v = prove(correct, 'n', 1, base);
+        passed = check_result(v.outcome == PROVED && v.certificate && unjustified_steps == before,
+                              "a logarithmic coefficient in a written derivative proof is reread correctly and certified") && passed;
+        v = prove(wrong, 'n', 1, base);
+        passed = check_result(v.outcome == REFUTED, "an extra exponential term in the claimed derivative is refuted") && passed;
+    }
+    return passed;
+}
+
 int main(void) {
     engine_init();
 
@@ -344,6 +370,7 @@ int main(void) {
     passed = check_none_refuted("tests/derivatives/function_studies_beyond.tex") && passed;
     passed = check_studies() && passed;
     passed = check_expected() && passed;
+    passed = check_written_logarithm_products() && passed;
 
     /* Ogni derivata, riga della tabella dei segni e formula scritta viene
      * ricontrollata dal programma con un metodo indipendente: nessuna deve

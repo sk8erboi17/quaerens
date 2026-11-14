@@ -56,8 +56,9 @@
  *   - quelli su un insieme qualsiasi, con un'operazione, delle applicazioni
  *     o una relazione di cui si sa solo ciò che dicono le ipotesi: "un
  *     elemento neutro a sinistra e uno a destra coincidono". Si smentiscono
- *     con un modello finito e si dimostrano per assurdo, con istanze delle
- *     ipotesi e uguali al posto di uguali (17o in parser.c, capitolo 28);
+ *     con un modello finito, cercato anche con SAT (28t), e si dimostrano
+ *     per assurdo, con istanze delle ipotesi e uguali al posto di uguali
+ *     (17o in parser.c, capitolo 28);
  *     le istanze si scelgono dalla forma, e dove non basta con un modello
  *     candidato fatto degli elementi di cui si parla (28r).
  *     Vi si scrive anche come nei libri: immagini f(X) e controimmagini
@@ -483,7 +484,7 @@
  *   25. Induzione su una disuguaglianza
  *   26. Successioni definite per ricorrenza
  *   27. Derivate: dimostrarle, calcolarle, usarle negli studi di funzione
- *   28. Insiemi qualsiasi: modelli finiti, istanze, uguali al posto di uguali
+ *   28. Insiemi qualsiasi: modelli finiti anche con SAT, istanze, uguali al posto di uguali
  *   29. Limiti
  *   30. Integrali: primitive, integrali definiti e impropri
  *   20. Dimostrare un enunciato
@@ -646,6 +647,13 @@ typedef unsigned __int128 SlotSet;
 #define MAX_MODELS 400000    /* tabelle provate per una scelta delle grandezze degli insiemi */
 #define MAX_MODEL_WORK 3000000  /* tabelle provate in tutto per un enunciato */
 #define MAX_MODEL_STEPS 40000000  /* elementi provati dai quantificatori, in tutto, nel calcolare un enunciato sui modelli */
+#define MAX_SAT_SIZE 8        /* elementi di un insieme nei modelli SAT (28t), non piu di CK_MAX_SIZE */
+#define MAX_SAT_ATTEMPTS 12   /* scelte delle grandezze provate con SAT dopo la ricerca esaustiva */
+#define MAX_SAT_VARS 65536    /* variabili proposizionali di una traduzione finita (28t) */
+#define MAX_SAT_CLAUSES 262144 /* clausole, comprese quelle imparate dal risolutore */
+#define MAX_SAT_LITERALS 2097152 /* letterali nelle clausole, in tutto */
+#define MAX_SAT_TERMS 32768   /* vettori che rappresentano valori di termini finiti */
+#define MAX_SAT_WORK 5000000 /* operazioni di traduzione e propagazione, per grandezza */
 #define MAX_GROUND 2048      /* elementi nominati in una dimostrazione su insiemi qualsiasi (28b) */
 #define MAX_KNOWN 2048       /* condizioni note in un ramo di quella dimostrazione */
 #define MAX_DIFFERENT 256    /* fatti "diversi" noti in un ramo */
@@ -6052,10 +6060,13 @@ static void put_atom(int atom, Frac exp) {
         return;
     }
     case ATOM_LN:
-        /* Senza parentesi \ln 2^{3} sarebbe il logaritmo di 2^3. */
+        /* Anche l'argomento numerico va chiuso: in un monomio \ln 3\,e^x
+         * si rileggerebbe come ln(3 e^x), non ln(3) per e^x. Le parentesi
+         * esterne, quando exp non e 1, separano invece (ln 3)^exp da
+         * ln(3^exp). Nessuno dei due confini puo essere lasciato implicito. */
         proof_add(one ? "\\ln " : "\\left(\\ln ");
         if (a->base == BASE_PRIME) {
-            proof_add("%lld", a->id);
+            proof_add("\\left(%lld\\right)", a->id);
         } else {
             proof_add("\\left|");
             if (a->base == BASE_ATOM) put_atom((int)a->id, frac_int(1)); else put_terms(base_polys[a->id]);
@@ -26896,7 +26907,7 @@ static const char *derivative_doubt(const Formula *thesis) {
  * enunciati è nel paragrafo 17o di parser.c; qui c'è il modo di deciderli,
  * che è fatto di due metà molto diverse.
  *
- * SMENTIRE: I MODELLI FINITI (28a)
+ * SMENTIRE: I MODELLI FINITI (28a, 28t)
  *
  * L'enunciato afferma qualcosa di ogni insieme e di ogni operazione. Per
  * smentirlo basta un esempio in cui le ipotesi valgono e la tesi no, e un
@@ -26905,6 +26916,10 @@ static const char *derivative_doubt(const Formula *thesis) {
  * enunciato valga in una tabella si controlla con un conto finito e
  * completo. Un esempio trovato così è un controesempio vero: il verdetto è
  * FALSO, con le tabelle stampate.
+ * Quando le tabelle da enumerare sono troppe, 28t traduce la frase in
+ * clausole proposizionali e cerca con un piccolo risolutore SAT scritto
+ * qui. Prova grandezze fino a otto elementi, nei limiti del verificatore,
+ * e ricontrolla ogni tabella estratta senza usare la traduzione SAT.
  *
  * Non trovarne non dimostra nulla. "Ogni applicazione iniettiva di un
  * insieme in sé è suriettiva" vale in ogni insieme finito, e quindi in ogni
@@ -27322,15 +27337,15 @@ static int numeral_position(int sort, int s) {
 }
 
 /* Dà agli insiemi di m le grandezze lette nel numero code, una cifra in
- * base MAX_MODEL_SIZE per insieme: la cifra c dà c + 1 elementi a un insieme
+ * base base per insieme: la cifra c dà c + 1 elementi a un insieme
  * qualsiasi, e deve essere 0 per un insieme di parti o di applicazioni, la
  * cui grandezza si calcola. Ritorna il numero di elementi degli insiemi
  * qualsiasi, in tutto; -1 se code ha una cifra non 0 dove non serve, -2 se
  * un insieme o una tabella diventerebbero troppo grandi. */
-static int model_sizes(Model *m, int code) {
+static int model_sizes_at(Model *m, int code, int base) {
     int sum = 0;
-    for (int i = 0; i < sort_count; i++, code /= MAX_MODEL_SIZE) {
-        int digit = code % MAX_MODEL_SIZE, size = 1;
+    for (int i = 0; i < sort_count; i++, code /= base) {
+        int digit = code % base, size = 1;
         if (sort_kind[i] == SORT_PLAIN) { sum += m->size[i] = 1 + digit; continue; }
         if (digit) return -1;
         if (sort_kind[i] == SORT_NUMBERS) {
@@ -27351,6 +27366,13 @@ static int model_sizes(Model *m, int code) {
         if (cells > MAX_MODEL_CELLS) return -2;
     }
     return sum;
+}
+
+/* Le grandezze della ricerca esaustiva (28a), nella sua base usuale. La
+ * ricerca SAT usa model_sizes_at() con una base maggiore, senza cambiare
+ * gli insiemi derivati o la numerazione dei loro elementi. */
+static int model_sizes(Model *m, int code) {
+    return model_sizes_at(m, code, MAX_MODEL_SIZE);
 }
 
 /* Riempie in m le tabelle dei simboli di struttura, con la numerazione
@@ -27457,6 +27479,506 @@ static int model_search(const Sentence *root, int wanted, Model *m, long long *t
         if (!all) break;
         *bound = k;
     }
+    return 0;
+}
+
+/* 28t. MODELLI FINITI CON SAT
+ *
+ * Una casella f(a,b)=c e una variabile booleana. Una clausola impone che
+ * ogni casella abbia almeno un valore, e le clausole a coppie che non ne
+ * abbia due. Un termine composto ha un vettore di valori con lo stesso
+ * vincolo; se i suoi argomenti valgono a,b, prende il valore della casella
+ * (a,b). I quantificatori diventano congiunzioni o disgiunzioni finite.
+ * Per i connettivi si introduce un nome con clausole equivalenti (Tseitin),
+ * evitando di distribuire le disgiunzioni sulle congiunzioni.
+ *
+ * E la riduzione MACE a SAT: Claessen e Sorensson, "New techniques that
+ * improve MACE-style finite model finding" (2003), e Reger, Suda e
+ * Voronkov, "Finding finite models in multi-sorted first-order logic"
+ * (2016), https://arxiv.org/abs/1604.08040. Qui si riscrive l'idea, non il
+ * codice. Il piccolo risolutore usa clausole osservate, propagazione unitaria
+ * e apprendimento del primo punto di implicazione unico (CDCL): risolve i
+ * conflitti con le ragioni delle assegnazioni fino a una sola assegnazione
+ * del livello corrente. La clausola cosi ottenuta segue dalle precedenti.
+ *
+ * SAT cerca soltanto. Anche una risposta sbagliata del risolutore non e una
+ * dimostrazione: si estraggono le tabelle, model_holds() ricalcola la frase,
+ * e 28f consegna il modello al verificatore indipendente. UNSAT e i limiti
+ * di risorse non dimostrano mai un enunciato universale. La ricerca esaustiva
+ * resta prima di questa, con i suoi limiti completi invariati.
+ */
+
+/* Una clausola proposizionale: first/count individuano i letterali nel
+ * deposito del risolutore; next collega i due letterali osservati alle
+ * rispettive liste. I letterali osservati occupano i primi due posti. */
+typedef struct {
+    int first, count;
+    int next[2];
+} SatClause;
+
+/* Un valore finito di un termine: literal[v] significa "vale v"; size e
+ * la grandezza del codominio, known e il valore se fissato, altrimenti -1.
+ * symbol/arg identificano un'applicazione gia tradotta; next la collega
+ * nella tabella hash. Gli altri vettori non appartengono alla tabella. */
+typedef struct {
+    int size, known;
+    int literal[MAX_SAT_SIZE];
+    int symbol, arg[2], next;
+} SatTerm;
+
+/* Lo stato posseduto da una sola ricerca SAT, allocato e liberato insieme.
+ * variables/clauses/literals/terms contano le voci valide dei rispettivi
+ * depositi; level e il livello corrente, assigned la lunghezza di trail.
+ * I letterali sono interi con segno, le variabili da 1 a variables; 1 e
+ * sempre vero. Le liste watch contengono 2*clausola+osservatore+1, con zero
+ * come fine. value vale -1,0,1; reason e zero per una decisione, altrimenti
+ * clausola+1; depth[v] e il livello che ha assegnato v. trail e la pila
+ * delle assegnazioni, limit[d] il suo inizio
+ * prima della decisione di livello d. qhead indica quelle gia propagate.
+ * activity/phase guidano soltanto la ricerca, seen e learned la risoluzione.
+ * I vettori da 1 a terms hanno la memoria qui; table associa ogni casella
+ * del modello al suo vettore, constant condivide i valori gia fissati e
+ * hash condivide i termini composti. slots contiene i valori dei legami
+ * durante l'espansione finita. broken/inconsistent distinguono un limite
+ * da una contraddizione proposizionale, work conta le operazioni eseguite. */
+typedef struct {
+    int variables, clauses, literals, level, assigned, qhead, terms;
+    int broken, inconsistent;
+    long long work;
+    SatClause clause[MAX_SAT_CLAUSES];
+    int literal[MAX_SAT_LITERALS], watch[2 * MAX_SAT_VARS];
+    signed char value[MAX_SAT_VARS + 1], phase[MAX_SAT_VARS + 1];
+    int reason[MAX_SAT_VARS + 1], depth[MAX_SAT_VARS + 1];
+    int trail[MAX_SAT_VARS + 1], limit[MAX_SAT_VARS + 1];
+    unsigned long long activity[MAX_SAT_VARS + 1];
+    unsigned char seen[MAX_SAT_VARS + 1];
+    int learned[MAX_SAT_VARS + 1];
+    SatTerm term[MAX_SAT_TERMS];
+    int hash[MAX_SAT_TERMS], constant[MAX_SAT_SIZE + 1][MAX_SAT_SIZE];
+    int table[MAX_SYMBOLS][MAX_MODEL_CELLS], slots[MAX_SLOTS];
+} SatState;
+
+/* Il posto della lista osservata del letterale non nullo l. */
+static int sat_watch_index(int l) { return 2 * (abs(l) - 1) + (l < 0); }
+
+/* Il valore del letterale l: 1 vero, -1 falso, 0 non assegnato. */
+static int sat_value(const SatState *s, int l) { return l > 0 ? s->value[l] : -s->value[-l]; }
+
+/* Crea una variabile, inizialmente non assegnata, o segnala il limite. */
+static int sat_variable(SatState *s) {
+    if (s->variables == MAX_SAT_VARS) { s->broken = 1; return 1; }
+    int v = ++s->variables;
+    s->phase[v] = -1;
+    return v;
+}
+
+/* Assegna l al livello corrente, con la ragione data (zero: decisione).
+ * Ritorna 0 se l era gia falso; un valore gia vero non cambia la pila. */
+static int sat_assign(SatState *s, int l, int reason) {
+    if (sat_value(s, l)) return sat_value(s, l) > 0;
+    int v = abs(l);
+    s->value[v] = s->phase[v] = l > 0 ? 1 : -1;
+    s->depth[v] = s->level;
+    s->reason[v] = reason;
+    s->trail[s->assigned++] = l;
+    return 1;
+}
+
+/* Aggiunge una clausola, togliendo i duplicati e la costante falsa; una
+ * tautologia non serve. Ritorna clausola+1, o zero se non scrive nulla.
+ * Una clausola vuota pone inconsistent; un limite pone broken. Una clausola
+ * unitaria viene assegnata subito, le altre osservano i primi due posti. */
+static int sat_clause(SatState *s, const int *literal, int count) {
+    if (s->broken || s->inconsistent) return 0;
+    if (s->clauses == MAX_SAT_CLAUSES || count > MAX_SAT_LITERALS - s->literals) { s->broken = 1; return 0; }
+    int first = s->literals, used = 0;
+    for (int i = 0; i < count; i++) {
+        int l = literal[i], repeated = 0;
+        if (l == 1) return 0;
+        if (l == -1) continue;
+        for (int j = 0; j < used; j++) {
+            if (s->literal[first + j] == -l) return 0;
+            repeated |= s->literal[first + j] == l;
+        }
+        if (!repeated) s->literal[first + used++] = l;
+    }
+    if (!used) { s->inconsistent = 1; return 0; }
+    int c = s->clauses++;
+    s->clause[c] = (SatClause){first, used, {0, 0}};
+    s->literals += used;
+    for (int i = 0; i < used; i++) s->activity[abs(s->literal[first + i])]++;
+    if (used == 1) {
+        if (!sat_assign(s, s->literal[first], c + 1)) s->inconsistent = 1;
+    } else {
+        for (int w = 0; w < 2; w++) {
+            int at = sat_watch_index(s->literal[first + w]);
+            s->clause[c].next[w] = s->watch[at];
+            s->watch[at] = 2 * c + w + 1;
+        }
+    }
+    return c + 1;
+}
+
+/* Propaga le assegnazioni nuove. Di una clausola si guarda il resto solo
+ * quando un letterale osservato diventa falso: se un altro puo sostituirlo,
+ * si sposta l'osservatore; altrimenti l'altro osservato deve essere vero.
+ * Ritorna clausola+1 per un conflitto, zero se non ce ne sono. Un limite
+ * rende broken vero e non puo essere scambiato per un esito SAT. */
+static int sat_propagate(SatState *s) {
+    while (s->qhead < s->assigned && !s->broken) {
+        int false_literal = -s->trail[s->qhead++];
+        int *link = &s->watch[sat_watch_index(false_literal)];
+        while (*link) {
+            if (++s->work > MAX_SAT_WORK) { s->broken = 1; return 0; }
+            int edge = *link - 1, c = edge / 2, w = edge % 2;
+            SatClause *clause = &s->clause[c];
+            int *v = s->literal + clause->first, other = v[1 - w];
+            if (sat_value(s, other) > 0) { link = &clause->next[w]; continue; }
+            int k = 2;
+            while (k < clause->count && sat_value(s, v[k]) < 0) {
+                if (++s->work > MAX_SAT_WORK) { s->broken = 1; return 0; }
+                k++;
+            }
+            if (k < clause->count) {
+                int replacement = v[k], at = sat_watch_index(replacement);
+                v[k] = v[w];
+                v[w] = replacement;
+                *link = clause->next[w];
+                clause->next[w] = s->watch[at];
+                s->watch[at] = edge + 1;
+                continue;
+            }
+            if (!sat_assign(s, other, c + 1)) return c + 1;
+            link = &clause->next[w];
+        }
+    }
+    return 0;
+}
+
+/* Torna al livello indicato, conservando tutte le assegnazioni precedenti
+ * alla decisione successiva. La loro propagazione resta valida anche senza
+ * le assegnazioni cancellate; le fasi si conservano come preferenze. */
+static void sat_backtrack(SatState *s, int level) {
+    int keep = s->limit[level + 1];
+    while (s->assigned > keep) s->value[abs(s->trail[--s->assigned])] = 0;
+    s->qhead = s->assigned;
+    s->level = level;
+}
+
+/* Risolve le clausole: 1 SAT, -1 UNSAT, 0 risorse finite. Il conflitto si
+ * risolve all'indietro lungo trail con la clausola reason di ogni valore,
+ * fino a un solo letterale del livello corrente. Negandolo si ottiene una
+ * clausola che diventa unitaria al piu alto livello degli altri letterali;
+ * si torna li e si propaga quel valore, senza ripetere il conflitto. */
+static int sat_solve(SatState *s) {
+    unsigned long long bump = 32;
+    int conflicts = 0;
+    if (s->broken) return 0;
+    if (s->inconsistent) return -1;
+    for (;;) {
+        int conflict = sat_propagate(s);
+        if (s->broken) return 0;
+        if (conflict) {
+            if (!s->level) return -1;
+            int count = 1, pending = 0, at = s->assigned, pivot = 0;
+            do {
+                SatClause *clause = &s->clause[conflict - 1];
+                for (int i = 0; i < clause->count; i++) {
+                    int l = s->literal[clause->first + i], v = abs(l);
+                    if (v == abs(pivot) || s->seen[v] || !s->depth[v]) continue;
+                    s->seen[v] = 1;
+                    s->activity[v] += bump;
+                    if (s->depth[v] == s->level) pending++;
+                    else s->learned[count++] = l;
+                }
+                do { pivot = s->trail[--at]; } while (!s->seen[abs(pivot)]);
+                s->seen[abs(pivot)] = 0;
+                pending--;
+                conflict = s->reason[abs(pivot)];
+            } while (pending && conflict);
+            if (pending) { s->broken = 1; return 0; }
+            s->learned[0] = -pivot;
+            int level = 0;
+            for (int i = 1; i < count; i++) {
+                int v = abs(s->learned[i]);
+                s->seen[v] = 0;
+                if (s->depth[v] > level) level = s->depth[v];
+            }
+            sat_backtrack(s, level);
+            int reason = sat_clause(s, s->learned, count);
+            if (s->broken) return 0;
+            if (s->inconsistent || !sat_assign(s, s->learned[0], reason)) return -1;
+
+            /* Un intero basta per privilegiare i conflitti recenti: quando
+             * cresce troppo si dividono insieme punteggi e incremento. */
+            if (++conflicts % 128 == 0) {
+                bump *= 2;
+                if (bump > (1ULL << 40)) {
+                    for (int v = 2; v <= s->variables; v++) s->activity[v] /= 2;
+                    bump /= 2;
+                }
+            }
+            continue;
+        }
+        int choose = 0;
+        for (int v = 2; v <= s->variables; v++) {
+            if (++s->work > MAX_SAT_WORK) { s->broken = 1; return 0; }
+            if (!s->value[v] && (!choose || s->activity[v] > s->activity[choose])) choose = v;
+        }
+        if (!choose) return 1;
+        s->limit[++s->level] = s->assigned;
+        sat_assign(s, s->phase[choose] > 0 ? choose : -choose, 0);
+    }
+}
+
+/* Un nome equivalente alla congiunzione a e b; 1 e -1 sono le costanti.
+ * Le tre clausole esprimono q=>a, q=>b e (a e b)=>q. */
+static int sat_and(SatState *s, int a, int b) {
+    if (a == b || b == 1) return a;
+    if (a == 1) return b;
+    if (a == -1 || b == -1 || a == -b) return -1;
+    int q = sat_variable(s);
+    sat_clause(s, (int[]){-q, a}, 2);
+    sat_clause(s, (int[]){-q, b}, 2);
+    sat_clause(s, (int[]){q, -a, -b}, 3);
+    return q;
+}
+
+/* La disgiunzione, con De Morgan: a o b equivale a non(non a e non b). */
+static int sat_or(SatState *s, int a, int b) { return -sat_and(s, -a, -b); }
+
+/* Crea un vettore one-hot di size valori e ne ritorna il posto; zero se
+ * non c'e spazio. Per due valori basta una variabile con la sua negazione. */
+static int sat_vector(SatState *s, int size) {
+    if (s->terms + 1 == MAX_SAT_TERMS || size < 1 || size > MAX_SAT_SIZE) { s->broken = 1; return 0; }
+    int id = ++s->terms;
+    SatTerm *t = &s->term[id];
+    t->size = size;
+    t->known = -1;
+    if (size == 1) { t->known = 0; t->literal[0] = 1; return id; }
+    if (size == 2) {
+        t->literal[1] = sat_variable(s);
+        t->literal[0] = -t->literal[1];
+        return id;
+    }
+    for (int v = 0; v < size; v++) t->literal[v] = sat_variable(s);
+    sat_clause(s, t->literal, size);
+    for (int v = 0; v < size; v++)
+        for (int u = 0; u < v; u++) sat_clause(s, (int[]){-t->literal[u], -t->literal[v]}, 2);
+    return id;
+}
+
+/* Il vettore costante di size valori che vale value, condiviso fra tutte
+ * le occorrenze: i numeri sono gli indici degli elementi, non aritmetica. */
+static int sat_constant(SatState *s, int size, int value) {
+    if (s->constant[size][value]) return s->constant[size][value];
+    if (s->terms + 1 == MAX_SAT_TERMS) { s->broken = 1; return 0; }
+    int id = ++s->terms;
+    SatTerm *t = &s->term[id];
+    t->size = size;
+    t->known = value;
+    for (int v = 0; v < size; v++) t->literal[v] = v == value ? 1 : -1;
+    return s->constant[size][value] = id;
+}
+
+/* Il vettore della verita booleana literal, senza introdurre variabili. */
+static int sat_boolean(SatState *s, int literal) {
+    if (literal == 1 || literal == -1) return sat_constant(s, 2, literal == 1);
+    if (s->terms + 1 == MAX_SAT_TERMS) { s->broken = 1; return 0; }
+    int id = ++s->terms;
+    s->term[id].size = 2;
+    s->term[id].known = -1;
+    s->term[id].literal[0] = -literal;
+    s->term[id].literal[1] = literal;
+    return id;
+}
+
+/* Il vettore del simbolo applicato ai vettori a,b (zero per un argomento
+ * assente). Con argomenti fissati e una casella della tabella; altrimenti
+ * si condivide il termine composto e lo si collega a tutte le caselle.
+ * Le parti legate si leggono da part_bits, non da una tabella scelta. */
+static int sat_application(SatState *s, const Model *m, int symbol, int a, int b) {
+    const Symbol *f = &symbols[symbol];
+    if (symbol_bound[symbol]) {
+        int truth = -1;
+        for (int v = 0; v < m->size[f->domain[0]]; v++)
+            if (part_bits[symbol] >> v & 1) truth = sat_or(s, truth, s->term[a].literal[v]);
+        return sat_boolean(s, truth);
+    }
+    int av = a ? s->term[a].known : 0, bv = b ? s->term[b].known : 0;
+    if (av >= 0 && bv >= 0) return s->table[symbol][av + bv * (a ? m->size[f->domain[0]] : 1)];
+    unsigned hash = ((unsigned)symbol * 1009u + (unsigned)a * 9176u + (unsigned)b * 6361u) % MAX_SAT_TERMS;
+    for (int i = s->hash[hash]; i; i = s->term[i].next)
+        if (s->term[i].symbol == symbol && s->term[i].arg[0] == a && s->term[i].arg[1] == b) return i;
+    int size = f->range == TRUTH ? 2 : m->size[f->range];
+    int id = sat_vector(s, size);
+    SatTerm *out = &s->term[id];
+    out->symbol = symbol;
+    out->arg[0] = a;
+    out->arg[1] = b;
+    out->next = s->hash[hash];
+    s->hash[hash] = id;
+    int na = a ? m->size[f->domain[0]] : 1, nb = b ? m->size[f->domain[1]] : 1;
+    for (int y = 0; y < nb && !s->broken; y++)
+        for (int x = 0; x < na && !s->broken; x++) {
+            int la = a ? s->term[a].literal[x] : 1, lb = b ? s->term[b].literal[y] : 1;
+            if (la == -1 || lb == -1) continue;
+            const SatTerm *cell = &s->term[s->table[symbol][x + y * na]];
+            for (int v = 0; v < size; v++) sat_clause(s, (int[]){-la, -lb, -cell->literal[v], out->literal[v]}, 4);
+        }
+    return id;
+}
+
+/* Il vettore dell'elemento e con i legami finiti correnti. I termini
+ * uguali dopo la sostituzione condividono il vettore nell'applicazione. */
+static int sat_element(SatState *s, const Model *m, const Elem *e) {
+    if (s->broken) return 0;
+    if (e->symbol < 0) return sat_constant(s, m->size[slot_sort[e->slot]], s->slots[e->slot]);
+    int a = e->arg[0] ? sat_element(s, m, e->arg[0]) : 0;
+    int b = e->arg[1] ? sat_element(s, m, e->arg[1]) : 0;
+    return sat_application(s, m, e->symbol, a, b);
+}
+
+/* Un letterale equivalente all'uguaglianza dei vettori a e b. Essendo
+ * entrambi one-hot, coincidono se e solo se hanno un valore vero comune.
+ * Con un lato costante basta il letterale dell'altro per quel valore. */
+static int sat_equal(SatState *s, int a, int b) {
+    if (a == b) return 1;
+    const SatTerm *x = &s->term[a], *y = &s->term[b];
+    if (x->known >= 0) return y->literal[x->known];
+    if (y->known >= 0) return x->literal[y->known];
+    int q = sat_variable(s);
+    for (int v = 0; v < x->size; v++) {
+        sat_clause(s, (int[]){-q, -x->literal[v], y->literal[v]}, 3);
+        sat_clause(s, (int[]){q, -x->literal[v], -y->literal[v]}, 3);
+    }
+    return q;
+}
+
+/* Traduce la frase f in un letterale equivalente nel modello di grandezze
+ * m. I quantificatori sugli elementi provano tutti gli indici, quelli sulle
+ * parti tutte le maschere. Un limite o un nodo non svolto pone broken. */
+static int sat_sentence(SatState *s, const Model *m, const Sentence *f) {
+    if (s->broken || ++s->work > MAX_SAT_WORK) { s->broken = 1; return -1; }
+    int a, b;
+    switch (f->kind) {
+    case S_TRUE: return 1;
+    case S_EQUIPOTENT: return model_equipotent(m, f) ? 1 : -1;
+    case S_EQUAL:
+        a = sat_element(s, m, f->left);
+        b = sat_element(s, m, f->right);
+        return sat_equal(s, a, b);
+    case S_HOLDS: return s->term[sat_element(s, m, f->left)].literal[1];
+    case S_NOT: return -sat_sentence(s, m, f->a);
+    case S_AND: case S_OR: case S_IMPLIES: case S_IFF:
+        a = sat_sentence(s, m, f->a);
+        b = sat_sentence(s, m, f->b);
+        if (f->kind == S_AND) return sat_and(s, a, b);
+        if (f->kind == S_OR) return sat_or(s, a, b);
+        if (f->kind == S_IMPLIES) return sat_or(s, -a, b);
+        return sat_or(s, sat_and(s, a, b), sat_and(s, -a, -b));
+    case S_FORALL: case S_EXISTS: {
+        int every = f->kind == S_FORALL, result = every ? 1 : -1, saved = s->slots[f->slot];
+        for (int x = 0; x < m->size[slot_sort[f->slot]] && !s->broken; x++) {
+            s->slots[f->slot] = x;
+            a = sat_sentence(s, m, f->a);
+            result = every ? sat_and(s, result, a) : sat_or(s, result, a);
+        }
+        s->slots[f->slot] = saved;
+        return result;
+    }
+    case S_FORALL_PART: case S_EXISTS_PART: {
+        int every = f->kind == S_FORALL_PART, result = every ? 1 : -1;
+        unsigned saved = part_bits[f->part], parts = 1u << m->size[symbols[f->part].domain[0]];
+        for (unsigned bits = 0; bits < parts && !s->broken; bits++) {
+            part_bits[f->part] = bits;
+            a = sat_sentence(s, m, f->a);
+            result = every ? sat_and(s, result, a) : sat_or(s, result, a);
+        }
+        part_bits[f->part] = saved;
+        return result;
+    }
+    case S_MEMBER: case S_INCLUDED: case S_SAME: case S_UNIQUE:
+        s->broken = 1;
+        return -1;
+    }
+    s->broken = 1;
+    return -1;
+}
+
+/* Cerca con SAT un modello delle grandezze gia scritte in m. Un esito
+ * positivo viene ricalcolato per intero, con model_holds(), prima di
+ * ritornare 1; altrimenti ritorna 0, anche per limiti e memoria esaurita.
+ * Tutta la memoria del risolutore viene liberata prima di ritornare. */
+static int model_sat(const Sentence *root, int wanted, Model *m) {
+    SatState *s = calloc(1, sizeof *s);
+    if (!s) return 0;
+    sat_variable(s);
+    sat_assign(s, 1, 0);
+    memset(m->table, 0, sizeof m->table);
+    model_structure(m);
+    unsigned fixed_sort = 0;
+    for (int f = 0; f < symbol_count && !s->broken; f++) {
+        if (symbol_bound[f]) continue;
+        int cells, values = model_cells(m, f, &cells);
+        for (int c = 0; c < cells && !s->broken; c++) {
+            int id = symbol_fixed(f) ? sat_constant(s, values, m->table[f][c]) : sat_vector(s, values);
+            s->table[f][c] = id;
+            for (int v = 0; v < values; v++) s->phase[abs(s->term[id].literal[v])] = 1;
+        }
+        /* In un insieme qualsiasi si puo rinominare come 0 il primo
+         * elemento con un nome. Non lo si fa per gli insiemi derivati o
+         * numerici, la cui numerazione e fissata dalla struttura. */
+        int sort = symbols[f].range;
+        if (!symbols[f].arity && sort >= 0 && sort_kind[sort] == SORT_PLAIN && !(fixed_sort >> sort & 1)) {
+            sat_clause(s, &s->term[s->table[f][0]].literal[0], 1);
+            fixed_sort |= 1u << sort;
+        }
+    }
+    int truth = sat_sentence(s, m, root);
+    sat_clause(s, (int[]){wanted ? truth : -truth}, 1);
+    int found = sat_solve(s) == 1;
+    if (found) {
+        for (int f = 0; f < symbol_count; f++) {
+            if (symbol_fixed(f) || symbol_bound[f]) continue;
+            int cells;
+            model_cells(m, f, &cells);
+            for (int c = 0; c < cells; c++) {
+                const SatTerm *t = &s->term[s->table[f][c]];
+                int value = 0;
+                while (value < t->size && sat_value(s, t->literal[value]) <= 0) value++;
+                if (value == t->size) { found = 0; break; }
+                m->table[f][c] = (unsigned char)value;
+            }
+        }
+        int value[MAX_SLOTS] = {0};
+        model_steps = 0;
+        int confirmed = found && model_holds(m, root, value) == wanted;
+        if (!confirmed && model_steps <= MAX_MODEL_STEPS) unjustified_steps++;
+        found = confirmed && model_steps <= MAX_MODEL_STEPS;
+    }
+    free(s);
+    return found;
+}
+
+/* Dopo 28a prova grandezze fino a MAX_SAT_SIZE, per numero totale di
+ * elementi, saltando quelle gia esaurite per intero. Non cambia bound:
+ * UNSAT non e usato come prova. tried conta soltanto un modello estratto
+ * e confermato, non le assegnazioni proposizionali o le grandezze tentate. */
+static int model_sat_search(const Sentence *root, int wanted, Model *m, long long *tried, int bound) {
+    int plain = plain_sorts(), codes = 1, attempts = 0;
+    if (!plain) return 0;
+    for (int i = 0; i < sort_count; i++) codes *= MAX_SAT_SIZE;
+    for (int total = plain; total <= plain * MAX_SAT_SIZE; total++)
+        for (int code = 0; code < codes; code++) {
+            if (model_sizes_at(m, code, MAX_SAT_SIZE) != total) continue;
+            int small = 1;
+            for (int i = 0; i < sort_count; i++)
+                if (sort_kind[i] == SORT_PLAIN && m->size[i] > bound) small = 0;
+            if (small) continue;
+            if (attempts++ == MAX_SAT_ATTEMPTS) return 0;
+            if (model_sat(root, wanted, m)) { ++*tried; return 1; }
+        }
     return 0;
 }
 
@@ -32052,6 +32574,7 @@ static Verdict prove_abstract(const char *formula) {
     /* 28a. I modelli finiti. Per chi chiede un esempio, uno in cui la
      * condizione vale; per gli altri, uno in cui non vale. */
     int found = model_search(root, abstract_example, &model, &tried, &bound);
+    if (!found) found = model_sat_search(root, abstract_example, &model, &tried, bound);
     if (found) {
         /* Il modello trovato viene ricalcolato pezzo per pezzo: ipotesi
          * vere e tesi falsa, e non solo "l'implicazione è falsa". Con la

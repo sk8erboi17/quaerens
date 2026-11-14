@@ -439,6 +439,18 @@ static const Case cases[] = {
     /* Ciò che il motore non tratta deve essere dichiarato, non indovinato. */
     {"unknown LaTeX command", "\\int_0^1 x = \\frac{1}{2}", UNSUPPORTED},
     {"incomplete statement", "\\sum_{k=1}^{n} k =", UNSUPPORTED},
+    /* Numeri e parti non hanno un codominio da leggere come quello di una
+     * applicazione. Il primo caso e l'input danneggiato trovato dal fuzz
+     * 19046: prima accedeva all'indice -1 di sort_kind. */
+    {"a malformed relation on numeric objects is rejected without indexing a nonexistent codomain",
+     "(G_{1} = \\{(1, 2), (2, 3), (1, 3)\\} \\land G = \\{(x, z) \\mid \\exists y\\ ((x, y) \\in G_{1} \\land (y, z) \\in G_{1})\\}) "
+     "\\implies ((\\forall x, y, z\\ (((x, y) \\in G_{1} \\land (y, z) \\in G_{1}) \\implies (x, z) \\in G_{1})) "
+     "\\land (\\lnot (\\forall x, y\\ ((x, y) \\in G_{1} \\implies (y, x) \\i \\prod n G_{1}))) "
+     "\\land (\\forall x, y\\ ((x, y) \\in G \\implies (x, y) \\in G_{1})))", UNSUPPORTED},
+    {"a numeric element cannot be read as an image of a set",
+     "R = \\{(1,2)\\} \\implies \\forall x,y\\ ((x,y) \\in R \\implies x \\subseteq R)", UNSUPPORTED},
+    {"an inverse image requires a map rather than a subset object",
+     "\\forall X \\in \\mathcal{P}(S)\\ (X^{-1}(S) = S)", UNSUPPORTED},
     {"missing relation", "\\sum_{k=1}^{n} k", UNSUPPORTED},
     {"sequence that is not in the library", "a_{n} = 1", UNSUPPORTED},
     {"logarithm of a negative number", "\\ln\\left(-2\\right) = \\ln 2", UNSUPPORTED},

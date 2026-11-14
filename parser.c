@@ -7074,10 +7074,13 @@ static SetTerm *abstract_set_factor(void) {
      * un insieme di applicazioni, seguita da un insieme tra parentesi, ne
      * dà l'immagine o la controimmagine. */
     int slot = visible_find(name, index), symbol = symbol_find(name, index);
-    if (slot >= 0 && slot_sort[slot] >= 0 && sort_kind[slot_sort[slot]] != SORT_PLAIN) {
+    if (slot >= 0 && slot_sort[slot] >= 0) {
         Elem *e = elem_new(-1, slot, NULL, NULL);
         if (sort_kind[slot_sort[slot]] == SORT_PARTS && !mark) return set_term_part(e);
-        if (mark != 1) return set_term_map(e, sort_symbol[slot_sort[slot]], mark);
+        /* Solo un oggetto applicazione ha un codominio: un numero, o una
+         * parte con ^{-1}, non puo passare da set_term_map(). Il fuzz 19046
+         * aveva fatto leggere sort_target=-1 come indice di sort_kind. */
+        if (sort_kind[slot_sort[slot]] == SORT_MAPS && mark != 1) return set_term_map(e, sort_symbol[slot_sort[slot]], mark);
     }
 
     /* 17v. f(x), con f a valori parti e x un elemento del dominio, è la
@@ -8630,17 +8633,17 @@ static Sentence *abstract_unfold(const Sentence *root) {
  *     \item $\displaystyle FORMULA$
  *     \item \[ FORMULA \]
  *
+ * oppure con una formula in linea che comincia con il segno di derivata,
+ * \frac{d^n}{dx^n} o \dfrac{d^n}{dx^n}: è così che gli eserciziari scrivono
+ * gli enunciati sulle derivate n-esime, e quel segno in testa a un \item non
+ * può essere altro che l'inizio di un enunciato.
+ *
  * Fuori dalla formula, % apre una nota fino all'a capo: non introduce
  * condizioni, \item o chiusure dell'elenco. La riga successiva si legge
  * comunque, per non perdere le condizioni che contiene. Le barre protette
  * non aprono comandi e \% non apre una nota. Dentro la formula, una nota non
  * nasconde il suo delimitatore vero, ma resta fuori dalla grammatica delle
  * espressioni: se il lettore non la capisce, rifiuta l'enunciato intero.
- *
- * oppure con una formula in linea che comincia con il segno di derivata,
- * \frac{d^n}{dx^n} o \dfrac{d^n}{dx^n}: è così che gli eserciziari scrivono
- * gli enunciati sulle derivate n-esime, e quel segno in testa a un \item non
- * può essere altro che l'inizio di un enunciato.
  *
  * Il testo che segue la formula nello stesso \item può indicare da dove parte
  * l'induzione, per esempio "per ogni intero $n\ge 2$": la prima formula
@@ -8683,8 +8686,8 @@ static char *read_file(const char *path) {
     return text;
 }
 
-/* Cerca il delimitatore non vuoto literal in [from, to), saltando i commenti LaTeX
- * e i caratteri preceduti da una barra. Un comando che finisce con una
+/* Cerca il delimitatore non vuoto literal in [from, to), saltando i commenti
+ * LaTeX e i caratteri preceduti da una barra. Un comando che finisce con una
  * lettera deve finire davvero: \itemize non è \item. Ritorna NULL se non
  * trova nulla; non modifica il testo né legge oltre to. */
 static const char *tex_find(const char *from, const char *to, const char *literal) {
@@ -8744,7 +8747,6 @@ static int is_remark(const char *from, const char *to) {
     int words = 0;
     for (const char *p = from; p < to; ) {
         unsigned char ch = (unsigned char)*p;
-
         if (isalpha(ch) || ch >= 128) {
             const char *stop = p;
             while (stop < to && (isalpha((unsigned char)*stop) || (unsigned char)*stop >= 128)) stop++;
