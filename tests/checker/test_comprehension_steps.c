@@ -38,11 +38,11 @@ static const CkNode *prepare(const char *text,int constant) {
     ck_sort_count=1; ck_symbol_count=ck_declared=2+constant;
     if (!ck_symbols_reserve((size_t)ck_symbol_count)) return NULL;
     memset(ck_sorts,0,sizeof ck_sorts); memset(ck_symbols,0,(size_t)ck_symbol_count*sizeof *ck_symbols);
-    strcpy(ck_sorts[0].name,"S");
-    if (constant) { strcpy(ck_symbols[0].name,"c"); ck_symbols[0].result=0; }
+    ck_sorts[0].name="S";
+    if (constant) { ck_symbols[0].name="c"; ck_symbols[0].result=0; }
     for (int i=0;i<2;i++) {
         CkSymbol *s=&ck_symbols[constant+i];
-        strcpy(s->name,i?"R":"Q"); s->arity=1; s->arg[0]=0; s->result=CK_BOOL;
+        s->name=i?"R":"Q"; s->arity=1; s->arg[0]=0; s->result=CK_BOOL;
     }
     ck_cursor=text; const CkNode *root=ck_read_condition();
     if (ck_status==CK_ACCEPTED) ck_r_prepare(root,NULL,0);

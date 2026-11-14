@@ -254,7 +254,6 @@
 #define CK_MAX_SCAN 100000   /* valori di n provati uno a uno per un polinomio */
 #define CK_MAX_BRICKS 32     /* voci "brick" di un certificato */
 #define CK_MAX_FACTORED 1000000000000LL  /* il più grande numero scomposto in fattori primi */
-#define CK_MAX_NAME 16       /* caratteri di un nome nel capitolo 11, compreso lo zero finale */
 #define CK_MAX_SORTS 6       /* insiemi di un enunciato su insiemi qualsiasi: i casi vuoti sono 2^6 */
 #define CK_MAX_EVAL 100000000LL  /* elementi provati dai quantificatori calcolando su un modello */
 #define CK_MAX_GROUND 4096   /* termini chiusi di un caso */
@@ -2240,7 +2239,7 @@ static void ck_check_sets(const CkNode *statement) {
 /* Un insieme dichiarato da una voce sort: un insieme qualsiasi, oppure
  * (11h) l'insieme delle parti di un altro o delle applicazioni tra due. */
 typedef struct {
-    char name[CK_MAX_NAME];
+    const char *name; /* Nome terminato da zero, posseduto dall'arena del certificato. */
     size_t size;  /* 11a, 11b: elementi 0, ..., size-1; nelle prove (size_t)-1. */
     int kind;     /* 0 un insieme qualsiasi, 1 le parti di base, 2 le applicazioni da base a target,
                      3 (11i) i numeri scritti, ognuno con il suo nome */
@@ -2255,7 +2254,7 @@ typedef struct {
 /* Un simbolo: dichiarato da una voce symbol, oppure un nome nuovo dato da una
  * voce witness (11d) o part (11g), che vale solo nel suo caso. */
 typedef struct {
-    char name[CK_MAX_NAME];
+    const char *name; /* Nome terminato da zero, posseduto dall'arena del certificato. */
     int arity;    /* 0, 1 o 2 argomenti */
     int arg[2];   /* gli insiemi degli argomenti: posti in ck_sorts[] */
     int result;   /* l'insieme del valore, o CK_BOOL */
@@ -2344,7 +2343,7 @@ static size_t *ck_model_table(size_t count) {
  * dalla valutazione. Le celle sono possedute dal vettore ck_bound; tutti
  * gli accessi usano indici, perche il vettore puo spostarsi. */
 typedef struct {
-    char name[CK_MAX_NAME];
+    const char *name; /* Nome terminato da zero, posseduto dall'arena del certificato. */
     int sort, part;
     size_t value;
     unsigned char *bits;
@@ -2386,17 +2385,22 @@ static unsigned ck_side_mask(long long value, int k) {
     return mask;
 }
 
-/* Legge un nome (una lettera, poi lettere, cifre e _) e lo mette in out.
- * Ritorna 0 se non c'è. */
-static int ck_name(char *out) {
-    int length = 0;
+/* Legge un nome (una lettera, poi lettere, cifre e _) e mette in *out una
+ * copia terminata da zero, valida fino al prossimo certificato. La memoria
+ * dell'arena cresce col testo, senza una lunghezza lessicale compilata.
+ * Ritorna 0 se il nome manca o le risorse finiscono, con *out=NULL. */
+static int ck_name(const char **out) {
+    *out = NULL;
     ck_skip();
     if (!isalpha((unsigned char)*ck_cursor)) return 0;
-    while (isalnum((unsigned char)*ck_cursor) || *ck_cursor == '_') {
-        if (length == CK_MAX_NAME - 1) { ck_unsupported("nome troppo lungo per il verificatore"); return 0; }
-        out[length++] = *ck_cursor++;
-    }
-    out[length] = 0;
+    const char *start=ck_cursor;
+    while (isalnum((unsigned char)*ck_cursor) || *ck_cursor=='_') ck_cursor++;
+    size_t length=(size_t)(ck_cursor-start);
+    if (length>=CK_ARENA_BYTES) { ck_unsupported("memoria del verificatore esaurita per un nome");return 0; }
+    char *name=ck_alloc(length+1);
+    if (ck_status!=CK_ACCEPTED) return 0;
+    memcpy(name,start,length);name[length]=0;
+    *out=name;
     return 1;
 }
 
@@ -2420,12 +2424,12 @@ static int ck_symbol_of(const char *name) {
 static long long ck_read_sides(void) {
     int sort[2][2] = {{-1, -1}, {-1, -1}};
     for (int k = 0; k < 2; k++) {
-        char name[CK_MAX_NAME];
+        const char *name;
         ck_skip();
         int open = *ck_cursor == '(';
         if (open) ck_cursor++;
         for (int i = 0; i < 1 + open; i++)
-            if (!ck_name(name) || (sort[k][i] = ck_sort_of(name)) < 0) {
+            if (!ck_name(&name) || (sort[k][i] = ck_sort_of(name)) < 0) {
                 ck_reject("certificato scritto male: un lato di equipotent è un insieme dichiarato, o due tra parentesi");
                 return 0;
             }
@@ -2441,13 +2445,13 @@ static long long ck_read_sides(void) {
  * o con un argomento nell'insieme sbagliato, rende il certificato
  * sbagliato. */
 static const CkNode *ck_read_term(int *sort) {
-    char name[CK_MAX_NAME];
+    const char *name;
     CkNode *node = ck_node(CK_APP);
     *sort = -1;
     ck_skip();
     int open = *ck_cursor == '(';
     if (open) ck_cursor++;
-    if (ck_status != CK_ACCEPTED || !ck_name(name)) { ck_reject("certificato scritto male: termine atteso"); return node; }
+    if (ck_status != CK_ACCEPTED || !ck_name(&name)) { ck_reject("certificato scritto male: termine atteso"); return node; }
 
     /* Una variabile: senza parentesi, la più interna con quel nome. Con le
      * parentesi, una parte legata applicata a un termine (11g). Una parte
@@ -2507,13 +2511,13 @@ static const CkNode *ck_read_condition(void) {
         {"not", CK_NOT, 1}, {"and", CK_AND, 2}, {"or", CK_OR, 2}, {"implies", CK_IMPLIES, 2}, {"iff", CK_IFF, 2},
         {"forall", CK_FORALL, 0}, {"exists", CK_EXISTS, 0}, {"forallpart", CK_FORALLPART, 0}, {"existspart", CK_EXISTSPART, 0},
     };
-    char word[CK_MAX_NAME];
+    const char *word;
     CkNode *node = ck_node(CK_TRUE);
     ck_skip();
     const char *start = ck_cursor;
     if (ck_status != CK_ACCEPTED) return node;
     if (*ck_cursor != '(') {
-        if (!ck_name(word) || strcmp(word, "true") != 0) ck_reject("certificato scritto male: condizione attesa");
+        if (!ck_name(&word) || strcmp(word, "true") != 0) ck_reject("certificato scritto male: condizione attesa");
         return node;
     }
     if (ck_depth >= CK_MAX_DEPTH) { ck_unsupported("espressione con troppe parentesi una dentro l'altra"); return node; }
@@ -2528,7 +2532,7 @@ static const CkNode *ck_read_condition(void) {
         node->a = ck_read_term(&sort[0]);
         node->b = ck_read_term(&sort[1]);
         if (sort[0] != sort[1] || sort[0] == CK_BOOL) ck_reject("un'uguaglianza tra elementi di insiemi diversi");
-    } else if (!ck_name(word)) {
+    } else if (!ck_name(&word)) {
         ck_reject("certificato scritto male: condizione attesa");
     } else if (strcmp(word, "equipotent") == 0) {
         /* 11j. Due insiemi, o prodotti, equipotenti. */
@@ -2552,10 +2556,10 @@ static const CkNode *ck_read_condition(void) {
         if (table[found].operands == 0) {
             /* (forall x S c): la variabile e il suo insieme restano in vista
              * mentre si legge c. Lo stesso per una parte (11g). */
-            char set[CK_MAX_NAME];
+            const char *set;
             if (ck_bound_count == INT_MAX) { ck_unsupported("memoria disponibile insufficiente per i quantificatori"); return node; }
             if (!ck_reserve((void **)&ck_bound, &ck_bound_capacity, (size_t)ck_bound_count + 1, sizeof *ck_bound)) return node;
-            if (!ck_name(ck_bound[ck_bound_count].name) || !ck_name(set) || (node->value = ck_sort_of(set)) < 0) {
+            if (!ck_name(&ck_bound[ck_bound_count].name) || !ck_name(&set) || (node->value = ck_sort_of(set)) < 0) {
                 ck_reject("certificato scritto male: dopo forall ed exists servono una variabile e un insieme dichiarato");
                 return node;
             }
@@ -2958,8 +2962,8 @@ static const CkNode *ck_implies(const CkNode *premise, const CkNode *conclusion)
  * o dato nel caso, con un solo argomento in sort e valore vero o falso.
  * Ritorna il suo posto, o -1 (e il certificato è respinto). */
 static int ck_read_part(int sort) {
-    char name[CK_MAX_NAME];
-    int s = ck_name(name) ? ck_symbol_of(name) : -1;
+    const char *name;
+    int s = ck_name(&name) ? ck_symbol_of(name) : -1;
     if (s < 0 || ck_symbols[s].arity != 1 || ck_symbols[s].arg[0] != sort || ck_symbols[s].result != CK_BOOL) {
         ck_reject("un'istanza su parti vuole il nome di una parte dell'insieme giusto");
         return -1;
@@ -3009,9 +3013,9 @@ static const CkNode *ck_identities(long long value, const int *map) {
 static void ck_instance_equipotent(const CkNode *q) {
     int map[4], count = ck_side_count(q->value, 0) + ck_side_count(q->value, 1);
     for (int j = 0; j < count; j++) {
-        char name[CK_MAX_NAME];
+        const char *name;
         int arg[2], result, arity = ck_identity_sorts(q->value, j, arg, &result);
-        int s = ck_name(name) ? ck_symbol_of(name) : -1;
+        int s = ck_name(&name) ? ck_symbol_of(name) : -1;
         if (s < 0 || ck_symbols[s].arity != arity || ck_symbols[s].result != result || (arity > 0 && ck_symbols[s].arg[0] != arg[0]) ||
             (arity > 1 && ck_symbols[s].arg[1] != arg[1])) {
             ck_reject("un'istanza di un'equipotenza vuole i nomi di funzioni tra gli insiemi giusti");
@@ -3060,7 +3064,7 @@ static void ck_witness(void) {
     if (!ck_symbols_reserve((size_t)ck_symbol_count + 1)) return;
     CkSymbol *c = &ck_symbols[ck_symbol_count];
     memset(c, 0, sizeof *c);
-    if (!ck_name(c->name) || ck_symbol_of(c->name) >= 0) { ck_reject("witness: serve un nome che nel caso non c'è ancora"); return; }
+    if (!ck_name(&c->name) || ck_symbol_of(c->name) >= 0) { ck_reject("witness: serve un nome che nel caso non c'è ancora"); return; }
     c->witness = 1;
     if (q->kind == CK_EQUIPOTENT) {
         /* 11j. Le funzioni di una biiezione e della sua inversa, nomi nuovi
@@ -3075,7 +3079,7 @@ static void ck_witness(void) {
             if (!ck_symbols_reserve((size_t)ck_symbol_count + 1)) return;
             CkSymbol *f = &ck_symbols[ck_symbol_count];
             if (j) memset(f, 0, sizeof *f);
-            if (j && (!ck_name(f->name) || ck_symbol_of(f->name) >= 0)) { ck_reject("witness: serve un nome che nel caso non c'è ancora"); return; }
+            if (j && (!ck_name(&f->name) || ck_symbol_of(f->name) >= 0)) { ck_reject("witness: serve un nome che nel caso non c'è ancora"); return; }
             f->witness = 1;
             f->pairs = 1u << ck_pair_count;
             f->arity = ck_identity_sorts(q->value, j, f->arg, &f->result);
@@ -3110,13 +3114,13 @@ static void ck_witness(void) {
  * variabili libere di c possono essere solo x, perché il lettore non conosce
  * altre variabili legate. */
 static void ck_part(void) {
-    char set[CK_MAX_NAME];
+    const char *set;
     if (!ck_symbols_reserve((size_t)ck_symbol_count + 1)) return;
     CkSymbol *d = &ck_symbols[ck_symbol_count];
     memset(d, 0, sizeof *d);
-    if (!ck_name(d->name) || ck_symbol_of(d->name) >= 0) { ck_reject("part: serve un nome che nel caso non c'è ancora"); return; }
+    if (!ck_name(&d->name) || ck_symbol_of(d->name) >= 0) { ck_reject("part: serve un nome che nel caso non c'è ancora"); return; }
     if (!ck_reserve((void **)&ck_bound, &ck_bound_capacity, 1, sizeof *ck_bound)) return;
-    int sort = !ck_name(ck_bound[0].name) || !ck_name(set) ? -1 : ck_sort_of(set);
+    int sort = !ck_name(&ck_bound[0].name) || !ck_name(&set) ? -1 : ck_sort_of(set);
     if (sort < 0) { ck_reject("certificato scritto male: dopo part servono il nome, una variabile e un insieme dichiarato"); return; }
     ck_bound[0].sort = sort;
     ck_bound[0].part = 0;
@@ -3178,14 +3182,14 @@ static int ck_spec(const CkNode *c, const CkNode *v, int sort, int symbol) {
  * nomini solo dove va. Il nome esiste quando esistono quelli della sua
  * definizione: ne prende need e pairs. */
 static void ck_define(void) {
-    char names[3][CK_MAX_NAME];
+    const char *names[3];
     int sorts[3], count = 0;
     if (!ck_symbols_reserve((size_t)ck_symbol_count + 1)) return;
     CkSymbol *g = &ck_symbols[ck_symbol_count];
     memset(g, 0, sizeof *g);
-    if (!ck_name(g->name) || ck_symbol_of(g->name) >= 0) { ck_reject("define: serve un nome che nel caso non c'è ancora"); return; }
+    if (!ck_name(&g->name) || ck_symbol_of(g->name) >= 0) { ck_reject("define: serve un nome che nel caso non c'è ancora"); return; }
     for (ck_skip(); *ck_cursor != '(' && count < 3; ck_skip(), count++)
-        if (!ck_name(names[count]) || (sorts[count] = ck_sort_of(names[count])) < 0) { ck_reject("define: dopo il nome servono gli insiemi dichiarati degli argomenti e del valore"); return; }
+        if (!ck_name(&names[count]) || (sorts[count] = ck_sort_of(names[count])) < 0) { ck_reject("define: dopo il nome servono gli insiemi dichiarati degli argomenti e del valore"); return; }
     if (count < 2 || *ck_cursor != '(') { ck_reject("define: una funzione di uno o due argomenti, poi la sua definizione"); return; }
     g->arity = count - 1;
     g->result = sorts[count - 1];
@@ -3327,16 +3331,22 @@ static int ck_consistent(unsigned empty) {
  * (models = 1) calcola la grandezza e la tabella del simbolo con la
  * numerazione scritta in testa al paragrafo 11h. */
 static void ck_derived_sort(int i, int kind, int models) {
-    char name[CK_MAX_NAME];
+    const char *name;
     CkSort *sort = &ck_sorts[i];
     sort->kind = kind;
-    sort->base = ck_name(name) ? ck_sort_of(name) : -1;
-    sort->target = kind == 2 && ck_name(name) ? ck_sort_of(name) : -1;
-    if (sort->base < 0 || (kind == 2 && sort->target < 0)) { ck_reject("certificato scritto male: un insieme di parti o di applicazioni su un insieme non dichiarato"); return; }
+    sort->base = ck_name(&name) ? ck_sort_of(name) : -1;
+    sort->target = kind == 2 && ck_name(&name) ? ck_sort_of(name) : -1;
+    /* Le sort derivate sono definizioni in ordine: ogni argomento deve
+     * precederle. Per induzione, le sue cardinalita e tabelle sono cosi
+     * gia interpretate. Includere la sort corrente leggerebbe una vecchia
+     * size e ammetterebbe perfino P=parti(P), impossibile per Cantor. */
+    if (sort->base < 0 || sort->base >= i || (kind == 2 && (sort->target < 0 || sort->target >= i))) {
+        ck_reject("certificato scritto male: una sort derivata usa solo insiemi dichiarati prima di essa");return;
+    }
     if (!ck_symbols_reserve((size_t)ck_symbol_count + 1)) return;
     CkSymbol *y = &ck_symbols[ck_symbol_count];
     memset(y, 0, sizeof *y);
-    if (!ck_name(y->name) || ck_symbol_of(y->name) >= 0) { ck_reject("certificato scritto male: il simbolo di struttura manca, o ha il nome di un altro"); return; }
+    if (!ck_name(&y->name) || ck_symbol_of(y->name) >= 0) { ck_reject("certificato scritto male: il simbolo di struttura manca, o ha il nome di un altro"); return; }
     y->arity = 2;
     y->arg[0] = kind == 1 ? sort->base : i;
     y->arg[1] = kind == 1 ? i : sort->base;
@@ -3449,7 +3459,7 @@ static void ck_numbers_sort(int i, int models) {
         if (!ck_symbols_reserve((size_t)ck_symbol_count + 1)) return;
         CkSymbol *y = &ck_symbols[ck_symbol_count];
         memset(y, 0, sizeof *y);
-        if (!ck_name(y->name) || ck_symbol_of(y->name) >= 0) { ck_reject("certificato scritto male: un numero senza nome, o con il nome di un altro simbolo"); return; }
+        if (!ck_name(&y->name) || ck_symbol_of(y->name) >= 0) { ck_reject("certificato scritto male: un numero senza nome, o con il nome di un altro simbolo"); return; }
         y->result = i;
         if (models) {
             y->table = ck_model_table(1);
@@ -4432,7 +4442,7 @@ static void ck_check_structure(int kind) {
     ck_nodes = 0;
     if (kind == 3) ck_r.started = 0;
     for (int ended = 0; !ended && ck_status == CK_ACCEPTED;) {
-        char name[CK_MAX_NAME];
+        const char *name;
         size_t size = (size_t)-1;
         while (isspace((unsigned char)*ck_cursor)) ck_cursor++;
         if (ck_word("end")) {
@@ -4440,9 +4450,9 @@ static void ck_check_structure(int kind) {
         } else if (!statement && ck_word("sort")) {
             /* Un insieme, con il numero di elementi nei soli modelli. */
             if (ck_sort_count == CK_MAX_SORTS) { ck_unsupported("troppi insiemi per il verificatore"); return; }
-            if (!ck_name(name) || ck_sort_of(name) >= 0) { ck_reject("certificato scritto male: sort senza nome, o due volte"); return; }
+            if (!ck_name(&name) || ck_sort_of(name) >= 0) { ck_reject("certificato scritto male: sort senza nome, o due volte"); return; }
             CkSort *sort = &ck_sorts[ck_sort_count];
-            strcpy(sort->name, name);
+            sort->name = name;
             sort->kind = 0;
             sort->base = sort->target = sort->symbol = -1;
             int parts = ck_word("parts");
@@ -4464,9 +4474,9 @@ static void ck_check_structure(int kind) {
             if (!ck_symbols_reserve((size_t)ck_symbol_count + 1)) return;
             CkSymbol *y = &ck_symbols[ck_symbol_count];
             memset(y, 0, sizeof *y);
-            if (!ck_name(y->name) || ck_symbol_of(y->name) >= 0) { ck_reject("certificato scritto male: symbol senza nome, o due volte"); return; }
+            if (!ck_name(&y->name) || ck_symbol_of(y->name) >= 0) { ck_reject("certificato scritto male: symbol senza nome, o due volte"); return; }
             for (ck_skip(); *ck_cursor && *ck_cursor != '\n'; ck_skip()) {
-                if (count == 3 || !ck_name(name)) { ck_reject("certificato scritto male: symbol con troppi insiemi"); return; }
+                if (count == 3 || !ck_name(&name)) { ck_reject("certificato scritto male: symbol con troppi insiemi"); return; }
                 sort[count++] = strcmp(name, "bool") == 0 ? CK_BOOL : ck_sort_of(name);
             }
             if (count == 0) { ck_reject("certificato scritto male: symbol senza insiemi"); return; }
@@ -4482,7 +4492,7 @@ static void ck_check_structure(int kind) {
             ck_declared = ck_symbol_count;
         } else if (kind < 2 && statement && ck_word("table")) {
             /* I valori di un simbolo, cella per cella. */
-            int s = ck_name(name) ? ck_symbol_of(name) : -1;
+            int s = ck_name(&name) ? ck_symbol_of(name) : -1;
             if (s < 0 || ck_symbols[s].table) { ck_reject("table di un simbolo non dichiarato, o due volte"); return; }
             CkSymbol *y = &ck_symbols[s];
             size_t cells = 1, values = y->result == CK_BOOL ? 2 : ck_sorts[y->result].size;

@@ -5384,7 +5384,7 @@ static void pair_sets_check(void) {
  *                  | (\forall | \exists) lettera { ',' lettera } [ \in range ] unary
  *                  | name \colon Set [ \times Set ] \to Set      (applicazione, operazione)
  *                  | name \subseteq Set [ \times Set ]           (parte, relazione)
- *                  | lettera \in Set                             (un elemento con un nome)
+ *                  | name \in Set                                (un elemento con un nome)
  *                  | Set \neq \emptyset
  *                  | lato \sim lato                              (17w)
  *                  | side ('=' | \neq) side
@@ -5394,10 +5394,10 @@ static void pair_sets_check(void) {
  *     side        := term | '(' term ',' term ')'
  *     term        := factor [ operazione factor ]
  *     factor      := name | name '(' term [ ',' term ] ')' | '(' term ')'
- *     name        := (lettera | lettera greca) [ '_' cifra ]
+ *     name        := (lettera | lettera greca) [ '_' cifra | '_{' intero '}' ]
  *
  * Set è una lettera maiuscola che non è stata dichiarata come parte o come
- * relazione, anche con una cifra per pedice, S_{1} (17w): un insieme
+ * relazione, anche con un pedice numerico, S_{12} (17w): un insieme
  * qualsiasi, di cui non si sa nulla, nemmeno se è vuoto. Le convenzioni di
  * lettura, che sono tutto ciò che questo paragrafo decide:
  *
@@ -5474,8 +5474,8 @@ typedef struct {
 } Symbol;
 
 /* I simboli dell'enunciato in corso, e i suoi insiemi: l'insieme di posto i
- * è la lettera sort_name[i], con il pedice sort_sub[i] (17w: S_{1}, da 1 a
- * 9; 0 se non c'è). I simboli e i loro ruoli hanno vettori posseduti
+ * è la lettera sort_name[i], con il pedice sort_sub[i] (17w: S_{12}, positivo
+ * e rappresentabile in int; 0 se non c'è). I simboli e i loro ruoli hanno vettori posseduti
  * dinamici: i contatori sono il solo prefisso valido, le capacita contano
  * celle e possono crescere senza un tetto compilato alle dichiarazioni. */
 static Symbol *symbols;
@@ -5527,7 +5527,7 @@ static int sort_count;
  *     le altre, {\le} \subseteq S \times S, e si scrive tra gli elementi, x
  *     \le y, o come insieme di coppie, (x, y) \in \le. \le_{S} mai dichiarata
  *     è una relazione tra gli elementi del suo primo uso, come R_{1}: una
- *     lettera con una cifra per pedice, usata dopo \in senza essere stata
+ *     lettera con un pedice numerico, usata dopo \in senza essere stata
  *     dichiarata. Un enunciato con un nome libero vale per ogni sua scelta,
  *     come vale per ogni scelta dei suoi insiemi.
  *   - In un esempio, \exists {\le_{S}} cerca una relazione su S, e \exists F\
@@ -5772,7 +5772,7 @@ static const char *const relation_commands[] = {"le", "preceq", "sqsubseteq"};
 /* 17v. Legge il nome di una relazione scritta con un comando, \le, con il
  * pedice se c'è, \le_{S} o \le_{1}, e anche tra graffe come lo scrivono i
  * libri quando la relazione è un oggetto, {\le} o {\le_{S}}. Ritorna il
- * nome interno e mette il pedice in *index: una cifra, o LETTER_INDEX meno
+ * nome interno e mette il pedice in *index: un intero positivo, o LETTER_INDEX meno
  * la lettera. Ritorna 0, senza leggere nulla, se ciò che segue non è il
  * nome di una relazione. */
 static int relation_name(int *index) {
@@ -5791,8 +5791,8 @@ static int relation_name(int *index) {
         int inner = is_char('{');
         if (inner) next_token();
         if (token.kind == T_LETTER) *index = LETTER_INDEX - token.ch;
-        else if (token.kind == T_NUM && token.value >= 1 && token.value <= 9) *index = (int)token.value;
-        else syntax("come pedice di una relazione è riconosciuta una lettera o una cifra da 1 a 9");
+        else if (token.kind == T_NUM && token.value >= 1 && token.value <= INT_MAX && (inner || token.digits==1)) *index = (int)token.value;
+        else syntax("come pedice di una relazione serve una lettera o un intero positivo rappresentabile; piu cifre richiedono le graffe");
         next_token();
         if (inner) expect_char('}', "manca }");
     }
@@ -5818,22 +5818,23 @@ static int abstract_name_or_section(int *index, int *letter) {
     next_token();
     if (!is_char('_')) return name;
 
-    /* Il pedice: una cifra, con o senza graffe; o, dove è ammessa, una
-     * lettera. Lo zero, x_{0}, è ZERO_INDEX (17v), perché 0 vuol dire "senza
-     * pedice". */
+    /* Il pedice numerico e un indice, non un numero del dominio. Int puo
+     * rappresentarlo senza troncamento; piu cifre richiedono le graffe di
+     * LaTeX. Lo zero esplicito ha il codice ZERO_INDEX, distinto da nessun
+     * pedice. Dove e ammessa, una lettera indica una famiglia di parti. */
     next_token();
     int braces = is_char('{');
     if (braces) next_token();
     if (letter && token.kind == T_LETTER) *letter = token.ch;
-    else if (token.kind != T_NUM || token.value < 0 || token.value > 9) syntax("come pedice di un nome è riconosciuta una cifra");
+    else if (token.kind != T_NUM || token.value < 0 || token.value > INT_MAX || (!braces && token.digits!=1))
+        syntax("come pedice di un nome serve un intero non negativo rappresentabile; piu cifre richiedono le graffe");
     else *index = token.value ? (int)token.value : ZERO_INDEX;
     next_token();
     if (braces) expect_char('}', "manca }");
     return name;
 }
 
-/* Come abstract_name_or_section(), dove il pedice può essere solo una
- * cifra. */
+/* Come abstract_name_or_section(), con il solo pedice numerico. */
 static int abstract_name(int *index) { return abstract_name_or_section(index, NULL); }
 
 /* Un nome che l'enunciato dà a un insieme, G = \{...\} (17p): ogni G scritto
@@ -5857,7 +5858,7 @@ static const Definition *definition_find(int name, int index, int starred) {
 }
 
 /* Ritorna il posto in sort_name[] dell'insieme di lettera letter e pedice
- * sub (17w: da 1 a 9, o 0 se non c'è), registrandolo se è nuovo. Una
+ * sub (17w: positivo, o 0 se non c'è), registrandolo se è nuovo. Una
  * lettera che non può indicare un insieme è un errore: una minuscola, o il
  * nome di una parte, di una relazione o di un insieme definito (17p). */
 static int sort_index_sub(int letter, int sub) {
@@ -5931,7 +5932,7 @@ static int symbol_structure(int symbol) {
 static int abstract_power_sort(void);
 
 /* Set: legge la lettera di un insieme qualsiasi, con il suo pedice se c'è
- * (17w: S_{1}, una cifra da 1 a 9), e la supera. Ritorna il suo posto in
+ * (17w: S_{12}, intero positivo), e la supera. Ritorna il suo posto in
  * sort_name[]. Anche \mathcal{P}(Set), l'insieme delle parti preso come
  * insieme di oggetti (17v): il codominio di un'applicazione a valori parti,
  * l'insieme di una famiglia di parti, una componente di un prodotto.
@@ -5949,8 +5950,8 @@ static int abstract_sort(void) {
         next_token();
         int braces = is_char('{');
         if (braces) next_token();
-        if (token.kind == T_NUM && token.value >= 1 && token.value <= 9) { sub = (int)token.value; next_token(); }
-        else syntax("come pedice di un insieme è riconosciuta una cifra da 1 a 9");
+        if (token.kind == T_NUM && token.value >= 1 && token.value <= INT_MAX && (braces || token.digits==1)) { sub = (int)token.value; next_token(); }
+        else syntax("come pedice di un insieme serve un intero positivo rappresentabile; piu cifre richiedono le graffe");
         if (braces) expect_char('}', "manca }");
     }
     return sort_index_sub(letter, sub);
@@ -6265,7 +6266,7 @@ static int sentence_forces(const Sentence *s, int negated, int slot) {
     }
 }
 
-/* lettera [ '_' cifra ]: legge il nome di una variabile, con il suo pedice,
+/* lettera [ '_' indice ]: legge il nome di una variabile, con il suo pedice,
  * e lo supera. Ritorna la lettera e mette il pedice in *index; ritorna 0,
  * senza leggere nulla, se il token corrente non è una lettera. */
 static int abstract_letter(int *index) {
@@ -7334,7 +7335,7 @@ static Sentence *abstract_set_relation(const char *start, int *seen) {
 
 /* 17v. Se il nome name, con il pedice index, non vuol dire ancora nulla e
  * può essere quello di una relazione (un comando come \le, o una maiuscola
- * con una cifra per pedice, R_{1}), e le count componenti di items[] hanno
+ * con un pedice numerico, R_{12}), e le count componenti di items[] hanno
  * tutte un insieme, lo dichiara: una relazione tra quegli insiemi, o una
  * parte se la componente è una. Ritorna il posto del simbolo, o -1 se non
  * l'ha dichiarato. Vedi la convenzione in testa a 17v. */
@@ -7576,11 +7577,11 @@ static Sentence *abstract_declaration(const char *start) {
      * un elemento come da ogni altro "esiste". */
     int plain = symbol.name && !operation && !symbol.index && symbol.name < 128;
 
-    /* 17w. Anche S_{1} \neq \emptyset, con una cifra per pedice: un insieme
+    /* 17w. Anche S_{12} \neq \emptyset, con un pedice numerico: un insieme
      * con un pedice, se il nome non vuol dire ancora nulla o è già quello di
      * un insieme, oppure una parte dichiarata con quel nome. */
     int subscripted = 0;
-    if (symbol.name && !operation && symbol.name < 128 && isupper(symbol.name) && symbol.index >= 1 && symbol.index <= 9) {
+    if (symbol.name && !operation && symbol.name < 128 && isupper(symbol.name) && symbol.index >= 1) {
         int known = symbol_find(symbol.name, symbol.index);
         subscripted = fresh || (known >= 0 && symbols[known].range == TRUTH && symbols[known].arity == 1);
         for (int i = 0; i < sort_count; i++) subscripted = subscripted || (sort_kind[i] == SORT_PLAIN && sort_name[i] == symbol.name && sort_sub[i] == symbol.index);
@@ -7604,9 +7605,11 @@ static Sentence *abstract_declaration(const char *start) {
         }
     }
 
-    /* u \in S, con u una lettera che non vuol dire ancora nulla: un
-     * elemento di S a cui l'enunciato dà un nome. */
-    if (plain && islower(symbol.name) && is_command("in") && fresh && !replace_frame) {
+    /* u_{12} \in S, con un nome che non vuol dire ancora nulla: un
+     * elemento di S. Anche qui il pedice distingue i nomi, come nelle
+     * mappe e nelle parti; non seleziona una componente di un elemento. */
+    if (symbol.name && !operation && symbol.name<128 && islower(symbol.name) &&
+        is_command("in") && fresh && !replace_frame) {
         next_token();
         symbol.range = abstract_sort();
         symbol_add(symbol);
@@ -7906,7 +7909,7 @@ static Sentence *abstract_unique(const char *start) {
  *     fattore := base [ '^' ( '{' fattore '}' | Set ) ]
  *     base    := Set | '(' fattore ')'
  *
- * con Set una lettera, anche con una cifra per pedice (S_{1}), o
+ * con Set una lettera, anche con un pedice numerico (S_{12}), o
  * \mathcal{P}(Set). T^{S} è l'insieme delle applicazioni da S a T, e
  * (S^{T})^{V} quello delle applicazioni da V a S^{T}: insiemi di oggetti
  * come in 17v. Un prodotto S \times T non è un insieme dell'enunciato: i
@@ -8171,15 +8174,16 @@ static int declaration_misplaced(const Sentence *s, int allowed) {
 }
 
 /* 17v. Ritorna 1 se ciò che segue, dopo delle parentesi aperte, comincia
- * con "letter \subseteq": la dichiarazione di una parte di nome letter, in
- * testa alla condizione. Non legge nulla. */
-static int declared_inside(int letter) {
+ * con "nome \subseteq": la dichiarazione della parte di lettera letter e
+ * pedice index, in testa alla condizione. Ripristina tutto lo stato letto. */
+static int declared_inside(int letter,int index) {
     ParserState before = parser_save();
+    const char *kept=consumed;
     while (token.kind == T_OPEN) next_token();
-    int found = token.kind == T_LETTER && token.ch == letter;
-    if (found) next_token();
+    int sub=0,found=token.kind==T_LETTER && abstract_name(&sub)==letter && sub==index;
     found = found && is_command("subseteq");
     parser_restore(before);
+    consumed=kept;
     return found;
 }
 
@@ -8217,7 +8221,7 @@ static Sentence *abstract_statement(void) {
             names[count].letter = operation_name();
             if (names[count].letter) { operation = 1; names[count].index = 0; next_token(); }
             else names[count].letter = abstract_name(&names[count].index);
-            sets = sets && names[count].letter < 128 && isupper(names[count].letter) && !names[count].index;
+            sets = sets && names[count].letter < 128 && isupper(names[count].letter) && names[count].index>=0;
             if (!names[count].letter) break;
             count++;
         } while (is_char(','));
@@ -8229,8 +8233,10 @@ static Sentence *abstract_statement(void) {
          * nei libri; l'insieme deve essere già stato introdotto. */
         int orders = count > 0 && !operation && !parts && !map;
         for (int i = 0; i < count && orders; i++) {
-            int letter = LETTER_INDEX - names[i].index;
-            orders = names[i].letter >= RELATION_NAMES && names[i].index <= LETTER_INDEX && sort_index_find(letter) >= 0;
+            /* Decodifica solo dopo aver riconosciuto il tag letterale:
+             * sottrarre un indice numerico INT_MAX traboccherebbe. */
+            orders = names[i].letter >= RELATION_NAMES && names[i].index <= LETTER_INDEX &&
+                     sort_index_find(LETTER_INDEX - names[i].index) >= 0;
         }
         if (orders) {
             for (int i = 0; i < count && !syntax_error; i++) {
@@ -8275,14 +8281,14 @@ static Sentence *abstract_statement(void) {
          * testa alle sue congiunzioni; non è un insieme. Il quantificatore
          * non dice altro: si salta, e la dichiarazione la legge la
          * condizione. */
-        if (!parts && !map && count == 1 && declared_inside(names[0].letter)) continue;
+        if (!parts && !map && count == 1 && declared_inside(names[0].letter,names[0].index)) continue;
 
         /* Conserva anche la condizione di non vacuita: la ricerca dei
          * modelli ammette insiemi vuoti, quindi saltarla cambierebbe la
          * richiesta. La condizione diventera un normale esistenziale. */
         if (!parts && !map) {
             unsigned declared = 0;
-            for (int i = 0; i < count; i++) declared |= 1u << sort_index(names[i].letter);
+            for (int i = 0; i < count; i++) declared |= 1u << sort_index_sub(names[i].letter,names[i].index);
             if (is_command("neq") || is_command("ne")) {
                 nonempty |= declared;
                 next_token();

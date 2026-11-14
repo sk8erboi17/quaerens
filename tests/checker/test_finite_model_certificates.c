@@ -47,6 +47,15 @@ int main(void) {
         {"a fixed point invalidates the claimed example", CYCLE_HEAD(CYCLE_SEVEN) "table f 0 2 3 4 5 6 0\nend\n", CK_REJECTED},
         {"changing the statement invalidates the same table", CYCLE_HEAD(CYCLE_SIX) "table f 1 2 3 4 5 6 0\nend\n", CK_REJECTED},
         {"a table value outside the set is rejected", CYCLE_HEAD(CYCLE_SEVEN) "table f 1 2 3 4 5 7 0\nend\n", CK_REJECTED},
+        {"a powerset cannot name itself as its base or reuse a previous model's size",
+         "certificate example\nsort P parts P e\nstatement true\nend\n", CK_REJECTED},
+        {"a map sort cannot use itself as its domain",
+         "certificate example\nsort T 1\nsort M maps M T ev\nstatement true\nend\n", CK_REJECTED},
+        {"a map sort cannot use itself as its codomain",
+         "certificate example\nsort S 0\nsort M maps S M ev\nstatement true\nend\n", CK_REJECTED},
+        {"a powerset of an earlier powerset remains a valid finite interpretation",
+         "certificate example\nsort S 0\nsort P parts S e\nsort Q parts P r\n"
+         "statement (exists X P (forall x S (not (e x X))))\nend\n", CK_ACCEPTED},
     };
     int failed = 0;
     for (size_t i = 0; i < sizeof cases / sizeof *cases; i++) {

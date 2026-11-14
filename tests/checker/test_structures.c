@@ -361,7 +361,7 @@ static const Case cases[] = {
      "certificate counterexample\nsort S 4\nsort PS parts S inPS\nsymbol f S PS\n"
      "statement (implies (and (exists s S (= s s)) (forall x S (forall a S (iff (inPS a (f x)) (not (= a x)))))) "
      "(forall y PS (exists x S (= (f x) y))))\ntable f 14 13 11 7\nend\n"},
-    {"a set of parts over a set that is not declared", CK_REJECTED, "non dichiarato",
+    {"a set of parts over a set that is not declared", CK_REJECTED, "dichiarati prima",
      "certificate structure\nsort PS parts S inPS\nstatement true\nend\n"},
 
     /* 11k. La legge delle applicazioni con due valori. */

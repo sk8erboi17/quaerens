@@ -41988,8 +41988,9 @@ static int uses_set_notation(const char *formula) {
 /* Ritorna 1 se formula parla di elementi di insiemi qualsiasi, cioè è un
  * enunciato del linguaggio di 17o: dichiara qualcosa con \colon, oppure un
  * suo quantificatore lega una lettera minuscola, oppure dice di una lettera
- * minuscola che appartiene a qualcosa, oppure scrive un insieme con una
- * regola, \{x \mid ...\} o \{(x, y) \mid ...\} (17p). Gli enunciati sugli
+ * minuscola, anche con pedice numerico, che appartiene a qualcosa, oppure
+ * scrive un insieme con una regola, \{x \mid ...\} o \{(x, y) \mid ...\}
+ * (17p). Gli enunciati sugli
  * insiemi del capitolo 14 quantificano solo lettere maiuscole, non
  * dichiarano nulla, non nominano elementi, e tra graffe conoscono solo
  * \emptyset. Usa il lettore di token del parser, e lascia il suo stato da
@@ -42010,7 +42011,10 @@ static int uses_elements(const char *formula) {
          * dice se il token appena letto chiude un nome, F o F_{1}. */
         found = is_command("colon") || is_command("bigcup") || is_command("bigcap") || is_command("notin");
         named = token.kind == T_LETTER || is_char('}');
-        next_token();
+        /* Il nome va superato intero: in c_{12} \in S il token dopo c
+         * e il pedice, ma quello dopo il nome e l'appartenenza. */
+        if (element) { int index; abstract_name(&index); }
+        else next_token();
         if (family && is_command("mathcal")) found = 1;
         if (quantifier && token.kind == T_LETTER && islower(token.ch)) found = 1;
         if (element && (is_command("in") || is_command("notin"))) found = 1;

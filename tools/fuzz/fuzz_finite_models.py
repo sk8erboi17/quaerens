@@ -14,7 +14,9 @@ nella cartella di lavoro per il controllo con checker da solo.
 Alcune implicazioni hanno da 65 a 320 parti dichiarate ma non usate. Ogni
 insieme ammette queste parti, anche quello vuoto: l'oracolo sui cicli non
 cambia. Servono a esercitare dichiarazioni e tabelle senza i vecchi tetti
-di 64 e 256 simboli, con nomi nella grammatica gia esistente.
+di 64 e 256 simboli. I nomi alternano pedici a una cifra e numeri oltre 99;
+anche insiemi, mappe e variabili possono ricevere pedici numerici grandi.
+Una rinomina iniettiva non modifica l'oracolo sui cicli.
 
 BUG: un falso DIMOSTRATO, un vero FALSO, oppure un errore del controllo
 indipendente. NOTE: un esempio possibile o un controesempio non trovato.
@@ -54,9 +56,19 @@ def main():
             if rng.randrange(4) == 0:
                 extra = rng.choice([65, 257, 320])
                 letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-                declarations = r" \land ".join("%s_{%d} \\subseteq S" % (letters[i // 9], i % 9 + 1) for i in range(extra))
+                numeric = rng.randrange(2)
+                declarations = r" \land ".join("%s_{%d} \\subseteq S" %
+                    ("A" if numeric else letters[i // 9], i + 1 if numeric else i % 9 + 1) for i in range(extra))
                 formula = formula.replace(r"(f \colon S \to S \land ", "(f \\colon S \\to S \\land " + declarations + r" \land ", 1)
             cases.append((formula, power % order == 0, False))
+
+        # Una rinomina iniettiva cambia soltanto i nomi, non i cicli.
+        if rng.randrange(3)==0:
+            formula, truth, example=cases[-1]
+            index=rng.choice([12,99,100,1024,2147483647])
+            for name in ["S","f","x"]:
+                formula=re.sub(r"\b"+name+r"\b",name+"_{%d}" % index,formula)
+            cases[-1]=(formula,truth,example)
 
     path = os.path.join(work, "finite_models_%d.tex" % seed)
     certificate_path = os.path.join(work, "finite_models_%d.cert" % seed)
