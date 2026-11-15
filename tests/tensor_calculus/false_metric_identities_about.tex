@@ -1,0 +1,35 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_metric\_identities.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_metric\_identities.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_index\_identities.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 18 false statements with a declared metric. It is a regression test against false proofs: the engine must declare each one false, with a counterexample certified by the independent checker.
+
+\item \textbf{How the statements were built.} Each one is a true identity of \texttt{metric\_identities.tex} with one small change: the sign that the determinant of a Lorentzian metric brings ($24$ for $-24$), the Euclidean metric where the identity needs a Lorentzian one, a different declared value of $\varepsilon$, a factor, the metric taken for its inverse, two exchanged indices. Their falsity was confirmed by the oracle of \texttt{tools/fuzz/fuzz\_tensors.py} in its \texttt{data} mode.
+
+\item \textbf{What the engine needs in order to pass.} The same reading as for the true identities, and a point where the two sides differ. The test also alters each certificate and requires the checker to reject it.
+
+\item \textbf{Format expected by the test.} One \texttt{\textbackslash item} per statement, written as \texttt{\$\textbackslash displaystyle ...\$}. The hypotheses come first, joined by \texttt{\textbackslash land}, then \texttt{\textbackslash implies} and the identity: the metric as $g_{ij} = \operatorname{diag}(c_1, \dots, c_d)$, and the value of $\varepsilon$ as $\varepsilon_{12 \dots d} = 1$ or $\varepsilon^{12 \dots d} = 1$.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -Werror -o /tmp/test_index_identities \
+    tests/tensor_calculus/test_index_identities.c && /tmp/test_index_identities
+\end{verbatim}
+
+\item \textbf{Expected result.} The lines \texttt{PASS: 18 of 18 statements refuted, 18 with a certificate the checker accepts} and \texttt{PASS: 36 of 36 altered certificates rejected for the right reason}.
+\end{enumerate}
+\end{document}

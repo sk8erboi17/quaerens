@@ -1,0 +1,41 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{False identities with a declared metric (18)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Each statement is a true identity of \texttt{metric\_identities.tex} with one small change: a sign, a factor, the signature of the metric, the declared value of $\varepsilon$, or two exchanged indices. None of them holds.
+
+\begin{enumerate}
+% The sign of the determinant, the signature, the dimension.
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, 1, 1) \land \varepsilon_{1234} = 1 \implies \varepsilon^{ijkl}\varepsilon_{ijkl} = 24$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, 1, 1, 1) \land \varepsilon_{1234} = 1 \implies \varepsilon^{ijkl}\varepsilon_{ijkl} = -24$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, -1, -1, -1) \land \varepsilon^{1234} = 1 \implies \varepsilon_{1234} = 1$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, 1, 1) \land \varepsilon_{1234} = 1 \implies \varepsilon^{ijkl}\varepsilon_{ijkm} = 6\delta^{l}_{m}$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, 1, 1) \land \varepsilon_{1234} = -1 \implies \varepsilon^{1234} = -1$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1) \land \varepsilon_{12} = 1 \implies \varepsilon^{ij}\varepsilon_{ij} = 2$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, 1, 1) \land \varepsilon_{123} = 1 \implies \varepsilon^{ijk}\varepsilon_{ijk} = -6$
+% The metric and its inverse.
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, 1, 1) \implies g^{ij} g_{ij} = 2$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, 1, 1) \implies \forall i, k \in \{1, 2, 3, 4\}\ \left( g^{ij} g_{jk} = 2\delta^{i}_{k} \right)$
+\item $\displaystyle g_{ij} = \operatorname{diag}(2, 3) \implies g^{ij} g_{ij} = 5$
+\item $\displaystyle g_{ij} = \operatorname{diag}(2, 3) \implies g_{11} + g_{22} = 2$
+\item $\displaystyle g^{ij} = \operatorname{diag}(2, 3) \implies g_{11} + g_{22} = 5$
+% Raising and lowering.
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, 1, 1) \implies \forall i \in \{1, 2, 3, 4\}\ \left( g^{ij} A_{j} = 2 A^{i} \right)$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, 1, 1) \implies A^{i} B_{i} = -A_{i} B^{i}$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, 1, 1) \implies \forall i, j \in \{1, 2, 3, 4\}\ \left( F^{ij} = g^{ik} g^{jl} F_{lk} \right)$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, 1, 1) \implies g_{ij} A^{i} B^{j} = g_{ij} A^{i} A^{j}$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, 1, 1) \implies T^{i}{}_{i} = 2 g^{ij} T_{ij}$
+\item $\displaystyle g_{ij} = \operatorname{diag}(2, 3) \implies g_{ij} A^{i} A^{j} = 2 A^{i} A_{i}$
+\end{enumerate}
+\end{document}

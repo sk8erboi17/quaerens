@@ -216,6 +216,12 @@
  *     con un punto, lì la funzione è regolare, e il termine è il numero
  *     G(P). Ogni tesi L = R vale dove i termini che nomina esistono e i due
  *     membri sono definiti. Il teorema esatto è in testa al capitolo 18.
+ *   - "certificate indices" (capitolo 19): un'identità del calcolo
+ *     tensoriale scritta con gli indici, in una dimensione data, vale per
+ *     ogni scelta dei tensori che nomina e per ogni valore degli indici
+ *     liberi, con gli indici ripetuti sommati; oppure non vale nel punto
+ *     indicato. Questo programma rifà il conto su tutti i valori degli
+ *     indici. Il teorema esatto è in testa al capitolo 19.
  *
  * COMPILAZIONE
  *
@@ -242,6 +248,7 @@
  *   14. Limiti
  *   17. Matrici
  *   18. Derivate parziali
+ *   19. Identità con gli indici
  *   15. Controllo di un certificato
  *   16. main
  */
@@ -9898,6 +9905,676 @@ static void ck_check_partial(void) {
 }
 
 /* =============================================================================
+ * 19. IDENTITÀ CON GLI INDICI
+ * ============================================================================
+ *
+ * Le identità del calcolo tensoriale scritte con gli indici, in dimensione
+ * fissa: delta di Kronecker, simbolo di Levi-Civita, componenti di tensori
+ * qualsiasi, con la convenzione di Einstein sugli indici ripetuti. Il
+ * certificato è l'enunciato, la dimensione e ciò che se ne afferma:
+ *
+ *     certificate indices
+ *     dimension 3
+ *     statement (= (* (eps i j k) (eps i m n)) (- (* (delta j m) (delta k n)) (* (delta j n) (delta k m))))
+ *     holds
+ *     end
+ *
+ * oppure, per un'identità falsa, un punto in cui non vale, con i valori dei
+ * due membri in quel punto (le voci left e right sono facoltative):
+ *
+ *     certificate indices
+ *     dimension 3
+ *     statement (= (eps i j k) (eps j i k))
+ *     fails i 1 j 2 k 3
+ *     left 1
+ *     right -1
+ *     end
+ *
+ * LA NOTAZIONE
+ *
+ *     espr := intero | (frac p q) | (neg e) | (+ e e) | (- e e) | (* e e)
+ *           | (delta x y) | (eps x ... x) | (t A x ... x)
+ *           | (metric x y) | (inverse x y)
+ *     x    := una lettera, cioè un indice | un intero positivo, cioè un valore
+ *
+ * A è una lettera, il nome di un tensore; (t A) senza indici è uno scalare.
+ * Le lettere degli indici e quelle dei nomi non si confondono: stanno in
+ * posti diversi.
+ *
+ * IL TEOREMA
+ *
+ * Sia d la dimensione. Ogni indice varia tra gli interi da 1 a d.
+ *
+ *   - (delta x y) vale 1 se x = y, 0 altrimenti.
+ *   - (eps x1 ... xd), con d indici, vale 0 se due indici coincidono;
+ *     altrimenti (x1, ..., xd) è una permutazione di (1, ..., d) e il valore
+ *     è il suo segno: 1 se le coppie fuori ordine (i < j con xi > xj) sono
+ *     in numero pari, -1 se dispari. In particolare (eps 1 2 ... d) vale 1.
+ *   - (t A x1 ... xr) è la componente (x1, ..., xr) di A: A è una funzione
+ *     qualsiasi dalle r-uple di interi da 1 a d ai numeri reali. Ha sempre
+ *     lo stesso numero r di indici.
+ *   - In un prodotto una lettera che compare due volte è sommata da 1 a d;
+ *     una che compare una volta è libera (convenzione di Einstein; le regole
+ *     esatte sono in ck_ix_scan()). I due membri hanno gli stessi indici
+ *     liberi; il numero 0 scritto da solo, come membro o come addendo, sta
+ *     per il tensore nullo, e ha gli indici liberi dell'altro.
+ *
+ * Con la voce "holds": per ogni scelta dei tensori nominati, e per ogni
+ * valore da 1 a d di ciascun indice libero, i due membri sono uguali.
+ *
+ * Con la voce "fails": con gli indici liberi ai valori scritti, i due membri
+ * sono due polinomi diversi nelle componenti dei tensori (due numeri diversi,
+ * se di tensori non ce n'è). Esistono quindi dei tensori per cui in quel
+ * punto l'uguaglianza non vale, e l'enunciato "per ogni scelta dei tensori e
+ * degli indici liberi" è falso. Con le voci left e right, in più: in quel
+ * punto i due membri sono proprio i polinomi scritti lì.
+ *
+ * LA METRICA
+ *
+ * Con la voce in più
+ *
+ *     metric c1 c2 ... cd
+ *
+ * (d numeri razionali diversi da zero, interi o (frac p q)) l'enunciato può
+ * usare altri due simboli: (metric x y), che vale c_x se x = y e 0
+ * altrimenti, e (inverse x y), che vale 1/c_x se x = y e 0 altrimenti. Sono
+ * le componenti di una matrice diagonale e della sua inversa: il prodotto
+ * delle due, sommato sull'indice comune, è la delta, perché c_x per 1/c_x fa
+ * 1. Il teorema è lo stesso, con questi due simboli in più.
+ *
+ * Il certificato non parla di indici in alto e in basso, né di tensori
+ * simmetrici. Un enunciato con una metrica dichiarata, in cui un indice
+ * alzato o abbassato è una contrazione con la metrica, arriva qui già
+ * svolto: T^{i}, con T dato in basso, è scritto (* (inverse i y) (t T y)).
+ * Che lo svolgimento dica la stessa cosa dell'enunciato di partenza non lo
+ * controlla questo programma: ne risponde chi ha scritto il certificato.
+ *
+ * PERCHÉ IL CONTO È COMPLETO
+ *
+ * Qui non c'è nulla da cercare: i valori degli indici liberi sono un numero
+ * finito, d elevato al numero degli indici liberi, e in ognuno ogni somma ha
+ * un numero finito di addendi. Che provarli tutti decida l'enunciato, in
+ * tutti e due i versi, segue da questo fatto.
+ *
+ *   Fatto. Un polinomio a coefficienti razionali in m indeterminate che vale
+ *   zero per ogni scelta di valori reali è il polinomio nullo: non ha
+ *   termini. Per induzione su m. Con m = 1, un polinomio non nullo di grado
+ *   g ha al più g radici, e i numeri reali sono infiniti. Con m > 1 lo si
+ *   scrive come polinomio nell'ultima indeterminata, con coefficienti che
+ *   sono polinomi nelle altre: fissati dei valori per le prime m - 1 diventa
+ *   un polinomio in una sola indeterminata che vale sempre zero, e allora i
+ *   suoi coefficienti sono zero; questo vale per ogni scelta di quei valori,
+ *   quindi per l'ipotesi induttiva ogni coefficiente è il polinomio nullo.
+ *
+ * Fissati gli indici liberi, ogni membro si calcola con somme e prodotti di
+ * componenti, di numeri, di 0 e di 1 e -1: è un polinomio nelle componenti,
+ * e il capitolo 4 ne dà la forma canonica, in cui due polinomi sono uguali
+ * esattamente quando hanno gli stessi termini. Se le due forme coincidono, i
+ * due membri sono uguali per ogni scelta delle componenti. Se non
+ * coincidono, per il Fatto la differenza non vale zero per qualche scelta
+ * delle componenti: lì l'uguaglianza è falsa. Quindi "holds" è accettato
+ * solo se l'enunciato è vero, "fails" solo se è falso.
+ *
+ * Trattare le componenti come indeterminate indipendenti è giusto perché lo
+ * sono: di un tensore qualsiasi non si sa nulla.
+ *
+ * I POLINOMI DI QUESTO CAPITOLO
+ *
+ * Non sono quelli del capitolo 4. Là ogni termine porta un esponente per
+ * ognuna delle indeterminate, che sono al più CK_MAX_VARS: va bene per n, i
+ * parametri e qualche somma. Qui le indeterminate sono le componenti dei
+ * tensori, e tre matrici in tre dimensioni ne hanno già 27; in compenso in
+ * un termine se ne moltiplicano poche, tante quanti sono i simboli scritti
+ * in un prodotto. Un termine porta allora l'elenco delle componenti che
+ * moltiplica, e le componenti diverse non hanno un tetto.
+ *
+ * La forma è canonica, e da qui viene l'unica domanda che conta, "sono lo
+ * stesso polinomio?". Una componente è un numero intero, che dice quale
+ * tensore e quale posto; un monomio è l'elenco delle sue componenti in
+ * ordine non decrescente, con le ripetizioni (a_1 a_1 a_2 è a_1 al quadrato
+ * per a_2): due prodotti delle stesse componenti, comunque ordinati, danno
+ * lo stesso elenco, perché il prodotto è commutativo. Un polinomio è
+ * l'elenco dei suoi termini in ordine di monomio, senza monomi ripetuti e
+ * senza coefficienti nulli. Ogni polinomio si scrive in un modo solo come
+ * somma di monomi diversi con coefficienti non nulli: quindi due polinomi
+ * sono uguali esattamente quando i due elenchi coincidono.
+ *
+ * I limiti: CK_IX_MAX_DEGREE componenti in un termine, CK_MAX_TERMS termini
+ * in un prodotto, la memoria, il budget di lavoro. Oltre, la risposta è
+ * "non so controllarlo".
+ */
+
+/* Tipi di nodo di un'espressione con gli indici. */
+typedef enum { CK_IX_NUMBER, CK_IX_DELTA, CK_IX_EPS, CK_IX_TENSOR, CK_IX_METRIC, CK_IX_INVERSE, CK_IX_NEG, CK_IX_ADD, CK_IX_SUB, CK_IX_MUL } CkIxKind;
+
+/* Un insieme di lettere usate come indici: il bit di posto ck_ix_slot(c)
+ * dice se c'è la lettera c. Le lettere sono 52. */
+typedef unsigned long long CkIxSet;
+#define CK_IX_LETTERS 52
+
+/* Un nodo dell'albero di un'espressione con gli indici. Sta nell'arena.
+ *   NUMBER: number.
+ *   DELTA, EPS, TENSOR, METRIC, INVERSE: i rank indici di index[]; un indice
+ *     che è una lettera vale il suo posto, da 0 a 51, uno che è un numero v
+ *     vale -v. TENSOR ha anche name, la lettera del tensore.
+ *   NEG: a.   ADD, SUB, MUL: a e b.
+ * free, bound e here li calcola ck_ix_scan(): le lettere libere nel nodo,
+ * quelle sommate nel nodo o più in basso, quelle sommate proprio qui. */
+typedef struct CkIx CkIx;
+struct CkIx {
+    CkIxKind kind;
+    CkNum number;
+    char name;
+    int rank;
+    long long *index;
+    CkIxSet free, bound, here;
+    CkIx *a, *b;
+};
+
+/* Quante componenti si possono moltiplicare in un termine. Con 16 un termine
+ * sta nel blocco di riserva di ck_alloc(). */
+#define CK_IX_MAX_DEGREE 16
+
+/* Un termine di un polinomio nelle componenti: il coefficiente per il
+ * prodotto delle prime degree voci di factor[], che sono componenti (vedi
+ * ck_ix_symbol()) in ordine non decrescente; le altre voci sono zero. */
+typedef struct {
+    CkNum coef;
+    int degree;
+    long long factor[CK_IX_MAX_DEGREE];
+} CkIxTerm;
+
+/* Un polinomio nelle componenti. Invariante: i termini sono in ordine
+ * crescente di monomio (ck_ix_term_cmp()), con monomi tutti diversi e
+ * coefficienti non nulli. count == 0 è il polinomio nullo. I termini stanno
+ * nell'arena. */
+typedef struct {
+    int count;
+    CkIxTerm *term;
+} CkIxPoly;
+
+_Static_assert(sizeof(CkIxTerm) <= CK_SPARE_BYTES, "il blocco di riserva di ck_alloc() deve contenere un termine");
+
+/* Confronta i monomi di due termini: negativo, zero o positivo. Prima il
+ * numero delle componenti, poi le componenti una per una. */
+static int ck_ix_term_cmp(const void *a, const void *b) {
+    const CkIxTerm *x = a, *y = b;
+    if (x->degree != y->degree) return x->degree < y->degree ? -1 : 1;
+    for (int i = 0; i < x->degree; i++)
+        if (x->factor[i] != y->factor[i]) return x->factor[i] < y->factor[i] ? -1 : 1;
+    return 0;
+}
+
+/* Ritorna il polinomio dei count termini di t, messi in ordine e sommati
+ * dove il monomio coincide. Usa t stesso come memoria del risultato. */
+static CkIxPoly ck_ix_poly_build(CkIxTerm *t, int count) {
+    int kept = 0;
+    qsort(t, (size_t)count, sizeof *t, ck_ix_term_cmp);
+    for (int i = 0; i < count; i++) {
+        if (kept > 0 && ck_ix_term_cmp(&t[kept - 1], &t[i]) == 0) t[kept - 1].coef = ck_num_add(t[kept - 1].coef, t[i].coef);
+        else t[kept++] = t[i];
+        if (t[kept - 1].coef.num == 0) kept--;
+    }
+    return (CkIxPoly){kept, t};
+}
+
+/* Ritorna il polinomio costante c. */
+static CkIxPoly ck_ix_poly_number(CkNum c) {
+    CkIxTerm *t = ck_alloc(sizeof *t);
+    memset(t, 0, sizeof *t);
+    t->coef = c;
+    return (CkIxPoly){c.num != 0, t};
+}
+
+/* Ritorna a + b, oppure a - b se minus è diverso da zero. */
+static CkIxPoly ck_ix_poly_add(CkIxPoly a, CkIxPoly b, int minus) {
+    CkIxTerm *t = ck_alloc(sizeof *t * ((size_t)a.count + (size_t)b.count + 1));
+    if (ck_status != CK_ACCEPTED) return (CkIxPoly){0, t};
+    memcpy(t, a.term, sizeof *t * (size_t)a.count);
+    memcpy(t + a.count, b.term, sizeof *t * (size_t)b.count);
+    for (int i = 0; minus && i < b.count; i++) t[a.count + i].coef = ck_num_neg(t[a.count + i].coef);
+    return ck_ix_poly_build(t, a.count + b.count);
+}
+
+/* Ritorna a * b: ogni termine dell'uno per ogni termine dell'altro. Le
+ * componenti dei due termini, già in ordine, si fondono in ordine. */
+static CkIxPoly ck_ix_poly_mul(CkIxPoly a, CkIxPoly b) {
+    long long size = (long long)a.count * b.count;
+    if (size > CK_MAX_TERMS) { ck_unsupported("polinomi troppo grandi per il verificatore"); size = 0; }
+    CkIxTerm *t = ck_alloc(sizeof *t * (size_t)(size + 1));
+    if (ck_status != CK_ACCEPTED) return (CkIxPoly){0, t};
+    int count = 0;
+    for (int i = 0; i < a.count; i++)
+        for (int j = 0; j < b.count; j++) {
+            const CkIxTerm *x = &a.term[i], *y = &b.term[j];
+            CkIxTerm *out = &t[count++];
+            memset(out, 0, sizeof *out);
+            if (x->degree + y->degree > CK_IX_MAX_DEGREE) { ck_unsupported("troppe componenti moltiplicate in un termine per il verificatore"); return (CkIxPoly){0, t}; }
+            out->coef = ck_num_mul(x->coef, y->coef);
+            for (int p = 0, q = 0; p < x->degree || q < y->degree; )
+                out->factor[out->degree++] = q == y->degree || (p < x->degree && x->factor[p] <= y->factor[q]) ? x->factor[p++] : y->factor[q++];
+        }
+    return ck_ix_poly_build(t, count);
+}
+
+/* Ritorna 1 se a e b sono lo stesso polinomio: grazie alla forma canonica,
+ * lo stesso elenco di termini. */
+static int ck_ix_poly_equal(CkIxPoly a, CkIxPoly b) {
+    if (a.count != b.count) return 0;
+    for (int i = 0; i < a.count; i++)
+        if (ck_ix_term_cmp(&a.term[i], &b.term[i]) != 0 || a.term[i].coef.num != b.term[i].coef.num || a.term[i].coef.den != b.term[i].coef.den)
+            return 0;
+    return 1;
+}
+
+/* Lo stato del controllo in corso: la dimensione; il valore di ogni lettera,
+ * da 1 a d, nel punto che si sta calcolando; il rango del tensore di ogni
+ * nome, -1 finché non lo si è incontrato; il lavoro fatto, da confrontare
+ * con ck_eval_limit; i numeri della voce metric, o NULL se non c'è. */
+static long long ck_ix_dimension;
+static long long ck_ix_value[CK_IX_LETTERS];
+static int ck_ix_rank[CK_IX_LETTERS];
+static long long ck_ix_steps;
+static const CkNum *ck_ix_metric;
+
+/* Ritorna 1 se node è un simbolo con gli indici. */
+static int ck_ix_is_symbol(const CkIx *node) {
+    return node->kind == CK_IX_DELTA || node->kind == CK_IX_EPS || node->kind == CK_IX_TENSOR || node->kind == CK_IX_METRIC || node->kind == CK_IX_INVERSE;
+}
+
+/* Ritorna 1 se c è una lettera latina. Non usa isalpha(), che dipende dalla
+ * lingua del sistema. */
+static int ck_ix_is_letter(int c) { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'); }
+
+/* Ritorna il posto della lettera latina c tra le 52: prima le minuscole. */
+static int ck_ix_slot(int c) { return c >= 'a' ? c - 'a' : 26 + c - 'A'; }
+
+/* Legge gli indici di un simbolo, fino alla parentesi chiusa, e li mette in
+ * node. Ogni indice è una lettera sola o un intero positivo, e dopo viene
+ * uno spazio o la parentesi. */
+static void ck_ix_read_indices(CkIx *node) {
+    /* Quanti sono: le parole fino alla parentesi. */
+    int count = 0;
+    for (const char *p = ck_cursor; ; count++) {
+        while (*p == ' ' || *p == '\t') p++;
+        if (!*p || *p == ')' || *p == '\n' || count == INT_MAX - 1) break;
+        while (*p && !isspace((unsigned char)*p) && *p != ')') p++;
+    }
+    node->index = ck_alloc(sizeof *node->index * ((size_t)count + 1));
+    if (ck_status != CK_ACCEPTED) return;
+    for (int i = 0; i < count; i++) {
+        long long value;
+        ck_skip();
+        if (ck_ix_is_letter(*ck_cursor)) node->index[i] = ck_ix_slot(*ck_cursor++);
+        else if (ck_read_integer(&value) && value >= 1) node->index[i] = -value;
+        else { ck_reject("certificato scritto male: un indice è una lettera o un intero positivo"); return; }
+        if (*ck_cursor != ' ' && *ck_cursor != '\t' && *ck_cursor != ')') { ck_reject("certificato scritto male: un indice è una lettera o un intero positivo"); return; }
+    }
+    node->rank = count;
+}
+
+/* Legge un'espressione con gli indici e ne ritorna l'albero. Un testo che
+ * non segue la notazione rende il certificato sbagliato; una parola
+ * sconosciuta lo rende non controllabile. */
+static CkIx *ck_ix_read(void) {
+    static const struct { const char *word; CkIxKind kind; int operands; } table[] = {
+        {"neg", CK_IX_NEG, 1}, {"+", CK_IX_ADD, 2}, {"-", CK_IX_SUB, 2}, {"*", CK_IX_MUL, 2},
+        {"delta", CK_IX_DELTA, 0}, {"eps", CK_IX_EPS, 0}, {"t", CK_IX_TENSOR, 0}, {"metric", CK_IX_METRIC, 0}, {"inverse", CK_IX_INVERSE, 0},
+    };
+    long long value, below;
+    CkIx *node = ck_alloc(sizeof *node);
+    memset(node, 0, sizeof *node);
+    node->number = ck_num_int(0);
+    if (ck_status != CK_ACCEPTED) return node;
+
+    /* Un numero intero. */
+    ck_skip();
+    if (ck_read_integer(&value)) { node->number = ck_num_int(value); return node; }
+    if (ck_status != CK_ACCEPTED) return node;
+
+    /* Una parentesi: la parola, poi i suoi argomenti. */
+    if (*ck_cursor != '(') { ck_reject("certificato scritto male: espressione attesa"); return node; }
+    if (ck_depth >= CK_MAX_DEPTH) { ck_unsupported("espressione con troppe parentesi una dentro l'altra"); return node; }
+    ck_cursor++;
+    ck_depth++;
+    if (ck_word("frac")) {
+        if (!ck_read_integer(&value) || !ck_read_integer(&below) || below <= 0) ck_reject("certificato scritto male: una frazione ha due interi, con il denominatore positivo");
+        else node->number = ck_num_make(value, below);
+    } else {
+        int found = -1;
+        for (int i = 0; i < (int)(sizeof table / sizeof *table) && found < 0; i++)
+            if (ck_word(table[i].word)) found = i;
+        if (found < 0) { ck_unsupported("il certificato usa un operatore che il verificatore non conosce"); ck_depth--; return node; }
+        node->kind = table[found].kind;
+        if (table[found].operands > 0) node->a = ck_ix_read();
+        if (table[found].operands > 1) node->b = ck_ix_read();
+        if (node->kind == CK_IX_TENSOR) {
+            /* Il nome del tensore: una lettera sola. */
+            ck_skip();
+            if (!ck_ix_is_letter(*ck_cursor) || ck_ix_is_letter(ck_cursor[1]) || isdigit((unsigned char)ck_cursor[1])) {
+                ck_reject("certificato scritto male: il nome di un tensore è una lettera");
+                ck_depth--;
+                return node;
+            }
+            node->name = *ck_cursor++;
+        }
+        if (table[found].operands == 0) ck_ix_read_indices(node);
+    }
+    ck_depth--;
+    ck_skip();
+    if (ck_status == CK_ACCEPTED && *ck_cursor != ')') ck_reject("certificato scritto male: parentesi chiusa attesa");
+    else if (ck_status == CK_ACCEPTED) ck_cursor++;
+    return node;
+}
+
+/* Ritorna 1 se node è il numero 0 scritto da solo: sta per il tensore nullo,
+ * che vale zero in ogni punto, e come addendo o come membro ha gli indici
+ * liberi dell'altro. */
+static int ck_ix_is_zero(const CkIx *node) { return node->kind == CK_IX_NUMBER && node->number.num == 0; }
+
+/* Calcola in ogni nodo di node gli indici liberi, quelli sommati dentro e
+ * quelli sommati lì, e controlla che i simboli siano ben formati e che la
+ * convenzione di Einstein sia rispettata; altrimenti respinge.
+ *
+ * Le regole. In un simbolo una lettera scritta due volte è sommata lì, tre
+ * volte è un errore. In un prodotto a b una lettera libera in tutti e due i
+ * fattori è sommata lì, una libera in uno solo resta libera, e una lettera
+ * già sommata dentro un fattore non può comparire nell'altro. In una somma
+ * i due addendi hanno gli stessi indici liberi, tranne lo 0 scritto da solo
+ * (ck_ix_is_zero()).
+ *
+ * Perché così ogni espressione ha un solo valore. Svolgendo le parentesi si
+ * ottiene una somma di prodotti di simboli e di numeri, e le regole dicono
+ * che in ognuno di quei prodotti una lettera compare al più due volte: è
+ * la convenzione di Einstein, che dà un senso proprio a quelli. Calcolare
+ * ogni somma nel nodo più basso che contiene le due occorrenze della
+ * lettera, come fa ck_ix_eval(), dà lo stesso numero dei prodotti svolti,
+ * per la proprietà distributiva. */
+static void ck_ix_scan(CkIx *node) {
+    if (ck_status != CK_ACCEPTED || node->kind == CK_IX_NUMBER) return;
+    if (ck_ix_is_symbol(node)) {
+        /* La forma del simbolo: due indici per la delta, per la metrica e
+         * per la sua inversa, che chiedono la voce metric; d per il simbolo
+         * di Levi-Civita; sempre lo stesso numero per lo stesso tensore. */
+        if (node->kind == CK_IX_DELTA && node->rank != 2) { ck_reject("la delta di Kronecker ha due indici"); return; }
+        if ((node->kind == CK_IX_METRIC || node->kind == CK_IX_INVERSE) && node->rank != 2) { ck_reject("la metrica e la sua inversa hanno due indici"); return; }
+        if ((node->kind == CK_IX_METRIC || node->kind == CK_IX_INVERSE) && !ck_ix_metric) { ck_reject("il certificato usa la metrica senza la voce metric"); return; }
+        if (node->kind == CK_IX_EPS && node->rank != ck_ix_dimension) { ck_reject("il simbolo di Levi-Civita ha tanti indici quante sono le dimensioni"); return; }
+        if (node->kind == CK_IX_TENSOR) {
+            int *rank = &ck_ix_rank[ck_ix_slot(node->name)];
+            if (*rank >= 0 && *rank != node->rank) { ck_reject("un tensore compare con due numeri diversi di indici"); return; }
+            *rank = node->rank;
+        }
+
+        /* Gli indici: i numeri tra 1 e d, le lettere una o due volte. */
+        CkIxSet once = 0, twice = 0;
+        for (int i = 0; i < node->rank; i++) {
+            long long x = node->index[i];
+            if (x < 0) {
+                if (-x > ck_ix_dimension) { ck_reject("un indice numerico è fuori dai valori da 1 alla dimensione"); return; }
+                continue;
+            }
+            CkIxSet bit = 1ULL << x;
+            if (twice & bit) { ck_reject("un indice compare più di due volte nello stesso simbolo"); return; }
+            twice |= once & bit;
+            once |= bit;
+        }
+        node->free = once & ~twice;
+        node->here = node->bound = twice;
+        return;
+    }
+    ck_ix_scan(node->a);
+    if (node->b) ck_ix_scan(node->b);
+    if (ck_status != CK_ACCEPTED) return;
+    const CkIx *a = node->a, *b = node->b;
+    if (node->kind == CK_IX_NEG) {
+        node->free = a->free;
+        node->bound = a->bound;
+    } else if (node->kind == CK_IX_MUL) {
+        if ((a->bound & (b->free | b->bound)) | (b->bound & a->free)) { ck_reject("un indice compare più di due volte in un prodotto"); return; }
+        node->here = a->free & b->free;
+        node->free = a->free ^ b->free;
+        node->bound = a->bound | b->bound | node->here;
+    } else {
+        if (!ck_ix_is_zero(a) && !ck_ix_is_zero(b) && a->free != b->free) { ck_reject("due addendi hanno indici liberi diversi"); return; }
+        node->free = ck_ix_is_zero(a) ? b->free : a->free;
+        node->bound = a->bound | b->bound;
+    }
+}
+
+/* Ritorna il valore dell'indice x nel punto in corso: il numero scritto, o
+ * il valore della lettera. */
+static long long ck_ix_at(long long x) { return x < 0 ? -x : ck_ix_value[x]; }
+
+/* Ritorna il valore del simbolo node nel punto in corso, in cui tutte le
+ * sue lettere hanno un valore: 0 o 1 per la delta, 0, 1 o -1 per il simbolo
+ * di Levi-Civita (le definizioni sono in testa al capitolo), l'indeterminata
+ * della componente per un tensore. */
+static CkIxPoly ck_ix_symbol(const CkIx *node) {
+    if (node->kind == CK_IX_DELTA) return ck_ix_poly_number(ck_num_int(ck_ix_at(node->index[0]) == ck_ix_at(node->index[1])));
+    if (node->kind == CK_IX_METRIC || node->kind == CK_IX_INVERSE) {
+        /* La metrica è diagonale: c_x sulla diagonale, 0 fuori; l'inversa di
+         * una matrice diagonale ha sulla diagonale i reciproci. */
+        long long x = ck_ix_at(node->index[0]);
+        if (x != ck_ix_at(node->index[1])) return ck_ix_poly_number(ck_num_int(0));
+        return ck_ix_poly_number(node->kind == CK_IX_METRIC ? ck_ix_metric[x - 1] : ck_num_inv(ck_ix_metric[x - 1]));
+    }
+    if (node->kind == CK_IX_EPS) {
+        /* Ogni coppia fuori ordine cambia il segno; due indici uguali lo
+         * azzerano, e zero resta. Gli indici sono d, con valori da 1 a d:
+         * tutti diversi, sono una permutazione. */
+        int sign = 1;
+        for (int i = 0; i < node->rank; i++)
+            for (int j = i + 1; j < node->rank; j++) {
+                long long x = ck_ix_at(node->index[i]), y = ck_ix_at(node->index[j]);
+                if (x == y) sign = 0;
+                if (x > y) sign = -sign;
+            }
+        return ck_ix_poly_number(ck_num_int(sign));
+    }
+
+    /* Una componente: il suo posto tra quelle del tensore, scrivendo gli
+     * indici meno uno come cifre in base d; e il numero che la indica nei
+     * polinomi, il posto per 52 più il posto della lettera del tensore.
+     * Componenti diverse hanno numeri diversi: lettere diverse danno resti
+     * diversi, posti diversi quozienti diversi, e un tensore ha sempre lo
+     * stesso numero di indici (ck_ix_scan()), quindi indici diversi danno
+     * posti diversi. */
+    long long place = 0;
+    for (int i = 0; i < node->rank; i++) {
+        long long digit = ck_ix_at(node->index[i]) - 1;
+        if (place > (LLONG_MAX / CK_IX_LETTERS - 1 - digit) / ck_ix_dimension) { ck_unsupported("un tensore ha troppe componenti per il verificatore"); return ck_ix_poly_number(ck_num_int(0)); }
+        place = place * ck_ix_dimension + digit;
+    }
+    CkIxPoly component = ck_ix_poly_number(ck_num_int(1));
+    component.term[0].degree = 1;
+    component.term[0].factor[0] = place * CK_IX_LETTERS + ck_ix_slot(node->name);
+    return component;
+}
+
+/* Riporta l'arena a base e vi lascia il solo polinomio p, i cui termini
+ * stanno più in alto; ritorna p nella sua nuova posizione.
+ *
+ * Perché serve. Una somma su tre indici in dimensione 6 ha 216 addendi, e
+ * ognuno lascia nell'arena i suoi polinomi intermedi: senza restituirli, un
+ * conto che il budget di lavoro permette finirebbe la memoria. Di tutto ciò
+ * che una somma ha calcolato serve solo il totale. */
+static CkIxPoly ck_ix_keep(CkIxPoly p, size_t base) {
+    if (ck_status != CK_ACCEPTED) return p;
+    CkIxTerm *home = (CkIxTerm *)(void *)(ck_arena + base);
+    size_t bytes = sizeof *home * (size_t)(p.count ? p.count : 1);
+    memmove(home, p.term, sizeof *home * (size_t)p.count);
+    ck_used = base + ((bytes + 15) & ~(size_t)15);
+    return (CkIxPoly){p.count, home};
+}
+
+static CkIxPoly ck_ix_eval(const CkIx *node);
+
+/* Ritorna la somma, su tutti i valori da 1 a d delle lettere di open, del
+ * prodotto o del simbolo node: sono le lettere che la convenzione somma in
+ * quel nodo. Ogni addendo conta nel lavoro. */
+static CkIxPoly ck_ix_sum(const CkIx *node, CkIxSet open) {
+    if (ck_status != CK_ACCEPTED) return ck_ix_poly_number(ck_num_int(0));
+    if (!open) {
+        if (++ck_ix_steps > ck_eval_limit) { ck_unsupported("lavoro di verifica sugli indici esaurito"); return ck_ix_poly_number(ck_num_int(0)); }
+        if (node->kind != CK_IX_MUL) return ck_ix_symbol(node);
+        CkIxPoly left = ck_ix_eval(node->a);
+        return ck_ix_poly_mul(left, ck_ix_eval(node->b));
+    }
+
+    /* La prima lettera: tutti i suoi valori, e per ognuno le altre. */
+    int slot = 0;
+    while (!(open >> slot & 1)) slot++;
+    size_t base = ck_used;
+    CkIxPoly total = ck_ix_poly_number(ck_num_int(0));
+    for (long long v = 1; v <= ck_ix_dimension && ck_status == CK_ACCEPTED; v++) {
+        ck_ix_value[slot] = v;
+        CkIxPoly addend = ck_ix_sum(node, open & ~(1ULL << slot));
+        total = ck_ix_keep(ck_ix_poly_add(total, addend, 0), base);
+    }
+    return total;
+}
+
+/* Ritorna il valore di node nel punto in corso: un polinomio nelle
+ * componenti dei tensori. Le lettere libere di node hanno già un valore;
+ * quelle sommate lo ricevono qui, nel nodo che le somma. */
+static CkIxPoly ck_ix_eval(const CkIx *node) {
+    if (node->kind == CK_IX_NUMBER) return ck_ix_poly_number(node->number);
+    if (ck_ix_is_symbol(node) || node->kind == CK_IX_MUL) return ck_ix_sum(node, node->here);
+    CkIxPoly left = node->kind == CK_IX_NEG ? ck_ix_poly_number(ck_num_int(0)) : ck_ix_eval(node->a);
+    return ck_ix_poly_add(left, ck_ix_eval(node->kind == CK_IX_NEG ? node->a : node->b), node->kind != CK_IX_ADD);
+}
+
+/* Controlla il certificato di un'identità con gli indici che comincia dopo
+ * "certificate indices": legge le voci fino a "end", poi rifà il conto (vedi
+ * la testa del capitolo). */
+static void ck_check_indices(void) {
+    static const char *const twice = "certificato scritto male: una voce compare due volte";
+    long long dimension = 0, value, diagonal = 0;
+    CkIx *side[2] = {NULL, NULL}, *written[2] = {NULL, NULL};
+    CkIxSet fixed = 0;
+    int claim = -1, ended = 0, which;
+
+    ck_ix_steps = 0;
+    ck_ix_metric = NULL;
+    for (int i = 0; i < CK_IX_LETTERS; i++) ck_ix_rank[i] = -1;
+
+    /* Le voci. */
+    while (ck_status == CK_ACCEPTED && !ended) {
+        while (isspace((unsigned char)*ck_cursor)) ck_cursor++;
+        if (ck_word("end")) {
+            ended = 1;
+        } else if (ck_word("dimension")) {
+            if (dimension) ck_reject(twice);
+            if (!ck_read_integer(&dimension) || dimension < 1) ck_reject("certificato scritto male: la dimensione è un intero positivo");
+        } else if (ck_word("metric")) {
+            /* I numeri della diagonale, fino alla fine della riga: tutti
+             * diversi da zero, perché la metrica abbia un'inversa. Ogni
+             * numero occupa almeno due caratteri della riga, con lo spazio
+             * che lo precede. */
+            if (ck_ix_metric) ck_reject(twice);
+            CkNum *entry = ck_alloc(sizeof *entry * (strcspn(ck_cursor, "\n") / 2 + 2));
+            if (ck_status != CK_ACCEPTED) return;
+            ck_ix_metric = entry;
+            for (ck_skip(); *ck_cursor && *ck_cursor != '\n' && ck_status == CK_ACCEPTED; ck_skip()) {
+                const CkIx *number = ck_ix_read();
+                if (ck_status == CK_ACCEPTED && (number->kind != CK_IX_NUMBER || number->number.num == 0)) ck_reject("certificato scritto male: la voce metric ha numeri diversi da zero");
+                entry[diagonal++] = number->number;
+            }
+        } else if (ck_word("statement")) {
+            /* (= L R): l'unica relazione ammessa. */
+            if (side[0]) ck_reject(twice);
+            ck_skip();
+            if (strncmp(ck_cursor, "(=", 2) != 0) { ck_unsupported("enunciato che non è un'uguaglianza"); return; }
+            ck_cursor += 2;
+            side[0] = ck_ix_read();
+            side[1] = ck_ix_read();
+            ck_skip();
+            if (ck_status == CK_ACCEPTED && *ck_cursor != ')') ck_reject("certificato scritto male: parentesi chiusa attesa");
+            else if (ck_status == CK_ACCEPTED) ck_cursor++;
+        } else if (ck_word("holds")) {
+            if (claim >= 0) ck_reject(twice);
+            claim = 1;
+        } else if (ck_word("fails")) {
+            /* Coppie "lettera valore", fino alla fine della riga. */
+            if (claim >= 0) ck_reject(twice);
+            claim = 0;
+            for (ck_skip(); ck_ix_is_letter(*ck_cursor) && ck_status == CK_ACCEPTED; ck_skip()) {
+                int slot = ck_ix_slot(*ck_cursor++);
+                if (fixed >> slot & 1) ck_reject(twice);
+                if (!ck_read_integer(&value) || value < 1) { ck_reject("certificato scritto male: a un indice libero si dà un intero positivo"); break; }
+                fixed |= 1ULL << slot;
+                ck_ix_value[slot] = value;
+            }
+        } else if ((which = ck_word("left") ? 0 : ck_word("right") ? 1 : -1) >= 0) {
+            if (written[which]) ck_reject(twice);
+            written[which] = ck_ix_read();
+        } else {
+            ck_reject("certificato scritto male: voce sconosciuta o \"end\" mancante");
+        }
+    }
+    if (ck_status != CK_ACCEPTED) return;
+    if (!dimension || !side[0] || claim < 0) { ck_reject("certificato incompleto: servono dimension, statement e holds o fails"); return; }
+    if (claim && (written[0] || written[1])) { ck_reject("certificato scritto male: le voci left e right accompagnano fails"); return; }
+    if (ck_ix_metric && diagonal != dimension) { ck_reject("certificato scritto male: la voce metric ha tanti numeri quante sono le dimensioni"); return; }
+
+    /* La convenzione degli indici, nei due membri e nei valori scritti: gli
+     * stessi indici liberi nei due membri, nessuno nei valori. */
+    ck_ix_dimension = dimension;
+    ck_ix_scan(side[0]);
+    ck_ix_scan(side[1]);
+    for (int k = 0; k < 2; k++)
+        if (written[k]) ck_ix_scan(written[k]);
+    if (ck_status != CK_ACCEPTED) return;
+    CkIxSet free = ck_ix_is_zero(side[0]) ? side[1]->free : side[0]->free;
+    if (!ck_ix_is_zero(side[0]) && !ck_ix_is_zero(side[1]) && side[0]->free != side[1]->free) { ck_reject("i due membri hanno indici liberi diversi"); return; }
+    if ((written[0] && written[0]->free) || (written[1] && written[1]->free)) { ck_reject("i valori scritti dei due membri non possono avere indici liberi"); return; }
+
+    /* "fails": il punto dà un valore a ogni indice libero e solo a quelli;
+     * lì i due membri sono diversi, e sono quelli scritti. I valori scritti
+     * si calcolano per ultimi: le loro somme possono riusare le lettere
+     * degli indici liberi, che fino a quel momento devono restare ferme. */
+    if (!claim) {
+        if (fixed != free) { ck_reject("la voce fails dà un valore a ogni indice libero, e solo a quelli"); return; }
+        for (int slot = 0; slot < CK_IX_LETTERS; slot++)
+            if ((free >> slot & 1) && ck_ix_value[slot] > dimension) { ck_reject("la voce fails dà a un indice un valore fuori da 1 alla dimensione"); return; }
+        CkIxPoly value_of[2];
+        value_of[0] = ck_ix_eval(side[0]);
+        value_of[1] = ck_ix_eval(side[1]);
+        if (ck_status == CK_ACCEPTED && ck_ix_poly_equal(value_of[0], value_of[1])) { ck_reject("nel punto indicato i due membri sono uguali"); return; }
+        for (int k = 0; k < 2 && ck_status == CK_ACCEPTED; k++) {
+            if (!written[k]) continue;
+            CkIxPoly claimed = ck_ix_eval(written[k]);
+            if (ck_status == CK_ACCEPTED && !ck_ix_poly_equal(claimed, value_of[k])) ck_reject("il valore scritto di un membro non è quello che ha nel punto indicato");
+        }
+        return;
+    }
+
+    /* "holds": tutti i punti, contando come un contachilometri sulle lettere
+     * libere. Ogni punto è un conto a sé: restituisce la memoria che ha
+     * usato. */
+    for (int slot = 0; slot < CK_IX_LETTERS; slot++) ck_ix_value[slot] = 1;
+    for (;;) {
+        size_t mark = ck_used;
+        CkIxPoly left = ck_ix_eval(side[0]);
+        CkIxPoly right = ck_ix_eval(side[1]);
+        if (ck_status != CK_ACCEPTED) return;
+        if (!ck_ix_poly_equal(left, right)) { ck_reject("i due membri sono diversi per qualche valore degli indici liberi"); return; }
+        ck_used = mark;
+
+        /* Il punto successivo: la prima lettera libera che non è a d sale
+         * di uno, quelle prima tornano a 1. */
+        int slot = 0;
+        for (; slot < CK_IX_LETTERS; slot++) {
+            if (!(free >> slot & 1)) continue;
+            if (ck_ix_value[slot] < dimension) { ck_ix_value[slot]++; break; }
+            ck_ix_value[slot] = 1;
+        }
+        if (slot == CK_IX_LETTERS) return;
+    }
+}
+
+/* =============================================================================
  * 15. CONTROLLO DI UN CERTIFICATO
  * ============================================================================
  *
@@ -9969,6 +10646,13 @@ static void ck_read_certificate(CkCertificate *cert) {
     if (ck_word("partial")) {
         cert->checked = 1;
         ck_check_partial();
+        return;
+    }
+
+    /* Un'identità con gli indici (capitolo 19). */
+    if (ck_word("indices")) {
+        cert->checked = 1;
+        ck_check_indices();
         return;
     }
     if (!ck_word("induction")) { ck_reject("certificato scritto male: manca l'intestazione"); return; }

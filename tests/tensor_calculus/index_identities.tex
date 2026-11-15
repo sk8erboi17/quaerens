@@ -1,0 +1,101 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Identities in index notation (77)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Indices take the values $1, \dots, d$; an index written twice in a product is summed over them (Einstein convention); $\delta$ is the Kronecker delta and $\varepsilon$ the Levi-Civita symbol with $\varepsilon_{12 \dots d} = 1$. Upper and lower indices are not distinguished (Cartesian tensors), but a tensor, and $\varepsilon$, keep their indices in the same positions throughout a statement: the statements that raise and lower indices declare a metric, and are in \texttt{metric\_identities.tex}. The dimension $d$ is the number of indices of $\varepsilon$, or is declared by the quantifiers or by a summation sign. Latin letters carrying indices are arbitrary tensors.
+
+\begin{enumerate}
+% Kronecker delta alone.
+\item $\displaystyle \sum_{i=1}^{3} \delta_{ii} = 3$
+\item $\displaystyle \sum_{i=1}^{2} \delta_{ii} = 2$
+\item $\displaystyle \sum_{i=1}^{4} \delta_{ii} = 4$
+\item $\displaystyle \forall i, j \in \{1, 2, 3\}\ \left( \delta_{ij} = \delta_{ji} \right)$
+\item $\displaystyle \forall i, k \in \{1, 2, 3\}\ \left( \delta_{ij}\delta_{jk} = \delta_{ik} \right)$
+\item $\displaystyle \sum_{i=1}^{3} \delta_{ij}\delta_{jk}\delta_{ki} = 3$
+\item $\displaystyle \sum_{i=1}^{3} \delta_{ij}\delta_{ij} = 3$
+\item $\displaystyle \forall i, k \in \{1, 2\}\ \left( \delta_{ik}\delta_{ll} - \delta_{il}\delta_{lk} = \delta_{ik} \right)$
+\item $\displaystyle \sum_{k=1}^{3} \delta_{kk}\delta_{ll} - \delta_{mm} = 6$
+\item $\displaystyle \forall i, j \in \{1, 2, 3\}\ \left( \delta^{i}_{k}\delta^{k}_{j} = \delta^{i}_{j} \right)$
+\item $\displaystyle \sum_{i=1}^{3} \delta^{i}_{i} = 3$
+\item $\displaystyle \forall i \in \{1, 2, 3\}\ \left( \delta_{ij}\delta_{j1} = \delta_{i1} \right)$
+\item $\displaystyle \sum_{i=1}^{3} \delta_{i1}\delta_{i2} = 0$
+% Levi-Civita symbol in three dimensions.
+\item $\displaystyle \varepsilon_{123} = 1$
+\item $\displaystyle \varepsilon_{231} = 1$
+\item $\displaystyle \varepsilon_{312} = 1$
+\item $\displaystyle \varepsilon_{132} = -1$
+\item $\displaystyle \varepsilon_{113} = 0$
+\item $\displaystyle \varepsilon_{ijk} = \varepsilon_{jki}$
+\item $\displaystyle \varepsilon_{ijk} = \varepsilon_{kij}$
+\item $\displaystyle \varepsilon_{ijk} = -\varepsilon_{jik}$
+\item $\displaystyle \varepsilon_{ijk} + \varepsilon_{ikj} = 0$
+\item $\displaystyle \varepsilon_{iik} = 0$
+\item $\displaystyle \varepsilon_{ijk}\delta_{jk} = 0$
+\item $\displaystyle \varepsilon_{ijk}\varepsilon_{ijk} = 6$
+\item $\displaystyle \varepsilon_{ijk}\varepsilon_{ljk} = 2\delta_{il}$
+\item $\displaystyle \varepsilon_{ijk}\varepsilon_{lmk} = \delta_{il}\delta_{jm} - \delta_{im}\delta_{jl}$
+\item $\displaystyle \varepsilon_{ijk}\varepsilon_{klm} = \delta_{il}\delta_{jm} - \delta_{im}\delta_{jl}$
+\item $\displaystyle \varepsilon_{ijk}\varepsilon_{imn} = \delta_{jm}\delta_{kn} - \delta_{jn}\delta_{km}$
+\item $\displaystyle \varepsilon_{ijk}\varepsilon_{lmn} = \delta_{il}\delta_{jm}\delta_{kn} + \delta_{im}\delta_{jn}\delta_{kl} + \delta_{in}\delta_{jl}\delta_{km} - \delta_{il}\delta_{jn}\delta_{km} - \delta_{im}\delta_{jl}\delta_{kn} - \delta_{in}\delta_{jm}\delta_{kl}$
+\item $\displaystyle \varepsilon_{jmn}\varepsilon_{jmn} = \delta_{kk}\delta_{ll} - \delta_{mm}$
+\item $\displaystyle \varepsilon^{ijk}\varepsilon^{ijk} = 6$
+\item $\displaystyle \frac{1}{2}\varepsilon_{ijk}\varepsilon_{ljk} = \delta_{il}$
+% Two and four dimensions.
+\item $\displaystyle \varepsilon_{12} = 1$
+\item $\displaystyle \varepsilon_{21} = -1$
+\item $\displaystyle \varepsilon_{ij} = -\varepsilon_{ji}$
+\item $\displaystyle \varepsilon_{ij}\varepsilon_{ij} = 2$
+\item $\displaystyle \varepsilon_{ij}\varepsilon_{kl} = \delta_{ik}\delta_{jl} - \delta_{il}\delta_{jk}$
+\item $\displaystyle \varepsilon_{il}\varepsilon_{kl} = \delta_{ik}$
+\item $\displaystyle \varepsilon_{1234} = 1$
+\item $\displaystyle \varepsilon_{2134} = -1$
+\item $\displaystyle \varepsilon_{ijkl}\varepsilon_{ijkl} = 24$
+\item $\displaystyle \varepsilon_{ijkl}\varepsilon_{ijkm} = 6\delta_{lm}$
+\item $\displaystyle \varepsilon_{ijkl}\varepsilon_{ijmn} = 2\left( \delta_{km}\delta_{ln} - \delta_{kn}\delta_{lm} \right)$
+\item $\displaystyle \varepsilon_{ijkl} = -\varepsilon_{jkli}$
+% Arbitrary tensors.
+\item $\displaystyle \forall i \in \{1, 2, 3\}\ \left( \delta_{ij} A_{j} = A_{i} \right)$
+\item $\displaystyle \forall i \in \{1, 2, 3\}\ \left( A_{j}\delta_{ji} = A_{i} \right)$
+\item $\displaystyle \forall i, k \in \{1, 2, 3\}\ \left( \delta_{ij} B_{jk} = B_{ik} \right)$
+\item $\displaystyle \forall i, k, l \in \{1, 2, 3\}\ \left( \delta_{ji} A_{klj} = A_{kli} \right)$
+\item $\displaystyle \forall j \in \{1, 2, 3\}\ \left( A_{ij} B_{k}\delta_{ik} = A_{ij} B_{i} \right)$
+\item $\displaystyle \sum_{i=1}^{3} \delta_{ij} a_{i} b_{j} = \sum_{i=1}^{3} a_{i} b_{i}$
+\item $\displaystyle \sum_{i=1}^{3} \delta_{ij} T_{ij} = \sum_{i=1}^{3} T_{ii}$
+\item $\displaystyle \forall i, j \in \{1, 2\}\ \left( \delta_{ik} M_{kl}\delta_{lj} = M_{ij} \right)$
+\item $\displaystyle \forall i \in \{1, 2, 3\}\ \left( c\,\delta_{ij} a_{j} = c\,a_{i} \right)$
+\item $\displaystyle \varepsilon_{ij1} A_{i} B_{j} = A_{2} B_{3} - A_{3} B_{2}$
+\item $\displaystyle \varepsilon_{ij2} A_{i} B_{j} = A_{3} B_{1} - A_{1} B_{3}$
+\item $\displaystyle \varepsilon_{ij3} A_{i} B_{j} = A_{1} B_{2} - A_{2} B_{1}$
+\item $\displaystyle \varepsilon_{ijk} A_{i} B_{j} C_{k} = A_{1} B_{2} C_{3} + A_{2} B_{3} C_{1} + A_{3} B_{1} C_{2} - A_{1} B_{3} C_{2} - A_{2} B_{1} C_{3} - A_{3} B_{2} C_{1}$
+\item $\displaystyle \varepsilon_{ijk} A_{i} B_{j} C_{k} = \varepsilon_{kij} A_{i} B_{j} C_{k}$
+\item $\displaystyle \varepsilon_{ijk} A_{i} B_{j} C_{k} = \varepsilon_{ijk} B_{i} C_{j} A_{k}$
+\item $\displaystyle \varepsilon_{ijk} a_{j} b_{k} = -\varepsilon_{ijk} b_{j} a_{k}$
+\item $\displaystyle \varepsilon_{ijk} a_{j} a_{k} = 0$
+\item $\displaystyle \varepsilon_{ijk} a_{i} a_{j} b_{k} = 0$
+\item $\displaystyle \varepsilon_{ijk}\left( a_{j} + b_{j} \right) c_{k} = \varepsilon_{ijk} a_{j} c_{k} + \varepsilon_{ijk} b_{j} c_{k}$
+\item $\displaystyle \varepsilon_{ijk} T_{jk} = \frac{1}{2}\varepsilon_{ijk}\left( T_{jk} - T_{kj} \right)$
+\item $\displaystyle \varepsilon_{ijk}\varepsilon_{klm} a_{j} b_{l} c_{m} = b_{i} a_{m} c_{m} - c_{i} a_{l} b_{l}$
+\item $\displaystyle \varepsilon_{ilm}\varepsilon_{jkl} A_{i} B_{j} C_{k} = B_{m} A_{k} C_{k} - C_{m} A_{j} B_{j}$
+\item $\displaystyle -\varepsilon_{ijk}\varepsilon_{klm} C_{j} A_{l} B_{m} = \varepsilon_{ikm}\varepsilon_{jlk} A_{j} B_{l} C_{m}$
+\item $\displaystyle \varepsilon_{ikm}\varepsilon_{jlk} A_{j} B_{l} C_{m} = B_{i} A_{m} C_{m} - A_{i} B_{m} C_{m}$
+\item $\displaystyle \varepsilon_{ijk} a_{j}\varepsilon_{klm} b_{l} c_{m} + \varepsilon_{ijk} b_{j}\varepsilon_{klm} c_{l} a_{m} + \varepsilon_{ijk} c_{j}\varepsilon_{klm} a_{l} b_{m} = 0$
+\item $\displaystyle \varepsilon_{ijk} u_{j}\varepsilon_{klm} v^{l} w^{m} = \left( \delta^{i}_{l}\delta^{j}_{m} - \delta^{i}_{m}\delta^{j}_{l} \right) u_{j} v^{l} w^{m}$
+\item $\displaystyle \varepsilon_{ijk}\varepsilon_{imn} a_{j} b_{k} a_{m} b_{n} = a_{j} a_{j} b_{k} b_{k} - a_{j} b_{j} a_{k} b_{k}$
+\item $\displaystyle \varepsilon_{ijk} a_{j} b_{k}\varepsilon_{imn} c_{m} d_{n} = a_{j} c_{j} b_{k} d_{k} - a_{j} d_{j} b_{k} c_{k}$
+\item $\displaystyle \frac{1}{6}\varepsilon_{ijk}\varepsilon_{lmn} A_{il} A_{jm} A_{kn} = A_{11} A_{22} A_{33} + A_{12} A_{23} A_{31} + A_{13} A_{21} A_{32} - A_{11} A_{23} A_{32} - A_{12} A_{21} A_{33} - A_{13} A_{22} A_{31}$
+\item $\displaystyle \varepsilon_{ijk} A_{1i} A_{2j} A_{3k} = A_{11} A_{22} A_{33} + A_{12} A_{23} A_{31} + A_{13} A_{21} A_{32} - A_{11} A_{23} A_{32} - A_{12} A_{21} A_{33} - A_{13} A_{22} A_{31}$
+\item $\displaystyle \varepsilon_{ij} E_{i1} E_{j2} = E_{11} E_{22} - E_{21} E_{12}$
+\item $\displaystyle A_{ki}\varepsilon_{ipq}\varepsilon_{jmn} A_{mp} A_{nq} = 2\delta_{kj}\varepsilon_{pqr} A_{1p} A_{2q} A_{3r}$
+\end{enumerate}
+\end{document}

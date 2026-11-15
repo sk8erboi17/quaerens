@@ -1,0 +1,70 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{False identities in index notation (46)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Each statement is a true identity of \texttt{index\_identities.tex} with one small change: a sign, two exchanged indices, a factor, or the dimension. None of them holds.
+
+\begin{enumerate}
+% Kronecker delta: a factor, the dimension.
+\item $\displaystyle \sum_{i=1}^{2} \delta_{ii} = 3$
+\item $\displaystyle \sum_{i=1}^{3} \delta_{ii} = 2$
+\item $\displaystyle \forall i, k \in \{1, 2, 3\}\ \left( \delta_{ij}\delta_{jk} = 2\delta_{ik} \right)$
+\item $\displaystyle \sum_{i=1}^{4} \delta_{ij}\delta_{jk}\delta_{ki} = 3$
+\item $\displaystyle \forall i, k \in \{1, 2, 3\}\ \left( \delta_{ik}\delta_{ll} - \delta_{il}\delta_{lk} = \delta_{ik} \right)$
+\item $\displaystyle \sum_{k=1}^{2} \delta_{kk}\delta_{ll} - \delta_{mm} = 6$
+\item $\displaystyle \sum_{i=1}^{3} \delta_{i1}\delta_{i2} = 1$
+% Levi-Civita symbol: values and symmetries.
+\item $\displaystyle \varepsilon_{123} = -1$
+\item $\displaystyle \varepsilon_{132} = 1$
+\item $\displaystyle \varepsilon_{113} = 1$
+\item $\displaystyle \varepsilon_{ijk} = \varepsilon_{jik}$
+\item $\displaystyle \varepsilon_{ijk} = \varepsilon_{kji}$
+\item $\displaystyle \varepsilon_{ijk} = -\varepsilon_{jki}$
+\item $\displaystyle \varepsilon_{ijkl} = \varepsilon_{jkli}$
+\item $\displaystyle \varepsilon_{12} = -1$
+% Contractions of two symbols: a sign, exchanged indices, a factor.
+\item $\displaystyle \varepsilon_{ijk}\varepsilon_{ijk} = 3$
+\item $\displaystyle \varepsilon^{ijk}\varepsilon^{ijk} = -6$
+\item $\displaystyle \varepsilon_{ijk}\varepsilon_{ljk} = 3\delta_{il}$
+\item $\displaystyle \varepsilon_{ijk}\varepsilon_{lmk} = \delta_{il}\delta_{jm} + \delta_{im}\delta_{jl}$
+\item $\displaystyle \varepsilon_{ijk}\varepsilon_{lmk} = \delta_{im}\delta_{jl} - \delta_{il}\delta_{jm}$
+\item $\displaystyle \varepsilon_{ijk}\varepsilon_{imn} = \delta_{jm}\delta_{kn} + \delta_{jn}\delta_{km}$
+\item $\displaystyle \varepsilon_{ijk}\varepsilon_{imn} = \delta_{jn}\delta_{km} - \delta_{jm}\delta_{kn}$
+\item $\displaystyle \varepsilon_{ijk}\varepsilon_{imn} = 2\left( \delta_{jm}\delta_{kn} - \delta_{jn}\delta_{km} \right)$
+\item $\displaystyle \varepsilon_{ijk}\varepsilon_{imn} = \delta_{jk}\delta_{mn} - \delta_{jn}\delta_{km}$
+\item $\displaystyle \varepsilon_{ijk}\varepsilon_{lmn} = \delta_{il}\delta_{jm}\delta_{kn} + \delta_{im}\delta_{jn}\delta_{kl} + \delta_{in}\delta_{jl}\delta_{km} + \delta_{il}\delta_{jn}\delta_{km} - \delta_{im}\delta_{jl}\delta_{kn} - \delta_{in}\delta_{jm}\delta_{kl}$
+\item $\displaystyle \varepsilon_{ij}\varepsilon_{ij} = 1$
+\item $\displaystyle \varepsilon_{ij}\varepsilon_{kl} = \delta_{ik}\delta_{jl} + \delta_{il}\delta_{jk}$
+\item $\displaystyle \varepsilon_{il}\varepsilon_{kl} = 2\delta_{ik}$
+\item $\displaystyle \varepsilon_{ijkl}\varepsilon_{ijkl} = 6$
+\item $\displaystyle \varepsilon_{ijkl}\varepsilon_{ijmn} = \delta_{km}\delta_{ln} - \delta_{kn}\delta_{lm}$
+% Arbitrary tensors.
+\item $\displaystyle \forall i \in \{1, 2, 3\}\ \left( \delta_{ij} A_{j} = 2 A_{i} \right)$
+\item $\displaystyle \forall i, k \in \{1, 2, 3\}\ \left( \delta_{ij} B_{jk} = B_{ki} \right)$
+\item $\displaystyle \sum_{i=1}^{3} \delta_{ij} a_{i} b_{j} = \sum_{i=1}^{3} 2 a_{i} b_{i}$
+\item $\displaystyle \varepsilon_{ij1} A_{i} B_{j} = A_{3} B_{2} - A_{2} B_{3}$
+\item $\displaystyle \varepsilon_{ijk} A_{i} B_{j} C_{k} = \varepsilon_{ijk} B_{i} A_{j} C_{k}$
+\item $\displaystyle \varepsilon_{ijk} a_{j} b_{k} = \varepsilon_{ijk} b_{j} a_{k}$
+\item $\displaystyle \varepsilon_{ijk} a_{j} b_{k} = 0$
+\item $\displaystyle \varepsilon_{ijk} T_{jk} = 0$
+\item $\displaystyle \varepsilon_{ijk} a_{i} a_{j} b_{k} = a_{k} b_{k}$
+\item $\displaystyle \varepsilon_{ijk}\varepsilon_{klm} a_{j} b_{l} c_{m} = c_{i} a_{l} b_{l} - b_{i} a_{m} c_{m}$
+\item $\displaystyle \varepsilon_{ijk}\varepsilon_{klm} a_{j} b_{l} c_{m} = b_{i} a_{m} c_{m} + c_{i} a_{l} b_{l}$
+\item $\displaystyle \varepsilon_{ijk}\varepsilon_{klm} a_{j} b_{l} c_{m} = a_{i} b_{m} c_{m} - c_{i} a_{l} b_{l}$
+\item $\displaystyle \varepsilon_{ijk} a_{j}\varepsilon_{klm} b_{l} c_{m} + \varepsilon_{ijk} b_{j}\varepsilon_{klm} c_{l} a_{m} - \varepsilon_{ijk} c_{j}\varepsilon_{klm} a_{l} b_{m} = 0$
+\item $\displaystyle \varepsilon_{ijk}\varepsilon_{imn} a_{j} b_{k} a_{m} b_{n} = a_{j} a_{j} b_{k} b_{k} + a_{j} b_{j} a_{k} b_{k}$
+\item $\displaystyle \varepsilon_{ijk} A_{1i} A_{2j} A_{3k} = A_{11} A_{22} A_{33} + A_{12} A_{23} A_{31} + A_{13} A_{21} A_{32} + A_{11} A_{23} A_{32} - A_{12} A_{21} A_{33} - A_{13} A_{22} A_{31}$
+\item $\displaystyle \varepsilon_{ij} E_{i1} E_{j2} = E_{11} E_{22} + E_{21} E_{12}$
+\end{enumerate}
+\end{document}

@@ -1,0 +1,59 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Identities with a declared metric (35)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Each statement declares a diagonal metric among its hypotheses, $g_{ij} = \operatorname{diag}(c_1, \dots, c_d)$, and, when $\varepsilon$ appears, its value with the indices $1, 2, \dots, d$ in order. Indices take the values $1, \dots, d$; an index written once above and once below is summed; an index in a position other than the declared one has been raised or lowered with the metric.
+
+\begin{enumerate}
+% The Levi-Civita tensor in a Lorentzian metric: the sign of the determinant.
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, 1, 1) \land \varepsilon_{1234} = 1 \implies \varepsilon^{ijkl}\varepsilon_{ijkl} = -24$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, -1, -1, -1) \land \varepsilon^{1234} = 1 \implies \varepsilon^{ijkl}\varepsilon_{ijkl} = -24$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, -1, -1, -1) \land \varepsilon^{1234} = 1 \implies \varepsilon_{1234} = -1$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, 1, 1) \land \varepsilon_{1234} = 1 \implies \varepsilon^{1234} = -1$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, 1, 1) \land \varepsilon_{1234} = 1 \implies \varepsilon^{ijkl}\varepsilon_{ijkm} = -6\delta^{l}_{m}$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, 1, 1) \land \varepsilon_{1234} = 1 \implies \varepsilon^{ijkl}\varepsilon_{ijmn} = -2\left( \delta^{k}_{m}\delta^{l}_{n} - \delta^{k}_{n}\delta^{l}_{m} \right)$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, 1, 1) \land \varepsilon_{1234} = 1 \implies \varepsilon^{ijkl}\varepsilon_{mjkl} = -6\delta^{i}_{m}$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1) \land \varepsilon_{12} = 1 \implies \varepsilon^{ij}\varepsilon_{ij} = -2$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1) \land \varepsilon_{12} = 1 \implies \varepsilon^{12} = -1$
+% The same contractions in a Euclidean metric, declared.
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, 1, 1) \land \varepsilon_{123} = 1 \implies \varepsilon^{ijk}\varepsilon_{ijk} = 6$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, 1, 1) \land \varepsilon^{123} = 1 \implies \varepsilon_{123} = 1$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, 1, 1) \land \varepsilon_{123} = 1 \implies \varepsilon^{ijk} u_{j}\varepsilon_{klm} v^{l} w^{m} = \left( \delta^{i}_{l}\delta^{j}_{m} - \delta^{i}_{m}\delta^{j}_{l} \right) u_{j} v^{l} w^{m}$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, 1, 1) \land \varepsilon_{123} = 1 \implies \varepsilon^{ijk}\varepsilon_{imn} = \delta^{j}_{m}\delta^{k}_{n} - \delta^{j}_{n}\delta^{k}_{m}$
+% The metric and its inverse.
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, 1, 1) \implies g^{ij} g_{ij} = 4$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, 1, 1) \implies \forall i, k \in \{1, 2, 3, 4\}\ \left( g^{ij} g_{jk} = \delta^{i}_{k} \right)$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, 1, 1) \implies \forall i, k \in \{1, 2, 3, 4\}\ \left( g^{i}_{k} = \delta^{i}_{k} \right)$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, 1, 1) \implies \forall i, j \in \{1, 2, 3, 4\}\ \left( g_{ij} = g_{ji} \right)$
+\item $\displaystyle g^{ij} = \operatorname{diag}(\frac{1}{2}, \frac{1}{3}) \implies g_{ij} g^{ij} = 2$
+\item $\displaystyle g_{ij} = \operatorname{diag}(2, 3) \implies g^{ij} g_{ij} = 2$
+\item $\displaystyle g_{ij} = \operatorname{diag}(2, 3) \implies g_{11} g^{11} + g_{22} g^{22} = 2$
+\item $\displaystyle g_{ij} = \operatorname{diag}(2, 3) \implies g_{11} + g_{22} = 5$
+% Raising and lowering the indices of arbitrary tensors.
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, 1, 1) \implies \forall i \in \{1, 2, 3, 4\}\ \left( g_{ij} A^{j} = A_{i} \right)$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, 1, 1) \implies \forall i \in \{1, 2, 3, 4\}\ \left( g^{ij} A_{j} = A^{i} \right)$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, 1, 1) \implies A^{i} B_{i} = A_{i} B^{i}$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, 1, 1) \implies g_{ij} A^{i} B^{j} = A^{i} B_{i}$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, 1, 1) \implies g^{ij} A_{i} B_{j} = g_{ij} A^{i} B^{j}$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, 1, 1) \implies F^{ij} F_{ij} = F_{ij} F^{ij}$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, 1, 1) \implies \forall i, j \in \{1, 2, 3, 4\}\ \left( F^{ij} = g^{ik} g^{jl} F_{kl} \right)$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, 1, 1) \implies \forall i, j \in \{1, 2, 3, 4\}\ \left( g_{ik} F^{k}{}_{j} = F_{ij} \right)$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, 1, 1) \implies T^{i}{}_{i} = g^{ij} T_{ij}$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, 1, 1) \implies g^{ij} T_{ij} = g_{ij} T^{ij}$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, 1, 1) \implies T^{i}{}_{i} = T_{i}{}^{i}$
+\item $\displaystyle g_{ij} = \operatorname{diag}(2, 3) \implies g_{ij} A^{i} A^{j} = A^{i} A_{i}$
+\item $\displaystyle g_{ij} = \operatorname{diag}(2, 3) \implies \forall i \in \{1, 2\}\ \left( g^{ij} g_{jk} A^{k} = A^{i} \right)$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, 1, 1) \implies \sum_{i=1}^{3} A^{i} B_{i} = \sum_{i=1}^{3} B^{i} A_{i}$
+\end{enumerate}
+\end{document}

@@ -1,0 +1,35 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_index\_identities.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_index\_identities.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_index\_identities.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 46 false statements in index notation. It is a regression test against false proofs: the engine must never prove one of them. Since the method is a complete count over the values of the indices, the test asks for more than ``not proved'': every statement must be declared false, with a counterexample certified by the independent checker.
+
+\item \textbf{How the statements were built.} Each one is a true identity of \texttt{index\_identities.tex} with one small change: a sign ($\delta_{jm}\delta_{kn} + \delta_{jn}\delta_{km}$), two exchanged indices, a factor ($3\delta_{il}$ for $2\delta_{il}$, $3$ for $3!$), or the dimension (an identity that holds in three dimensions, stated in two or in four). Some are true under an extra hypothesis that is not stated, as $\varepsilon_{ijk} T_{jk} = 0$, which holds only for a symmetric $T$. Their falsity was confirmed by the oracle of \texttt{tools/fuzz/fuzz\_tensors.py} in its \texttt{data} mode.
+
+\item \textbf{What the engine needs in order to pass.} To find a value of the free indices where the two sides differ, to write the two values, and to give the checker a certificate it accepts. The test also alters each certificate (the claim \texttt{fails} replaced by \texttt{holds}, and a written value changed) and requires the checker to reject it.
+
+\item \textbf{Format expected by the test.} One \texttt{\textbackslash item} per statement, with the formula written as \texttt{\$\textbackslash displaystyle ...\$}.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -Werror -o /tmp/test_index_identities \
+    tests/tensor_calculus/test_index_identities.c && /tmp/test_index_identities
+\end{verbatim}
+
+\item \textbf{Expected result.} The lines \texttt{PASS: 46 of 46 statements refuted, 46 with a certificate the checker accepts} and \texttt{PASS: 92 of 92 altered certificates rejected for the right reason}.
+\end{enumerate}
+\end{document}
