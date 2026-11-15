@@ -1,0 +1,34 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_definite\_hessians.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_definite\_hessians.tex} is used for. The file is read by \texttt{test\_multivariable\_calculus.c}.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 199 false statements with the short writings $H_{f}(P) \succ 0$, $\prec 0$, $\succeq 0$ and $\preceq 0$. None may be proved: a saddle point certified as a minimum would be a false proof.
+
+\item \textbf{The items.} Items 1--178 are the critical points of \texttt{critical\_points.tex} with the wrong writing: a minimum written $\prec 0$ or $\preceq 0$, a maximum written $\succ 0$ or $\succeq 0$, a saddle point written with each of the four, a point where the determinant vanishes written $\succ 0$ or $\prec 0$. Items 179--199 are written by hand. Items 179--184: matrices that are only semidefinite, written definite or semidefinite of the opposite sign. Items 185--189: matrices that are not semidefinite although their leading minors are all zero or not negative, such as the diagonal matrix with entries $0$ and $-1$: a reader that looked only at the leading minors would prove them. Items 190--197: functions of three and four variables with one writing in place of another. Items 198--199: a true writing next to a false gradient, and next to a false matrix.
+
+\item \textbf{Expected result.} Every statement is called false, with a counterexample that names the comparison on a minor that fails.
+
+\item \textbf{How it was checked.} The independent oracle of \texttt{tools/fuzz/fuzz\_multivariable.py} (mode \texttt{check}) finds every statement false, without using minors.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_multivariable_calculus \
+    tests/multivariable_calculus/test_multivariable_calculus.c && \
+    /tmp/test_multivariable_calculus
+\end{verbatim}
+\end{enumerate}
+\end{document}

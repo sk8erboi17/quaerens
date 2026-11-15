@@ -13,7 +13,10 @@ Uso:
       miste; e richieste senza il segno di uguale. Da ogni enunciato vero
       ricava varianti alterate: un numero, un segno, un termine tolto, le
       variabili scambiate, una derivata in meno, il punto o un valore
-      cambiato. In più, per i punti critici (35g e capitolo 36): le
+      cambiato. La definitezza dell'hessiana con le scritture \\succ,
+      \\prec, \\succeq e \\preceq, di forme quadratiche scelte in modo che
+      capitino le matrici definite, quelle solo semidefinite, le indefinite
+      e quelle con i minori di testa tutti nulli. In più, per i punti critici (35g e capitolo 36): le
       condizioni del secondo ordine in un punto (il gradiente nullo, il
       segno del determinante dell'hessiana, di f_xx e, con tre variabili,
       del minore di lato 2 scritto come tabella), con i segni veri o con uno
@@ -57,6 +60,11 @@ Un confronto tra due numeri (<, >, \\le, \\ge, \\neq) è il segno di una
 differenza: esatto con le frazioni, e con i float deciso solo quando i due
 numeri sono di sicuro diversi. Un determinante si calcola con l'eliminazione
 di Gauss, non con lo sviluppo lungo una riga che fa il programma.
+
+La definitezza di un'hessiana (H_f(P) \\succ 0 e le altre tre scritture) non
+si decide con i minori, come fa il programma, ma con i coefficienti del
+polinomio caratteristico, calcolati con le tracce delle potenze della
+matrice (definite()): né un determinante né un minore.
 
 La risposta alla richiesta dei punti critici si confronta con il gradiente
 punto per punto, nei due versi (dove dice "critico" il gradiente deve essere
@@ -104,8 +112,9 @@ class Undefined(Exception):
 
 class Irregular(Undefined):
     """Un'espressione che in un punto ha un valore ma non è regolare: un
-    radicando, o l'argomento di un valore assoluto, che vale zero. Lì le
-    regole non danno la derivata, che può esistere lo stesso."""
+    radicando, o l'argomento di un valore assoluto, che vale zero; l'argomento
+    di un arcoseno o di un arcocoseno che vale 1 o -1. Lì le regole non danno
+    la derivata, che può esistere lo stesso."""
 
 
 class Overflow(Undefined):
@@ -255,8 +264,9 @@ def val(e, env):
     """Il valore di e, esatto (Fraction) quando si può, altrimenti float.
     Solleva Undefined dove e non è definita (un divisore nullo, un logaritmo
     non positivo, un radicando negativo, una base negativa con un esponente
-    non intero), e Irregular dove è definita ma non regolare (un radicando,
-    una base così o l'argomento di un valore assoluto che vale zero)."""
+    non intero, un arcoseno fuori da [-1, 1]), e Irregular dove è definita ma
+    non regolare (un radicando, una base così o l'argomento di un valore
+    assoluto che vale zero, un arcoseno in 1 o in -1)."""
     op = e[0]
     try:
         if op == "num":
@@ -301,7 +311,10 @@ def val(e, env):
                     raise Undefined
                 return math.log(a)
             if name in ("asin", "acos") and abs(a) >= 1:
-                raise Undefined
+                # In 1 e in -1 l'arcoseno e l'arcocoseno hanno un valore, ma non
+                # sono regolari, come una radice nello zero: lì non si decide.
+                # Fuori non ci sono.
+                raise Irregular if abs(a) == 1 else Undefined
             if name in ("tan", "cot") and abs(math.cos(a) if name == "tan" else math.sin(a)) < 1e-12:
                 raise Undefined
             return {"sin": math.sin, "cos": math.cos, "tan": math.tan, "cot": lambda t: math.cos(t) / math.sin(t), "atan": math.atan,
@@ -379,6 +392,46 @@ def compare(left, right, relation):
     return {"!=": side != 0, "<": side < 0, "<=": side <= 0, ">": side > 0, ">=": side >= 0}[relation]
 
 
+def definite(values, n, kind):
+    """True, False o None: la matrice simmetrica di lato n con gli elementi
+    values, per righe, è definita positiva ("succ"), definita negativa
+    ("prec"), semidefinita positiva ("succeq") o negativa ("preceq").
+
+    Il programma lo decide con i minori principali (il criterio di
+    Sylvester). Qui, apposta, con un altro conto: i coefficienti del polinomio
+    caratteristico. Una matrice simmetrica reale ha tutti gli autovalori
+    reali, e
+
+        det(t I - A) = t^n + c_1 t^(n-1) + ... + c_n,   c_k = (-1)^k e_k,
+
+    dove e_k è la somma dei prodotti a k a k degli autovalori. Se gli e_k
+    sono tutti positivi il polinomio non ha radici minori o uguali a zero
+    (in t = -s, con s >= 0, vale (-1)^n (s^n + e_1 s^(n-1) + ... + e_n), che
+    non è zero): gli autovalori sono tutti positivi, e viceversa. Con e_k >=
+    0 non ha radici negative: semidefinita. Per le negative lo stesso con -A,
+    i cui e_k sono (-1)^k e_k, cioè i c_k.
+
+    I c_k si calcolano senza determinanti, con il metodo di Faddeev e
+    LeVerrier: M_1 = I, c_k = -traccia(A M_k) / k, M_(k+1) = A M_k + c_k I.
+    Con le frazioni il conto è esatto; con i float un coefficiente troppo
+    vicino a zero non si decide. Una matrice che non risulta simmetrica non
+    si decide (l'hessiana di una funzione regolare lo è sempre)."""
+    a = [list(values[r * n:(r + 1) * n]) for r in range(n)]
+    for r in range(n):
+        for c in range(r):
+            if same(a[r][c], a[c][r]) is not True:
+                return None
+    m = [[Fr(int(r == c)) for c in range(n)] for r in range(n)]
+    wanted = []
+    for k in range(1, n + 1):
+        am = [[sum(a[r][t] * m[t][c] for t in range(n)) for c in range(n)] for r in range(n)]
+        c_k = -sum(am[r][r] for r in range(n)) / k
+        m = [[am[r][c] + (c_k if r == c else 0) for c in range(n)] for r in range(n)]
+        wanted.append((-1) ** k * c_k if kind in ("succ", "succeq") else c_k)
+    answers = [compare(w, Fr(0), ">" if kind in ("succ", "prec") else ">=") for w in wanted]
+    return False if False in answers else None if None in answers else True
+
+
 def letters(e, out=None):
     out = set() if out is None else out
     if e[0] == "var":
@@ -439,6 +492,7 @@ def wrapped(e):
 FUNCTIONS = {"sin": "sin", "cos": "cos", "tan": "tan", "cot": "cot", "arctan": "atan", "arcsin": "asin", "arccos": "acos", "ln": "ln"}
 SKIPPED = {"displaystyle", "textstyle", "quad", "qquad", "dfrac", "tfrac"}
 RELATIONS = {"neq": "!=", "ne": "!=", "le": "<=", "leq": "<=", "ge": ">=", "geq": ">="}
+DEFINITE = ("succ", "prec", "succeq", "preceq")     # definita positiva, negativa, semidefinita positiva, negativa
 
 
 def tokens(text):
@@ -789,7 +843,9 @@ class Reader:
         """Ritorna (richiesta, tesi): le tesi sono terne (primo membro, secondo
         membro o None, relazione). La richiesta è None, "value", "gradient",
         "hessian" o "critical" (i punti critici: le tesi sono le componenti
-        del gradiente)."""
+        del gradiente). La definitezza di un'hessiana è una tesi sola: il
+        primo membro è ("hess", lato, elementi per righe...), il secondo zero,
+        la relazione una di DEFINITE."""
         # Le definizioni, se dopo c'è \implies.
         if ("CMD", "implies") in self.t:
             while True:
@@ -823,6 +879,15 @@ class Reader:
                 shape = "hessian"
                 name, left = self.hessian()
                 n = len(self.functions[name][0])
+                if self.at("CMD") and self.peek()[1] in DEFINITE:
+                    kind = self.take()[1]
+                    if not is_num(self.expr(), 0):
+                        raise Unreadable("la definitezza rispetto a qualcosa che non è zero")
+                    claims.append((("hess", n) + tuple(left), ZERO, kind))
+                    if not self.at("CMD", "land"):
+                        break
+                    self.take()
+                    continue
             else:
                 left, n = [self.expr()], 1
             sign = self.relation()
@@ -918,7 +983,7 @@ def truth(reader, claims, rnd):
             try:
                 for tree in exist:
                     val(tree, env)
-                pair = (val(left, env), val(right, env))
+                pair = [val(c, env) for c in left[2:]] if relation in DEFINITE else [val(left, env), val(right, env)]
             except Undefined as problem:
                 if not names:
                     # Un punto scritto in cui una funzione non è definita: falso. Dove
@@ -926,10 +991,10 @@ def truth(reader, claims, rnd):
                     # esce dai float non si sa: l'oracolo non decide.
                     return None if isinstance(problem, (Irregular, Overflow)) else False
                 continue
-            if names and not (finite(pair[0]) and finite(pair[1])):
+            if names and not all(finite(v) for v in pair):
                 continue        # un punto in cui i float non bastano (e^{3 x^2 y^2 z} con x = 9): se ne prova un altro
             found += 1
-            holds = compare(pair[0], pair[1], relation)
+            holds = definite(pair, left[1], relation) if relation in DEFINITE else compare(pair[0], pair[1], relation)
             if holds is False:
                 return False
             unsure = unsure or holds is None
@@ -1358,6 +1423,33 @@ def centred(rnd, variables, point):
     return fn("exp", body) if rnd.random() < 0.2 else add(body, num(rnd.randint(-3, 3)))
 
 
+def quadratic_matrix(rnd, n):
+    """Una matrice simmetrica di lato n a elementi interi, scelta in modo che
+    capitino i casi che contano per la definitezza: B^T B (semidefinita
+    positiva, definita se B è invertibile), la stessa con una riga di B
+    azzerata o ripetuta (semidefinita con il determinante nullo), una
+    diagonale con degli zeri in testa (i minori di testa tutti nulli, e la
+    matrice non semidefinita), una qualsiasi (di solito indefinita); e una
+    volta su due l'opposta."""
+    style = rnd.choice(["gram", "gram", "deficient", "diagonal", "any"])
+    if style == "any":
+        a = [[0] * n for _ in range(n)]
+        for r in range(n):
+            for c in range(r, n):
+                a[r][c] = a[c][r] = rnd.randint(-2, 2)
+    elif style == "diagonal":
+        entries = [rnd.choice([0, 0, 1, 2, -1]) for _ in range(n)]
+        entries.sort(key=lambda v: (v != 0, rnd.random()))      # gli zeri davanti
+        a = [[entries[r] if r == c else 0 for c in range(n)] for r in range(n)]
+    else:
+        b = [[rnd.randint(-2, 2) for _ in range(n)] for _ in range(n)]
+        if style == "deficient":
+            b[rnd.randrange(n)] = rnd.choice([[0] * n, b[0][:]])
+        a = [[sum(b[t][r] * b[t][c] for t in range(n)) for c in range(n)] for r in range(n)]
+    sign = rnd.choice([1, -1])
+    return [[sign * v for v in row] for row in a]
+
+
 def polynomial_in(coefficients, u):
     """L'albero della somma dei coefficients[i] per u^i."""
     e = ZERO
@@ -1441,7 +1533,7 @@ def generate(rnd, count):
         for letter in by:
             derivative = diff(derivative, letter)
         kind = rnd.choice(["partial", "partial", "partial", "gradient", "hessian", "point", "point", "schwarz", "request", "request", "two",
-                           "second", "second", "second", "compare", "compare", "critical", "critical", "nested"])
+                           "second", "second", "second", "compare", "compare", "critical", "critical", "nested", "nested", "definite", "definite"])
         point = [Fr(rnd.randint(-4, 4), rnd.randint(1, 3)) for _ in variables]
         where = "\\left( %s \\right)" % ", ".join(tex(num(q)) for q in point)
         env = dict(zip(variables, point))
@@ -1562,16 +1654,25 @@ def generate(rnd, count):
                 pass
             statements.append(head + "%s %s %s" % (left, rnd.choice(["<", ">", "\\le", "\\ge", "\\neq", "\\leq", "\\geq", "\\ne"]), right))
         elif kind == "nested":
-            # Una funzione definita con la derivata di un'altra, g, che esiste in
+            # Una funzione definita con una derivata di un'altra, g, che esiste in
             # meno punti della sua derivata: fuori dal dominio di g la funzione
-            # non c'è, anche se la formula lì ha un valore. La tesi scrive
-            # proprio quel valore (o quel valore più 1): è vera solo dove g è
-            # regolare, e lo decide l'oracolo.
+            # non c'è, anche se la formula lì ha un valore. Il dominio di g è
+            # quello di un logaritmo, di una radice, di un arcoseno o di un
+            # arcocoseno, o manca un punto per un divisore; la derivata è rispetto
+            # a x, a y o mista; e il punto è scelto in modo che cada fuori dal
+            # dominio più o meno una volta su due. La tesi scrive il valore che
+            # la formula ha nel punto (o quel valore più 1), con il segno di
+            # uguale o con un confronto che quel valore rende vero: è vera solo
+            # dove g è regolare, e lo decide l'oracolo. È la combinazione in cui
+            # il programma dimostrava un falso (35b, partial_regular_at()).
             x, y = ("var", "x"), ("var", "y")
             inner = rnd.choice([add(fn("ln", x), ("pow", y, num(2))), add(fn("ln", x), div(ONE, y)), add(fn("ln", x), fn("asin", y)),
-                                add(mul(x, fn("ln", x)), ("root", 2, y)), add(div(("pow", x, num(2)), y), fn("ln", add(x, y)))])
-            head = "g(x, y) = %s, f(x, y) = g_{x} + %s \\implies " % (tex(inner), tex(polynomial(rnd, ["x", "y"], 2, 2)))
-            spot = [Fr(rnd.choice([-2, -1, 1, 2, 3])), Fr(rnd.choice([-2, -1, 0, 1, 1, 2]), rnd.choice([1, 2]))]
+                                add(mul(x, fn("ln", x)), ("root", 2, y)), add(div(("pow", x, num(2)), y), fn("ln", add(x, y))),
+                                add(mul(("root", 2, x), y), ("pow", x, num(2))), add(fn("acos", x), mul(x, ("pow", y, num(2)))),
+                                add(fn("asin", y), mul(("pow", x, num(2)), y)), mul(fn("ln", sub(x, y)), x)])
+            wrt = rnd.choice(["x", "x", "y", "xy"])
+            head = "g(x, y) = %s, f(x, y) = g_{%s} + %s \\implies " % (tex(inner), wrt, tex(polynomial(rnd, ["x", "y"], 2, 2)))
+            spot = [Fr(rnd.choice([-2, -1, 1, 2, 3]), rnd.choice([1, 1, 2])), Fr(rnd.choice([-2, -1, 0, 1, 1, 2]), rnd.choice([1, 2]))]
             target = rnd.choice(["f", "f_{x}", "f_{y}", "f_{xy}"]) + "\\left( %s \\right)" % ", ".join(tex(num(q)) for q in spot)
             value = Fr(0)
             try:
@@ -1582,7 +1683,32 @@ def generate(rnd, count):
                 value = found if isinstance(found, Fr) else value
             except (Unreadable, Undefined, KeyError):
                 pass
-            statements.append(head + "%s = %s" % (target, tex(num(value + rnd.choice([0, 0, 0, 1])))))
+            statements.append(head + "%s %s %s" % (target, rnd.choice(["=", "=", "=", "\\le", "\\ge"]), tex(num(value + rnd.choice([0, 0, 0, 1])))))
+        elif kind == "definite":
+            # La definitezza dell'hessiana, con le quattro scritture. La funzione
+            # è una forma quadratica negli scarti da un punto, con l'hessiana
+            # doppia della matrice di quadratic_matrix(); una volta su tre ha in
+            # più un termine di terzo grado, che nel punto non la cambia. Quale
+            # scrittura sia vera lo decide l'oracolo, con un conto che non usa i
+            # minori.
+            variables = ["x", "y", "z", "w"][:rnd.choice([2, 2, 3, 3, 4])]
+            n = len(variables)
+            matrix = quadratic_matrix(rnd, n)
+            point = [Fr(rnd.randint(-2, 2)) for _ in variables]
+            shifts = [("var", v) if q == 0 else ("sub", ("var", v), num(q)) for v, q in zip(variables, point)]
+            body = ZERO
+            for r in range(n):
+                for c in range(r, n):
+                    if matrix[r][c]:
+                        body = add(body, mul(num(matrix[r][c] * (1 if r == c else 2)), mul(shifts[r], shifts[c])))
+            cubic = rnd.random() < 0.33
+            if cubic:
+                body = add(body, mul(num(rnd.choice([-2, -1, 1, 2])), mul(mul(rnd.choice(shifts), rnd.choice(shifts)), rnd.choice(shifts))))
+            if body == ZERO:
+                body = num(rnd.randint(1, 3))
+            where = "\\left( %s \\right)" % ", ".join(tex(num(q)) for q in point) if cubic or rnd.random() < 0.7 else ""
+            critical = "\\nabla f%s = 0 \\land " % where if where and rnd.random() < 0.3 else ""
+            statements.append("f(%s) = %s \\implies %sH_{f}%s \\%s 0" % (", ".join(variables), tex(body), critical, where, rnd.choice(DEFINITE)))
         elif kind == "critical":
             # I punti critici di una funzione di cui si conoscono, per come è costruita.
             body, known = critical_case(rnd)

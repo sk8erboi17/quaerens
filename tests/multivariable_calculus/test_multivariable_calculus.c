@@ -71,6 +71,26 @@
  *      false_constrained_extrema.tex viene dimostrato, e tutti vengono
  *      dichiarati falsi.
  *
+ * La definitezza dell'hessiana, scritta H_{f}(P) \succ 0 (34s di parser.c,
+ * 35h di main.c):
+ *
+ *  21. ogni enunciato di definite_hessians.tex viene dimostrato, con la
+ *      dimostrazione scritta e con il certificato; i certificati alterati
+ *      non sono accettati e i confronti negati sono respinti; nessun
+ *      enunciato di false_definite_hessians.tex viene dimostrato, e tutti
+ *      vengono dichiarati falsi: un minimo scritto \prec, una sella scritta
+ *      \succ, il determinante nullo scritto definito, una matrice solo
+ *      semidefinita scritta definita, e le matrici con i minori di testa
+ *      nulli che non sono semidefinite;
+ *  22. le quattro scritture contro un altro conto, scritto qui: di forme
+ *      quadratiche a caso di una, due, tre e quattro variabili l'enunciato è
+ *      dimostrato o dichiarato falso secondo i minori principali calcolati
+ *      con l'eliminazione senza frazioni del controllo 16, e dove è
+ *      dimostrato nessun vettore a coordinate intere piccole smentisce la
+ *      definizione (la forma quadratica ha lì il segno giusto);
+ *  23. il verdetto e la dimostrazione scritta dicono che cosa abbrevia la
+ *      scrittura, sia quando l'enunciato è dimostrato sia quando è falso.
+ *
  * Gli enunciati sono dati: il motore non ne conosce nessuno in anticipo. Che
  * siano veri e falsi l'ha controllato anche l'oracolo indipendente di
  * tools/fuzz/fuzz_multivariable.py (modalità check), che per le richieste
@@ -95,6 +115,8 @@
 #define CRITICAL_REQUEST_FILE "tests/multivariable_calculus/critical_requests.tex"
 #define CONSTRAINED_FILE "tests/multivariable_calculus/constrained_extrema.tex"
 #define FALSE_CONSTRAINED_FILE "tests/multivariable_calculus/false_constrained_extrema.tex"
+#define DEFINITE_FILE "tests/multivariable_calculus/definite_hessians.tex"
+#define FALSE_DEFINITE_FILE "tests/multivariable_calculus/false_definite_hessians.tex"
 
 /* Quanti enunciati restano senza certificato. In TRUE_FILE: x^y, la cui
  * derivata rispetto a x chiede al verificatore una relazione tra potenze
@@ -103,11 +125,12 @@
  * dove il verificatore non sa stabilire il segno di una condizione. In
  * CRITICAL_FILE nessuno. In CONSTRAINED_FILE: un punto e un moltiplicatore
  * con tre radici quadrate diverse (di 6, di 3/2 e di 2/3), tra cui il
- * verificatore non conosce relazioni. */
+ * verificatore non conosce relazioni. In DEFINITE_FILE nessuno. */
 #define UNCERTIFIED 1
 #define BOOK_UNCERTIFIED 2
 #define CRITICAL_UNCERTIFIED 0
 #define CONSTRAINED_UNCERTIFIED 1
+#define DEFINITE_UNCERTIFIED 0
 
 /* Ritorna il nome di un esito, per i messaggi. */
 static const char *outcome_name(Outcome outcome) {
@@ -499,6 +522,31 @@ static const Expected expected[] = {
     {"f(x, y) = x^{2} + y^{2} + 4^{\\frac{1}{2}} \\implies \\det H_{f} > 0", PROVED, NULL},
     {"f(x, y) = x^{y} \\implies f_{x}(2, 3) = 12", PROVED, NULL},
 
+    /* La definitezza dell'hessiana (34s). Le scritture stanno solo dopo
+     * l'hessiana di una funzione dichiarata e solo rispetto a 0: non dopo
+     * un gradiente, un determinante o una tabella scritta per esteso, che
+     * può non essere simmetrica. Senza punto, con le derivate seconde che
+     * dipendono dalle lettere, è una disequazione in più variabili (35g). In
+     * un punto in cui la funzione non c'è non si dimostra nulla, nemmeno
+     * dove la formula dell'hessiana sarebbe definita positiva: in (-2, 0)
+     * quella di 1/x + x^2 + y^2 vale (7/4, 0; 0, 2), ma g = ln x + arcsin y
+     * lì non esiste, e f = g_x + x^2 + y^2 nemmeno. */
+    {"f(x, y) = x^{2} + y^{2} \\implies H_{f}(1, 1) \\succ 1", UNSUPPORTED, "solo dopo l'hessiana"},
+    {"f(x, y) = x^{2} + y^{2} \\implies H_{f}(1, 1) \\succeq x", UNSUPPORTED, "solo dopo l'hessiana"},
+    {"f(x, y) = x^{2} + y^{2} \\implies \\nabla f(1, 1) \\succ 0", UNSUPPORTED, "solo dopo l'hessiana"},
+    {"f(x, y) = x^{2} + y^{2} \\implies \\det H_{f}(1, 1) \\succ 0", UNSUPPORTED, "solo dopo l'hessiana"},
+    {"f(x, y) = x^{2} + y^{2} \\implies f_{xx}(1, 1) \\prec 0", UNSUPPORTED, "solo dopo l'hessiana"},
+    {"f(x, y) = x^{2} + y^{2} \\implies \\begin{pmatrix} f_{xx}(1, 1) & f_{xy}(1, 1) \\\\ f_{yx}(1, 1) & f_{yy}(1, 1) \\end{pmatrix} \\succ 0", UNSUPPORTED,
+     "solo dopo l'hessiana"},
+    {"f(x, y) = x^{2} + y^{2} \\implies H_{f}(1, 1) \\succ", UNSUPPORTED, NULL},
+    {"f(x, y) = x^{2} + y^{2} \\implies H_{f}(1, 1) \\succ 0 = 0", UNSUPPORTED, "testo inatteso"},
+    {"f(x, y) = x^{2} y \\implies H_{f} \\succ 0", UNSUPPORTED, "solo tra numeri"},
+    {"f(x, y) = x^{2} y \\implies H_{f}(a, 1) \\succeq 0", UNSUPPORTED, "solo tra numeri"},
+    {"f(x, y) = \\ln x + y^{2} \\implies H_{f}(-1, 0) \\prec 0", NOT_PROVED, "nel punto scritto"},
+    {"g(x, y) = \\ln x + \\arcsin y, f(x, y) = g_{x} + x^{2} + y^{2} \\implies H_{f}(-2, 0) \\succ 0", NOT_PROVED, "nel punto scritto"},
+    {"g(x, y) = \\ln x + \\arcsin y, f(x, y) = g_{x} + x^{2} + y^{2} \\implies H_{f}(1, 0) \\succ 0", PROVED, NULL},
+    {"f(x, y) = x^{2} + y^{2} \\implies H_{f} \\succ 0 \\land H_{f}(3, 4) \\succeq 0 \\land H_f = \\begin{pmatrix} 2 & 0 \\\\ 0 & 2 \\end{pmatrix}", PROVED, NULL},
+
     /* Un confronto è trattato solo tra numeri: con una lettera rimasta, la
      * variabile o un parametro, è una disequazione, e qui non si decide.
      * (Prima della tappa 2 il lettore non leggeva \ge, e il motivo di
@@ -583,6 +631,17 @@ static const Reading readings[] = {
     {"f(x, y) = xy \\implies H_f = \\begin{pmatrix} 0 & 1 \\\\ 1 & 0 \\end{pmatrix}", 4, "yx", 2},
     {"f(x, y, z) = xyz \\implies \\nabla f(1, 2, 3) = 0", 3, "z", 2},
     {"\\dfrac{\\partial^{2}}{\\partial x \\partial y}\\left( xy \\right) = 1", 1, "yx", 0},
+
+    /* La definitezza (34s): con n variabili una tesi per minore di testa
+     * (n) per il segno stretto, una per minore principale (2^n - 1) per il
+     * largo; le derivate seconde sono quelle dell'hessiana, per righe. */
+    {"f(x) = x \\implies H_{f}(1) \\prec 0", 1, "xx", 0},
+    {"f(x, y) = xy \\implies H_{f}(1, 2) \\succ 0", 2, "yx", 2},
+    {"f(x, y) = xy \\implies H_{f}(1, 2) \\succeq 0", 3, "xy", 1},
+    {"f(x, y, z) = xyz \\implies H_{f}(1, 2, 3) \\succ 0", 3, "xx", 0},
+    {"f(x, y, z) = xyz \\implies H_{f}(1, 2, 3) \\preceq 0", 7, "zy", 7},
+    {"f(x, y, z, w) = xyzw \\implies H_{f} \\prec 0", 4, "ww", 15},
+    {"f(x, y, z, w) = xyzw \\implies \\nabla f(0, 0, 0, 0) = 0 \\land H_{f}(0, 0, 0, 0) \\succeq 0", 19, "xx", 4},
 };
 
 /* Controllo 11: una funzione, le lettere rispetto a cui si deriva, e la
@@ -673,6 +732,120 @@ static int check_determinants(void) {
     snprintf(summary, sizeof summary, "%d of %d determinants of tables of numbers agree with fraction-free elimination, and are called false with the value plus 1",
              right, total);
     return check_result(right == total, summary);
+}
+
+/* Controllo 22. Le quattro scritture della definitezza, nell'ordine in cui
+ * le usano le due funzioni qui sotto: le prime due con il segno stretto, la
+ * prima e la terza "positiva". */
+static const char *const definite_writing[] = {"\\succ", "\\prec", "\\succeq", "\\preceq"};
+
+/* Controllo 22. Ritorna 1 se la matrice simmetrica di interi a, di lato n,
+ * è come dice la scrittura numero writing secondo i minori principali:
+ * quelli di testa per il segno stretto, tutti per il largo, ognuno calcolato
+ * con elimination_determinant(), che non è lo sviluppo del lettore. Per una
+ * matrice "negativa" si guarda l'opposta: un minore di lato dispari cambia
+ * segno. */
+static int minors_say(long long a[4][4], int n, int writing) {
+    int positive = writing % 2 == 0, strict = writing < 2;
+    for (unsigned keep = 1; keep < 1u << n; keep++) {
+        long long m[4][4];
+        int side = 0;
+        for (int r = 0; r < n; r++) {
+            if (!(keep >> r & 1)) continue;
+            int column = 0;
+            for (int c = 0; c < n; c++)
+                if (keep >> c & 1) m[side][column++] = a[r][c];
+            side++;
+        }
+        if (strict && keep != (1u << side) - 1) continue;
+        long long minor = elimination_determinant(m, side);
+        if (!positive && side % 2) minor = -minor;
+        if (minor < 0 || (strict && minor == 0)) return 0;
+    }
+    return 1;
+}
+
+/* Controllo 22. Ritorna 1 se nessun vettore non nullo a coordinate intere
+ * tra -2 e 2 smentisce la scrittura numero writing per la matrice a, di
+ * lato n: la forma quadratica x^T a x (o la sua opposta) vi è positiva, o
+ * non negativa per il segno largo. È la definizione, provata su pochi
+ * vettori: può solo smentire. */
+static int vectors_allow(long long a[4][4], int n, int writing) {
+    int positive = writing % 2 == 0, strict = writing < 2;
+    for (int code = 0; code < 625; code++) {
+        int x[4], rest = code, null = 1;
+        for (int i = 0; i < 4; i++) {
+            x[i] = i < n ? rest % 5 - 2 : 0;
+            rest /= 5;
+            null = null && x[i] == 0;
+        }
+        long long form = 0;
+        for (int r = 0; r < n; r++)
+            for (int c = 0; c < n; c++) form += a[r][c] * x[r] * x[c];
+        if (!positive) form = -form;
+        if (!null && (form < 0 || (strict && form == 0))) return 0;
+    }
+    return 1;
+}
+
+/* Controllo 22: forme quadratiche a caso (sempre le stesse: il generatore
+ * parte da un seme fisso) di una, due, tre e quattro variabili, la cui
+ * hessiana è il doppio di una matrice simmetrica di interi a. La matrice è
+ * scelta in quattro modi, perché capitino tutti i casi: b^T b con b a caso
+ * (definita positiva, di solito; due volte su cinque), la stessa con una riga di b nulla
+ * (semidefinita, con il determinante nullo), una diagonale con degli zeri
+ * davanti (i minori di testa nulli), una simmetrica qualsiasi (indefinita, di
+ * solito); un terzo delle volte se ne prende l'opposta. Ognuna è scritta con
+ * le quattro scritture: l'enunciato deve essere dimostrato dove i minori
+ * calcolati qui dicono di sì, e dichiarato falso dove dicono di no; e dove
+ * dicono di sì la definizione, provata sui vettori, non deve smentire. */
+static int check_definiteness(void) {
+    static const char *const letter[] = {"x", "y", "z", "w"};
+    static char function[MAX_FORMULA], formula[MAX_FORMULA];
+    char summary[512];
+    unsigned state = 20261116u;
+    int total = 0, right = 0, proved = 0;
+    for (int round = 0; round < 60; round++) {
+        long long a[4][4], b[4][4];
+        int n = 1 + round % 4, style = round / 4 % 5, length = 0;
+        for (int i = 0; i < 4; i++)
+            for (int j = 0; j < 4; j++) {
+                state = state * 1103515245u + 12345u;
+                b[i][j] = (long long)(state >> 16) % 5 - 2;
+            }
+        for (int j = 0; style == 2 && j < 4; j++) b[0][j] = 0;
+        for (int i = 0; i < n; i++)
+            for (int j = 0; j < n; j++) {
+                a[i][j] = 0;
+                for (int t = 0; style <= 2 && t < n; t++) a[i][j] += b[t][i] * b[t][j];
+                if (style == 3 && i == j && i >= n / 2) a[i][j] = b[0][i] > 0 ? b[0][i] : -1;
+                if (style == 4) a[i][j] = i < j ? b[i][j] : b[j][i];
+                if (round >= 40) a[i][j] = -a[i][j];
+            }
+
+        /* La funzione: a_ii x_i^2 più 2 a_ij x_i x_j per ogni coppia. */
+        length += snprintf(function, sizeof function, "f(");
+        for (int i = 0; i < n; i++) length += snprintf(function + length, sizeof function - (size_t)length, "%s%s", i ? ", " : "", letter[i]);
+        length += snprintf(function + length, sizeof function - (size_t)length, ") = 0");
+        for (int i = 0; i < n; i++)
+            for (int j = i; j < n; j++) {
+                long long c = i == j ? a[i][j] : 2 * a[i][j];
+                length += snprintf(function + length, sizeof function - (size_t)length, " %c %lld \\cdot %s \\cdot %s", c < 0 ? '-' : '+', c < 0 ? -c : c, letter[i], letter[j]);
+            }
+        for (int writing = 0; writing < 4; writing++) {
+            int wanted = minors_say(a, n, writing), allowed = !wanted || vectors_allow(a, n, writing);
+            snprintf(formula, sizeof formula, "%s \\implies H_{f} %s 0", function, definite_writing[writing]);
+            Outcome outcome = prove(formula, 'n', 0, 0).outcome;
+            total++;
+            proved += outcome == PROVED;
+            if (allowed && outcome == (wanted ? PROVED : REFUTED)) { right++; continue; }
+            printf("  %s is %s (%s wanted%s)\n", formula, outcome_name(outcome), wanted ? "PROVED" : "REFUTED",
+                   allowed ? "" : "; and a vector contradicts the minors computed by this test");
+        }
+    }
+    snprintf(summary, sizeof summary, "%d of %d writings of definiteness on random quadratic forms decided as the principal minors by elimination say "
+             "(%d proved), with no vector against a proved one", right, total, proved);
+    return check_result(right == total && proved >= 60, summary);
 }
 
 /* Una richiesta dei punti critici con ciò che il libro stampa: la funzione,
@@ -921,6 +1094,31 @@ int main(void) {
     passed &= check_certificates(CONSTRAINED_FILE, CONSTRAINED_UNCERTIFIED);
     passed &= check_negated_comparisons(CONSTRAINED_FILE, 8);
     passed &= check_outcomes(FALSE_CONSTRAINED_FILE, PROVED, REFUTED, 0);
+
+    /* Controlli 21 e 22: la definitezza dell'hessiana. */
+    passed &= check_all_proved(DEFINITE_FILE);
+    passed &= check_certificates(DEFINITE_FILE, DEFINITE_UNCERTIFIED);
+    passed &= check_negated_comparisons(DEFINITE_FILE, 250);
+    passed &= check_outcomes(FALSE_DEFINITE_FILE, PROVED, REFUTED, 0);
+    passed &= check_definiteness();
+
+    /* Controllo 23: che cosa abbrevia la scrittura lo dicono la nota del
+     * verdetto, dimostrato o falso, e l'inizio della dimostrazione scritta.
+     * Ogni verdetto si guarda subito: il testo della dimostrazione è quello
+     * dell'ultima chiamata. */
+    Verdict told = prove("f(x, y) = x^{2} + xy + y^{2} \\implies \\nabla f(0, 0) = (0, 0) \\land H_{f}(0, 0) \\succ 0", 'n', 0, 0);
+    int strict = told.outcome == PROVED && told.certificate && told.note && strstr(told.note, "criterio di Sylvester") && told.proof &&
+                 strstr(told.proof, "\\textbf{Reading.}") && strstr(told.proof, "leading principal minors") && !strstr(told.proof, "every principal minor");
+    told = prove("f(x, y) = x^{4} + y^{4} \\implies H_{f}(0, 0) \\succeq 0", 'n', 0, 0);
+    int weak = told.outcome == PROVED && told.note && strstr(told.note, "tutti i minori principali") && told.proof &&
+               strstr(told.proof, "every principal minor") && !strstr(told.proof, "Sylvester's criterion, which");
+    told = prove("f(x, y) = x^{2} - y^{2} \\implies H_{f}(0, 0) \\succ 0", 'n', 0, 0);
+    int refuted = told.outcome == REFUTED && told.note && strstr(told.note, "criterio di Sylvester") && strstr(told.note, "una per minore");
+    told = prove("f(x, y) = x^{2} - y^{2} \\implies f_{xx}(0, 0) > 0", 'n', 0, 0);
+    int plain = told.outcome == PROVED && !told.note;
+    snprintf(summary, sizeof summary, "the verdict and the written proof say what a writing of definiteness is short for (%d, %d, %d), and only then (%d)", strict,
+             weak, refuted, plain);
+    passed &= check_result(strict && weak && refuted && plain, summary);
 
     /* Controllo 12. */
     snprintf(summary, sizeof summary, "every step of the written proofs passed its independent check (%d discarded)", unjustified_steps);

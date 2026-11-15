@@ -10507,7 +10507,9 @@ static const char *read_item(const char *item, const char *end, Item *out) {
  *     claim         := expr [ relation expr ]
  *                    | \nabla lettera [point] [ '=' ( '(' expr { ',' expr } ')' | '0' ) ]
  *                    | 'H' '_' lettera [point] [ '=' tabella ]
+ *                    | 'H' '_' lettera [point] definite '0'
  *     relation      := '=' | \neq | \ne | '<' | '>' | \le | \leq | \ge | \geq
+ *     definite      := \succ | \prec | \succeq | \preceq
  *     critical      := \{ '(' lettera { ',' lettera } ')' \mid \nabla lettera [ '(' lettera { ',' lettera } ')' ]
  *                      '=' ( '(' '0' { ',' '0' } ')' | '0' ) \}
  *     point         := '(' expr { ',' expr } ')'
@@ -10572,6 +10574,13 @@ static const char *read_item(const char *item, const char *end, Item *out) {
  *     un gradiente o un'hessiana, che sono liste: "il gradiente non è nullo"
  *     vorrebbe dire che una componente non lo è, e si scrive con quella. Che
  *     i confronti siano decisi solo tra numeri lo dice il motore (35g).
+ *   - La definitezza. H_{f}(1, 1) \succ 0 dice che l'hessiana in (1, 1) è
+ *     definita positiva, \prec 0 negativa, \succeq 0 e \preceq 0
+ *     semidefinita. È un'abbreviazione: il lettore scrive al suo posto i
+ *     confronti sui minori principali che la dicono (34s, più sotto: il
+ *     criterio di Sylvester per il segno stretto, tutti i minori principali
+ *     per quello largo), e il motore vede solo quelli. Sta solo dopo
+ *     l'hessiana di una funzione dichiarata, e solo rispetto a 0.
  *
  * Come arriva al motore. Ogni derivata scritta, e ogni funzione dichiarata
  * usata in un'espressione, diventa un operando (PartialOperand), e nell'albero
@@ -10631,6 +10640,14 @@ typedef enum { ASKED_NOTHING, ASKED_VALUE, ASKED_GRADIENT, ASKED_HESSIAN, ASKED_
  * del capitolo 8, che non ha il "diverso". */
 typedef enum { CLAIM_EQ, CLAIM_NEQ, CLAIM_LT, CLAIM_LE, CLAIM_GT, CLAIM_GE } ClaimRelation;
 
+/* Le scritture della definitezza di un'hessiana che un enunciato può
+ * contenere, come bit di PartialStatement.definite: quelle con il segno
+ * stretto (\succ, \prec), svolte nei minori principali di testa, e quelle
+ * con il segno largo (\succeq, \preceq), svolte in tutti i minori principali
+ * (34s). */
+#define DEFINITE_STRICT 1
+#define DEFINITE_WEAK 2
+
 /* Una tesi di un enunciato sulle funzioni di più variabili: due espressioni,
  * in cui gli operandi compaiono come variabili (VAR_OPERAND + indice), e la
  * loro relazione, com'è scritta (a > b resta a > b: la dimostrazione la
@@ -10658,6 +10675,8 @@ typedef struct {
     const char *asked_from, *asked_to;      /* in una richiesta: il testo di ciò che si chiede, [from, to) nell'enunciato */
     int critical;                           /* ASKED_CRITICAL: la funzione di cui si chiedono i punti critici, come indice in function[] */
     int determinant;                        /* 1 se l'enunciato scrive un determinante: la dimostrazione dice allora che cosa se ne conclude (35g) */
+    int definite;                           /* le scritture della definitezza lette (34s): DEFINITE_STRICT, DEFINITE_WEAK, la loro somma, o 0.
+                                               Il verdetto e la dimostrazione dicono allora che cosa abbreviavano */
 } PartialStatement;
 
 /* L'enunciato che parse_partial_statement() sta leggendo, o NULL: solo
@@ -10899,6 +10918,108 @@ static Node *partial_minor(Node *const *entry, int n, int row, unsigned used) {
     return sum;
 }
 
+/* 34s. LA DEFINITEZZA DELL'HESSIANA, SVOLTA
+ *
+ * A che cosa serve. "In (1, 1) l'hessiana è definita positiva" è la
+ * condizione del secondo ordine che fa di un punto critico un minimo, e i
+ * libri la scrivono H_{f}(1, 1) \succ 0; \prec 0 è "definita negativa" (un
+ * massimo), \succeq 0 e \preceq 0 "semidefinita" (le condizioni necessarie).
+ * Con le sole derivate bisogna scrivere un determinante per ogni minore:
+ * quattro tesi per una funzione di quattro variabili. Qui la scrittura
+ * breve è un'abbreviazione di quelle tesi: il lettore le scrive al suo
+ * posto, e il motore, la dimostrazione e il certificato vedono solo
+ * confronti tra numeri (35g di main.c).
+ *
+ * Le definizioni. Una matrice simmetrica A di lato n è definita positiva se
+ * x^T A x > 0 per ogni vettore x diverso da zero, semidefinita positiva se
+ * x^T A x >= 0 per ogni x; negativa, lo stesso con i versi rovesciati, cioè
+ * se lo è -A. Un minore principale è il determinante della sottomatrice
+ * fatta dalle righe e dalle colonne di uno stesso insieme S di indici; è di
+ * testa (o di nord-ovest) se S = {1, ..., k}, e lo chiamiamo D_k.
+ *
+ * Criterio di Sylvester. Una matrice simmetrica A è definita positiva
+ * esattamente quando D_1, ..., D_n sono tutti positivi.
+ *
+ *   Perché. Se A è definita positiva lo è ogni sua sottomatrice di testa
+ *   A_k (basta prendere x con le ultime n - k coordinate nulle); una matrice
+ *   simmetrica definita positiva ha gli autovalori positivi, e il
+ *   determinante è il loro prodotto. Viceversa, per induzione su n: A_{n-1}
+ *   è definita positiva per ipotesi induttiva. Scritta A a blocchi, con
+ *   A_{n-1}, una colonna b e un numero c, e x = (y, t), completando il
+ *   quadrato:
+ *
+ *     x^T A x = (y + t w)^T A_{n-1} (y + t w) + (c - b^T w) t^2,   w = A_{n-1}^{-1} b,
+ *
+ *   e det A = det A_{n-1} (c - b^T w), quindi c - b^T w = D_n / D_{n-1} > 0.
+ *   I due addendi non sono negativi, e sono nulli insieme solo per t = 0 e
+ *   y = 0.
+ *
+ * Definita negativa. A lo è se -A è definita positiva, e il minore di testa
+ * di ordine k di -A è (-1)^k D_k: i minori di testa hanno segni alterni, a
+ * partire dal negativo (D_1 < 0, D_2 > 0, D_3 < 0, ...).
+ *
+ * Semidefinita. Qui i minori di testa non bastano: la matrice con le righe
+ * (0, 0) e (0, -1) ha D_1 = D_2 = 0, e con x = (0, 1) dà -1. Una matrice
+ * simmetrica è semidefinita positiva esattamente quando tutti i suoi minori
+ * principali, non solo quelli di testa, sono maggiori o uguali a zero.
+ *
+ *   Perché. Se A è semidefinita positiva lo è ogni sottomatrice principale
+ *   (x con le coordinate nulle fuori da S), che ha gli autovalori non
+ *   negativi, e il determinante è il loro prodotto. Viceversa, per e > 0 il
+ *   minore di testa di ordine k di A + e I è
+ *
+ *     det(A_k + e I) = e^k + s_1 e^(k-1) + ... + s_k,
+ *
+ *   dove s_j è la somma dei minori principali di ordine j di A_k (sono i
+ *   coefficienti del polinomio caratteristico): tutti non negativi, quindi
+ *   il minore è positivo. Per Sylvester A + e I è definita positiva, cioè
+ *   x^T A x > -e |x|^2 per ogni e > 0: quindi x^T A x >= 0.
+ *
+ * Semidefinita negativa: -A semidefinita positiva, e un minore principale
+ * di ordine j di -A è (-1)^j per quello di A: i minori di ordine dispari
+ * sono minori o uguali a zero, quelli di ordine pari maggiori o uguali.
+ *
+ * L'ipotesi. I criteri valgono per una matrice simmetrica. L'hessiana lo è
+ * dove la funzione è di classe C^2 (teorema di Schwarz: le derivate miste
+ * continue non dipendono dall'ordine), e il motore calcola una derivata in
+ * un punto solo dove la funzione è regolare (35b). Per questo la scrittura
+ * si legge solo dopo l'hessiana di una funzione dichiarata: una tabella
+ * scritta per esteso può non essere simmetrica, e i suoi minori si scrivono
+ * con \det.
+ *
+ * Che cosa si scrive. Con n variabili: per \succ e \prec n tesi, i minori
+ * di testa dal primo; per \succeq e \preceq una tesi per ogni minore
+ * principale, 2^n - 1 in tutto (15 con quattro variabili), in ordine di
+ * lato. Stanno in MAX_PARTIAL_CLAIMS anche insieme al gradiente nullo. */
+
+/* Ritorna 1 se il token corrente è una delle quattro scritture della
+ * definitezza: \succ, \prec, \succeq, \preceq. */
+static int definiteness_ahead(void) {
+    return is_command("succ") || is_command("prec") || is_command("succeq") || is_command("preceq");
+}
+
+/* Dove possono stare quelle scritture: il motivo dato a chi le mette
+ * altrove (dopo una tabella, un determinante, un gradiente). */
+static const char *const definiteness_place =
+    "\\succ, \\prec, \\succeq e \\preceq si scrivono solo dopo l'hessiana di una funzione dichiarata e solo rispetto a 0, come in "
+    "H_{f}(1, 2) \\succ 0: i criteri sui minori valgono per una matrice simmetrica, e di una tabella qualsiasi i minori si scrivono con \\det";
+
+/* Ritorna l'albero del minore principale della matrice di lato n i cui
+ * elementi, per righe, sono entry[]: il determinante della sottomatrice
+ * fatta dalle righe e dalle colonne segnate in keep, lo stesso insieme per
+ * le une e per le altre. Con keep = 2^k - 1 è il minore di testa D_k. */
+static Node *partial_principal(Node *const *entry, int n, unsigned keep) {
+    Node *kept[MAX_FUNCTION_VARIABLES * MAX_FUNCTION_VARIABLES];
+    int side = 0, count = 0;
+    for (int row = 0; row < n; row++) {
+        if (!(keep >> row & 1)) continue;
+        side++;
+        for (int column = 0; column < n; column++)
+            if (keep >> column & 1) kept[count++] = entry[row * n + column];
+    }
+    return partial_minor(kept, side, 0, 0);
+}
+
 /* partial := \det 'H' '_' lettera [point] | \det tabella, e una tabella tra
  * due sbarre (l'ambiente vmatrix del capitolo 31), che è il determinante di
  * ciò che contiene. Il token corrente è \det o \begin. Ritorna l'albero del
@@ -10925,6 +11046,7 @@ static Node *parse_partial_determinant(void) {
     MatrixNode *table = matrix_table();
     if (syntax_error) return node_num(0);
     if (bars && table->kind == M_DET) table = table->a;
+    else if (bars && table->kind == M_TABLE && definiteness_ahead()) { syntax(definiteness_place); return node_num(0); }
     else if (bars || table->kind != M_TABLE) { syntax(shape); return node_num(0); }
     if (table->rows != table->cols || table->rows > MAX_FUNCTION_VARIABLES) { syntax(shape); return node_num(0); }
     return partial_minor(table->entry, table->rows, 0, 0);
@@ -11046,9 +11168,36 @@ static int parse_claim_relation(ClaimRelation *relation) {
     return 1;
 }
 
+/* Il token corrente è una scrittura della definitezza (definiteness_ahead()),
+ * dopo l'hessiana di lato n i cui elementi, per righe, sono entry[]: la
+ * supera con lo zero che la segue e aggiunge a *out le tesi che abbrevia
+ * (34s), annotando in out->definite quale ha letto. */
+static void parse_definiteness(PartialStatement *out, Node *const *entry, int n) {
+    int positive = is_command("succ") || is_command("succeq"), strict = is_command("succ") || is_command("prec");
+    next_token();
+    Node *zero = parse_expr();
+    if (syntax_error) return;
+    if (zero->kind != N_NUM || zero->value != 0) { syntax(definiteness_place); return; }
+    out->definite |= strict ? DEFINITE_STRICT : DEFINITE_WEAK;
+
+    /* I minori, in ordine di lato: per il segno stretto solo quelli di
+     * testa, in cui keep è 2^k - 1 e quindi keep & (keep + 1) è zero. Il
+     * segno voluto è quello del minore se la matrice deve essere positiva,
+     * di (-1)^lato per il minore se negativa. */
+    for (int side = 1; side <= n; side++)
+        for (unsigned keep = 1; keep < 1u << n; keep++) {
+            int rows = 0;
+            for (int row = 0; row < n; row++) rows += keep >> row & 1;
+            if (rows != side || (strict && (keep & (keep + 1)))) continue;
+            int above = positive || side % 2 == 0;
+            partial_claim_add(out, partial_principal(entry, n, keep), strict ? (above ? CLAIM_GT : CLAIM_LT) : (above ? CLAIM_GE : CLAIM_LE), zero);
+        }
+}
+
 /* claim: vedi la grammatica in testa al capitolo. Legge una tesi dal token
  * corrente e la aggiunge a *out: un gradiente e un'hessiana come una tesi
- * per componente, una richiesta come le sole componenti. */
+ * per componente, la definitezza di un'hessiana come una tesi per minore,
+ * una richiesta come le sole componenti. */
 static void parse_partial_claim(PartialStatement *out) {
     Node *left[MAX_FUNCTION_VARIABLES * MAX_FUNCTION_VARIABLES], *point[MAX_FUNCTION_VARIABLES];
     PartialRequest shape = ASKED_VALUE;
@@ -11078,6 +11227,14 @@ static void parse_partial_claim(PartialStatement *out) {
         left[0] = parse_expr();
     }
     const char *to = consumed;
+
+    /* H_{f}(1, 1) \succ 0 e le altre scritture della definitezza: al loro
+     * posto, le tesi sui minori principali (34s). */
+    if (definiteness_ahead()) {
+        if (shape == ASKED_HESSIAN) parse_definiteness(out, left, columns);
+        else syntax(definiteness_place);
+        return;
+    }
 
     /* Senza una relazione è una richiesta, che deve essere la sola tesi: la
      * risposta è una sola. */

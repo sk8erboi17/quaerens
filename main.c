@@ -48470,6 +48470,10 @@ static int uses_linear_systems(const char *formula) {
  *        numero, e si decide con gli intervalli, due volte, o con l'algebra
  *        esatta se il numero è zero. Sono le condizioni del secondo ordine
  *        in un punto critico: \det H_{f}(1, 1) > 0. Vedi 35g, più sotto.
+ *   35h. Una scrittura della definitezza, H_{f}(1, 1) \succ 0: il lettore
+ *        l'ha già svolta nei confronti sui minori principali, che si
+ *        decidono con 35g; qui c'è solo ciò che dice a chi legge che cosa
+ *        abbreviava, nella dimostrazione e nella nota del verdetto.
  *
  * Il punto d'ingresso, prove_partial(), sta in fondo al capitolo 36, che
  * aggiunge la richiesta dei punti critici e usa tutto ciò che è qui.
@@ -49167,6 +49171,65 @@ static int partial_second_order(const PartialStatement *st) {
     int found = st->determinant;
     for (int c = 0; c < st->claims; c++) found |= st->claim[c].rhs && st->claim[c].relation != CLAIM_EQ;
     return found;
+}
+
+/* 35h. CHE COSA ABBREVIA UNA SCRITTURA DELLA DEFINITEZZA
+ *
+ * H_{f}(1, 1) \succ 0 arriva qui già svolta dal lettore (34s di parser.c)
+ * nei confronti sui minori principali dell'hessiana, e si decide come ogni
+ * altro confronto (35g): il motore non sa nulla di matrici definite. Ma chi
+ * legge il verdetto ha scritto \succ, e trova dimostrati dei determinanti,
+ * o smentita "la tesi numero 2": per questo la dimostrazione comincia
+ * dicendo che cosa abbreviava la scrittura, e la nota del verdetto lo
+ * ripete. Che quei confronti dicano "definita positiva" è il criterio di
+ * Sylvester, enunciato e giustificato in 34s; il certificato è dei
+ * confronti, non del criterio. */
+
+/* I capoversi che aprono la dimostrazione scritta di un enunciato con una
+ * scrittura della definitezza: uno per il segno stretto, uno per il largo,
+ * e la chiusa sull'ipotesi dei due criteri (la matrice simmetrica). */
+static const char *const DEFINITE_READING_STRICT =
+    "The writing $H \\succ 0$, the Hessian matrix is positive definite, is short for the conditions of Sylvester's criterion, which are what is "
+    "proved below: the leading principal minors of the matrix, the determinants of its first $k$ rows and columns for $k$ from $1$ to the number "
+    "of variables, are all positive. $H \\prec 0$, negative definite, is short for: those minors alternate in sign, the first one being negative. ";
+static const char *const DEFINITE_READING_WEAK =
+    "The writing $H \\succeq 0$, the Hessian matrix is positive semidefinite, is short for the conditions that are proved below: every principal "
+    "minor of the matrix, the determinant of each submatrix made of the same rows and columns, is not negative. $H \\preceq 0$, negative "
+    "semidefinite, is short for: the principal minors of odd order are not positive, and those of even order are not negative. The leading minors "
+    "alone would not be enough: the matrix with rows $(0, 0)$ and $(0, -1)$ has both of them equal to $0$, and is not positive semidefinite. ";
+static const char *const DEFINITE_READING_SYMMETRIC =
+    "These criteria hold for a symmetric matrix, and the Hessian matrix is symmetric where the function is of class $C^{2}$ (Schwarz's theorem), "
+    "as it is wherever a derivative at a point is computed here.\n\n";
+
+/* Aggiunge alla dimostrazione in corso che cosa abbreviano le scritture
+ * della definitezza kinds (PartialStatement.definite, non zero). */
+static void definite_put_reading(int kinds) {
+    proof_add("\\textbf{Reading.} %s%s%s", kinds & DEFINITE_STRICT ? DEFINITE_READING_STRICT : "", kinds & DEFINITE_WEAK ? DEFINITE_READING_WEAK : "",
+              DEFINITE_READING_SYMMETRIC);
+}
+
+/* La nota del verdetto di un enunciato con una scrittura della definitezza:
+ * il pezzo per il segno stretto, quello per il largo, e la chiusa. */
+#define DEFINITE_NOTE_STRICT                                                                                                             \
+    "\\succ 0 e \\prec 0 abbreviano le condizioni del criterio di Sylvester sui minori principali di testa dell'hessiana, tutti positivi " \
+    "per \\succ, a segni alterni dal negativo per \\prec; "
+#define DEFINITE_NOTE_WEAK                                                                                                               \
+    "\\succeq 0 e \\preceq 0 abbreviano le condizioni su tutti i minori principali dell'hessiana, nessuno negativo per \\succeq, quelli " \
+    "di lato dispari non positivi e quelli di lato pari non negativi per \\preceq; "
+#define DEFINITE_NOTE_END "le tesi sono quelle condizioni, una per minore in ordine di lato"
+
+/* Quanto può essere lunga la nota: i tre pezzi, più quella che il verdetto
+ * aveva già (la nota di 35e sui punti che il certificato non copre). */
+#define DEFINITE_NOTE_BYTES (sizeof DEFINITE_NOTE_STRICT + sizeof DEFINITE_NOTE_WEAK + sizeof DEFINITE_NOTE_END + 256)
+
+/* Scrive in note, lungo DEFINITE_NOTE_BYTES, la nota del verdetto di un
+ * enunciato con le scritture della definitezza kinds: che cosa abbreviano,
+ * dopo la nota before che il verdetto aveva già, se non è NULL. Ritorna
+ * note. */
+static const char *definite_note(int kinds, const char *before, char *note) {
+    snprintf(note, DEFINITE_NOTE_BYTES, "%s%s%s%s%s", before ? before : "", before ? "; " : "", kinds & DEFINITE_STRICT ? DEFINITE_NOTE_STRICT : "",
+             kinds & DEFINITE_WEAK ? DEFINITE_NOTE_WEAK : "", DEFINITE_NOTE_END);
+    return note;
 }
 
 /* L'esponente intero più grande di una potenza di operandi in un confronto
@@ -49924,7 +49987,7 @@ static Verdict prove_critical(const char *formula, const PartialStatement *st) {
  * atomi: i risultati di chiamate precedenti non sono più validi. */
 static Verdict prove_partial(const char *formula) {
     static PartialStatement st;
-    static char completed[4 * MAX_FORMULA], problem[640];
+    static char completed[4 * MAX_FORMULA], problem[640], reading[DEFINITE_NOTE_BYTES];
     Verdict verdict = {UNSUPPORTED, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL};
     const char *answer = NULL;
 
@@ -49949,7 +50012,13 @@ static Verdict prove_partial(const char *formula) {
         }
         proof_add("\\textbf{Solution.} $%s$.\n\n", answer);
     }
+
+    /* 35h. Una scrittura della definitezza: la dimostrazione comincia
+     * dicendo che cosa abbreviava, e lo ripete la nota del verdetto, vero o
+     * falso che sia, perché le tesi decise sono i minori. */
+    if (st.definite) definite_put_reading(st.definite);
     verdict = partial_decide(&st, verdict);
+    if (st.definite && (verdict.outcome == PROVED || verdict.outcome == REFUTED)) verdict.note = definite_note(st.definite, verdict.note, reading);
 
     /* Che cosa se ne conclude, se l'enunciato scrive le condizioni del
      * secondo ordine (35g): dopo la dimostrazione, non dentro. */

@@ -1,0 +1,219 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{The Hessian matrix, definite and semidefinite: false statements (199)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Each item is a statement of \texttt{definite\_hessians.tex}, or a critical point of \texttt{critical\_points.tex}, with the wrong writing: a minimum written $\prec 0$, a maximum written $\succ 0$, a saddle point written definite or semidefinite, a vanishing determinant written definite, a matrix that is only semidefinite written definite, and matrices whose leading minors are all zero but that are not semidefinite. The first 178 items come from the critical points of the collections; the last 21 are written by hand. None may be proved, and every one is to be called false.
+
+\begin{enumerate}
+\item $\displaystyle f(x, y) = \frac{1}{3}(x^{3} + y^{3}) - 16x - 25y \implies \nabla f(4, 5) = (0, 0) \land H_{f}(4, 5) \prec 0$
+\item $\displaystyle f(x, y) = \frac{x}{1 + x^{2} + y^{2}} \implies \nabla f(-1, 0) = (0, 0) \land H_{f}(-1, 0) \preceq 0$
+\item $\displaystyle f(x, y) = 2x^{2} y + 2x y^{2} - x^{2} y^{2} - 4xy \implies \nabla f(1, 1) = (0, 0) \land H_{f}(1, 1) \prec 0$
+\item $\displaystyle f(x, y) = 2x^{3} + 9x y^{2} + 15x^{2} + 27y^{2} \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \preceq 0$
+\item $\displaystyle f(x, y) = x^{3} + x y^{2} - 2x^{2} + 4xy \implies \nabla f(2, -2) = (0, 0) \land H_{f}(2, -2) \prec 0$
+\item $\displaystyle f(x, y) = x^{2} + y(y - 1)^{2} \implies \nabla f(0, 1) = (0, 0) \land H_{f}(0, 1) \preceq 0$
+\item $\displaystyle f(x, y) = x^{3} + y^{3} - 3xy \implies \nabla f(1, 1) = (0, 0) \land H_{f}(1, 1) \prec 0$
+\item $\displaystyle f(x, y) = x^{3} + 4y^{2} + 4xy \implies \nabla f\left( \frac{2}{3}, -\frac{1}{3} \right) = (0, 0) \land H_{f}\left( \frac{2}{3}, -\frac{1}{3} \right) \preceq 0$
+\item $\displaystyle f(x, y) = x^{4} + y^{4} - 4xy \implies \nabla f(1, 1) = (0, 0) \land H_{f}(1, 1) \prec 0$
+\item $\displaystyle f(x, y) = x^{4} + y^{4} - 4xy \implies \nabla f(-1, -1) = (0, 0) \land H_{f}(-1, -1) \preceq 0$
+\item $\displaystyle f(x, y) = x^{2} + xy + y^{2} + 3x \implies \nabla f(-2, 1) = (0, 0) \land H_{f}(-2, 1) \prec 0$
+\item $\displaystyle f(x, y) = 8x^{3} + 2xy - 3x^{2} + y^{2} + 1 \implies \nabla f\left( \frac{1}{3}, -\frac{1}{3} \right) = (0, 0) \land H_{f}\left( \frac{1}{3}, -\frac{1}{3} \right) \preceq 0$
+\item $\displaystyle f(x, y) = x^{3} + y^{2} + 2xy - 8x \implies \nabla f(2, -2) = (0, 0) \land H_{f}(2, -2) \prec 0$
+\item $\displaystyle f(x, y) = 8x + 8x^{2} - 8y - 16xy + 9y^{2} - \frac{2}{3} y^{3} \implies \nabla f\left( -\frac{1}{2}, 0 \right) = (0, 0) \land H_{f}\left( -\frac{1}{2}, 0 \right) \preceq 0$
+\item $\displaystyle f(x, y) = x^{3} + 3x^{2} + 4xy + y^{2} \implies \nabla f\left( \frac{2}{3}, -\frac{4}{3} \right) = (0, 0) \land H_{f}\left( \frac{2}{3}, -\frac{4}{3} \right) \prec 0$
+\item $\displaystyle f(x, y) = x^{3} + y^{3} - \frac{15}{2} y^{2} - 48x + 18y \implies \nabla f(4, 3) = (0, 0) \land H_{f}(4, 3) \preceq 0$
+\item $\displaystyle f(x, y) = \frac{8}{x} + \frac{x}{y} + y \implies \nabla f(4, 2) = (0, 0) \land H_{f}(4, 2) \prec 0$
+\item $\displaystyle f(x, y) = \frac{y}{x} + \frac{1}{y} + x \implies \nabla f(1, 1) = (0, 0) \land H_{f}(1, 1) \preceq 0$
+\item $\displaystyle f(x, y) = x^{2} + y^{3} - xy \implies \nabla f\left( \frac{1}{12}, \frac{1}{6} \right) = (0, 0) \land H_{f}\left( \frac{1}{12}, \frac{1}{6} \right) \prec 0$
+\item $\displaystyle f(x, y) = x^{2} - xy + y^{2} + 3x - 2y + 1 \implies \nabla f\left( -\frac{4}{3}, \frac{1}{3} \right) = (0, 0) \land H_{f}\left( -\frac{4}{3}, \frac{1}{3} \right) \preceq 0$
+\item $\displaystyle f(x, y) = xy + 64000\left( \frac{1}{x} + \frac{1}{y} \right) \implies \nabla f(40, 40) = (0, 0) \land H_{f}(40, 40) \prec 0$
+\item $\displaystyle f(x, y) = x^{2} + 2y^{2} + 2xy + 4x \implies \nabla f(-4, 2) = (0, 0) \land H_{f}(-4, 2) \preceq 0$
+\item $\displaystyle f(x, y) = 2(x^{2} + y^{2}) - (x^{4} + y^{4}) + 3 \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \prec 0$
+\item $\displaystyle f(x, y) = 2y^{2} + x^{2} - y \implies \nabla f\left( 0, \frac{1}{4} \right) = (0, 0) \land H_{f}\left( 0, \frac{1}{4} \right) \preceq 0$
+\item $\displaystyle f(x, y) = 18 + (x^{2} + 2y^{2}) e^{-x^{2} - y^{2}} \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \prec 0$
+\item $\displaystyle f(x, y) = e^{\frac{x}{2}} (x + y^{2}) \implies \nabla f(-2, 0) = (0, 0) \land H_{f}(-2, 0) \preceq 0$
+\item $\displaystyle f(x, y) = x^{2} + 3y^{2} - 3\ln(x + y + 1) \implies \nabla f\left( \frac{3}{4}, \frac{1}{4} \right) = (0, 0) \land H_{f}\left( \frac{3}{4}, \frac{1}{4} \right) \prec 0$
+\item $\displaystyle f(x, y) = \frac{2}{y^{2}} + \ln(xy) + \frac{1}{x} \implies \nabla f(1, 2) = (0, 0) \land H_{f}(1, 2) \preceq 0$
+\item $\displaystyle f(x, y) = e^{y} (x^{2} + 1) - y \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \prec 0$
+\item $\displaystyle f(x, y) = \ln(1 + y^{2} - xy + 2x^{2}) \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \preceq 0$
+\item $\displaystyle f(x, y) = \arctan(3x^{2} + y^{2}) \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \prec 0$
+\item $\displaystyle f(x, y) = x^{4} + y^{4} - 2(x - y)^{2} \implies \nabla f\left( \sqrt{2}, -\sqrt{2} \right) = (0, 0) \land H_{f}\left( \sqrt{2}, -\sqrt{2} \right) \preceq 0$
+\item $\displaystyle f(x, y) = x^{4} + y^{4} - 2(x - y)^{2} \implies \nabla f\left( -\sqrt{2}, \sqrt{2} \right) = (0, 0) \land H_{f}\left( -\sqrt{2}, \sqrt{2} \right) \prec 0$
+\item $\displaystyle f(x, y) = x^{4} - x^{2} + \frac{1}{2} y^{2} \implies \nabla f\left( \frac{\sqrt{2}}{2}, 0 \right) = (0, 0) \land H_{f}\left( \frac{\sqrt{2}}{2}, 0 \right) \preceq 0$
+\item $\displaystyle f(x, y) = x^{4} - x^{2} + \frac{1}{2} y^{2} \implies \nabla f\left( -\frac{\sqrt{2}}{2}, 0 \right) = (0, 0) \land H_{f}\left( -\frac{\sqrt{2}}{2}, 0 \right) \prec 0$
+\item $\displaystyle f(x, y) = x^{4} + y^{3} - 4x^{2} - 3y^{2} \implies \nabla f\left( -\sqrt{2}, 2 \right) = (0, 0) \land H_{f}\left( -\sqrt{2}, 2 \right) \preceq 0$
+\item $\displaystyle f(x, y) = x^{4} + 2x^{2} y - y^{3} \implies \nabla f\left( \frac{\sqrt{6}}{3}, -\frac{2}{3} \right) = (0, 0) \land H_{f}\left( \frac{\sqrt{6}}{3}, -\frac{2}{3} \right) \prec 0$
+\item $\displaystyle f(x, y) = x^{4} + 2x^{2} y - y^{3} \implies \nabla f\left( -\frac{\sqrt{6}}{3}, -\frac{2}{3} \right) = (0, 0) \land H_{f}\left( -\frac{\sqrt{6}}{3}, -\frac{2}{3} \right) \preceq 0$
+\item $\displaystyle f(x, y) = x^{4} - 4xy + y^{2} \implies \nabla f\left( \sqrt{2}, 2\sqrt{2} \right) = (0, 0) \land H_{f}\left( \sqrt{2}, 2\sqrt{2} \right) \prec 0$
+\item $\displaystyle f(x, y) = x^{4} - 4xy + y^{2} \implies \nabla f\left( -\sqrt{2}, -2\sqrt{2} \right) = (0, 0) \land H_{f}\left( -\sqrt{2}, -2\sqrt{2} \right) \preceq 0$
+\item $\displaystyle f(x, y) = x^{2} y + y^{3} - y \implies \nabla f\left( 0, \frac{1}{\sqrt{3}} \right) = (0, 0) \land H_{f}\left( 0, \frac{1}{\sqrt{3}} \right) \prec 0$
+\item $\displaystyle f(x, y) = -xy e^{-x^{2} + y} \implies \nabla f\left( -\frac{1}{\sqrt{2}}, -1 \right) = (0, 0) \land H_{f}\left( -\frac{1}{\sqrt{2}}, -1 \right) \preceq 0$
+\item $\displaystyle f(x, y, z) = x^{3} - 2x^{2} + y^{2} + z^{2} - 2xy + xz - yz + 3z \implies \nabla f(2, 1, -2) = 0 \land H_{f}(2, 1, -2) \prec 0$
+\item $\displaystyle f(x, y, z) = x^{2} + y^{2} + z^{2} - xyz \implies \nabla f(0, 0, 0) = 0 \land H_{f}(0, 0, 0) \preceq 0$
+\item $\displaystyle f(x, y, z) = x^{2} + y^{2} + (z^{2} - 1)^{2} + 12 \implies \nabla f(0, 0, 1) = 0 \land H_{f}(0, 0, 1) \prec 0$
+\item $\displaystyle f(x, y, z) = x^{2} + y^{2} + (z^{2} - 1)^{2} + 12 \implies \nabla f(0, 0, -1) = 0 \land H_{f}(0, 0, -1) \preceq 0$
+\item $\displaystyle f(x, y, z) = 3x^{2} + y^{2} + z^{2} - 6x - 2z \implies \nabla f(1, 0, 1) = 0 \land H_{f}(1, 0, 1) \prec 0$
+\item $\displaystyle f(x, y, z) = x^{2} + y^{4} + y^{2} + z^{3} - 2xz \implies \nabla f\left( \frac{2}{3}, 0, \frac{2}{3} \right) = 0 \land H_{f}\left( \frac{2}{3}, 0, \frac{2}{3} \right) \preceq 0$
+\item $\displaystyle f(x, y, z) = \frac{1}{x} + \frac{1}{y} + \frac{1}{z} + xyz \implies \nabla f(1, 1, 1) = 0 \land H_{f}(1, 1, 1) \prec 0$
+\item $\displaystyle f(x, y, z) = x^{2} + y^{3} + z^{2} - xy - xz \implies \nabla f\left( \frac{4}{27}, \frac{2}{9}, \frac{2}{27} \right) = 0 \land H_{f}\left( \frac{4}{27}, \frac{2}{9}, \frac{2}{27} \right) \preceq 0$
+\item $\displaystyle f(x, y, z) = x^{4} + x^{3} + y^{2} + z^{2} \implies \nabla f\left( -\frac{3}{4}, 0, 0 \right) = 0 \land H_{f}\left( -\frac{3}{4}, 0, 0 \right) \prec 0$
+\item $\displaystyle f(x, y, z) = x^{2} - 2x + 2y^{2} + 3z^{2} \implies \nabla f(1, 0, 0) = 0 \land H_{f}(1, 0, 0) \preceq 0$
+\item $\displaystyle f(x, y) = \frac{1}{3}(x^{3} + y^{3}) - 16x - 25y \implies \nabla f(-4, -5) = (0, 0) \land H_{f}(-4, -5) \succ 0$
+\item $\displaystyle f(x, y) = \frac{x}{1 + x^{2} + y^{2}} \implies \nabla f(1, 0) = (0, 0) \land H_{f}(1, 0) \succeq 0$
+\item $\displaystyle f(x, y) = x^{3} + y^{3} + xy \implies \nabla f\left( -\frac{1}{3}, -\frac{1}{3} \right) = (0, 0) \land H_{f}\left( -\frac{1}{3}, -\frac{1}{3} \right) \succ 0$
+\item $\displaystyle f(x, y) = 2x^{3} + 9x y^{2} + 15x^{2} + 27y^{2} \implies \nabla f(-5, 0) = (0, 0) \land H_{f}(-5, 0) \succeq 0$
+\item $\displaystyle f(x, y) = x^{3} + x y^{2} - 2x^{2} + 4xy \implies \nabla f\left( -\frac{2}{3}, -2 \right) = (0, 0) \land H_{f}\left( -\frac{2}{3}, -2 \right) \succ 0$
+\item $\displaystyle f(x, y) = -x^{2} + y(y - 1)^{2} \implies \nabla f\left( 0, \frac{1}{3} \right) = (0, 0) \land H_{f}\left( 0, \frac{1}{3} \right) \succeq 0$
+\item $\displaystyle f(x, y) = (y - 2) x^{2} - y^{2} \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \succ 0$
+\item $\displaystyle f(x, y) = -x^{3} + 4xy - y^{2} \implies \nabla f\left( \frac{8}{3}, \frac{16}{3} \right) = (0, 0) \land H_{f}\left( \frac{8}{3}, \frac{16}{3} \right) \succeq 0$
+\item $\displaystyle f(x, y) = -3y^{2} + x^{3} + 2xy \implies \nabla f\left( -\frac{2}{9}, -\frac{2}{27} \right) = (0, 0) \land H_{f}\left( -\frac{2}{9}, -\frac{2}{27} \right) \succ 0$
+\item $\displaystyle f(x, y) = \frac{2(x + y) - 1}{x^{2} + y^{2}} \implies \nabla f\left( \frac{1}{2}, \frac{1}{2} \right) = (0, 0) \land H_{f}\left( \frac{1}{2}, \frac{1}{2} \right) \succeq 0$
+\item $\displaystyle f(x, y) = \frac{x + y - 1}{x^{2} + y^{2}} \implies \nabla f(1, 1) = (0, 0) \land H_{f}(1, 1) \succ 0$
+\item $\displaystyle f(x, y) = x^{3} + y^{3} - \frac{15}{2} y^{2} - 48x + 18y \implies \nabla f(-4, 2) = (0, 0) \land H_{f}(-4, 2) \succeq 0$
+\item $\displaystyle f(x, y) = x^{3} y - 3x^{2} - y^{2} \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \succ 0$
+\item $\displaystyle f(x, y) = x^{4} + 4x^{2} y - y^{2} - 10x^{2} - 5 \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \succeq 0$
+\item $\displaystyle f(x, y) = (x + y)^{2} - x^{4} - y^{4} \implies \nabla f(1, 1) = (0, 0) \land H_{f}(1, 1) \succ 0$
+\item $\displaystyle f(x, y) = (x + y)^{2} - x^{4} - y^{4} \implies \nabla f(-1, -1) = (0, 0) \land H_{f}(-1, -1) \succeq 0$
+\item $\displaystyle f(x, y) = 3xy - x^{3} - y^{3} \implies \nabla f(1, 1) = (0, 0) \land H_{f}(1, 1) \succ 0$
+\item $\displaystyle f(x, y) = x^{2} y - x^{2} - 2y^{2} \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \succeq 0$
+\item $\displaystyle f(x, y) = 2(x^{2} + y^{2}) - (x^{4} + y^{4}) + 3 \implies \nabla f(1, 1) = (0, 0) \land H_{f}(1, 1) \succ 0$
+\item $\displaystyle f(x, y) = 2(x^{2} + y^{2}) - (x^{4} + y^{4}) + 3 \implies \nabla f(-1, -1) = (0, 0) \land H_{f}(-1, -1) \succeq 0$
+\item $\displaystyle f(u, v) = u^{3} + u - 4uv - 2v^{2} \implies \nabla f(-1, 1) = (0, 0) \land H_{f}(-1, 1) \succ 0$
+\item $\displaystyle f(x, y) = -8x^{2} - 2y^{2} - 2xy + 2 \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \succeq 0$
+\item $\displaystyle f(x, y) = x^{3} y^{2} - x^{4} y^{2} - x^{3} y^{3} \implies \nabla f\left( \frac{1}{2}, \frac{1}{3} \right) = (0, 0) \land H_{f}\left( \frac{1}{2}, \frac{1}{3} \right) \succ 0$
+\item $\displaystyle f(x, y) = 18 + (x^{2} + 2y^{2}) e^{-x^{2} - y^{2}} \implies \nabla f(0, 1) = (0, 0) \land H_{f}(0, 1) \succeq 0$
+\item $\displaystyle f(x, y) = 18 + (x^{2} + 2y^{2}) e^{-x^{2} - y^{2}} \implies \nabla f(0, -1) = (0, 0) \land H_{f}(0, -1) \succ 0$
+\item $\displaystyle f(x, y) = 3x e^{y} - x^{3} - e^{3y} \implies \nabla f(1, 0) = (0, 0) \land H_{f}(1, 0) \succeq 0$
+\item $\displaystyle f(x, y) = x + 2e^{y} - e^{x} - e^{2y} \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \succ 0$
+\item $\displaystyle f(x, y) = e^{x^{4} + y^{3} - 4x^{2} - 3y^{2}} \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \succeq 0$
+\item $\displaystyle f(x, y) = x^{4} + y^{3} - 4x^{2} - 3y^{2} \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \succ 0$
+\item $\displaystyle f(x, y) = x^{2} y + y^{3} - y \implies \nabla f\left( 0, -\frac{1}{\sqrt{3}} \right) = (0, 0) \land H_{f}\left( 0, -\frac{1}{\sqrt{3}} \right) \succeq 0$
+\item $\displaystyle f(x, y) = -xy e^{-x^{2} + y} \implies \nabla f\left( \frac{1}{\sqrt{2}}, -1 \right) = (0, 0) \land H_{f}\left( \frac{1}{\sqrt{2}}, -1 \right) \succ 0$
+\item $\displaystyle f(x, y) = \sin x \sin y \implies \nabla f\left( \frac{\pi}{2}, \frac{\pi}{2} \right) = (0, 0) \land H_{f}\left( \frac{\pi}{2}, \frac{\pi}{2} \right) \succeq 0$
+\item $\displaystyle f(x, y, z) = \frac{1}{x} + \frac{1}{y} + \frac{1}{z} + xyz \implies \nabla f(-1, -1, -1) = 0 \land H_{f}(-1, -1, -1) \succ 0$
+\item $\displaystyle f(x, y, z) = -2x^{2} - xy - 2y^{2} + 5x + 5y - z^{2} + 2z \implies \nabla f(1, 1, 1) = 0 \land H_{f}(1, 1, 1) \succeq 0$
+\item $\displaystyle f(x, y, z) = (z^{2} - 1)(x^{2} + y^{2} - 4) \implies \nabla f(0, 0, 0) = 0 \land H_{f}(0, 0, 0) \succ 0$
+\item $\displaystyle f(x, y, z) = (x^{3} - 3x - y^{2}) z^{2} + z^{3} \implies \nabla f\left( -1, 0, -\frac{4}{3} \right) = 0 \land H_{f}\left( -1, 0, -\frac{4}{3} \right) \succeq 0$
+\item $\displaystyle f(x, y) = \frac{1}{3}(x^{3} + y^{3}) - 16x - 25y \implies \nabla f(4, -5) = (0, 0) \land H_{f}(4, -5) \succ 0$
+\item $\displaystyle f(x, y) = \frac{1}{3}(x^{3} + y^{3}) - 16x - 25y \implies \nabla f(-4, 5) = (0, 0) \land H_{f}(-4, 5) \prec 0$
+\item $\displaystyle f(x, y) = x^{3} + y^{3} + xy \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \succeq 0$
+\item $\displaystyle f(x, y) = 4y^{4} - 16x^{2} y + x \implies \nabla f\left( \frac{1}{8}, \frac{1}{4} \right) = (0, 0) \land H_{f}\left( \frac{1}{8}, \frac{1}{4} \right) \preceq 0$
+\item $\displaystyle f(x, y) = \frac{xy}{1 + x^{2} + y^{2}} \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \succ 0$
+\item $\displaystyle f(x, y) = 2x^{2} y + 2x y^{2} - x^{2} y^{2} - 4xy \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \prec 0$
+\item $\displaystyle f(x, y) = 2x^{2} y + 2x y^{2} - x^{2} y^{2} - 4xy \implies \nabla f(2, 0) = (0, 0) \land H_{f}(2, 0) \succeq 0$
+\item $\displaystyle f(x, y) = 2x^{2} y + 2x y^{2} - x^{2} y^{2} - 4xy \implies \nabla f(0, 2) = (0, 0) \land H_{f}(0, 2) \preceq 0$
+\item $\displaystyle f(x, y) = 2x^{2} y + 2x y^{2} - x^{2} y^{2} - 4xy \implies \nabla f(2, 2) = (0, 0) \land H_{f}(2, 2) \succ 0$
+\item $\displaystyle f(x, y) = 2x^{3} + 9x y^{2} + 15x^{2} + 27y^{2} \implies \nabla f(-3, 2) = (0, 0) \land H_{f}(-3, 2) \prec 0$
+\item $\displaystyle f(x, y) = 2x^{3} + 9x y^{2} + 15x^{2} + 27y^{2} \implies \nabla f(-3, -2) = (0, 0) \land H_{f}(-3, -2) \succeq 0$
+\item $\displaystyle f(x, y) = x^{3} + x y^{2} - 2x^{2} + 4xy \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \preceq 0$
+\item $\displaystyle f(x, y) = x^{3} + x y^{2} - 2x^{2} + 4xy \implies \nabla f(0, -4) = (0, 0) \land H_{f}(0, -4) \succ 0$
+\item $\displaystyle f(x, y) = x^{2} + y(y - 1)^{2} \implies \nabla f\left( 0, \frac{1}{3} \right) = (0, 0) \land H_{f}\left( 0, \frac{1}{3} \right) \prec 0$
+\item $\displaystyle f(x, y) = -x^{2} + y(y - 1)^{2} \implies \nabla f(0, 1) = (0, 0) \land H_{f}(0, 1) \succeq 0$
+\item $\displaystyle f(x, y) = x^{3} + y^{3} - 3xy \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \preceq 0$
+\item $\displaystyle f(x, y) = x^{2} y + xy \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \succ 0$
+\item $\displaystyle f(x, y) = x^{2} y + xy \implies \nabla f(-1, 0) = (0, 0) \land H_{f}(-1, 0) \prec 0$
+\item $\displaystyle f(x, y) = x^{3} + 4y^{2} + 4xy \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \succeq 0$
+\item $\displaystyle f(x, y) = x^{4} + y^{4} - 4xy \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \preceq 0$
+\item $\displaystyle f(x, y) = 7x - 8y + 2xy - x^{2} + y^{2} \implies \nabla f\left( \frac{15}{4}, \frac{1}{4} \right) = (0, 0) \land H_{f}\left( \frac{15}{4}, \frac{1}{4} \right) \succ 0$
+\item $\displaystyle f(x, y) = (3x + 3x^{3})(y^{2} + 2y) \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \prec 0$
+\item $\displaystyle f(x, y) = (3x + 3x^{3})(y^{2} + 2y) \implies \nabla f(0, -2) = (0, 0) \land H_{f}(0, -2) \succeq 0$
+\item $\displaystyle f(x, y) = (y - 2) x^{2} - y^{2} \implies \nabla f(2, 2) = (0, 0) \land H_{f}(2, 2) \preceq 0$
+\item $\displaystyle f(x, y) = (y - 2) x^{2} - y^{2} \implies \nabla f(-2, 2) = (0, 0) \land H_{f}(-2, 2) \succ 0$
+\item $\displaystyle f(x, y) = x^{2} - xy - y^{2} \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \prec 0$
+\item $\displaystyle f(x, y) = 8x^{3} + 2xy - 3x^{2} + y^{2} + 1 \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \succeq 0$
+\item $\displaystyle f(x, y) = 2x^{2} + 3xy - 2y \implies \nabla f\left( \frac{2}{3}, -\frac{8}{9} \right) = (0, 0) \land H_{f}\left( \frac{2}{3}, -\frac{8}{9} \right) \preceq 0$
+\item $\displaystyle f(x, y) = x^{3} + y^{2} + 2xy - 8x \implies \nabla f\left( -\frac{4}{3}, \frac{4}{3} \right) = (0, 0) \land H_{f}\left( -\frac{4}{3}, \frac{4}{3} \right) \succ 0$
+\item $\displaystyle f(x, y) = -x^{3} + 4xy - y^{2} \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \prec 0$
+\item $\displaystyle f(x, y) = -3y^{2} + x^{3} + 2xy \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \succeq 0$
+\item $\displaystyle f(x, y) = 8x + 8x^{2} - 8y - 16xy + 9y^{2} - \frac{2}{3} y^{3} \implies \nabla f\left( \frac{1}{2}, 1 \right) = (0, 0) \land H_{f}\left( \frac{1}{2}, 1 \right) \preceq 0$
+\item $\displaystyle f(x, y) = x^{3} + 3x^{2} + 4xy + y^{2} \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \succ 0$
+\item $\displaystyle f(x, y) = x^{3} + y^{3} - \frac{15}{2} y^{2} - 48x + 18y \implies \nabla f(-4, 3) = (0, 0) \land H_{f}(-4, 3) \prec 0$
+\item $\displaystyle f(x, y) = x^{3} + y^{3} - \frac{15}{2} y^{2} - 48x + 18y \implies \nabla f(4, 2) = (0, 0) \land H_{f}(4, 2) \succeq 0$
+\item $\displaystyle f(x, y) = x^{2} + y^{3} - xy \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \preceq 0$
+\item $\displaystyle f(x, y) = x^{4} + 4x^{2} y - y^{2} - 10x^{2} - 5 \implies \nabla f(1, 2) = (0, 0) \land H_{f}(1, 2) \succ 0$
+\item $\displaystyle f(x, y) = x^{4} + 4x^{2} y - y^{2} - 10x^{2} - 5 \implies \nabla f(-1, 2) = (0, 0) \land H_{f}(-1, 2) \prec 0$
+\item $\displaystyle f(x, y) = 2x^{2} - xy - 3y^{2} - 3x + 7y \implies \nabla f(1, 1) = (0, 0) \land H_{f}(1, 1) \succeq 0$
+\item $\displaystyle f(x, y) = 3xy - x^{3} - y^{3} \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \preceq 0$
+\item $\displaystyle f(x, y) = x^{2} y - x^{2} - 2y^{2} \implies \nabla f(2, 1) = (0, 0) \land H_{f}(2, 1) \succ 0$
+\item $\displaystyle f(x, y) = x^{2} y - x^{2} - 2y^{2} \implies \nabla f(-2, 1) = (0, 0) \land H_{f}(-2, 1) \prec 0$
+\item $\displaystyle f(x, y) = 2(x^{2} + y^{2}) - (x^{4} + y^{4}) + 3 \implies \nabla f(1, 0) = (0, 0) \land H_{f}(1, 0) \succeq 0$
+\item $\displaystyle f(u, v) = u v (u - 1) \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \preceq 0$
+\item $\displaystyle f(u, v) = u v (u - 1) \implies \nabla f(1, 0) = (0, 0) \land H_{f}(1, 0) \succ 0$
+\item $\displaystyle f(u, v) = u^{3} + u - 4uv - 2v^{2} \implies \nabla f\left( -\frac{1}{3}, \frac{1}{3} \right) = (0, 0) \land H_{f}\left( -\frac{1}{3}, \frac{1}{3} \right) \prec 0$
+\item $\displaystyle f(x, y) = 3x^{2} - 2y^{2} \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \succeq 0$
+\item $\displaystyle f(x, y) = 3x^{2} y - y^{3} + x^{2} \implies \nabla f\left( \frac{1}{3}, -\frac{1}{3} \right) = (0, 0) \land H_{f}\left( \frac{1}{3}, -\frac{1}{3} \right) \preceq 0$
+\item $\displaystyle f(x, y) = 3x^{2} y - y^{3} + x^{2} \implies \nabla f\left( -\frac{1}{3}, -\frac{1}{3} \right) = (0, 0) \land H_{f}\left( -\frac{1}{3}, -\frac{1}{3} \right) \succ 0$
+\item $\displaystyle f(x, y) = 3y^{3} - x^{2} y - x^{2} \implies \nabla f(3, -1) = (0, 0) \land H_{f}(3, -1) \prec 0$
+\item $\displaystyle f(x, y) = 3y^{3} - x^{2} y - x^{2} \implies \nabla f(-3, -1) = (0, 0) \land H_{f}(-3, -1) \succeq 0$
+\item $\displaystyle f(x, y) = -4xy + 4x \implies \nabla f(0, 1) = (0, 0) \land H_{f}(0, 1) \preceq 0$
+\item $\displaystyle f(x, y) = 18 + (x^{2} + 2y^{2}) e^{-x^{2} - y^{2}} \implies \nabla f(1, 0) = (0, 0) \land H_{f}(1, 0) \succ 0$
+\item $\displaystyle f(x, y) = 18 + (x^{2} + 2y^{2}) e^{-x^{2} - y^{2}} \implies \nabla f(-1, 0) = (0, 0) \land H_{f}(-1, 0) \prec 0$
+\item $\displaystyle f(x, y) = x e^{y} - y e^{x} \implies \nabla f(1, 1) = (0, 0) \land H_{f}(1, 1) \succeq 0$
+\item $\displaystyle f(x, y) = xy e^{x^{2} + y^{2}} \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \preceq 0$
+\item $\displaystyle f(x, y) = e^{x^{2} - y^{2} - x} \implies \nabla f\left( \frac{1}{2}, 0 \right) = (0, 0) \land H_{f}\left( \frac{1}{2}, 0 \right) \succ 0$
+\item $\displaystyle f(x, y) = (y - 2) e^{xy} \implies \nabla f\left( \frac{1}{2}, 0 \right) = (0, 0) \land H_{f}\left( \frac{1}{2}, 0 \right) \prec 0$
+\item $\displaystyle f(x, y) = (x + 1) e^{-xy} \implies \nabla f(0, 1) = (0, 0) \land H_{f}(0, 1) \succeq 0$
+\item $\displaystyle f(x, y) = y \ln(y + 4x^{2}) \implies \nabla f\left( \frac{1}{2}, 0 \right) = (0, 0) \land H_{f}\left( \frac{1}{2}, 0 \right) \preceq 0$
+\item $\displaystyle f(x, y) = y \ln(y + 4x^{2}) \implies \nabla f\left( -\frac{1}{2}, 0 \right) = (0, 0) \land H_{f}\left( -\frac{1}{2}, 0 \right) \succ 0$
+\item $\displaystyle f(x, y) = e^{x^{4} + y^{3} - 4x^{2} - 3y^{2}} \implies \nabla f(0, 2) = (0, 0) \land H_{f}(0, 2) \prec 0$
+\item $\displaystyle f(x, y) = x^{4} - x^{2} + \frac{1}{2} y^{2} \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \succeq 0$
+\item $\displaystyle f(x, y) = x^{4} + y^{3} - 4x^{2} - 3y^{2} \implies \nabla f(0, 2) = (0, 0) \land H_{f}(0, 2) \preceq 0$
+\item $\displaystyle f(x, y) = x^{4} + y^{3} - 4x^{2} - 3y^{2} \implies \nabla f\left( \sqrt{2}, 0 \right) = (0, 0) \land H_{f}\left( \sqrt{2}, 0 \right) \succ 0$
+\item $\displaystyle f(x, y) = x^{4} - 4xy + y^{2} \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \prec 0$
+\item $\displaystyle f(x, y) = x^{2} y + x^{2} - 2y \implies \nabla f\left( \sqrt{2}, -1 \right) = (0, 0) \land H_{f}\left( \sqrt{2}, -1 \right) \succeq 0$
+\item $\displaystyle f(x, y) = x^{2} y + x^{2} - 2y \implies \nabla f\left( -\sqrt{2}, -1 \right) = (0, 0) \land H_{f}\left( -\sqrt{2}, -1 \right) \preceq 0$
+\item $\displaystyle f(x, y) = x^{2} y + y^{3} - y \implies \nabla f(1, 0) = (0, 0) \land H_{f}(1, 0) \succ 0$
+\item $\displaystyle f(x, y) = -xy e^{-x^{2} + y} \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \prec 0$
+\item $\displaystyle f(x, y) = (x^{3} + 1)(y^{3} + 1) \implies \nabla f(-1, -1) = (0, 0) \land H_{f}(-1, -1) \succeq 0$
+\item $\displaystyle f(x, y) = \sin x \sin y \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \preceq 0$
+\item $\displaystyle f(x, y, z) = x^{3} - 2x^{2} + y^{2} + z^{2} - 2xy + xz - yz + 3z \implies \nabla f(0, -1, -2) = 0 \land H_{f}(0, -1, -2) \succ 0$
+\item $\displaystyle f(x, y, z) = x^{2} + y^{2} + (z^{2} - 1)^{2} + 12 \implies \nabla f(0, 0, 0) = 0 \land H_{f}(0, 0, 0) \prec 0$
+\item $\displaystyle f(x, y, z) = x^{2} + y^{4} + y^{2} + z^{3} - 2xz \implies \nabla f(0, 0, 0) = 0 \land H_{f}(0, 0, 0) \succeq 0$
+\item $\displaystyle f(x, y) = (x + y)^{2} - x^{4} - y^{4} \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \succ 0$
+\item $\displaystyle f(x, y) = 3x^{2} y - y^{3} + x^{2} \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \prec 0$
+\item $\displaystyle f(x, y) = 3y^{3} - x^{2} y - x^{2} \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \succ 0$
+\item $\displaystyle f(x, y) = x^{4} + y^{4} - 2(x - y)^{2} \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \prec 0$
+\item $\displaystyle f(x, y) = x^{4} + 2x^{2} y - y^{3} \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \succ 0$
+\item $\displaystyle f(x, y) = 3x^{2} - x y^{2} \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \prec 0$
+\item $\displaystyle f(x, y) = x^{4} - 4x^{2} y + y^{2} \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \succ 0$
+\item $\displaystyle f(x, y) = x^{2} - 4x - y^{4} \implies \nabla f(2, 0) = (0, 0) \land H_{f}(2, 0) \prec 0$
+\item $\displaystyle f(x, y) = y(x - 1)^{2} - y^{4} \implies \nabla f(1, 0) = (0, 0) \land H_{f}(1, 0) \succ 0$
+\item $\displaystyle f(x, y) = x^{4} + y^{4} + 2(x - y)^{2} + 2 \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \prec 0$
+\item $\displaystyle f(x, y) = x^{4} + y^{4} \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \succ 0$
+\item $\displaystyle f(x, y) = x^{4} - y^{4} \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \prec 0$
+\item $\displaystyle f(x, y) = (x^{3} + 1)(y^{3} + 1) \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \succ 0$
+\item $\displaystyle f(x, y, z) = x^{2} + y^{2} + z^{2} - xyz \implies \nabla f(2, 2, 2) = 0 \land H_{f}(2, 2, 2) \prec 0$
+\item $\displaystyle f(x, y, z) = \frac{3}{4} x^{2} + 8y^{2} + 7xy + z^{4} \implies \nabla f(0, 0, 0) = 0 \land H_{f}(0, 0, 0) \succ 0$
+\item $\displaystyle f(x, y) = x^{4} + y^{4} \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \succ 0$
+\item $\displaystyle f(x, y) = x^{4} + y^{4} \implies H_{f}(0, 0) \prec 0$
+\item $\displaystyle f(x, y) = x^{2} - 4x - y^{4} \implies \nabla f(2, 0) = (0, 0) \land H_{f}(2, 0) \succ 0$
+\item $\displaystyle f(x, y) = x^{2} - 4x - y^{4} \implies \nabla f(2, 0) = (0, 0) \land H_{f}(2, 0) \preceq 0$
+\item $\displaystyle f(x, y) = (x + y)^{2} \implies H_{f}(1, 2) \succ 0$
+\item $\displaystyle f(x, y) = x^{4} + y^{4} + 2(x - y)^{2} + 2 \implies \nabla f(0, 0) = (0, 0) \land H_{f}(0, 0) \succ 0$
+\item $\displaystyle f(x, y) = -\frac{y^{2}}{2} \implies H_{f}(0, 0) \succeq 0$
+\item $\displaystyle f(x, y) = -\frac{y^{2}}{2} \implies H_{f}(5, 7) \succeq 0$
+\item $\displaystyle f(x, y) = \frac{y^{2}}{2} \implies H_{f}(0, 0) \preceq 0$
+\item $\displaystyle f(x, y, z) = \frac{x^{2}}{2} - \frac{z^{2}}{2} \implies H_{f}(0, 0, 0) \succeq 0$
+\item $\displaystyle f(x, y, z) = \frac{y^{2}}{2} + yz \implies H_{f}(0, 0, 0) \succeq 0$
+\item $\displaystyle f(x, y, z) = -\frac{x^{2}}{2} - \frac{y^{2}}{2} + \frac{z^{2}}{2} \implies H_{f}(0, 0, 0) \prec 0$
+\item $\displaystyle f(x, y, z) = x^{2} + y^{2} + z^{2} + xy + yz \implies H_{f}(1, 2, 3) \prec 0$
+\item $\displaystyle f(x, y, z) = x^{2} + y^{2} + z^{2} + xy + yz \implies H_{f}(1, 2, 3) \preceq 0$
+\item $\displaystyle f(x, y, z) = \frac{3}{4} x^{2} + 8y^{2} + 7xy + z^{4} \implies \nabla f(0, 0, 0) = 0 \land H_{f}(0, 0, 0) \succeq 0$
+\item $\displaystyle f(x, y, z) = x^{2} + y^{2} + z^{4} \implies \nabla f(0, 0, 0) = 0 \land H_{f}(0, 0, 0) \succ 0$
+\item $\displaystyle f(x, y, z, w) = x^{2} + 2y^{2} + z^{2} + 2w^{2} + yz - 2xw \implies \nabla f(0, 0, 0, 0) = 0 \land H_{f}(0, 0, 0, 0) \prec 0$
+\item $\displaystyle f(x, y, z, w) = x^{2} + 2y^{2} + z^{2} + 2w^{2} + yz - 2xw \implies H_{f}(0, 0, 0, 0) \preceq 0$
+\item $\displaystyle f(x, y, z, w) = x^{2} + y^{2} + z^{2} - w^{2} \implies \nabla f(0, 0, 0, 0) = 0 \land H_{f}(0, 0, 0, 0) \succ 0$
+\item $\displaystyle f(x, y) = x^{2} + xy + y^{2} \implies \nabla f(1, 1) = (0, 0) \land H_{f}(1, 1) \succ 0$
+\item $\displaystyle f(x, y) = x^{2} + xy + y^{2} \implies H_{f}(0, 0) \succ 0 \land H_{f}(0, 0) = \begin{pmatrix} 2 & 1 \\ 1 & 3 \end{pmatrix}$
+\end{enumerate}
+\end{document}

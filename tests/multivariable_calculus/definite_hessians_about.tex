@@ -1,0 +1,34 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{definite\_hessians.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{definite\_hessians.tex} is used for. The file is read by \texttt{test\_multivariable\_calculus.c}.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 124 true statements that use the short writings for the Hessian matrix at a point: $H_{f}(P) \succ 0$ (positive definite), $H_{f}(P) \prec 0$ (negative definite), $H_{f}(P) \succeq 0$ and $H_{f}(P) \preceq 0$ (semidefinite). A statement still uses no words: ``$(1, 1)$ is a point of minimum'' is $\nabla f(1, 1) = (0, 0) \land H_{f}(1, 1) \succ 0$. The reader replaces each writing with the comparisons on the principal minors that it stands for: the leading ones for $\succ$ and $\prec$ (Sylvester's criterion), all of them for $\succeq$ and $\preceq$.
+
+\item \textbf{Where the data comes from.} Items 1--103 are the minima and the maxima of \texttt{critical\_points.tex}, taken from the collections of solved exercises, of functions of two and three variables: the same points, with the short writing in place of the determinants. One minimum and one maximum out of six appear a second time with the weak writing, which is also true. Items 104--124 are written by hand: matrices that are only semidefinite (the zero matrix, a diagonal with a zero, a matrix of rank one), the same writings without a point for a function whose second derivatives are constant, next to a gradient and to a matrix written in full, with an exponential and with a sine, and functions of one, three and four variables.
+
+\item \textbf{Expected result.} Every statement is proved, with a written proof that begins by saying what the writing is short for, and with a certificate. The certificate is of the comparisons on the minors: that they say ``definite'' is Sylvester's criterion, which the checker does not know.
+
+\item \textbf{How it was checked.} The independent oracle of \texttt{tools/fuzz/fuzz\_multivariable.py} (mode \texttt{check}) finds every statement true. It does not use minors: it decides from the signs of the coefficients of the characteristic polynomial, computed with traces of powers of the matrix.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_multivariable_calculus \
+    tests/multivariable_calculus/test_multivariable_calculus.c && \
+    /tmp/test_multivariable_calculus
+\end{verbatim}
+\end{enumerate}
+\end{document}

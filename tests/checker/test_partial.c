@@ -48,6 +48,19 @@
  *     contro 7, un seno, pi greco contro 3,14159), un valore assoluto, un
  *     termine senza punto che non esiste ovunque.
  *
+ * La definitezza dell'hessiana (H_{f}(P) \succ 0 e le altre scritture, che
+ * il lettore del programma svolge nei confronti sui minori principali: 34s
+ * di parser.c). Nel certificato ci sono solo quei confronti:
+ *
+ *   - accettati: i minori di testa positivi, a segni alterni dal negativo,
+ *     tutti i minori principali non negativi, o con i segni di una
+ *     semidefinita negativa; e i due soli minori di testa di diag(0, -1),
+ *     che sono confronti veri anche se la matrice non è semidefinita: il
+ *     verificatore certifica i confronti scritti, non il criterio;
+ *   - respinti: una definita negativa scritta positiva e viceversa, una
+ *     solo semidefinita scritta definita, tutti i minori principali di
+ *     diag(0, -1) scritti non negativi.
+ *
  * Prima di questi confronti la tesi "(< A 0)" con A = 2xy era il caso "una
  * tesi che non è un'uguaglianza": ora è "un confronto con una lettera
  * rimasta", sempre non controllabile, e il caso di prima ha una tesi che non
@@ -90,6 +103,8 @@ typedef struct {
 
 #define CUBIC "(- (+ (^ x 3) (^ y 3)) (* (* 3 x) y))"
 #define QUARTIC "(+ (^ x 4) (^ y 4))"
+#define NEGATIVE "(+ (- (neg (^ x 2)) (^ y 2)) (* x y))" /* -x^2 - y^2 + xy: l'hessiana è (-2, 1; 1, -2) */
+#define HALF_SQUARE "(neg (/ (^ y 2) 2))"                   /* -y^2 / 2: l'hessiana è diag(0, -1) */
 #define LOG "(ln (+ (^ x 2) (^ y 2)))"
 #define LOG_XX "(/ (- (* 2 (^ y 2)) (* 2 (^ x 2))) (^ (+ (^ x 2) (^ y 2)) 2))"
 #define LOG_YY "(/ (- (* 2 (^ x 2)) (* 2 (^ y 2))) (^ (+ (^ x 2) (^ y 2)) 2))"
@@ -203,6 +218,30 @@ static const Case cases[] = {
      PARTIAL(TERM_AT("A", "(* x y)", " y", "x", "x (pi) y 1"), COMPARE("<", "(/ 1 (- 3 A))", "0") COMPARE("<", "0", "(/ (neg 1) (- 3 A))"))},
     {"two members with letters whose difference is a number", CK_ACCEPTED, "", PARTIAL("", COMPARE("<", "x", "(+ x 1)"))},
 
+    /* La definitezza dell'hessiana, H_{f}(P) \succ 0 e le altre scritture: il
+     * lettore del programma le svolge nei confronti sui minori principali
+     * (34s di parser.c), e il certificato contiene quelli. Per il segno
+     * stretto i minori di testa, C e il determinante; per il largo tutti i
+     * minori principali, C, F e il determinante.
+     *
+     * Il verificatore certifica i confronti, non il criterio: l'ultimo
+     * certificato qui sotto ha i due soli minori di testa di diag(0, -1),
+     * che sono zero, ed è accettato perché quei due confronti sono veri;
+     * la matrice non è semidefinita positiva (il terzo minore principale,
+     * F, è -1: vedi il certificato respinto più sotto). Che il lettore
+     * scriva tutti i minori che servono lo controlla il test del dominio,
+     * con un altro conto. */
+    {"a positive definite Hessian matrix: the leading minors are positive", CK_ACCEPTED, "",
+     PARTIAL(HESSIAN(CUBIC, "(* 6 x)", "-3", "(* 6 y)", "x 1 y 1"), COMPARE("<", "0", "C") COMPARE("<", "0", DET))},
+    {"a negative definite one: the leading minors alternate, from a negative one", CK_ACCEPTED, "",
+     PARTIAL(HESSIAN(NEGATIVE, "-2", "1", "-2", "x 0 y 0"), COMPARE("<", "C", "0") COMPARE("<", "0", DET))},
+    {"a positive semidefinite one: no principal minor is negative", CK_ACCEPTED, "",
+     PARTIAL(HESSIAN(QUARTIC, "(* 12 (^ x 2))", "0", "(* 12 (^ y 2))", "x 0 y 0"), COMPARE("<=", "0", "C") COMPARE("<=", "0", "F") COMPARE("<=", "0", DET))},
+    {"a negative semidefinite one: diag(0, -1)", CK_ACCEPTED, "",
+     PARTIAL(HESSIAN(HALF_SQUARE, "0", "0", "-1", "x 0 y 0"), COMPARE("<=", "C", "0") COMPARE("<=", "F", "0") COMPARE("<=", "0", DET))},
+    {"the two leading minors of diag(0, -1) are not negative: true comparisons, that do not make it semidefinite", CK_ACCEPTED, "",
+     PARTIAL(HESSIAN(HALF_SQUARE, "0", "0", "-1", "x 0 y 0"), COMPARE("<=", "0", "C") COMPARE("<=", "0", DET))},
+
     /* Confronti falsi: il segno si sa, ed è l'altro. */
     {"a saddle point called a minimum", CK_REJECTED, "non vale", PARTIAL(HESSIAN(CUBIC, "(* 6 x)", "-3", "(* 6 y)", "x 0 y 0"), COMPARE("<", "0", DET))},
     {"a minimum called a maximum", CK_REJECTED, "non vale", PARTIAL(HESSIAN(CUBIC, "(* 6 x)", "-3", "(* 6 y)", "x 1 y 1"), COMPARE("<", "0", DET) COMPARE("<", "C", "0"))},
@@ -219,6 +258,16 @@ static const Case cases[] = {
     {"a right comparison after a wrong formula", CK_REJECTED, "non è la formula",
      PARTIAL(TERM_AT("A", CUBIC, " x x", "(* 7 x)", "x 1 y 1"), COMPARE("<", "0", "A"))},
     {"a comparison that holds only at another point", CK_REJECTED, "non vale", PARTIAL(TERM_AT("A", CUBIC, " x x", "(* 6 x)", "x -1 y 1"), COMPARE("<", "0", "A"))},
+
+    /* La definitezza scritta sbagliata: un confronto su un minore non vale. */
+    {"a negative definite matrix written positive definite", CK_REJECTED, "non vale",
+     PARTIAL(HESSIAN(NEGATIVE, "-2", "1", "-2", "x 0 y 0"), COMPARE("<", "0", "C") COMPARE("<", "0", DET))},
+    {"a positive definite matrix written negative definite", CK_REJECTED, "non vale",
+     PARTIAL(HESSIAN(CUBIC, "(* 6 x)", "-3", "(* 6 y)", "x 1 y 1"), COMPARE("<", "C", "0") COMPARE("<", "0", DET))},
+    {"a matrix that is only semidefinite written definite", CK_REJECTED, "non vale",
+     PARTIAL(HESSIAN(QUARTIC, "(* 12 (^ x 2))", "0", "(* 12 (^ y 2))", "x 0 y 0"), COMPARE("<", "0", "C") COMPARE("<", "0", DET))},
+    {"every principal minor of diag(0, -1), written positive semidefinite: the second one is negative", CK_REJECTED, "non vale",
+     PARTIAL(HESSIAN(HALF_SQUARE, "0", "0", "-1", "x 0 y 0"), COMPARE("<=", "0", "C") COMPARE("<=", "0", "F") COMPARE("<=", "0", DET))},
 
     /* Un membro che non è definito: il confronto non afferma nulla di vero. */
     {"a division by a term that is zero", CK_REJECTED, "vale zero", PARTIAL(TERM_AT("A", CUBIC, " x x", "(* 6 x)", "x 0 y 0"), COMPARE("<", "0", "(/ 1 A)"))},
