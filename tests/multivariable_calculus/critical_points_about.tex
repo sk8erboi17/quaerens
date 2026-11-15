@@ -1,0 +1,36 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{critical\_points.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{critical\_points.tex} is used for. The file is read by \texttt{test\_multivariable\_calculus.c}.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 204 true statements on the critical points of functions of two, three and four variables. A statement uses no words: ``$(1, 1)$ is a point of minimum'' is written with the second-order conditions, $\nabla f(1, 1) = (0, 0) \land \det H_{f}(1, 1) > 0 \land f_{xx}(1, 1) > 0$. A maximum has $f_{xx} < 0$, a saddle point has $\det H_{f} < 0$, and the case in which the test does not decide has $\det H_{f} = 0$. With three or four variables the leading principal minors are written as determinants of tables of derivatives. That these conditions give a minimum, a maximum or a saddle point is the theorem on sufficient conditions, which the written proof quotes with its hypotheses; the verdict states only what is written.
+
+\item \textbf{Where the data comes from.} The functions and the points are those of the collections of solved exercises analysed in \texttt{photos/dati\_esercizi/analisi\_estremi\_vincolati.md} (section 4a) and \texttt{analisi\_funzioni\_due\_variabili.md} (section 5c): Lancelotti, Roma Tre, Habala, Ferrara, Magni, Morsella, Esparza, Eleuteri, Damascelli, Perfetti, and others. Where a book prints a wrong number the file has the right one, and the printed one is in \texttt{false\_critical\_points.tex}. The last items are determinants of tables of numbers and two bordered Hessian determinants of a constrained problem.
+
+\item \textbf{The groups.} Items 1--102: two variables, rational points, a Hessian matrix that decides (three of them, at the origin, have a vanishing determinant). Items 103--124: exponentials, logarithms, an arctangent. Items 125--148: points with a square root among the coordinates. Items 149--157: the determinant is zero. Items 158--174: values, weak comparisons, the determinant written between bars, sines. Items 175--200: three and four variables. Items 201--204: tables of numbers and bordered Hessian determinants.
+
+\item \textbf{Expected result.} Every statement is proved, with a written proof and a certificate accepted by the independent checker. Every certificate, altered in a formula or in a thesis, is no longer accepted, and with a comparison replaced by its negation it is rejected.
+
+\item \textbf{How it was checked.} The independent oracle of \texttt{tools/fuzz/fuzz\_multivariable.py} (mode \texttt{check}) finds every statement true: it differentiates with its own rules, computes with exact fractions where the point is rational, and takes a determinant by elimination, not by expansion along a row.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_multivariable_calculus \
+    tests/multivariable_calculus/test_multivariable_calculus.c && \
+    /tmp/test_multivariable_calculus
+\end{verbatim}
+\end{enumerate}
+\end{document}

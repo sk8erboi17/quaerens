@@ -215,7 +215,10 @@
  *     formula G in ogni punto in cui la funzione è regolare e G è definita;
  *     con un punto, lì la funzione è regolare, e il termine è il numero
  *     G(P). Ogni tesi L = R vale dove i termini che nomina esistono e i due
- *     membri sono definiti. Il teorema esatto è in testa al capitolo 18.
+ *     membri sono definiti. Una tesi con un confronto, L < R, L <= R o L
+ *     diverso da R, dice che i due membri sono numeri definiti e che il
+ *     confronto vale: il segno della differenza si legge dal numero (18s).
+ *     Il teorema esatto è in testa al capitolo 18.
  *   - "certificate indices" (capitolo 19): un'identità del calcolo
  *     tensoriale scritta con gli indici, in una dimensione data, vale per
  *     ogni scelta dei tensori che nomina e per ogni valore degli indici
@@ -9632,7 +9635,12 @@ static void ck_check_matrices(void) {
  * ognuna una volta sola; le coordinate si calcolano prima di legare le
  * lettere, quindi tutte insieme).
  * Una voce statement è un'uguaglianza tra due espressioni, in cui i nomi dei
- * termini stanno per i termini. Le parole e le convenzioni sono quelle del
+ * termini stanno per i termini, oppure un confronto tra due numeri, con le
+ * parole <, <= e neq:
+ *
+ *     statement (< 0 (- (* A D) (* B C)))
+ *
+ * Le parole e le convenzioni sono quelle del
  * capitolo 13; tutte le lettere che non sono nomi di termini sono variabili
  * reali, senza distinzione tra variabili e parametri.
  *
@@ -9657,6 +9665,10 @@ static void ck_check_matrices(void) {
  *     c_0 + c_1 pi + c_2 e), il certificato non è controllabile.
  *   - statement (= L R): in ogni punto in cui esistono i termini senza punto
  *     che L e R nominano, e L e R sono definiti, vale L = R.
+ *   - statement (< L R), (<= L R), (neq L R): per ogni valore delle lettere
+ *     i termini senza punto che L e R nominano esistono, L e R sono
+ *     definiti, e vale L < R (L <= R, L diverso da R). Di solito L e R sono
+ *     numeri: i loro termini hanno tutti un punto.
  *
  * PERCHÉ. La derivata parziale rispetto a x è, per definizione, la derivata
  * della funzione della sola x che si ottiene tenendo ferme le altre lettere:
@@ -9690,7 +9702,17 @@ static void ck_check_matrices(void) {
  *
  * I valori assoluti si trattano come in 13f, con tutte le scelte dei segni;
  * con un punto no: lì servirebbe il segno di ogni argomento nel punto, e il
- * certificato non è controllabile.
+ * certificato non è controllabile. Lo stesso con un confronto.
+ *
+ * UN CONFRONTO è il segno di un numero: la differenza L - R. Calcolando L e
+ * R si annotano le loro condizioni di esistenza, e quelle dei termini senza
+ * punto che nominano: devono essere tutte numeri dalla parte giusta, come in
+ * un punto, e allora L e R sono definiti per ogni valore delle lettere. Poi
+ * la differenza, che è una frazione di polinomi nelle lettere del capitolo
+ * 13, deve essere un numero di cui si sa il segno (18s, più sotto): il
+ * confronto è vero o falso secondo quel segno, e se il segno non si sa
+ * stabilire il certificato non è controllabile. Il verificatore non cerca
+ * nulla: il segno si legge dal numero.
  */
 
 #define CK_MAX_PARTIALS 32  /* voci term di un certificato */
@@ -9738,6 +9760,86 @@ static CkRat ck_partial_eval(const CkNode *node, int count) {
     return result;
 }
 
+/* 18s. IL SEGNO DI UN NUMERO
+ *
+ * Un numero, qui, è un polinomio a coefficienti razionali nelle lettere del
+ * capitolo 13 che stanno per dei numeri: pi greco, le potenze di e, le
+ * radici. Il suo segno si stabilisce solo in questi casi, e in ognuno il
+ * conto è finito e non cerca nulla:
+ *
+ *   s1. Le relazioni di 13d che non cambiano il valore (R^m = u con u un
+ *       numero, sin^2 + cos^2 = 1) si applicano prima: se resta il polinomio
+ *       nullo il numero è zero, perché un polinomio nullo vale zero comunque
+ *       si scelgano le lettere.
+ *   s2. Un numero razionale: il segno è il suo.
+ *   s3. Un termine solo, c per un prodotto di potenze di lettere che valgono
+ *       numeri positivi: pi greco, una potenza di e (e^t > 0 per ogni t
+ *       reale), la radice di un numero razionale positivo. Il prodotto è
+ *       positivo, e il segno è quello di c: così 16 e^{-2} è positivo senza
+ *       sapere quanto vale e.
+ *   s4. c_0 + c_1 pi + c_2 e, con i c_j razionali: sta nell'intervallo
+ *       razionale di ck_endpoint() (13e), e se l'intervallo sta tutto da una
+ *       parte dello zero il segno è quello.
+ *
+ * In ogni altro caso (la radice di 2 meno 1, e^2 - 7, un seno) non si
+ * risponde: servirebbe un intervallo per ogni lettera, e un conto che lo
+ * stringa finché basta, che è una ricerca. Il motore, che gli intervalli li
+ * ha, in quei casi dimostra senza certificato.
+ *
+ * Mette in *sign il segno (-1, 0 o 1) del polinomio p e ritorna 1; ritorna
+ * 0 se non lo sa stabilire, e allora il certificato può risultare già non
+ * controllabile: chi chiama mette il suo motivo. */
+static int ck_partial_poly_sign(CkPoly p, int *sign) {
+    p = ck_reduce(p, 0);
+    if (ck_status != CK_ACCEPTED) return 0;
+
+    /* s1, s2. */
+    if (p.count == 0) { *sign = 0; return 1; }
+    if (ck_poly_is_constant(p)) { *sign = ck_num_sign(p.term[0].coef); return 1; }
+
+    /* s3. */
+    int positive = p.count == 1;
+    for (int v = 0; v < ck_var_count && positive; v++) {
+        const CkVar *x = &ck_vars[v];
+        if (!p.term[0].e[v]) continue;
+        int radicand = x->kind == CK_VAR_ROOT && ck_poly_is_constant(x->base) && ck_poly_is_constant(x->below) && x->base.count && x->below.count
+                           ? ck_num_sign(x->base.term[0].coef) * ck_num_sign(x->below.term[0].coef) : 0;
+        positive = x->kind == CK_VAR_PI || x->kind == CK_VAR_E || radicand > 0;
+    }
+    if (positive) { *sign = ck_num_sign(p.term[0].coef); return 1; }
+
+    /* s4. */
+    CkNum low, high;
+    ck_endpoint(ck_rat_poly(p), &low, &high);
+    if (ck_status != CK_ACCEPTED || (low.num <= 0 && high.num >= 0)) return 0;
+    *sign = low.num > 0 ? 1 : -1;
+    return 1;
+}
+
+/* Controlla che le condizioni di esistenza annotate dall'ultima valutazione
+ * (ck_divisors[] e ck_conditions[]) siano numeri dalla parte giusta: il
+ * segno di ognuna si legge come in 18s. Una condizione di sicuro violata
+ * respinge il certificato, con il motivo wrong; una di cui non si sa il
+ * segno, o che non è un numero, lo rende non controllabile, con il motivo
+ * unknown.
+ *
+ * Chi annota le condizioni (capitolo 13) dà motivi che parlano di integrali
+ * e di intervalli: qui ciò che non va è in un punto o in un confronto, e il
+ * motivo lo dice. Va chiamata con l'esito "accettato": ogni altro esito, al
+ * ritorno, viene da qui o da chi ha annotato. */
+static void ck_partial_conditions(const char *wrong, const char *unknown) {
+    for (int c = 0; c < ck_divisor_count + ck_condition_count && ck_status == CK_ACCEPTED; c++) {
+        CkCondition condition = c < ck_divisor_count ? (CkCondition){ck_divisors[c].value, 0, 1} : ck_conditions[c - ck_divisor_count];
+        int sign = 0;
+        if (!ck_partial_poly_sign(condition.p, &sign)) { ck_unsupported(unknown); break; }
+        if (sign > 0 || (sign < 0 && !condition.positive)) continue;
+        if (condition.certain) ck_reject(wrong);
+        else ck_unsupported(unknown);
+    }
+    if (ck_status == CK_REJECTED) ck_reason = wrong;
+    if (ck_status == CK_UNSUPPORTED) ck_reason = unknown;
+}
+
 /* Controlla il termine numero i: l'identità tra la derivata calcolata qui e
  * la formula (con final = 0 si calcola soltanto, come in 13f) e, se ha un
  * punto, che lì esista; ne mette allora il valore in value. */
@@ -9772,25 +9874,48 @@ static void ck_partial_term(int i, int final) {
     ck_recording = 0;
     ck_env_count -= t->at;
 
-    /* Le condizioni rimaste: numeri con pi greco o con e, di cui si legge il
-     * segno nell'intervallo razionale di ck_endpoint(). */
-    for (int c = 0; c < ck_divisor_count + ck_condition_count && ck_status == CK_ACCEPTED; c++) {
-        CkCondition condition = c < ck_divisor_count ? (CkCondition){ck_divisors[c].value, 0, 1} : ck_conditions[c - ck_divisor_count];
-        CkNum low, high;
-        ck_endpoint(ck_rat_poly(condition.p), &low, &high);
-        if (ck_status != CK_ACCEPTED) break;
-        int positive = low.num > 0, negative = high.num < 0, zero = low.num == 0 && high.num == 0;
-        if (positive || (negative && !condition.positive)) continue;
-        if (condition.certain && (zero || negative)) ck_reject(irregular);
-        else ck_unsupported(unknown);
-    }
+    /* Le condizioni rimaste. All'ingresso di questo paragrafo l'esito era
+     * "accettato". */
+    ck_partial_conditions(irregular, unknown);
+}
 
-    /* Chi annota le condizioni (capitolo 13) dà motivi che parlano di
-     * integrali e di intervalli: qui ciò che non va è nel punto, e il
-     * motivo lo dice. All'ingresso di questo paragrafo l'esito era
-     * "accettato", quindi ogni altro esito viene da qui. */
-    if (ck_status == CK_REJECTED) ck_reason = irregular;
-    if (ck_status == CK_UNSUPPORTED) ck_reason = unknown;
+/* Controlla la tesi claim, un confronto (<, <= o neq): vedi "Un confronto"
+ * in testa al capitolo. Il segno di una frazione è il prodotto dei segni del
+ * numeratore e del denominatore, che non vale zero: i divisori sono tra le
+ * condizioni già controllate, e gli altri fattori del denominatore sono
+ * potenze di e e radici, che dove sono definite non valgono zero. */
+static void ck_partial_compare(const CkNode *claim) {
+    static const char *const undefined = "un membro di un confronto non è definito";
+    static const char *const unknown = "non so stabilire che i due membri di un confronto sono definiti";
+    int top = 0, bottom = 0;
+    if (ck_abs_count) { ck_unsupported("un valore assoluto in un certificato con un confronto: lì servirebbe il segno del suo argomento"); return; }
+
+    /* I due membri, annotando le condizioni di esistenza. */
+    ck_divisor_count = ck_condition_count = 0;
+    ck_recording = 1;
+    CkRat gap = ck_rat_add(ck_partial_eval(claim->a, ck_partial_count), ck_partial_eval(claim->b, ck_partial_count), 1);
+    ck_recording = 0;
+
+    /* Un rifiuto durante il calcolo è una condizione che è un numero dalla
+     * parte sbagliata, decisa da chi l'ha annotata (un divisore nullo, il
+     * logaritmo di un numero non positivo): il motivo, qui, è lo stesso. */
+    if (ck_status == CK_REJECTED) ck_reason = undefined;
+    if (ck_status != CK_ACCEPTED) return;
+    ck_partial_conditions(undefined, unknown);
+    if (ck_status != CK_ACCEPTED) return;
+
+    /* Il segno della differenza, e il confronto. Se ck_endpoint() ha già
+     * detto "non controllabile", il motivo giusto è questo. */
+    if (!ck_partial_poly_sign(gap.num, &top) || !ck_partial_poly_sign(gap.den, &bottom) || bottom == 0) {
+        static const char *const sign = "non so stabilire il segno della differenza dei due membri di un confronto: non è un numero di cui il verificatore sa "
+                                        "leggere il segno";
+        ck_unsupported(sign);
+        if (ck_status == CK_UNSUPPORTED) ck_reason = sign;
+        return;
+    }
+    int side = top * bottom;
+    int holds = claim->kind == CK_NEQ ? side != 0 : claim->kind == CK_LESS ? side < 0 : side <= 0;
+    if (!holds) ck_reject("un confronto tra due numeri non vale");
 }
 
 /* Fa i conti del certificato, con le tesi claim[]; con final = 0 è una
@@ -9813,6 +9938,9 @@ static void ck_partial_pass(const CkNode *const *claim, int claims, int final) {
     for (ck_abs_pattern = 0; ck_abs_pattern < 1u << ck_abs_count && ck_status == CK_ACCEPTED; ck_abs_pattern++) {
         for (int i = 0; i < ck_partial_count && ck_status == CK_ACCEPTED; i++) ck_partial_term(i, final);
         for (int i = 0; i < claims && ck_status == CK_ACCEPTED; i++) {
+            /* Un confronto si decide solo nella valutazione finale, con
+             * l'unità ormai fissata; prima si calcola soltanto. */
+            if (final && claim[i]->kind != CK_EQ) { ck_partial_compare(claim[i]); continue; }
             CkRat gap = ck_rat_add(ck_partial_eval(claim[i]->a, ck_partial_count), ck_partial_eval(claim[i]->b, ck_partial_count), 1);
             if (final) ck_calculus_zero(gap, "i due membri di una tesi non sono uguali");
         }
@@ -9860,7 +9988,9 @@ static void ck_check_partial(void) {
     for (; ck_status == CK_ACCEPTED && ck_word("statement"); ck_next_line()) {
         if (claims == CK_MAX_CLAIMS) { ck_unsupported("troppe voci statement"); return; }
         claim[claims] = ck_read();
-        if (ck_status == CK_ACCEPTED && claim[claims]->kind != CK_EQ) { ck_unsupported("una tesi che non è un'uguaglianza"); return; }
+        if (ck_status != CK_ACCEPTED) return;
+        CkKind kind = claim[claims]->kind;
+        if (kind != CK_EQ && kind != CK_NEQ && kind != CK_LESS && kind != CK_LESS_EQ) { ck_unsupported("una tesi che non è un'uguaglianza né un confronto"); return; }
         claims++;
     }
     if (ck_status != CK_ACCEPTED) return;

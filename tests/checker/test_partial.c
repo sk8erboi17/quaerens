@@ -29,8 +29,29 @@
  *   - non controllabili: un punto in cui un radicando vale zero, una
  *     relazione che il verificatore non conosce, un valore assoluto con un
  *     punto, una coordinata che è un parametro, una tesi che non è
- *     un'uguaglianza, troppe lettere di derivazione. Non devono mai
- *     diventare un "accettato".
+ *     un'uguaglianza né un confronto, troppe lettere di derivazione. Non
+ *     devono mai diventare un "accettato".
+ *
+ * I confronti tra numeri (<, <= e neq: le condizioni del secondo ordine in
+ * un punto critico):
+ *
+ *   - accettati: il determinante dell'hessiana positivo con f_xx positivo,
+ *     negativo, nullo (come uguaglianza e come due confronti larghi); il
+ *     segno di una potenza di e e di una radice quadrata; pi greco ed e tra
+ *     due razionali; un termine senza punto che è un numero;
+ *   - respinti: una sella detta minimo, un minimo detto massimo, il
+ *     determinante nullo detto positivo o diverso da zero, due numeri
+ *     uguali detti diversi, un confronto giusto dopo una formula sbagliata o
+ *     in un altro punto, un membro che non è definito;
+ *   - non controllabili: una lettera rimasta, un numero di cui il
+ *     verificatore non sa leggere il segno (la radice di 2 contro 1, e^2
+ *     contro 7, un seno, pi greco contro 3,14159), un valore assoluto, un
+ *     termine senza punto che non esiste ovunque.
+ *
+ * Prima di questi confronti la tesi "(< A 0)" con A = 2xy era il caso "una
+ * tesi che non è un'uguaglianza": ora è "un confronto con una lettera
+ * rimasta", sempre non controllabile, e il caso di prima ha una tesi che non
+ * è nessuna delle due cose.
  *
  * I casi respinti e non controllabili sono antiregressione: non si tolgono
  * e non si indeboliscono per far passare una modifica al verificatore.
@@ -59,7 +80,16 @@ typedef struct {
 #define PARTIAL(terms, claims) "certificate partial\n" terms claims "end\n"
 #define CLAIM(l, r) "statement (= " l " " r ")\n"
 
+/* Un confronto, con la parola <, <= o neq. */
+#define COMPARE(word, l, r) "statement (" word " " l " " r ")\n"
+
+/* Le quattro derivate seconde di of in un punto, con i nomi C, D, E, F, e il
+ * determinante della loro matrice. xy è la derivata mista, scritta due volte. */
+#define HESSIAN(of, xx, xy, yy, at) TERM_AT("C", of, " x x", xx, at) TERM_AT("D", of, " x y", xy, at) TERM_AT("E", of, " y x", xy, at) TERM_AT("F", of, " y y", yy, at)
+#define DET "(- (* C F) (* D E))"
+
 #define CUBIC "(- (+ (^ x 3) (^ y 3)) (* (* 3 x) y))"
+#define QUARTIC "(+ (^ x 4) (^ y 4))"
 #define LOG "(ln (+ (^ x 2) (^ y 2)))"
 #define LOG_XX "(/ (- (* 2 (^ y 2)) (* 2 (^ x 2))) (^ (+ (^ x 2) (^ y 2)) 2))"
 #define LOG_YY "(/ (- (* 2 (^ x 2)) (* 2 (^ y 2))) (^ (+ (^ x 2) (^ y 2)) 2))"
@@ -153,7 +183,64 @@ static const Case cases[] = {
      PARTIAL(TERM("A", "(exp (* x y))", " x y", "(+ (exp (* x y)) (* x (exp (* x y))))"), CLAIM("A", "(+ (exp (* x y)) (* x (exp (* x y))))"))},
     {"an absolute value with a point", CK_UNSUPPORTED, "valore assoluto", PARTIAL(TERM_AT("A", "(* (abs x) y)", " y", "(abs x)", "x -2 y 1"), CLAIM("A", "2"))},
     {"a coordinate that is a parameter", CK_UNSUPPORTED, "in un punto", PARTIAL(TERM_AT("A", "(ln (* x y))", " x", "(/ 1 x)", "x a y 1"), CLAIM("A", "(/ 1 a)"))},
-    {"a thesis that is not an equality", CK_UNSUPPORTED, "uguaglianza", PARTIAL(TERM("A", "(* (^ x 2) y)", " x", "(* (* 2 x) y)"), "statement (< A 0)\n")},
+    {"a thesis that is neither an equality nor a comparison", CK_UNSUPPORTED, "uguaglianza",
+     PARTIAL(TERM("A", "(* (^ x 2) y)", " x", "(* (* 2 x) y)"), "statement (and (= A 0) (= A 0))\n")},
+
+    /* Confronti tra numeri: le condizioni del secondo ordine in un punto. */
+    {"the second-order conditions of a minimum", CK_ACCEPTED, "", PARTIAL(HESSIAN(CUBIC, "(* 6 x)", "-3", "(* 6 y)", "x 1 y 1"), COMPARE("<", "0", DET) COMPARE("<", "0", "C"))},
+    {"the determinant of a saddle point", CK_ACCEPTED, "", PARTIAL(HESSIAN(CUBIC, "(* 6 x)", "-3", "(* 6 y)", "x 0 y 0"), COMPARE("<", DET, "0"))},
+    {"a determinant that is zero, as an equality and as two weak comparisons", CK_ACCEPTED, "",
+     PARTIAL(HESSIAN(QUARTIC, "(* 12 (^ x 2))", "0", "(* 12 (^ y 2))", "x 0 y 0"), CLAIM(DET, "0") COMPARE("<=", DET, "0") COMPARE("<=", "0", DET))},
+    {"two different numbers", CK_ACCEPTED, "", PARTIAL(HESSIAN(CUBIC, "(* 6 x)", "-3", "(* 6 y)", "x 1 y 1"), COMPARE("neq", DET, "26") COMPARE("<=", DET, "27"))},
+    {"the sign of a power of e", CK_ACCEPTED, "",
+     PARTIAL(TERM_AT("A", "(exp (+ x y))", " x x", "(exp (+ x y))", "x 1 y 1"), COMPARE("<", "0", "A") COMPARE("<", "(neg A)", "0") COMPARE("<", "0", "(/ (* 3 A) (exp 5))"))},
+    {"the sign of a square root", CK_ACCEPTED, "",
+     PARTIAL(TERM_AT("A", "(* x y)", " y", "x", "x (root 2 2) y 1"), COMPARE("<", "0", "A") COMPARE("<", "(* -3 (^ A 3))", "0") COMPARE("<", "1", "(^ A 2)"))},
+    {"pi between 3 and 22/7", CK_ACCEPTED, "", PARTIAL(TERM_AT("A", "(* x y)", " y", "x", "x (pi) y 1"), COMPARE("<", "3", "A") COMPARE("<", "A", "(/ 22 7)"))},
+    {"e between 27/10 and 3", CK_ACCEPTED, "", PARTIAL(TERM_AT("A", "(exp x)", " x", "(exp x)", "x 1"), COMPARE("<", "(/ 27 10)", "A") COMPARE("<=", "A", "3"))},
+    {"a term without a point that is a number", CK_ACCEPTED, "", PARTIAL(TERM("A", "(* 3 x)", " x", "3"), COMPARE("<", "0", "A"))},
+    {"a fraction with a negative denominator", CK_ACCEPTED, "",
+     PARTIAL(TERM_AT("A", "(* x y)", " y", "x", "x (pi) y 1"), COMPARE("<", "(/ 1 (- 3 A))", "0") COMPARE("<", "0", "(/ (neg 1) (- 3 A))"))},
+    {"two members with letters whose difference is a number", CK_ACCEPTED, "", PARTIAL("", COMPARE("<", "x", "(+ x 1)"))},
+
+    /* Confronti falsi: il segno si sa, ed è l'altro. */
+    {"a saddle point called a minimum", CK_REJECTED, "non vale", PARTIAL(HESSIAN(CUBIC, "(* 6 x)", "-3", "(* 6 y)", "x 0 y 0"), COMPARE("<", "0", DET))},
+    {"a minimum called a maximum", CK_REJECTED, "non vale", PARTIAL(HESSIAN(CUBIC, "(* 6 x)", "-3", "(* 6 y)", "x 1 y 1"), COMPARE("<", "0", DET) COMPARE("<", "C", "0"))},
+    {"a determinant that is zero called positive", CK_REJECTED, "non vale",
+     PARTIAL(HESSIAN(QUARTIC, "(* 12 (^ x 2))", "0", "(* 12 (^ y 2))", "x 0 y 0"), COMPARE("<", "0", DET))},
+    {"a determinant that is zero called different from zero", CK_REJECTED, "non vale",
+     PARTIAL(HESSIAN(QUARTIC, "(* 12 (^ x 2))", "0", "(* 12 (^ y 2))", "x 0 y 0"), COMPARE("neq", DET, "0"))},
+    {"two equal numbers called different", CK_REJECTED, "non vale", PARTIAL(HESSIAN(CUBIC, "(* 6 x)", "-3", "(* 6 y)", "x 1 y 1"), COMPARE("neq", DET, "27"))},
+    {"a weak comparison the wrong way", CK_REJECTED, "non vale", PARTIAL(HESSIAN(CUBIC, "(* 6 x)", "-3", "(* 6 y)", "x 1 y 1"), COMPARE("<=", DET, "26"))},
+    {"a power of e called negative", CK_REJECTED, "non vale", PARTIAL(TERM_AT("A", "(exp (+ x y))", " x x", "(exp (+ x y))", "x 1 y 1"), COMPARE("<", "A", "0"))},
+    {"pi called greater than 22/7", CK_REJECTED, "non vale", PARTIAL(TERM_AT("A", "(* x y)", " y", "x", "x (pi) y 1"), COMPARE("<", "(/ 22 7)", "A"))},
+    {"a fraction with a negative denominator called positive", CK_REJECTED, "non vale",
+     PARTIAL(TERM_AT("A", "(* x y)", " y", "x", "x (pi) y 1"), COMPARE("<", "0", "(/ 1 (- 3 A))"))},
+    {"a right comparison after a wrong formula", CK_REJECTED, "non è la formula",
+     PARTIAL(TERM_AT("A", CUBIC, " x x", "(* 7 x)", "x 1 y 1"), COMPARE("<", "0", "A"))},
+    {"a comparison that holds only at another point", CK_REJECTED, "non vale", PARTIAL(TERM_AT("A", CUBIC, " x x", "(* 6 x)", "x -1 y 1"), COMPARE("<", "0", "A"))},
+
+    /* Un membro che non è definito: il confronto non afferma nulla di vero. */
+    {"a division by a term that is zero", CK_REJECTED, "vale zero", PARTIAL(TERM_AT("A", CUBIC, " x x", "(* 6 x)", "x 0 y 0"), COMPARE("<", "0", "(/ 1 A)"))},
+    {"a logarithm of a term that is zero", CK_REJECTED, "vale zero", PARTIAL(TERM_AT("A", CUBIC, " x x", "(* 6 x)", "x 0 y 0"), COMPARE("<", "(ln A)", "0"))},
+    {"a logarithm of a negative term", CK_REJECTED, "non è definito", PARTIAL(TERM_AT("A", CUBIC, " x x", "(* 6 x)", "x -1 y 0"), COMPARE("<", "(ln A)", "9"))},
+
+    /* Confronti di cui il verificatore non sa leggere il segno. */
+    {"a comparison with a letter left", CK_UNSUPPORTED, "segno", PARTIAL(TERM("A", "(* (^ x 2) y)", " x", "(* (* 2 x) y)"), COMPARE("<", "A", "0"))},
+    {"the square root of 2 against 1", CK_UNSUPPORTED, "segno", PARTIAL(TERM_AT("A", "(* x y)", " y", "x", "x (root 2 2) y 1"), COMPARE("<", "1", "A"))},
+    {"the square of e against 7", CK_UNSUPPORTED, "segno", PARTIAL(TERM_AT("A", "(exp (+ x y))", " x x", "(exp (+ x y))", "x 1 y 1"), COMPARE("<", "7", "A"))},
+    {"the sign of a sine", CK_UNSUPPORTED, "segno", PARTIAL(TERM_AT("A", "(sin x)", "", "(sin x)", "x 1"), COMPARE("<", "0", "A"))},
+    {"an absolute value with a comparison", CK_UNSUPPORTED, "valore assoluto", PARTIAL(TERM_AT("A", "(* x y)", " y", "x", "x 2 y 1"), COMPARE("<", "0", "(abs A)"))},
+    {"an absolute value with a comparison and no point", CK_UNSUPPORTED, "con un confronto", PARTIAL(TERM("A", "(* 3 x)", " x", "3"), COMPARE("<", "0", "(abs A)"))},
+
+    /* Pi greco contro 3,14159: la differenza è più piccola dell'intervallo
+     * razionale che il verificatore ha per pi greco, che contiene lo zero.
+     * Il primo confronto è falso e il secondo vero: nessuno dei due si
+     * decide, e soprattutto il primo non è accettato. */
+    {"pi called less than 3.14159", CK_UNSUPPORTED, "segno", PARTIAL(TERM_AT("A", "(* x y)", " y", "x", "x (pi) y 1"), COMPARE("<", "A", "(/ 314159 100000)"))},
+    {"pi called greater than 3.14159", CK_UNSUPPORTED, "segno", PARTIAL(TERM_AT("A", "(* x y)", " y", "x", "x (pi) y 1"), COMPARE("<", "(/ 314159 100000)", "A"))},
+    {"a term without a point that does not exist everywhere", CK_UNSUPPORTED, "definiti", PARTIAL(TERM("A", "(- (ln x) (ln x))", " x", "0"), COMPARE("<=", "A", "0"))},
+    {"a member with a letter under a logarithm", CK_UNSUPPORTED, "definiti", PARTIAL("", COMPARE("<", "(- (ln x) (ln x))", "1"))},
     {"nine letters of differentiation", CK_UNSUPPORTED, "ordine", PARTIAL(TERM("A", "(^ x 9)", " x x x x x x x x x", "362880"), CLAIM("A", "362880"))},
     {"an operator the verifier does not know", CK_UNSUPPORTED, "operatore", PARTIAL(TERM("A", "(sinh x)", " x", "(cosh x)"), CLAIM("A", "(cosh x)"))},
 };

@@ -1,0 +1,38 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{False statements on constrained extrema (18)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+The first two items are values printed wrong in the collections of solved exercises; the others are true statements of \texttt{constrained\_extrema.tex} changed by little: the multiplier, the sign or the value of the bordered determinant, the point. None may be proved, and every one is to be called false.
+
+\begin{enumerate}
+\item $\displaystyle f(x, y) = x^{2} + 4y^{2} \implies f(0, 1) = 2$
+\item $\displaystyle f(x, y) = x^{2} - y \implies f\left( -\frac{1}{2}, \frac{1}{2} \right) = -\frac{1}{2}$
+\item $\displaystyle f(x, y) = (x - 1)^{2} y + (y - 2)^{2} - 4, g(x, y) = y - 9 + (x - 1)^{2}, L(x, y) = f(x, y) - 13 g(x, y) \implies g(1, 9) = 0 \land \nabla L(1, 9) = (0, 0) \land \det \begin{pmatrix} 0 & g_{x}(1, 9) & g_{y}(1, 9) \\ g_{x}(1, 9) & L_{xx}(1, 9) & L_{xy}(1, 9) \\ g_{y}(1, 9) & L_{yx}(1, 9) & L_{yy}(1, 9) \end{pmatrix} > 0$
+\item $\displaystyle f(x, y) = xy, g(x, y) = 3x^{2} - 4x - 1 - y, L(x, y) = f(x, y) - g(x, y) \implies g(1, -2) = 0 \land \nabla L(1, -2) = (0, 0) \land \det \begin{pmatrix} 0 & g_{x}(1, -2) & g_{y}(1, -2) \\ g_{x}(1, -2) & L_{xx}(1, -2) & L_{xy}(1, -2) \\ g_{y}(1, -2) & L_{yx}(1, -2) & L_{yy}(1, -2) \end{pmatrix} < 0$
+\item $\displaystyle f(x, y) = x^{2} + 4y^{2}, g(x, y) = x^{2} + y^{2} - 1, L(x, y) = f(x, y) - 3 g(x, y) \implies g(0, 1) = 0 \land \nabla L(0, 1) = (0, 0) \land \det \begin{pmatrix} 0 & g_{x}(0, 1) & g_{y}(0, 1) \\ g_{x}(0, 1) & L_{xx}(0, 1) & L_{xy}(0, 1) \\ g_{y}(0, 1) & L_{yx}(0, 1) & L_{yy}(0, 1) \end{pmatrix} > 0$
+\item $\displaystyle f(x, y) = (x - 1)^{2} y + (y - 2)^{2} - 4, g(x, y) = y - 9 + (x - 1)^{2}, L(x, y) = f(x, y) - 14 g(x, y) \implies g(1, 9) = 0 \land \nabla L(1, 9) = (0, 0) \land \det \begin{pmatrix} 0 & g_{x}(1, 9) & g_{y}(1, 9) \\ g_{x}(1, 9) & L_{xx}(1, 9) & L_{xy}(1, 9) \\ g_{y}(1, 9) & L_{yx}(1, 9) & L_{yy}(1, 9) \end{pmatrix} < 0$
+\item $\displaystyle f(x, y) = x + y, g(x, y) = xy - 1, L(x, y) = f(x, y) - g(x, y) \implies g(1, 1) = 0 \land \nabla L(1, 1) = (0, 0) \land \det \begin{pmatrix} 0 & g_{x}(1, 1) & g_{y}(1, 1) \\ g_{x}(1, 1) & L_{xx}(1, 1) & L_{xy}(1, 1) \\ g_{y}(1, 1) & L_{yx}(1, 1) & L_{yy}(1, 1) \end{pmatrix} > 0$
+\item $\displaystyle f(x, y) = xy, g(x, y) = 3x^{2} - 4x - 1 - y, L(x, y) = f(x, y) + g(x, y) \implies g(1, -2) = 0 \land \nabla L(1, -2) = (0, 0) \land \det \begin{pmatrix} 0 & g_{x}(1, -2) & g_{y}(1, -2) \\ g_{x}(1, -2) & L_{xx}(1, -2) & L_{xy}(1, -2) \\ g_{y}(1, -2) & L_{yx}(1, -2) & L_{yy}(1, -2) \end{pmatrix} = 10$
+\item $\displaystyle f(x, y) = 25 - x^{2} - y^{2}, g(x, y) = 4 - 2x - y, L(x, y) = f(x, y) - \frac{8}{5} g(x, y) \implies g\left( \frac{8}{5}, \frac{4}{5} \right) = 0 \land \nabla L\left( \frac{8}{5}, \frac{4}{5} \right) = (0, 0) \land \det \begin{pmatrix} 0 & g_{x}\left( \frac{8}{5}, \frac{4}{5} \right) & g_{y}\left( \frac{8}{5}, \frac{4}{5} \right) \\ g_{x}\left( \frac{8}{5}, \frac{4}{5} \right) & L_{xx}\left( \frac{8}{5}, \frac{4}{5} \right) & L_{xy}\left( \frac{8}{5}, \frac{4}{5} \right) \\ g_{y}\left( \frac{8}{5}, \frac{4}{5} \right) & L_{yx}\left( \frac{8}{5}, \frac{4}{5} \right) & L_{yy}\left( \frac{8}{5}, \frac{4}{5} \right) \end{pmatrix} = -10$
+\item $\displaystyle f(x, y) = x^{2} + 4y^{2}, g(x, y) = x^{2} + y^{2} - 1, L(x, y) = f(x, y) - 4 g(x, y) \implies g(0, 1) = 0 \land \nabla L(0, 1) = (0, 0) \land \det \begin{pmatrix} 0 & g_{x}(0, 1) & g_{y}(0, 1) \\ g_{x}(0, 1) & L_{xx}(0, 1) & L_{xy}(0, 1) \\ g_{y}(0, 1) & L_{yx}(0, 1) & L_{yy}(0, 1) \end{pmatrix} = -24$
+\item $\displaystyle f(x, y) = x^{3} + 2y^{2}, g(x, y) = x^{2} + y^{2} - 4, L(x, y) = f(x, y) + 3 g(x, y) \implies g(-2, 0) = 0 \land \nabla L(-2, 0) = (0, 0) \land \det \begin{pmatrix} 0 & g_{x}(-2, 0) & g_{y}(-2, 0) \\ g_{x}(-2, 0) & L_{xx}(-2, 0) & L_{xy}(-2, 0) \\ g_{y}(-2, 0) & L_{yx}(-2, 0) & L_{yy}(-2, 0) \end{pmatrix} > 0$
+\item $\displaystyle f(x, y) = x^{2} - y - 2x, g(x, y) = x^{2} + y^{2} - 2x, L(x, y) = f(x, y) - g(x, y) \implies g\left( 1 + \frac{\sqrt{3}}{2}, -\frac{1}{2} \right) = 0 \land \nabla L\left( 1 + \frac{\sqrt{3}}{2}, -\frac{1}{2} \right) = (0, 0) \land \det \begin{pmatrix} 0 & g_{x}\left( 1 + \frac{\sqrt{3}}{2}, -\frac{1}{2} \right) & g_{y}\left( 1 + \frac{\sqrt{3}}{2}, -\frac{1}{2} \right) \\ g_{x}\left( 1 + \frac{\sqrt{3}}{2}, -\frac{1}{2} \right) & L_{xx}\left( 1 + \frac{\sqrt{3}}{2}, -\frac{1}{2} \right) & L_{xy}\left( 1 + \frac{\sqrt{3}}{2}, -\frac{1}{2} \right) \\ g_{y}\left( 1 + \frac{\sqrt{3}}{2}, -\frac{1}{2} \right) & L_{yx}\left( 1 + \frac{\sqrt{3}}{2}, -\frac{1}{2} \right) & L_{yy}\left( 1 + \frac{\sqrt{3}}{2}, -\frac{1}{2} \right) \end{pmatrix} < 0$
+\item $\displaystyle f(x, y) = x^{2} - y - 2x, g(x, y) = x^{2} + y^{2} - 2x, L(x, y) = f(x, y) + \frac{1}{2} g(x, y) \implies g(1, 2) = 0 \land \nabla L(1, 2) = (0, 0) \land \det \begin{pmatrix} 0 & g_{x}(1, 2) & g_{y}(1, 2) \\ g_{x}(1, 2) & L_{xx}(1, 2) & L_{xy}(1, 2) \\ g_{y}(1, 2) & L_{yx}(1, 2) & L_{yy}(1, 2) \end{pmatrix} < 0$
+\item $\displaystyle f(x, y) = y - x^{2} - \frac{7}{4} x, g(x, y) = 2x - y^{2}, L(x, y) = f(x, y) + g(x, y) \implies g\left( \frac{1}{8}, -\frac{1}{2} \right) = 0 \land \nabla L\left( \frac{1}{8}, -\frac{1}{2} \right) = (0, 0) \land \det \begin{pmatrix} 0 & g_{x}\left( \frac{1}{8}, -\frac{1}{2} \right) & g_{y}\left( \frac{1}{8}, -\frac{1}{2} \right) \\ g_{x}\left( \frac{1}{8}, -\frac{1}{2} \right) & L_{xx}\left( \frac{1}{8}, -\frac{1}{2} \right) & L_{xy}\left( \frac{1}{8}, -\frac{1}{2} \right) \\ g_{y}\left( \frac{1}{8}, -\frac{1}{2} \right) & L_{yx}\left( \frac{1}{8}, -\frac{1}{2} \right) & L_{yy}\left( \frac{1}{8}, -\frac{1}{2} \right) \end{pmatrix} > 0$
+\item $\displaystyle f(x, y) = x^{2} + 4y^{2}, g(x, y) = x^{2} + y^{2} - 1, L(x, y) = f(x, y) - 4 g(x, y) \implies g(1, 0) = 0 \land \nabla L(1, 0) = (0, 0) \land \det \begin{pmatrix} 0 & g_{x}(1, 0) & g_{y}(1, 0) \\ g_{x}(1, 0) & L_{xx}(1, 0) & L_{xy}(1, 0) \\ g_{y}(1, 0) & L_{yx}(1, 0) & L_{yy}(1, 0) \end{pmatrix} < 0$
+\item $\displaystyle f(x, y) = y - x^{2} - \frac{7}{4} x, g(x, y) = 2x - y^{2}, L(x, y) = f(x, y) + g(x, y) \implies g\left( \frac{1}{8}, \frac{1}{2} \right) = 0 \land \nabla L\left( \frac{1}{8}, \frac{1}{2} \right) = (0, 0) \land \det \begin{pmatrix} 0 & g_{x}\left( \frac{1}{8}, \frac{1}{2} \right) & g_{y}\left( \frac{1}{8}, \frac{1}{2} \right) \\ g_{x}\left( \frac{1}{8}, \frac{1}{2} \right) & L_{xx}\left( \frac{1}{8}, \frac{1}{2} \right) & L_{xy}\left( \frac{1}{8}, \frac{1}{2} \right) \\ g_{y}\left( \frac{1}{8}, \frac{1}{2} \right) & L_{yx}\left( \frac{1}{8}, \frac{1}{2} \right) & L_{yy}\left( \frac{1}{8}, \frac{1}{2} \right) \end{pmatrix} = 9$
+\item $\displaystyle f(x, y) = xy, g(x, y) = 3x^{2} - 4x - 1 - y, L(x, y) = f(x, y) - \frac{1}{9} g(x, y) \implies g\left( -\frac{1}{9}, -\frac{14}{27} \right) = 0 \land \nabla L\left( -\frac{1}{9}, -\frac{14}{27} \right) = (0, 0) \land \det \begin{pmatrix} 0 & g_{x}\left( -\frac{1}{9}, -\frac{14}{27} \right) & g_{y}\left( -\frac{1}{9}, -\frac{14}{27} \right) \\ g_{x}\left( -\frac{1}{9}, -\frac{14}{27} \right) & L_{xx}\left( -\frac{1}{9}, -\frac{14}{27} \right) & L_{xy}\left( -\frac{1}{9}, -\frac{14}{27} \right) \\ g_{y}\left( -\frac{1}{9}, -\frac{14}{27} \right) & L_{yx}\left( -\frac{1}{9}, -\frac{14}{27} \right) & L_{yy}\left( -\frac{1}{9}, -\frac{14}{27} \right) \end{pmatrix} = -10$
+\item $\displaystyle f(x, y) = x^{3} + 2y^{2} \implies f(2, 0) < f(-2, 0)$
+\end{enumerate}
+\end{document}

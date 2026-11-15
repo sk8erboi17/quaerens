@@ -1,0 +1,34 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_constrained\_extrema.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_constrained\_extrema.tex} is used for. The file is read by \texttt{test\_multivariable\_calculus.c}.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 18 false statements on extrema with one constraint. None may be proved: a constrained minimum certified as a maximum would be a false proof.
+
+\item \textbf{The items.} Items 1--2: values printed wrong in the collections (Northwestern, page 1: $f(0, 1) = 4$, not $2$; Vitali 2: $f(-\frac{1}{2}, \frac{1}{2}) = -\frac{1}{4}$, not $-\frac{1}{2}$). Items 3--5: a wrong multiplier, so that the gradient of the Lagrangian does not vanish. Items 6--12: the sign or the value of the bordered determinant reversed, a maximum called a minimum and the other way. Items 13--15: a point off the constraint, or on it but not stationary. Items 16--18: a value changed by little.
+
+\item \textbf{Expected result.} Every statement is called false, with a counterexample.
+
+\item \textbf{How it was checked.} The independent oracle of \texttt{tools/fuzz/fuzz\_multivariable.py} (mode \texttt{check}) finds every statement false.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_multivariable_calculus \
+    tests/multivariable_calculus/test_multivariable_calculus.c && \
+    /tmp/test_multivariable_calculus
+\end{verbatim}
+\end{enumerate}
+\end{document}

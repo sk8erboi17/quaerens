@@ -1,4 +1,4 @@
-"""Fuzzing differenziale degli enunciati sulle funzioni di più variabili (capitoli 34 e 35 di main.c, 18 di checker.c).
+"""Fuzzing differenziale degli enunciati sulle funzioni di più variabili (capitolo 34 di parser.c, 35 e 36 di main.c, 18 di checker.c).
 
 Uso:
 
@@ -13,8 +13,15 @@ Uso:
       miste; e richieste senza il segno di uguale. Da ogni enunciato vero
       ricava varianti alterate: un numero, un segno, un termine tolto, le
       variabili scambiate, una derivata in meno, il punto o un valore
-      cambiato. Li scrive in un file .tex nella cartella di lavoro, li fa
-      decidere al programma e confronta i verdetti con l'oracolo.
+      cambiato. In più, per i punti critici (35g e capitolo 36): le
+      condizioni del secondo ordine in un punto (il gradiente nullo, il
+      segno del determinante dell'hessiana, di f_xx e, con tre variabili,
+      del minore di lato 2 scritto come tabella), con i segni veri o con uno
+      cambiato; confronti tra numeri, anche con il determinante di una
+      tabella; e la richiesta dei punti critici di funzioni costruite in
+      modo da conoscerli tutti. Li scrive in un file .tex nella cartella di
+      lavoro, li fa decidere al programma e confronta i verdetti con
+      l'oracolo.
 
   python3 -I fuzz_multivariable.py check <eseguibile> <file .tex>...
       Rilegge con il lettore di questo file ogni enunciato dei file, dice se
@@ -25,21 +32,41 @@ Uso:
   python3 -I fuzz_multivariable.py certificates <checker> <seme> <quanti> <cartella di lavoro> <file .cert>...
       Dai certificati "partial" scritti da mathresearcher --certificates
       ricava <quanti> certificati alterati (un numero, un operatore, una
-      lettera di derivazione, una coordinata, un termine di una somma) e li
-      fa controllare al verificatore. Di ognuno che viene ACCETTATO l'oracolo
+      lettera di derivazione, una coordinata, un termine di una somma, i due
+      membri di una tesi scambiati o la sua relazione cambiata) e li fa
+      controllare al verificatore. Di ognuno che viene ACCETTATO l'oracolo
       decide da sé se ciò che afferma è vero.
 
 L'oracolo non usa il programma. Legge il LaTeX e i certificati con lettori
 suoi, scritti sulla grammatica dei commenti (capitoli 9 e 34 di parser.c, 6 e
 18 di checker.c) e non sul loro codice; deriva con regole sue, sull'albero; e
-confronta i due membri di ogni tesi in punti razionali a caso in cui le
+confronta i due membri di ogni tesi in 24 punti razionali a caso in cui le
 funzioni sono regolari: con le frazioni esatte di Python quando l'enunciato
 ha solo operazioni razionali (e radici di quadrati perfetti), altrimenti in
 virgola mobile, dove due numeri che differiscono meno di 10^-9 della loro
 grandezza sono uguali, più di 10^-6 sono diversi, e in mezzo l'oracolo non
 decide. Un enunciato su un punto in cui la funzione non è definita è falso;
 dove è definita ma non regolare (un radicando o l'argomento di un valore
-assoluto che vale zero) la derivata può esistere, e l'oracolo non decide.
+assoluto che vale zero) la derivata può esistere, e l'oracolo non decide;
+e non decide dove il conto esce dai float, che non vuol dire "non definita".
+Una funzione definita con la derivata di un'altra esiste solo dove esiste
+quell'altra, e così un termine di un certificato che ne nomina uno senza
+punto.
+
+Un confronto tra due numeri (<, >, \\le, \\ge, \\neq) è il segno di una
+differenza: esatto con le frazioni, e con i float deciso solo quando i due
+numeri sono di sicuro diversi. Un determinante si calcola con l'eliminazione
+di Gauss, non con lo sviluppo lungo una riga che fa il programma.
+
+La risposta alla richiesta dei punti critici si confronta con il gradiente
+punto per punto, nei due versi (dove dice "critico" il gradiente deve essere
+nullo, e dove il gradiente è nullo deve dirlo): su una griglia di razionali,
+nei punti che la risposta elenca, in qualche punto di ogni retta "x = r" che
+la risposta dichiara e, in modalità fuzz, nei punti critici che la funzione
+ha per come è stata costruita. Una ricerca con il metodo di
+Newton cerca punti critici che la risposta non dice: uno trovato così è
+approssimato, e dà una riga SUSPECT, non BUG. Non è una dimostrazione che
+l'elenco sia completo.
 
 Righe stampate:
 
@@ -79,6 +106,13 @@ class Irregular(Undefined):
     """Un'espressione che in un punto ha un valore ma non è regolare: un
     radicando, o l'argomento di un valore assoluto, che vale zero. Lì le
     regole non danno la derivata, che può esistere lo stesso."""
+
+
+class Overflow(Undefined):
+    """Un conto uscito dai float (e^{x^4} con x = 9): l'espressione lì può
+    essere definita, ma l'oracolo non sa quanto vale. Chi sceglie i punti a
+    caso ne prova un altro, come per Undefined; chi guarda un punto dato non
+    decide."""
 
 
 class Unreadable(Exception):
@@ -196,6 +230,27 @@ def exact_root(q, n):
     return None if top is None or bottom is None else Fr(top, bottom)
 
 
+def determinant(values, n):
+    """Il determinante della matrice n x n dei numeri values, scritti per
+    righe. Eliminazione di Gauss con scambio di righe: esatta sulle frazioni,
+    e un conto diverso dallo sviluppo lungo una riga che fa il programma."""
+    rows = [list(values[r * n:(r + 1) * n]) for r in range(n)]
+    result = Fr(1)
+    for k in range(n):
+        pivot = max(range(k, n), key=lambda r: abs(rows[r][k]))
+        if rows[pivot][k] == 0:
+            return Fr(0) if all(isinstance(v, Fr) for v in values) else 0.0
+        if pivot != k:
+            rows[k], rows[pivot] = rows[pivot], rows[k]
+            result = -result
+        result = result * rows[k][k]
+        for r in range(k + 1, n):
+            factor = rows[r][k] / rows[k][k]
+            for c in range(k, n):
+                rows[r][c] = rows[r][c] - factor * rows[k][c]
+    return result
+
+
 def val(e, env):
     """Il valore di e, esatto (Fraction) quando si può, altrimenti float.
     Solleva Undefined dove e non è definita (un divisore nullo, un logaritmo
@@ -214,6 +269,8 @@ def val(e, env):
             return math.pi
         if op == "neg":
             return -val(e[1], env)
+        if op == "det":
+            return determinant([val(c, env) for c in e[2:]], e[1])
         if op == "root":
             a = val(e[2], env)
             if a == 0:
@@ -230,6 +287,12 @@ def val(e, env):
                 if a == 0:
                     raise Irregular
                 return abs(a)
+            # I valori che sono razionali restano esatti: e^0, ln 1, e in zero
+            # il seno, la tangente, l'arcotangente, l'arcoseno e il coseno.
+            # Così il segno di una derivata di e^{g} in un punto in cui g = 0
+            # si legge da una frazione, non da un float.
+            if isinstance(a, Fr) and a == (1 if name == "ln" else 0) and name in ("exp", "ln", "sin", "tan", "atan", "asin", "cos"):
+                return Fr(1 if name in ("exp", "cos") else 0)
             a = float(a)
             if name == "exp":
                 return math.exp(a)
@@ -249,6 +312,12 @@ def val(e, env):
         if op == "sub":
             return a - b
         if op == "mul":
+            # Zero per un numero qualsiasi è zero, esatto: i due fattori sono
+            # già stati calcolati, quindi sono definiti. Così e^{g} (2x - 1) in
+            # x = 1/2 vale la frazione 0, non il float 0.0, e il confronto con
+            # zero si decide.
+            if (isinstance(a, Fr) and a == 0) or (isinstance(b, Fr) and b == 0):
+                return Fr(0)
             return a * b
         if op == "div":
             if b == 0:
@@ -266,7 +335,9 @@ def val(e, env):
             if a < 0:
                 raise Undefined
             return float(a) ** float(b)
-    except (OverflowError, ZeroDivisionError, ValueError, KeyError):
+    except OverflowError:
+        raise Overflow
+    except (ZeroDivisionError, ValueError, KeyError):
         raise Undefined
     raise Unreadable(op)
 
@@ -288,6 +359,24 @@ def same(left, right):
         return None
     gap, size = abs(left - right), max(1.0, abs(left), abs(right))
     return True if gap <= 1e-9 * size else False if gap > 1e-6 * size else None
+
+
+def compare(left, right, relation):
+    """True se vale "left relation right" tra due numeri, False se non vale,
+    None se non si sa. Con le frazioni il segno della differenza è esatto.
+    Con i float si sa solo quando i due numeri sono di sicuro diversi: due
+    float uguali entro 10^-9 possono essere lo stesso numero o no, e un
+    confronto diverso dall'uguaglianza non si decide."""
+    equal = same(left, right)
+    if relation == "=":
+        return equal
+    if isinstance(left, Fr) and isinstance(right, Fr):
+        side = (left > right) - (left < right)
+    elif equal is not False:
+        return None
+    else:
+        side = 1 if float(left) > float(right) else -1
+    return {"!=": side != 0, "<": side < 0, "<=": side <= 0, ">": side > 0, ">=": side >= 0}[relation]
 
 
 def letters(e, out=None):
@@ -349,6 +438,7 @@ def wrapped(e):
 
 FUNCTIONS = {"sin": "sin", "cos": "cos", "tan": "tan", "cot": "cot", "arctan": "atan", "arcsin": "asin", "arccos": "acos", "ln": "ln"}
 SKIPPED = {"displaystyle", "textstyle", "quad", "qquad", "dfrac", "tfrac"}
+RELATIONS = {"neq": "!=", "ne": "!=", "le": "<=", "leq": "<=", "ge": ">=", "geq": ">="}
 
 
 def tokens(text):
@@ -370,6 +460,10 @@ def tokens(text):
         elif c == "\\":
             if text[i + 1:i + 2] == "\\":
                 out.append(("ROW", ""))
+                i += 2
+                continue
+            if text[i + 1:i + 2] in ("{", "}"):
+                out.append(("SET", text[i + 1]))      # \{ e \}: le graffe di un insieme
                 i += 2
                 continue
             if not text[i + 1:i + 2].isalpha():
@@ -485,10 +579,64 @@ class Reader:
             return self.operand(None, body, by, None)
         return self.operand(name, None, by, self.point(self.functions[name]))
 
+    def hessian_ahead(self):
+        """True se da qui comincia H_{f} o H_f, con H che non è una funzione dichiarata."""
+        return self.at("LET", "H") and "H" not in self.functions and self.t[self.i + 1] == ("CH", "_")
+
+    def hessian(self):
+        """H_{f} o H_f [punto]: ritorna il nome di f e le derivate seconde, per righe."""
+        self.i += 2
+        braces = self.at("CH", "{")
+        if braces:
+            self.take()
+        name = self.expect("LET")[1]
+        if braces:
+            self.expect("CH", "}")
+        f = self.functions[name]
+        where = self.point(f)
+        return name, [self.operand(name, None, [r, c], where) for r in f[0] for c in f[0]]
+
+    def table(self):
+        """Dopo \\begin{...}: gli elementi per righe fino a \\end{...}; ritorna (elementi, righe, colonne)."""
+        rows = [[]]
+        while True:
+            rows[-1].append(self.expr())
+            if self.at("CH", "&"):
+                self.take()
+            elif self.at("ROW"):
+                self.take()
+                if self.at("END"):
+                    break
+                rows.append([])
+            else:
+                break
+        self.expect("END")
+        if any(len(r) != len(rows[0]) for r in rows):
+            raise Unreadable("righe di una tabella")
+        return [e for r in rows for e in r], len(rows), len(rows[0])
+
+    def det(self, entries, rows, columns):
+        """Il determinante di una tabella quadrata: ("det", lato, elementi...)."""
+        if rows != columns or rows > 4:
+            raise Unreadable("determinante di una tabella non quadrata, o di lato oltre 4")
+        return ("det", rows) + tuple(entries)
+
     def primary(self):
         kind, value = self.take()
         if kind == "NUM":
             return num(int(value))
+        if kind == "BEGIN":
+            if value != "vmatrix":
+                raise Unreadable("una tabella dentro un'espressione")
+            return self.det(*self.table())
+        if kind == "CMD" and value == "det":
+            if self.hessian_ahead():
+                name, entries = self.hessian()
+                return self.det(entries, len(self.functions[name][0]), len(self.functions[name][0]))
+            kind, value = self.take()
+            if kind != "BEGIN" or value not in ("pmatrix", "bmatrix", "matrix"):
+                raise Unreadable("\\det seguito da altro")
+            return self.det(*self.table())
         if kind == "LET":
             if value in self.functions:
                 by = []
@@ -607,8 +755,41 @@ class Reader:
             self.expect("END")
         return out
 
+    def relation(self):
+        """Il segno tra i due membri di una tesi, se c'è: "=", "!=", "<", "<=", ">", ">="."""
+        if self.at("CH", "=") or self.at("CH", "<") or self.at("CH", ">"):
+            return self.take()[1]
+        if self.at("CMD") and self.peek()[1] in RELATIONS:
+            return RELATIONS[self.take()[1]]
+        return None
+
+    def critical(self):
+        """\\{(x, y) \\mid \\nabla f(x, y) = (0, 0)\\}: ritorna le componenti del gradiente di f."""
+        self.expect("SET", "{")
+        self.expect("OPEN")
+        unknowns = [self.expect("LET")[1]]
+        while self.at("CH", ","):
+            self.take()
+            unknowns.append(self.expect("LET")[1])
+        self.expect("CLOSE")
+        self.expect("CMD", "mid")
+        self.expect("CMD", "nabla")
+        name = self.expect("LET")[1]
+        f = self.functions[name]
+        if unknowns != f[0] or self.point(f) is not None:
+            raise Unreadable("le incognite non sono le variabili della funzione")
+        self.expect("CH", "=")
+        zeros = self.components("gradient", len(unknowns), len(unknowns))
+        if any(not is_num(z, 0) for z in zeros):
+            raise Unreadable("gradiente uguale a qualcosa che non è zero")
+        self.expect("SET", "}")
+        return [self.operand(name, None, [v], None) for v in unknowns]
+
     def statement(self):
-        """Ritorna (richiesta, tesi): le tesi sono coppie (primo membro, secondo membro o None)."""
+        """Ritorna (richiesta, tesi): le tesi sono terne (primo membro, secondo
+        membro o None, relazione). La richiesta è None, "value", "gradient",
+        "hessian" o "critical" (i punti critici: le tesi sono le componenti
+        del gradiente)."""
         # Le definizioni, se dopo c'è \implies.
         if ("CMD", "implies") in self.t:
             while True:
@@ -627,36 +808,32 @@ class Reader:
                 self.take()
             self.expect("CMD", "implies")
         claims, request = [], None
-        while True:
+        if self.at("SET", "{"):
+            claims, request = [(l, None, "=") for l in self.critical()], "critical"
+        while request != "critical":
             shape, left = "value", None
             if self.at("CMD", "nabla"):
                 self.take()
                 shape = "gradient"
-            elif self.at("LET", "H") and "H" not in self.functions and self.t[self.i + 1] == ("CH", "_"):
-                self.i += 2
-                braces = self.at("CH", "{")
-                if braces:
-                    self.take()
-                shape = "hessian"
-            if shape != "value":
                 name = self.expect("LET")[1]
-                if shape == "hessian" and braces:
-                    self.expect("CH", "}")
                 f = self.functions[name]
                 where, n = self.point(f), len(f[0])
-                if shape == "gradient":
-                    left = [self.operand(name, None, [v], where) for v in f[0]]
-                else:
-                    left = [self.operand(name, None, [r, c], where) for r in f[0] for c in f[0]]
+                left = [self.operand(name, None, [v], where) for v in f[0]]
+            elif self.hessian_ahead():
+                shape = "hessian"
+                name, left = self.hessian()
+                n = len(self.functions[name][0])
             else:
                 left, n = [self.expr()], 1
-            if not self.at("CH", "="):
+            sign = self.relation()
+            if sign is None:
                 request = shape
-                claims += [(l, None) for l in left]
+                claims += [(l, None, "=") for l in left]
                 break
-            self.take()
+            if shape != "value" and sign != "=":
+                raise Unreadable("un gradiente o un'hessiana in un confronto")
             right = [self.expr()] if shape == "value" else self.components(shape, len(left), n)
-            claims += list(zip(left, right))
+            claims += [(l, r, sign) for l, r in zip(left, right)]
             if not self.at("CMD", "land"):
                 break
             self.take()
@@ -668,9 +845,25 @@ class Reader:
 # 4. L'oracolo: gli operandi, poi le tesi nei punti a caso.
 # ----------------------------------------------------------------------------
 
+def named(e, out):
+    """Aggiunge a out gli operandi che compaiono in e."""
+    if e[0] == "op":
+        out.add(e[1])
+    for c in e[1:]:
+        if isinstance(c, tuple):
+            named(c, out)
+    return out
+
+
 def resolve(reader):
-    """Per ogni operando, nell'ordine: (funzione nel punto, valore), alberi senza operandi."""
-    values = []
+    """Per ogni operando, nell'ordine: (funzione nel punto, valore), alberi
+    senza operandi; e dove l'operando esiste, come elenco di alberi che devono
+    essere tutti regolari: la sua funzione nel suo punto e, per ogni operando
+    che la sua funzione o il suo punto nominano, gli alberi di quello con il
+    punto di questo al posto delle variabili. Con g = ln x e f = g_x + x, la
+    funzione f è 1/x + x solo dove g esiste: f in (-1, 0) non c'è, anche se
+    lì 1/x + x ha un valore."""
+    values, domains = [], []
 
     def placed(e):
         if e[0] == "op":
@@ -679,13 +872,17 @@ def resolve(reader):
 
     for name, body, by, where in reader.operands:
         variables, body = reader.functions[name] if name is not None else ([], body)
+        inner = named(body, set())
+        for coordinate in where or []:
+            named(coordinate, inner)
         body = placed(body)
         derivative = body
         for letter in by:
             derivative = diff(derivative, letter)
         mapping = dict(zip(variables, [placed(c) for c in where])) if where else {}
         values.append((subst(body, mapping), subst(derivative, mapping)))
-    return values, placed
+        domains.append([values[-1][0]] + [subst(t, mapping) for j in sorted(inner) for t in domains[j]])
+    return values, placed, domains
 
 
 def sample(rnd, names):
@@ -695,53 +892,48 @@ def sample(rnd, names):
     return {name: Fr(rnd.randint(-9, 9), rnd.randint(low, high)) for name in names}
 
 
-def needed(e, reader, out):
-    """Aggiunge a out gli operandi da cui e dipende: quelli che contiene, e
-    quelli scritti nelle loro funzioni e nei loro punti."""
-    if e[0] == "op" and e[1] not in out:
-        out.add(e[1])
-        name, body, by, where = reader.operands[e[1]]
-        needed(reader.functions[name][1] if name is not None else body, reader, out)
-        for coordinate in where or []:
-            needed(coordinate, reader, out)
-    for c in e[1:]:
-        if isinstance(c, tuple):
-            needed(c, reader, out)
-    return out
+# In quanti punti a caso l'oracolo guarda una tesi prima di dirla vera. Erano
+# 8, e non bastavano: g(u, v) = sqrt(u^2) v con la tesi g_u = v è falsa solo
+# per u < 0, e otto punti tutti con u > 0 (o con v = 0) sono capitati 24
+# volte su 3000 semi provati. Così l'oracolo diceva "vero" di un enunciato che il
+# programma, con ragione, dichiarava falso (una riga BUG sul seme 65004); e
+# allo stesso modo avrebbe potuto non vedere un falso dimostrato.
+POINTS = 24
 
 
 def truth(reader, claims, rnd):
     """True, False o None per un enunciato già letto, con tutte le tesi complete.
     Ogni tesi è affermata dove sono regolari le funzioni dei suoi operandi, e
     solo loro: si guarda in punti a caso scelti così, una tesi alla volta."""
-    values, placed = resolve(reader)
+    values, placed, domains = resolve(reader)
     unsure = False
-    for l, r in claims:
-        mine = [values[k] for k in sorted(needed(l, reader, needed(r, reader, set())))]
+    for l, r, relation in claims:
+        mine = sorted(named(l, named(r, set())))
+        exist = [t for k in mine for t in domains[k]] + [values[k][1] for k in mine]
         left, right = placed(l), placed(r)
-        names = sorted(set().union(letters(left), letters(right), *[letters(f) | letters(d) for f, d in mine]))
+        names = sorted(set().union(letters(left), letters(right), *[letters(t) for t in exist]))
         found = 0
         for attempt in range(400):
             env = sample(rnd, names)
             try:
-                for function, derivative in mine:
-                    val(function, env)
-                    val(derivative, env)
+                for tree in exist:
+                    val(tree, env)
                 pair = (val(left, env), val(right, env))
             except Undefined as problem:
                 if not names:
                     # Un punto scritto in cui una funzione non è definita: falso. Dove
-                    # è solo non regolare la derivata può esistere: l'oracolo non decide.
-                    return None if isinstance(problem, Irregular) else False
+                    # è solo non regolare la derivata può esistere, e dove il conto
+                    # esce dai float non si sa: l'oracolo non decide.
+                    return None if isinstance(problem, (Irregular, Overflow)) else False
                 continue
             if names and not (finite(pair[0]) and finite(pair[1])):
                 continue        # un punto in cui i float non bastano (e^{3 x^2 y^2 z} con x = 9): se ne prova un altro
             found += 1
-            equal = same(*pair)
-            if equal is False:
+            holds = compare(pair[0], pair[1], relation)
+            if holds is False:
                 return False
-            unsure = unsure or equal is None
-            if found == 8 or not names:
+            unsure = unsure or holds is None
+            if found == POINTS or not names:
                 break
         unsure = unsure or found < (2 if names else 1)
     return None if unsure else True
@@ -759,8 +951,204 @@ def answer_wrong(reader, claims, answer, rnd):
         return None
     if len(parts) != len(claims):
         return None
-    verdict = truth(reader, [(left, part) for (left, _), part in zip(claims, parts)], rnd)
+    verdict = truth(reader, [(claim[0], part, "=") for claim, part in zip(claims, parts)], rnd)
     return None if verdict is None else not verdict
+
+
+# I punti in cui la risposta sui punti critici viene confrontata con il
+# gradiente: una griglia di razionali piccoli, la stessa per ogni richiesta.
+GRID = sorted({Fr(n, d) for d in (1, 2, 3) for n in range(-4 * d, 4 * d + 1)})
+
+# I valori dell'incognita libera in cui si guarda una retta di punti critici
+# che la risposta dichiara (critical_wrong()).
+LINE = [Fr(-3, 2), Fr(0), Fr(1, 3), Fr(2)]
+
+
+def condition(reader):
+    """Legge la condizione che il programma scrive per dire dove il gradiente
+    è nullo: confronti tra espressioni, uniti da \\land e \\lor, con le
+    parentesi. Ritorna ("or" | "and", a, b) o ("cmp", relazione, a, b)."""
+    def atom():
+        if reader.at("OPEN"):
+            mark = reader.i
+            reader.take()
+            try:
+                inner = disjunction()
+                reader.expect("CLOSE")
+                return inner
+            except Unreadable:
+                reader.i = mark     # era la parentesi di un'espressione
+        left = reader.expr()
+        sign = reader.relation()
+        if sign is None:
+            raise Unreadable("condizione senza relazione")
+        middle = reader.expr()
+        first = ("cmp", sign, left, middle)
+        again = reader.relation()       # una catena, 0 < x < 1: i due confronti insieme
+        return first if again is None else ("and", first, ("cmp", again, middle, reader.expr()))
+
+    def conjunction():
+        e = atom()
+        while reader.at("CMD", "land"):
+            reader.take()
+            e = ("and", e, atom())
+        return e
+
+    def disjunction():
+        e = conjunction()
+        while reader.at("CMD", "lor"):
+            reader.take()
+            e = ("or", e, conjunction())
+        return e
+
+    e = disjunction()
+    reader.expect("END")
+    return e
+
+
+def satisfied(c, env):
+    """True, False o None: la condizione c nel punto env. Un'uguaglianza tra
+    float vale se la differenza è sotto 10^-7, non vale sopra 10^-4."""
+    if c[0] in ("and", "or"):
+        a, b = satisfied(c[1], env), satisfied(c[2], env)
+        decisive = c[0] == "or"
+        return decisive if a is decisive or b is decisive else None if a is None or b is None else not decisive
+    try:
+        left, right = val(c[2], env), val(c[3], env)
+    except Overflow:
+        return None
+    except Undefined:
+        return False
+    if isinstance(left, Fr) and isinstance(right, Fr):
+        return compare(left, right, c[1])
+    gap = float(left) - float(right)
+    if abs(gap) <= 1e-7:
+        return {"=": True, "<=": True, ">=": True}.get(c[1])
+    if abs(gap) <= 1e-4:
+        return None
+    return {"=": False, "!=": True, "<": gap < 0, "<=": gap < 0, ">": gap > 0, ">=": gap > 0}[c[1]]
+
+
+def listed(c, unknowns):
+    """I punti che la condizione c elenca, come dizionari lettera -> albero, se
+    c è fatta di uguaglianze "incognita = numero" unite da e e da o; None se
+    non lo è."""
+    if c[0] == "cmp":
+        if c[1] == "=" and c[2][0] == "var" and c[2][1] in unknowns and not letters(c[3]):
+            return [{c[2][1]: c[3]}]
+        return None
+    a, b = listed(c[1], unknowns), listed(c[2], unknowns)
+    if a is None or b is None:
+        return None
+    if c[0] == "or":
+        return a + b
+    return [dict(p, **q) for p in a for q in b if not set(p) & set(q)]
+
+
+def critical_wrong(reader, claims, answer, known, rnd):
+    """Controlla la risposta alla richiesta dei punti critici: True se è di
+    sicuro sbagliata, False se nessun punto provato la smentisce, None se non
+    si sa. Il confronto è punto per punto, nei due versi: dove la risposta
+    dice "critico" il gradiente deve essere nullo (e la funzione regolare), e
+    dove il gradiente è nullo la risposta deve dirlo. I punti: la griglia
+    GRID, i punti che la risposta elenca, e quelli di known (i punti critici
+    noti per costruzione, in modalità fuzz). Poi una ricerca con il metodo
+    di Newton da partenze a caso: un punto trovato così che la risposta non
+    spiega lascia la risposta non confermata (None), non sbagliata. Non è
+    una dimostrazione di completezza: un punto critico irrazionale lontano
+    dalle partenze sfugge."""
+    values, _, domains = resolve(reader)
+    name = reader.operands[claims[0][0][1]][0]
+    unknowns = reader.functions[name][0]
+    gradient = [values[claim[0][1]][1] for claim in claims]
+    exist = [t for claim in claims for t in domains[claim[0][1]]]
+    if len(unknowns) != 2:
+        return None
+    x, y = unknowns
+    points, lines = [], []
+    if answer == "\\emptyset":
+        said = lambda env: False
+    elif answer == "\\mathbb{R}^{2}":
+        said = lambda env: True
+    else:
+        c = condition(Reader(answer))
+        said = lambda env: satisfied(c, env)
+        every = listed(c, unknowns) or []
+        points = [{k: val(v, {}) for k, v in p.items()} for p in every if set(p) == set(unknowns)]
+
+        # Una retta di punti critici, "x = r" senza nulla sull'altra incognita:
+        # la risposta la dice critica tutta, e il programma non la rilegge
+        # punto per punto. Qui la si guarda in qualche punto: una retta fuori
+        # dal dominio di un logaritmo si vede così, anche con r irrazionale,
+        # che la griglia non tocca.
+        for p in every:
+            if len(p) == 1:
+                (fixed, tree), = p.items()
+                lines += [{fixed: val(tree, {}), (y if fixed == x else x): t} for t in LINE]
+
+    def critical(env):
+        """True, False o None: la funzione è regolare e il gradiente è nullo in env."""
+        try:
+            for tree in exist:
+                val(tree, env)
+            parts = [val(g, env) for g in gradient]
+        except Overflow:
+            return None
+        except Undefined:
+            return False
+        zero = [same(p, Fr(0)) if isinstance(p, Fr) else (True if abs(p) <= 1e-9 else False if abs(p) > 1e-6 else None) for p in parts]
+        return False if False in zero else None if None in zero else True
+
+    tests = [{x: p, y: q} for p in GRID for q in GRID] + points + lines + [dict(zip(unknowns, p)) for p in known]
+    unsure = False
+    for env in tests:
+        truly, claimed = critical(env), said(env)
+        if truly is None or claimed is None:
+            unsure = True
+        elif truly != claimed:
+            return True
+
+    # La ricerca con Newton: il gradiente e la sua jacobiana, dalle regole di
+    # qui. Un punto trovato così è approssimato, e dove la jacobiana degenera
+    # (x^4 + y^4 nell'origine) la ricerca si ferma prima di arrivare: se la
+    # risposta non lo dice critico, e non elenca un punto lì vicino, non è
+    # un errore certo ma un caso da guardare.
+    jacobian = [[diff(g, v) for v in unknowns] for g in gradient]
+    for _ in range(60):
+        px, py = rnd.uniform(-5, 5), rnd.uniform(-5, 5)
+        try:
+            for _ in range(60):
+                env = {x: px, y: py}
+                g = [float(val(t, env)) for t in gradient]
+                (a, b), (c2, d) = [[float(val(t, env)) for t in row] for row in jacobian]
+                det = a * d - b * c2
+                if abs(det) < 1e-14:
+                    break
+                px, py = px - (d * g[0] - b * g[1]) / det, py - (a * g[1] - c2 * g[0]) / det
+            env = {x: px, y: py}
+            if abs(px) > 50 or abs(py) > 50 or any(abs(float(val(t, env))) > 1e-11 for t in gradient):
+                continue
+            # Critico vuol dire anche che lì la funzione c'è: la formula del
+            # gradiente di ln u ha un valore, e può annullarsi, anche dove u è
+            # negativo. Un punto così non è un punto critico.
+            for tree in exist:
+                val(tree, env)
+        except (Undefined, OverflowError, ZeroDivisionError):
+            continue
+        near = any(abs(float(p[x]) - px) + abs(float(p[y]) - py) < 1e-2 for p in points)
+        if said(env) is True or near:
+            continue
+        # Vicino a una retta di punti critici il gradiente è piccolissimo
+        # anche fuori dalla retta, e la ricerca si ferma a un passo da lei: il
+        # punto trovato è spiegato se, arrotondato a qualche decimale, dà un
+        # punto in cui la risposta dice "critico" e il gradiente è nullo
+        # esattamente.
+        explained = False
+        for digits in (6, 5, 4, 3, 2):
+            rounded = {x: Fr(round(px * 10 ** digits), 10 ** digits), y: Fr(round(py * 10 ** digits), 10 ** digits)}
+            explained = explained or (said(rounded) is True and critical(rounded) is True)
+        unsure = unsure or not explained
+    return None if unsure else False
 
 
 # ----------------------------------------------------------------------------
@@ -768,6 +1156,11 @@ def answer_wrong(reader, claims, answer, rnd):
 # ----------------------------------------------------------------------------
 
 PREAMBLE = "\\documentclass{article}\n\\usepackage{amsmath,amssymb}\n\\begin{document}\n\\begin{enumerate}\n"
+
+# In modalità fuzz: per una richiesta dei punti critici costruita in modo da
+# conoscerli, l'enunciato e l'elenco dei suoi punti critici (coppie di
+# frazioni). Lo riempie generate(), lo legge judge().
+KNOWN = {}
 
 
 def run_program(program, statements, path):
@@ -812,7 +1205,17 @@ def judge(statements, expected, verdicts, warned, rnd, label):
         if request:
             if verdict.startswith("RISOLTO"):
                 counts["solved"] += 1
-                wrong = answer_wrong(reader, claims, verdict.split(": ", 1)[1].rsplit(" (dove", 1)[0], rnd)
+                try:
+                    if request == "critical":
+                        # La risposta sta dopo il primo ": ", e prima della nota tra parentesi.
+                        answer = verdict.split(": ", 1)[1]
+                        for note in (" (condizioni del secondo ordine", " (i punti critici non sono", " (i punti in cui la funzione non"):
+                            answer = answer.split(note, 1)[0]
+                        wrong = critical_wrong(reader, claims, answer.strip(), KNOWN.get(statement, []), rnd)
+                    else:
+                        wrong = answer_wrong(reader, claims, verdict.split(": ", 1)[1].rsplit(" (dove", 1)[0], rnd)
+                except (Unreadable, Undefined, IndexError, ValueError, KeyError):
+                    wrong = None
                 if wrong:
                     counts["BUG"] += 1
                     print("BUG %s %d: risposta sbagliata: %s | %s" % (label, index, verdict, statement))
@@ -938,6 +1341,95 @@ def operand_tex(rnd, name, body, by):
     return "\\frac{%s}{%s}\\left( %s \\right)" % (top, below, tex(body)), False
 
 
+def centred(rnd, variables, point):
+    """Una funzione che ha in point un punto critico, quasi sempre: una forma
+    quadratica negli scarti dal punto, più un termine di terzo grado; una
+    volta su cinque anche un termine di primo grado, e allora il punto non è
+    critico; una volta su cinque dentro un esponenziale, che non cambia i
+    punti critici."""
+    shifts = [("var", v) if q == 0 else ("sub", ("var", v), num(q)) for v, q in zip(variables, point)]
+    body = ZERO
+    for i, a in enumerate(shifts):
+        for b in shifts[i:]:
+            body = add(body, mul(num(rnd.choice([-3, -2, -1, 0, 1, 1, 2, 3])), mul(a, b)))
+    body = add(body, mul(num(rnd.choice([-2, -1, 1, 2])), mul(mul(rnd.choice(shifts), rnd.choice(shifts)), rnd.choice(shifts))))
+    if rnd.random() < 0.2:
+        body = add(body, mul(num(rnd.choice([-1, 1, 2])), rnd.choice(shifts)))
+    return fn("exp", body) if rnd.random() < 0.2 else add(body, num(rnd.randint(-3, 3)))
+
+
+def polynomial_in(coefficients, u):
+    """L'albero della somma dei coefficients[i] per u^i."""
+    e = ZERO
+    for power, c in enumerate(coefficients):
+        if c:
+            e = add(e, mul(num(c), ONE if power == 0 else u if power == 1 else ("pow", u, num(power))))
+    return e
+
+
+def primitive_with_roots(rnd):
+    """Ritorna (coefficienti di A, radici reali di A'): A' è un numero per un
+    prodotto di fattori di primo grado con le radici scelte, a volte per
+    t^2 + 1, che non ne aggiunge; il grado di A' è al più 3."""
+    roots = [Fr(rnd.randint(-4, 4), rnd.choice([1, 1, 2])) for _ in range(rnd.randint(1, 3))]
+    factors = [[-r, Fr(1)] for r in roots]
+    if len(roots) == 1 and rnd.random() < 0.5:
+        factors.append([Fr(1), Fr(0), Fr(1)])
+    slope = [Fr(rnd.choice([-2, -1, 1, 2, 3]))]
+    for factor in factors:
+        slope = [sum(slope[i] * factor[k - i] for i in range(len(slope)) if 0 <= k - i < len(factor)) for k in range(len(slope) + len(factor) - 1)]
+    return [Fr(rnd.randint(-2, 2))] + [c / (k + 1) for k, c in enumerate(slope)], roots
+
+
+def critical_case(rnd):
+    """Una funzione di x e y di cui si conoscono tutti i punti critici, per
+    come è costruita: ritorna (albero, elenco dei punti critici, oppure dei
+    punti noti se sono infiniti)."""
+    x, y = ("var", "x"), ("var", "y")
+    kind = rnd.choice(["separate", "separate", "mixed", "mixed", "cubic", "quadratic", "line", "none", "all", "log", "log"])
+    if kind == "log":
+        # Un logaritmo: la sua derivata ha un valore anche dove lui non c'è, e i
+        # punti critici vanno cercati solo dove la funzione è definita. Qui non
+        # si conoscono in anticipo: decide il confronto punto per punto. Una
+        # volta su quattro manca il termine in y: allora i punti critici
+        # stanno su rette, che il programma non rilegge una per una, ed è lì
+        # che una retta fuori dal dominio non veniva fermata da nulla.
+        a, b = rnd.choice([-2, -1, 1, 2]), rnd.randint(-2, 2)
+        inner = add(mul(num(a), x), num(b)) if rnd.random() < 0.6 else add(add(mul(num(a), x), y), num(b))
+        body = add(mul(num(rnd.choice([-2, -1, 1, 2])), fn("ln", inner)), polynomial_in([Fr(0), Fr(rnd.randint(-3, 3)), Fr(rnd.randint(-2, 2), 2)], x))
+        along = rnd.choice([-1, 1, 2, 0])
+        return (add(body, mul(num(along), ("pow", y, num(2)))) if along else body), []
+    if kind in ("separate", "mixed"):
+        # A(u) + B(v), con u e v due combinazioni indipendenti di x e y: il
+        # gradiente è A'(u) per il gradiente di u più B'(v) per quello di v, e
+        # si annulla esattamente dove A'(u) = 0 e B'(v) = 0.
+        (first, us), (second, vs) = primitive_with_roots(rnd), primitive_with_roots(rnd)
+        a, b, c, d = (1, 0, 0, 1) if kind == "separate" else rnd.choice([(1, 1, 1, -1), (2, 1, 1, 1), (1, 2, 0, 1), (1, -1, 2, 1), (3, 1, 1, 0)])
+        u, v = add(mul(num(a), x), mul(num(b), y)), add(mul(num(c), x), mul(num(d), y))
+        det = a * d - b * c
+        return add(polynomial_in(first, u), polynomial_in(second, v)), [((d * r - b * s) / det, (a * s - c * r) / det) for r in set(us) for s in set(vs)]
+    if kind == "cubic":
+        # x^3 + y^3 - 3 a x y: y = x^2 / a e x = y^2 / a, quindi x = 0 o x = a.
+        a = Fr(rnd.choice([-3, -2, -1, 1, 2, 3]), rnd.choice([1, 1, 2]))
+        return sub(add(("pow", x, num(3)), ("pow", y, num(3))), mul(num(3 * a), mul(x, y))), [(Fr(0), Fr(0)), (a, a)]
+    if kind == "quadratic":
+        # A x^2 + B x y + C y^2 + D x + E y con 4 A C - B^2 diverso da zero: un punto solo.
+        while True:
+            A, B, C, D, E = [rnd.randint(-3, 3) for _ in range(5)]
+            if 4 * A * C - B * B:
+                break
+        body = add(add(mul(num(A), ("pow", x, num(2))), mul(num(B), mul(x, y))), add(mul(num(C), ("pow", y, num(2))), add(mul(num(D), x), mul(num(E), y))))
+        return body, [(Fr(-2 * C * D + B * E, 4 * A * C - B * B), Fr(-2 * A * E + B * D, 4 * A * C - B * B))]
+    if kind == "line":
+        # (a x + b y + c)^2: critici i punti della retta a x + b y + c = 0.
+        a, b, c = rnd.choice([-2, -1, 1, 2]), rnd.choice([-2, -1, 1, 2]), rnd.randint(-2, 2)
+        body = ("pow", add(add(mul(num(a), x), mul(num(b), y)), num(c)), num(2))
+        return body, [(Fr(t), Fr(-c - a * t, b)) for t in range(-3, 4)]
+    if kind == "none":
+        return add(mul(num(rnd.choice([-2, 1, 3])), x), ("pow", y, num(rnd.choice([1, 3])))) if rnd.random() < 0.5 else add(x, mul(x, ("pow", y, num(2)))), []
+    return num(rnd.randint(-3, 3)), [(Fr(p), Fr(q)) for p in range(-2, 3) for q in range(-2, 3)]
+
+
 def generate(rnd, count):
     statements = []
     while len(statements) < count:
@@ -948,7 +1440,8 @@ def generate(rnd, count):
         derivative = body
         for letter in by:
             derivative = diff(derivative, letter)
-        kind = rnd.choice(["partial", "partial", "partial", "gradient", "hessian", "point", "point", "schwarz", "request", "request", "two"])
+        kind = rnd.choice(["partial", "partial", "partial", "gradient", "hessian", "point", "point", "schwarz", "request", "request", "two",
+                           "second", "second", "second", "compare", "compare", "critical", "critical", "nested"])
         point = [Fr(rnd.randint(-4, 4), rnd.randint(1, 3)) for _ in variables]
         where = "\\left( %s \\right)" % ", ".join(tex(num(q)) for q in point)
         env = dict(zip(variables, point))
@@ -1023,6 +1516,79 @@ def generate(rnd, count):
                 statements.append(head + "H_{f}")
             elif rational:
                 statements.append(head + rnd.choice(["\\nabla f", "H_{f}"]) + where)
+        elif kind == "second":
+            # Le condizioni del secondo ordine in un punto: il gradiente nullo, il
+            # segno del determinante dell'hessiana e di f_xx, e con tre variabili
+            # quello del minore di nord-ovest di lato 2, scritto come tabella. I
+            # segni sono quelli veri; una volta su due una tesi ne prende un altro.
+            variables = rnd.choice([["x", "y"], ["x", "y"], ["x", "y", "z"]])
+            point = [Fr(rnd.randint(-3, 3), rnd.choice([1, 1, 2])) for _ in variables]
+            body = centred(rnd, variables, point)
+            head = "f(%s) = %s \\implies " % (", ".join(variables), tex(body))
+            where = "\\left( %s \\right)" % ", ".join(tex(num(q)) for q in point)
+            env, n = dict(zip(variables, point)), len(variables)
+            second = [val(diff(diff(body, r), c), env) for r in variables for c in variables]
+            sign = lambda value: ">" if value > 0 else "<" if value < 0 else "="
+            entry = lambda r, c: "f_{%s%s}%s" % (variables[r], variables[c], where)
+            claims = ["\\nabla f%s = %s" % (where, rnd.choice(["0", "\\left( %s \\right)" % ", ".join("0" for _ in variables)])),
+                      "\\det H_{f}%s %s 0" % (where, sign(determinant(second, n))), "%s %s 0" % (entry(0, 0), sign(second[0]))]
+            if n == 3:
+                minor = determinant([second[0], second[1], second[3], second[4]], 2)
+                claims.append("\\det \\begin{pmatrix} %s & %s \\\\ %s & %s \\end{pmatrix} %s 0" % (entry(0, 0), entry(0, 1), entry(1, 0), entry(1, 1), sign(minor)))
+            if rnd.random() < 0.5:
+                k = rnd.randrange(1, len(claims))
+                claims[k] = claims[k].rsplit(" ", 2)[0] + " %s 0" % rnd.choice([">", "<", "=", "\\le", "\\ge", "\\neq"])
+            statements.append(head + " \\land ".join(claims))
+        elif kind == "compare" and rational:
+            # Un confronto tra due numeri: valori e derivate in un punto, a volte
+            # dentro il determinante di una tabella, contro un numero vicino al
+            # valore vero (anche uguale: lì < è falso e \le è vero) o contro
+            # un'altra derivata.
+            x, y = variables[0], variables[1]
+            terms = ["f%s" % where, "f_{%s}%s" % (x, where), "f_{%s%s}%s" % (x, y, where), "f_{%s%s}%s" % (y, y, where), "\\det H_{f}%s" % where]
+            left = rnd.choice(terms)
+            if rnd.random() < 0.4:
+                table = "%s & %d \\\\ %d & %s" % (rnd.choice(terms), rnd.randint(-2, 2), rnd.randint(-2, 2), rnd.choice(terms))
+                left = rnd.choice(["\\det \\begin{pmatrix} %s \\end{pmatrix}", "\\begin{vmatrix} %s \\end{vmatrix}", "\\det \\begin{bmatrix} %s \\end{bmatrix}"]) % table
+            right = rnd.choice(terms)
+            try:
+                reader = Reader(head + left)
+                _, asked = reader.statement()
+                _, placed, _ = resolve(reader)
+                value = val(placed(asked[0][0]), {})
+                if isinstance(value, Fr) and rnd.random() < 0.7:
+                    right = tex(num(value + rnd.choice([0, 0, 1, -1, Fr(1, 2)])))
+            except (Unreadable, Undefined, KeyError):
+                pass
+            statements.append(head + "%s %s %s" % (left, rnd.choice(["<", ">", "\\le", "\\ge", "\\neq", "\\leq", "\\geq", "\\ne"]), right))
+        elif kind == "nested":
+            # Una funzione definita con la derivata di un'altra, g, che esiste in
+            # meno punti della sua derivata: fuori dal dominio di g la funzione
+            # non c'è, anche se la formula lì ha un valore. La tesi scrive
+            # proprio quel valore (o quel valore più 1): è vera solo dove g è
+            # regolare, e lo decide l'oracolo.
+            x, y = ("var", "x"), ("var", "y")
+            inner = rnd.choice([add(fn("ln", x), ("pow", y, num(2))), add(fn("ln", x), div(ONE, y)), add(fn("ln", x), fn("asin", y)),
+                                add(mul(x, fn("ln", x)), ("root", 2, y)), add(div(("pow", x, num(2)), y), fn("ln", add(x, y)))])
+            head = "g(x, y) = %s, f(x, y) = g_{x} + %s \\implies " % (tex(inner), tex(polynomial(rnd, ["x", "y"], 2, 2)))
+            spot = [Fr(rnd.choice([-2, -1, 1, 2, 3])), Fr(rnd.choice([-2, -1, 0, 1, 1, 2]), rnd.choice([1, 2]))]
+            target = rnd.choice(["f", "f_{x}", "f_{y}", "f_{xy}"]) + "\\left( %s \\right)" % ", ".join(tex(num(q)) for q in spot)
+            value = Fr(0)
+            try:
+                reader = Reader(head + target)
+                _, asked = reader.statement()
+                _, placed, _ = resolve(reader)
+                found = val(placed(asked[0][0]), {})
+                value = found if isinstance(found, Fr) else value
+            except (Unreadable, Undefined, KeyError):
+                pass
+            statements.append(head + "%s = %s" % (target, tex(num(value + rnd.choice([0, 0, 0, 1])))))
+        elif kind == "critical":
+            # I punti critici di una funzione di cui si conoscono, per come è costruita.
+            body, known = critical_case(rnd)
+            statement = "f(x, y) = %s \\implies \\{(x, y) \\mid \\nabla f%s = %s\\}" % (tex(body), rnd.choice(["", "(x, y)"]), rnd.choice(["0", "(0, 0)"]))
+            KNOWN[statement] = known
+            statements.append(statement)
     return statements
 
 
@@ -1099,10 +1665,17 @@ def certificate_truth(text, rnd):
                 current["at"][letter] = tree_of(raw)
         elif word == "statement":
             raw = sexpr(rest)[0]
-            if raw[0] != "=":
+            if raw[0] not in ("=", "<", "<=", "neq"):
                 raise Unreadable("tesi")
-            claims.append((tree_of(raw[1]), tree_of(raw[2])))
-    # Ogni termine: la derivata dell'oracolo e la formula, e il valore che il nome prende.
+            claims.append((tree_of(raw[1]), tree_of(raw[2]), "!=" if raw[0] == "neq" else raw[0]))
+    # Ogni termine: dove esiste, la derivata dell'oracolo, la formula, il
+    # punto; e il valore che il nome prende. "Dove esiste" è un elenco di
+    # alberi che devono essere tutti regolari: la sua funzione e, per ogni
+    # termine senza punto che la sua funzione o il suo punto nominano, gli
+    # alberi di quello. Con A la derivata di ln x e B = A + x, il termine B
+    # c'è solo dove c'è ln x, anche se 1/x + x ha un valore altrove. Un
+    # termine con il punto è invece un numero: che esista lo dice il suo
+    # controllo, e chi lo nomina non deve chiedere altro.
     values, checks = {}, []
     for t in terms:
         function = subst(t["of"], values)
@@ -1110,55 +1683,103 @@ def certificate_truth(text, rnd):
         for letter in t["by"]:
             derivative = diff(derivative, letter)
         point = {k: subst(v, values) for k, v in t["at"].items()}
-        checks.append((function, derivative, t["is"], point))
+        inner = [j for j, u in enumerate(terms[:len(checks)]) if not u["at"] and (uses(t["of"], u["name"]) or any(uses(v, u["name"]) for v in t["at"].values()))]
+        checks.append(([function] + [tree for j in inner for tree in checks[j][0]], derivative, t["is"], point))
         values[t["name"]] = subst(derivative, point) if point else derivative
-    sides = [(subst(l, values), subst(r, values)) for l, r in claims]
-    names = sorted(set().union(*[letters(a) | letters(b) for a, b in sides], *[letters(f) | letters(d) | letters(g) for f, d, g, _ in checks]) or {"x"})
+    sides = [(subst(l, values), subst(r, values), relation) for l, r, relation in claims]
+
+    # Per ogni tesi, i termini senza punto che nomina: di quelli un confronto
+    # afferma l'esistenza per ogni valore delle lettere.
+    mentioned = [[k for k, t in enumerate(terms) if not t["at"] and (uses(l, t["name"]) or uses(r, t["name"]))] for l, r, _ in claims]
+    names = sorted(set().union(*[letters(a) | letters(b) for a, b, _ in sides],
+                               *[set().union(*[letters(tree) for tree in trees]) | letters(d) | letters(g) for trees, d, g, _ in checks]) or {"x"})
     found, unsure = 0, False
     for attempt in range(400):
         env = sample(rnd, names)
+        # Un confronto afferma anche, per ogni valore delle lettere, che i
+        # termini senza punto che nomina esistono e che i suoi due membri
+        # sono definiti: se in questo punto non è così il certificato afferma
+        # il falso (dove qualcosa è solo non regolare, o il conto esce dai
+        # float, l'oracolo non decide).
+        for (left, right, relation), named in zip(sides, mentioned):
+            if relation == "=":
+                continue
+            try:
+                for k in named:
+                    for tree in checks[k][0]:
+                        val(tree, env)
+                    val(checks[k][2], env)
+                val(left, env)
+                val(right, env)
+            except (Irregular, Overflow):
+                unsure = True
+            except Undefined:
+                return False
         try:
             pairs = []
-            for function, derivative, formula, point in checks:
-                # Nel punto il termine deve esistere: la funzione regolare, la
-                # formula definita. Se il punto è fatto di soli numeri e non è
-                # così, il certificato afferma il falso (o, dove la funzione è
-                # solo non regolare, qualcosa che l'oracolo non decide).
+            for trees, derivative, formula, point in checks:
+                # Nel punto il termine deve esistere: la funzione regolare,
+                # con quelle dei termini senza punto che nomina, e la formula
+                # definita. Se il punto è fatto di soli numeri e non è così,
+                # il certificato afferma il falso (o, dove la funzione è solo
+                # non regolare o il conto esce dai float, qualcosa che
+                # l'oracolo non decide).
                 if point:
                     try:
                         fixed = dict(env)
                         fixed.update({k: val(v, env) for k, v in point.items()})
-                        val(function, fixed)
+                        for tree in trees:
+                            val(tree, fixed)
                         val(formula, fixed)
                     except Undefined as problem:
-                        if not any(letters(v) for v in point.values()) and set(point) >= letters(function) | letters(formula):
-                            return None if isinstance(problem, Irregular) else False
+                        if not any(letters(v) for v in point.values()) and set(point) >= set().union(letters(formula), *[letters(tree) for tree in trees]):
+                            return None if isinstance(problem, (Irregular, Overflow)) else False
                         raise
                 # L'identità, dove la funzione è regolare e la formula definita.
-                val(function, env)
-                pairs.append((val(derivative, env), val(formula, env)))
-            pairs += [(val(l, env), val(r, env)) for l, r in sides]
+                for tree in trees:
+                    val(tree, env)
+                pairs.append((val(derivative, env), val(formula, env), "="))
+            pairs += [(val(l, env), val(r, env), relation) for l, r, relation in sides]
         except Undefined:
             continue
-        if not all(finite(a) and finite(b) for a, b in pairs):
+        if not all(finite(a) and finite(b) for a, b, _ in pairs):
             continue        # un punto in cui i float non bastano: se ne prova un altro
         found += 1
-        for left, right in pairs:
-            equal = same(left, right)
-            if equal is False:
+        for left, right, relation in pairs:
+            true = compare(left, right, relation)
+            if true is False:
                 return False
-            unsure = unsure or equal is None
-        if found == 8:
+            unsure = unsure or true is None
+        if found == POINTS:
             break
     if found == 0 and not unsure:
         return "vacuous"        # in nessun punto provato i termini esistono: il teorema non dice nulla
     return None if unsure or found < 2 else True
 
 
+def dump(raw):
+    """Riscrive un albero grezzo di sexpr() nella notazione dei certificati."""
+    return raw if isinstance(raw, str) else "(" + " ".join(dump(r) for r in raw) + ")"
+
+
 def altered(rnd, text):
     """Il certificato con una o due alterazioni."""
     for _ in range(rnd.choice([1, 1, 2])):
-        kind = rnd.choice(["number", "number", "operator", "letter", "drop"])
+        kind = rnd.choice(["number", "number", "operator", "letter", "drop", "relation"])
+        if kind == "relation":
+            # Una tesi con i due membri scambiati, o con un'altra relazione.
+            lines = text.split("\n")
+            rows = [k for k, line in enumerate(lines) if line.startswith("statement (")]
+            if rows:
+                k = rnd.choice(rows)
+                raw = sexpr(lines[k][len("statement "):])[0]
+                if rnd.random() < 0.5:
+                    raw = [raw[0], raw[2], raw[1]]
+                else:
+                    raw = [rnd.choice([w for w in ("=", "<", "<=", "neq") if w != raw[0]]), raw[1], raw[2]]
+                lines[k] = "statement " + dump(raw)
+                text = "\n".join(lines)
+            continue
         if kind == "number":
             places = [m for m in re.finditer(r"(?<![\w.])-?\d+", text)]
             if places:

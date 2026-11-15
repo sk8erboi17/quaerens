@@ -1,0 +1,34 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{constrained\_extrema.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{constrained\_extrema.tex} is used for. The file is read by \texttt{test\_multivariable\_calculus.c}.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 23 true statements on extrema with one constraint, in the simplest form the language allows. There is no code of its own for them: a statement declares $f$, the constraint $g$ and the Lagrangian $L = f + \lambda g$ with the multiplier written as a number, and states at a point that $g$ vanishes, that the gradient of $L$ vanishes, and the value or the sign of the determinant of the bordered Hessian matrix, written as the determinant of a table of derivatives. The books read the sign: with two variables and one constraint, positive at a constrained maximum and negative at a constrained minimum. The statement says only the conditions, not the conclusion.
+
+\item \textbf{Where the data comes from.} Section 4b of \texttt{photos/dati\_esercizi/analisi\_estremi\_vincolati.md}: Ferrara MQ4 10, 17, 18, 19; Memotef 1.1, 1.2, 1.3; City; Northwestern, example 1. The multipliers are those printed, turned to the convention $L = f + \lambda g$ where the book writes $\nabla f = \lambda \nabla g$; the bordered determinants are those printed. The last three items are values of $f$ at the candidates; two of them correct a printed value (Northwestern, Vitali).
+
+\item \textbf{Expected result.} Every statement is proved, with a written proof; all but one carry a certificate accepted by the independent checker. Item 20 (Memotef 1.1) has a point and a multiplier with three different square roots, and the checker does not know the relations among them: the verdict says that the certificate is missing, and why.
+
+\item \textbf{How it was checked.} The independent oracle of \texttt{tools/fuzz/fuzz\_multivariable.py} (mode \texttt{check}) finds every statement true.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_multivariable_calculus \
+    tests/multivariable_calculus/test_multivariable_calculus.c && \
+    /tmp/test_multivariable_calculus
+\end{verbatim}
+\end{enumerate}
+\end{document}

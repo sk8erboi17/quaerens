@@ -1,0 +1,224 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Critical points and their second-order conditions (204)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Each item declares a function and states, at a point, the conditions that the books sum up as ``minimum'', ``maximum'', ``saddle point'' or ``the test does not decide'': the gradient vanishes, and the determinant of the Hessian matrix, with $f_{xx}$ or with the leading principal minors, has the sign written. The functions and the points come from collections of solved exercises. Every statement is true.
+
+\begin{enumerate}
+\item $\displaystyle f(x, y) = \frac{1}{3}(x^{3} + y^{3}) - 16x - 25y \implies \nabla f(4, 5) = (0, 0) \land \det H_{f}(4, 5) > 0 \land f_{xx}(4, 5) > 0$
+\item $\displaystyle f(x, y) = \frac{1}{3}(x^{3} + y^{3}) - 16x - 25y \implies \nabla f(4, -5) = (0, 0) \land \det H_{f}(4, -5) < 0$
+\item $\displaystyle f(x, y) = \frac{1}{3}(x^{3} + y^{3}) - 16x - 25y \implies \nabla f(-4, 5) = (0, 0) \land \det H_{f}(-4, 5) < 0$
+\item $\displaystyle f(x, y) = \frac{1}{3}(x^{3} + y^{3}) - 16x - 25y \implies \nabla f(-4, -5) = (0, 0) \land \det H_{f}(-4, -5) > 0 \land f_{xx}(-4, -5) < 0$
+\item $\displaystyle f(x, y) = \frac{x}{1 + x^{2} + y^{2}} \implies \nabla f(1, 0) = (0, 0) \land \det H_{f}(1, 0) > 0 \land f_{xx}(1, 0) < 0$
+\item $\displaystyle f(x, y) = \frac{x}{1 + x^{2} + y^{2}} \implies \nabla f(-1, 0) = (0, 0) \land \det H_{f}(-1, 0) > 0 \land f_{xx}(-1, 0) > 0$
+\item $\displaystyle f(x, y) = x^{3} + y^{3} + xy \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) < 0$
+\item $\displaystyle f(x, y) = x^{3} + y^{3} + xy \implies \nabla f\left( -\frac{1}{3}, -\frac{1}{3} \right) = (0, 0) \land \det H_{f}\left( -\frac{1}{3}, -\frac{1}{3} \right) > 0 \land f_{xx}\left( -\frac{1}{3}, -\frac{1}{3} \right) < 0$
+\item $\displaystyle f(x, y) = 4y^{4} - 16x^{2} y + x \implies \nabla f\left( \frac{1}{8}, \frac{1}{4} \right) = (0, 0) \land \det H_{f}\left( \frac{1}{8}, \frac{1}{4} \right) < 0$
+\item $\displaystyle f(x, y) = \frac{xy}{1 + x^{2} + y^{2}} \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) < 0$
+\item $\displaystyle f(x, y) = 2x^{2} y + 2x y^{2} - x^{2} y^{2} - 4xy \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) < 0$
+\item $\displaystyle f(x, y) = 2x^{2} y + 2x y^{2} - x^{2} y^{2} - 4xy \implies \nabla f(2, 0) = (0, 0) \land \det H_{f}(2, 0) < 0$
+\item $\displaystyle f(x, y) = 2x^{2} y + 2x y^{2} - x^{2} y^{2} - 4xy \implies \nabla f(0, 2) = (0, 0) \land \det H_{f}(0, 2) < 0$
+\item $\displaystyle f(x, y) = 2x^{2} y + 2x y^{2} - x^{2} y^{2} - 4xy \implies \nabla f(2, 2) = (0, 0) \land \det H_{f}(2, 2) < 0$
+\item $\displaystyle f(x, y) = 2x^{2} y + 2x y^{2} - x^{2} y^{2} - 4xy \implies \nabla f(1, 1) = (0, 0) \land \det H_{f}(1, 1) > 0 \land f_{xx}(1, 1) > 0$
+\item $\displaystyle f(x, y) = 2x^{3} + 9x y^{2} + 15x^{2} + 27y^{2} \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) > 0 \land f_{xx}(0, 0) > 0$
+\item $\displaystyle f(x, y) = 2x^{3} + 9x y^{2} + 15x^{2} + 27y^{2} \implies \nabla f(-5, 0) = (0, 0) \land \det H_{f}(-5, 0) > 0 \land f_{xx}(-5, 0) < 0$
+\item $\displaystyle f(x, y) = 2x^{3} + 9x y^{2} + 15x^{2} + 27y^{2} \implies \nabla f(-3, 2) = (0, 0) \land \det H_{f}(-3, 2) < 0$
+\item $\displaystyle f(x, y) = 2x^{3} + 9x y^{2} + 15x^{2} + 27y^{2} \implies \nabla f(-3, -2) = (0, 0) \land \det H_{f}(-3, -2) < 0$
+\item $\displaystyle f(x, y) = x^{3} + x y^{2} - 2x^{2} + 4xy \implies \nabla f\left( -\frac{2}{3}, -2 \right) = (0, 0) \land \det H_{f}\left( -\frac{2}{3}, -2 \right) > 0 \land f_{xx}\left( -\frac{2}{3}, -2 \right) < 0$
+\item $\displaystyle f(x, y) = x^{3} + x y^{2} - 2x^{2} + 4xy \implies \nabla f(2, -2) = (0, 0) \land \det H_{f}(2, -2) > 0 \land f_{xx}(2, -2) > 0$
+\item $\displaystyle f(x, y) = x^{3} + x y^{2} - 2x^{2} + 4xy \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) < 0$
+\item $\displaystyle f(x, y) = x^{3} + x y^{2} - 2x^{2} + 4xy \implies \nabla f(0, -4) = (0, 0) \land \det H_{f}(0, -4) < 0$
+\item $\displaystyle f(x, y) = x^{2} + y(y - 1)^{2} \implies \nabla f(0, 1) = (0, 0) \land \det H_{f}(0, 1) > 0 \land f_{xx}(0, 1) > 0$
+\item $\displaystyle f(x, y) = x^{2} + y(y - 1)^{2} \implies \nabla f\left( 0, \frac{1}{3} \right) = (0, 0) \land \det H_{f}\left( 0, \frac{1}{3} \right) < 0$
+\item $\displaystyle f(x, y) = -x^{2} + y(y - 1)^{2} \implies \nabla f\left( 0, \frac{1}{3} \right) = (0, 0) \land \det H_{f}\left( 0, \frac{1}{3} \right) > 0 \land f_{xx}\left( 0, \frac{1}{3} \right) < 0$
+\item $\displaystyle f(x, y) = -x^{2} + y(y - 1)^{2} \implies \nabla f(0, 1) = (0, 0) \land \det H_{f}(0, 1) < 0$
+\item $\displaystyle f(x, y) = x^{3} + y^{3} - 3xy \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) < 0$
+\item $\displaystyle f(x, y) = x^{3} + y^{3} - 3xy \implies \nabla f(1, 1) = (0, 0) \land \det H_{f}(1, 1) > 0 \land f_{xx}(1, 1) > 0$
+\item $\displaystyle f(x, y) = x^{2} y + xy \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) < 0$
+\item $\displaystyle f(x, y) = x^{2} y + xy \implies \nabla f(-1, 0) = (0, 0) \land \det H_{f}(-1, 0) < 0$
+\item $\displaystyle f(x, y) = x^{3} + 4y^{2} + 4xy \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) < 0$
+\item $\displaystyle f(x, y) = x^{3} + 4y^{2} + 4xy \implies \nabla f\left( \frac{2}{3}, -\frac{1}{3} \right) = (0, 0) \land \det H_{f}\left( \frac{2}{3}, -\frac{1}{3} \right) > 0 \land f_{xx}\left( \frac{2}{3}, -\frac{1}{3} \right) > 0$
+\item $\displaystyle f(x, y) = x^{4} + y^{4} - 4xy \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) < 0$
+\item $\displaystyle f(x, y) = x^{4} + y^{4} - 4xy \implies \nabla f(1, 1) = (0, 0) \land \det H_{f}(1, 1) > 0 \land f_{xx}(1, 1) > 0$
+\item $\displaystyle f(x, y) = x^{4} + y^{4} - 4xy \implies \nabla f(-1, -1) = (0, 0) \land \det H_{f}(-1, -1) > 0 \land f_{xx}(-1, -1) > 0$
+\item $\displaystyle f(x, y) = 7x - 8y + 2xy - x^{2} + y^{2} \implies \nabla f\left( \frac{15}{4}, \frac{1}{4} \right) = (0, 0) \land \det H_{f}\left( \frac{15}{4}, \frac{1}{4} \right) < 0$
+\item $\displaystyle f(x, y) = (3x + 3x^{3})(y^{2} + 2y) \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) < 0$
+\item $\displaystyle f(x, y) = (3x + 3x^{3})(y^{2} + 2y) \implies \nabla f(0, -2) = (0, 0) \land \det H_{f}(0, -2) < 0$
+\item $\displaystyle f(x, y) = (y - 2) x^{2} - y^{2} \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) > 0 \land f_{xx}(0, 0) < 0$
+\item $\displaystyle f(x, y) = (y - 2) x^{2} - y^{2} \implies \nabla f(2, 2) = (0, 0) \land \det H_{f}(2, 2) < 0$
+\item $\displaystyle f(x, y) = (y - 2) x^{2} - y^{2} \implies \nabla f(-2, 2) = (0, 0) \land \det H_{f}(-2, 2) < 0$
+\item $\displaystyle f(x, y) = x^{2} - xy - y^{2} \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) < 0$
+\item $\displaystyle f(x, y) = x^{2} + xy + y^{2} + 3x \implies \nabla f(-2, 1) = (0, 0) \land \det H_{f}(-2, 1) > 0 \land f_{xx}(-2, 1) > 0$
+\item $\displaystyle f(x, y) = 8x^{3} + 2xy - 3x^{2} + y^{2} + 1 \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) < 0$
+\item $\displaystyle f(x, y) = 8x^{3} + 2xy - 3x^{2} + y^{2} + 1 \implies \nabla f\left( \frac{1}{3}, -\frac{1}{3} \right) = (0, 0) \land \det H_{f}\left( \frac{1}{3}, -\frac{1}{3} \right) > 0 \land f_{xx}\left( \frac{1}{3}, -\frac{1}{3} \right) > 0$
+\item $\displaystyle f(x, y) = 2x^{2} + 3xy - 2y \implies \nabla f\left( \frac{2}{3}, -\frac{8}{9} \right) = (0, 0) \land \det H_{f}\left( \frac{2}{3}, -\frac{8}{9} \right) < 0$
+\item $\displaystyle f(x, y) = x^{3} + y^{2} + 2xy - 8x \implies \nabla f(2, -2) = (0, 0) \land \det H_{f}(2, -2) > 0 \land f_{xx}(2, -2) > 0$
+\item $\displaystyle f(x, y) = x^{3} + y^{2} + 2xy - 8x \implies \nabla f\left( -\frac{4}{3}, \frac{4}{3} \right) = (0, 0) \land \det H_{f}\left( -\frac{4}{3}, \frac{4}{3} \right) < 0$
+\item $\displaystyle f(x, y) = -x^{3} + 4xy - y^{2} \implies \nabla f\left( \frac{8}{3}, \frac{16}{3} \right) = (0, 0) \land \det H_{f}\left( \frac{8}{3}, \frac{16}{3} \right) > 0 \land f_{xx}\left( \frac{8}{3}, \frac{16}{3} \right) < 0$
+\item $\displaystyle f(x, y) = -x^{3} + 4xy - y^{2} \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) < 0$
+\item $\displaystyle f(x, y) = -3y^{2} + x^{3} + 2xy \implies \nabla f\left( -\frac{2}{9}, -\frac{2}{27} \right) = (0, 0) \land \det H_{f}\left( -\frac{2}{9}, -\frac{2}{27} \right) > 0 \land f_{xx}\left( -\frac{2}{9}, -\frac{2}{27} \right) < 0$
+\item $\displaystyle f(x, y) = -3y^{2} + x^{3} + 2xy \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) < 0$
+\item $\displaystyle f(x, y) = \frac{2(x + y) - 1}{x^{2} + y^{2}} \implies \nabla f\left( \frac{1}{2}, \frac{1}{2} \right) = (0, 0) \land \det H_{f}\left( \frac{1}{2}, \frac{1}{2} \right) > 0 \land f_{xx}\left( \frac{1}{2}, \frac{1}{2} \right) < 0$
+\item $\displaystyle f(x, y) = \frac{x + y - 1}{x^{2} + y^{2}} \implies \nabla f(1, 1) = (0, 0) \land \det H_{f}(1, 1) > 0 \land f_{xx}(1, 1) < 0$
+\item $\displaystyle f(x, y) = 8x + 8x^{2} - 8y - 16xy + 9y^{2} - \frac{2}{3} y^{3} \implies \nabla f\left( -\frac{1}{2}, 0 \right) = (0, 0) \land \det H_{f}\left( -\frac{1}{2}, 0 \right) > 0 \land f_{xx}\left( -\frac{1}{2}, 0 \right) > 0$
+\item $\displaystyle f(x, y) = 8x + 8x^{2} - 8y - 16xy + 9y^{2} - \frac{2}{3} y^{3} \implies \nabla f\left( \frac{1}{2}, 1 \right) = (0, 0) \land \det H_{f}\left( \frac{1}{2}, 1 \right) < 0$
+\item $\displaystyle f(x, y) = x^{3} + 3x^{2} + 4xy + y^{2} \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) < 0$
+\item $\displaystyle f(x, y) = x^{3} + 3x^{2} + 4xy + y^{2} \implies \nabla f\left( \frac{2}{3}, -\frac{4}{3} \right) = (0, 0) \land \det H_{f}\left( \frac{2}{3}, -\frac{4}{3} \right) > 0 \land f_{xx}\left( \frac{2}{3}, -\frac{4}{3} \right) > 0$
+\item $\displaystyle f(x, y) = x^{3} + y^{3} - \frac{15}{2} y^{2} - 48x + 18y \implies \nabla f(4, 3) = (0, 0) \land \det H_{f}(4, 3) > 0 \land f_{xx}(4, 3) > 0$
+\item $\displaystyle f(x, y) = x^{3} + y^{3} - \frac{15}{2} y^{2} - 48x + 18y \implies \nabla f(-4, 2) = (0, 0) \land \det H_{f}(-4, 2) > 0 \land f_{xx}(-4, 2) < 0$
+\item $\displaystyle f(x, y) = x^{3} + y^{3} - \frac{15}{2} y^{2} - 48x + 18y \implies \nabla f(-4, 3) = (0, 0) \land \det H_{f}(-4, 3) < 0$
+\item $\displaystyle f(x, y) = x^{3} + y^{3} - \frac{15}{2} y^{2} - 48x + 18y \implies \nabla f(4, 2) = (0, 0) \land \det H_{f}(4, 2) < 0$
+\item $\displaystyle f(x, y) = \frac{8}{x} + \frac{x}{y} + y \implies \nabla f(4, 2) = (0, 0) \land \det H_{f}(4, 2) > 0 \land f_{xx}(4, 2) > 0$
+\item $\displaystyle f(x, y) = \frac{y}{x} + \frac{1}{y} + x \implies \nabla f(1, 1) = (0, 0) \land \det H_{f}(1, 1) > 0 \land f_{xx}(1, 1) > 0$
+\item $\displaystyle f(x, y) = x^{2} + y^{3} - xy \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) < 0$
+\item $\displaystyle f(x, y) = x^{2} + y^{3} - xy \implies \nabla f\left( \frac{1}{12}, \frac{1}{6} \right) = (0, 0) \land \det H_{f}\left( \frac{1}{12}, \frac{1}{6} \right) > 0 \land f_{xx}\left( \frac{1}{12}, \frac{1}{6} \right) > 0$
+\item $\displaystyle f(x, y) = x^{3} y - 3x^{2} - y^{2} \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) > 0 \land f_{xx}(0, 0) < 0$
+\item $\displaystyle f(x, y) = x^{2} - xy + y^{2} + 3x - 2y + 1 \implies \nabla f\left( -\frac{4}{3}, \frac{1}{3} \right) = (0, 0) \land \det H_{f}\left( -\frac{4}{3}, \frac{1}{3} \right) > 0 \land f_{xx}\left( -\frac{4}{3}, \frac{1}{3} \right) > 0$
+\item $\displaystyle f(x, y) = xy + 64000\left( \frac{1}{x} + \frac{1}{y} \right) \implies \nabla f(40, 40) = (0, 0) \land \det H_{f}(40, 40) > 0 \land f_{xx}(40, 40) > 0$
+\item $\displaystyle f(x, y) = x^{4} + 4x^{2} y - y^{2} - 10x^{2} - 5 \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) > 0 \land f_{xx}(0, 0) < 0$
+\item $\displaystyle f(x, y) = x^{4} + 4x^{2} y - y^{2} - 10x^{2} - 5 \implies \nabla f(1, 2) = (0, 0) \land \det H_{f}(1, 2) < 0$
+\item $\displaystyle f(x, y) = x^{4} + 4x^{2} y - y^{2} - 10x^{2} - 5 \implies \nabla f(-1, 2) = (0, 0) \land \det H_{f}(-1, 2) < 0$
+\item $\displaystyle f(x, y) = (x + y)^{2} - x^{4} - y^{4} \implies \nabla f(1, 1) = (0, 0) \land \det H_{f}(1, 1) > 0 \land f_{xx}(1, 1) < 0$
+\item $\displaystyle f(x, y) = (x + y)^{2} - x^{4} - y^{4} \implies \nabla f(-1, -1) = (0, 0) \land \det H_{f}(-1, -1) > 0 \land f_{xx}(-1, -1) < 0$
+\item $\displaystyle f(x, y) = (x + y)^{2} - x^{4} - y^{4} \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) = 0$
+\item $\displaystyle f(x, y) = 2x^{2} - xy - 3y^{2} - 3x + 7y \implies \nabla f(1, 1) = (0, 0) \land \det H_{f}(1, 1) < 0$
+\item $\displaystyle f(x, y) = 3xy - x^{3} - y^{3} \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) < 0$
+\item $\displaystyle f(x, y) = 3xy - x^{3} - y^{3} \implies \nabla f(1, 1) = (0, 0) \land \det H_{f}(1, 1) > 0 \land f_{xx}(1, 1) < 0$
+\item $\displaystyle f(x, y) = x^{2} y - x^{2} - 2y^{2} \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) > 0 \land f_{xx}(0, 0) < 0$
+\item $\displaystyle f(x, y) = x^{2} y - x^{2} - 2y^{2} \implies \nabla f(2, 1) = (0, 0) \land \det H_{f}(2, 1) < 0$
+\item $\displaystyle f(x, y) = x^{2} y - x^{2} - 2y^{2} \implies \nabla f(-2, 1) = (0, 0) \land \det H_{f}(-2, 1) < 0$
+\item $\displaystyle f(x, y) = x^{2} + 2y^{2} + 2xy + 4x \implies \nabla f(-4, 2) = (0, 0) \land \det H_{f}(-4, 2) > 0 \land f_{xx}(-4, 2) > 0$
+\item $\displaystyle f(x, y) = 2(x^{2} + y^{2}) - (x^{4} + y^{4}) + 3 \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) > 0 \land f_{xx}(0, 0) > 0$
+\item $\displaystyle f(x, y) = 2(x^{2} + y^{2}) - (x^{4} + y^{4}) + 3 \implies \nabla f(1, 1) = (0, 0) \land \det H_{f}(1, 1) > 0 \land f_{xx}(1, 1) < 0$
+\item $\displaystyle f(x, y) = 2(x^{2} + y^{2}) - (x^{4} + y^{4}) + 3 \implies \nabla f(1, 0) = (0, 0) \land \det H_{f}(1, 0) < 0$
+\item $\displaystyle f(x, y) = 2(x^{2} + y^{2}) - (x^{4} + y^{4}) + 3 \implies \nabla f(-1, -1) = (0, 0) \land \det H_{f}(-1, -1) > 0 \land f_{xx}(-1, -1) < 0$
+\item $\displaystyle f(u, v) = u v (u - 1) \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) < 0$
+\item $\displaystyle f(u, v) = u v (u - 1) \implies \nabla f(1, 0) = (0, 0) \land \det H_{f}(1, 0) < 0$
+\item $\displaystyle f(u, v) = u^{3} + u - 4uv - 2v^{2} \implies \nabla f\left( -\frac{1}{3}, \frac{1}{3} \right) = (0, 0) \land \det H_{f}\left( -\frac{1}{3}, \frac{1}{3} \right) < 0$
+\item $\displaystyle f(u, v) = u^{3} + u - 4uv - 2v^{2} \implies \nabla f(-1, 1) = (0, 0) \land \det H_{f}(-1, 1) > 0 \land f_{uu}(-1, 1) < 0$
+\item $\displaystyle f(x, y) = 3x^{2} - 2y^{2} \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) < 0$
+\item $\displaystyle f(x, y) = 3x^{2} y - y^{3} + x^{2} \implies \nabla f\left( \frac{1}{3}, -\frac{1}{3} \right) = (0, 0) \land \det H_{f}\left( \frac{1}{3}, -\frac{1}{3} \right) < 0$
+\item $\displaystyle f(x, y) = 3x^{2} y - y^{3} + x^{2} \implies \nabla f\left( -\frac{1}{3}, -\frac{1}{3} \right) = (0, 0) \land \det H_{f}\left( -\frac{1}{3}, -\frac{1}{3} \right) < 0$
+\item $\displaystyle f(x, y) = 3x^{2} y - y^{3} + x^{2} \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) = 0$
+\item $\displaystyle f(x, y) = 3y^{3} - x^{2} y - x^{2} \implies \nabla f(3, -1) = (0, 0) \land \det H_{f}(3, -1) < 0$
+\item $\displaystyle f(x, y) = 3y^{3} - x^{2} y - x^{2} \implies \nabla f(-3, -1) = (0, 0) \land \det H_{f}(-3, -1) < 0$
+\item $\displaystyle f(x, y) = 3y^{3} - x^{2} y - x^{2} \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) = 0$
+\item $\displaystyle f(x, y) = -4xy + 4x \implies \nabla f(0, 1) = (0, 0) \land \det H_{f}(0, 1) < 0$
+\item $\displaystyle f(x, y) = 2y^{2} + x^{2} - y \implies \nabla f\left( 0, \frac{1}{4} \right) = (0, 0) \land \det H_{f}\left( 0, \frac{1}{4} \right) > 0 \land f_{xx}\left( 0, \frac{1}{4} \right) > 0$
+\item $\displaystyle f(x, y) = -8x^{2} - 2y^{2} - 2xy + 2 \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) > 0 \land f_{xx}(0, 0) < 0$
+\item $\displaystyle f(x, y) = x^{3} y^{2} - x^{4} y^{2} - x^{3} y^{3} \implies \nabla f\left( \frac{1}{2}, \frac{1}{3} \right) = (0, 0) \land \det H_{f}\left( \frac{1}{2}, \frac{1}{3} \right) > 0 \land f_{xx}\left( \frac{1}{2}, \frac{1}{3} \right) < 0$
+\item $\displaystyle f(x, y) = 18 + (x^{2} + 2y^{2}) e^{-x^{2} - y^{2}} \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) > 0 \land f_{xx}(0, 0) > 0$
+\item $\displaystyle f(x, y) = 18 + (x^{2} + 2y^{2}) e^{-x^{2} - y^{2}} \implies \nabla f(0, 1) = (0, 0) \land \det H_{f}(0, 1) > 0 \land f_{xx}(0, 1) < 0$
+\item $\displaystyle f(x, y) = 18 + (x^{2} + 2y^{2}) e^{-x^{2} - y^{2}} \implies \nabla f(0, -1) = (0, 0) \land \det H_{f}(0, -1) > 0 \land f_{xx}(0, -1) < 0$
+\item $\displaystyle f(x, y) = 18 + (x^{2} + 2y^{2}) e^{-x^{2} - y^{2}} \implies \nabla f(1, 0) = (0, 0) \land \det H_{f}(1, 0) < 0$
+\item $\displaystyle f(x, y) = 18 + (x^{2} + 2y^{2}) e^{-x^{2} - y^{2}} \implies \nabla f(-1, 0) = (0, 0) \land \det H_{f}(-1, 0) < 0$
+\item $\displaystyle f(x, y) = x e^{y} - y e^{x} \implies \nabla f(1, 1) = (0, 0) \land \det H_{f}(1, 1) < 0$
+\item $\displaystyle f(x, y) = e^{\frac{x}{2}} (x + y^{2}) \implies \nabla f(-2, 0) = (0, 0) \land \det H_{f}(-2, 0) > 0 \land f_{xx}(-2, 0) > 0$
+\item $\displaystyle f(x, y) = 3x e^{y} - x^{3} - e^{3y} \implies \nabla f(1, 0) = (0, 0) \land \det H_{f}(1, 0) > 0 \land f_{xx}(1, 0) < 0$
+\item $\displaystyle f(x, y) = xy e^{x^{2} + y^{2}} \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) < 0$
+\item $\displaystyle f(x, y) = x^{2} + 3y^{2} - 3\ln(x + y + 1) \implies \nabla f\left( \frac{3}{4}, \frac{1}{4} \right) = (0, 0) \land \det H_{f}\left( \frac{3}{4}, \frac{1}{4} \right) > 0 \land f_{xx}\left( \frac{3}{4}, \frac{1}{4} \right) > 0$
+\item $\displaystyle f(x, y) = \frac{2}{y^{2}} + \ln(xy) + \frac{1}{x} \implies \nabla f(1, 2) = (0, 0) \land \det H_{f}(1, 2) > 0 \land f_{xx}(1, 2) > 0$
+\item $\displaystyle f(x, y) = x + 2e^{y} - e^{x} - e^{2y} \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) > 0 \land f_{xx}(0, 0) < 0$
+\item $\displaystyle f(x, y) = e^{x^{2} - y^{2} - x} \implies \nabla f\left( \frac{1}{2}, 0 \right) = (0, 0) \land \det H_{f}\left( \frac{1}{2}, 0 \right) < 0$
+\item $\displaystyle f(x, y) = (y - 2) e^{xy} \implies \nabla f\left( \frac{1}{2}, 0 \right) = (0, 0) \land \det H_{f}\left( \frac{1}{2}, 0 \right) < 0$
+\item $\displaystyle f(x, y) = (x + 1) e^{-xy} \implies \nabla f(0, 1) = (0, 0) \land \det H_{f}(0, 1) < 0$
+\item $\displaystyle f(x, y) = e^{y} (x^{2} + 1) - y \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) > 0 \land f_{xx}(0, 0) > 0$
+\item $\displaystyle f(x, y) = \ln(1 + y^{2} - xy + 2x^{2}) \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) > 0 \land f_{xx}(0, 0) > 0$
+\item $\displaystyle f(x, y) = \arctan(3x^{2} + y^{2}) \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) > 0 \land f_{xx}(0, 0) > 0$
+\item $\displaystyle f(x, y) = y \ln(y + 4x^{2}) \implies \nabla f\left( \frac{1}{2}, 0 \right) = (0, 0) \land \det H_{f}\left( \frac{1}{2}, 0 \right) < 0$
+\item $\displaystyle f(x, y) = y \ln(y + 4x^{2}) \implies \nabla f\left( -\frac{1}{2}, 0 \right) = (0, 0) \land \det H_{f}\left( -\frac{1}{2}, 0 \right) < 0$
+\item $\displaystyle f(x, y) = e^{x^{4} + y^{3} - 4x^{2} - 3y^{2}} \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) > 0 \land f_{xx}(0, 0) < 0$
+\item $\displaystyle f(x, y) = e^{x^{4} + y^{3} - 4x^{2} - 3y^{2}} \implies \nabla f(0, 2) = (0, 0) \land \det H_{f}(0, 2) < 0$
+\item $\displaystyle f(x, y) = x^{4} + y^{4} - 2(x - y)^{2} \implies \nabla f\left( \sqrt{2}, -\sqrt{2} \right) = (0, 0) \land \det H_{f}\left( \sqrt{2}, -\sqrt{2} \right) > 0 \land f_{xx}\left( \sqrt{2}, -\sqrt{2} \right) > 0$
+\item $\displaystyle f(x, y) = x^{4} + y^{4} - 2(x - y)^{2} \implies \nabla f\left( -\sqrt{2}, \sqrt{2} \right) = (0, 0) \land \det H_{f}\left( -\sqrt{2}, \sqrt{2} \right) > 0 \land f_{xx}\left( -\sqrt{2}, \sqrt{2} \right) > 0$
+\item $\displaystyle f(x, y) = x^{4} + y^{4} - 2(x - y)^{2} \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) = 0$
+\item $\displaystyle f(x, y) = x^{4} - x^{2} + \frac{1}{2} y^{2} \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) < 0$
+\item $\displaystyle f(x, y) = x^{4} - x^{2} + \frac{1}{2} y^{2} \implies \nabla f\left( \frac{\sqrt{2}}{2}, 0 \right) = (0, 0) \land \det H_{f}\left( \frac{\sqrt{2}}{2}, 0 \right) > 0 \land f_{xx}\left( \frac{\sqrt{2}}{2}, 0 \right) > 0$
+\item $\displaystyle f(x, y) = x^{4} - x^{2} + \frac{1}{2} y^{2} \implies \nabla f\left( -\frac{\sqrt{2}}{2}, 0 \right) = (0, 0) \land \det H_{f}\left( -\frac{\sqrt{2}}{2}, 0 \right) > 0 \land f_{xx}\left( -\frac{\sqrt{2}}{2}, 0 \right) > 0$
+\item $\displaystyle f(x, y) = x^{4} + y^{3} - 4x^{2} - 3y^{2} \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) > 0 \land f_{xx}(0, 0) < 0$
+\item $\displaystyle f(x, y) = x^{4} + y^{3} - 4x^{2} - 3y^{2} \implies \nabla f(0, 2) = (0, 0) \land \det H_{f}(0, 2) < 0$
+\item $\displaystyle f(x, y) = x^{4} + y^{3} - 4x^{2} - 3y^{2} \implies \nabla f\left( \sqrt{2}, 0 \right) = (0, 0) \land \det H_{f}\left( \sqrt{2}, 0 \right) < 0$
+\item $\displaystyle f(x, y) = x^{4} + y^{3} - 4x^{2} - 3y^{2} \implies \nabla f\left( -\sqrt{2}, 2 \right) = (0, 0) \land \det H_{f}\left( -\sqrt{2}, 2 \right) > 0 \land f_{xx}\left( -\sqrt{2}, 2 \right) > 0$
+\item $\displaystyle f(x, y) = x^{4} + 2x^{2} y - y^{3} \implies \nabla f\left( \frac{\sqrt{6}}{3}, -\frac{2}{3} \right) = (0, 0) \land \det H_{f}\left( \frac{\sqrt{6}}{3}, -\frac{2}{3} \right) > 0 \land f_{xx}\left( \frac{\sqrt{6}}{3}, -\frac{2}{3} \right) > 0$
+\item $\displaystyle f(x, y) = x^{4} + 2x^{2} y - y^{3} \implies \nabla f\left( -\frac{\sqrt{6}}{3}, -\frac{2}{3} \right) = (0, 0) \land \det H_{f}\left( -\frac{\sqrt{6}}{3}, -\frac{2}{3} \right) > 0 \land f_{xx}\left( -\frac{\sqrt{6}}{3}, -\frac{2}{3} \right) > 0$
+\item $\displaystyle f(x, y) = x^{4} + 2x^{2} y - y^{3} \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) = 0$
+\item $\displaystyle f(x, y) = x^{4} - 4xy + y^{2} \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) < 0$
+\item $\displaystyle f(x, y) = x^{4} - 4xy + y^{2} \implies \nabla f\left( \sqrt{2}, 2\sqrt{2} \right) = (0, 0) \land \det H_{f}\left( \sqrt{2}, 2\sqrt{2} \right) > 0 \land f_{xx}\left( \sqrt{2}, 2\sqrt{2} \right) > 0$
+\item $\displaystyle f(x, y) = x^{4} - 4xy + y^{2} \implies \nabla f\left( -\sqrt{2}, -2\sqrt{2} \right) = (0, 0) \land \det H_{f}\left( -\sqrt{2}, -2\sqrt{2} \right) > 0 \land f_{xx}\left( -\sqrt{2}, -2\sqrt{2} \right) > 0$
+\item $\displaystyle f(x, y) = x^{2} y + x^{2} - 2y \implies \nabla f\left( \sqrt{2}, -1 \right) = (0, 0) \land \det H_{f}\left( \sqrt{2}, -1 \right) < 0$
+\item $\displaystyle f(x, y) = x^{2} y + x^{2} - 2y \implies \nabla f\left( -\sqrt{2}, -1 \right) = (0, 0) \land \det H_{f}\left( -\sqrt{2}, -1 \right) < 0$
+\item $\displaystyle f(x, y) = x^{2} y + y^{3} - y \implies \nabla f\left( 0, \frac{1}{\sqrt{3}} \right) = (0, 0) \land \det H_{f}\left( 0, \frac{1}{\sqrt{3}} \right) > 0 \land f_{xx}\left( 0, \frac{1}{\sqrt{3}} \right) > 0$
+\item $\displaystyle f(x, y) = x^{2} y + y^{3} - y \implies \nabla f\left( 0, -\frac{1}{\sqrt{3}} \right) = (0, 0) \land \det H_{f}\left( 0, -\frac{1}{\sqrt{3}} \right) > 0 \land f_{xx}\left( 0, -\frac{1}{\sqrt{3}} \right) < 0$
+\item $\displaystyle f(x, y) = x^{2} y + y^{3} - y \implies \nabla f(1, 0) = (0, 0) \land \det H_{f}(1, 0) < 0$
+\item $\displaystyle f(x, y) = -xy e^{-x^{2} + y} \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) < 0$
+\item $\displaystyle f(x, y) = -xy e^{-x^{2} + y} \implies \nabla f\left( \frac{1}{\sqrt{2}}, -1 \right) = (0, 0) \land \det H_{f}\left( \frac{1}{\sqrt{2}}, -1 \right) > 0 \land f_{xx}\left( \frac{1}{\sqrt{2}}, -1 \right) < 0$
+\item $\displaystyle f(x, y) = -xy e^{-x^{2} + y} \implies \nabla f\left( -\frac{1}{\sqrt{2}}, -1 \right) = (0, 0) \land \det H_{f}\left( -\frac{1}{\sqrt{2}}, -1 \right) > 0 \land f_{xx}\left( -\frac{1}{\sqrt{2}}, -1 \right) > 0$
+\item $\displaystyle f(x, y) = 3x^{2} - x y^{2} \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) = 0$
+\item $\displaystyle f(x, y) = x^{4} - 4x^{2} y + y^{2} \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) = 0$
+\item $\displaystyle f(x, y) = x^{2} - 4x - y^{4} \implies \nabla f(2, 0) = (0, 0) \land \det H_{f}(2, 0) = 0$
+\item $\displaystyle f(x, y) = y(x - 1)^{2} - y^{4} \implies \nabla f(1, 0) = (0, 0) \land \det H_{f}(1, 0) = 0$
+\item $\displaystyle f(x, y) = x^{4} + y^{4} + 2(x - y)^{2} + 2 \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) = 0$
+\item $\displaystyle f(x, y) = x^{4} + y^{4} \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) = 0$
+\item $\displaystyle f(x, y) = x^{4} - y^{4} \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) = 0$
+\item $\displaystyle f(x, y) = (x^{3} + 1)(y^{3} + 1) \implies \nabla f(-1, -1) = (0, 0) \land \det H_{f}(-1, -1) < 0$
+\item $\displaystyle f(x, y) = (x^{3} + 1)(y^{3} + 1) \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) = 0$
+\item $\displaystyle f(x, y) = x^{3} + y^{3} - 3xy \implies \det H_{f}(1, 1) = 27 \land f_{xx}(1, 1) = 6 \land \det H_{f}(0, 0) = -9$
+\item $\displaystyle f(x, y) = 4y^{4} - 16x^{2} y + x \implies \det H_{f}\left( \frac{1}{8}, \frac{1}{4} \right) = -40$
+\item $\displaystyle f(x, y) = 2x^{3} + 9x y^{2} + 15x^{2} + 27y^{2} \implies \det H_{f}(0, 0) = 1620 \land \det H_{f}(-5, 0) = 1080 \land \det H_{f}(-3, 2) = -1296$
+\item $\displaystyle f(x, y) = (3x + 3x^{3})(y^{2} + 2y) \implies \det H_{f}(0, 0) = -36 \land \det H_{f}(0, -2) = -36$
+\item $\displaystyle f(x, y) = x^{3} y^{2} - x^{4} y^{2} - x^{3} y^{3} \implies \det H_{f}\left( \frac{1}{2}, \frac{1}{3} \right) = \frac{1}{144}$
+\item $\displaystyle f(x, y) = x^{3} + y^{3} - 3xy \implies \det H_{f} = 36xy - 9$
+\item $\displaystyle f(x, y) = x^{4} + y^{4} + 2(x - y)^{2} + 2 \implies \det H_{f} = 144x^{2} y^{2} + 48x^{2} + 48y^{2}$
+\item $\displaystyle f(x, y) = x^{3} + y^{3} - 3xy \implies \det H_{f}(1, 1) \ge 27 \land \det H_{f}(1, 1) \le 27 \land \det H_{f}(1, 1) \neq 26$
+\item $\displaystyle f(x, y) = x^{3} + y^{3} - 3xy \implies f_{x}(1, 2) \neq 0 \land f_{y}(1, 2) > 0 \land f(1, 1) < f(0, 0)$
+\item $\displaystyle f(x, y) = x^{4} + y^{4} \implies \det H_{f}(0, 0) \ge 0 \land \det H_{f}(0, 0) \le 0 \land f_{xx}(1, 1) \neq 0$
+\item $\displaystyle f(x, y) = x^{3} + y^{3} - 3xy \implies \begin{vmatrix} f_{xx}(1, 1) & f_{xy}(1, 1) \\ f_{yx}(1, 1) & f_{yy}(1, 1) \end{vmatrix} = 27$
+\item $\displaystyle f(x, y) = x^{3} + y^{3} - 3xy \implies f_{xx}(1, 1) f_{yy}(1, 1) - f_{xy}(1, 1)^{2} > 0$
+\item $\displaystyle f(x, y) = x^{2} y \implies \det \begin{pmatrix} f_{x}(1, 2) & f_{y}(1, 2) \\ 3 & 5 \end{pmatrix} = 17 \land \det \begin{bmatrix} 2 & 3 \\ 5 & 7 \end{bmatrix} < 0$
+\item $\displaystyle f(x, y) = x e^{y} - y e^{x} \implies \det H_{f}(1, 1) = -e^{2} \land f_{xx}(1, 1) = -e$
+\item $\displaystyle f(x, y) = x^{4} + y^{4} - 2(x - y)^{2} \implies \det H_{f}\left( \sqrt{2}, -\sqrt{2} \right) = 384 \land f_{xx}\left( \sqrt{2}, -\sqrt{2} \right) = 20$
+\item $\displaystyle f(x, y) = \sin x \sin y \implies \nabla f\left( \frac{\pi}{2}, \frac{\pi}{2} \right) = (0, 0) \land \det H_{f}\left( \frac{\pi}{2}, \frac{\pi}{2} \right) > 0 \land f_{xx}\left( \frac{\pi}{2}, \frac{\pi}{2} \right) < 0$
+\item $\displaystyle f(x, y) = \sin x \sin y \implies \nabla f(0, 0) = (0, 0) \land \det H_{f}(0, 0) < 0$
+\item $\displaystyle f(x, y, z) = x^{3} - 2x^{2} + y^{2} + z^{2} - 2xy + xz - yz + 3z \implies \nabla f(2, 1, -2) = 0 \land f_{xx}(2, 1, -2) > 0 \land \det \begin{pmatrix} f_{xx}(2, 1, -2) & f_{xy}(2, 1, -2) \\ f_{yx}(2, 1, -2) & f_{yy}(2, 1, -2) \end{pmatrix} > 0 \land \det H_{f}(2, 1, -2) > 0$
+\item $\displaystyle f(x, y, z) = x^{3} - 2x^{2} + y^{2} + z^{2} - 2xy + xz - yz + 3z \implies \nabla f(0, -1, -2) = 0 \land f_{xx}(0, -1, -2) < 0 \land \det \begin{pmatrix} f_{xx}(0, -1, -2) & f_{xy}(0, -1, -2) \\ f_{yx}(0, -1, -2) & f_{yy}(0, -1, -2) \end{pmatrix} < 0 \land \det H_{f}(0, -1, -2) < 0$
+\item $\displaystyle f(x, y, z) = x^{3} - 2x^{2} + y^{2} + z^{2} - 2xy + xz - yz + 3z \implies \det H_{f}(2, 1, -2) = 18 \land \det H_{f}(0, -1, -2) = -18 \land f(0, -1, -2) = -3 \land f(2, 1, -2) = -7$
+\item $\displaystyle f(x, y, z) = x^{2} + y^{2} + z^{2} - xyz \implies \nabla f(0, 0, 0) = 0 \land f_{xx}(0, 0, 0) > 0 \land \det \begin{pmatrix} f_{xx}(0, 0, 0) & f_{xy}(0, 0, 0) \\ f_{yx}(0, 0, 0) & f_{yy}(0, 0, 0) \end{pmatrix} > 0 \land \det H_{f}(0, 0, 0) > 0$
+\item $\displaystyle f(x, y, z) = x^{2} + y^{2} + z^{2} - xyz \implies \nabla f(2, 2, 2) = 0 \land f_{xx}(2, 2, 2) > 0 \land \det \begin{pmatrix} f_{xx}(2, 2, 2) & f_{xy}(2, 2, 2) \\ f_{yx}(2, 2, 2) & f_{yy}(2, 2, 2) \end{pmatrix} = 0 \land \det H_{f}(2, 2, 2) < 0$
+\item $\displaystyle f(x, y, z) = x^{2} + y^{2} + z^{2} - xyz \implies \nabla f(-2, -2, 2) = 0 \land \det H_{f}(-2, -2, 2) = -32$
+\item $\displaystyle f(x, y, z) = x^{2} + y^{2} + (z^{2} - 1)^{2} + 12 \implies \nabla f(0, 0, 0) = 0 \land f_{xx}(0, 0, 0) > 0 \land \det \begin{pmatrix} f_{xx}(0, 0, 0) & f_{xy}(0, 0, 0) \\ f_{yx}(0, 0, 0) & f_{yy}(0, 0, 0) \end{pmatrix} > 0 \land \det H_{f}(0, 0, 0) < 0$
+\item $\displaystyle f(x, y, z) = x^{2} + y^{2} + (z^{2} - 1)^{2} + 12 \implies \nabla f(0, 0, 1) = 0 \land f_{xx}(0, 0, 1) > 0 \land \det \begin{pmatrix} f_{xx}(0, 0, 1) & f_{xy}(0, 0, 1) \\ f_{yx}(0, 0, 1) & f_{yy}(0, 0, 1) \end{pmatrix} > 0 \land \det H_{f}(0, 0, 1) > 0$
+\item $\displaystyle f(x, y, z) = x^{2} + y^{2} + (z^{2} - 1)^{2} + 12 \implies \nabla f(0, 0, -1) = 0 \land f_{xx}(0, 0, -1) > 0 \land \det \begin{pmatrix} f_{xx}(0, 0, -1) & f_{xy}(0, 0, -1) \\ f_{yx}(0, 0, -1) & f_{yy}(0, 0, -1) \end{pmatrix} > 0 \land \det H_{f}(0, 0, -1) > 0$
+\item $\displaystyle f(x, y, z) = 3x^{2} + y^{2} + z^{2} - 6x - 2z \implies \nabla f(1, 0, 1) = 0 \land f_{xx}(1, 0, 1) > 0 \land \det \begin{pmatrix} f_{xx}(1, 0, 1) & f_{xy}(1, 0, 1) \\ f_{yx}(1, 0, 1) & f_{yy}(1, 0, 1) \end{pmatrix} > 0 \land \det H_{f}(1, 0, 1) > 0$
+\item $\displaystyle f(x, y, z) = x^{2} + y^{4} + y^{2} + z^{3} - 2xz \implies \nabla f(0, 0, 0) = 0 \land f_{xx}(0, 0, 0) > 0 \land \det \begin{pmatrix} f_{xx}(0, 0, 0) & f_{xy}(0, 0, 0) \\ f_{yx}(0, 0, 0) & f_{yy}(0, 0, 0) \end{pmatrix} > 0 \land \det H_{f}(0, 0, 0) < 0$
+\item $\displaystyle f(x, y, z) = x^{2} + y^{4} + y^{2} + z^{3} - 2xz \implies \nabla f\left( \frac{2}{3}, 0, \frac{2}{3} \right) = 0 \land f_{xx}\left( \frac{2}{3}, 0, \frac{2}{3} \right) > 0 \land \det \begin{pmatrix} f_{xx}\left( \frac{2}{3}, 0, \frac{2}{3} \right) & f_{xy}\left( \frac{2}{3}, 0, \frac{2}{3} \right) \\ f_{yx}\left( \frac{2}{3}, 0, \frac{2}{3} \right) & f_{yy}\left( \frac{2}{3}, 0, \frac{2}{3} \right) \end{pmatrix} > 0 \land \det H_{f}\left( \frac{2}{3}, 0, \frac{2}{3} \right) > 0$
+\item $\displaystyle f(x, y, z) = \frac{1}{x} + \frac{1}{y} + \frac{1}{z} + xyz \implies \nabla f(1, 1, 1) = 0 \land f_{xx}(1, 1, 1) > 0 \land \det \begin{pmatrix} f_{xx}(1, 1, 1) & f_{xy}(1, 1, 1) \\ f_{yx}(1, 1, 1) & f_{yy}(1, 1, 1) \end{pmatrix} > 0 \land \det H_{f}(1, 1, 1) > 0$
+\item $\displaystyle f(x, y, z) = \frac{1}{x} + \frac{1}{y} + \frac{1}{z} + xyz \implies \nabla f(-1, -1, -1) = 0 \land f_{xx}(-1, -1, -1) < 0 \land \det \begin{pmatrix} f_{xx}(-1, -1, -1) & f_{xy}(-1, -1, -1) \\ f_{yx}(-1, -1, -1) & f_{yy}(-1, -1, -1) \end{pmatrix} > 0 \land \det H_{f}(-1, -1, -1) < 0$
+\item $\displaystyle f(x, y, z) = -2x^{2} - xy - 2y^{2} + 5x + 5y - z^{2} + 2z \implies \nabla f(1, 1, 1) = 0 \land f_{xx}(1, 1, 1) < 0 \land \det \begin{pmatrix} f_{xx}(1, 1, 1) & f_{xy}(1, 1, 1) \\ f_{yx}(1, 1, 1) & f_{yy}(1, 1, 1) \end{pmatrix} > 0 \land \det H_{f}(1, 1, 1) < 0$
+\item $\displaystyle f(x, y, z) = x^{2} + y^{3} + z^{2} - xy - xz \implies \nabla f\left( \frac{4}{27}, \frac{2}{9}, \frac{2}{27} \right) = 0 \land f_{xx}\left( \frac{4}{27}, \frac{2}{9}, \frac{2}{27} \right) > 0 \land \det \begin{pmatrix} f_{xx}\left( \frac{4}{27}, \frac{2}{9}, \frac{2}{27} \right) & f_{xy}\left( \frac{4}{27}, \frac{2}{9}, \frac{2}{27} \right) \\ f_{yx}\left( \frac{4}{27}, \frac{2}{9}, \frac{2}{27} \right) & f_{yy}\left( \frac{4}{27}, \frac{2}{9}, \frac{2}{27} \right) \end{pmatrix} > 0 \land \det H_{f}\left( \frac{4}{27}, \frac{2}{9}, \frac{2}{27} \right) > 0$
+\item $\displaystyle f(x, y, z) = x^{4} + x^{3} + y^{2} + z^{2} \implies \nabla f\left( -\frac{3}{4}, 0, 0 \right) = 0 \land f_{xx}\left( -\frac{3}{4}, 0, 0 \right) > 0 \land \det \begin{pmatrix} f_{xx}\left( -\frac{3}{4}, 0, 0 \right) & f_{xy}\left( -\frac{3}{4}, 0, 0 \right) \\ f_{yx}\left( -\frac{3}{4}, 0, 0 \right) & f_{yy}\left( -\frac{3}{4}, 0, 0 \right) \end{pmatrix} > 0 \land \det H_{f}\left( -\frac{3}{4}, 0, 0 \right) > 0$
+\item $\displaystyle f(x, y, z) = \frac{3}{4} x^{2} + 8y^{2} + 7xy + z^{4} \implies \nabla f(0, 0, 0) = 0 \land f_{xx}(0, 0, 0) > 0 \land \det \begin{pmatrix} f_{xx}(0, 0, 0) & f_{xy}(0, 0, 0) \\ f_{yx}(0, 0, 0) & f_{yy}(0, 0, 0) \end{pmatrix} < 0 \land \det H_{f}(0, 0, 0) = 0$
+\item $\displaystyle f(x, y, z) = x^{2} - 2x + 2y^{2} + 3z^{2} \implies \nabla f(1, 0, 0) = 0 \land f_{xx}(1, 0, 0) > 0 \land \det \begin{pmatrix} f_{xx}(1, 0, 0) & f_{xy}(1, 0, 0) \\ f_{yx}(1, 0, 0) & f_{yy}(1, 0, 0) \end{pmatrix} > 0 \land \det H_{f}(1, 0, 0) > 0$
+\item $\displaystyle f(x, y, z) = (z^{2} - 1)(x^{2} + y^{2} - 4) \implies \nabla f(0, 0, 0) = 0 \land f_{xx}(0, 0, 0) < 0 \land \det \begin{pmatrix} f_{xx}(0, 0, 0) & f_{xy}(0, 0, 0) \\ f_{yx}(0, 0, 0) & f_{yy}(0, 0, 0) \end{pmatrix} > 0 \land \det H_{f}(0, 0, 0) < 0$
+\item $\displaystyle f(x, y, z) = (x^{3} - 3x - y^{2}) z^{2} + z^{3} \implies \nabla f\left( -1, 0, -\frac{4}{3} \right) = 0 \land f_{xx}\left( -1, 0, -\frac{4}{3} \right) < 0 \land \det \begin{pmatrix} f_{xx}\left( -1, 0, -\frac{4}{3} \right) & f_{xy}\left( -1, 0, -\frac{4}{3} \right) \\ f_{yx}\left( -1, 0, -\frac{4}{3} \right) & f_{yy}\left( -1, 0, -\frac{4}{3} \right) \end{pmatrix} > 0 \land \det H_{f}\left( -1, 0, -\frac{4}{3} \right) < 0$
+\item $\displaystyle f(x, y, z) = (x^{3} - 3x - y^{2}) z^{2} + z^{3} \implies \nabla f\left( 1, 0, \frac{4}{3} \right) = 0 \land f_{xx}\left( 1, 0, \frac{4}{3} \right) > 0 \land \det H_{f}\left( 1, 0, \frac{4}{3} \right) < 0 \land f_{zz}\left( 1, 0, \frac{4}{3} \right) = 4$
+\item $\displaystyle f(x, y, z) = \frac{1}{x} + \frac{1}{y} + \frac{1}{z} + xyz \implies f_{xx}(1, 1, 1) = 2 \land \det \begin{pmatrix} f_{xx}(1, 1, 1) & f_{xy}(1, 1, 1) \\ f_{yx}(1, 1, 1) & f_{yy}(1, 1, 1) \end{pmatrix} = 3 \land \det H_{f}(1, 1, 1) = 4$
+\item $\displaystyle f(x, y, z) = z^{2} - 18x^{2} + 6xy - 4y^{2} z \implies \nabla f\left( \frac{1}{24}, \frac{1}{4}, \frac{1}{8} \right) = 0 \land H_{f}\left( \frac{1}{24}, \frac{1}{4}, \frac{1}{8} \right) = \begin{pmatrix} -36 & 6 & 0 \\ 6 & -1 & -2 \\ 0 & -2 & 2 \end{pmatrix} \land \det H_{f}\left( \frac{1}{24}, \frac{1}{4}, \frac{1}{8} \right) = 144$
+\item $\displaystyle f(x, y, z, w) = x^{2} + 2y^{2} + z^{2} + 2w^{2} + yz - 2xw \implies \nabla f(0, 0, 0, 0) = 0 \land f_{xx}(0, 0, 0, 0) = 2 \land \det \begin{pmatrix} f_{xx}(0, 0, 0, 0) & f_{xy}(0, 0, 0, 0) \\ f_{yx}(0, 0, 0, 0) & f_{yy}(0, 0, 0, 0) \end{pmatrix} = 8 \land \det \begin{pmatrix} f_{xx}(0, 0, 0, 0) & f_{xy}(0, 0, 0, 0) & f_{xz}(0, 0, 0, 0) \\ f_{yx}(0, 0, 0, 0) & f_{yy}(0, 0, 0, 0) & f_{yz}(0, 0, 0, 0) \\ f_{zx}(0, 0, 0, 0) & f_{zy}(0, 0, 0, 0) & f_{zz}(0, 0, 0, 0) \end{pmatrix} = 14 \land \det H_{f}(0, 0, 0, 0) = 28$
+\item $\displaystyle f(x, y, z, w) = x^{2} + 2y^{2} + z^{2} + 2w^{2} + yz - 2xw \implies \nabla f(0, 0, 0, 0) = 0 \land f_{xx}(0, 0, 0, 0) > 0 \land \det \begin{pmatrix} f_{xx}(0, 0, 0, 0) & f_{xy}(0, 0, 0, 0) \\ f_{yx}(0, 0, 0, 0) & f_{yy}(0, 0, 0, 0) \end{pmatrix} > 0 \land \det \begin{pmatrix} f_{xx}(0, 0, 0, 0) & f_{xy}(0, 0, 0, 0) & f_{xz}(0, 0, 0, 0) \\ f_{yx}(0, 0, 0, 0) & f_{yy}(0, 0, 0, 0) & f_{yz}(0, 0, 0, 0) \\ f_{zx}(0, 0, 0, 0) & f_{zy}(0, 0, 0, 0) & f_{zz}(0, 0, 0, 0) \end{pmatrix} > 0 \land \det H_{f}(0, 0, 0, 0) > 0$
+\item $\displaystyle f(x, y) = x \implies \det \begin{pmatrix} 1 & 2 & 3 \\ 4 & 5 & 6 \\ 7 & 8 & 10 \end{pmatrix} = -3 \land \det \begin{pmatrix} 2 & 0 & 1 & 3 \\ 1 & 1 & 0 & 2 \\ 0 & 4 & 1 & 1 \\ 3 & 1 & 2 & 0 \end{pmatrix} = -28$
+\item $\displaystyle f(x, y) = x \implies \det \begin{pmatrix} 0 & 1 & 2 & 3 \\ 1 & 0 & 4 & 5 \\ 2 & 4 & 0 & 6 \\ 3 & 5 & 6 & 0 \end{pmatrix} = -224 \land \begin{vmatrix} 1 & 2 \\ 3 & 4 \end{vmatrix} = -2$
+\item $\displaystyle f(x, y) = x^{3} + 2y^{2}, g(x, y) = x^{2} + y^{2} - 4 \implies f_{x}(2, 0) = 3 g_{x}(2, 0) \land f_{y}(2, 0) = 3 g_{y}(2, 0) \land g(2, 0) = 0 \land \det \begin{pmatrix} 0 & g_{x}(2, 0) & g_{y}(2, 0) \\ g_{x}(2, 0) & f_{xx}(2, 0) - 3 g_{xx}(2, 0) & f_{xy}(2, 0) - 3 g_{xy}(2, 0) \\ g_{y}(2, 0) & f_{yx}(2, 0) - 3 g_{yx}(2, 0) & f_{yy}(2, 0) - 3 g_{yy}(2, 0) \end{pmatrix} > 0$
+\item $\displaystyle f(x, y) = x^{3} + 2y^{2}, g(x, y) = x^{2} + y^{2} - 4 \implies f_{x}(0, 2) = 2 g_{x}(0, 2) \land f_{y}(0, 2) = 2 g_{y}(0, 2) \land g(0, 2) = 0 \land \det \begin{pmatrix} 0 & g_{x}(0, 2) & g_{y}(0, 2) \\ g_{x}(0, 2) & f_{xx}(0, 2) - 2 g_{xx}(0, 2) & f_{xy}(0, 2) - 2 g_{xy}(0, 2) \\ g_{y}(0, 2) & f_{yx}(0, 2) - 2 g_{yx}(0, 2) & f_{yy}(0, 2) - 2 g_{yy}(0, 2) \end{pmatrix} = 64$
+\end{enumerate}
+\end{document}

@@ -1,0 +1,36 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{critical\_requests.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{critical\_requests.tex} is used for. The file is read by \texttt{test\_multivariable\_calculus.c}.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 41 requests: each declares a function of two variables and asks for its critical points, $\{(x, y) \mid \nabla f(x, y) = (0, 0)\}$. They are the exercises ``find the critical points and say what they are'' of the collections analysed in \texttt{photos/dati\_esercizi/analisi\_estremi\_vincolati.md} (section 4a) and \texttt{analisi\_funzioni\_due\_variabili.md} (section 5c).
+
+\item \textbf{What the engine does.} It computes the gradient, writes the system that makes it vanish as a request with a parameter, and has it solved by the sign table by cases on the parameter. The answer is the condition that says where the gradient vanishes, for instance $(y = 0 \land x = 0) \lor (y = 1 \land x = 1)$. The answer is then read again inside the statement ``the gradient vanishes if and only if the answer holds'', which is proved from scratch; when the points have a square root among their coordinates this second proof is not possible, and the verdict says so. If the answer is a finite list of points, each point becomes a statement on its own: the gradient vanishes there, and the determinant of the Hessian matrix, with $f_{xx}$ when it is positive, has a sign, which the note of the verdict reports.
+
+\item \textbf{The groups.} Items 1--25: polynomials and rational functions with rational critical points (item 25 has two whole lines of critical points and one more point). Items 26--30: points with a square root among the coordinates. Items 31--34: the determinant is zero at the only point, and lines of critical points. Item 35: no critical point. Item 36: other letters for the variables. Items 37--41: functions with a logarithm, whose derivative has a value also where the logarithm does not exist; the system must look for critical points only where the function is defined. In items 37 and 38 (Vitali 5, Carriero) the gradient vanishes at a second point, outside the domain, as the books say; items 40 and 41 have no critical point at all, and are kept against a regression: the gradient alone vanishes on the line $x = -1$, where $\ln x$ does not exist.
+
+\item \textbf{Expected result.} Every request is answered. The verdict carries no certificate and says why: that there are no other critical points is proved by the sign table with a parameter, which has no certificate. For seventeen requests the test wants the very condition and the very second-order comparisons that the books print, and checks each expected point with the Taylor series of the function alone.
+
+\item \textbf{How it was checked.} The independent oracle of \texttt{tools/fuzz/fuzz\_multivariable.py} (mode \texttt{check}) compares every answer with the gradient, computed with its own rules, at each point of a grid of rational numbers and at the points the answer lists, in both directions: where the answer says ``critical'' the gradient must vanish, and where the gradient vanishes the answer must say so. A search by Newton's method from random starting points looks for critical points the answer does not list. This is not a proof that the list is complete.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_multivariable_calculus \
+    tests/multivariable_calculus/test_multivariable_calculus.c && \
+    /tmp/test_multivariable_calculus
+\end{verbatim}
+\end{enumerate}
+\end{document}
