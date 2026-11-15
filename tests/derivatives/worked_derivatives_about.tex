@@ -1,0 +1,34 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{worked\_derivatives.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{worked\_derivatives.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_worked\_derivatives.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 6 requests $\frac{d}{dx}(\ldots)$. The answers are checked elsewhere. Here the engine must also record the way: one line for each piece of the expression that contains $x$, from the innermost outwards, with the derivative of the piece and the rule that gives it.
+
+\item \textbf{What it exercises.} Rule 27n of \texttt{main.c} and the sentences of chapter 41 of \texttt{output.c}. Every line is checked on its own before it is recorded: the piece and its derivative are read back from the text that will be printed and sent to \texttt{checker.c}, which differentiates the piece with rules of its own.
+
+\item \textbf{Variety.} The power rule, a constant factor, sums, the product rule, the quotient rule, the exponential, a sine, a tangent, a square root, and the chain rule with a first-degree, a second-degree and a power inside.
+
+\item \textbf{Expected result.} The line \texttt{PASS: 124 of 124 checks on worked derivatives passed}. The expected lines are written in the test as formulas worked out by hand, and compared with the recorded ones by value, not by spelling.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_worked_derivatives \
+    tests/derivatives/test_worked_derivatives.c \
+    && /tmp/test_worked_derivatives
+\end{verbatim}
+\end{enumerate}
+\end{document}

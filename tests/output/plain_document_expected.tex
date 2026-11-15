@@ -1,0 +1,94 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\newsavebox{\fitbox}
+\newcommand{\fitmath}[1]{\sbox{\fitbox}{$\displaystyle #1$}%
+  \ifdim\wd\fitbox>\linewidth\resizebox{\linewidth}{!}{\usebox{\fitbox}}\else\usebox{\fitbox}\fi}
+
+\title{Proofs}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+
+\section*{tests/\allowbreak{}output/\allowbreak{}document\_\allowbreak{}statements.tex}
+\begin{enumerate}
+\item $\displaystyle \sum_{k=1}^{n} k = \frac{n(n+1)}{2}$
+
+\textbf{Proof.} By induction on $n$.
+\begin{itemize}
+\item \emph{Base case}, $n = 1$. The left-hand side is $\sum_{k=1}^{1} k = 1$ and the right-hand side is $\frac{1 \cdot \left(1 + 1\right)}{2} = 1$: the two values are equal.
+\item \emph{Inductive hypothesis}. Assume the statement for some $n \ge 1$: $\sum_{k=1}^{n} k = \frac{n \cdot \left(n + 1\right)}{2}$.
+\item \emph{Inductive step}. We prove the statement for $n + 1$: $\sum_{k=1}^{n + 1} k = \frac{\left(n + 1\right) \cdot \left(n + 1 + 1\right)}{2}$.
+\begin{itemize}
+\item $\sum_{k=1}^{n + 1} k = \sum_{k=1}^{n} k + \left(n + 1\right)$.
+\item By the inductive hypothesis, $\sum_{k=1}^{n} k = \frac{1}{2}\,n + \frac{1}{2}\,n^{2}$.
+\item With these replacements, both sides of the statement for $n + 1$ become $1 + \frac{3}{2}\,n + \frac{1}{2}\,n^{2}$.
+\end{itemize}
+\end{itemize}
+$\Box$
+
+\item $\displaystyle \{x \in \mathbb{R} \mid \frac{x - 2}{x + 3} \ge 0\}$
+
+\textbf{Sign table.} Each comparison counts as false where one of its sides has no value. Its truth can change only where one of these expressions in $x$ is zero: $-x + 2$, $x + 3$. At each of these points and on every interval between two consecutive ones the signs are constant, so one value of $x$ decides each.
+\begin{itemize}
+\item $x < -3$ (for instance $x = -5$): the condition holds.
+\item $x = -3$: the condition fails.
+\item $-3 < x < 2$ (for instance $x = -2$): the condition fails.
+\item $x = 2$: the condition holds.
+\item $2 < x$ (for instance $x = 4$): the condition holds.
+\end{itemize}
+Hence the condition holds exactly for $x < -3 \lor x \ge 2$. $\Box$
+
+\begin{center}
+\includegraphics[page=1,width=0.8\textwidth]{mathresearcher_test_plain-plots.pdf}
+\end{center}
+{\small \textbf{Graph.} Each panel shows the two sides of one comparison, or one side and the axis when the other is $0$. Green bands: where that comparison holds. Gray bands and dashed lines: where a side has no value. Bottom line: where the whole condition holds.}
+
+\item $\displaystyle \forall x \in \mathbb{R}\ \left(\left|x - 1\right| < 2 \iff -1 < x < 3\right)$
+
+\textbf{Sign table.} Each comparison counts as false where one of its sides has no value. Its truth can change only where one of these expressions in $x$ is zero: $x - 3$, $x - 1$, $-x - 1$. At each of these points and on every interval between two consecutive ones the signs are constant, so one value of $x$ decides each.
+\begin{itemize}
+\item $x < -1$ (for instance $x = -3$): the left side is false, the right side is false.
+\item $x = -1$: the left side is false, the right side is false.
+\item $-1 < x < 1$ (for instance $x = 0$): the left side is true, the right side is true.
+\item $x = 1$: the left side is true, the right side is true.
+\item $1 < x < 3$ (for instance $x = 2$): the left side is true, the right side is true.
+\item $x = 3$: the left side is false, the right side is false.
+\item $3 < x$ (for instance $x = 5$): the left side is false, the right side is false.
+\end{itemize}
+The condition holds on every row, hence for every value of $x$ in the set. $\Box$
+
+\begin{center}
+\includegraphics[page=2,width=0.8\textwidth]{mathresearcher_test_plain-plots.pdf}
+\end{center}
+{\small \textbf{Graph.} Each panel shows the two sides of one comparison, or one side and the axis when the other is $0$. Green bands: where that comparison holds. Gray bands and dashed lines: where a side has no value. Bottom line: where the whole condition holds.}
+
+\item $\displaystyle \forall x \in \mathbb{R}\ \left(\frac{1}{x} > 0 \iff x \ge 0\right)$
+
+\textbf{Sign table.} Each comparison counts as false where one of its sides has no value. Its truth can change only where one of these expressions in $x$ is zero: $x$, $-x$. At each of these points and on every interval between two consecutive ones the signs are constant, so one value of $x$ decides each.
+\begin{itemize}
+\item $x < 0$ (for instance $x = -2$): the left side is false, the right side is false.
+\item $x = 0$: the left side is false, the right side is true.
+\end{itemize}
+At this value the condition fails. So the statement is false.
+
+\begin{center}
+\includegraphics[page=3,width=0.8\textwidth]{mathresearcher_test_plain-plots.pdf}
+\end{center}
+{\small \textbf{Graph.} Each panel shows the two sides of one comparison, or one side and the axis when the other is $0$. Green bands: where that comparison holds. Gray bands and dashed lines: where a side has no value. Bottom line: where the whole condition holds.}
+
+\item $\displaystyle \forall x \in \mathbb{R}\ (x + = 3)$
+
+\textbf{No proof.} NON SUPPORTATO: espressione incompleta o simbolo inatteso
+
+\end{enumerate}
+\end{document}

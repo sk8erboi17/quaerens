@@ -1,0 +1,33 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{plain\_document\_expected.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what \texttt{plain\_document\_expected.tex} is. Unlike the other files of this folder it is not input for the engine: it is a document the program wrote, kept as a reference. It is read by the test \texttt{test\_plain\_document.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The option \texttt{--plain-proofs} asks for the final document without the worked solutions: the document the program wrote before it learned to explain. The reference is that document, for the statements of \texttt{document\_statements.tex}, exactly as the program of before (commit \texttt{ffd029d}) wrote it. The test compares the plain document with it byte for byte.
+
+\item \textbf{The one declared difference.} The program now writes one more line in the preamble, the definition of \texttt{\textbackslash arccot}, without which a document that uses it does not compile. The reference does not have it; the test removes it from the plain document before comparing, and fails if it is not there.
+
+\item \textbf{Why it is a file and not a text in the test.} So that a difference can be seen with \texttt{diff}, and so that it can be made again with one command when a proof is reworded on purpose (the command is in the header of the test). It names the PDF of its graphs, \texttt{mathresearcher\_test\_plain-plots.pdf}, which is not in the repository: of that file the test keeps the length and a checksum.
+
+\item \textbf{Expected result.} The line \texttt{PASS: 17 of 17 checks on the plain document passed}.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_plain_document \
+    tests/output/test_plain_document.c && /tmp/test_plain_document
+\end{verbatim}
+\end{enumerate}
+\end{document}

@@ -1,0 +1,28 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Inductions with a worked solution (8)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Each item is an equality proved by induction on $n \ge 1$. The engine must also record what it says on the first values of $n$, and, where one side is a sum up to $n$ and the other a formula, the inductive step as a computation. The expected values and steps are in \texttt{test\_worked\_inductions.c}.
+
+\begin{enumerate}
+\item $\displaystyle \sum_{k=1}^{n} k = \frac{n(n+1)}{2}$
+\item $\displaystyle \sum_{k=1}^{n} \left(2k - 1\right) = n^{2}$
+\item $\displaystyle \sum_{k=1}^{n} k^{2} = \frac{n(n+1)(2n+1)}{6}$
+\item $\displaystyle \sum_{k=1}^{n} 2^{k} = 2^{n + 1} - 2$
+\item $\displaystyle n^{2} = \sum_{k=1}^{n} \left(2k - 1\right)$
+\item $\displaystyle \prod_{k=1}^{n} \left(1 + \frac{1}{k}\right) = n + 1$
+\item $\displaystyle \sum_{k=1}^{n} \frac{1}{k(k+1)} = \frac{n}{n+1}$
+\item $\displaystyle 2\sum_{k=1}^{n} k = n(n+1)$
+\end{enumerate}
+\end{document}
