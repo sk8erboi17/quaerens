@@ -1,0 +1,39 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{parameter\_requests.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{parameter\_requests.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_parameter\_discussions.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 18 requests with a real parameter. Fourteen ask to discuss a rank or a system for every value of the parameter, as in ``compute the rank as $t$ varies'' and ``discuss the system as $k$ varies''; four ask for the values of the parameter for which a rank or a system has a given property. The engine must answer RISOLTO, and the answer must be the expected one, written in the same way.
+
+\item \textbf{Sources.} The matrices and the systems are those of \texttt{parameter\_discussions.tex}; the sources are listed in \texttt{parameter\_discussions\_about.tex}. Request 7 is a matrix without the parameter: its rank is one number.
+
+\item \textbf{The expected answers.} They are in \texttt{expected\_answers[]} of \texttt{test\_parameter\_discussions.c}, in the order of the file. A discussion is a list of cases, \texttt{\textbackslash begin\{cases\} value \& condition \textbackslash\textbackslash{} ... \textbackslash end\{cases\}}: first the special values of the parameter, in increasing order, each with the rank or the set of solutions there; last the generic case, for every other value, with the solutions written with the parameter. A rank lists only the special values where it is not the generic one. A set of solutions is written as in \texttt{system\_requests.tex}; in the generic case each component is a reduced fraction of polynomials in the parameter. The values of the parameter asked by requests 8--11 are a condition, as the sign table writes it.
+
+\item \textbf{A third computation.} The independent oracle \texttt{tools/fuzz/fuzz\_linear\_algebra.py parameter-answers} confirmed each expected answer: for a discussion, every case gives a true statement (``for every value of the parameter that satisfies the condition, the rank, or the set of solutions, is this''), and the conditions cover every value; for the values of a parameter, the condition is compared with the request at every root and in every interval. The cases coincide with those printed in the two collections.
+
+\item \textbf{What is being tested.} The discussion of paragraphs 33g and 33h of \texttt{main.c}, and the way its cases are written; that what is written is read again as one statement, ``($k = 5$ and the solutions are these) or \dots{} or ($k$ is none of them and the solutions are these)'', and proved with certificates.
+
+\item \textbf{Format expected by the test.} One \texttt{\textbackslash item} per request, with the formula written as \texttt{\$\textbackslash displaystyle ...\$}.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -Werror -o /tmp/test_parameter_discussions \
+    tests/linear_algebra/test_parameter_discussions.c && /tmp/test_parameter_discussions
+\end{verbatim}
+
+\item \textbf{Expected result.} The line \texttt{PASS: 18 of 18 requests \dots{} solved with the expected cases, each with verified certificates}.
+\end{enumerate}
+\end{document}

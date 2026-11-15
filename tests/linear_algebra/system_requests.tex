@@ -1,0 +1,40 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Linear systems with rational coefficients: requests (20)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Each item is the set of solutions of a system, written with its unknowns and without a relation: a request to solve the system, as in ``find all the solutions''. The engine must answer RISOLTO with the set: $\emptyset$, one vector, or a particular solution plus free parameters. The expected answers are in \texttt{test\_linear\_systems.c}; the sources are listed in \texttt{book\_systems\_about.tex}.
+
+\begin{enumerate}
+\item $\displaystyle \{(x, y) \in \mathbb{R}^{2} \mid \begin{cases} 2x + 3y = 5 \\ 2x - 4y = 5 \end{cases}\}$
+\item $\displaystyle \{(x, y) \in \mathbb{R}^{2} \mid \begin{cases} 7x = 3 \\ 3x + y = 5 \end{cases}\}$
+\item $\displaystyle \{(x, y) \in \mathbb{R}^{2} \mid \begin{cases} 2x + 3y = 5 \\ 2x + 4y = 5 \\ 6x + 9y = 7 \end{cases}\}$
+\item $\displaystyle \{(x, y) \in \mathbb{R}^{2} \mid \begin{cases} 3x - y = 0 \\ 2y - 6x = 0 \end{cases}\}$
+\item $\displaystyle \{(x, y, z) \in \mathbb{R}^{3} \mid \begin{cases} x + y + z = 1 \\ 3x + 3y - 2z - 2 = 0 \end{cases}\}$
+\item $\displaystyle \{(x, y, z) \in \mathbb{R}^{3} \mid \begin{cases} x + y + z = 1 \\ 3x + 3y - 2z - 2 = 0 \\ z = 1 \end{cases}\}$
+\item $\displaystyle \{(x, y) \in \mathbb{R}^{2} \mid \begin{cases} x + y = 1 \\ 3x + y = 0 \\ 5x + 3y = 2 \end{cases}\}$
+\item $\displaystyle \{(x, y, z) \in \mathbb{R}^{3} \mid \begin{cases} 2x + 3y + 3z = 5 \\ 2x + 3y + 4z = 5 \end{cases}\}$
+\item $\displaystyle \{(x, y, w, z) \in \mathbb{R}^{4} \mid \begin{cases} 3x - 6y + w + z = 0 \\ 3y + w - 2z = 0 \\ 3x - z = 0 \end{cases}\}$
+\item $\displaystyle \{(x, y, z) \in \mathbb{R}^{3} \mid \begin{cases} x + y + z = 0 \\ 2x + z = 0 \\ 3x - y + z = 0 \\ 2x + 4y + 3z = 0 \end{cases}\}$
+\item $\displaystyle \{(x_{1}, x_{2}, x_{3}, x_{4}) \in \mathbb{R}^{4} \mid \begin{cases} 2x_{1} + x_{2} + x_{3} + x_{4} = 0 \\ 3x_{1} - x_{2} + x_{3} + x_{4} = 0 \\ 4x_{1} - 3x_{4} = 0 \\ 5x_{1} + 2x_{3} + 2x_{4} = 0 \end{cases}\}$
+\item $\displaystyle \{(x_{1}, x_{2}, x_{3}, x_{4}) \in \mathbb{R}^{4} \mid \begin{cases} 2x_{1} + x_{2} + x_{3} + x_{4} = 4 \\ 3x_{1} - x_{2} + x_{3} + x_{4} = 5 \\ 4x_{1} - 3x_{4} = -5 \\ 5x_{1} + 2x_{3} + 2x_{4} = 9 \end{cases}\}$
+\item $\displaystyle \{(x_{1}, x_{2}, x_{3}) \in \mathbb{R}^{3} \mid \begin{cases} x_{1} + x_{2} - x_{3} = 1 \\ 2x_{1} + 2x_{2} + x_{3} = 0 \\ x_{1} + x_{2} + 2x_{3} = -1 \end{cases}\}$
+\item $\displaystyle \{(x_{1}, x_{2}, x_{3}) \in \mathbb{R}^{3} \mid \begin{cases} -2x_{1} + x_{2} + x_{3} = 1 \\ x_{1} - 2x_{2} + x_{3} = -2 \\ x_{1} + x_{2} - 2x_{3} = 4 \end{cases}\}$
+\item $\displaystyle \{(x_{1}, x_{2}, x_{3}, x_{4}) \in \mathbb{R}^{4} \mid \begin{cases} 2x_{1} - x_{2} - x_{3} - 4x_{4} = 9 \\ 4x_{1} - 3x_{3} - x_{4} = 0 \\ 8x_{1} - 2x_{2} - 5x_{3} - 9x_{4} = 18 \end{cases}\}$
+\item $\displaystyle \{(x, y, z, t) \in \mathbb{R}^{4} \mid \begin{cases} 2x - 2y + z + 4t = 0 \\ x - y - 4z + 2t = 0 \\ -x + y + 3z - 2t = 0 \\ 3x - 3y + z + 6t = 0 \end{cases}\}$
+\item $\displaystyle \{(x, y, z) \in \mathbb{R}^{3} \mid \begin{cases} 2x + y - z = 1 \\ x + 2y - 2z = 0 \\ 3x - y + 2z = -1 \\ x - y + z = 1 \end{cases}\}$
+\item $\displaystyle \{(x, y, z) \in \mathbb{R}^{3} \mid \begin{cases} x - y + z = 2 \\ x - y + z = 2 \\ x - y + z = 2 \end{cases}\}$
+\item $\displaystyle \{x \in \mathbb{R}^{2} \mid \begin{pmatrix} 2 & 3 \\ 2 & -4 \end{pmatrix} x = \begin{pmatrix} 5 \\ 5 \end{pmatrix}\}$
+\item $\displaystyle A = \begin{pmatrix} 1 & 2 \\ 2 & 4 \end{pmatrix} \implies \{x \in \mathbb{R}^{2} \mid A x = 0\}$
+\end{enumerate}
+\end{document}

@@ -25,7 +25,7 @@
  *      quella del libro, scritta nello stesso modo;
  *   6. nessun enunciato di matrices_beyond.tex viene dichiarato falso: sono
  *      veri, ma fuori dal linguaggio (radici, \pi, una lettera senza il suo
- *      insieme; con una lettera, il rango, l'inversa, un confronto tra
+ *      insieme; con una lettera, l'inversa, un confronto tra
  *      matrici), e nessuno deve nemmeno risultare dimostrato;
  *   7. gli enunciati di special_cases[] (le convenzioni di lettura, la
  *      dimensione di I, lo 0 come matrice nulla, le operazioni non definite,
@@ -257,9 +257,11 @@ static const SpecialCase special_cases[] = {
     {"a determinant with a letter and no set for the letter, even if it is an identity", "\\det \\begin{pmatrix} k & 1 \\\\ 1 & k \\end{pmatrix} = k^{2} - 1", UNSUPPORTED,
      "una lettera solo se l'enunciato dice dove sta"},
 
-    /* Con una lettera che ha il suo insieme (32g): che cosa non si tratta
+    /* Con una lettera che ha il suo insieme (32g): il rango, che si discute
+     * per casi sulla lettera (capitolo 33), e poi che cosa non si tratta
      * ancora, con il suo motivo. */
-    {"the rank of a matrix with a letter", "\\{k \\in \\mathbb{R} \\mid \\operatorname{rank} " KK " = 2\\}", UNSUPPORTED, "la discussione per casi"},
+    {"the rank of a matrix with a letter is discussed by cases on the letter (chapter 33)", "\\{k \\in \\mathbb{R} \\mid \\operatorname{rank} " KK " = 2\\}", SOLVED,
+     "k < -1 \\lor -1 < k < 1 \\lor k > 1"},
     {"the inverse of a matrix with a letter", "\\{k \\in \\mathbb{R} \\mid \\det " KK "^{-1} = 1\\}", UNSUPPORTED, "la discussione per casi"},
     {"the inverse of a matrix of numbers beside a letter", "\\{s \\in \\mathbb{R} \\mid \\det\\left( " M22 "^{-1} - sI \\right) = 0\\}", UNSUPPORTED, "la discussione per casi"},
     {"an equality between matrices with a letter", "\\{k \\in \\mathbb{R} \\mid " KK " = " SWAP "\\}", UNSUPPORTED, "solo dentro un determinante o una traccia"},

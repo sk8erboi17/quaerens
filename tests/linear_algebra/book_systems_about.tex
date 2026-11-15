@@ -1,0 +1,44 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{book\_systems.tex} and \texttt{system\_requests.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{book\_systems.tex} and in \texttt{system\_requests.tex} is used for. Those files are input for the engine in \texttt{main.c}; they are read by the test \texttt{test\_linear\_systems.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} \texttt{book\_systems.tex} holds 40 true statements about the set of solutions of a system of linear equations with rational coefficients: the set is the one printed as the result of an exercise, the system has no solution, a given vector is a solution. The test asks the engine to prove each one, to write its proof, and to attach a certificate that the independent checker accepts. \texttt{system\_requests.tex} holds 20 of the same systems without a relation: requests to solve them, to be answered with the set of solutions written as a particular solution plus free parameters.
+
+\item \textbf{Sources.} The results printed in two collections of exercises of a first course in linear algebra:
+\begin{itemize}
+\item statements 1--25: A. Vietri, \emph{Soluzioni con suggerimenti e osservazioni (esercizi di algebra lineare e geometria)}, Sapienza Universit\`a di Roma, a.a.\ 2025--26, exercises 78 (two systems), 79 (five), 80 (two, and the solution of the first two equations as a member), 81 (four), 82 (three), 90, 91 (at $k = 0$ and at $k = 1$) and 92 (the homogeneous system, written as in the book and with integer components; the vector $(1, 0, -1, 3)$ as a solution of the system with right-hand sides $4, 5, -5, 9$; its general solution);
+\item statements 26--34: E. Abbena, A.M. Fino, G.M. Gianella, \emph{Geometria e Algebra Lineare I}, Universit\`a di Torino, chapter 2, exercises [1]--[4] with their printed results, and exercises [6] and [7], which have a parameter, at fixed values of the parameter ($k = 1$ and $k = 0$; $a = 0$, $a = -2$ and $a = 1$). The systems were transcribed from the pages: the extracted text of the PDF file loses the signs;
+\item statements 35--40: the same systems written with a vector as the unknown, $A x = B$, with and without names for the matrices; a system with solutions said to have some; a vector that is not a solution; a line of solutions that is not one of its points.
+\end{itemize}
+
+\item \textbf{A printed result that is wrong.} In exercise 92 of Vietri the general solution of the second system is printed as $x_{1} = 6t + 1$, $x_{2} = 3t$, $x_{3} = -23t - 1$, $x_{4} = 8t - 3$, and the particular solution as $(1, 0, -1 - 3)$. The exercise itself gives the particular solution $(1, 0, -1, 3)$, which does satisfy the four equations; the last component of the printed result has the wrong sign. Statement 24 has $8t + 3$. The printed result is statement 19 of \texttt{false\_book\_systems.tex}, and the misprinted particular solution is statement 20 there. The independent oracle agrees: 24 is true, the printed one is false.
+
+\item \textbf{A third computation.} Every statement was recomputed by an independent oracle, \texttt{tools/fuzz/fuzz\_linear\_algebra.py systems-data}, which reads the file with its own reader, takes the coefficients of each equation from a polynomial in the unknowns, and decides with ranks computed by minors: a system has solutions when the ranks of its two matrices are equal, and a written set $p + U t$ is the set of solutions when $A p = b$, $A U = 0$ and the rank of $U$ is the number of unknowns minus the rank of $A$. The engine uses Gaussian elimination and the checker only products: neither uses these two theorems. The oracle found all 40 true. The expected answers of the requests were confirmed by \texttt{systems-answers}: each is the set of solutions, with independent vectors. The data were not produced by the engine.
+
+\item \textbf{What is being tested.} The reading of a set of solutions, of its unknowns and of a written set (paragraph 31s of \texttt{parser.c}); the coefficients taken from each equation and checked again at some points, Gaussian elimination and the witnesses it leaves, the answer of a request read again as a statement (chapter 33 of \texttt{main.c}); the certificate and its check, with products only (paragraph 17f of \texttt{checker.c}).
+
+\item \textbf{Format expected by the test.} One \texttt{\textbackslash item} per statement, with the formula written as \texttt{\$\textbackslash displaystyle ...\$}. A set of solutions is $\{(x, y) \in \mathbb{R}^{2} \mid \ldots\}$, with the equations in \texttt{cases} or joined by $\land$, or $\{x \in \mathbb{R}^{n} \mid A x = B\}$. A written set is $\emptyset$, $\{(1, 2)\}$, $\{(1, 0) + t (2, 1) \mid t \in \mathbb{R}\}$ or $\{(1 + 2t, t) \mid t \in \mathbb{R}\}$.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -Werror -o /tmp/test_linear_systems \
+    tests/linear_algebra/test_linear_systems.c && /tmp/test_linear_systems
+\end{verbatim}
+
+\item \textbf{Expected result.} The lines \texttt{PASS: 40 of 40 statements proved, each with a written proof}, \texttt{PASS: 40 of 40 statements \dots{} are proved with a certificate that the checker accepts, rejects with the claim reversed, and no longer accepts with a witness removed or altered}, \texttt{PASS: 40 of 40 negations \dots{} are declared false, with a certificate}, and \texttt{PASS: 20 of 20 requests \dots{} solved with the expected set}.
+\end{enumerate}
+\end{document}

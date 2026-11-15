@@ -46,7 +46,8 @@
  *     che resta valido anche se quei vettori vengono riallocati.
  *   - gli enunciati sulle matrici scritte per esteso, con i loro prodotti,
  *     determinanti, ranghi e inverse: MatrixNode (capitolo 31), le cui
- *     foglie sono espressioni.
+ *     foglie sono espressioni. Lì stanno anche gli enunciati sull'insieme
+ *     delle soluzioni di un sistema lineare (31s): LinearStatement.
  *
  * Svolgere una definizione è l'unico punto, oltre alle convenzioni di
  * lettura, in cui questo file può cambiare il senso di un enunciato. Lo
@@ -9275,6 +9276,9 @@ static Sentence *abstract_unfold(const Sentence *root) {
  * valgono, e come l'enunciato si riscrive con il loro valore, è il
  * paragrafo 32g di main.c.
  *
+ * I SISTEMI LINEARI hanno una grammatica loro, che usa questa: è il
+ * paragrafo 31s, in fondo al capitolo.
+ *
  * Warning: uses_matrices(), nel capitolo 20 di main.c, manda qui un
  * enunciato quando vi trova uno di questi ambienti. Se ne aggiungi uno a
  * matrix_environments[], lì non serve altro: guarda la stessa tabella.
@@ -9653,6 +9657,357 @@ static int parse_matrix_statement(const char *text, MatrixStatement *out) {
         next_token();
         out->right = matrix_sum();
     }
+    if (token.kind != T_END) syntax("testo inatteso dopo l'enunciato");
+    return syntax_error == NULL;
+}
+
+/* 31s. SISTEMI LINEARI: L'INSIEME DELLE SOLUZIONI
+ *
+ * A che cosa serve. "Risolvere il sistema", "il sistema è impossibile", "le
+ * soluzioni sono queste", "questa terna è una soluzione": sono enunciati
+ * sull'insieme delle soluzioni di un sistema di equazioni lineari, e
+ * l'insieme si scrive come nei libri, con le incognite dichiarate:
+ *
+ *     \{(x, y, z) \in \mathbb{R}^{3} \mid x + y + z = 1 \land 3x + 3y - 2z = 2\}
+ *     \{(x, y) \in \mathbb{R}^{2} \mid \begin{cases} 2x + 3y = 5 \\ 2x - 4y = 5 \end{cases}\}
+ *     \{x \in \mathbb{R}^{3} \mid A x = B\}
+ *
+ * Li decide il capitolo 33 di main.c; qui c'è solo com'è scritto l'enunciato.
+ *
+ *     sistema    := [ definizione { ',' definizione } \implies ] fatto
+ *     fatto      := soluzioni [ ('=' | \neq | \ne) scritto ]
+ *                 | vettore (\in | \notin) soluzioni
+ *     soluzioni  := \{ incognite \in \mathbb{R} '^' group (\mid | ':') condizione \}
+ *     incognite  := '(' lettera { ',' lettera } ')' | lettera
+ *     lettera    := minuscola [ '_' group ]
+ *     condizione := equazione { (\land | \wedge | ',') equazione }
+ *                 | \begin '{' cases '}' equazione { '\\' equazione } ['\\'] \end '{' cases '}'
+ *                 | msum '=' msum
+ *     equazione  := expr ['&'] '=' ['&'] expr
+ *     scritto    := \emptyset | \varnothing
+ *                 | \{ vettore [ (\mid | ':') lettera { ',' lettera } \in \mathbb{R} ] \}
+ *     vettore    := ['-'] addendo { ('+' | '-') addendo }
+ *     addendo    := { factor [\cdot] } tupla
+ *     tupla      := '(' expr ',' expr { ',' expr } ')'
+ *
+ * Le convenzioni che la grammatica fissa:
+ *
+ *   - Le incognite sono quelle dichiarate, nell'ordine in cui sono dichiarate:
+ *     è l'ordine delle componenti di una soluzione. Un sistema scritto senza
+ *     dire quali sono le incognite non si legge: in x + ky = 1 nulla dice se
+ *     k è un'incognita o un numero dato.
+ *   - L'esponente di \mathbb{R} è il numero delle incognite. Con una sola
+ *     lettera senza parentesi l'incognita è un vettore di \mathbb{R}^{n}, una
+ *     colonna, e la condizione è un'uguaglianza tra espressioni del capitolo
+ *     31 in cui quella lettera sta al posto di una matrice n x 1: A x = B.
+ *   - Un'incognita è una minuscola, anche con un pedice numerico: x_{1}.
+ *   - Un insieme scritto è l'insieme dei vettori che la sua espressione dà al
+ *     variare dei parametri dichiarati dopo \mid, ognuno in tutto \mathbb{R}:
+ *     \{(1, 0, 3) + t (-2, 1, 0) \mid t \in \mathbb{R}\}, o anche, come in
+ *     molti libri, \{(1 - 2t, t, 3) \mid t \in \mathbb{R}\}. Senza parametri è
+ *     un punto solo, \{(1, 2)\}.
+ *   - Una tupla ha almeno due componenti: (5) è un numero tra parentesi. Un
+ *     sistema in una sola incognita è un'equazione, e la risolve il capitolo
+ *     18, con \{x \in \mathbb{R} \mid ...\}.
+ *   - Che le equazioni siano lineari nelle incognite, e l'insieme scritto nei
+ *     suoi parametri, lo controlla il motore: qui si legge anche x y = 1.
+ *
+ * CON UN PARAMETRO. Un enunciato che mette una lettera in tutto \mathbb{R},
+ * con un quantificatore o con \{k \in \mathbb{R} \mid ...\}, è dei capitoli
+ * 17 e 18. Può però contenere, dove quei capitoli leggono un confronto, un
+ * fatto di questo paragrafo con quella lettera nei coefficienti: un insieme
+ * di soluzioni confrontato con un insieme scritto, oppure un rango (capitolo
+ * 31) confrontato con un numero. E \forall k \in \mathbb{R}\ seguito solo
+ * da un insieme di soluzioni, o da un rango, ne chiede la discussione:
+ *
+ *     \forall k \in \mathbb{R}\ \{(x, y) \in \mathbb{R}^{2} \mid kx + y = 1 \land x + ky = 1\}
+ *     \{k \in \mathbb{R} \mid \{(x, y) \in \mathbb{R}^{2} \mid kx + y = 1 \land x + ky = 1\} = \emptyset\}
+ *     \forall k \in \mathbb{R}\ (\operatorname{rank} \begin{pmatrix} k & 1 \\ 1 & k \end{pmatrix} = 2 \iff k \neq 1 \land k \neq -1)
+ *
+ * Qui c'è solo come si leggono quei fatti (linear_fact(), e linear_unknowns()
+ * per riconoscerne l'inizio); come diventano una condizione sulla lettera è
+ * il paragrafo 33h di main.c.
+ *
+ * Warning: uses_linear_systems(), nel capitolo 33 di main.c, manda qui un
+ * enunciato quando vi trova \{, le incognite, \in e \mathbb{R} con un
+ * esponente: è linear_unknowns() fino all'esponente. Se cambi come comincia
+ * un insieme di soluzioni, guarda che la riconosca ancora. */
+
+#define MAX_UNKNOWNS 12          /* incognite di un sistema; parametri e addendi di un insieme scritto */
+#define MAX_SYSTEM_EQUATIONS 16  /* equazioni di un sistema */
+
+/* Una lettera di un sistema: un'incognita, o un parametro di un insieme
+ * scritto. È una minuscola, con il suo pedice numerico se ne ha uno: index
+ * vale -1 per x, 1 per x_{1}. */
+typedef struct {
+    int name;
+    long long index;
+} LinearLetter;
+
+/* Un addendo di un vettore scritto: una tupla, moltiplicata per un numero se
+ * factor non è NULL, e sottratta invece che sommata se negative vale 1. */
+typedef struct {
+    Node *factor;
+    int negative;
+    Node **entry;  /* le componenti della tupla: quante dice VectorSum.size; nell'arena */
+} VectorTerm;
+
+/* Un vettore di \mathbb{R}^{size} scritto come somma di tuple: un punto, o
+ * l'elemento generico di un insieme scritto, e allora nelle sue espressioni
+ * compaiono i parametri dell'insieme. */
+typedef struct {
+    int size;   /* le componenti di ogni tupla, almeno 2 */
+    int terms;  /* addendi validi in term[] */
+    VectorTerm term[MAX_UNKNOWNS + 1];
+} VectorSum;
+
+/* Come un enunciato parla dell'insieme delle soluzioni di un sistema;
+ * LINEAR_ASKED se non dice nulla: è una richiesta. */
+typedef enum { LINEAR_ASKED, LINEAR_EQ, LINEAR_NEQ, LINEAR_IN, LINEAR_NOTIN } LinearRelation;
+
+/* Un enunciato sull'insieme delle soluzioni di un sistema lineare: il
+ * sistema, e che cosa se ne dice.
+ *
+ * Il sistema ha due scritture. Con vector a 0 le incognite sono lettere, e
+ * le equazioni sono coppie di espressioni del capitolo 9. Con vector a 1
+ * l'incognita è una sola, unknown[0], ed è un vettore: l'unica equazione è
+ * tra due espressioni del capitolo 31, matrix_left e matrix_right. In tutti
+ * e due i casi dimension è l'esponente di \mathbb{R}: il numero delle
+ * incognite, o delle componenti del vettore. */
+typedef struct {
+    int dimension;
+    int vector;
+    int unknowns;                         /* lettere valide in unknown[]: dimension, oppure 1 */
+    LinearLetter unknown[MAX_UNKNOWNS];
+    int equations;                        /* con vector a 0: le equazioni valide in left[] e right[] */
+    Node *left[MAX_SYSTEM_EQUATIONS], *right[MAX_SYSTEM_EQUATIONS];
+    MatrixNode *matrix_left, *matrix_right;
+    LinearRelation relation;
+    int empty;                            /* LINEAR_EQ, LINEAR_NEQ: 1 se l'insieme scritto è \emptyset */
+    VectorSum stated;                     /* LINEAR_EQ, LINEAR_NEQ senza empty: l'elemento generico dell'insieme
+                                             scritto; LINEAR_IN, LINEAR_NOTIN: il vettore di cui si parla */
+    int parameters;                       /* i parametri dell'insieme scritto, validi in parameter[] */
+    LinearLetter parameter[MAX_UNKNOWNS];
+    const char *set_start, *set_end;      /* dov'è scritto l'insieme delle soluzioni: [set_start, set_end) */
+} LinearStatement;
+
+/* lettera := minuscola [ '_' group ]. La mette in *out; annota un errore se
+ * il token corrente non è una minuscola o il pedice non è un numero. */
+static void linear_letter(LinearLetter *out) {
+    out->name = 0;
+    out->index = -1;
+    if (token.kind != T_LETTER || !islower(token.ch)) { syntax("un'incognita, o un parametro, è una lettera minuscola, anche con un pedice numerico"); return; }
+    out->name = token.ch;
+    next_token();
+    if (!is_char('_')) return;
+    next_token();
+    Node *index = parse_group();
+    if (index->kind != N_NUM) syntax("il pedice di un'incognita è un numero");
+    else out->index = index->value;
+}
+
+/* Ritorna 1 se a e b sono la stessa lettera, con lo stesso pedice. */
+static int linear_same(LinearLetter a, LinearLetter b) { return a.name == b.name && a.index == b.index; }
+
+/* Legge \mathbb{R}, dal token corrente; annota un errore se non c'è. */
+static void linear_reals(void) {
+    int reals = is_command("mathbb");
+    next_token();
+    reals = reals && is_char('{');
+    next_token();
+    reals = reals && token.kind == T_LETTER && token.ch == 'R';
+    next_token();
+    if (reals && is_char('}')) next_token();
+    else syntax("le incognite di un sistema stanno in \\mathbb{R}^{n}, e i parametri di un insieme scritto in \\mathbb{R}");
+}
+
+/* Legge l'inizio di un insieme di soluzioni, dal token \{ fino all'esponente
+ * di \mathbb{R} compreso: \{ incognite \in \mathbb{R}^{n}. Mette in st le
+ * incognite, la dimensione e la forma del sistema. */
+static void linear_unknowns(LinearStatement *st) {
+    expect_char(ESCAPED + '{', "un insieme di soluzioni comincia con \\{");
+    st->vector = token.kind != T_OPEN;
+    if (st->vector) {
+        linear_letter(&st->unknown[st->unknowns++]);
+    } else {
+        do {
+            next_token();
+            if (st->unknowns == MAX_UNKNOWNS) { syntax("troppe incognite in un sistema"); return; }
+            linear_letter(&st->unknown[st->unknowns]);
+            for (int i = 0; i < st->unknowns && !syntax_error; i++)
+                if (linear_same(st->unknown[i], st->unknown[st->unknowns])) syntax("un'incognita è dichiarata due volte");
+            st->unknowns++;
+        } while (is_char(',') && !syntax_error);
+        if (token.kind == T_CLOSE) next_token(); else syntax("manca la parentesi chiusa dopo le incognite");
+    }
+    if (is_command("in")) next_token(); else syntax("dopo le incognite di un sistema serve \\in \\mathbb{R}^{n}");
+    linear_reals();
+    expect_char('^', "le incognite di un sistema stanno in \\mathbb{R}^{n}: manca l'esponente");
+    Node *dimension = syntax_error ? node_num(0) : parse_group();
+    if (syntax_error) return;
+    if (dimension->kind != N_NUM || dimension->value > MAX_UNKNOWNS) { syntax("l'esponente di \\mathbb{R} è il numero delle incognite: un intero, non troppo grande"); return; }
+    st->dimension = (int)dimension->value;
+    if (!st->vector && st->unknowns != st->dimension) syntax("le incognite dichiarate non sono quante dice l'esponente di \\mathbb{R}");
+    if (st->dimension < 2) syntax("un sistema in una sola incognita è un'equazione: si scrive \\{x \\in \\mathbb{R} \\mid ...\\}");
+}
+
+/* equazione := expr ['&'] '=' ['&'] expr. La aggiunge a st. Il segno & è
+ * quello con cui un ambiente allinea le equazioni: non dice nulla. */
+static void linear_equation(LinearStatement *st) {
+    if (st->equations == MAX_SYSTEM_EQUATIONS) { syntax("troppe equazioni in un sistema"); return; }
+    st->left[st->equations] = parse_expr();
+    if (is_char('&')) next_token();
+    expect_char('=', "in un sistema ogni condizione è un'equazione: manca =");
+    if (is_char('&')) next_token();
+    st->right[st->equations++] = parse_expr();
+}
+
+/* soluzioni: vedi la grammatica in testa al paragrafo. Il token corrente è
+ * \{; alla fine è quello dopo \}. */
+static void linear_solutions(LinearStatement *st) {
+    char name[16];
+    st->set_start = token.start;
+    linear_unknowns(st);
+    if (is_command("mid") || is_char(':')) next_token(); else syntax("in \\{(x, y) \\in \\mathbb{R}^{2} \\mid ...\\} manca \\mid");
+    if (syntax_error) return;
+
+    /* La condizione, nelle sue tre scritture. */
+    if (st->vector) {
+        st->matrix_left = matrix_sum();
+        expect_char('=', "con un vettore per incognita la condizione è un'uguaglianza tra matrici: A x = B");
+        st->matrix_right = matrix_sum();
+    } else if (is_command("begin")) {
+        if (!matrix_word(name, sizeof name) || strcmp(name, "cases") != 0) { syntax("le equazioni di un sistema si scrivono in \\begin{cases}, oppure unite da \\land"); return; }
+        next_token();
+        while (!syntax_error) {
+            linear_equation(st);
+            if (!is_char(ESCAPED + '\\')) break;
+            next_token();
+            if (is_command("end")) break;  /* un a capo dopo l'ultima equazione */
+        }
+        if (!is_command("end") || !matrix_word(name, sizeof name) || strcmp(name, "cases") != 0) syntax("un sistema aperto con \\begin{cases} va chiuso con \\end{cases}");
+        else next_token();
+    } else {
+        linear_equation(st);
+        while (!syntax_error && (is_command("land") || is_command("wedge") || is_char(','))) {
+            next_token();
+            linear_equation(st);
+        }
+    }
+    st->set_end = token.start + 2;
+    expect_char(ESCAPED + '}', "un insieme di soluzioni va chiuso con \\}");
+}
+
+/* Ritorna 1 se il token corrente, una parentesi aperta, comincia una tupla:
+ * dopo la prima espressione c'è una virgola. Non sposta nulla. */
+static int linear_tuple_here(void) {
+    ParserState here = parser_save();
+    const char *here_consumed = consumed;
+    next_token();
+    parse_expr();
+    int comma = !syntax_error && is_char(',');
+    parser_restore(here);
+    consumed = here_consumed;
+    return comma;
+}
+
+/* vettore: vedi la grammatica in testa al paragrafo. Lo mette in *out. */
+static void linear_vector(VectorSum *out) {
+    int negative = is_char('-');
+    if (negative || is_char('+')) next_token();
+    out->size = out->terms = 0;
+    while (!syntax_error) {
+        if (out->terms == MAX_UNKNOWNS + 1) { syntax("troppi addendi in un vettore scritto"); return; }
+        VectorTerm *term = &out->term[out->terms++];
+        term->factor = NULL;
+        term->negative = negative;
+
+        /* I numeri che moltiplicano la tupla, poi la tupla. */
+        while (!syntax_error && !(token.kind == T_OPEN && linear_tuple_here())) {
+            if (!starts_factor()) { syntax("un vettore si scrive tra parentesi, con le componenti separate da virgole: (1, 2, 3)"); return; }
+            Node *factor = parse_factor();
+            term->factor = term->factor ? node_new(N_MUL, term->factor, factor) : factor;
+            if (is_command("cdot")) next_token();
+        }
+        if (syntax_error) return;
+        term->entry = arena_alloc(MAX_UNKNOWNS * sizeof *term->entry);
+        if (!term->entry) { syntax(OUT_OF_MEMORY); return; }
+        int entries = 0;
+        do {
+            next_token();
+            if (entries == MAX_UNKNOWNS) { syntax("troppe componenti in un vettore"); return; }
+            term->entry[entries++] = parse_expr();
+        } while (is_char(',') && !syntax_error);
+        if (token.kind == T_CLOSE) next_token(); else syntax("manca la parentesi chiusa di un vettore");
+        if (out->terms == 1) out->size = entries;
+        else if (entries != out->size) syntax("i vettori di una somma devono avere lo stesso numero di componenti");
+
+        /* Un altro addendo? */
+        negative = is_char('-');
+        if (!negative && !is_char('+')) break;
+        next_token();
+    }
+}
+
+/* scritto: vedi la grammatica in testa al paragrafo. Mette in st l'insieme
+ * scritto: vuoto, oppure il suo elemento generico e i suoi parametri. */
+static void linear_written(LinearStatement *st) {
+    if (is_command("emptyset") || is_command("varnothing")) {
+        st->empty = 1;
+        next_token();
+        return;
+    }
+    expect_char(ESCAPED + '{', "le soluzioni si scrivono come un insieme: \\emptyset, \\{(1, 2)\\} oppure \\{(1, 0) + t (2, 1) \\mid t \\in \\mathbb{R}\\}");
+    linear_vector(&st->stated);
+    if (is_command("mid") || is_char(':')) {
+        do {
+            next_token();
+            if (st->parameters == MAX_UNKNOWNS) { syntax("troppi parametri in un insieme scritto"); return; }
+            linear_letter(&st->parameter[st->parameters]);
+            for (int i = 0; i < st->parameters && !syntax_error; i++)
+                if (linear_same(st->parameter[i], st->parameter[st->parameters])) syntax("un parametro è dichiarato due volte");
+            st->parameters++;
+        } while (is_char(',') && !syntax_error);
+        if (is_command("in")) next_token(); else syntax("dopo i parametri di un insieme scritto serve \\in \\mathbb{R}");
+        linear_reals();
+    }
+    expect_char(ESCAPED + '}', "un insieme scritto va chiuso con \\}");
+}
+
+/* fatto: vedi la grammatica in testa al paragrafo. Lo legge dal token
+ * corrente in *st, e lascia come token corrente il primo dopo di lui. */
+static void linear_fact(LinearStatement *st) {
+    memset(st, 0, sizeof *st);
+    if (!is_char(ESCAPED + '{')) {
+        /* Un vettore, e la sua appartenenza. */
+        linear_vector(&st->stated);
+        if (is_command("in")) st->relation = LINEAR_IN;
+        else if (is_command("notin")) st->relation = LINEAR_NOTIN;
+        else syntax("un enunciato su un sistema è un insieme di soluzioni, \\{(x, y) \\in \\mathbb{R}^{2} \\mid ...\\}, oppure un vettore e la sua appartenenza a quello");
+        next_token();
+        if (!syntax_error) linear_solutions(st);
+        return;
+    }
+    linear_solutions(st);
+    if (syntax_error) return;
+    if (is_char('=')) st->relation = LINEAR_EQ;
+    else if (is_command("neq") || is_command("ne")) st->relation = LINEAR_NEQ;
+    else return;
+    next_token();
+    linear_written(st);
+}
+
+/* Analizza text come enunciato su un sistema lineare (vedi la grammatica in
+ * testa al paragrafo) e lo mette in *st; le definizioni che lo precedono
+ * danno un nome a delle matrici, come nel resto del capitolo, e i loro alberi
+ * vanno in *names. Ritorna 1 se riesce; altrimenti ritorna 0 e syntax_error
+ * dice perché. */
+static int parse_linear_statement(const char *text, LinearStatement *st, MatrixStatement *names) {
+    memset(names, 0, sizeof *names);
+    memset(st, 0, sizeof *st);
+    matrix_start(text);
+    if (token.kind == T_LETTER && isupper(token.ch)) matrix_definitions(names);
+    if (!syntax_error) linear_fact(st);
     if (token.kind != T_END) syntax("testo inatteso dopo l'enunciato");
     return syntax_error == NULL;
 }

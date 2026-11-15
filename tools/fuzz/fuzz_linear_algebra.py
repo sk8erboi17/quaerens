@@ -6,6 +6,18 @@ Uso:
     python3 -I fuzz_linear_algebra.py letters <eseguibile> <seme> <quanti> <cartella di lavoro> [<checker>]
     python3 -I fuzz_linear_algebra.py data <file .tex>...
     python3 -I fuzz_linear_algebra.py answers <file .tex di richieste> <test .c con le soluzioni attese>
+    python3 -I fuzz_linear_algebra.py systems <eseguibile> <seme> <quanti> <cartella di lavoro> [<checker>]
+    python3 -I fuzz_linear_algebra.py systems-data <file .tex>...
+    python3 -I fuzz_linear_algebra.py systems-answers <file .tex di richieste> <test .c con le risposte attese>
+    python3 -I fuzz_linear_algebra.py parameter <eseguibile> <seme> <quanti> <cartella di lavoro> [<checker>]
+    python3 -I fuzz_linear_algebra.py parameter-odd <eseguibile> <seme> <quanti> <cartella di lavoro> [<checker>]
+    python3 -I fuzz_linear_algebra.py parameter-data <file .tex>...
+    python3 -I fuzz_linear_algebra.py parameter-answers <file .tex di richieste> <test .c con le risposte attese>
+
+I tre modi systems sono per i sistemi lineari (paragrafo 31s di parser.c, capitolo 33 di
+main.c, paragrafo 17f di checker.c): vedi I SISTEMI LINEARI, piu sotto. I tre modi
+parameter sono per i ranghi e i sistemi con un parametro, discussi per casi (33f-33h di
+main.c, la voce where di 17d di checker.c): vedi CON UN PARAMETRO: LA DISCUSSIONE.
 
 Nel primo modo genera <quanti> enunciati a caso su matrici scritte per esteso
 (somme, prodotti, multipli, trasposte, potenze anche negative, determinanti,
@@ -99,7 +111,9 @@ con un coefficiente cambiato, un "S = 0 se e solo se k = ... \lor k = ..."
 con le radici vere oppure con una tolta, spostata o in piu; S e un
 determinante o una traccia di una matrice con la lettera negli elementi,
 anche det(A - sI) con A di numeri e un nome, la trasposta, un quadrato, un
-prodotto. In piu cio che con una lettera non si tratta (rango, inversa,
+prodotto. In piu la richiesta dei valori della lettera per cui un rango e 2,
+che il programma discute per casi (33h): la giudica l'oracolo del parametro,
+piu sotto, con i minori. E cio che con una lettera non si tratta (inversa,
 confronto tra matrici, divisione per la lettera, nessun insieme per la
 lettera), che il programma non deve decidere.
 
@@ -121,7 +135,75 @@ I certificati degli sviluppi (la voce letters) alterati: un numero, una
 parola, la verita, la relazione, un pezzo tolto o ripetuto, una lettera al
 posto di un numero o un numero al posto di una lettera. Per ognuno che il
 verificatore accetta l'oracolo sviluppa i due membri e pretende che siano lo
-stesso polinomio.
+stesso polinomio. I certificati di un rango discusso per casi hanno anche la
+voce where, e un testimone: quelli si controllano sui numeri, in molti valori
+della lettera (vedi CON UN PARAMETRO: LA DISCUSSIONE).
+
+I SISTEMI LINEARI
+
+Gli enunciati (modo systems): l'insieme delle soluzioni di un sistema, scritto con le
+incognite dichiarate (anche con il pedice), con le equazioni unite da \land, da virgole
+o in cases, oppure con un vettore per incognita, A x = B, anche con i nomi; da solo (una
+richiesta), uguale o diverso da un insieme scritto (vuoto, un punto, una soluzione
+particolare piu i parametri, o una tupla con i parametri dentro; giusto, scritto con
+un'altra soluzione particolare e altri vettori, con un vettore di troppo, oppure
+sbagliato di poco: una componente, un vettore, un parametro dimenticato o in piu), e un
+vettore con la sua appartenenza. In piu cio che non e un sistema lineare (un prodotto di
+incognite, un vettore della lunghezza sbagliata, una lettera non dichiarata) e gli
+enunciati rovinati, che il programma non deve decidere.
+
+I sistemi si costruiscono in modo da conoscerne le soluzioni senza risolverli (la classe
+SystemGenerator). Ma la verita di ogni enunciato la stabilisce l'oracolo rileggendo il
+testo: legge le equazioni come polinomi nelle incognite, ne prende i coefficienti, e
+decide con i ranghi, calcolati con i minori. Il sistema ha soluzioni quando il rango
+della matrice dei coefficienti e quello della matrice completa (Rouche-Capelli);
+l'insieme scritto p + U t e quello delle soluzioni quando A p = b, A U = 0 e il rango di
+U e il numero delle incognite meno il rango di A (teorema della dimensione). Il
+programma usa l'eliminazione di Gauss, il verificatore solo prodotti: i due teoremi di
+qui non li usa nessuno dei due. La risposta di una richiesta si rilegge qui, e deve
+essere l'insieme delle soluzioni con i vettori indipendenti.
+
+I certificati alterati: la verita, la relazione, un numero, una dimensione, le parole
+solutions, affine e nothing, e nelle voci witness un numero, il tipo, la voce tolta,
+ripetuta, presa da un altro certificato, azzerata, o sostituita con il punto scritto.
+Per ognuno che il verificatore accetta l'oracolo pretende che l'enunciato valga, o non
+valga, come dichiarato (con i ranghi) e che i testimoni siano quelli che il caso chiede
+e tornino (con i suoi prodotti).
+
+I modi systems-data e systems-answers sono il terzo conto sui dati dei libri e sulle
+risposte attese del test in C, senza il programma.
+
+CON UN PARAMETRO: LA DISCUSSIONE
+
+Gli enunciati (modo parameter): un rango o un sistema con il parametro k in una riga o in
+una colonna (cosi i valori speciali sono razionali; ogni tanto in due posti qualsiasi),
+come richiesta da discutere per casi, come richiesta dei valori del parametro, e dentro
+un "per ogni" o un "esiste", anche con "se e solo se" e la condizione giusta, calcolata
+dall'oracolo, oppure sbagliata di poco (un valore spostato, tolto o aggiunto). In un
+secondo tempo, dai casi che il programma ha scritto per i sistemi: "se vale la
+condizione, le soluzioni sono queste", com'e scritto e sbagliato di poco (un numero delle
+soluzioni cambiato, una parte della condizione tolta).
+
+L'oracolo non discute come il programma (un minore scelto, la sua aggiunta, i polinomi
+interpolati). Legge i coefficienti come frazioni di polinomi in k e raccoglie tutti i
+polinomi da cui la verita di un fatto puo dipendere: i denominatori, tutti i minori (di
+ogni ordine), i residui A p - b e A U. Fuori dalle loro radici la verita e una sola, e la
+calcola in un punto; in ogni radice razionale la calcola li, con i ranghi presi dai
+minori. Il fatto diventa una condizione su k e l'enunciato che resta lo decide la tabella
+dell'oracolo con una lettera: e un conto completo, tranne quando un polinomio ha una
+radice irrazionale, e allora l'oracolo non decide. I casi scritti dal programma si
+rileggono qui: ogni caso deve dare un enunciato vero, e le condizioni coprire tutti i k.
+
+I certificati con le voci letters e where, del programma e alterati, si controllano sui
+numeri: in molti valori del parametro che non annullano il polinomio dichiarato la lettera
+diventa quel numero, e il certificato deve essere uno giusto tra quelli sui numeri. Qui un
+si vuol dire "in quei valori".
+
+Il modo parameter-odd scrive enunciati strani (insiemi scritti con divisori nulli,
+frazioni di frazioni, potenze negative, radici; un terzo rovinato): guarda prima che il
+programma finisca su ognuno (un conto che non finisce e un BUG), poi confronta i
+verdetti con lo stesso oracolo. Molti sono fuori da cio che il programma tratta, apposta:
+li i MISS sono attesi.
 
 Righe stampate: BUG quando il programma dimostra un falso, dichiara falso un
 vero, decide un enunciato non definito, risolve con un valore sbagliato, o
@@ -2149,7 +2231,9 @@ class LetterGenerator:
         return "", "%d \\det %s + %s" % (r.randint(2, 3), self.matrix(x, 2), x)
 
     def beyond(self, x):
-        """Cio che con una lettera non si tratta: il programma non deve deciderlo."""
+        """Cio che il capitolo 32 con una lettera non tratta. Il primo, un rango confrontato
+        con un numero, il programma lo discute per casi (33h), e lo giudica l'oracolo del
+        parametro; gli altri non deve deciderli."""
         r = self.rnd
         m = self.matrix(x, 2)
         return r.choice([
@@ -2232,6 +2316,30 @@ def mutate_letters(cert, rnd):
     return "\n".join(lines) + "\n"
 
 
+def lettered_judge(text):
+    """Che cosa dice l'oracolo di un enunciato del modo letters. Cio che letter_judge() non
+    legge perche nomina un rango passa all'oracolo del parametro (parameter_judge()), che
+    mette al posto del rango la condizione sulla lettera trovata con i minori; se nemmeno
+    lui lo legge, resta non letto."""
+    expected = letter_judge(text)
+    if expected[0] == "unreadable" and "rank" in text:
+        again = parameter_judge(text)
+        if again[0] != "unreadable":
+            return again
+    return expected
+
+
+def lettered_cert_judge(cert):
+    """Il giudizio dell'oracolo su un certificato del modo letters: quello completo di
+    cert_judge(), che sviluppa i polinomi. Un certificato con la voce where (un rango
+    discusso per casi) cert_judge() non lo conosce: per quello vale il conto in molti
+    valori della lettera di sampled_cert_judge()."""
+    lines = [l for l in cert.strip().split("\n") if l.strip()]
+    if len(lines) > 2 and lines[2].split()[:1] == ["where"]:
+        return sampled_cert_judge(cert)
+    return cert_judge(cert)
+
+
 def letters_mode(binary, seed, count, work, checker):
     """Il fuzz degli enunciati con una lettera: vedi "CON UNA LETTERA" in testa al file."""
     rnd = random.Random(seed)
@@ -2247,7 +2355,7 @@ def letters_mode(binary, seed, count, work, checker):
             if not re.search(r"\\begin\s*\{(pmatrix|bmatrix|matrix|array|vmatrix)\}", text) or len(text) > 3500:
                 continue
         # Senza \mathbb l'enunciato e uno di quelli sui numeri: una lettera non vi si legge.
-        cases.append((text, letter_judge(text) if "\\mathbb" in text else judge(text)))
+        cases.append((text, lettered_judge(text) if "\\mathbb" in text else judge(text)))
     tex_path = os.path.join(work, "letters_%d.tex" % seed)
     cert_path = os.path.join(work, "letters_%d.cert" % seed)
     with open(tex_path, "w", encoding="utf-8") as out:
@@ -2332,7 +2440,7 @@ def letters_mode(binary, seed, count, work, checker):
             if cert.startswith("certificate matrices"):
                 own.append(cert)
                 try:
-                    good = cert_judge(cert)
+                    good = lettered_cert_judge(cert)
                 except (Unreadable, IndexError, TooBig) as problem:
                     print("SUSPECT: the oracle cannot read a certificate of the program (%s)\n%s" % (problem, cert))
                     suspects += 1
@@ -2362,7 +2470,7 @@ def letters_mode(binary, seed, count, work, checker):
                     continue
                 accepted += 1
                 try:
-                    good = cert_judge(variant)
+                    good = lettered_cert_judge(variant)
                 except TooBig as problem:
                     print("SUSPECT: the checker accepted a certificate too large for the oracle (%s)\n%s" % (problem, variant))
                     suspects += 1
@@ -2382,6 +2490,1804 @@ def letters_mode(binary, seed, count, work, checker):
     bugs += contradictions[0]
     print("BUG %d, SUSPECT %d, MISS %d" % (bugs, suspects, misses))
     sys.exit(1 if bugs else 0)
+
+
+# ------------------------------------------------------------ i sistemi lineari
+#
+# Un enunciato su un sistema dice qualcosa dell'insieme delle soluzioni di A x = b. Il
+# programma lo decide con l'eliminazione di Gauss e lo fa controllare con dei prodotti;
+# qui non c'e ne l'una ne gli altri. L'oracolo legge le equazioni come polinomi nelle
+# incognite (la classe Poly) e ne prende i coefficienti, e poi decide con i ranghi,
+# calcolati con i minori (rank()):
+#
+#   - il sistema ha soluzioni quando il rango di A e quello di A con accanto b (teorema di
+#     Rouche-Capelli);
+#   - l'insieme scritto p + U t e quello delle soluzioni quando A p = b, A U = 0 e il rango
+#     di U e n meno il rango di A: i vettori di U stanno nel nucleo di A, che ha
+#     dimensione n meno il rango (teorema della dimensione), e ne generano una parte della
+#     stessa dimensione, cioe tutto.
+#
+# Sono due teoremi che ne il motore ne il verificatore usano.
+
+class SystemReader(Reader):
+    """Un lettore del paragrafo 31s, scritto senza guardare quello del programma. Le
+    minuscole sono lettere (incognite e parametri), anche con un pedice numerico."""
+
+    def __init__(self, text):
+        Reader.__init__(self, text)
+        self.letters = True
+        self.vector = None  # (lettera, n) mentre si legge la condizione A x = B
+
+    def primary(self):
+        t = self.peek()
+        if t is not None and len(t) == 1 and t.islower():
+            name = self.letter()
+            if self.vector and name == self.vector[0]:
+                # Il vettore incognito: una colonna di lettere nuove.
+                return ("mat", tuple((("var", "%s#%d" % (name, i)),) for i in range(self.vector[1])))
+            return ("var", name)
+        return Reader.primary(self)
+
+    def letter(self):
+        t = self.take()
+        if not (len(t) == 1 and t.islower()):
+            raise Unreadable("a letter was expected, found %r" % t)
+        if self.peek() == "_":
+            self.take()
+            index = self.group()
+            if index[0] != "num":
+                raise Unreadable("subscript")
+            return "%s_%d" % (t, int(index[1]))
+        return t
+
+    def reals(self):
+        for expected in ("\\mathbb", "{", "R", "}"):
+            self.take(expected)
+
+    def equation(self):
+        left = self.sum()
+        if self.peek() == "&":
+            self.take()
+        self.take("=")
+        if self.peek() == "&":
+            self.take()
+        return left, self.sum()
+
+    def solutions(self):
+        """Ritorna (n, sistema): sistema e ("equations", incognite, coppie di alberi) oppure
+        ("vector", incognite, primo membro, secondo membro)."""
+        self.take("\\{")
+        vector = self.peek() != "("
+        if vector:
+            names = [self.letter()]
+        else:
+            self.take("(")
+            names = [self.letter()]
+            while self.peek() == ",":
+                self.take()
+                names.append(self.letter())
+            self.take(")")
+        self.take("\\in")
+        self.reals()
+        self.take("^")
+        size = self.group()
+        if size[0] != "num":
+            raise Unreadable("exponent")
+        n = int(size[1])
+        if len(set(names)) != len(names) or (not vector and len(names) != n) or n < 2 or n > 12 or (vector and "_" in names[0]):
+            raise Unreadable("unknowns")
+        if self.take() not in ("\\mid", ":"):
+            raise Unreadable("\\mid")
+        if vector:
+            self.vector = (names[0], n)
+            left = self.sum()
+            self.take("=")
+            right = self.sum()
+            self.vector = None
+            system = ("vector", ["%s#%d" % (names[0], i) for i in range(n)], left, right)
+        elif self.peek() == "\\begin":
+            self.take()
+            if self.word() != "cases":
+                raise Unreadable("environment")
+            pairs = []
+            while True:
+                pairs.append(self.equation())
+                if self.peek() == "\\\\":
+                    self.take()
+                    if self.peek() == "\\end":
+                        break
+                    continue
+                break
+            self.take("\\end")
+            if self.word() != "cases":
+                raise Unreadable("environment")
+            system = ("equations", names, pairs)
+        else:
+            pairs = [self.equation()]
+            while self.peek() in ("\\land", "\\wedge", ","):
+                self.take()
+                pairs.append(self.equation())
+            system = ("equations", names, pairs)
+        self.take("\\}")
+        return n, system
+
+    def tuple_here(self):
+        """Il token corrente apre una tupla: dopo la prima espressione c'e una virgola. La
+        lettura di prova puo spezzare un numero in due token (un esponente senza graffe):
+        si rimette com'era anche l'elenco dei token."""
+        if self.peek() != "(":
+            return False
+        tokens, mark = list(self.tok), self.pos
+        try:
+            self.take("(")
+            self.sum()
+            return self.peek() == ","
+        except Unreadable:
+            return False
+        finally:
+            self.tok, self.pos = tokens, mark
+
+    def vector_sum(self):
+        """Un vettore scritto come somma di tuple, ognuna con i suoi fattori davanti:
+        ritorna gli alberi delle componenti."""
+        components = None
+        negative = False
+        if self.peek() in ("+", "-"):
+            negative = self.take() == "-"
+        while True:
+            factor = None
+            while not self.tuple_here():
+                if not self.starts_factor():
+                    raise Unreadable("a vector was expected")
+                piece = self.factor()
+                factor = piece if factor is None else ("mul", factor, piece)
+                if self.peek() == "\\cdot":
+                    self.take()
+            self.take("(")
+            entries = [self.sum()]
+            while self.peek() == ",":
+                self.take()
+                entries.append(self.sum())
+            self.take(")")
+            if factor is not None:
+                entries = [("mul", factor, e) for e in entries]
+            if components is None:
+                components = [("neg", e) if negative else e for e in entries]
+            elif len(entries) != len(components):
+                raise Unreadable("vectors of different lengths")
+            else:
+                components = [("sub" if negative else "add", c, e) for c, e in zip(components, entries)]
+            if self.peek() not in ("+", "-"):
+                return components
+            negative = self.take() == "-"
+
+    def written(self):
+        """Un insieme scritto: ("empty",) oppure ("set", componenti, parametri)."""
+        if self.peek() in ("\\emptyset", "\\varnothing"):
+            self.take()
+            return ("empty",)
+        self.take("\\{")
+        components = self.vector_sum()
+        parameters = []
+        if self.peek() in ("\\mid", ":"):
+            self.take()
+            parameters.append(self.letter())
+            while self.peek() == ",":
+                self.take()
+                parameters.append(self.letter())
+            self.take("\\in")
+            self.reals()
+            if len(set(parameters)) != len(parameters):
+                raise Unreadable("a parameter twice")
+        self.take("\\}")
+        return ("set", components, parameters)
+
+    def definitions(self):
+        """Le definizioni di matrici davanti all'enunciato: A = ..., B = ... \\implies."""
+        while True:
+            name = self.take()
+            if not (len(name) == 1 and name.isupper()) or name in self.names:
+                raise Unreadable("definition of %r" % name)
+            self.take("=")
+            self.names[name] = self.sum()
+            if self.take() == "\\implies":
+                break
+            if self.tok[self.pos - 1] != ",":
+                raise Unreadable("after a definition")
+
+    def fact(self):
+        """Ritorna (n, sistema, relazione o None, insieme scritto o None)."""
+        if "\\implies" in self.tok:
+            self.definitions()
+        if self.peek() == "\\{":
+            n, system = self.solutions()
+            if self.peek() is None:
+                return n, system, None, None
+            relation = {"=": "=", "\\neq": "neq", "\\ne": "neq"}.get(self.take())
+            if relation is None:
+                raise Unreadable("relation")
+            other = self.written()
+        else:
+            components = self.vector_sum()
+            relation = {"\\in": "in", "\\notin": "notin"}.get(self.take())
+            if relation is None:
+                raise Unreadable("relation")
+            n, system = self.solutions()
+            other = ("set", components, [])
+        if self.peek() is not None:
+            raise Unreadable("text after the statement: %r" % self.peek())
+        return n, system, relation, other
+
+
+def affine_parts(v, names):
+    """I coefficienti delle lettere names e il termine noto di un valore, che deve essere
+    di primo grado in quelle lettere e non contenerne altre."""
+    if is_matrix(v) or is_unit(v):
+        raise Undefined("a matrix where a number is expected")
+    coefficients, constant = {name: Fr(0) for name in names}, Fr(0)
+    for monomial, c in Poly.of(v).terms.items():
+        if monomial == ():
+            constant = c
+        elif len(monomial) == 1 and monomial[0][1] == 1 and monomial[0][0] in coefficients:
+            coefficients[monomial[0][0]] = c
+        else:
+            raise Unreadable("not of the first degree in its letters")
+    return [coefficients[name] for name in names], constant
+
+
+def system_matrices(system, value=value, affine_parts=affine_parts):
+    """La matrice dei coefficienti, come tupla di righe, e la lista dei termini noti. Con
+    value e affine_parts quelli dei numeri; con un parametro, rvalue() e
+    affine_fractions()."""
+    if system[0] == "equations":
+        rows, rhs = [], []
+        for left, right in system[2]:
+            l, r = value(left), value(right)
+            if is_matrix(l) or is_matrix(r) or is_unit(l) or is_unit(r):
+                raise Undefined("a matrix in an equation between numbers")
+            coefficients, constant = affine_parts(add(l, r, -1), system[1])
+            rows.append(tuple(coefficients))
+            rhs.append(-constant)
+        return tuple(rows), rhs
+    # A x = B: la differenza dei due membri, elemento per elemento. Lo 0 da solo e la
+    # matrice nulla.
+    left, right = value(system[2]), value(system[3])
+    if is_zero_literal(system[3]) and is_matrix(left):
+        difference = left
+    elif is_zero_literal(system[2]) and is_matrix(right):
+        difference = mul(Fr(-1), right)
+    else:
+        if is_unit(left) and is_matrix(right):
+            left = identity(shape(right)[0], left[1])
+        if is_unit(right) and is_matrix(left):
+            right = identity(shape(left)[0], right[1])
+        if not is_matrix(left) or not is_matrix(right):
+            raise Undefined("the two sides of A x = B are matrices")
+        difference = add(left, right, -1)
+    rows, rhs = [], []
+    for row in difference:
+        for entry in row:
+            coefficients, constant = affine_parts(entry, system[1])
+            rows.append(tuple(coefficients))
+            rhs.append(-constant)
+    return tuple(rows), rhs
+
+
+def system_solvable(a, b):
+    """Rouche-Capelli: il rango di A e quello di A con accanto b."""
+    return rank(a) == rank(tuple(row + (c,) for row, c in zip(a, b)))
+
+
+def written_parts(other, n, value=value, affine_parts=affine_parts):
+    """Il punto e i vettori (per righe: n righe, una colonna per parametro) di un insieme
+    scritto con n componenti."""
+    components, parameters = other[1], other[2]
+    if len(components) != n:
+        raise Undefined("a written vector of the wrong length")
+    point, directions = [], []
+    for tree in components:
+        coefficients, constant = affine_parts(value(tree), parameters)
+        point.append(constant)
+        directions.append(tuple(coefficients))
+    return point, directions
+
+
+def system_holds(a, b, n, relation, other):
+    """La verita dell'enunciato: relation tra l'insieme delle soluzioni di a x = b e
+    l'insieme scritto other, o tra un vettore e quell'insieme."""
+    if other[0] == "empty":
+        equal = not system_solvable(a, b)
+    else:
+        point, directions = written_parts(other, n)
+        equal = all(sum((x * y for x, y in zip(row, point)), Fr(0)) == c for row, c in zip(a, b))
+        if relation in ("=", "neq") and equal:
+            f = len(other[2])
+            inside = all(sum((row[j] * directions[j][q] for j in range(n)), Fr(0)) == 0 for row in a for q in range(f))
+            equal = inside and (rank(tuple(directions)) if f else 0) == n - rank(a)
+    return equal if relation in ("=", "in") else not equal
+
+
+def system_judge(text):
+    """Che cosa dice l'oracolo dell'enunciato text su un sistema: ("true",), ("false",),
+    ("request", (a, b, n)), ("undefined", perche), ("unreadable", perche), ("skip", perche)."""
+    determinants[0] = 0
+    try:
+        n, system, relation, other = SystemReader(text).fact()
+    except (Unreadable, IndexError) as problem:
+        return ("unreadable", str(problem))
+    try:
+        a, b = system_matrices(system)
+        if len(a[0]) != n:
+            raise Undefined("unknowns")
+        if relation is None:
+            return ("request", (a, b, n))
+        return ("true",) if system_holds(a, b, n, relation, other) else ("false",)
+    except Undefined as problem:
+        return ("undefined", str(problem))
+    except Unreadable as problem:
+        return ("unreadable", str(problem))
+    except TooBig as problem:
+        return ("skip", str(problem))
+
+
+def system_answer_right(request, written):
+    """Dice se l'insieme written, com'e scritto dal programma o atteso da un test, e
+    l'insieme delle soluzioni della richiesta, e se i suoi parametri sono liberi: i vettori
+    che moltiplicano sono indipendenti."""
+    a, b, n = request
+    reader = SystemReader(written)
+    other = reader.written()
+    if reader.peek() is not None:
+        raise Unreadable("text after the written set")
+    if not system_holds(a, b, n, "=", other):
+        return False
+    if other[0] == "empty" or not other[2]:
+        return True
+    return rank(tuple(written_parts(other, n)[1])) == len(other[2])
+
+
+def s_term(c, body):
+    """Un addendo c body, con il segno: (segno, testo senza segno)."""
+    c = Fr(c)
+    magnitude = abs(c)
+    if not body:
+        return c < 0, tex_number(magnitude)
+    if magnitude == 1:
+        return c < 0, body
+    return c < 0, "%s %s" % (tex_number(magnitude), body) if magnitude.denominator != 1 else "%d%s" % (magnitude.numerator, body)
+
+
+def s_sum(terms):
+    """La somma degli addendi (coefficiente, testo): "0" se non ce ne sono."""
+    text = ""
+    for c, body in terms:
+        if c == 0:
+            continue
+        negative, piece = s_term(c, body)
+        text += ("-" if negative else "") + piece if not text else (" - " if negative else " + ") + piece
+    return text or "0"
+
+
+class SystemGenerator:
+    """Sistemi di cui si conoscono le soluzioni per costruzione, senza risolverli: A = M R
+    con R gia ridotta (un 1 per riga nelle colonne dei perni, zeri negli altri perni) e M
+    con le colonne indipendenti. Il nucleo di A e quello di R, e una sua base si legge da
+    R: per ogni colonna libera j, il vettore con 1 nel posto j e l'opposto degli elementi
+    di R nei posti dei perni."""
+
+    def __init__(self, rnd):
+        self.rnd = rnd
+
+    def number(self):
+        rnd = self.rnd
+        return Fr(rnd.randint(-4, 4)) if rnd.random() < 0.8 else Fr(rnd.randint(-5, 5), rnd.randint(2, 4))
+
+    def build(self):
+        rnd = self.rnd
+        n = rnd.choice([2, 2, 3, 3, 3, 4, 4, 5])
+        m = rnd.randint(1, min(5, n + 2))
+        r = rnd.randint(0 if rnd.random() < 0.05 else 1, min(m, n))
+        pivots = sorted(rnd.sample(range(n), r))
+        free = [j for j in range(n) if j not in pivots]
+        reduced = [[Fr(0)] * n for _ in range(r)]
+        for i, p in enumerate(pivots):
+            reduced[i][p] = Fr(1)
+            for j in free:
+                reduced[i][j] = Fr(rnd.randint(-3, 3))
+        for _ in range(60):
+            left = [[Fr(rnd.randint(-3, 3)) for _ in range(r)] for _ in range(m)]
+            if r == 0 or rank(tuple(map(tuple, left))) == r:
+                break
+        else:
+            return None
+        a = [[sum((left[i][k] * reduced[k][j] for k in range(r)), Fr(0)) for j in range(n)] for i in range(m)]
+        kernel = []
+        for j in free:
+            v = [Fr(0)] * n
+            v[j] = Fr(1)
+            for i, p in enumerate(pivots):
+                v[p] = -reduced[i][j]
+            kernel.append(v)
+        x0 = [self.number() for _ in range(n)]
+        b = [sum((a[i][j] * x0[j] for j in range(n)), Fr(0)) for i in range(m)]
+        solvable = True
+        if r < m and rnd.random() < 0.3:
+            # Termini noti fuori dallo spazio delle colonne: M con accanto w ha un rango in piu.
+            for _ in range(20):
+                w = [Fr(rnd.randint(-3, 3)) for _ in range(m)]
+                if rank(tuple(tuple(left[i]) + (w[i],) for i in range(m))) == r + 1:
+                    b = [x + y for x, y in zip(b, w)]
+                    solvable = False
+                    break
+        return {"n": n, "m": m, "a": a, "b": b, "x0": x0, "kernel": kernel, "solvable": solvable, "pivots": pivots}
+
+    def names(self, n):
+        rnd = self.rnd
+        style = rnd.random()
+        if style < 0.45 and n <= 5:
+            pool = list("xyzwt"[:n]) if rnd.random() < 0.7 else rnd.sample(list("xyzwtuv"), n)
+        elif style < 0.75:
+            letter = rnd.choice("xyab")
+            pool = ["%s_%d" % (letter, i + 1) for i in range(n)]
+        else:
+            pool = rnd.sample(list("abcdfghpqruvwxyz"), n)
+        return pool
+
+    @staticmethod
+    def show(name):
+        return name if "_" not in name else "%s_{%s}" % tuple(name.split("_"))
+
+    def equation(self, row, c, names):
+        """L'equazione riga . incognite = c, con qualche addendo portato dall'altra parte."""
+        rnd = self.rnd
+        left, right = [], []
+        for coefficient, name in zip(row, names):
+            if coefficient == 0 and rnd.random() < 0.9:
+                continue
+            if rnd.random() < 0.15:
+                right.append((-coefficient, self.show(name)))
+            else:
+                left.append((coefficient, self.show(name)))
+        if rnd.random() < 0.2:
+            left.append((-c, ""))
+        else:
+            right.append((c, ""))
+        rnd.shuffle(left)
+        return "%s = %s" % (s_sum(left), s_sum(right))
+
+    def solutions_text(self, s, names):
+        """L'insieme delle soluzioni, scritto in uno dei modi di 31s; e le definizioni da
+        mettere davanti all'enunciato, se ce ne sono."""
+        rnd = self.rnd
+        n = s["n"]
+        if rnd.random() < 0.18:
+            # A x = B.
+            a_text = tex_value(tuple(map(tuple, s["a"])), rnd)
+            b_text = tex_value(tuple((x,) for x in s["b"]), rnd)
+            letter = rnd.choice("xv")
+            if all(x == 0 for x in s["b"]) and rnd.random() < 0.5:
+                b_text = "0"
+            if rnd.random() < 0.4:
+                return "A = %s%s \\implies " % (a_text, "" if b_text == "0" else ", B = " + b_text), \
+                       "\\{%s \\in \\mathbb{R}^{%d} \\mid A %s = %s\\}" % (letter, n, letter, "0" if b_text == "0" else "B")
+            return "", "\\{%s \\in \\mathbb{R}^{%d} \\mid %s %s = %s\\}" % (letter, n, a_text, letter, b_text)
+        equations = [self.equation(row, c, names) for row, c in zip(s["a"], s["b"])]
+        style = rnd.random()
+        if style < 0.4:
+            condition = "\\begin{cases} %s \\end{cases}" % " \\\\ ".join(equations)
+        else:
+            condition = (" \\land " if style < 0.8 else ", ").join(equations)
+        return "", "\\{(%s) \\in \\mathbb{R}^{%d} \\mid %s\\}" % (", ".join(self.show(x) for x in names), n, condition)
+
+    def written_text(self, point, directions):
+        """L'insieme scritto point + somma dei parametri per i vettori directions, in una
+        delle due scritture: somma di tuple, oppure una tupla con i parametri dentro."""
+        rnd = self.rnd
+        letters = rnd.sample(list("tsuvpqr"), len(directions))
+        tuple_of = lambda v: "(%s)" % ", ".join(tex_number(x) for x in v)
+        if not directions:
+            return "\\{%s\\}" % tuple_of(point)
+        if rnd.random() < 0.5:
+            pieces = [] if all(x == 0 for x in point) and rnd.random() < 0.7 else [tuple_of(point)]
+            pieces += ["%s %s" % (letter, tuple_of(v)) for letter, v in zip(letters, directions)]
+            body = " + ".join(pieces)
+        else:
+            body = "(%s)" % ", ".join(s_sum([(point[i], "")] + [(v[i], letter) for letter, v in zip(letters, directions)]) for i in range(len(point)))
+        return "\\{%s \\mid %s \\in \\mathbb{R}\\}" % (body, ", ".join(letters))
+
+    def another_writing(self, s):
+        """Un'altra soluzione particolare e altri vettori per lo stesso insieme: x0 piu una
+        combinazione del nucleo, e combinazioni indipendenti dei vettori del nucleo."""
+        rnd = self.rnd
+        kernel, f, n = s["kernel"], len(s["kernel"]), s["n"]
+        shift = [Fr(rnd.randint(-2, 2)) for _ in range(f)]
+        point = [s["x0"][i] + sum((shift[q] * kernel[q][i] for q in range(f)), Fr(0)) for i in range(n)]
+        for _ in range(40):
+            mix = [[Fr(rnd.randint(-2, 2)) for _ in range(f)] for _ in range(f)]
+            if f == 0 or det(tuple(map(tuple, mix))) != 0:
+                break
+        else:
+            mix = [[Fr(i == j) for j in range(f)] for i in range(f)]
+        directions = [[sum((mix[q][k] * kernel[k][i] for k in range(f)), Fr(0)) for i in range(n)] for q in range(f)]
+        if f and rnd.random() < 0.12:
+            # Un vettore di troppo, combinazione degli altri: l'insieme non cambia.
+            weights = [Fr(rnd.randint(-1, 2)) for _ in directions]
+            directions.append([sum((w * v[i] for w, v in zip(weights, directions)), Fr(0)) for i in range(n)])
+        return point, directions
+
+    def statement(self):
+        """Ritorna (testo, vero atteso dal generatore oppure None se non lo sa)."""
+        rnd = self.rnd
+        s = self.build()
+        if s is None:
+            return None
+        n, names = s["n"], self.names(s["n"])
+        prefix, solutions = self.solutions_text(s, names)
+        kind = rnd.random()
+        point, directions = self.another_writing(s)
+        if kind < 0.22:
+            return prefix + solutions, None
+        if kind < 0.42:
+            # Vero: le soluzioni, o l'insieme vuoto.
+            if s["solvable"]:
+                return "%s%s = %s" % (prefix, solutions, self.written_text(point, directions)), True
+            return "%s%s = %s" % (prefix, solutions, rnd.choice(["\\emptyset", "\\varnothing"])), True
+        if kind < 0.66:
+            # Sbagliato di poco. Che sia falso lo decide l'oracolo: un numero cambiato puo
+            # lasciare lo stesso insieme.
+            choice = rnd.random()
+            if not s["solvable"]:
+                text = rnd.choice(["\\neq \\emptyset", "= " + self.written_text(s["x0"], [])])
+            elif choice < 0.3:
+                i = rnd.randrange(n)
+                point[i] += rnd.choice([1, -1, Fr(1, 2)])
+                text = "= " + self.written_text(point, directions)
+            elif choice < 0.5 and directions:
+                v = rnd.choice(directions)
+                v[rnd.randrange(n)] += rnd.choice([1, -1])
+                text = "= " + self.written_text(point, directions)
+            elif choice < 0.7 and directions:
+                directions.pop(rnd.randrange(len(directions)))
+                text = "= " + self.written_text(point, directions)
+            elif choice < 0.85 and len(directions) < 6:
+                directions.append([Fr(i == rnd.choice(s["pivots"] or [0])) for i in range(n)])
+                text = "= " + self.written_text(point, directions)
+            else:
+                text = "= \\emptyset"
+            return "%s%s %s" % (prefix, solutions, text), None
+        if kind < 0.76:
+            # Con \neq: falso con l'insieme giusto, vero con uno sbagliato.
+            if not s["solvable"]:
+                return "%s%s \\neq %s" % (prefix, solutions, self.written_text(s["x0"], [])), True
+            if rnd.random() < 0.5:
+                return "%s%s \\neq %s" % (prefix, solutions, self.written_text(point, directions)), False
+            point[rnd.randrange(n)] += 1
+            return "%s%s \\neq %s" % (prefix, solutions, self.written_text(point, directions)), None
+        if kind < 0.92:
+            # Un vettore e la sua appartenenza.
+            if rnd.random() < 0.5:
+                point[rnd.randrange(n)] += rnd.choice([1, -1])
+            vector = "(%s)" % ", ".join(tex_number(x) for x in point)
+            if rnd.random() < 0.2:
+                vector = "%s + (%s)" % (vector, ", ".join("0" for _ in point))
+            return "%s%s %s %s" % (prefix, vector, rnd.choice(["\\in", "\\notin"]), solutions), None
+        # Fuori dal linguaggio: non lineare, un vettore troppo lungo, una lettera non dichiarata.
+        choice = rnd.random()
+        if choice < 0.4 and "\\mid A" not in solutions and "pmatrix" not in solutions and "bmatrix" not in solutions:
+            first = self.show(names[0])
+            return prefix + solutions.replace(" = ", " + %s %s = " % (first, self.show(names[-1])), 1), None
+        if choice < 0.7:
+            return "%s%s = \\{(%s)\\}" % (prefix, solutions, ", ".join(tex_number(x) for x in point + [Fr(0)])), None
+        return "%s%s = \\{(%s)\\}" % (prefix, solutions, ", ".join(["k"] + [tex_number(x) for x in point[1:]])), None
+
+
+def system_cert_judge(text):
+    """Ritorna True se il certificato di un enunciato su un sistema dice il vero e i suoi
+    testimoni sono quelli che devono essere; False se dice il falso o se un testimone
+    manca, avanza o non torna; solleva Unreadable se non e scritto nella notazione. La
+    verita la stabiliscono i ranghi (system_holds()); i testimoni si ricontrollano qui con
+    i prodotti dell'oracolo."""
+    determinants[0] = 0
+    cert_letters[0] = None
+    lines = [l for l in text.strip().split("\n") if l.strip()]
+    if len(lines) < 4 or lines[0].split() != ["certificate", "matrices"] or lines[-1].strip() != "end":
+        raise Unreadable("entries")
+    head, claim = lines[1].split(None, 1), lines[2].split()
+    if len(head) != 2 or head[0] != "statement" or len(claim) != 2 or claim[0] != "claim" or claim[1] not in ("true", "false"):
+        raise Unreadable("entries")
+    witnesses = []
+    for line in lines[3:-1]:
+        entry = sexp("(" + line + ")")
+        if len(entry) < 3 or entry[0] != "witness" or entry[1] not in ("combination", "solution", "span"):
+            raise Unreadable("witness entry")
+        witnesses.append(entry[1:])
+    node = sexp(head[1])
+    if not isinstance(node, list) or len(node) != 3 or node[0] not in ("=", "neq", "in", "notin"):
+        raise Unreadable("relation")
+    relation = node[0]
+    member = relation in ("in", "notin")
+    system, other = (node[2], node[1]) if member else (node[1], node[2])
+    if not isinstance(system, list) or len(system) != 3 or system[0] != "solutions":
+        raise Unreadable("solutions")
+    try:
+        a, b = cert_value(system[1], None), cert_value(system[2], None)
+        if not is_matrix(a) or not is_matrix(b) or shape(b) != (len(a), 1):
+            return False
+        m, n = shape(a)
+        point = directions = None
+        nothing = other == ["nothing"]
+        if member:
+            point = cert_value(other, None)
+        elif not nothing:
+            if not isinstance(other, list) or other[0] != "affine" or len(other) not in (2, 3):
+                raise Unreadable("written set")
+            point = cert_value(other[1], None)
+            directions = cert_value(other[2], None) if len(other) == 3 else None
+        if point is not None and (not is_matrix(point) or shape(point) != (n, 1)):
+            return False
+        if directions is not None and (not is_matrix(directions) or shape(directions)[0] != n):
+            return False
+        matrices = [[cert_value(x, None) for x in w[1:]] for w in witnesses]
+    except Undefined:
+        return False
+    if any(not is_matrix(x) for w in matrices for x in w):
+        return False
+    kinds = [w[0] for w in witnesses]
+    rhs = [row[0] for row in b]
+    zero = lambda rows, cols: tuple(tuple(Fr(0) for _ in range(cols)) for _ in range(rows))
+    solves = lambda z: shape(z) == (n, 1) and mat_mul(a, z) == b
+
+    # La verita, con i ranghi; poi i testimoni, con i prodotti.
+    if nothing:
+        equal = not system_solvable(a, rhs)
+        if equal:
+            right = kinds == ["combination"] and len(matrices[0]) == 1 and shape(matrices[0][0]) == (1, m) and \
+                mat_mul(matrices[0][0], a) == zero(1, n) and mat_mul(matrices[0][0], b) != zero(1, 1)
+        else:
+            right = kinds == ["solution"] and len(matrices[0]) == 1 and solves(matrices[0][0])
+    else:
+        column = [row[0] for row in point]
+        at_point = mat_mul(a, point) == b
+        if member:
+            equal, right = at_point, not kinds
+        else:
+            f = shape(directions)[1] if directions is not None else 0
+            inside = at_point and (not f or mat_mul(a, directions) == zero(m, f))
+            equal = inside and (rank(directions) if f else 0) == n - rank(a)
+            if not inside:
+                right = not kinds
+            elif equal:
+                right = kinds == ["span"] and len(matrices[0]) == (2 if f else 1) and shape(matrices[0][0]) == (n, m)
+                if right:
+                    total = mat_mul(matrices[0][0], a)
+                    if f:
+                        right = shape(matrices[0][1]) == (f, n)
+                        total = add(total, mat_mul(directions, matrices[0][1]), 1) if right else total
+                    right = right and total == identity(n)
+            else:
+                right = kinds == (["solution", "combination"] if f else ["solution"]) and all(len(w) == 1 for w in matrices) and solves(matrices[0][0])
+                if right and f:
+                    y = matrices[1][0]
+                    right = shape(y) == (1, n) and mat_mul(y, directions) == zero(1, f) and \
+                        mat_mul(y, add(matrices[0][0], point, -1)) != zero(1, 1)
+                elif right:
+                    right = [row[0] for row in matrices[0][0]] != column
+    truth = equal if relation in ("=", "in") else not equal
+    return right and truth == (claim[1] == "true")
+
+
+def mutate_system(cert, rnd, pool):
+    """Un certificato di un sistema alterato in un punto: la verita, la relazione, un
+    numero, una dimensione, l'insieme scritto, un testimone (un numero, il tipo, la voce
+    tolta, ripetuta, scambiata con quella di un altro certificato, azzerata, o sostituita
+    con il punto scritto)."""
+    lines = cert.rstrip("\n").split("\n")
+    witnesses = [i for i, l in enumerate(lines) if l.startswith("witness ")]
+    choice = rnd.random()
+    if witnesses and choice < 0.35:
+        where = rnd.choice(witnesses)
+        how = rnd.random()
+        tokens = re.findall(r"\(|\)|[^\s()]+", lines[where])
+        numbers = [i for i, t in enumerate(tokens) if re.fullmatch(r"-?\d+", t) and tokens[i - 1] != "matrix" and tokens[i - 2] != "matrix"]
+        if how < 0.4 and numbers:
+            i = rnd.choice(numbers)
+            tokens[i] = str(int(tokens[i]) + rnd.choice([1, -1, 2]))
+            lines[where] = join(tokens)
+        elif how < 0.5:
+            lines[where] = lines[where].replace(tokens[1], rnd.choice(["combination", "solution", "span"]), 1)
+        elif how < 0.6:
+            del lines[where]
+        elif how < 0.68:
+            lines.insert(where, lines[where])
+        elif how < 0.8 and pool:
+            lines[where] = rnd.choice(pool)
+        elif how < 0.9:
+            # Azzerato: ogni matrice diventa la matrice nulla della stessa forma.
+            lines[where] = re.sub(r"\(matrix (\d+) (\d+)[^()]*(?:\([^()]*\)[^()]*)*\)", r"(zero \1 \2)", lines[where])
+        else:
+            # Il punto scritto al posto del testimone.
+            found = re.search(r"\(affine (\(matrix \d+ \d+[^()]*(?:\([^()]*\)[^()]*)*\))", lines[1])
+            if found:
+                lines[where] = "witness %s %s" % (tokens[1], found.group(1))
+        return "\n".join(lines) + "\n"
+    tokens = re.findall(r"\(|\)|\n|[^\s()]+", cert)
+    places = [i for i, t in enumerate(tokens) if t not in ("\n", "certificate", "matrices", "statement", "claim", "end", "witness")]
+    choice = rnd.random()
+    if choice < 0.15:
+        tokens = [("false" if t == "true" else "true") if t in ("true", "false") else t for t in tokens]
+    elif choice < 0.3:
+        relations = [i for i, t in enumerate(tokens) if i and tokens[i - 1] == "(" and t in ("=", "neq", "in", "notin") and i < 6]
+        if relations:
+            tokens[relations[0]] = rnd.choice(["=", "neq"] if tokens[relations[0]] in ("=", "neq") else ["in", "notin"])
+    elif choice < 0.7:
+        numbers = [i for i in places if re.fullmatch(r"-?\d+", tokens[i])]
+        if numbers:
+            i = rnd.choice(numbers)
+            v = int(tokens[i])
+            tokens[i] = str(rnd.choice([v + 1, v - 1, -v, 0, 2 * v, v + 7]))
+    elif choice < 0.8:
+        tables = [i for i in places if tokens[i] == "matrix" and i + 2 < len(tokens) and tokens[i + 1].isdigit() and tokens[i + 2].isdigit()]
+        if tables:
+            i = rnd.choice(tables)
+            rows, cols = int(tokens[i + 1]), int(tokens[i + 2])
+            tokens[i + 1], tokens[i + 2] = (str(cols), str(rows)) if rows != cols and rnd.random() < 0.6 else ("1", str(rows * cols))
+    elif choice < 0.9:
+        words = [i for i in places if tokens[i] in ("solutions", "affine", "nothing")]
+        if words:
+            i = rnd.choice(words)
+            tokens[i] = rnd.choice(["solutions", "affine", "nothing"])
+    elif places:
+        i = rnd.choice(places)
+        if rnd.random() < 0.5:
+            del tokens[i]
+        else:
+            tokens.insert(i, tokens[i])
+    out = join(tokens)
+    return out if out.endswith("\n") else out + "\n"
+
+
+def systems_mode(binary, seed, count, work, checker):
+    """Il fuzz degli enunciati sui sistemi lineari: vedi "I SISTEMI LINEARI" in testa al file."""
+    rnd = random.Random(seed)
+    gen = SystemGenerator(rnd)
+    os.makedirs(work, exist_ok=True)
+    cases = []
+    while len(cases) < count:
+        made = gen.statement()
+        if made is None or len(made[0]) > 3500:
+            continue
+        text, intended = made
+        if rnd.random() < 0.05:
+            text, intended = damage(text, rnd), None
+            if len(text) > 3500:
+                continue
+        expected = system_judge(text)
+        if intended is not None and expected[0] != ("true" if intended else "false"):
+            print("ORACLE: the reader says %s where the generator built a %s statement\n   %s" % (expected, intended, text))
+            continue
+        cases.append((text, expected))
+    tex_path = os.path.join(work, "systems_%d.tex" % seed)
+    cert_path = os.path.join(work, "systems_%d.cert" % seed)
+    with open(tex_path, "w", encoding="utf-8") as out:
+        out.write("\\begin{document}\n\\begin{enumerate}\n")
+        for text, _ in cases:
+            out.write("\\item $\\displaystyle %s$\n" % text)
+        out.write("\\end{enumerate}\n\\end{document}\n")
+    if os.path.exists(cert_path):
+        os.remove(cert_path)
+    run = subprocess.run([binary, "--certificates", cert_path, tex_path], capture_output=True, text=True)
+    lines = [l for l in run.stdout.splitlines() if re.match(r"\s*\d+\. ", l)]
+    bugs = suspects = misses = 0
+    tally = {}
+    if len(lines) != len(cases):
+        print("BUG: the program answered %d of %d statements (exit %d)\n%s" % (len(lines), len(cases), run.returncode, run.stderr[-2000:]))
+        bugs += 1
+    for number, (line, (text, expected)) in enumerate(zip(lines, cases), 1):
+        answer = line.split(". ", 1)[1]
+        outcome = (answer.split()[0] + (" " + answer.split()[1] if answer.startswith("NON") else "")).rstrip(":")
+        tally[(expected[0], outcome)] = tally.get((expected[0], outcome), 0) + 1
+        decided = outcome in ("DIMOSTRATO", "FALSO", "RISOLTO")
+        if decided and "certificato verificato" not in answer:
+            print("BUG: statement %d is decided without a verified certificate: %s\n   %s" % (number, answer[:120], text))
+            bugs += 1
+        if expected[0] in ("unreadable", "skip"):
+            if decided and expected[0] == "unreadable":
+                print("SUSPECT: statement %d is not a statement for the reader of this script (%s) but the program says %s\n   %s" % (number, expected[1], answer[:120], text))
+                suspects += 1
+        elif expected[0] == "undefined":
+            if decided:
+                print("BUG: statement %d has no meaning but the program says %s\n   %s" % (number, answer[:120], text))
+                bugs += 1
+        elif expected[0] == "request":
+            if outcome == "RISOLTO":
+                try:
+                    if not system_answer_right(expected[1], answer.split(": ", 1)[1]):
+                        print("BUG: statement %d is solved wrongly: %s\n   %s" % (number, answer[:300], text))
+                        bugs += 1
+                except (Unreadable, IndexError, Undefined) as problem:
+                    print("SUSPECT: statement %d, cannot read the answer (%s): %s\n   %s" % (number, problem, answer[-200:], text))
+                    suspects += 1
+            elif decided:
+                print("BUG: statement %d is a request but the program says %s\n   %s" % (number, answer[:120], text))
+                bugs += 1
+            else:
+                print("MISS: statement %d is not solved: %s\n   %s" % (number, answer[:120], text))
+                misses += 1
+        else:
+            right = "DIMOSTRATO" if expected[0] == "true" else "FALSO"
+            if decided and outcome != right:
+                print("BUG: statement %d is %s but the program says %s\n   %s" % (number, expected[0], answer[:120], text))
+                bugs += 1
+            elif not decided:
+                print("MISS: statement %d is %s and the program does not decide it: %s\n   %s" % (number, expected[0], answer[:120], text))
+                misses += 1
+    if "ATTENZIONE" in run.stdout:
+        print("SUSPECT: the program discarded a step of its own proof: %s" % [l for l in run.stdout.splitlines() if "ATTENZIONE" in l])
+        suspects += 1
+
+    # I certificati: quelli del programma, poi quelli alterati.
+    accepted_wrong = mutated = accepted = 0
+    if checker and os.path.exists(cert_path):
+        certs = [c.lstrip("\n") + "end\n" for c in open(cert_path, encoding="utf-8").read().split("end\n") if c.strip()]
+        run = subprocess.run([checker, cert_path], capture_output=True, text=True)
+        answers = [l for l in run.stdout.splitlines() if re.match(r"\s*\d+\. ", l)]
+        for cert, answer in zip(certs, answers):
+            try:
+                good = system_cert_judge(cert)
+            except (Unreadable, IndexError, TooBig) as problem:
+                print("SUSPECT: the oracle cannot read a certificate of the program (%s)\n%s" % (problem, cert))
+                suspects += 1
+                continue
+            if "ACCETTATO" not in answer or not good:
+                print("BUG: a certificate of the program is %s by the checker and %s for the oracle\n%s" % (answer.split(". ", 1)[1][:80], good, cert))
+                bugs += 1
+        if len(answers) != len(certs):
+            print("BUG: the checker answered %d of %d certificates" % (len(answers), len(certs)))
+            bugs += 1
+        variants = []
+        pool = [line for cert in certs for line in cert.split("\n") if line.startswith("witness ")]
+        while certs and len(variants) < count:
+            variant = mutate_system(rnd.choice(certs), rnd, pool)
+            if variant not in certs:
+                variants.append(variant)
+        mutated_path = os.path.join(work, "systems_%d_mutated.cert" % seed)
+        with open(mutated_path, "w", encoding="utf-8") as out:
+            out.write("\n".join(variants))
+        run = subprocess.run([checker, mutated_path], capture_output=True, text=True)
+        answers = [l for l in run.stdout.splitlines() if re.match(r"\s*\d+\. ", l)]
+        mutated = len(variants)
+        if len(answers) != len(variants):
+            print("SUSPECT: the checker answered %d of %d altered certificates (some no longer begin as one)" % (len(answers), len(variants)))
+            suspects += 1
+        else:
+            for variant, answer in zip(variants, answers):
+                if "ACCETTATO" not in answer:
+                    continue
+                accepted += 1
+                try:
+                    good = system_cert_judge(variant)
+                except TooBig as problem:
+                    print("SUSPECT: the checker accepted a certificate too large for the oracle (%s)\n%s" % (problem, variant))
+                    suspects += 1
+                    continue
+                except (Unreadable, IndexError, RecursionError) as problem:
+                    print("BUG: the checker accepted a certificate that the oracle cannot read (%s)\n%s" % (problem, variant))
+                    bugs += 1
+                    accepted_wrong += 1
+                    continue
+                if not good:
+                    print("BUG: the checker accepted a certificate that does not say the truth\n%s" % variant)
+                    bugs += 1
+                    accepted_wrong += 1
+
+    print("Summary (seed %d): %d statements on linear systems" % (seed, len(cases)))
+    for key in sorted(tally):
+        print("   %-10s %-16s %d" % (key[0], key[1], tally[key]))
+    if checker:
+        print("   certificates altered: %d, accepted by the checker: %d, of which wrong: %d" % (mutated, accepted, accepted_wrong))
+    print("BUG %d, SUSPECT %d, MISS %d" % (bugs, suspects, misses))
+    sys.exit(1 if bugs else 0)
+
+
+def systems_data_mode(paths):
+    """Il terzo conto sui file di dati dei sistemi: che cosa ne dice l'oracolo."""
+    words = {"true": "VERO", "false": "FALSO", "undefined": "NON DEFINITO", "unreadable": "NON LETTO", "request": "RICHIESTA", "skip": "NON DECISO DALL'ORACOLO"}
+    for path in paths:
+        print(path)
+        counts = {}
+        for number, text in enumerate(items_of(path), 1):
+            verdict = system_judge(text)
+            counts[words[verdict[0]]] = counts.get(words[verdict[0]], 0) + 1
+            print("%4d. %s%s" % (number, words[verdict[0]], ": " + verdict[1] if verdict[0] in ("undefined", "unreadable", "skip") else ""))
+        print("   " + ", ".join("%s %d" % item for item in sorted(counts.items())))
+
+
+def systems_answers_mode(tex_path, c_path):
+    """Le risposte attese delle richieste di un file di dati sui sistemi, scritte nel test
+    in C in expected_answers[]: l'oracolo dice se ognuna e l'insieme delle soluzioni della
+    sua richiesta, con i parametri liberi."""
+    source = open(c_path, encoding="utf-8").read()
+    block = re.search(r"expected_answers\[\] = \{\n(.*?)\n\};", source, re.S)
+    answers = [m.group(1).replace("\\\\", "\\") for m in re.finditer(r'^\s*"(.*)",\s*$', block.group(1), re.M)] if block else []
+    requests = items_of(tex_path)
+    print("%s: %d requests, %d expected answers" % (tex_path, len(requests), len(answers)))
+    wrong = 0
+    for number, (text, answer) in enumerate(zip(requests, answers), 1):
+        verdict = system_judge(text)
+        try:
+            if verdict[0] != "request":
+                outcome = "NON E UNA RICHIESTA PER L'ORACOLO (%s)" % (verdict[1] if len(verdict) > 1 else verdict[0])
+            else:
+                outcome = "CONFERMATA" if system_answer_right(verdict[1], answer) else "SBAGLIATA"
+        except (Unreadable, IndexError, Undefined, TooBig) as problem:
+            outcome = "NON DECISA DALL'ORACOLO (%s)" % problem
+        wrong += outcome != "CONFERMATA"
+        print("%4d. %s: %s" % (number, outcome, answer))
+    wrong += abs(len(requests) - len(answers))
+    print("%d not confirmed" % wrong)
+    sys.exit(1 if wrong else 0)
+
+
+# ------------------------------------------- con un parametro: la discussione
+#
+# Un fatto con un parametro k (un rango confrontato con un numero, un insieme di soluzioni
+# confrontato con un insieme scritto) vale per certi valori di k. Il programma lo discute
+# con un minore scelto, la sua aggiunta e l'interpolazione; qui si fa in un altro modo. I
+# coefficienti si leggono come frazioni di polinomi in k (la classe RatFn), e la verita del
+# fatto dipende solo da quali, tra questi polinomi, si annullano: i denominatori, tutti i
+# minori della matrice (per un sistema, della matrice completa e dei vettori scritti), i
+# residui A p - b e A U. Un rango scende sotto un ordine solo dove i minori di quell'ordine
+# si annullano tutti, cioe nelle radici del loro massimo comun divisore; un residuo si
+# annulla, se non e nullo, nelle radici comuni alle sue componenti. Fuori da queste radici
+# e da quelle dei denominatori la verita e una sola, e la si calcola in un punto qualsiasi
+# (i ranghi con i minori, come sopra); in ogni radice razionale la si calcola li. Se una
+# di quelle radici e irrazionale l'oracolo non decide. Il fatto diventa cosi una condizione su k, e l'enunciato che resta
+# lo decide la tabella dell'oracolo con una lettera (letter_judge()): e completo, non a
+# campione.
+
+class RatFn:
+    """Una frazione di polinomi (Poly), non ridotta: si somma e si moltiplica anche con i
+    numeri, cosi i prodotti di matrici e lo sviluppo di Laplace valgono senza cambiare."""
+
+    def __init__(self, num, den=1):
+        self.num, self.den = Poly.of(num), Poly.of(den)
+
+    @staticmethod
+    def of(x):
+        return x if isinstance(x, RatFn) else RatFn(x)
+
+    def __add__(self, other):
+        other = RatFn.of(other)
+        return RatFn(self.num * other.den + other.num * self.den, self.den * other.den)
+
+    __radd__ = __add__
+
+    def __neg__(self):
+        return RatFn(-self.num, self.den)
+
+    def __sub__(self, other):
+        return self + (-RatFn.of(other))
+
+    def __rsub__(self, other):
+        return RatFn.of(other) + (-self)
+
+    def __mul__(self, other):
+        other = RatFn.of(other)
+        return RatFn(self.num * other.num, self.den * other.den)
+
+    __rmul__ = __mul__
+
+    def __truediv__(self, other):
+        other = RatFn.of(other)
+        if other.num == 0:
+            raise Undefined("division by zero")
+        return RatFn(self.num * other.den, self.den * other.num)
+
+    def __pow__(self, k):
+        out = RatFn(1)
+        for _ in range(abs(k)):
+            out = out * self
+        return out if k >= 0 else RatFn(1) / out
+
+    def __eq__(self, other):
+        other = RatFn.of(other)
+        return self.num * other.den == other.num * self.den
+
+    def __ne__(self, other):
+        return not self == other
+
+    __hash__ = None
+
+    def at(self, name, v):
+        """Il numero che la frazione vale con v al posto della lettera name, la sola che ha."""
+        num, den = self.num.at(name, v), self.den.at(name, v)
+        if not num.is_number() or not den.is_number():
+            raise Unreadable("a letter without a value")
+        if den.number() == 0:
+            raise Undefined("a denominator vanishes")
+        return num.number() / den.number()
+
+
+def rvalue(t):
+    """Il valore di un albero con le lettere: una frazione di polinomi, o una matrice di
+    frazioni. Il rango e l'inversa di una matrice con le lettere non sono un valore."""
+    kind = t[0]
+    if kind == "num":
+        return t[1]
+    if kind == "var":
+        return RatFn(Poly.letter(t[1]))
+    if kind == "mat":
+        rows = tuple(tuple(rvalue(e) for e in row) for row in t[1])
+        if any(is_matrix(e) or is_unit(e) for row in rows for e in row):
+            raise Undefined("matrix inside a matrix")
+        return rows
+    if kind == "I":
+        return identity(t[1]) if t[1] else ("unit", Fr(1))
+    if kind == "neg":
+        return mul(Fr(-1), rvalue(t[1]))
+    if kind in ("add", "sub"):
+        return add(rvalue(t[1]), rvalue(t[2]), 1 if kind == "add" else -1)
+    if kind == "mul":
+        return mul(rvalue(t[1]), rvalue(t[2]))
+    if kind == "div":
+        a, b = rvalue(t[1]), rvalue(t[2])
+        if is_matrix(a) or is_matrix(b) or is_unit(a) or is_unit(b):
+            raise Undefined("division")
+        return RatFn.of(a) / b
+    if kind == "pow":
+        a = rvalue(t[1])
+        if is_matrix(a) or is_unit(a):
+            if t[2] < 0:
+                raise Unreadable("the inverse of a matrix with a parameter")
+            return power(a, t[2])
+        return RatFn.of(a) ** t[2]
+    a = rvalue(t[1])
+    if not is_matrix(a):
+        raise Undefined("%s of something that is not a written matrix" % kind)
+    if kind == "T":
+        return transpose(a)
+    if kind == "det":
+        return det(a)
+    if kind == "tr" and shape(a)[0] == shape(a)[1]:
+        return sum((a[i][i] for i in range(len(a))), Fr(0))
+    raise Unreadable("%s inside an expression with a parameter" % kind)
+
+
+def affine_fractions(v, names):
+    """Come affine_parts(), con i coefficienti che sono frazioni di polinomi nelle lettere
+    che non sono in names: le lettere di names non stanno a denominatore, e a numeratore
+    compaiono al primo grado, una per monomio."""
+    if is_matrix(v) or is_unit(v):
+        raise Undefined("a matrix where a number is expected")
+    v = RatFn.of(v)
+    if any(name in names for name in v.den.letters()):
+        raise Unreadable("an unknown in a denominator")
+    coefficients, constant = {name: Poly() for name in names}, Poly()
+    for monomial, c in v.num.terms.items():
+        mine = [(n, e) for n, e in monomial if n in coefficients]
+        rest = Poly({tuple((n, e) for n, e in monomial if n not in coefficients): c})
+        if not mine:
+            constant = constant + rest
+        elif len(mine) == 1 and mine[0][1] == 1:
+            coefficients[mine[0][0]] = coefficients[mine[0][0]] + rest
+        else:
+            raise Unreadable("not of the first degree in its letters")
+    return [RatFn(coefficients[name], v.den) for name in names], RatFn(constant, v.den)
+
+
+def common_roots(polys, k):
+    """Le radici reali comuni ai polinomi non nulli di polys, nella lettera k, se sono
+    tutte razionali: sono le radici del loro massimo comun divisore. Solleva Skip se ce
+    n'e una irrazionale. Senza polinomi non nulli non ce ne sono da guardare."""
+    coefficients = None
+    for p in polys:
+        c = u_trim(Poly.of(p).coefficients(k))
+        if c:
+            coefficients = c if coefficients is None else u_trim(u_gcd(coefficients, c))
+    if coefficients is None or len(coefficients) < 2:
+        return []
+    roots, rest = rational_roots(coefficients)
+    rest = u_trim(rest)
+    if len(rest) > 1:
+        # Senza radici multiple: diviso per il massimo comun divisore con la derivata.
+        derivative = u_trim([c * i for i, c in enumerate(rest)][1:])
+        common = u_gcd(rest, derivative) if len(derivative) > 0 else [Fr(1)]
+        if isolate(u_quo(rest, common) if len(common) > 1 else rest):
+            raise Skip("an irrational special value of the parameter")
+    return roots
+
+
+def minors_by_order(m):
+    """Per ogni ordine, i numeratori dei determinanti di tutte le sottomatrici quadrate di
+    m di quell'ordine: il rango di m scende sotto l'ordine solo dove si annullano tutti."""
+    rows, cols = shape(m)
+    for size in range(1, min(rows, cols) + 1):
+        yield [RatFn.of(det(tuple(tuple(m[i][j] for j in cs) for i in rs))).num
+               for rs in itertools.combinations(range(rows), size) for cs in itertools.combinations(range(cols), size)]
+
+
+class ParameterFact:
+    """Un fatto con il parametro k, letto dai token [start, end) di un enunciato: i suoi
+    coefficienti come frazioni di polinomi in k, e la sua verita in un valore di k."""
+
+    def __init__(self, k, start, end, kind, relation):
+        self.k, self.start, self.end, self.kind, self.relation = k, start, end, kind, relation
+        self.matrices = {}  # nome -> matrice di frazioni (tupla di righe); None se non c'e
+
+    def groups(self):
+        """Liste di polinomi in k: la verita del fatto puo cambiare solo dove i polinomi
+        non nulli di una lista si annullano tutti insieme. Un denominatore da solo (li un
+        coefficiente non e definito); i minori di uno stesso ordine (li scende un rango);
+        le componenti di un residuo (li il punto scritto, o un vettore, diventa una
+        soluzione o smette di esserlo)."""
+        found = [[RatFn.of(x).den] for m in self.matrices.values() for row in m or () for x in row]
+        if self.kind == "rank":
+            found += list(minors_by_order(self.matrices["m"]))
+        else:
+            a, b, p, u = (self.matrices[name] for name in ("a", "b", "p", "u"))
+            found += list(minors_by_order(a)) + list(minors_by_order(tuple(row + c for row, c in zip(a, b))))
+            if p is not None:
+                found.append([RatFn.of(row[0]).num for row in add(mat_mul(a, p), b, -1)])
+            if u is not None:
+                found.append([RatFn.of(x).num for row in mat_mul(a, u) for x in row])
+                found += list(minors_by_order(u))
+        return found
+
+    def at(self, c):
+        """La verita del fatto con k = c. Un coefficiente non definito: il fatto non vale."""
+        try:
+            numbers = {name: m and tuple(tuple(RatFn.of(x).at(self.k, c) for x in row) for row in m) for name, m in self.matrices.items()}
+        except Undefined:
+            return False
+        if self.kind == "rank":
+            return holds(Fr(rank(numbers["m"])), self.number, self.relation)
+        a, b, p, u = (numbers[name] for name in ("a", "b", "p", "u"))
+        n, rhs = len(a[0]), [row[0] for row in b]
+        if p is None:
+            equal = not system_solvable(a, rhs)
+        else:
+            equal = mat_mul(a, p) == b and (u is None or all(x == 0 for row in mat_mul(a, u) for x in row)) and \
+                (rank(u) if u is not None else 0) == n - rank(a)
+        return equal if self.relation == "=" else not equal
+
+    def table(self):
+        """(valori speciali razionali in ordine, verita in ognuno, verita negli altri)."""
+        special = sorted({r for group in self.groups() for r in common_roots(group, self.k)})
+        generic = next(Fr(v) for v in itertools.count(1) if Fr(v) not in special)
+        return special, [self.at(c) for c in special], self.at(generic)
+
+    def condition(self):
+        """La condizione su k che dice dove il fatto vale, in LaTeX."""
+        special, truths, generic = self.table()
+        k = self.k
+        pieces = ["%s = %s" % (k, tex_number(c)) for c, t in zip(special, truths) if t]
+        if generic:
+            away = ["%s \\neq %s" % (k, tex_number(c)) for c, t in zip(special, truths) if not t]
+            pieces.append("\\left( %s \\right)" % " \\land ".join(away) if away else "0 = 0")
+        return "\\left( %s \\right)" % (" \\lor ".join(pieces) if pieces else "0 = 1")
+
+
+def parameter_letter(text):
+    """La lettera che un quantificatore, o un insieme \\{k \\in \\mathbb{R} \\mid ...\\},
+    mette in tutto \\mathbb{R}: None se non c'e o se sono piu di una."""
+    found = set(re.findall(r"(?:\\forall|\\exists|\\\{)\s*([a-z])\s*\\in\s*\\mathbb\s*\{\s*R\s*\}(?!\s*\^)", text))
+    return found.pop() if len(found) == 1 else None
+
+
+def parameter_facts(reader, k):
+    """I fatti di un enunciato con il parametro k, dal token corrente di reader in poi:
+    una lista di ParameterFact. Un fatto senza relazione ha relation uguale a None."""
+    facts, i = [], reader.pos
+    while i < len(reader.tok):
+        t, saved = reader.tok[i], list(reader.tok)
+        reader.pos = i
+        try:
+            if t == "\\{" and reader.tok[i - 1] != "=":
+                n, system = reader.solutions()
+                relation = {"=": "=", "\\neq": "neq", "\\ne": "neq"}.get(reader.peek())
+                other = None
+                if relation is not None:
+                    reader.take()
+                    other = reader.written()
+                fact = ParameterFact(k, i, reader.pos, "system", relation)
+                a, b = system_matrices(system, rvalue, affine_fractions)
+                if len(a[0]) != n:
+                    raise Undefined("unknowns")
+                fact.matrices = {"a": a, "b": tuple((c,) for c in b), "p": None, "u": None}
+                if other is not None and other[0] == "set":
+                    point, directions = written_parts(other, n, rvalue, affine_fractions)
+                    fact.matrices["p"] = tuple((c,) for c in point)
+                    fact.matrices["u"] = tuple(directions) if other[2] else None
+                facts.append(fact)
+                i = reader.pos
+                continue
+            if t in ("\\operatorname", "\\mathrm", "\\text"):
+                tree = reader.primary()
+                if tree[0] == "rank":
+                    relation = RELATIONS.get(reader.peek())
+                    number = None
+                    if relation is not None:
+                        reader.take()
+                        number = settled(value(reader.sum()))
+                        if is_matrix(number) or isinstance(number, Poly):
+                            raise Unreadable("a rank is compared with a number")
+                    fact = ParameterFact(k, i, reader.pos, "rank", relation)
+                    fact.number = number
+                    fact.matrices = {"m": rvalue(tree[1])}
+                    if not is_matrix(fact.matrices["m"]):
+                        raise Undefined("the rank of a number")
+                    facts.append(fact)
+                    i = reader.pos
+                    continue
+        except Unreadable:
+            pass
+        reader.tok = saved
+        i += 1
+    return facts
+
+
+def parameter_read(text):
+    """Legge un enunciato con un parametro: ritorna (lettore, lettera, fatti, dove
+    comincia l'enunciato dopo le definizioni)."""
+    k = parameter_letter(text)
+    if k is None:
+        raise Unreadable("one real parameter is expected")
+    reader = SystemReader(text)
+    if len(reader.tok) > 1 and len(reader.tok[0]) == 1 and reader.tok[0].isupper() and reader.tok[1] == "=":
+        reader.definitions()
+    start = reader.pos
+    return reader, k, parameter_facts(reader, k), start
+
+
+def parameter_judge(text):
+    """Che cosa dice l'oracolo di un enunciato con un parametro: cio che dice
+    letter_judge() dell'enunciato con ogni fatto sostituito dalla sua condizione sul
+    parametro, oppure ("cases", (prefisso, testo della richiesta, lettera)) per una
+    richiesta da discutere per casi."""
+    determinants[0] = 0
+    try:
+        reader, k, facts, start = parameter_read(text)
+        tokens = reader.tok
+        asked = [f for f in facts if f.relation is None]
+        if asked:
+            if len(facts) == 1 and facts[0].end == len(tokens) and tokens[start:facts[0].start] == ["\\forall", k, "\\in", "\\mathbb", "{", "R", "}"]:
+                return ("cases", (" ".join(tokens[:start]), " ".join(tokens[facts[0].start:]), k))
+            raise Unreadable("a fact without a relation inside a statement")
+        pieces, at = [], 0
+        for fact in facts:
+            pieces += tokens[at:fact.start] + [fact.condition()]
+            at = fact.end
+        return letter_judge(" ".join(pieces + tokens[at:]))
+    except (Unreadable, IndexError) as problem:
+        return ("unreadable", str(problem))
+    except Undefined as problem:
+        return ("undefined", str(problem))
+    except (Skip, TooBig) as problem:
+        return ("skip", str(problem))
+
+
+def cases_right(request, answer):
+    """Dice se i casi answer, scritti dal programma o attesi da un test, rispondono alla
+    richiesta request (cio che parameter_judge() ritorna con "cases"): ogni caso "valore &
+    condizione" deve dare un enunciato vero, "per ogni k, se vale la condizione la
+    richiesta vale quel valore", e le condizioni devono coprire tutti i valori di k."""
+    prefix, asked, k = request
+    text = answer.strip()
+    if text.startswith("\\begin{cases}"):
+        rows = [row.rsplit(" & ", 1) for row in text[len("\\begin{cases}"):-len("\\end{cases}")].split(" \\\\ ")]
+        if any(len(row) != 2 for row in rows):
+            raise Unreadable("a case without its condition")
+    else:
+        rows = [[text, "0 = 0"]]
+    every = "\\forall %s \\in \\mathbb{R}\\ \\left( %s \\right)" % (k, " \\lor ".join("\\left( %s \\right)" % c.strip() for _, c in rows))
+    if letter_judge(every) != ("true",):
+        return False
+    for value, condition in rows:
+        statement = "%s \\forall %s \\in \\mathbb{R}\\ \\left( \\left( %s \\right) \\implies %s = %s \\right)" % (prefix, k, condition.strip(), asked, value.strip())
+        verdict = parameter_judge(statement)
+        if verdict[0] in ("skip", "unreadable", "undefined"):
+            raise Skip("a case that the oracle does not decide: %s" % (verdict[1:],))
+        if verdict != ("true",):
+            return False
+    return True
+
+
+PARAMETER_SAMPLES = [Fr(v) for v in range(-6, 7)] + [Fr(1, 2), Fr(-1, 2), Fr(3, 2), Fr(-5, 3), Fr(7, 4), Fr(11), Fr(-13)]
+
+
+def sampled_cert_judge(cert):
+    """Un certificato di una discussione, con o senza lettere, controllato sui numeri: con
+    le lettere, in ogni valore di PARAMETER_SAMPLES che non annulla il polinomio della voce
+    where la lettera diventa quel numero e il certificato deve essere uno giusto tra quelli
+    sui numeri (cert_judge(), system_cert_judge()). Non e una dimostrazione: e il conto in
+    molti valori. Ritorna None per i certificati di un altro tipo."""
+    lines = [l for l in cert.strip().split("\n") if l.strip()]
+    if not lines or lines[0].split() != ["certificate", "matrices"]:
+        return None
+    judge = system_cert_judge if "(solutions" in cert else cert_judge
+    if lines[1].split()[:1] != ["letters"]:
+        return judge(cert)
+    letters = lines[1].split()[1:]
+    where = "1"
+    body = lines[2:]
+    if body and body[0].split()[:1] == ["where"]:
+        where, body = body[0].split(None, 1)[1], body[1:]
+    if len(letters) != 1:
+        raise Unreadable("letters")
+
+    def with_number(text, v):
+        number = str(v.numerator) if v.denominator == 1 else "(/ %d %d)" % (v.numerator, v.denominator)
+        return join([number if t == letters[0] else t for t in re.findall(r"\(|\)|[^\s()]+", text)])
+
+    checked = 0
+    for v in PARAMETER_SAMPLES:
+        try:
+            if cert_value(sexp(with_number(where, v)), None) == 0:
+                continue
+        except Undefined:
+            return False
+        checked += 1
+        if not judge("certificate matrices\n" + "\n".join(with_number(l, v) for l in body) + "\n"):
+            return False
+    return checked > 0
+
+
+class ParameterGenerator:
+    """Matrici e sistemi con il parametro k in una riga o in una colonna sola: i minori
+    sono allora di primo grado in k, e i valori speciali razionali. Ogni tanto il parametro
+    sta in due posti qualsiasi, e i valori speciali possono essere irrazionali: li
+    l'oracolo non decide, e il programma non deve decidere a sproposito."""
+
+    def __init__(self, rnd):
+        self.rnd = rnd
+
+    def matrix(self, m, n):
+        rnd = self.rnd
+        where = rnd.random()
+        line = rnd.randrange(m) if where < 0.45 else rnd.randrange(n)
+        spots = {(rnd.randrange(m), rnd.randrange(n)) for _ in range(2)}
+        rows = []
+        for i in range(m):
+            row = []
+            for j in range(n):
+                inside = (i == line) if where < 0.45 else (j == line) if where < 0.9 else (i, j) in spots
+                row.append((Fr(rnd.randint(-3, 3)), Fr(rnd.choice([1, 1, -1, 2, -2, 3])) if inside and rnd.random() < 0.7 else Fr(0)))
+            rows.append(row)
+        return rows
+
+    @staticmethod
+    def entry(c):
+        return s_sum([(c[1], "k"), (c[0], "")])
+
+    def rank_text(self):
+        rnd = self.rnd
+        m, n = rnd.randint(2, 3), rnd.randint(2, 4)
+        rows = self.matrix(m, n)
+        return "\\operatorname{rank} \\begin{pmatrix} %s \\end{pmatrix}" % " \\\\ ".join(" & ".join(self.entry(c) for c in row) for row in rows), min(m, n)
+
+    def system_text(self):
+        rnd = self.rnd
+        m, n = rnd.randint(2, 3), rnd.randint(2, 3)
+        rows = self.matrix(m, n + 1)
+        names = list("xyz"[:n])
+        equations = []
+        for row in rows:
+            left = ""
+            for c, x in zip(row, names):
+                if c == (0, 0):
+                    continue
+                if c[0] and c[1]:
+                    piece, negative = "(%s)%s" % (self.entry(c), x), False
+                else:
+                    negative, piece = s_term(c[1] or c[0], ("k" if c[1] else "") + x)
+                left += ("-" if negative else "") + piece if not left else (" - " if negative else " + ") + piece
+            equations.append("%s = %s" % (left or "0", self.entry(row[n])))
+        return "\\{(%s) \\in \\mathbb{R}^{%d} \\mid %s\\}" % (", ".join(names), n, " \\land ".join(equations))
+
+    def condition(self, fact_text, wrong):
+        """Una condizione su k da mettere accanto a un fatto: quella vera, calcolata
+        dall'oracolo, oppure la stessa con un valore spostato, tolto o aggiunto."""
+        rnd = self.rnd
+        reader, k, facts, _ = parameter_read("\\forall k \\in \\mathbb{R}\\ \\left( %s \\right)" % fact_text)
+        special, truths, generic = facts[0].table()
+        if wrong:
+            if special and rnd.random() < 0.6:
+                i = rnd.randrange(len(special))
+                if rnd.random() < 0.5:
+                    special[i] += rnd.choice([1, -1])
+                else:
+                    truths[i] = not truths[i]
+            else:
+                special, truths = special + [Fr(rnd.randint(-5, 5)) + Fr(1, 7)], truths + [not generic]
+        pieces = ["k = %s" % tex_number(c) for c, t in zip(special, truths) if t]
+        if generic:
+            away = ["k \\neq %s" % tex_number(c) for c, t in zip(special, truths) if not t]
+            pieces.append("\\left( %s \\right)" % " \\land ".join(away) if away else "0 = 0")
+        return " \\lor ".join(pieces) if pieces else "0 = 1"
+
+    def statement(self):
+        rnd = self.rnd
+        kind = rnd.random()
+        try:
+            if kind < 0.5:
+                fact, top = self.rank_text()
+                r = rnd.randint(0, top)
+                relation = rnd.choice(["=", "=", "<", "\\ge", "\\neq"])
+                shape_ = rnd.random()
+                if shape_ < 0.25:
+                    return "\\forall k \\in \\mathbb{R}\\ %s" % fact
+                if shape_ < 0.45:
+                    return "\\{k \\in \\mathbb{R} \\mid %s %s %d\\}" % (fact, relation, r)
+                if shape_ < 0.85:
+                    wrong = rnd.random() < 0.5
+                    return "\\forall k \\in \\mathbb{R}\\ \\left( %s %s %d \\iff \\left( %s \\right) \\right)" % (fact, relation, r, self.condition("%s %s %d" % (fact, relation, r), wrong))
+                return "%s k \\in \\mathbb{R}\\ \\left( %s %s %d \\right)" % (rnd.choice(["\\forall", "\\exists"]), fact, relation, r)
+            fact = self.system_text()
+            relation = rnd.choice(["=", "\\neq"])
+            shape_ = rnd.random()
+            if shape_ < 0.35:
+                return "\\forall k \\in \\mathbb{R}\\ %s" % fact
+            if shape_ < 0.5:
+                return "\\{k \\in \\mathbb{R} \\mid %s %s \\emptyset\\}" % (fact, relation)
+            if shape_ < 0.85:
+                wrong = rnd.random() < 0.5
+                return "\\forall k \\in \\mathbb{R}\\ \\left( %s %s \\emptyset \\iff \\left( %s \\right) \\right)" % (fact, relation, self.condition("%s %s \\emptyset" % (fact, relation), wrong))
+            return "%s k \\in \\mathbb{R}\\ \\left( %s %s \\emptyset \\right)" % (rnd.choice(["\\forall", "\\exists"]), fact, relation)
+        except (Skip, TooBig, Unreadable, Undefined):
+            return None
+
+
+def perturbed(text, rnd):
+    """Il testo con un numero intero cambiato di uno: una risposta sbagliata di poco."""
+    places = [m for m in re.finditer(r"(?<![\w{}^_])\d+", text)]
+    if not places:
+        return text
+    m = rnd.choice(places)
+    return text[:m.start()] + str(int(m.group()) + 1) + text[m.end():]
+
+
+def parameter_run(binary, checker, cases, work, name, rnd, count):
+    """Da gli enunciati cases, coppie (testo, verdetto dell'oracolo), al programma, e
+    confronta; poi fa ricontrollare i certificati al verificatore e ne altera count.
+    Ritorna (errori, sospetti, mancati, conteggi, risposte)."""
+    tex_path, cert_path = os.path.join(work, name + ".tex"), os.path.join(work, name + ".cert")
+    with open(tex_path, "w", encoding="utf-8") as out:
+        out.write("\\begin{document}\n\\begin{enumerate}\n")
+        for text, _ in cases:
+            out.write("\\item $\\displaystyle %s$\n" % text)
+        out.write("\\end{enumerate}\n\\end{document}\n")
+    if os.path.exists(cert_path):
+        os.remove(cert_path)
+    run = subprocess.run([binary, "--certificates", cert_path, tex_path], capture_output=True, text=True)
+    lines = [l for l in run.stdout.splitlines() if re.match(r"\s*\d+\. ", l)]
+    bugs = suspects = misses = 0
+    tally, answers = {}, []
+    if len(lines) != len(cases):
+        print("BUG: the program answered %d of %d statements (exit %d)\n%s" % (len(lines), len(cases), run.returncode, run.stderr[-2000:]))
+        bugs += 1
+    for number, (line, (text, expected)) in enumerate(zip(lines, cases), 1):
+        answer = line.split(". ", 1)[1]
+        outcome = (answer.split()[0] + (" " + answer.split()[1] if answer.startswith("NON") else "")).rstrip(":")
+        decided = outcome in ("DIMOSTRATO", "FALSO", "RISOLTO")
+        written = answer.split(": ", 1)[1] if outcome == "RISOLTO" and ": " in answer else None
+        answers.append(written)
+        kind = expected[0]
+        if decided and "certificato verificato" not in answer and "ha i suoi certificati, verificati" not in answer:
+            print("BUG: statement %d is decided and no certificate is mentioned: %s\n   %s" % (number, answer[:160], text))
+            bugs += 1
+        if kind in ("request", "cases"):
+            if outcome == "RISOLTO":
+                try:
+                    right = cases_right(expected[1], written) if kind == "cases" else same_solutions(expected[1], written)
+                    if not right:
+                        print("BUG: statement %d is solved wrongly: %s\n   %s" % (number, answer[:400], text))
+                        bugs += 1
+                except (Skip, TooBig):
+                    kind += ", not checked"
+                except (Unreadable, IndexError, ValueError, Undefined) as problem:
+                    print("SUSPECT: statement %d, cannot read the answer (%s): %s\n   %s" % (number, problem, answer[-300:], text))
+                    suspects += 1
+            elif decided:
+                print("BUG: statement %d is a request but the program says %s\n   %s" % (number, answer[:160], text))
+                bugs += 1
+            else:
+                print("MISS: statement %d is not solved: %s\n   %s" % (number, answer[:160], text))
+                misses += 1
+        elif kind in ("true", "false"):
+            right = "DIMOSTRATO" if kind == "true" else "FALSO"
+            if decided and outcome != right:
+                print("BUG: statement %d is %s but the program says %s\n   %s" % (number, kind, answer[:160], text))
+                bugs += 1
+            elif not decided:
+                print("MISS: statement %d is %s and the program does not decide it: %s\n   %s" % (number, kind, answer[:160], text))
+                misses += 1
+        elif kind == "undefined" and decided:
+            print("BUG: statement %d has no meaning but the program says %s\n   %s" % (number, answer[:160], text))
+            bugs += 1
+        elif kind == "unreadable" and decided:
+            print("SUSPECT: statement %d is not a statement for the reader of this script (%s) but the program says %s\n   %s" % (number, expected[1], answer[:160], text))
+            suspects += 1
+        tally[(kind, outcome)] = tally.get((kind, outcome), 0) + 1
+    if "ATTENZIONE" in run.stdout:
+        print("SUSPECT: the program discarded a step of its own proof")
+        suspects += 1
+
+    # I certificati: quelli del programma, poi quelli alterati.
+    accepted = wrong = mutated = 0
+    if checker and os.path.exists(cert_path):
+        certs = [c.lstrip("\n") + "end\n" for c in open(cert_path, encoding="utf-8").read().split("end\n") if c.strip()]
+        run = subprocess.run([checker, cert_path], capture_output=True, text=True)
+        replies = [l for l in run.stdout.splitlines() if re.match(r"\s*\d+\. ", l)]
+        if len(replies) != len(certs):
+            print("BUG: the checker answered %d of %d certificates" % (len(replies), len(certs)))
+            bugs += 1
+        for cert, reply in zip(certs, replies):
+            try:
+                good = sampled_cert_judge(cert)
+            except (Unreadable, IndexError, TooBig) as problem:
+                print("SUSPECT: the oracle cannot read a certificate of the program (%s)\n%s" % (problem, cert))
+                suspects += 1
+                continue
+            if "ACCETTATO" not in reply or good is False:
+                print("BUG: a certificate of the program is %s by the checker and %s for the oracle\n%s" % (reply.split(". ", 1)[1][:80], good, cert))
+                bugs += 1
+        ours = [c for c in certs if c.startswith("certificate matrices")]
+        pool = [line for cert in ours for line in cert.split("\n") if line.startswith("witness ")]
+        variants = []
+        for _ in range(20 * count):
+            if not ours or len(variants) == count:
+                break
+            variant = mutate_system(rnd.choice(ours), rnd, pool)
+            if variant not in certs:
+                variants.append(variant)
+        mutated_path = os.path.join(work, name + "_mutated.cert")
+        with open(mutated_path, "w", encoding="utf-8") as out:
+            out.write("\n".join(variants))
+        run = subprocess.run([checker, mutated_path], capture_output=True, text=True)
+        replies = [l for l in run.stdout.splitlines() if re.match(r"\s*\d+\. ", l)]
+        mutated = len(variants)
+        if len(replies) != len(variants):
+            print("SUSPECT: the checker answered %d of %d altered certificates (some no longer begin as one)" % (len(replies), len(variants)))
+            suspects += 1
+        else:
+            for variant, reply in zip(variants, replies):
+                if "ACCETTATO" not in reply:
+                    continue
+                accepted += 1
+                try:
+                    good = sampled_cert_judge(variant)
+                except TooBig:
+                    continue
+                except (Unreadable, IndexError, RecursionError) as problem:
+                    good = False
+                    print("the oracle cannot read it: %s" % problem)
+                if good is False:
+                    print("BUG: the checker accepted a certificate that does not say the truth\n%s" % variant)
+                    bugs += 1
+                    wrong += 1
+    print("   %s: %d statements; certificates altered: %d, accepted by the checker: %d, of which wrong: %d" % (name, len(cases), mutated, accepted, wrong))
+    return bugs, suspects, misses, tally, answers
+
+
+def parameter_mode(binary, seed, count, work, checker):
+    """Il fuzz delle discussioni con un parametro: vedi "CON UN PARAMETRO: LA DISCUSSIONE"
+    in testa al file. In due tempi: prima ranghi e sistemi; poi, dai casi che il programma
+    ha scritto per i sistemi, gli enunciati "se vale la condizione, le soluzioni sono
+    queste", giusti e sbagliati di poco."""
+    rnd = random.Random(seed)
+    gen = ParameterGenerator(rnd)
+    os.makedirs(work, exist_ok=True)
+    cases = []
+    while len(cases) < count:
+        text = gen.statement()
+        if text is None or len(text) > 3000:
+            continue
+        cases.append((text, parameter_judge(text)))
+    totals = list(parameter_run(binary, checker, cases, work, "parameter_%d" % seed, rnd, count))
+
+    # Il secondo tempo.
+    derived = []
+    for (text, expected), answer in zip(cases, totals[4]):
+        if expected[0] != "cases" or answer is None or "\\{" not in text:
+            continue
+        prefix, asked, k = expected[1]
+        rows = [row.rsplit(" & ", 1) for row in answer[len("\\begin{cases}"):-len("\\end{cases}")].split(" \\\\ ")] if answer.startswith("\\begin{cases}") else [[answer, "0 = 0"]]
+        for value, condition in rows:
+            how = rnd.random()
+            if how < 0.4:
+                value = perturbed(value, rnd)
+            elif how < 0.6 and " \\land " in condition:
+                condition = condition.split(" \\land ", 1)[1]
+            elif how < 0.7:
+                condition = "0 = 0"
+            statement = "\\forall %s \\in \\mathbb{R}\\ \\left( \\left( %s \\right) \\implies %s = %s \\right)" % (k, condition.strip(), asked, value.strip())
+            derived.append((statement, parameter_judge(statement)))
+    derived = derived[:count]
+    if derived:
+        second = parameter_run(binary, checker, derived, work, "parameter_%d_cases" % seed, rnd, len(derived))
+        for i in range(3):
+            totals[i] += second[i]
+        for key, v in second[3].items():
+            totals[3][key] = totals[3].get(key, 0) + v
+    print("Summary (seed %d): %d statements with a parameter, %d on the cases written by the program" % (seed, len(cases), len(derived)))
+    for key in sorted(totals[3]):
+        print("   %-22s %-16s %d" % (key[0], key[1], totals[3][key]))
+    print("BUG %d, SUSPECT %d, MISS %d" % (totals[0], totals[1], totals[2]))
+    sys.exit(1 if totals[0] else 0)
+
+
+# ------------------------------------------- con un parametro: enunciati strani
+#
+# Il generatore qui sopra scrive enunciati come quelli dei libri. Un errore del motore si
+# e visto solo con un insieme scritto strano: \{(\frac{1}{k - k}, 2)\}, con un divisore
+# che e zero per ogni valore del parametro, su cui il programma non finiva. Il modo
+# parameter-odd scrive enunciati cosi: insiemi scritti e matrici con il parametro in
+# pezzi presi da una lista che comprende divisori nulli, frazioni di frazioni, potenze
+# negative, radici, gradi alti, numeri al limite del calcolo esatto; e un terzo degli
+# enunciati rovinato. Prima guarda che il programma finisca; poi confronta ogni verdetto
+# con l'oracolo del parametro. Molti di questi enunciati sono fuori da cio che il
+# programma tratta, apposta: i MISS qui sono attesi, e dicono solo quanti.
+#
+# Nell'ipotesi di un "se ... allora" vanno solo i pezzi che sono polinomi (ODD_PLAIN).
+# Li c'e un confronto della tabella dei segni, non un fatto, e dove un suo membro non e
+# definito il programma segue la convenzione di quella tabella (il confronto non vale):
+# il lettore di questo script non la conosce, e direbbe "senza senso" o "non letto".
+ODD_PIECES = ["k", "k - 1", "k + 1", "2k", "k^{2} - 1", "k^{2}", "k - k", "0", "1", "3", "k^{2} - k^{2}", "(k - 1)(k + 1)", "k^{3} - 2k", "\\frac{k}{2}",
+              "\\frac{1}{k}", "\\sqrt{k}", "k^{-1}", "(k - k)^{-1}", "(k + 1)^{-2}", "\\frac{1}{k - k}", "k^{40}", "k^{2} + 1", "-k", "\\frac{k - 1}{k + 1}",
+              "\\frac{\\frac{1}{k}}{k - 1}", "999999999989k", "\\frac{k}{999999999989}", "\\frac{1000000007}{999999999989} k^{2}", "k + 4611686018427387903",
+              "\\frac{k}{1000000007} + \\frac{1}{998244353}"]
+ODD_PLAIN = [piece for piece in ODD_PIECES if "\\" not in piece and "^{-" not in piece]
+ODD_SYSTEMS = ["\\{(x, y) \\in \\mathbb{R}^{2} \\mid x + ky = 1 \\land kx + y = 1\\}",
+               "\\{(x, y) \\in \\mathbb{R}^{2} \\mid x + y = k \\land x - y = 0\\}",
+               "\\{(x, y, z) \\in \\mathbb{R}^{3} \\mid kx + 3y + 5z = 0 \\land x + 6y + 10z = 0\\}",
+               "\\{(x, y, z) \\in \\mathbb{R}^{3} \\mid kx + y + z = 1 \\land x + ky + z = 1 \\land x + y + kz = 1\\}",
+               "\\{(x, y) \\in \\mathbb{R}^{2} \\mid 0 = 0\\}",
+               "\\{(x, y) \\in \\mathbb{R}^{2} \\mid (k - k)x + y = 1\\}",
+               "\\{(x, y) \\in \\mathbb{R}^{2} \\mid k^{2}x + ky = k \\land kx + y = 1\\}"]
+
+
+class OddGenerator:
+    """Enunciati con il parametro k scritti in modo strano: un sistema di ODD_SYSTEMS
+    confrontato con un insieme scritto che ha pezzi di ODD_PIECES nelle componenti, o un
+    rango di una matrice fatta di quei pezzi; ogni tanto un enunciato di
+    ParameterGenerator; un terzo rovinato."""
+
+    def __init__(self, rnd):
+        self.rnd = rnd
+
+    def component(self):
+        rnd, c = self.rnd, self.rnd.random()
+        if c < 0.5:
+            return rnd.choice(ODD_PIECES)
+        if c < 0.8:
+            return "\\frac{%s}{%s}" % (rnd.choice(ODD_PIECES), rnd.choice(ODD_PIECES))
+        return "%s %s %s" % (rnd.choice(ODD_PIECES), rnd.choice("+-"), rnd.choice(ODD_PIECES))
+
+    def written(self, n):
+        c = self.rnd.random()
+        if c < 0.15:
+            return "\\emptyset"
+        point = "(%s)" % ", ".join(self.component() for _ in range(n))
+        if c < 0.55:
+            return "\\{%s\\}" % point
+        if c < 0.8:
+            return "\\{%s + t (%s) \\mid t \\in \\mathbb{R}\\}" % (point, ", ".join(self.component() for _ in range(n)))
+        return "\\{t (%s) + s (%s) \\mid t, s \\in \\mathbb{R}\\}" % (", ".join(self.component() for _ in range(n)), ", ".join(self.component() for _ in range(n)))
+
+    def statement(self):
+        rnd, c = self.rnd, self.rnd.random()
+        if c < 0.3:
+            text = ParameterGenerator(rnd).statement()
+        elif c < 0.8:
+            system = rnd.choice(ODD_SYSTEMS)
+            fact = "%s %s %s" % (system, rnd.choice(["=", "=", "\\neq"]), self.written(3 if "^{3}" in system else 2))
+            shape_ = rnd.random()
+            if shape_ < 0.4:
+                text = "\\forall k \\in \\mathbb{R}\\ \\left( %s \\right)" % fact
+            elif shape_ < 0.6:
+                text = "\\{k \\in \\mathbb{R} \\mid %s\\}" % fact
+            elif shape_ < 0.8:
+                text = "\\forall k \\in \\mathbb{R}\\ \\left( %s \\neq %s \\implies %s \\right)" % (rnd.choice(ODD_PLAIN), rnd.choice(["0", "1", "k"]), fact)
+            else:
+                text = "\\exists k \\in \\mathbb{R}\\ \\left( %s \\right)" % fact
+        else:
+            m = "\\begin{pmatrix} %s & %s \\\\ %s & %s \\end{pmatrix}" % tuple(self.component() for _ in range(4))
+            text = rnd.choice(["\\forall k \\in \\mathbb{R}\\ \\operatorname{rank} %s", "\\{k \\in \\mathbb{R} \\mid \\operatorname{rank} %s = 1\\}",
+                               "\\forall k \\in \\mathbb{R}\\ \\left( \\operatorname{rank} %s \\ge 1 \\right)", "\\forall k \\in \\mathbb{R}\\ \\{x \\in \\mathbb{R}^{2} \\mid %s x = 0\\}"]) % m
+        if text is not None and rnd.random() < 0.3:
+            text = damage(text, rnd)
+        return text
+
+
+def endless(binary, texts, work, name):
+    """Gli enunciati di texts su cui il programma non finisce entro un minuto, o e fermato
+    da un segnale. Li prova tutti insieme; solo se qualcosa non va, uno alla volta."""
+    def stuck(some, seconds):
+        path = os.path.join(work, name + "_ends.tex")
+        with open(path, "w", encoding="utf-8") as out:
+            out.write("\\begin{document}\n\\begin{enumerate}\n")
+            for text in some:
+                out.write("\\item $\\displaystyle %s$\n" % text)
+            out.write("\\end{enumerate}\n\\end{document}\n")
+        try:
+            return subprocess.run([binary, path], capture_output=True, text=True, timeout=seconds).returncode not in (0, 1)
+        except subprocess.TimeoutExpired:
+            return True
+
+    if not stuck(texts, 60 + 5 * len(texts)):
+        return []
+    return [text for text in texts if stuck([text], 60)]
+
+
+def parameter_odd_mode(binary, seed, count, work, checker):
+    """Il fuzz degli enunciati strani con un parametro: vedi il commento qui sopra."""
+    rnd = random.Random(seed)
+    gen = OddGenerator(rnd)
+    os.makedirs(work, exist_ok=True)
+    cases = []
+    while len(cases) < count:
+        text = gen.statement()
+        if text is None or len(text) > 3000 or "\n" in text:
+            continue
+        cases.append((text, parameter_judge(text)))
+    never = endless(binary, [text for text, _ in cases], work, "odd_%d" % seed)
+    for text in never:
+        print("BUG: the program does not end, or is stopped by a signal\n   %s" % text)
+    if never:
+        print("BUG %d, SUSPECT 0, MISS 0" % len(never))
+        sys.exit(1)
+    bugs, suspects, misses, tally, _ = parameter_run(binary, checker, cases, work, "odd_%d" % seed, rnd, count)
+    print("Summary (seed %d): %d odd statements with a parameter" % (seed, len(cases)))
+    for key in sorted(tally):
+        print("   %-22s %-16s %d" % (key[0], key[1], tally[key]))
+    print("BUG %d, SUSPECT %d, MISS %d" % (bugs, suspects, misses))
+    sys.exit(1 if bugs else 0)
+
+
+def parameter_data_mode(paths):
+    """Il terzo conto sui file di dati con un parametro: che cosa ne dice l'oracolo."""
+    words = {"true": "VERO", "false": "FALSO", "undefined": "NON DEFINITO", "unreadable": "NON LETTO", "request": "RICHIESTA", "cases": "RICHIESTA PER CASI",
+             "skip": "NON DECISO DALL'ORACOLO"}
+    for path in paths:
+        print(path)
+        counts = {}
+        for number, text in enumerate(items_of(path), 1):
+            verdict = parameter_judge(text)
+            counts[words[verdict[0]]] = counts.get(words[verdict[0]], 0) + 1
+            print("%4d. %s%s" % (number, words[verdict[0]], ": " + str(verdict[1]) if verdict[0] in ("undefined", "unreadable", "skip") else ""))
+        print("   " + ", ".join("%s %d" % item for item in sorted(counts.items())))
+
+
+def parameter_answers_mode(tex_path, c_path):
+    """Le risposte attese delle richieste con un parametro, scritte nel test in C in
+    expected_answers[] (anche su due righe): l'oracolo dice se ognuna risponde alla sua
+    richiesta."""
+    source = open(c_path, encoding="utf-8").read()
+    block = re.search(r"expected_answers\[\] = \{\n(.*?)\n\};", source, re.S)
+    answers = []
+    for entry in re.split(r",\s*\n", block.group(1)) if block else []:
+        pieces = re.findall(r'"((?:[^"\\]|\\.)*)"', entry)
+        if pieces:
+            answers.append("".join(pieces).replace("\\\\", "\\"))
+    requests = items_of(tex_path)
+    print("%s: %d requests, %d expected answers" % (tex_path, len(requests), len(answers)))
+    wrong = 0
+    for number, (text, answer) in enumerate(zip(requests, answers), 1):
+        verdict = parameter_judge(text)
+        try:
+            if verdict[0] == "cases":
+                outcome = "CONFERMATA" if cases_right(verdict[1], answer) else "SBAGLIATA"
+            elif verdict[0] == "request":
+                outcome = "CONFERMATA" if same_solutions(verdict[1], answer) else "SBAGLIATA"
+            else:
+                outcome = "NON E UNA RICHIESTA PER L'ORACOLO (%s)" % (verdict[1] if len(verdict) > 1 else verdict[0])
+        except (Unreadable, IndexError, Undefined, Skip, TooBig) as problem:
+            outcome = "NON DECISA DALL'ORACOLO (%s)" % problem
+        wrong += outcome != "CONFERMATA"
+        print("%4d. %s: %s" % (number, outcome, answer[:150]))
+    wrong += abs(len(requests) - len(answers))
+    print("%d not confirmed" % wrong)
+    sys.exit(1 if wrong else 0)
 
 
 # ---------------------------------------------------------------- i due modi
@@ -2438,6 +4344,27 @@ def main():
         return
     if len(sys.argv) in (6, 7) and sys.argv[1] == "letters":
         letters_mode(sys.argv[2], int(sys.argv[3]), int(sys.argv[4]), sys.argv[5], sys.argv[6] if len(sys.argv) == 7 else None)
+        return
+    if len(sys.argv) >= 3 and sys.argv[1] == "parameter-data":
+        parameter_data_mode(sys.argv[2:])
+        return
+    if len(sys.argv) == 4 and sys.argv[1] == "parameter-answers":
+        parameter_answers_mode(sys.argv[2], sys.argv[3])
+        return
+    if len(sys.argv) in (6, 7) and sys.argv[1] == "parameter":
+        parameter_mode(sys.argv[2], int(sys.argv[3]), int(sys.argv[4]), sys.argv[5], sys.argv[6] if len(sys.argv) == 7 else None)
+        return
+    if len(sys.argv) in (6, 7) and sys.argv[1] == "parameter-odd":
+        parameter_odd_mode(sys.argv[2], int(sys.argv[3]), int(sys.argv[4]), sys.argv[5], sys.argv[6] if len(sys.argv) == 7 else None)
+        return
+    if len(sys.argv) >= 3 and sys.argv[1] == "systems-data":
+        systems_data_mode(sys.argv[2:])
+        return
+    if len(sys.argv) == 4 and sys.argv[1] == "systems-answers":
+        systems_answers_mode(sys.argv[2], sys.argv[3])
+        return
+    if len(sys.argv) in (6, 7) and sys.argv[1] == "systems":
+        systems_mode(sys.argv[2], int(sys.argv[3]), int(sys.argv[4]), sys.argv[5], sys.argv[6] if len(sys.argv) == 7 else None)
         return
     if len(sys.argv) not in (5, 6):
         print(__doc__)

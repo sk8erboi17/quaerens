@@ -23,7 +23,9 @@
  * numeri razionali scritte per esteso il certificato è l'enunciato con un
  * testimone per ogni determinante, rango e inversa, e questo programma ne
  * ricalcola i due membri con soli prodotti; con una lettera negli elementi è
- * lo sviluppo di un determinante in un polinomio (capitolo 17). Il resto di
+ * lo sviluppo di un determinante in un polinomio; per un sistema lineare è
+ * l'insieme delle soluzioni con i testimoni che lo fanno ricontrollare
+ * moltiplicando (capitolo 17). Il resto di
  * questo commento riguarda le induzioni; i teoremi degli altri tipi sono più
  * sotto. Questo programma legge il certificato e risponde:
  *
@@ -207,7 +209,15 @@
  *     relazione scritta vale, oppure non vale, secondo ciò che il
  *     certificato afferma. Con la voce letters: per ogni valore reale dato
  *     alle lettere dichiarate, i due membri, che hanno quelle lettere negli
- *     elementi, hanno un valore e i due valori sono uguali (17d). La
+ *     elementi, hanno un valore e i due valori sono uguali (17d). Con anche
+ *     la voce where, che scrive un polinomio nelle lettere: lo stesso, ma
+ *     solo per i valori delle lettere che non annullano quel polinomio; lì
+ *     i membri possono dividere per lui e nominare il rango e l'inversa
+ *     (17d). Se l'enunciato parla dell'insieme delle soluzioni di un
+ *     sistema lineare A x = b: quell'insieme è, o non è, l'insieme scritto
+ *     (vuoto, un vettore, i vettori p + U t), oppure contiene, o non
+ *     contiene, un vettore dato, secondo ciò che il certificato afferma, e
+ *     con le lettere negli stessi valori di cui si è detto (17f). La
  *     notazione, con il significato di ogni parola, è in testa al capitolo
  *     17.
  *   - "certificate partial" (capitolo 18): ogni termine è una derivata
@@ -8671,8 +8681,17 @@ static void ck_check_limit(void) {
  *   17c. Il valore di un'espressione, calcolato mentre la si legge.
  *   17d. Le lettere. Con la voce letters gli elementi sono polinomi, e il
  *        certificato dimostra un'uguaglianza per ogni valore delle lettere:
- *        il teorema, e il perché, sono in testa a quel paragrafo.
- *   17e. La voce statement, la voce claim, e i testimoni tutti usati.
+ *        il teorema, e il perché, sono in testa a quel paragrafo. Con la
+ *        voce where il certificato parla solo dei valori che non annullano
+ *        un polinomio dichiarato: lì si può dividere per lui, e il rango e
+ *        l'inversa hanno gli stessi testimoni dei numeri.
+ *   17e. L'enunciato tra numeri o matrici: la relazione tra i due membri.
+ *   17f. I sistemi lineari: l'enunciato sull'insieme delle soluzioni di
+ *        A x = b, con i suoi testimoni (una combinazione delle equazioni,
+ *        una soluzione, le matrici G e T). La notazione e il teorema sono in
+ *        testa a quel paragrafo.
+ *   17g. Le voci del certificato: letters, where, statement, claim, witness;
+ *        e i testimoni tutti usati.
  *
  * Le risposte. Respinto: la verità calcolata non è quella dichiarata,
  * un'operazione non è definita, un testimone non supera il suo controllo o
@@ -8682,6 +8701,7 @@ static void ck_check_limit(void) {
  */
 
 #define CK_MAX_SIDE 4096                /* righe, o colonne, di una matrice */
+#define CK_MAX_WHERE_POWER 6            /* esponente del polinomio della voce where fino a cui si cerca se un polinomio lo divide (17d) */
 #define CK_MAX_MATRIX_WORK 50000000LL   /* prodotti e confronti tra razionali concessi al conto di un certificato */
 
 /* Una matrice di razionali: rows righe e cols colonne, con gli elementi per
@@ -9237,12 +9257,52 @@ static CkValue ck_m_read(void) {
  * lettere chiederebbe di dividere per polinomi che per qualche valore si
  * annullano.
  *
- * Che cosa non c'è con le lettere, e allora il certificato non si sa
+ * Che cosa non c'è con le sole lettere, e allora il certificato non si sa
  * controllare: il rango e l'inversa, che dipendono dal valore delle lettere
  * e non sono un polinomio; una divisione per qualcosa che non sia un numero;
  * una relazione diversa da =; una verità dichiarata diversa da true. Due
  * polinomi diversi non dicono che i due membri siano diversi per ogni
- * valore, e un'uguaglianza che non torna è respinta. */
+ * valore, e un'uguaglianza che non torna è respinta.
+ *
+ * LA VOCE WHERE. Il rango e l'inversa di una matrice con una lettera, e le
+ * soluzioni di un sistema con una lettera, cambiano con il valore della
+ * lettera, ma solo in pochi valori: fuori da quelli sono dati dalle stesse
+ * formule. Un certificato lo dice con una voce in più, dopo letters:
+ *
+ *     certificate matrices
+ *     letters k
+ *     where (- (^ k 2) 1)
+ *     statement (= (inv (matrix 2 2 k 1 1 k)) (* (/ 1 (- (^ k 2) 1)) (matrix 2 2 k -1 -1 k)))
+ *     claim true
+ *     witness inverse (* (/ 1 (- (^ k 2) 1)) (matrix 2 2 k -1 -1 k))
+ *     end
+ *
+ * La voce scrive un polinomio D nelle lettere, che non è il polinomio nullo,
+ * e allora il certificato accettato dimostra il suo enunciato PER OGNI VALORE
+ * REALE DELLE LETTERE CHE NON ANNULLA D, e non dice nulla degli altri. In
+ * cambio, tra quei valori si può fare di più.
+ *
+ *   - Dividere per D, e per ogni polinomio q che divide una potenza di D:
+ *     se q c = D^j per un polinomio c, dove D non si annulla non si annulla
+ *     nemmeno q (il loro prodotto non è zero), e 1 / q = c / D^j. Per questo
+ *     un valore è una matrice di polinomi divisa per una potenza di D
+ *     (CkForm), e le operazioni portano con sé l'esponente: le somme a
+ *     denominatore comune, i prodotti sommando gli esponenti. Dare un valore
+ *     alle lettere rispetta ancora somme, prodotti e, tra quei valori,
+ *     queste divisioni: ciò che qui risulta uguale è uguale in ogni punto.
+ *   - Dire "diverso in ogni punto": due valori lo sono quando, portati allo
+ *     stesso denominatore, in un posto la differenza dei numeratori divide
+ *     una potenza di D, e quindi non si annulla (ck_l_compare()).
+ *   - Nominare il rango e l'inversa, con gli stessi testimoni dei numeri
+ *     (17b): le uguaglianze A = C F, G A H = I, A W = I, controllate qui tra
+ *     valori con le lettere, valgono in ogni punto, e in ogni punto sono le
+ *     uguaglianze tra matrici di numeri da cui 17b ricava il rango e
+ *     l'inversa.
+ *
+ * Il polinomio nullo come voce where è respinto: nessun valore lo rende
+ * diverso da zero, il certificato non direbbe nulla, e con lui ogni
+ * polinomio "dividerebbe" e ogni controllo passerebbe. Senza la voce where
+ * il polinomio è 1, e tutto è come sopra: si divide solo per un numero. */
 
 /* Le lettere della voce letters, nell'ordine in cui sono scritte: la
  * lettera ck_m_letter[v] è l'indeterminata v dei polinomi. ck_m_letters a
@@ -9250,16 +9310,25 @@ static CkValue ck_m_read(void) {
 static int ck_m_letters;
 static char ck_m_letter[CK_MAX_VARS];
 
+/* Il polinomio della voce where (17d), che i valori delle lettere non
+ * annullano; il numero 1 se la voce non c'è. Non è mai il polinomio nullo.
+ * ck_m_has_where dice se la voce c'è. */
+static CkPoly ck_m_where;
+static int ck_m_has_where;
+
 /* Il valore di un'espressione con le lettere: un polinomio (rows e cols a
  * zero, il polinomio in at[0]) oppure una matrice di polinomi di rows righe
- * e cols colonne, per righe in at[], nell'arena. Con at a NULL è il
- * risultato di un conto fermato da un errore, già annotato. */
+ * e cols colonne, per righe in at[], nell'arena; il tutto diviso per il
+ * polinomio della voce where elevato a scale (17d). Senza quella voce scale
+ * è sempre zero, e il valore sono i polinomi. Con at a NULL è il risultato
+ * di un conto fermato da un errore, già annotato. */
 typedef struct {
     int rows, cols;
     CkPoly *at;
+    int scale;
 } CkForm;
 
-static const CkForm CK_NO_FORM = {0, 0, NULL};
+static const CkForm CK_NO_FORM = {0, 0, NULL, 0};
 
 /* Ritorna una matrice di polinomi rows x cols con gli elementi non
  * inizializzati, oppure il valore senza elementi dopo aver annotato perché. */
@@ -9268,7 +9337,7 @@ static CkForm ck_l_new(long long rows, long long cols) {
     if (rows < 1 || cols < 1) { ck_reject("una matrice ha almeno una riga e una colonna"); return CK_NO_FORM; }
     if (rows > CK_MAX_SIDE || cols > CK_MAX_SIDE) { ck_unsupported("matrice troppo grande per il verificatore"); return CK_NO_FORM; }
     CkPoly *at = ck_alloc((size_t)rows * (size_t)cols * sizeof *at);
-    return ck_status == CK_ACCEPTED ? (CkForm){(int)rows, (int)cols, at} : CK_NO_FORM;
+    return ck_status == CK_ACCEPTED ? (CkForm){(int)rows, (int)cols, at, 0} : CK_NO_FORM;
 }
 
 /* Ritorna il valore che è il solo polinomio p. */
@@ -9276,7 +9345,7 @@ static CkForm ck_l_scalar(CkPoly p) {
     CkPoly *at = ck_alloc(sizeof *at);
     if (ck_status != CK_ACCEPTED) return CK_NO_FORM;
     at[0] = p;
-    return (CkForm){0, 0, at};
+    return (CkForm){0, 0, at, 0};
 }
 
 /* Ritorna quanti polinomi ha il valore f: uno, o gli elementi della matrice. */
@@ -9296,20 +9365,40 @@ static CkForm ck_l_diagonal(long long rows, long long cols, long long value) {
     return m;
 }
 
+/* Ritorna lo stesso valore di f scritto con il polinomio della voce where
+ * elevato a scale, che non è meno di f.scale, a denominatore: i polinomi di
+ * f moltiplicati per la potenza che manca. Serve a sommare e a confrontare
+ * due valori: con lo stesso denominatore si guardano i numeratori. */
+static CkForm ck_l_lift(CkForm f, int scale) {
+    if (ck_status != CK_ACCEPTED || !f.at || scale == f.scale) return f;
+    CkForm r = ck_l_like(f);
+    if (!ck_m_spend((long long)ck_l_size(f) * (scale - f.scale))) return CK_NO_FORM;
+    for (int i = 0; r.at && i < ck_l_size(r); i++) {
+        r.at[i] = f.at[i];
+        for (int k = f.scale; k < scale; k++) r.at[i] = ck_poly_mul(r.at[i], ck_m_where);
+    }
+    r.scale = scale;
+    return ck_status == CK_ACCEPTED ? r : CK_NO_FORM;
+}
+
 /* Ritorna a + b, o a - b se minus è diverso da zero: tra due polinomi, o
  * tra due matrici con le stesse dimensioni. */
 static CkForm ck_l_sum(CkForm a, CkForm b, int minus) {
     if (ck_status != CK_ACCEPTED) return CK_NO_FORM;
     if (!a.rows != !b.rows) { ck_reject("somma di un numero e di una matrice"); return CK_NO_FORM; }
     if (a.rows != b.rows || a.cols != b.cols) { ck_reject("somma di due matrici di dimensioni diverse"); return CK_NO_FORM; }
+    int scale = a.scale > b.scale ? a.scale : b.scale;
+    a = ck_l_lift(a, scale);
+    b = ck_l_lift(b, scale);
     CkForm r = ck_l_like(a);
-    for (int i = 0; r.at && i < ck_l_size(r); i++) r.at[i] = ck_poly_add(a.at[i], b.at[i], minus);
-    return r;
+    for (int i = 0; ck_status == CK_ACCEPTED && i < ck_l_size(r); i++) r.at[i] = ck_poly_add(a.at[i], b.at[i], minus);
+    r.scale = scale;
+    return ck_status == CK_ACCEPTED ? r : CK_NO_FORM;
 }
 
 /* Ritorna il prodotto a b, in quest'ordine: di due polinomi, di un polinomio
  * e di una matrice (ogni elemento per il polinomio), o di due matrici righe
- * per colonne. */
+ * per colonne. I denominatori si moltiplicano. */
 static CkForm ck_l_product(CkForm a, CkForm b) {
     if (ck_status != CK_ACCEPTED) return CK_NO_FORM;
     if (!a.rows || !b.rows) {
@@ -9317,6 +9406,7 @@ static CkForm ck_l_product(CkForm a, CkForm b) {
         CkPoly factor = a.rows ? b.at[0] : a.at[0];
         if (!ck_m_spend(ck_l_size(from))) return CK_NO_FORM;
         for (int i = 0; i < ck_l_size(r); i++) r.at[i] = ck_poly_mul(factor, from.at[i]);
+        r.scale = a.scale + b.scale;
         return r;
     }
     if (a.cols != b.rows) { ck_reject("prodotto di due matrici con dimensioni non compatibili"); return CK_NO_FORM; }
@@ -9328,7 +9418,79 @@ static CkForm ck_l_product(CkForm a, CkForm b) {
             for (int k = 0; k < a.cols; k++) sum = ck_poly_add(sum, ck_poly_mul(a.at[i * a.cols + k], b.at[k * b.cols + j]), 0);
             r.at[i * r.cols + j] = sum;
         }
+    r.scale = a.scale + b.scale;
     return r;
+}
+
+/* Se il polinomio q, che non è nullo, divide una potenza del polinomio della
+ * voce where, con un esponente fino a CK_MAX_WHERE_POWER, mette in *cofactor
+ * il quoziente e in *power il più piccolo esponente che va bene, e ritorna 1:
+ * q per *cofactor è il polinomio della voce where elevato a *power.
+ * Altrimenti ritorna 0. Senza la voce where quel polinomio è 1, e la
+ * risposta è 1 solo per un numero.
+ *
+ * A che cosa serve: se q divide una potenza di un polinomio, in ogni punto
+ * in cui quel polinomio non si annulla non si annulla nemmeno q, perché lì
+ * il loro prodotto con il quoziente non è zero. È il solo modo in cui il
+ * verificatore conclude che un polinomio con le lettere è diverso da zero. */
+static int ck_l_divides_where(CkPoly q, CkPoly *cofactor, int *power) {
+    CkPoly raised = ck_poly_number(ck_num_int(1));
+    for (int j = 0; j <= CK_MAX_WHERE_POWER && ck_status == CK_ACCEPTED; j++) {
+        if (ck_poly_divides(q, raised, cofactor)) { *power = j; return ck_status == CK_ACCEPTED; }
+        if (!ck_m_has_where) break;
+        raised = ck_poly_mul(raised, ck_m_where);
+    }
+    return 0;
+}
+
+/* Ritorna 1 / b per il numero b, che non è una matrice: b è un polinomio q
+ * diviso per una potenza di quello della voce where, e si può dividere per
+ * lui solo se q divide a sua volta una potenza di quel polinomio
+ * (ck_l_divides_where()): allora non si annulla in nessuno dei punti di cui
+ * il certificato parla. */
+static CkForm ck_l_reciprocal(CkForm b) {
+    CkPoly cofactor;
+    int power = 0;
+    if (ck_status != CK_ACCEPTED) return CK_NO_FORM;
+    if (b.at[0].count == 0) { ck_reject("divisione per zero"); return CK_NO_FORM; }
+    if (!ck_l_divides_where(b.at[0], &cofactor, &power)) {
+        ck_unsupported("con le lettere il verificatore divide solo per un numero o, con la voce where, per un polinomio che divide una potenza di quello dichiarato");
+        return CK_NO_FORM;
+    }
+
+    /* 1 / (q / D^e) = D^e / q = D^e cofactor / D^power. */
+    CkForm r = ck_l_scalar(cofactor);
+    for (int k = 0; k < b.scale; k++) r.at[0] = ck_poly_mul(r.at[0], ck_m_where);
+    r.scale = power;
+    return ck_status == CK_ACCEPTED ? r : CK_NO_FORM;
+}
+
+/* Come stanno due valori con le lettere uno rispetto all'altro, nei punti di
+ * cui il certificato parla: uguali in tutti, diversi in tutti, oppure né
+ * l'uno né l'altro (o non si sa dire). */
+typedef enum { CK_SAME, CK_APART, CK_MIXED } CkCompared;
+
+/* Confronta i valori a e b, tutti e due numeri o matrici con le stesse
+ * dimensioni (lo controlla chi chiama), e ritorna come stanno.
+ *
+ * Portati allo stesso denominatore, sono uguali in ogni punto se hanno gli
+ * stessi polinomi a numeratore. Sono diversi in ogni punto se in un posto la
+ * differenza dei numeratori divide una potenza del polinomio della voce
+ * where: lì non si annulla mai (ck_l_divides_where()). Senza lettere i
+ * polinomi sono numeri, e i casi sono solo i primi due: un numero diverso da
+ * zero divide 1. */
+static CkCompared ck_l_compare(CkForm a, CkForm b) {
+    CkPoly cofactor;
+    int scale = a.scale > b.scale ? a.scale : b.scale, power = 0, same = 1;
+    a = ck_l_lift(a, scale);
+    b = ck_l_lift(b, scale);
+    if (ck_status != CK_ACCEPTED) return CK_MIXED;
+    for (int i = 0; i < ck_l_size(a); i++) {
+        if (ck_poly_equal(a.at[i], b.at[i])) continue;
+        same = 0;
+        if (ck_l_divides_where(ck_poly_add(a.at[i], b.at[i], 1), &cofactor, &power)) return CK_APART;
+    }
+    return same ? CK_SAME : CK_MIXED;
 }
 
 /* Aggiunge a *sum i termini della formula di Leibniz della matrice quadrata
@@ -9362,10 +9524,67 @@ static void ck_l_leibniz(CkForm a, int row, int *p, CkPoly product, CkPoly *sum)
     }
 }
 
+static CkForm ck_l_read(void);
+
+/* Legge una matrice di un testimone con le lettere, che deve avere rows
+ * righe e cols colonne. */
+static CkForm ck_l_witness_matrix(int rows, int cols) {
+    CkForm value = ck_l_read();
+    if (ck_status == CK_ACCEPTED && (value.rows != rows || value.cols != cols)) ck_reject("una matrice di un testimone non ha le dimensioni che deve avere");
+    return ck_status == CK_ACCEPTED ? value : CK_NO_FORM;
+}
+
+/* Ritorna l'inversa della matrice quadrata a, con le lettere, letta dal suo
+ * testimone e controllata: witness inverse W, con A W uguale all'identità in
+ * ogni punto di cui il certificato parla. In ognuno di quei punti le due
+ * matrici sono matrici di numeri, e vale il ragionamento di ck_m_inverse(). */
+static CkForm ck_l_inverse(CkForm a) {
+    if (ck_status != CK_ACCEPTED) return CK_NO_FORM;
+    if (!a.rows || a.rows != a.cols) { ck_reject("inversa di ciò che non è una matrice quadrata"); return CK_NO_FORM; }
+    if (!ck_m_witness_open("inverse")) return CK_NO_FORM;
+    CkForm w = ck_l_witness_matrix(a.rows, a.rows);
+    ck_m_witness_close();
+    if (ck_status == CK_ACCEPTED && ck_l_compare(ck_l_product(a, w), ck_l_diagonal(a.rows, a.rows, 1)) != CK_SAME && ck_status == CK_ACCEPTED)
+        ck_reject("il testimone di un'inversa non lo è: il prodotto non è l'identità");
+    return ck_status == CK_ACCEPTED ? w : CK_NO_FORM;
+}
+
+/* Ritorna il rango della matrice a, con le lettere, dichiarato dal suo
+ * testimone e controllato da sopra e da sotto: witness rank r C F G H con
+ * A = C F e G A H = I, oppure witness rank 0 per la matrice nulla. Le due
+ * uguaglianze valgono in ogni punto di cui il certificato parla, e in
+ * ognuno sono uguaglianze tra matrici di numeri: lì vale il ragionamento di
+ * ck_m_rank(), e il rango è r. */
+static CkForm ck_l_rank(CkForm a) {
+    if (ck_status != CK_ACCEPTED) return CK_NO_FORM;
+    if (!a.rows) { ck_reject("rango di ciò che non è una matrice"); return CK_NO_FORM; }
+    int m = a.rows, n = a.cols;
+    if (!ck_m_witness_open("rank")) return CK_NO_FORM;
+    long long rank = ck_m_integer();
+    if (ck_status == CK_ACCEPTED && (rank < 0 || rank > m || rank > n)) ck_reject("il testimone di un rango dichiara un rango che la matrice non può avere");
+    if (ck_status != CK_ACCEPTED) return CK_NO_FORM;
+
+    /* Rango zero: ogni elemento è il polinomio nullo. */
+    if (rank == 0) {
+        ck_m_witness_close();
+        for (int i = 0; i < m * n; i++)
+            if (a.at[i].count != 0) { ck_reject("il testimone di un rango dichiara zero per una matrice che non è nulla"); return CK_NO_FORM; }
+        return ck_status == CK_ACCEPTED ? ck_l_scalar(ck_poly_number(ck_num_int(0))) : CK_NO_FORM;
+    }
+    int r = (int)rank;
+    CkForm c = ck_l_witness_matrix(m, r), f = ck_l_witness_matrix(r, n), g = ck_l_witness_matrix(r, m), h = ck_l_witness_matrix(n, r);
+    ck_m_witness_close();
+    if (ck_status == CK_ACCEPTED && ck_l_compare(ck_l_product(c, f), a) != CK_SAME && ck_status == CK_ACCEPTED)
+        ck_reject("il testimone di un rango non torna: C F non è la matrice");
+    if (ck_status == CK_ACCEPTED && ck_l_compare(ck_l_product(ck_l_product(g, a), h), ck_l_diagonal(r, r, 1)) != CK_SAME && ck_status == CK_ACCEPTED)
+        ck_reject("il testimone di un rango non torna: G A H non è l'identità");
+    return ck_status == CK_ACCEPTED ? ck_l_scalar(ck_poly_number(ck_num_int(r))) : CK_NO_FORM;
+}
+
 /* Legge l'espressione con le lettere che comincia in ck_cursor e ne ritorna
- * il valore: le parole sono quelle di ck_m_read(), meno il rango e
- * l'inversa, e in più c'è la lettera, che vale la sua indeterminata. Dopo un
- * errore ck_status dice quale. */
+ * il valore: le parole sono quelle di ck_m_read(), e in più c'è la lettera,
+ * che vale la sua indeterminata. Il rango e l'inversa solo con la voce
+ * where. Dopo un errore ck_status dice quale. */
 static CkForm ck_l_read(void) {
     CkForm operand[2] = {CK_NO_FORM, CK_NO_FORM}, value = CK_NO_FORM;
     long long integer;
@@ -9379,10 +9598,16 @@ static CkForm ck_l_read(void) {
             return ck_l_scalar(ck_poly_variable(v));
         }
 
-    /* Una parentesi: la parola, e gli operandi che sono espressioni. */
+    /* Una parentesi: la parola, e gli operandi che sono espressioni. Il
+     * rango e l'inversa cambiano con il valore delle lettere: si trattano
+     * solo dove il certificato dice in quali punti parla (17d). */
     int op = ck_m_open();
     if (op < 0) return CK_NO_FORM;
-    if (op == CK_M_RANK || op == CK_M_INV) { ck_unsupported("con le lettere il verificatore non tratta il rango e l'inversa"); return CK_NO_FORM; }
+    if ((op == CK_M_RANK || op == CK_M_INV) && !ck_m_has_where) {
+        ck_unsupported("con le lettere, e in un enunciato su un sistema, il verificatore tratta il rango e l'inversa solo con la voce where");
+        return CK_NO_FORM;
+    }
+    if (ck_m_plain && op >= CK_M_DET) { ck_reject("un testimone si scrive senza determinanti, ranghi e inverse"); return CK_NO_FORM; }
     ck_depth++;
     for (int i = 0; i < ck_m_words[op].operands; i++) operand[i] = ck_l_read();
     const CkForm a = operand[0], b = operand[1];
@@ -9391,13 +9616,21 @@ static CkForm ck_l_read(void) {
     /* Il valore, secondo la parola. */
     switch (op) {
     case CK_M_MATRIX: {
+        /* Gli elementi possono avere denominatori diversi: si portano tutti
+         * al più grande, che diventa quello della matrice. */
         long long rows = ck_m_integer(), cols = ck_m_integer();
         value = ck_l_new(rows, cols);
+        int *scale = ck_alloc((size_t)(value.rows * value.cols + 1) * sizeof *scale);
         for (int i = 0; i < value.rows * value.cols && ck_status == CK_ACCEPTED; i++) {
             CkForm element = ck_l_read();
             if (ck_status == CK_ACCEPTED && element.rows) ck_reject("un elemento di una matrice deve essere un numero");
-            if (ck_status == CK_ACCEPTED) value.at[i] = element.at[0];
+            if (ck_status != CK_ACCEPTED) break;
+            value.at[i] = element.at[0];
+            scale[i] = element.scale;
+            if (element.scale > value.scale) value.scale = element.scale;
         }
+        for (int i = 0; i < value.rows * value.cols && ck_status == CK_ACCEPTED; i++)
+            for (int k = scale[i]; k < value.scale; k++) value.at[i] = ck_poly_mul(value.at[i], ck_m_where);
         break;
     }
     case CK_M_IDENTITY: {
@@ -9421,9 +9654,7 @@ static CkForm ck_l_read(void) {
         break;
     case CK_M_DIV:
         if (a.rows || b.rows) ck_reject("divisione che non è tra due numeri");
-        else if (!ck_poly_is_constant(b.at[0])) ck_unsupported("con le lettere il verificatore divide solo per un numero");
-        else if (b.at[0].count == 0) ck_reject("divisione per zero");
-        else value = ck_l_scalar(ck_poly_mul(a.at[0], ck_poly_number(ck_num_inv(b.at[0].term[0].coef))));
+        else value = ck_l_product(a, ck_l_reciprocal(b));
         break;
     case CK_M_POWER: {
         /* Il prodotto di power fattori uguali ad a: da 1, o dall'identità. */
@@ -9440,32 +9671,42 @@ static CkForm ck_l_read(void) {
         value = ck_l_new(a.cols, a.rows);
         for (int i = 0; i < value.rows; i++)
             for (int j = 0; j < value.cols; j++) value.at[i * value.cols + j] = a.at[j * a.cols + i];
+        value.scale = a.scale;
         break;
     case CK_M_TRACE: {
         CkPoly trace = ck_poly_number(ck_num_int(0));
         if (!a.rows || a.rows != a.cols) { ck_reject("traccia di ciò che non è una matrice quadrata"); break; }
         for (int i = 0; i < a.rows; i++) trace = ck_poly_add(trace, a.at[i * a.cols + i], 0);
         value = ck_l_scalar(trace);
+        value.scale = a.scale;
         break;
     }
     case CK_M_DET: {
         /* La formula di Leibniz, dalla prima riga e dal prodotto vuoto. Il
          * blocco delle colonne scelte si usa solo se è quello chiesto
-         * (ck_alloc()). */
+         * (ck_alloc()). Ogni termine è un prodotto di tanti elementi quante
+         * sono le righe: tante volte si moltiplica il loro denominatore. */
         CkPoly determinant = ck_poly_number(ck_num_int(0));
         if (!a.rows || a.rows != a.cols) { ck_reject("determinante di ciò che non è una matrice quadrata"); break; }
         int *chosen = ck_alloc((size_t)a.rows * sizeof *chosen);
         ck_l_leibniz(a, 0, chosen, ck_poly_number(ck_num_int(1)), &determinant);
         value = ck_l_scalar(determinant);
+        value.scale = a.rows * a.scale;
         break;
     }
+    case CK_M_RANK:
+        value = ck_l_rank(a);
+        break;
+    case CK_M_INV:
+        value = ck_l_inverse(a);
+        break;
     }
     ck_depth--;
     ck_m_shut();
     return ck_status == CK_ACCEPTED ? value : CK_NO_FORM;
 }
 
-/* 17e. L'ENUNCIATO, LA SUA VERITÀ, I TESTIMONI */
+/* 17e. L'ENUNCIATO TRA NUMERI O MATRICI */
 
 /* Porta ck_cursor alla fine della riga in cui si trova. */
 static void ck_m_skip_line(void) {
@@ -9530,23 +9771,262 @@ static int ck_l_statement(void) {
     if (!ck_m_statement_end()) return 0;
     if (!left.rows != !right.rows) { ck_reject("un numero e una matrice non si confrontano"); return 0; }
     if (left.rows != right.rows || left.cols != right.cols) return 0;
+
+    /* Con lo stesso denominatore, gli stessi numeratori. */
+    int scale = left.scale > right.scale ? left.scale : right.scale;
+    left = ck_l_lift(left, scale);
+    right = ck_l_lift(right, scale);
+    if (ck_status != CK_ACCEPTED) return 0;
     for (int i = 0; i < ck_l_size(left); i++)
         if (!ck_poly_equal(left.at[i], right.at[i])) return 0;
     return 1;
 }
 
+/* 17f. I SISTEMI LINEARI
+ *
+ * Un enunciato può parlare dell'insieme delle soluzioni di un sistema di
+ * equazioni lineari (capitolo 33 di main.c). Tre parole scrivono un insieme
+ * di vettori colonna con n componenti:
+ *
+ *     (solutions A b)    i vettori x con A x = b: A ha n colonne, b è una
+ *                        colonna con le righe di A
+ *     (affine p U)       i vettori p + U t, al variare della colonna t: p è
+ *                        una colonna, U ha le sue righe
+ *     (affine p)         il solo vettore p
+ *     (nothing)          l'insieme vuoto
+ *
+ * e l'enunciato è uno di questi:
+ *
+ *     (= (solutions A b) S)  (neq (solutions A b) S)    con S scritto con
+ *                                                       affine o nothing
+ *     (in p (solutions A b))  (notin p (solutions A b))
+ *
+ * IL TEOREMA. Un certificato accettato dimostra che la relazione scritta tra
+ * il vettore, o l'insieme scritto, e l'insieme delle soluzioni vale, se la
+ * voce claim dice true, oppure non vale, se dice false. Con le lettere, lo
+ * dimostra per ogni valore delle lettere di cui il certificato parla (17d):
+ * tutti, oppure quelli che non annullano il polinomio della voce where.
+ *
+ * COME LO SI CONTROLLA. Le matrici si calcolano come valori di 17d, anche
+ * quando di lettere non ce ne sono: un numero è un polinomio senza lettere.
+ * Ogni controllo è un prodotto e un confronto (ck_l_compare()), che risponde
+ * "uguali in ogni punto", "diversi in ogni punto" oppure nessuno dei due; con
+ * i soli numeri il terzo caso non c'è.
+ *
+ *   (M) Un vettore p è una soluzione quando A p = b: è la definizione, e non
+ *       vuole testimoni.
+ *
+ *   (V) Nessuna soluzione: witness combination y, una riga con y A = 0 e
+ *       y b diverso da zero. Se A x = b avesse una soluzione sarebbe
+ *       0 = (y A) x = y (A x) = y b. È una combinazione delle equazioni che
+ *       dice "0 = c" con c diverso da zero.
+ *
+ *   (N) Qualche soluzione: witness solution z, con A z = b.
+ *
+ *   (U) Le soluzioni sono esattamente p + U t: A p = b e A U = 0, che si
+ *       calcolano, e witness span G T con G A + U T = I (senza U: witness
+ *       span G con G A = I). I primi due dicono che ogni p + U t è una
+ *       soluzione: A (p + U t) = A p + (A U) t = b. Il terzo dice che non ce
+ *       ne sono altre: se A x = b, il vettore z = x - p ha A z = 0, quindi
+ *       z = (G A + U T) z = G (A z) + U (T z) = U (T z), cioè x = p + U t
+ *       con t = T z. Serve solo che il prodotto di matrici sia associativo
+ *       e distributivo: nessun teorema sul rango.
+ *
+ *   (D) Le soluzioni non sono p + U t. O p non è una soluzione, o una
+ *       colonna di U non è soluzione del sistema omogeneo: lo dice il conto
+ *       di A p e di A U, senza testimoni. Oppure witness solution z con
+ *       A z = b e, se U c'è, witness combination y con y U = 0 e y (z - p)
+ *       diverso da zero: z è una soluzione, e se fosse p + U t sarebbe
+ *       y (z - p) = (y U) t = 0. Se U non c'è basta che z sia diverso da p.
+ *
+ * Quale dei casi (V) o (N), e (U) o (D), valga lo dice il tipo del primo
+ * testimone, che il verificatore guarda senza cercare nulla. Dove serve
+ * "diverso" (y b, y (z - p), z e p, A p e b) e il confronto non sa dire né
+ * uguali né diversi in ogni punto, il certificato non si sa controllare. */
+
+/* Se il testo comincia con una parentesi aperta e la parola word, li supera
+ * e ritorna 1; altrimenti non sposta nulla e ritorna 0. */
+static int ck_s_open(const char *word) {
+    size_t length = strlen(word);
+    ck_skip();
+    if (*ck_cursor != '(' || strncmp(ck_cursor + 1, word, length) != 0 || (!isspace((unsigned char)ck_cursor[1 + length]) && ck_cursor[1 + length] != ')')) return 0;
+    ck_cursor += 1 + length;
+    return 1;
+}
+
+/* Ritorna 1 se il primo testimone non ancora usato è del tipo kind. Non
+ * sposta nulla: lo legge poi ck_m_witness_open(). */
+static int ck_s_next_is(const char *kind) {
+    const char *here = ck_cursor;
+    ck_cursor = ck_m_witness;
+    while (isspace((unsigned char)*ck_cursor)) ck_cursor++;
+    int found = ck_word("witness") && ck_word(kind);
+    ck_cursor = here;
+    return found;
+}
+
+/* Ritorna la matrice nulla rows x cols, come valore di 17d. */
+static CkForm ck_s_zero(int rows, int cols) { return ck_l_diagonal(rows, cols, 0); }
+
+/* Controlla che i valori a e b, con le stesse dimensioni, siano uguali in
+ * ogni punto: è ciò che un testimone deve mostrare. Se non lo sono il
+ * certificato è sbagliato, con il motivo reason. */
+static void ck_s_must_match(CkForm a, CkForm b, const char *reason) {
+    if (ck_status == CK_ACCEPTED && ck_l_compare(a, b) != CK_SAME && ck_status == CK_ACCEPTED) ck_reject(reason);
+}
+
+/* Controlla che i valori a e b, con le stesse dimensioni, siano diversi in
+ * ogni punto. Se sono uguali il certificato è sbagliato, con il motivo
+ * reason; se non si sa dire, non si sa controllare. */
+static void ck_s_must_differ(CkForm a, CkForm b, const char *reason) {
+    if (ck_status != CK_ACCEPTED) return;
+    CkCompared compared = ck_l_compare(a, b);
+    if (ck_status != CK_ACCEPTED) return;
+    if (compared == CK_SAME) ck_reject(reason);
+    if (compared == CK_MIXED) ck_unsupported("due valori sono diversi solo per qualche valore delle lettere: il verificatore non sa dire dove");
+}
+
+/* Ritorna 1 se l'insieme delle soluzioni di a x = b è l'insieme scritto, 0
+ * se non lo è: i casi (V), (N), (U) e (D) in testa al paragrafo. nothing
+ * dice se l'insieme scritto è vuoto; altrimenti è point + directions t, e
+ * directions non ha elementi se è un punto solo. Le dimensioni sono già
+ * state controllate. Dopo un errore ck_status dice quale, e ciò che ritorna
+ * non conta. */
+static int ck_s_equal(CkForm a, CkForm b, int nothing, CkForm point, CkForm directions) {
+    const char *missing = "manca il testimone di un enunciato su un sistema";
+    int m = a.rows, n = a.cols, f = directions.cols;
+
+    /* (V) e (N): l'insieme vuoto. */
+    if (nothing) {
+        if (ck_s_next_is("combination")) {
+            if (!ck_m_witness_open("combination")) return 0;
+            CkForm y = ck_l_witness_matrix(1, m);
+            ck_m_witness_close();
+            ck_s_must_match(ck_l_product(y, a), ck_s_zero(1, n), "il testimone di un sistema impossibile non torna: y A non è zero");
+            ck_s_must_differ(ck_l_product(y, b), ck_s_zero(1, 1), "il testimone di un sistema impossibile non torna: y b è zero");
+            return 1;
+        }
+        if (!ck_s_next_is("solution")) { ck_unsupported(missing); return 0; }
+        if (!ck_m_witness_open("solution")) return 0;
+        CkForm z = ck_l_witness_matrix(n, 1);
+        ck_m_witness_close();
+        ck_s_must_match(ck_l_product(a, z), b, "il testimone di una soluzione non lo è: A z non è b");
+        return 0;
+    }
+
+    /* (D) senza testimoni: p non è una soluzione, o una colonna di U non
+     * risolve il sistema omogeneo. */
+    CkCompared solves = ck_l_compare(ck_l_product(a, point), b);
+    if (ck_status == CK_ACCEPTED && solves == CK_SAME && f) solves = ck_l_compare(ck_l_product(a, directions), ck_s_zero(m, f));
+    if (ck_status != CK_ACCEPTED) return 0;
+    if (solves == CK_MIXED) { ck_unsupported("l'insieme scritto risolve il sistema solo per qualche valore delle lettere: il verificatore non sa dire dove"); return 0; }
+    if (solves == CK_APART) return 0;
+
+    /* (U): G A + U T = I. */
+    if (ck_s_next_is("span")) {
+        if (!ck_m_witness_open("span")) return 0;
+        CkForm g = ck_l_witness_matrix(n, m), sum = ck_l_product(g, a);
+        if (f) sum = ck_l_sum(sum, ck_l_product(directions, ck_l_witness_matrix(f, n)), 0);
+        ck_m_witness_close();
+        ck_s_must_match(sum, ck_l_diagonal(n, n, 1), "il testimone delle soluzioni non torna: G A + U T non è l'identità");
+        return 1;
+    }
+
+    /* (D) con una soluzione che l'insieme scritto non contiene. */
+    if (!ck_s_next_is("solution")) { ck_unsupported(missing); return 0; }
+    if (!ck_m_witness_open("solution")) return 0;
+    CkForm z = ck_l_witness_matrix(n, 1);
+    ck_m_witness_close();
+    ck_s_must_match(ck_l_product(a, z), b, "il testimone di una soluzione non lo è: A z non è b");
+    if (!f) {
+        ck_s_must_differ(z, point, "il testimone di una soluzione in più è il punto scritto");
+        return 0;
+    }
+    if (!ck_s_next_is("combination")) { ck_unsupported(missing); return 0; }
+    if (!ck_m_witness_open("combination")) return 0;
+    CkForm y = ck_l_witness_matrix(1, n);
+    ck_m_witness_close();
+    ck_s_must_match(ck_l_product(y, directions), ck_s_zero(1, f), "il testimone di una soluzione in più non torna: y U non è zero");
+    ck_s_must_differ(ck_l_product(y, ck_l_sum(z, point, 1)), ck_s_zero(1, 1), "il testimone di una soluzione in più non torna: y (z - p) è zero");
+    return 0;
+}
+
+/* Ritorna 1 se la riga dell'enunciato che comincia in ck_cursor nomina un
+ * insieme di soluzioni: è un enunciato di questo paragrafo. */
+static int ck_s_here(void) {
+    for (const char *p = ck_cursor; *p && *p != '\n'; p++)
+        if (strncmp(p, "(solutions", 10) == 0 && (isspace((unsigned char)p[10]) || p[10] == '(')) return 1;
+    return 0;
+}
+
+/* Legge l'enunciato su un sistema che comincia in ck_cursor, fino alla fine
+ * della sua riga, con i testimoni che cominciano in ck_m_witness. Ritorna 1
+ * se la relazione vale, 0 se non vale; dopo un errore ck_status dice quale,
+ * e ciò che ritorna non conta. */
+static int ck_s_statement(void) {
+    /* Le relazioni, nell'ordine di words[]: =, neq, in, notin. */
+    static const char *const words[] = {"=", "neq", "in", "notin"};
+    CkForm point = CK_NO_FORM, directions = CK_NO_FORM;
+    int relation = -1, nothing = 0;
+    ck_skip();
+    if (*ck_cursor != '(') { ck_reject("certificato scritto male: relazione attesa"); return 0; }
+    ck_cursor++;
+    for (int i = 0; i < 4 && relation < 0; i++)
+        if (ck_word(words[i])) relation = i;
+    if (relation < 0) { ck_unsupported("il certificato usa una relazione che il verificatore non conosce tra insiemi di soluzioni"); return 0; }
+    int member = relation >= 2;
+
+    /* Il vettore, se è un'appartenenza; il sistema; l'insieme scritto. */
+    if (member) point = ck_l_read();
+    if (ck_status == CK_ACCEPTED && !ck_s_open("solutions")) ck_unsupported("il verificatore confronta un insieme di soluzioni, scritto per primo, con un insieme scritto");
+    CkForm a = ck_l_read(), b = ck_l_read();
+    ck_m_shut();
+    if (!member && ck_status == CK_ACCEPTED) {
+        if (ck_s_open("nothing")) nothing = 1;
+        else if (ck_s_open("affine")) {
+            point = ck_l_read();
+            ck_skip();
+            if (*ck_cursor != ')') directions = ck_l_read();
+        } else ck_unsupported("il verificatore confronta un insieme di soluzioni con un insieme scritto con affine o nothing");
+        ck_m_shut();
+    }
+    if (!ck_m_statement_end()) return 0;
+
+    /* Le dimensioni: A ha n colonne; b, il punto e i vettori sono colonne
+     * della lunghezza giusta. Un insieme di vettori di un'altra lunghezza
+     * non si confronta: chi scrive il certificato afferma qualcosa che non
+     * ha senso. */
+    int n = a.cols;
+    if (!a.rows || b.rows != a.rows || b.cols != 1 || (!nothing && (point.rows != n || point.cols != 1)) || (directions.at && directions.rows != n)) {
+        ck_reject("un sistema ha una matrice A, una colonna b con le sue righe, e vettori scritti con tante componenti quante sono le colonne di A");
+        return 0;
+    }
+    if (member) {
+        /* (M): A p = b. */
+        CkCompared solves = ck_l_compare(ck_l_product(a, point), b);
+        if (ck_status == CK_ACCEPTED && solves == CK_MIXED)
+            ck_unsupported("il vettore risolve il sistema solo per qualche valore delle lettere: il verificatore non sa dire dove");
+        return (solves == CK_SAME) == (relation == 2);
+    }
+    return ck_s_equal(a, b, nothing, point, directions) == (relation == 0);
+}
+
+/* 17g. IL CERTIFICATO: LE SUE VOCI */
+
 /* Legge e controlla il certificato di un enunciato sulle matrici, da dopo
- * l'intestazione fino a "end" compreso: la voce letters, se c'è, le voci
- * statement e claim, poi le voci witness. Calcola i due membri
+ * l'intestazione fino a "end" compreso: le voci letters e where, se ci
+ * sono, le voci statement e claim, poi le voci witness. Calcola i due membri
  * dell'enunciato, e accetta solo se la relazione vale o non vale come dice
  * la voce claim, e se l'enunciato ha usato tutti i testimoni scritti. */
 static void ck_check_matrices(void) {
     ck_m_work = 0;
     ck_m_plain = 0;
     ck_m_letters = 0;
+    ck_m_has_where = 0;
 
     /* Nessuna indeterminata dei polinomi di 17d è (-1)^n (capitolo 4). */
     ck_sign_var = -1;
+    ck_m_where = ck_poly_number(ck_num_int(1));
 
     /* letters: le lettere dell'enunciato, una o più, tutte diverse (17d). */
     while (isspace((unsigned char)*ck_cursor)) ck_cursor++;
@@ -9563,6 +10043,22 @@ static void ck_check_matrices(void) {
             ck_cursor++;
         }
         if (!ck_m_letters) { ck_reject("certificato scritto male: la voce letters non elenca nessuna lettera"); return; }
+    }
+
+    /* where: il polinomio che i valori delle lettere non annullano (17d).
+     * Mentre lo si legge la voce non c'è ancora: dentro di lui si divide
+     * solo per un numero. Il polinomio nullo non lo annulla nessun valore:
+     * il certificato non direbbe nulla, e passerebbe ogni controllo. */
+    while (isspace((unsigned char)*ck_cursor)) ck_cursor++;
+    if (ck_word("where")) {
+        if (!ck_m_letters) { ck_reject("certificato scritto male: la voce where vuole prima la voce letters"); return; }
+        CkForm where = ck_l_read();
+        ck_skip();
+        if (ck_status == CK_ACCEPTED && (where.rows || *ck_cursor != '\n')) ck_reject("certificato scritto male: la voce where scrive un polinomio, e nient'altro");
+        if (ck_status == CK_ACCEPTED && where.at[0].count == 0) ck_reject("il polinomio della voce where è il polinomio nullo: nessun valore delle lettere lo rende diverso da zero");
+        if (ck_status != CK_ACCEPTED) return;
+        ck_m_where = where.at[0];
+        ck_m_has_where = 1;
     }
 
     /* statement: dov'è. Lo si calcola dopo aver trovato i testimoni. */
@@ -9587,15 +10083,18 @@ static void ck_check_matrices(void) {
     }
     const char *after = ck_cursor;
 
-    /* Con le lettere si controlla solo un'uguaglianza dichiarata vera: che
-     * due polinomi siano diversi non dice per quali valori lo sono (17d). */
-    if (ck_m_letters && !claim) { ck_unsupported("con le lettere il verificatore controlla solo un'uguaglianza dichiarata vera"); return; }
+    /* Un enunciato su un sistema (17f) ha le sue regole, con o senza
+     * lettere. Negli altri, con le lettere si controlla solo un'uguaglianza
+     * dichiarata vera: che due polinomi siano diversi non dice per quali
+     * valori lo sono (17d). */
+    ck_cursor = statement;
+    int system = ck_s_here();
+    if (ck_m_letters && !claim && !system) { ck_unsupported("con le lettere il verificatore controlla solo un'uguaglianza dichiarata vera"); return; }
 
     /* L'enunciato, con i suoi testimoni; poi nessun testimone deve restare:
      * uno in più non proverebbe nulla di falso, ma un certificato dice ciò
-     * che serve e nient'altro. Con le lettere non ne serve nessuno. */
-    ck_cursor = statement;
-    int holds = ck_m_letters ? ck_l_statement() : ck_m_statement();
+     * che serve e nient'altro. */
+    int holds = system ? ck_s_statement() : ck_m_letters ? ck_l_statement() : ck_m_statement();
     if (ck_status != CK_ACCEPTED) return;
     ck_cursor = ck_m_witness;
     while (isspace((unsigned char)*ck_cursor)) ck_cursor++;

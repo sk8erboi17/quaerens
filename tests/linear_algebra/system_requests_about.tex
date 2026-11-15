@@ -1,0 +1,39 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{system\_requests.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{system\_requests.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_linear\_systems.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 20 requests: the set of solutions of a system of linear equations, written with its unknowns and without a relation, as in ``find all the solutions''. The engine must answer RISOLTO with the set, and the answer must be the expected one, written in the same way.
+
+\item \textbf{Sources.} The systems are those of \texttt{book\_systems.tex}; the sources are listed in \texttt{book\_systems\_about.tex}.
+
+\item \textbf{The expected answers.} They are in \texttt{expected\_answers[]} of \texttt{test\_linear\_systems.c}, in the order of the file. An answer is $\emptyset$, one vector, or a particular solution plus one vector for each free unknown. The free unknowns are those without a pivot in the reduced form, that is, the last ones that the equations do not fix; the particular solution has them equal to zero, and each vector has one of them equal to $1$. A book may choose other free unknowns and another particular solution: the same set is then written in another way, and statements of \texttt{book\_systems.tex} say that the two are equal. The letters of the parameters are $t$, $s$, $u$, \dots, skipping the letters of the unknowns.
+
+\item \textbf{A third computation.} The independent oracle \texttt{tools/fuzz/fuzz\_linear\_algebra.py systems-answers} confirmed each expected answer: it is the set of solutions of its request, and its vectors are independent.
+
+\item \textbf{What is being tested.} Gaussian elimination and the way the set of solutions is read from the reduced form and written (chapter 33 of \texttt{main.c}); that what is written is read again as the statement ``set of solutions $=$ written set'' and proved with a certificate.
+
+\item \textbf{Format expected by the test.} One \texttt{\textbackslash item} per request, with the formula written as \texttt{\$\textbackslash displaystyle ...\$}.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -Werror -o /tmp/test_linear_systems \
+    tests/linear_algebra/test_linear_systems.c && /tmp/test_linear_systems
+\end{verbatim}
+
+\item \textbf{Expected result.} The line \texttt{PASS: 20 of 20 requests \dots{} solved with the expected set, each with a verified certificate}.
+\end{enumerate}
+\end{document}

@@ -1,0 +1,43 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{parameter\_discussions.tex} and \texttt{parameter\_requests.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{parameter\_discussions.tex} and in \texttt{parameter\_requests.tex} is used for. Those files are input for the engine in \texttt{main.c}; they are read by the test \texttt{test\_parameter\_discussions.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} \texttt{parameter\_discussions.tex} holds 40 true statements about a matrix or a system of linear equations with a real parameter in its coefficients: for which values of the parameter the rank has a given value or the system has no solution, and what the solutions are where the parameter satisfies a condition. The test asks the engine to prove each one, to write its proof, and to attach certificates that the independent checker accepts. \texttt{parameter\_requests.tex} holds 18 requests: to discuss a rank or a system for every value of the parameter, or to find the values of the parameter for which a rank or a system has a given property.
+
+\item \textbf{Sources.} The discussions printed as results in two collections of exercises of a first course in linear algebra; each discussion is split into statements, one per case:
+\begin{itemize}
+\item statements 2--13: A. Vietri, \emph{Soluzioni con suggerimenti e osservazioni (esercizi di algebra lineare e geometria)}, Sapienza Universit\`a di Roma, a.a.\ 2025--26, exercises 11, 12, 13, 14 and 16 (the rank of a matrix as the parameter varies), 17 (the dimension of a span, as the rank of the matrix of the generators), 18 (three vectors that are linearly dependent), 84b (two planes that coincide). The book calls the parameter $T$; a capital letter is the name of a matrix here, and it is written $t$;
+\item statements 14--25: Vietri, exercises 84a, 85, 86, 87, 89 (three systems) and 91 (systems to discuss, or values of the parameter that make a system impossible);
+\item statements 26--35: E. Abbena, A.M. Fino, G.M. Gianella, \emph{Geometria e Algebra Lineare I}, Universit\`a di Torino, chapter 2, exercises [6]--[10], with the cases printed in the solutions (the parameter $\lambda$ of exercise [9] is written $h$). The systems and the solutions were transcribed from the pages: the extracted text of the PDF file loses the signs;
+\item statement 1 was in \texttt{matrices\_beyond.tex} as long as the rank with a letter was not treated; statement 36 says for which $s$ the matrix $A - sI$ is singular, with a rank; statements 37 and 38 put the cases of exercise 85 of Vietri in one statement; statements 39 and 40 are the cases of exercise 84b written with the solutions.
+\end{itemize}
+
+\item \textbf{A third computation.} Every statement was recomputed by an independent oracle, \texttt{tools/fuzz/fuzz\_linear\_algebra.py parameter-data}. It reads the coefficients as fractions of polynomials in the parameter, and for each fact about a rank or a set of solutions it collects the polynomials on which its truth can depend: the denominators, the minors of each order, the residuals $A p - b$ and $A U$. The truth can change only where the minors of one order, or the components of one residual, vanish together, that is, at the roots of their greatest common divisor; elsewhere it is computed once, and at each rational root it is computed there, with ranks taken from minors. The fact becomes a condition on the parameter, and the statement that remains is decided by a sign table with Sturm's theorem. The engine does none of this: it picks one minor, uses its adjugate, and checks with products. The oracle found all 40 true; no printed result of these exercises is wrong. The expected answers of the requests were confirmed by \texttt{parameter-answers}: every case gives a true statement, and the conditions of the cases cover every value of the parameter.
+
+\item \textbf{What is being tested.} The reading of a fact with a parameter inside a quantified statement (paragraph 31s of \texttt{parser.c}); the generic case found with polynomials in the parameter, the special values as rational roots, the computation with numbers at each special value, the condition on the parameter put in the place of each fact, and the cases of a request read again as a statement (paragraphs 33f--33h of \texttt{main.c}); the certificates of the generic case, which declare where they hold with the entry \texttt{where}, and their check with products of polynomials (paragraphs 17d and 17f of \texttt{checker.c}).
+
+\item \textbf{Format expected by the test.} One \texttt{\textbackslash item} per statement, with the formula written as \texttt{\$\textbackslash displaystyle ...\$}. A request to discuss is $\forall k \in \mathbb{R}$ followed by a set of solutions or by a rank; its answer is a list of cases, \texttt{\textbackslash begin\{cases\} value \& condition \textbackslash\textbackslash{} ... \textbackslash end\{cases\}}, with the special values first and the generic case last.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -Werror -o /tmp/test_parameter_discussions \
+    tests/linear_algebra/test_parameter_discussions.c && /tmp/test_parameter_discussions
+\end{verbatim}
+
+\item \textbf{Expected result.} The lines \texttt{PASS: 40 of 40 statements proved, each with a written proof}, \texttt{PASS: 40 of 40 statements \dots{} are proved with certificates that the checker accepts one by one \dots{} and no longer accepts when one of a generic case is altered}, and \texttt{PASS: 18 of 18 requests \dots{} solved with the expected cases}.
+\end{enumerate}
+\end{document}

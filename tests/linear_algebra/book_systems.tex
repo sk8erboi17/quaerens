@@ -1,0 +1,60 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Linear systems with rational coefficients: results of exercises (40)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Every statement below is true. Each says something about the set of solutions of a system of linear equations: that it is the set printed as the result of an exercise, that the system has no solution, that a given vector is a solution. The set of solutions is written with its unknowns declared, which fixes their order; a written set is a particular solution plus free parameters, or the same vectors written as in the book. Every statement was recomputed by an independent oracle with exact fractions (\texttt{tools/fuzz/fuzz\_linear\_algebra.py systems-data}). The sources are listed in \texttt{book\_systems\_about.tex}.
+
+\begin{enumerate}
+\item $\displaystyle \{(x, y) \in \mathbb{R}^{2} \mid \begin{cases} 2x + 3y = 5 \\ 2x - 4y = 5 \end{cases}\} = \{(\frac{5}{2}, 0)\}$
+\item $\displaystyle \{(x, y) \in \mathbb{R}^{2} \mid \begin{cases} 7x = 3 \\ 3x + y = 5 \end{cases}\} = \{(\frac{3}{7}, \frac{26}{7})\}$
+\item $\displaystyle \{(x, y) \in \mathbb{R}^{2} \mid \begin{cases} 2x + 3y = 0 \\ x - 41y = 0 \end{cases}\} = \{(0, 0)\}$
+\item $\displaystyle \{(x, y) \in \mathbb{R}^{2} \mid \begin{cases} 2x + 3y = 5 \\ 2x + 4y = 5 \\ 6x + 9y = 7 \end{cases}\} = \emptyset$
+\item $\displaystyle \{(x, y) \in \mathbb{R}^{2} \mid \begin{cases} 2x + 3y = 5 \\ 2x + 4y = 5 \\ y = 0 \end{cases}\} = \{(\frac{5}{2}, 0)\}$
+\item $\displaystyle \{(x, y) \in \mathbb{R}^{2} \mid \begin{cases} 2x + 3y = 5 \\ 2x + 4y = 5 \\ 2x + 5y = 6 \end{cases}\} = \emptyset$
+\item $\displaystyle \{(x, y) \in \mathbb{R}^{2} \mid \begin{cases} 3x - y = 0 \\ 2y - 6x = 0 \end{cases}\} = \{(t, 3t) \mid t \in \mathbb{R}\}$
+\item $\displaystyle \{(x, y) \in \mathbb{R}^{2} \mid \begin{cases} 2x + 3y = 5 \\ 2x - 4y = 5 \\ 8x - 9y = 21 \end{cases}\} = \emptyset$
+\item $\displaystyle \{(x, y) \in \mathbb{R}^{2} \mid \begin{cases} 2x + 3y = 5 \\ 2x - 4y = 5 \\ 8x - 9y = 20 \end{cases}\} = \{(\frac{5}{2}, 0)\}$
+\item $\displaystyle (\frac{5}{2}, 0) \in \{(x, y) \in \mathbb{R}^{2} \mid \begin{cases} 2x + 3y = 5 \\ 2x - 4y = 5 \\ 8x - 9y = 20 \end{cases}\}$
+\item $\displaystyle \{(x, y, z) \in \mathbb{R}^{3} \mid \begin{cases} x + y + z = 1 \\ 3x + 3y - 2z - 2 = 0 \end{cases}\} = \{(t, \frac{4}{5} - t, \frac{1}{5}) \mid t \in \mathbb{R}\}$
+\item $\displaystyle \{(x, y, z) \in \mathbb{R}^{3} \mid \begin{cases} x + y + z = 1 \\ 3x + 3y - 2z - 2 = 0 \\ z = 1 \end{cases}\} = \emptyset$
+\item $\displaystyle \{(x, y) \in \mathbb{R}^{2} \mid \begin{cases} x + y = 1 \\ 3x + y = 0 \\ 5x + 3y = 0 \end{cases}\} = \emptyset$
+\item $\displaystyle \{(x, y) \in \mathbb{R}^{2} \mid \begin{cases} x + y = 1 \\ 3x + y = 0 \\ 5x + 3y = 2 \end{cases}\} = \{(-\frac{1}{2}, \frac{3}{2})\}$
+\item $\displaystyle \{(x, y, z) \in \mathbb{R}^{3} \mid \begin{cases} 2x + 3y + 3z = 5 \\ 2x + 3y + 4z = 5 \end{cases}\} = \{(\frac{5 - 3t}{2}, t, 0) \mid t \in \mathbb{R}\}$
+\item $\displaystyle \{(x, y, z) \in \mathbb{R}^{3} \mid \begin{cases} 2x + 3y + 3z = 5 \\ 4x + 6y + 6z = 9 \end{cases}\} = \emptyset$
+\item $\displaystyle \{(x, y, w, z) \in \mathbb{R}^{4} \mid \begin{cases} 3x - 6y + w + z = 0 \\ 3y + w - 2z = 0 \\ 3x - z = 0 \end{cases}\} = \{(\frac{t}{3}, \frac{4}{9} t, \frac{2}{3} t, t) \mid t \in \mathbb{R}\}$
+\item $\displaystyle \{(x, y, z) \in \mathbb{R}^{3} \mid \begin{cases} x + y + z = 0 \\ 2x + z = 0 \\ 3x - y + z = 0 \\ 2x + 4y + 3z = 0 \end{cases}\} = \{(t, t, -2t) \mid t \in \mathbb{R}\}$
+\item $\displaystyle \{(x, y, z) \in \mathbb{R}^{3} \mid \begin{cases} x + y - z - 3 = 0 \\ z = 0 \\ x - 2z = 3 \end{cases}\} = \{(3, 0, 0)\}$
+\item $\displaystyle \{(x, y, z) \in \mathbb{R}^{3} \mid \begin{cases} x + y - z - 3 = 0 \\ y + z = 0 \\ x - 2z = 3 \end{cases}\} = \{(3 - 2t, t, -t) \mid t \in \mathbb{R}\}$
+\item $\displaystyle \{(x_{1}, x_{2}, x_{3}, x_{4}) \in \mathbb{R}^{4} \mid \begin{cases} 2x_{1} + x_{2} + x_{3} + x_{4} = 0 \\ 3x_{1} - x_{2} + x_{3} + x_{4} = 0 \\ 4x_{1} - 3x_{4} = 0 \\ 5x_{1} + 2x_{3} + 2x_{4} = 0 \end{cases}\} = \{(t, \frac{t}{2}, -\frac{23t}{6}, \frac{4t}{3}) \mid t \in \mathbb{R}\}$
+\item $\displaystyle \{(x_{1}, x_{2}, x_{3}, x_{4}) \in \mathbb{R}^{4} \mid \begin{cases} 2x_{1} + x_{2} + x_{3} + x_{4} = 0 \\ 3x_{1} - x_{2} + x_{3} + x_{4} = 0 \\ 4x_{1} - 3x_{4} = 0 \\ 5x_{1} + 2x_{3} + 2x_{4} = 0 \end{cases}\} = \{t (6, 3, -23, 8) \mid t \in \mathbb{R}\}$
+\item $\displaystyle (1, 0, -1, 3) \in \{(x_{1}, x_{2}, x_{3}, x_{4}) \in \mathbb{R}^{4} \mid \begin{cases} 2x_{1} + x_{2} + x_{3} + x_{4} = 4 \\ 3x_{1} - x_{2} + x_{3} + x_{4} = 5 \\ 4x_{1} - 3x_{4} = -5 \\ 5x_{1} + 2x_{3} + 2x_{4} = 9 \end{cases}\}$
+\item $\displaystyle \{(x_{1}, x_{2}, x_{3}, x_{4}) \in \mathbb{R}^{4} \mid \begin{cases} 2x_{1} + x_{2} + x_{3} + x_{4} = 4 \\ 3x_{1} - x_{2} + x_{3} + x_{4} = 5 \\ 4x_{1} - 3x_{4} = -5 \\ 5x_{1} + 2x_{3} + 2x_{4} = 9 \end{cases}\} = \{(6t + 1, 3t, -23t - 1, 8t + 3) \mid t \in \mathbb{R}\}$
+\item $\displaystyle \{(x_{1}, x_{2}, x_{3}, x_{4}) \in \mathbb{R}^{4} \mid \begin{cases} 2x_{1} + x_{2} + x_{3} + x_{4} = 4 \\ 3x_{1} - x_{2} + x_{3} + x_{4} = 5 \\ 4x_{1} - 3x_{4} = -5 \\ 5x_{1} + 2x_{3} + 2x_{4} = 9 \end{cases}\} = \{(1, 0, -1, 3) + t (6, 3, -23, 8) \mid t \in \mathbb{R}\}$
+\item $\displaystyle \{(x_{1}, x_{2}, x_{3}) \in \mathbb{R}^{3} \mid \begin{cases} x_{1} + x_{2} - x_{3} = 1 \\ 2x_{1} + 2x_{2} + x_{3} = 0 \\ x_{1} + x_{2} + 2x_{3} = -1 \end{cases}\} = \{(\frac{1}{3} - s, s, -\frac{2}{3}) \mid s \in \mathbb{R}\}$
+\item $\displaystyle \{(x_{1}, x_{2}, x_{3}) \in \mathbb{R}^{3} \mid \begin{cases} -2x_{1} + x_{2} + x_{3} = 1 \\ x_{1} - 2x_{2} + x_{3} = -2 \\ x_{1} + x_{2} - 2x_{3} = 4 \end{cases}\} = \emptyset$
+\item $\displaystyle \{(x_{1}, x_{2}, x_{3}, x_{4}) \in \mathbb{R}^{4} \mid \begin{cases} 2x_{1} - x_{2} - x_{3} - 4x_{4} = 9 \\ 4x_{1} - 3x_{3} - x_{4} = 0 \\ 8x_{1} - 2x_{2} - 5x_{3} - 9x_{4} = 18 \end{cases}\} = \{(\frac{3}{4} s + \frac{1}{4} t, -9 + \frac{1}{2} s - \frac{7}{2} t, s, t) \mid s, t \in \mathbb{R}\}$
+\item $\displaystyle \{(x, y, z, t) \in \mathbb{R}^{4} \mid \begin{cases} 2x - 2y + z + 4t = 0 \\ x - y - 4z + 2t = 0 \\ -x + y + 3z - 2t = 0 \\ 3x - 3y + z + 6t = 0 \end{cases}\} = \{(s - 2u, s, 0, u) \mid s, u \in \mathbb{R}\}$
+\item $\displaystyle \{(x, y, z) \in \mathbb{R}^{3} \mid \begin{cases} 2x + y - z = 1 \\ x + 2y - 2z = 0 \\ 3x - y + 2z = -1 \\ x - y + z = 1 \end{cases}\} = \{(\frac{2}{3}, -\frac{11}{3}, -\frac{10}{3})\}$
+\item $\displaystyle \{(x, y, z) \in \mathbb{R}^{3} \mid \begin{cases} 2x + y - z = 1 \\ x + 2y - 2z = 0 \\ 3x - y + 2z = -1 \\ x - y + z = 0 \end{cases}\} = \emptyset$
+\item $\displaystyle \{(x, y, z) \in \mathbb{R}^{3} \mid \begin{cases} -y + z = 2 \\ x + z = 3 \\ x - y = 1 \end{cases}\} = \{(1, 0, 2)\}$
+\item $\displaystyle \{(x, y, z) \in \mathbb{R}^{3} \mid \begin{cases} -2x - y + z = 2 \\ x + 2y + z = -1 \\ x - y - 2z = -1 \end{cases}\} = \{(-1 + t, -t, t) \mid t \in \mathbb{R}\}$
+\item $\displaystyle \{(x, y, z) \in \mathbb{R}^{3} \mid \begin{cases} x - y + z = 2 \\ x - y + z = 2 \\ x - y + z = 2 \end{cases}\} = \{(2 + s - t, s, t) \mid s, t \in \mathbb{R}\}$
+\item $\displaystyle \{x \in \mathbb{R}^{2} \mid \begin{pmatrix} 2 & 3 \\ 2 & -4 \end{pmatrix} x = \begin{pmatrix} 5 \\ 5 \end{pmatrix}\} = \{(\frac{5}{2}, 0)\}$
+\item $\displaystyle A = \begin{pmatrix} 1 & 1 & 1 \\ 3 & 3 & -2 \end{pmatrix}, B = \begin{pmatrix} 1 \\ 2 \end{pmatrix} \implies \{x \in \mathbb{R}^{3} \mid A x = B\} = \{(t, \frac{4}{5} - t, \frac{1}{5}) \mid t \in \mathbb{R}\}$
+\item $\displaystyle \{x \in \mathbb{R}^{3} \mid \begin{pmatrix} 1 & 1 & 1 \\ 2 & 0 & 1 \\ 3 & -1 & 1 \\ 2 & 4 & 3 \end{pmatrix} x = 0\} = \{t (1, 1, -2) \mid t \in \mathbb{R}\}$
+\item $\displaystyle \{(x, y) \in \mathbb{R}^{2} \mid \begin{cases} 3x - y = 0 \\ 2y - 6x = 0 \end{cases}\} \neq \emptyset$
+\item $\displaystyle (\frac{5}{2}, 0) \notin \{(x, y) \in \mathbb{R}^{2} \mid \begin{cases} 2x + 3y = 5 \\ 2x - 4y = 5 \\ 8x - 9y = 21 \end{cases}\}$
+\item $\displaystyle \{(x, y, z) \in \mathbb{R}^{3} \mid \begin{cases} x + y + z = 1 \\ 3x + 3y - 2z - 2 = 0 \end{cases}\} \neq \{(0, \frac{4}{5}, \frac{1}{5})\}$
+\end{enumerate}
+\end{document}

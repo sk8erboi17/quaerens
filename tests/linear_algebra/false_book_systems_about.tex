@@ -1,0 +1,46 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_book\_systems.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_book\_systems.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_linear\_systems.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 34 false statements about the set of solutions of a system of linear equations. They are anti-regression data: the engine must declare each of them false, with a certificate that the independent checker accepts, and must never prove one.
+
+\item \textbf{How they were made.} Each is a statement of \texttt{book\_systems.tex} (the sources are listed in \texttt{book\_systems\_about.tex}) with its result changed by little, in one of the ways in which a solution written by hand goes wrong:
+\begin{itemize}
+\item one component of a solution changed, or its sign (statements 1, 2, 9, 12, 13, 18, 24, 29, 31);
+\item a vector multiplied by a parameter with a wrong component or a wrong sign (6, 10, 15, 17, 21, 34);
+\item a parameter forgotten: one solution, or a smaller family, in place of all of them (5, 11, 16, 23, 28);
+\item a parameter too many: a set larger than the set of solutions (25);
+\item a system with solutions said to have none (4, 8, 26, 33), and a system without solutions said to have some, or given one (3, 7, 14, 22, 27);
+\item a solution said not to be one (30), and the right set said to be different (32);
+\item a result as it is printed: statement 19 is the general solution printed for exercise 92 of Vietri, whose last component has the wrong sign, and statement 20 the particular solution as it is misprinted there.
+\end{itemize}
+
+\item \textbf{A third computation.} Every statement was recomputed by the independent oracle \texttt{tools/fuzz/fuzz\_linear\_algebra.py systems-data}, with ranks computed by minors: it found all 34 false.
+
+\item \textbf{What is being tested.} That a wrong result is refuted and not merely left unproved, in each of the ways of chapter 33 of \texttt{main.c}: the written vector does not satisfy an equation; a written vector does not solve the homogeneous system; the system has a solution that the written set does not contain, with the row that separates it; the system has a solution, or has none. And that the certificate of each refutation is accepted by the checker, rejected with the claim reversed, and no longer accepted with a witness removed or altered.
+
+\item \textbf{Format expected by the test.} The same as \texttt{book\_systems.tex}.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -Werror -o /tmp/test_linear_systems \
+    tests/linear_algebra/test_linear_systems.c && /tmp/test_linear_systems
+\end{verbatim}
+
+\item \textbf{Expected result.} The line \texttt{PASS: 34 of 34 statements \dots{} are declared false with a certificate that the checker accepts, rejects with the claim reversed, and no longer accepts with a witness removed or altered}.
+\end{enumerate}
+\end{document}

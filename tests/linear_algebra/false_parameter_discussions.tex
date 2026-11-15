@@ -1,0 +1,50 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Ranks and linear systems with a parameter: results wrong by little (30)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Every statement below is false. Each is a statement of \texttt{parameter\_discussions.tex} with its result changed by little: a rank wrong by one; a special value of the parameter moved, forgotten or added; a case of the discussion forgotten, so that a formula is claimed where it does not hold or is not defined; one component of a solution changed. The engine must declare each of them false, not merely fail to prove it. Every statement was recomputed by an independent oracle with exact fractions (\texttt{tools/fuzz/fuzz\_linear\_algebra.py parameter-data}). The sources are listed in \texttt{false\_parameter\_discussions\_about.tex}.
+
+\begin{enumerate}
+\item $\displaystyle \forall k \in \mathbb{R}\ \left( \operatorname{rank} \begin{pmatrix} k & 1 \\ 1 & k \end{pmatrix} = 2 \iff k \neq 1 \right)$
+\item $\displaystyle \forall t \in \mathbb{R}\ \left( \operatorname{rank} \begin{pmatrix} 1 & 0 & 0 & 0 \\ 0 & 0 & t & 0 \\ 0 & t & 0 & 0 \end{pmatrix} = 1 \iff t = 1 \right)$
+\item $\displaystyle \forall t \in \mathbb{R}\ \left( t \neq 0 \implies \operatorname{rank} \begin{pmatrix} 1 & 0 & 0 & 0 \\ 0 & 0 & t & 0 \\ 0 & t & 0 & 0 \end{pmatrix} = 2 \right)$
+\item $\displaystyle \forall t \in \mathbb{R}\ \left( \operatorname{rank} \begin{pmatrix} t & 1 & 0 & 2 \\ 1 & t & 0 & 2 \\ 0 & 1 & t & 3 \end{pmatrix} = 2 \iff \left( t = 1 \lor t = 0 \right) \right)$
+\item $\displaystyle \forall t \in \mathbb{R}\ \left( \operatorname{rank} \begin{pmatrix} t & 1 & 0 & 2 \\ 1 & t & 0 & 2 \\ 0 & 1 & t & 3 \end{pmatrix} = 2 \iff t = -\frac{1}{3} \right)$
+\item $\displaystyle \forall t \in \mathbb{R}\ \left( \operatorname{rank} \begin{pmatrix} t & 1 & 0 & 2 \\ 1 & t & 0 & 2 \\ 0 & 1 & t & 3 \end{pmatrix} \ge 3 \right)$
+\item $\displaystyle \forall k \in \mathbb{R}\ \left( \operatorname{rank} \begin{pmatrix} 1 & 2 & 5 & k \\ 2 & 4 & k + 1 & 7 \\ k & 10 & 17 & 19 \end{pmatrix} = 2 \iff \left( k = 5 \lor k = \frac{7}{2} \right) \right)$
+\item $\displaystyle \forall k \in \mathbb{R}\ \left( \operatorname{rank} \begin{pmatrix} 1 & 2 & 5 & k \\ 2 & 4 & k + 1 & 7 \\ k & 10 & 17 & 19 \end{pmatrix} = 2 \iff k = 9 \right)$
+\item $\displaystyle \forall k \in \mathbb{R}\ \left( \operatorname{rank} \begin{pmatrix} 1 & 1 & 0 & k \\ 1 & k & 0 & 1 \\ k & -1 & 3 & 0 \end{pmatrix} = 2 \iff \left( k = 1 \lor k = -1 \right) \right)$
+\item $\displaystyle \forall k \in \mathbb{R}\ \left( \operatorname{rank} \begin{pmatrix} k & 3 & 5 \\ 1 & 6 & 10 \end{pmatrix} = 1 \iff k = 2 \right)$
+\item $\displaystyle \exists k \in \mathbb{R}\ \left( \operatorname{rank} \begin{pmatrix} k & 1 \\ 1 & k \end{pmatrix} = 0 \right)$
+\item $\displaystyle \forall k \in \mathbb{R}\ \left( \{(x, y, z) \in \mathbb{R}^{3} \mid x + 2y + 5z = k \land 2x + 4y + (k + 1)z = 7 \land kx + 10y + 17z = 19\} = \emptyset \iff k = 5 \right)$
+\item $\displaystyle \forall k \in \mathbb{R}\ \left( \{(x, y, z) \in \mathbb{R}^{3} \mid x + 2y + 5z = k \land 2x + 4y + (k + 1)z = 7 \land kx + 10y + 17z = 19\} = \emptyset \iff \left( k = 5 \lor k = 9 \right) \right)$
+\item $\displaystyle \forall k \in \mathbb{R}\ \left( \{(x, y, z) \in \mathbb{R}^{3} \mid x + 2y + 5z = k \land 2x + 4y + (k + 1)z = 7 \land kx + 10y + 17z = 19\} \neq \emptyset \right)$
+\item $\displaystyle \forall k \in \mathbb{R}\ \left( k = 5 \implies \{(x, y, z) \in \mathbb{R}^{3} \mid x + 2y + 5z = k \land 2x + 4y + (k + 1)z = 7 \land kx + 10y + 17z = 19\} = \{(\frac{5}{4} - 2t, t, \frac{1}{4}) \mid t \in \mathbb{R}\} \right)$
+\item $\displaystyle \forall k \in \mathbb{R}\ \left( \{(x, y, z) \in \mathbb{R}^{3} \mid x + y + z = k \land kx + y + 3z = -2 \land 7x + 3y + kz = 8\} = \emptyset \iff k = 1 \right)$
+\item $\displaystyle \forall k \in \mathbb{R}\ \left( \{(x, y, z) \in \mathbb{R}^{3} \mid x + y + z = k \land kx + y + 3z = -2 \land 7x + 3y + kz = 8\} = \emptyset \iff \left( k = -1 \lor k = 5 \right) \right)$
+\item $\displaystyle \forall u \in \mathbb{R}\ \left( u \neq 2 \implies \{(x, y, z) \in \mathbb{R}^{3} \mid ux + y - z = 0 \land 2y + uz = u \land x - z = 0\} = \{(\frac{u}{u - 2}, \frac{u^{2} - u}{u - 2}, -\frac{u}{u - 2})\} \right)$
+\item $\displaystyle \forall u \in \mathbb{R}\ \left( \{(x, y, z) \in \mathbb{R}^{3} \mid ux + y - z = 0 \land 2y + uz = u \land x - z = 0\} = \{(-\frac{u}{u - 2}, \frac{u^{2} - u}{u - 2}, -\frac{u}{u - 2})\} \right)$
+\item $\displaystyle \forall k \in \mathbb{R}\ \left( \{(x, y) \in \mathbb{R}^{2} \mid 2x + ky - 5k = 0 \land 2x + 3y - 5 = 0\} = \emptyset \iff k = -3 \right)$
+\item $\displaystyle \forall k \in \mathbb{R}\ \left( k \neq 1 \implies \{(x, y, z) \in \mathbb{R}^{3} \mid x + y - z - 3 = 0 \land ky + z = 0 \land x - 2z = 3\} = \{(3, 0, 1)\} \right)$
+\item $\displaystyle \forall k \in \mathbb{R}\ \left( \{(x, y, z) \in \mathbb{R}^{3} \mid x + y - z - 3 = 0 \land ky + z = 0 \land x - 2z = 3\} = \{(3, 0, 0)\} \right)$
+\item $\displaystyle \forall a \in \mathbb{R}\ \left( a \neq -2 \implies \{(x, y, z) \in \mathbb{R}^{3} \mid ax - y + z = 2 \land x - ay + z = 3 - a^{2} \land x - y + az = a + 1\} = \{(1, a, 2)\} \right)$
+\item $\displaystyle \forall a \in \mathbb{R}\ \left( \left( a \neq -2 \land a \neq 1 \right) \implies \{(x, y, z) \in \mathbb{R}^{3} \mid ax - y + z = 2 \land x - ay + z = 3 - a^{2} \land x - y + az = a + 1\} = \{(1, a, 3)\} \right)$
+\item $\displaystyle \forall a \in \mathbb{R}\ \left( \left( a \neq 0 \land a \neq 1 \right) \implies \{(x, y, z) \in \mathbb{R}^{3} \mid x + y + z = a \land x - ay - z = 1 \land 2x + y + az = a + 1\} = \{(a, -1, 1)\} \right)$
+\item $\displaystyle \forall h \in \mathbb{R}\ \left( \left( h \neq 1 \land h \neq -2 \right) \implies \{(x, y, z) \in \mathbb{R}^{3} \mid x + y + hz = 2h - 1 \land x + hy + z = h \land hx + y + z = 1\} = \{(\frac{2}{h + 2}, \frac{h}{h + 2}, \frac{2(h + 1)}{h + 2})\} \right)$
+\item $\displaystyle \forall h \in \mathbb{R}\ \left( \{(x, y, z) \in \mathbb{R}^{3} \mid x + y + hz = 2h - 1 \land x + hy + z = h \land hx + y + z = 1\} = \emptyset \iff h = 1 \right)$
+\item $\displaystyle \forall a \in \mathbb{R}\ \left( \{(x, y, z) \in \mathbb{R}^{3} \mid 2x + az = 1 \land 3x + ay - 2z = 2 \land ax + 2z = 1\} = \emptyset \iff a = 0 \right)$
+\item $\displaystyle \forall a \in \mathbb{R}\ \left( \left( a \neq -2 \land a \neq 2 \right) \implies \{(x, y, z) \in \mathbb{R}^{3} \mid 2x + az = 1 \land 3x + ay - 2z = 2 \land ax + 2z = 1\} = \{(\frac{1}{2 + a}, \frac{2a + 3}{a(2 + a)}, \frac{1}{2 + a})\} \right)$
+\item $\displaystyle A = \begin{pmatrix} 2 & 1 \\ 1 & 2 \end{pmatrix} \implies \forall s \in \mathbb{R}\ \left( \operatorname{rank}\left( A - sI \right) < 2 \iff s = 1 \right)$
+\end{enumerate}
+\end{document}

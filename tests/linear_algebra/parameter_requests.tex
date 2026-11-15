@@ -1,0 +1,38 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Ranks and linear systems with a parameter: requests (18)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Each item is a request with a real parameter. Items 1--7 and 12--18 ask to discuss a rank or a system for every value of the parameter, as in ``compute the rank as $t$ varies'' and ``discuss the system as $k$ varies'': the answer is the list of cases, each with the condition on the parameter that selects it. Items 8--11 ask for the values of the parameter for which a rank or a system has a given property: the answer is a condition on the parameter. The expected answers are in \texttt{test\_parameter\_discussions.c}; the sources are listed in \texttt{parameter\_discussions\_about.tex}.
+
+\begin{enumerate}
+\item $\displaystyle \forall t \in \mathbb{R}\ \operatorname{rank} \begin{pmatrix} 1 & 0 & 0 & 0 \\ 0 & 0 & t & 0 \\ 0 & t & 0 & 0 \end{pmatrix}$
+\item $\displaystyle \forall t \in \mathbb{R}\ \operatorname{rank} \begin{pmatrix} 1 & 0 & 0 & t \\ t & 0 & t & t \\ 0 & 1 & 0 & 1 \end{pmatrix}$
+\item $\displaystyle \forall t \in \mathbb{R}\ \operatorname{rank} \begin{pmatrix} t & 1 & 8 & t \\ t & 1 & 8 & 1 \\ 2t & 2 & 16 & 2 \end{pmatrix}$
+\item $\displaystyle \forall t \in \mathbb{R}\ \operatorname{rank} \begin{pmatrix} t & 1 & 0 & 2 \\ 1 & t & 0 & 2 \\ 0 & 1 & t & 3 \end{pmatrix}$
+\item $\displaystyle \forall k \in \mathbb{R}\ \operatorname{rank} \begin{pmatrix} 1 & 2 & 5 & k \\ 2 & 4 & k + 1 & 7 \\ k & 10 & 17 & 19 \end{pmatrix}$
+\item $\displaystyle \forall k \in \mathbb{R}\ \operatorname{rank} \begin{pmatrix} k & 1 \\ 1 & k \end{pmatrix}$
+\item $\displaystyle \forall k \in \mathbb{R}\ \operatorname{rank} \begin{pmatrix} 1 & 2 \\ 2 & 4 \\ 3 & 6 \end{pmatrix}$
+\item $\displaystyle \{k \in \mathbb{R} \mid \operatorname{rank} \begin{pmatrix} 1 & 2 & 5 & k \\ 2 & 4 & k + 1 & 7 \\ k & 10 & 17 & 19 \end{pmatrix} = 2\}$
+\item $\displaystyle \{k \in \mathbb{R} \mid \operatorname{rank} \begin{pmatrix} 1 & 1 & 1 & 2 & k \\ k & 1 & 3 & 3 & -2 \\ 7 & 3 & k & 7 & 8 \end{pmatrix} < 3\}$
+\item $\displaystyle \{k \in \mathbb{R} \mid \{(x, y, z) \in \mathbb{R}^{3} \mid x + y + z = k \land kx + y + 3z = -2 \land 7x + 3y + kz = 8\} = \emptyset\}$
+\item $\displaystyle \{k \in \mathbb{R} \mid \{(x, y) \in \mathbb{R}^{2} \mid kx + 3y = k \land 2x + y = 1 \land x + 2y = 5\} \neq \emptyset\}$
+\item $\displaystyle \forall k \in \mathbb{R}\ \{(x, y, z) \in \mathbb{R}^{3} \mid x + 2y + 5z = k \land 2x + 4y + (k + 1)z = 7 \land kx + 10y + 17z = 19\}$
+\item $\displaystyle \forall u \in \mathbb{R}\ \{(x, y, z) \in \mathbb{R}^{3} \mid ux + y - z = 0 \land 2y + uz = u \land x - z = 0\}$
+\item $\displaystyle \forall k \in \mathbb{R}\ \{(x, y, z) \in \mathbb{R}^{3} \mid 2x + y - z = 1 \land x + 2y - 2z = 0 \land 3x - y + 2z = -1 \land x - y + z = k\}$
+\item $\displaystyle \forall a \in \mathbb{R}\ \{(x, y, z) \in \mathbb{R}^{3} \mid ax - y + z = 2 \land x - ay + z = 3 - a^{2} \land x - y + az = a + 1\}$
+\item $\displaystyle \forall a \in \mathbb{R}\ \{(x, y, z) \in \mathbb{R}^{3} \mid x + y + z = a \land x - ay - z = 1 \land 2x + y + az = a + 1\}$
+\item $\displaystyle \forall h \in \mathbb{R}\ \{(x, y, z) \in \mathbb{R}^{3} \mid x + y + hz = 2h - 1 \land x + hy + z = h \land hx + y + z = 1\}$
+\item $\displaystyle \forall a \in \mathbb{R}\ \{(x, y, z) \in \mathbb{R}^{3} \mid 2x + az = 1 \land 3x + ay - 2z = 2 \land ax + 2z = 1\}$
+\end{enumerate}
+\end{document}
