@@ -1,0 +1,61 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Tensors given by their components: false statements (36)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+The statements of \texttt{given\_components.tex} with one small change: a component, a sign of the metric, a raised index read as a lowered one, indices from 0 to 3 read as from 1 to 4. All of them are false and must be refuted, with a counterexample whose certificate the checker accepts.
+
+\begin{enumerate}
+% A changed number, a changed component.
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, 1) \land A^{i} = (1, 2) \land B_{i} = (3, 4) \implies A^{i} B_{i} = 10$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, 1) \land A^{i} = (1, 2) \land B_{i} = (3, 5) \implies A^{i} B_{i} = 11$
+\item $\displaystyle a_{i} = (1, 2, 3) \land b_{i} = (4, 5, 6) \land c_{i} = (-3, 6, 3) \implies \varepsilon_{ijk} a_{j} b_{k} = c_{i}$
+\item $\displaystyle a_{i} = (1, 2, 3) \land b_{i} = (4, 5, 7) \land c_{i} = (-3, 6, -3) \implies \varepsilon_{ijk} a_{j} b_{k} = c_{i}$
+\item $\displaystyle M_{ij} = \begin{pmatrix} 1 & 2 & 3 \\ 4 & 5 & 6 \\ 7 & 8 & 9 \end{pmatrix} \implies \varepsilon_{ijk} M_{1i} M_{2j} M_{3k} = -3$
+\item $\displaystyle A_{i} = (a, 2 b, a b - \frac{1}{2}) \implies \delta_{ij} A_{i} A_{j} = a a + 4 b b + a a b b - a b$
+\item $\displaystyle F^{ij} = \begin{pmatrix} 1 & 2 \\ 3 & 4 \end{pmatrix} \implies \delta_{11} F^{21} = 2$
+\item $\displaystyle R_{ij} = \begin{pmatrix} 0 & 1 & 0 \\ -1 & 0 & 0 \\ 0 & 0 & 1 \end{pmatrix} \land I_{ij} = \begin{pmatrix} a & d & 0 \\ d & b & 0 \\ 0 & 0 & c \end{pmatrix} \land J_{ij} = \begin{pmatrix} b & d & 0 \\ d & a & 0 \\ 0 & 0 & c \end{pmatrix} \implies \forall i, j \in \{1, 2, 3\}\ \left( R_{ik} R_{jl} I_{kl} = \delta_{ik} J_{kj} \right)$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, 1, 1) \land I_{ij} = \begin{pmatrix} \frac{19}{3} & 0 & 0 \\ 0 & \frac{19}{6} & \frac{485}{204} \\ 0 & \frac{485}{204} & \frac{19}{6} \end{pmatrix} \land m^{i} = (0, 1, 1) \implies m^{i} I_{ij} m^{j} = \frac{161}{204} m^{k} m_{k}$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, 1, 1) \land I_{ij} = \begin{pmatrix} 8 & -\frac{8}{3} & 0 \\ -\frac{8}{3} & \frac{7}{3} & 0 \\ 0 & 0 & \frac{31}{3} \end{pmatrix} \land m^{i} = (1, 1, 0) \implies m^{i} I_{ij} m^{j} = \frac{5}{3} m^{k} m_{k}$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, 4, 1) \land T_{ij} = \begin{pmatrix} 0 & 1 & 2 & 0 \\ 0 & s & 0 & 0 \\ c & 0 & 0 & 0 \\ 0 & 0 & 0 & 1 \end{pmatrix} \implies T^{3}{}_{1} = c$
+% A sign of the metric, or the Euclidean metric in place of the declared one.
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1) \land A^{i} = (1, 2) \implies A^{i} A_{i} = 5$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, 1) \land A^{i} = (1, 2) \implies A^{i} A_{i} = 3$
+\item $\displaystyle g_{ij} = \operatorname{diag}(2, 3) \land T_{ij} = \begin{pmatrix} 1 & 2 \\ 3 & 4 \end{pmatrix} \implies T^{i}{}_{i} = 5$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, 4, 1) \land T_{ij} = \begin{pmatrix} 0 & 1 & 2 & 0 \\ 0 & s & 0 & 0 \\ c & 0 & 0 & 0 \\ 0 & 0 & 0 & 1 \end{pmatrix} \implies g^{ij} T_{ij} = 1 - s$
+\item $\displaystyle \mu, \nu \in \{0, 1, 2, 3\} \land g_{\mu\nu} = \operatorname{diag}(1, -1, -1, -1) \land F_{\mu\nu} = \begin{pmatrix} 0 & E_{1} & E_{2} & E_{3} \\ -E_{1} & 0 & -B_{3} & B_{2} \\ -E_{2} & B_{3} & 0 & -B_{1} \\ -E_{3} & -B_{2} & B_{1} & 0 \end{pmatrix} \implies F_{\mu\nu} F^{\mu\nu} = 2 (B_{1} B_{1} + B_{2} B_{2} + B_{3} B_{3} + E_{1} E_{1} + E_{2} E_{2} + E_{3} E_{3})$
+\item $\displaystyle \mu, \nu \in \{0, 1, 2, 3\} \land g_{\mu\nu} = \operatorname{diag}(1, -1, -1, -1) \land F_{\mu\nu} = \begin{pmatrix} 0 & E_{1} & E_{2} & E_{3} \\ -E_{1} & 0 & -B_{3} & B_{2} \\ -E_{2} & B_{3} & 0 & -B_{1} \\ -E_{3} & -B_{2} & B_{1} & 0 \end{pmatrix} \implies F_{\mu\nu} F^{\mu\nu} = 2 (E_{1} E_{1} + E_{2} E_{2} + E_{3} E_{3}) - 2 (B_{1} B_{1} + B_{2} B_{2} + B_{3} B_{3})$
+\item $\displaystyle \mu, \nu \in \{0, 1, 2, 3\} \land g^{\mu\nu} = \operatorname{diag}(1, -1, -1, -1) \land u^{\mu} = (c, 0, 0, 0) \land T^{\mu\nu} = \begin{pmatrix} r c c & 0 & 0 & 0 \\ 0 & P & 0 & 0 \\ 0 & 0 & P & 0 \\ 0 & 0 & 0 & P \end{pmatrix} \implies \forall \mu, \nu \in \{0, 1, 2, 3\}\ \left( c c T^{\mu\nu} = (r c c + P) u^{\mu} u^{\nu} + c c P g^{\mu\nu} \right)$
+% A raised index read as a lowered one, a table read by columns.
+\item $\displaystyle g_{ij} = \operatorname{diag}(2, 3) \land A^{i} = (1, 2) \land C_{i} = (\frac{1}{2}, \frac{2}{3}) \implies \forall i \in \{1, 2\}\ \left( A_{i} = C_{i} \right)$
+\item $\displaystyle g_{ij} = \operatorname{diag}(2, 3) \land A^{i} = (1, 2) \land C_{i} = (1, 2) \implies \forall i \in \{1, 2\}\ \left( A_{i} = C_{i} \right)$
+\item $\displaystyle g_{ij} = \operatorname{diag}(2, 3) \land T_{ij} = \begin{pmatrix} 1 & 2 \\ 3 & 4 \end{pmatrix} \land U^{i}{}_{j} = \begin{pmatrix} \frac{1}{2} & \frac{3}{2} \\ \frac{2}{3} & \frac{4}{3} \end{pmatrix} \implies \forall i, j \in \{1, 2\}\ \left( T^{i}{}_{j} = U^{i}{}_{j} \right)$
+\item $\displaystyle g_{ij} = \operatorname{diag}(2, 3) \land T_{ij} = \begin{pmatrix} 1 & 2 \\ 3 & 4 \end{pmatrix} \implies \forall i, j \in \{1, 2\}\ \left( T^{i}{}_{j} = T_{j}{}^{i} \right)$
+\item $\displaystyle g_{ij} = \operatorname{diag}(2, 3) \land T_{ij} = \begin{pmatrix} 1 & 2 \\ 3 & 4 \end{pmatrix} \implies T^{12} = \frac{1}{2}$
+\item $\displaystyle \mu, \nu \in \{0, 1, 2, 3\} \land g_{\mu\nu} = \operatorname{diag}(1, -1, -1, -1) \land F_{\mu\nu} = \begin{pmatrix} 0 & E_{1} & E_{2} & E_{3} \\ -E_{1} & 0 & -B_{3} & B_{2} \\ -E_{2} & B_{3} & 0 & -B_{1} \\ -E_{3} & -B_{2} & B_{1} & 0 \end{pmatrix} \implies F^{01} = E_{1}$
+\item $\displaystyle \mu, \nu \in \{0, 1, 2, 3\} \land g_{\mu\nu} = \operatorname{diag}(1, -1, -1, -1) \land F_{\mu\nu} = \begin{pmatrix} 0 & E_{1} & E_{2} & E_{3} \\ -E_{1} & 0 & -B_{3} & B_{2} \\ -E_{2} & B_{3} & 0 & -B_{1} \\ -E_{3} & -B_{2} & B_{1} & 0 \end{pmatrix} \implies F^{12} = B_{3}$
+\item $\displaystyle \mu, \nu \in \{0, 1, 2, 3\} \land g_{\mu\nu} = \operatorname{diag}(1, -1, -1, -1) \land F^{\mu\nu} = \begin{pmatrix} 0 & -E_{1} & -E_{2} & -E_{3} \\ E_{1} & 0 & -B_{3} & B_{2} \\ E_{2} & B_{3} & 0 & -B_{1} \\ E_{3} & -B_{2} & B_{1} & 0 \end{pmatrix} \implies F_{01} = -E_{1}$
+\item $\displaystyle \mu, \nu \in \{0, 1, 2, 3\} \land g_{\mu\nu} = \operatorname{diag}(1, -1, -1, -1) \land F_{\mu\nu} = \begin{pmatrix} 0 & E_{1} & E_{2} & E_{3} \\ -E_{1} & 0 & -H_{3} & H_{2} \\ -E_{2} & H_{3} & 0 & -H_{1} \\ -E_{3} & -H_{2} & H_{1} & 0 \end{pmatrix} \land G^{\mu\nu} = \begin{pmatrix} 0 & E_{1} & E_{2} & E_{3} \\ -E_{1} & 0 & -H_{3} & H_{2} \\ -E_{2} & H_{3} & 0 & -H_{1} \\ -E_{3} & -H_{2} & H_{1} & 0 \end{pmatrix} \implies \forall \mu, \nu \in \{0, 1, 2, 3\}\ \left( F^{\mu\nu} = G^{\mu\nu} \right)$
+% The dual and the boost with a wrong sign.
+\item $\displaystyle \mu, \nu \in \{0, 1, 2, 3\} \land g_{\mu\nu} = \operatorname{diag}(1, -1, -1, -1) \land F^{\mu\nu} = \begin{pmatrix} 0 & -E_{1} & -E_{2} & -E_{3} \\ E_{1} & 0 & -B_{3} & B_{2} \\ E_{2} & B_{3} & 0 & -B_{1} \\ E_{3} & -B_{2} & B_{1} & 0 \end{pmatrix} \land \varepsilon^{0123} = -1 \land D^{\mu\nu} = \begin{pmatrix} 0 & -B_{1} & -B_{2} & -B_{3} \\ B_{1} & 0 & E_{3} & -E_{2} \\ B_{2} & -E_{3} & 0 & E_{1} \\ B_{3} & E_{2} & -E_{1} & 0 \end{pmatrix} \implies \forall \mu, \nu \in \{0, 1, 2, 3\}\ \left( D^{\mu\nu} = \frac{1}{2} \varepsilon^{\mu\nu\rho\sigma} F_{\rho\sigma} \right)$
+\item $\displaystyle \mu, \nu \in \{0, 1, 2, 3\} \land g_{\mu\nu} = \operatorname{diag}(1, -1, -1, -1) \land F^{\mu\nu} = \begin{pmatrix} 0 & -E_{1} & -E_{2} & -E_{3} \\ E_{1} & 0 & -B_{3} & B_{2} \\ E_{2} & B_{3} & 0 & -B_{1} \\ E_{3} & -B_{2} & B_{1} & 0 \end{pmatrix} \land \varepsilon_{0123} = 1 \land D^{\mu\nu} = \begin{pmatrix} 0 & -B_{1} & -B_{2} & -B_{3} \\ B_{1} & 0 & E_{3} & -E_{2} \\ B_{2} & -E_{3} & 0 & E_{1} \\ B_{3} & E_{2} & -E_{1} & 0 \end{pmatrix} \implies \forall \mu, \nu \in \{0, 1, 2, 3\}\ \left( D^{\mu\nu} = \frac{1}{2} \varepsilon^{\mu\nu\rho\sigma} F_{\rho\sigma} \right)$
+\item $\displaystyle \mu, \nu \in \{0, 1, 2, 3\} \land g_{\mu\nu} = \operatorname{diag}(1, -1, -1, -1) \land F^{\mu\nu} = \begin{pmatrix} 0 & -E_{1} & -E_{2} & -E_{3} \\ E_{1} & 0 & -B_{3} & B_{2} \\ E_{2} & B_{3} & 0 & -B_{1} \\ E_{3} & -B_{2} & B_{1} & 0 \end{pmatrix} \land \varepsilon^{0123} = 1 \land D^{\mu\nu} = \begin{pmatrix} 0 & -B_{1} & -B_{2} & -B_{3} \\ B_{1} & 0 & E_{3} & -E_{2} \\ B_{2} & -E_{3} & 0 & E_{1} \\ B_{3} & E_{2} & -E_{1} & 0 \end{pmatrix} \implies F^{\mu\nu} D_{\mu\nu} = 4 (E_{1} B_{1} + E_{2} B_{2} + E_{3} B_{3})$
+\item $\displaystyle \mu, \nu \in \{0, 1, 2, 3\} \land g_{\mu\nu} = \operatorname{diag}(1, -1, -1, -1) \land \varepsilon^{0123} = 1 \land F_{\mu\nu} = \begin{pmatrix} 0 & E_{1} & E_{2} & E_{3} \\ -E_{1} & 0 & -B_{3} & B_{2} \\ -E_{2} & B_{3} & 0 & -B_{1} \\ -E_{3} & -B_{2} & B_{1} & 0 \end{pmatrix} \implies \varepsilon^{\mu\nu\lambda\rho} F_{\mu\nu} F_{\lambda\rho} = 8 (E_{1} B_{1} + E_{2} B_{2} + E_{3} B_{3})$
+\item $\displaystyle \mu, \nu \in \{0, 1, 2, 3\} \land g_{\mu\nu} = \operatorname{diag}(1, -1, -1, -1) \land F^{\mu\nu} = \begin{pmatrix} 0 & -E_{1} & -E_{2} & -E_{3} \\ E_{1} & 0 & -B_{3} & B_{2} \\ E_{2} & B_{3} & 0 & -B_{1} \\ E_{3} & -B_{2} & B_{1} & 0 \end{pmatrix} \land L^{\mu}{}_{\nu} = \begin{pmatrix} c & s & 0 & 0 \\ s & c & 0 & 0 \\ 0 & 0 & 1 & 0 \\ 0 & 0 & 0 & 1 \end{pmatrix} \implies L^{0}{}_{\alpha} L^{2}{}_{\beta} F^{\alpha\beta} = -c E_{2} + s B_{3}$
+% Indices from 0 to 3 read as from 1 to 4, and the other way.
+\item $\displaystyle \mu, \nu \in \{1, 2, 3, 4\} \land g_{\mu\nu} = \operatorname{diag}(1, -1, -1, -1) \land F_{\mu\nu} = \begin{pmatrix} 0 & E_{1} & E_{2} & E_{3} \\ -E_{1} & 0 & -B_{3} & B_{2} \\ -E_{2} & B_{3} & 0 & -B_{1} \\ -E_{3} & -B_{2} & B_{1} & 0 \end{pmatrix} \implies F^{12} = -B_{3}$
+\item $\displaystyle \mu, \nu \in \{0, 1, 2, 3\} \land g_{\mu\nu} = \operatorname{diag}(1, -1, -1, -1) \land F_{\mu\nu} = \begin{pmatrix} 0 & E_{1} & E_{2} & E_{3} \\ -E_{1} & 0 & -B_{3} & B_{2} \\ -E_{2} & B_{3} & 0 & -B_{1} \\ -E_{3} & -B_{2} & B_{1} & 0 \end{pmatrix} \implies F^{12} = E_{1}$
+\item $\displaystyle i \in \{0, 1, 2\} \land A_{i} = (a, 2 b, 7) \implies \delta_{00} A_{1} = a$
+\item $\displaystyle i \in \{1, 2, 3\} \land A_{i} = (a, 2 b, 7) \implies \delta_{11} A_{2} = 7$
+\end{enumerate}
+\end{document}

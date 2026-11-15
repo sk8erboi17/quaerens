@@ -8,12 +8,12 @@
 \setlength{\emergencystretch}{3em}
 \allowdisplaybreaks
 
-\title{Index notation outside the language (48)}
+\title{Index notation outside the language (77)}
 \author{}
 \date{}
 \begin{document}
 \maketitle
-Statements with a Kronecker delta or a Levi-Civita symbol that the reader does not accept: the dimension is not declared, the summation convention is broken, or the notation belongs to a later stage (a metric, derivatives, vectors, powers). Some of them are true in their intended reading; none may be proved or refuted.
+Statements with a Kronecker delta or a Levi-Civita symbol that the reader does not accept: the dimension is not declared, the summation convention is broken, or the notation belongs to a later stage (derivatives, vectors, powers, a metric that is not diagonal), or a hypothesis leaves out what it has to declare (a metric, the positions of the indices of a table, the values of Greek indices). Some of them are true in their intended reading; none may be proved or refuted.
 
 \begin{enumerate}
 % The dimension is not declared.
@@ -21,7 +21,6 @@ Statements with a Kronecker delta or a Levi-Civita symbol that the reader does n
 \item $\displaystyle \delta_{ij} a_{j} = a_{i}$
 \item $\displaystyle \sum_{i=1}^{3} \delta_{ii} = \varepsilon_{jk}\varepsilon_{jk}$
 \item $\displaystyle \varepsilon_{ijk} + \varepsilon_{ij} = 0$
-\item $\displaystyle \forall i, j \in \{0, 1, 2, 3\}\ \left( \delta_{ij} = \delta_{ji} \right)$
 % The summation convention.
 \item $\displaystyle \varepsilon_{ijk} a_{i} b_{i} c_{i} = 0$
 \item $\displaystyle (\varepsilon_{ijk} a_{j} b_{k})(\varepsilon_{ijk} c_{j} d_{k}) = a_{j} c_{j} b_{k} d_{k} - a_{j} d_{j} b_{k} c_{k}$
@@ -64,6 +63,38 @@ Statements with a Kronecker delta or a Levi-Civita symbol that the reader does n
 \item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, 1, 1) \implies \forall i \in \{1, 2, 3, 4\}\ \left( A_{i} = B^{i} \right)$
 \item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, 1, 1) \implies \forall i \in \{1, 2, 3, 4\}\ \left( A_{i} + B^{i} = B^{i} + A_{i} \right)$
 \item $\displaystyle g_{ij} = \operatorname{diag}(2, 3) \implies A_{1} = 2 A^{1}$
+% A tensor given by its components: what is missing, or not allowed.
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, 1) \land A = (1, 2) \implies A^{i} A_{i} = 5$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, 1) \land F = \begin{pmatrix} 1 & 2 \\ 3 & 4 \end{pmatrix} \implies F^{i}{}_{i} = 5$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, 1) \land F_{ij} = \begin{pmatrix} 1 & 2 & 3 \\ 3 & 4 & 5 \end{pmatrix} \implies F^{i}{}_{i} = 5$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, 1) \land F_{ij} = \begin{pmatrix} 1 & 2 & 3 \\ 3 & 4 & 5 \\ 1 & 1 & 1 \end{pmatrix} \implies F^{i}{}_{i} = 5$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, 1) \land F_{ij} = \begin{pmatrix} 1 2 \\ 3 & 4 \end{pmatrix} \implies F^{i}{}_{i} = 5$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, 1) \land F_{ij} = \begin{pmatrix} 1 & F_{11} \\ 3 & 4 \end{pmatrix} \implies F^{i}{}_{i} = 5$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, 1) \land A_{i} = (1, 2) \land F_{ij} = \begin{pmatrix} 1 & A_{1} \\ 3 & 4 \end{pmatrix} \implies F^{i}{}_{i} = 5$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, 1) \land F_{ij} = \begin{pmatrix} 1 & A_{1} \\ 3 & 4 \end{pmatrix} \land A_{i} = (1, 2) \implies F^{i}{}_{i} = 5$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, 1) \land F_{ij} = \begin{pmatrix} 1 & \delta_{11} \\ 3 & 4 \end{pmatrix} \implies F^{i}{}_{i} = 5$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, 1) \land F_{ij} = \begin{pmatrix} 1 & a_{i} \\ 3 & 4 \end{pmatrix} \implies F^{i}{}_{i} = 5$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, 1) \land A_{i} = (a^{2}, 1) \implies A^{i} A_{i} = a a a a + 1$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, 1) \land F_{ij} = \begin{vmatrix} 1 & 2 \\ 3 & 4 \end{vmatrix} \implies F^{i}{}_{i} = 5$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, 1) \land F_{ij} = (1, 2) \implies F^{i}{}_{i} = 5$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, 1) \land A_{i} = \begin{pmatrix} 1 \\ 2 \end{pmatrix} \implies A^{i} A_{i} = 5$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, 1) \land F_{ii} = \begin{pmatrix} 1 & 2 \\ 3 & 4 \end{pmatrix} \implies F^{i}{}_{i} = 5$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, 1) \land F_{ij} = \begin{pmatrix} 1 & 2 \\ 3 & 4 \end{pmatrix} \land F_{ij} = \begin{pmatrix} 1 & 2 \\ 3 & 4 \end{pmatrix} \implies F^{i}{}_{i} = 5$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, 1) \land A_{i} = (1, 2) \land g_{ij} = \begin{pmatrix} 1 & 2 \\ 3 & 4 \end{pmatrix} \implies A^{i} A_{i} = 5$
+\item $\displaystyle F_{ij} = \begin{pmatrix} 1 & 2 \\ 3 & 4 \end{pmatrix} \implies \delta_{ij} F^{ij} = 5$
+\item $\displaystyle A^{i} = (1, 2) \implies \delta_{11} A^{2} = 2$
+\item $\displaystyle g_{ij} = \begin{pmatrix} 2 & 1 \\ 1 & 2 \end{pmatrix} \implies \forall i, k \in \{1, 2\}\ \left( g_{ij} g^{jk} = \delta_{i}^{k} \right)$
+% Greek indices and values that start from 0: what is not declared, or does not agree.
+\item $\displaystyle g_{\mu\nu} = \operatorname{diag}(1, -1, -1, -1) \implies A^{\mu} B_{\mu} = A_{\mu} B^{\mu}$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, -1) \implies A^{i} B_{i} = A_{0} B_{0} - A_{1} B_{1}$
+\item $\displaystyle \mu \in \{0, 1, 2, 3\} \land g_{\mu\nu} = \operatorname{diag}(1, -1, -1, -1) \implies A^{\mu} B_{\mu} = A_{1} B_{1} - A_{2} B_{2} - A_{3} B_{3} - A_{4} B_{4}$
+\item $\displaystyle \sum_{\mu=0}^{3} \sum_{\nu=1}^{4} \delta_{\mu\nu}\delta_{\mu\nu} = 4$
+\item $\displaystyle i, j \in \{0, 1, 2\} \land A_{i} = (a, 2 b, 7) \implies \forall i \in \{1, 2, 3\}\ \left( \delta_{ij} A_{j} = A_{i} \right)$
+\item $\displaystyle \varepsilon_{\alpha\beta\gamma\delta}\varepsilon_{\alpha\beta\gamma\delta} = 24$
+\item $\displaystyle \eta_{\mu\nu} = \operatorname{diag}(1, -1) \implies \eta^{\mu\nu}\eta_{\mu\nu} = 2$
+\item $\displaystyle \mu, A \in \{0, 1, 2\} \land A_{i} = (a, 2 b, 7) \implies \delta_{ij} A_{i} A_{j} = 49 + a a + 4 b b$
+\item $\displaystyle i \in \{2, 3, 4\} \implies \delta_{ii} = 3$
+\item $\displaystyle i \in \{0, 2, 3\} \implies \delta_{ii} = 3$
 % Vectors, powers, other relations, chains.
 \item $\displaystyle \varepsilon_{ijk} a_{j} b_{k} = \mathbf{a} \times \mathbf{b}$
 \item $\displaystyle \left( \varepsilon_{ijk} a_{j} b_{k} \right)^{2} = 0$

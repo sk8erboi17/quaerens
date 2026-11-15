@@ -13,8 +13,8 @@ Uso:
 
     python3 -I fuzz_tensors.py certificates <checker> <seme> <quanti> <cartella di lavoro>
         scrive certificati giusti e sbagliati (affermazione, punto, valori,
-        dimensione, voce metric) e confronta le risposte del verificatore con
-        l'oracolo.
+        dimensione, voci metric e given) e confronta le risposte del
+        verificatore con l'oracolo.
 
 L'ORACOLO non chiama mai il programma per decidere, e non ne copia il
 ragionamento. Ha un lettore suo del LaTeX. Stabilisce la convenzione di
@@ -36,6 +36,16 @@ l'identita com'e scritta, moltiplicando ogni componente per il numero della
 diagonale (o per il suo reciproco) di ogni indice che non sta nella posizione
 dichiarata, e controlla le posizioni prodotto per prodotto: un indice sommato
 una volta in alto e una in basso, uno libero sempre nella stessa posizione.
+
+Le ipotesi possono dare un tensore per componenti, con una tabella o con un
+elenco, e dire da quale numero cominciano i valori degli indici; gli indici
+possono essere lettere greche. Il programma, leggendo, sostituisce le lettere
+greche con lettere latine, porta i valori a cominciare da 1 e mette gli
+elementi delle tabelle nel certificato. L'oracolo non fa nessuna delle tre
+cose: una lettera greca resta il suo comando, i valori restano quelli
+scritti (da 0 a d - 1 se cosi e dichiarato), e la componente di un tensore
+dato e il polinomio del suo elemento, cercato per riga e colonna nella
+tabella com'e scritta.
 
 Righe stampate. BUG: il programma ha dimostrato un falso, ha dichiarato falso
 un vero, ha dato un controesempio o dei valori sbagliati, oppure il
@@ -74,6 +84,26 @@ class Outside(Exception):
 # generate() per ricominciare senza.
 METRIC = None
 
+# I tensori dati per componenti dell'enunciato che l'oracolo sta giudicando:
+# dal nome alla lista degli alberi dei suoi elementi, per righe. E il numero
+# da cui cominciano i valori degli indici, 0 o 1. Li mette chi mette METRIC.
+GIVEN = {}
+ORIGIN = 1
+
+# Le lettere greche che possono fare da indice: \delta e \varepsilon no,
+# sono i simboli del linguaggio.
+GREEK = {"\\" + name for name in ("alpha beta gamma iota kappa lambda mu nu pi rho sigma tau phi varphi chi psi omega "
+                                    "eta theta xi zeta").split()}
+
+
+def is_letter(token):
+    return token is not None and len(token) == 1 and token.isalpha()
+
+
+def is_index(token):
+    """Una lettera che puo fare da indice: latina, o greca."""
+    return is_letter(token) or token in GREEK
+
 # I limiti dichiarati del programma: un NON DIMOSTRATO con uno di questi motivi
 # e onesto, con un altro va guardato.
 LIMITS = ("non sa controllare il certificato", "budget di lavoro", "monomio con troppi fattori",
@@ -96,7 +126,7 @@ NOT_INDEXED = "senza delta ne simbolo di Levi-Civita"
 # posizioni dei suoi indici; "L" e "U" la metrica e la sua inversa in un
 # certificato, dove le posizioni non ci sono.
 
-TOKEN = re.compile(r"\\[a-zA-Z]+|\\[{}]|\\[ ,;!:]|[0-9]+|[a-zA-Z]|\S")
+TOKEN = re.compile(r"\\\\|\\[a-zA-Z]+|\\[{}]|\\[ ,;!:]|[0-9]+|[a-zA-Z]|\S")
 SKIPPED = {"\\ ", "\\,", "\\;", "\\!", "\\:", "\\displaystyle", "\\left", "\\right", "\\quad"}
 SYMBOLS = {"\\delta": "d", "\\varepsilon": "e", "\\epsilon": "e"}
 
@@ -109,8 +139,14 @@ class Reader:
         self.pos = 0
         self.metric_name = None
         self.values = False  # vero per i valori scritti dal programma: li un numero in alto e un indice
-        self.sums = []      # (lettera, limite superiore, albero del prodotto)
+        self.sums = []      # (lettera, quanti valori percorre, albero del prodotto)
         self.symbols = []   # tutti i simboli letti, per i controlli d'insieme
+        self.given = {}     # tensori dati: nome -> {"places", "elements"}; None mentre si leggono i suoi elementi
+        self.seen = set()   # i tensori nominati negli elementi delle tabelle
+        self.origins = set()  # da dove cominciano i valori degli indici, secondo chi lo dichiara
+        self.listed = set()   # le lettere che un'ipotesi elenca come indici
+        self.said = []      # le dimensioni dette dalle ipotesi
+        self.greek = False  # vero se un indice e una lettera greca
 
     def peek(self):
         return self.tokens[self.pos] if self.pos < len(self.tokens) else None
@@ -148,9 +184,99 @@ class Reader:
             result = Fraction(self.number())
         return -result if negative else result
 
+    def value_set(self):
+        """L'insieme dei valori degli indici, \\{1, 2, 3\\} o \\{0, 1, 2, 3\\}:
+        annota da dove cominciano e ritorna quanti sono."""
+        self.take("\\{")
+        first = self.number()
+        if first not in (0, 1):
+            raise Outside("i valori cominciano da 0 o da 1")
+        count = 1
+        while self.peek() == ",":
+            self.take()
+            if self.number() != first + count:
+                raise Outside("i valori vanno in ordine")
+            count += 1
+        self.take("\\}")
+        self.origins.add(first)
+        return count
+
+    def environment(self):
+        """Il nome di un ambiente tra graffe, dopo \\begin o \\end."""
+        self.take("{")
+        letters = []
+        while is_letter(self.peek()):
+            letters.append(self.take())
+        self.take("}")
+        return "".join(letters)
+
+    def element(self):
+        """Un elemento di una tabella o di un elenco: una somma senza lettere
+        tra gli indici, fatta di numeri e di componenti di tensori qualsiasi,
+        con un numero solo davanti ai fattori che moltiplica."""
+        sums = len(self.sums)
+        tree = self.sum()
+        if len(self.sums) != sums:
+            raise Outside("segno di somma in un elemento")
+
+        def check(node):
+            if node[0] == "num":
+                return
+            if node[0] == "sym":
+                if node[1] != "t" or node[2] in self.given or any(isinstance(i, str) for i in node[3]):
+                    raise Outside("elemento di una tabella")
+                self.seen.add(node[2])
+                return
+            if node[0] == "mul" and node[2][0] == "num":
+                raise Outside("due numeri uno dopo l'altro in un elemento")
+            for child in node[1:]:
+                check(child)
+        check(tree)
+        return tree
+
+    def components(self, rank):
+        """Il secondo membro di un'ipotesi che da un tensore per componenti:
+        un elenco tra parentesi per un indice, una tabella per due. Ritorna
+        gli elementi per righe, e quante sono le righe."""
+        if self.peek() == "(":
+            if rank != 1:
+                raise Outside("un elenco per un tensore che non ha un indice")
+            self.take()
+            elements = [self.element()]
+            while self.peek() == ",":
+                self.take()
+                elements.append(self.element())
+            self.take(")")
+            return elements, len(elements)
+        self.take("\\begin")
+        if rank != 2:
+            raise Outside("una tabella per un tensore che non ha due indici")
+        name = self.environment()
+        if name not in ("pmatrix", "bmatrix", "matrix"):
+            raise Outside("ambiente %r" % name)
+        rows = [[self.element()]]
+        while True:
+            if self.peek() == "&":
+                self.take()
+                rows[-1].append(self.element())
+                continue
+            if self.peek() != "\\\\":
+                break
+            self.take()
+            if self.peek() == "\\end":
+                break
+            rows.append([self.element()])
+        self.take("\\end")
+        if self.environment() != name:
+            raise Outside("la tabella si chiude con un altro ambiente")
+        if any(len(row) != len(rows) for row in rows):
+            raise Outside("tabella non quadrata")
+        return [element for row in rows for element in row], len(rows)
+
     def hypotheses(self):
-        """Le ipotesi davanti a \\implies: la metrica diagonale e il valore
-        di epsilon. Ritorna il contesto della metrica."""
+        """Le ipotesi davanti a \\implies: la metrica diagonale, il valore di
+        epsilon, i tensori dati per componenti, i valori degli indici.
+        Ritorna il contesto della metrica, o None se non ne dichiarano una."""
         metric = {"written": True}
         while True:
             token = self.take()
@@ -164,40 +290,62 @@ class Reader:
                 digits = self.take()
                 self.take("}")
                 self.take("=")
-                if not digits.isdigit() or digits != "".join(str(k + 1) for k in range(len(digits))):
+                # Gli indici in ordine, a partire da 1 o da 0: dicono anche
+                # da dove cominciano i valori.
+                if not digits.isdigit() or digits[0] not in "01" or digits != "".join(str(int(digits[0]) + k) for k in range(len(digits))):
                     raise Outside("indici di epsilon non in ordine")
+                self.origins.add(int(digits[0]))
                 metric["eps"], metric["eps_up"], metric["eps_digits"] = self.signed(), where == "^", len(digits)
                 if metric["eps"] == 0:
                     raise Outside("epsilon dichiarato zero")
-            elif len(token) == 1 and token.isalpha():
-                if "c" in metric:
-                    raise Outside("due metriche")
-                where = self.take()
-                if where not in ("_", "^"):
-                    raise Outside("ipotesi sulla metrica")
-                self.take("{")
-                for _ in range(2):
-                    letter = self.take()
-                    if not (len(letter) == 1 and letter.isalpha()):
-                        raise Outside("indici della metrica")
-                self.take("}")
-                self.take("=")
-                if self.take() not in ("\\operatorname", "\\mathrm"):
-                    raise Outside("diag")
-                self.take("{")
-                for letter in "diag":
-                    self.take(letter)
-                self.take("}")
-                self.take("(")
-                entries = [self.signed()]
+            elif is_index(token) and self.peek() in (",", "\\in"):
+                # I valori degli indici: le lettere elencate sono indici.
+                letters = [token]
                 while self.peek() == ",":
                     self.take()
-                    entries.append(self.signed())
-                self.take(")")
-                if any(c == 0 for c in entries):
-                    raise Outside("zero sulla diagonale")
-                metric["c"] = [1 / c for c in entries] if where == "^" else entries
-                metric["name"] = self.metric_name = token
+                    letters.append(self.take())
+                    if not is_index(letters[-1]):
+                        raise Outside("elenco di indici")
+                self.take("\\in")
+                self.listed.update(letters)
+                self.greek = self.greek or any(letter in GREEK for letter in letters)
+                self.said.append(self.value_set())
+            elif is_letter(token):
+                # Un tensore con i suoi indici, lettere tutte diverse: la
+                # metrica, o un tensore dato per componenti.
+                indices, places = self.groups("t", token)
+                if not indices or any(not isinstance(i, str) for i in indices) or len(set(indices)) != len(indices):
+                    raise Outside("gli indici del tensore di un'ipotesi")
+                self.take("=")
+                if self.peek() in ("\\operatorname", "\\mathrm"):
+                    self.take()
+                    if "c" in metric:
+                        raise Outside("due metriche")
+                    if len(indices) != 2 or places[0] != places[1] or token in self.given or token in self.seen:
+                        raise Outside("ipotesi sulla metrica")
+                    self.take("{")
+                    for letter in "diag":
+                        self.take(letter)
+                    self.take("}")
+                    self.take("(")
+                    entries = [self.signed()]
+                    while self.peek() == ",":
+                        self.take()
+                        entries.append(self.signed())
+                    self.take(")")
+                    if any(c == 0 for c in entries):
+                        raise Outside("zero sulla diagonale")
+                    metric["c"] = [1 / c for c in entries] if places[0] else entries
+                    metric["name"] = self.metric_name = token
+                    self.said.append(len(entries))
+                else:
+                    if token in self.given or token in self.seen or token == self.metric_name:
+                        raise Outside("la lettera di un tensore dato e gia usata")
+                    # Mentre si leggono, gli elementi non lo possono nominare.
+                    self.given[token] = None
+                    elements, size = self.components(len(indices))
+                    self.given[token] = {"places": tuple(places), "elements": elements}
+                    self.said.append(size)
             else:
                 raise Outside("ipotesi non letta")
             token = self.take()
@@ -205,9 +353,9 @@ class Reader:
                 break
             if token != "\\land":
                 raise Outside("tra due ipotesi serve \\land")
-        if "c" not in metric:
+        if "eps" in metric and "c" not in metric:
             raise Outside("manca la metrica")
-        return metric
+        return metric if "c" in metric else None
 
     def starts_factor(self):
         token = self.peek()
@@ -233,11 +381,14 @@ class Reader:
             self.take("_")
             self.take("{")
             letter = self.take()
-            if not (len(letter) == 1 and letter.isalpha()):
+            if not is_index(letter):
                 raise Outside("indice di somma")
+            self.greek = self.greek or letter in GREEK
             self.take("=")
-            if self.number() != 1:
-                raise Outside("una somma comincia da 1")
+            first = self.number()
+            if first not in (0, 1):
+                raise Outside("una somma comincia da 1 o da 0")
+            self.origins.add(first)
             self.take("}")
             self.take("^")
             if self.peek() == "{":
@@ -251,7 +402,7 @@ class Reader:
                 upper = int(token)
             if upper < 1:
                 raise Outside("limite della somma")
-            signs.append((letter, upper))
+            signs.append((letter, upper - first + 1))
         tree = self.factor()
         while True:
             if self.peek() == "\\cdot":
@@ -261,7 +412,7 @@ class Reader:
             elif not self.starts_factor():
                 break
             tree = ("mul", tree, self.factor())
-        self.sums.extend((letter, upper, tree) for letter, upper in signs)
+        self.sums.extend((letter, count, tree) for letter, count in signs)
         return tree
 
     def factor(self):
@@ -292,13 +443,13 @@ class Reader:
         if token in SYMBOLS or (len(token) == 1 and token.isalpha()):
             self.take()
             kind = "g" if token == self.metric_name else SYMBOLS.get(token, "t")
-            indices, places = self.groups(kind)
+            indices, places = self.groups(kind, token)
             symbol = ("sym", kind, token if kind in "tg" else "", tuple(indices), tuple(places))
             self.symbols.append(symbol)
             return symbol
         raise Outside("simbolo inatteso %r" % token)
 
-    def groups(self, kind):
+    def groups(self, kind, name):
         indices, places = [], []
         while True:
             if self.peek() == "{" and self.pos + 1 < len(self.tokens) and self.tokens[self.pos + 1] == "}":
@@ -318,14 +469,17 @@ class Reader:
             else:
                 entries.append((self.take(), False))
             for token, braced in entries:
-                if len(token) == 1 and token.isalpha():
+                if is_index(token):
+                    self.greek = self.greek or token in GREEK
                     indices.append(token)
                     places.append(upper)
                 elif token.isdigit():
                     # Un numero in alto: solo con una metrica, e non accanto a
                     # un tensore qualsiasi, dove potrebbe essere una potenza;
-                    # oppure nei valori scritti dal programma.
-                    if (upper and not self.values and (self.metric_name is None or kind == "t")) or (not braced and len(token) > 1) or "0" in token:
+                    # oppure nei valori scritti dal programma, o accanto a un
+                    # tensore dato con una tabella, che ha sempre due indici.
+                    table = kind == "t" and self.given.get(name) is not None and len(self.given[name]["places"]) == 2
+                    if (upper and not self.values and not table and (self.metric_name is None or kind == "t")) or (not braced and len(token) > 1):
                         raise Outside("indice numerico")
                     for digit in token:
                         indices.append(int(digit))
@@ -334,13 +488,14 @@ class Reader:
                     raise Outside("indice %r" % token)
 
 
-def read_statement(text, known_dimension=0):
+def read_statement(text, known_dimension=0, known_origin=1):
     """Legge un enunciato. Ritorna (dimensione, sinistro, destro, liberi), e
-    lascia in METRIC la metrica dichiarata, o None. Con known_dimension il
-    testo sono i valori dei due membri scritti dal programma, in quella
-    dimensione."""
-    global METRIC
-    METRIC = None
+    lascia in METRIC la metrica dichiarata, o None, in GIVEN i tensori dati
+    per componenti e in ORIGIN il numero da cui cominciano i valori degli
+    indici. Con known_dimension il testo sono i valori dei due membri scritti
+    dal programma, in quella dimensione e con i valori da known_origin."""
+    global METRIC, GIVEN, ORIGIN
+    METRIC, GIVEN, ORIGIN = None, {}, 1
     reader = Reader(text)
     reader.values = bool(known_dimension)
     metric = reader.hypotheses() if "\\implies" in reader.tokens else None
@@ -349,29 +504,22 @@ def read_statement(text, known_dimension=0):
         reader.take()
         while True:
             letter = reader.take()
-            if not (len(letter) == 1 and letter.isalpha()):
+            if not is_index(letter):
                 raise Outside("indice quantificato")
+            reader.greek = reader.greek or letter in GREEK
             declared.add(letter)
             if reader.peek() != ",":
                 break
             reader.take()
         reader.take("\\in")
-        reader.take("\\{")
-        count = 0
-        while True:
-            if reader.number() != count + 1:
-                raise Outside("i valori vanno da 1 in ordine")
-            count += 1
-            if reader.peek() != ",":
-                break
-            reader.take()
-        reader.take("\\}")
+        count = reader.value_set()
         if listed and listed != count:
             raise Outside("due insiemi di valori")
         listed = count
 
-    # Tutta l'identita tra parentesi dopo i quantificatori, oppure no.
-    start = reader.pos
+    # Tutta l'identita tra parentesi dopo i quantificatori, oppure no. I
+    # simboli letti nelle ipotesi restano.
+    start, kept = reader.pos, len(reader.symbols)
     sides = None
     if listed and reader.peek() == "(":
         try:
@@ -385,7 +533,8 @@ def read_statement(text, known_dimension=0):
         except Outside:
             pass
     if sides is None:
-        reader.pos, reader.sums, reader.symbols = start, [], []
+        reader.pos, reader.sums = start, []
+        del reader.symbols[kept:]
         left = reader.sum()
         reader.take("=")
         right = reader.sum()
@@ -401,11 +550,15 @@ def read_statement(text, known_dimension=0):
     # altro linguaggio (a_{i} e il termine di una successione).
     if not known_dimension and not metric and not any(s[1] in "de" and s[3] for s in reader.symbols):
         raise Outside(NOT_INDEXED)
-    used ={i for s in reader.symbols for i in s[3] if isinstance(i, str)} | {letter for letter, _, _ in reader.sums}
+    used = {i for s in reader.symbols for i in s[3] if isinstance(i, str)} | {letter for letter, _, _ in reader.sums} | reader.listed
     # Senza metrica un tensore, e anche epsilon, ha gli indici sempre nelle
     # stesse posizioni; con la metrica conta solo quanti sono, e le posizioni
-    # della prima occorrenza sono quelle dichiarate.
+    # della prima occorrenza sono quelle dichiarate. Per un tensore dato la
+    # prima occorrenza e la sua ipotesi.
     shapes, reference = {}, {}
+    for name, given in reader.given.items():
+        shapes[name] = len(given["places"]) if metric else (len(given["places"]), given["places"])
+        reference[name] = given["places"]
     for _, kind, name, indices, places in reader.symbols:
         if kind == "t":
             shape = len(indices) if metric else (len(indices), places)
@@ -421,17 +574,31 @@ def read_statement(text, known_dimension=0):
     epsilons = {len(s[3]) for s in reader.symbols if s[1] == "e"}
     if len(epsilons) > 1 or any(rank < 2 for rank in epsilons):
         raise Outside("simboli di Levi-Civita")
-    said = {d for d in [listed, known_dimension, len(metric["c"]) if metric else 0] + list(epsilons) + [upper for _, upper, _ in reader.sums] if d}
+    said = {d for d in [listed, known_dimension] + reader.said + list(epsilons) + [count for _, count, _ in reader.sums] if d}
     if len(said) != 1:
         raise Outside("dimensione non dichiarata, o dichiarata in due modi")
     dimension = said.pop()
+    # Da dove cominciano i valori: da 1 se nessuno lo dice; con un indice
+    # greco va detto. I numeri scritti come indici negli elementi delle
+    # tabelle devono essere tra i valori, come quelli dell'identita
+    # (free_of()).
+    if known_dimension:
+        reader.origins.add(known_origin)
+    if len(reader.origins) > 1 or (reader.greek and not reader.origins):
+        raise Outside("i valori degli indici non sono dichiarati, o lo sono in due modi")
+    origin = reader.origins.pop() if reader.origins else 1
+    for given in reader.given.values():
+        for element in given["elements"]:
+            if any(not origin <= i <= origin + dimension - 1 for s in symbols_of(element) for i in s[3]):
+                raise Outside("indice numerico fuori dai valori in un elemento")
     if metric:
         if epsilons and "eps" not in metric:
             raise Outside("manca il valore di epsilon tra le ipotesi")
         if "eps" in metric and metric["eps_digits"] != dimension:
             raise Outside("epsilon dichiarato con un altro numero di indici")
         metric["reference"] = reference
-    METRIC = metric
+    METRIC, ORIGIN = metric, origin
+    GIVEN = {name: given["elements"] for name, given in reader.given.items()}
     free = conventions(left, right, dimension)
     if listed and declared != free:
         raise Outside("i quantificatori non nominano gli indici liberi")
@@ -500,7 +667,7 @@ def free_of(tree, dimension, ranks):
                 raise Outside("simbolo di Levi-Civita con %d indici in dimensione %d" % (len(indices), dimension))
             if kind == "t" and ranks.setdefault(name, len(indices)) != len(indices):
                 raise Outside("tensore con due ranghi")
-            if any(isinstance(i, int) and not 1 <= i <= dimension for i in indices):
+            if any(isinstance(i, int) and not ORIGIN <= i <= ORIGIN + dimension - 1 for i in indices):
                 raise Outside("indice numerico fuori dai valori")
         counts = count_letters(factors)
         if any(n > 2 for n in counts.values()):
@@ -554,52 +721,76 @@ def sign_of(values):
     return -1 if swaps % 2 else 1
 
 
+def poly_times(p, q):
+    """Il prodotto di due polinomi nelle componenti."""
+    result = {}
+    for a, x in p.items():
+        for b, y in q.items():
+            key = tuple(sorted(a + b))
+            result[key] = result.get(key, 0) + x * y
+    return {key: c for key, c in result.items() if c != 0}
+
+
 def value(tree, dimension, point):
-    """Il valore di un membro nel punto: un polinomio nelle componenti, come
-    dizionario da monomio (componenti in ordine) a coefficiente."""
+    """Il valore di un membro nel punto: un polinomio nelle componenti dei
+    tensori qualsiasi, come dizionario da monomio (componenti in ordine) a
+    coefficiente. I valori degli indici vanno da ORIGIN in su."""
     total = {}
     for coefficient, factors in expand(tree):
         counts = count_letters(factors)
         dummies = sorted(letter for letter, n in counts.items() if n == 2)
-        for choice in itertools.product(range(1, dimension + 1), repeat=len(dummies)):
+        for choice in itertools.product(range(ORIGIN, ORIGIN + dimension), repeat=len(dummies)):
             where = dict(point)
             where.update(zip(dummies, choice))
-            number, components = coefficient, []
+            product = {(): Fraction(coefficient)}
             written = METRIC and METRIC.get("written")
             for _, kind, name, indices, places in factors:
                 at = [where[i] if isinstance(i, str) else i for i in indices]
-                declared = None
+                number, declared, component = Fraction(1), None, None
                 if kind == "d":
-                    number *= 1 if at[0] == at[1] else 0
+                    number = Fraction(1 if at[0] == at[1] else 0)
                 elif kind in "gLU":
                     # La metrica diagonale: c in basso, 1/c in alto, la delta
                     # con un indice in alto e uno in basso.
-                    c = METRIC["c"][at[0] - 1]
+                    c = METRIC["c"][at[0] - ORIGIN]
                     if at[0] != at[1]:
-                        number = 0
+                        number = Fraction(0)
                     elif kind == "L" or (kind == "g" and not places[0] and not places[1]):
-                        number *= c
+                        number = c
                     elif kind == "U" or (kind == "g" and places[0] and places[1]):
-                        number /= c
+                        number = 1 / c
                 elif kind == "e":
-                    number *= sign_of(at)
+                    number = Fraction(sign_of([v - ORIGIN + 1 for v in at]))
                     if written:
                         number *= METRIC["eps"]
                         declared = (METRIC["eps_up"],) * len(at)
                 else:
-                    components.append((name, tuple(at)))
+                    if name in GIVEN:
+                        # Un tensore dato: l'elemento di quella riga e di
+                        # quella colonna, che non ha lettere tra gli indici.
+                        row = 0
+                        for v in at:
+                            row = row * dimension + v - ORIGIN
+                        component = value(GIVEN[name][row], dimension, {})
+                    else:
+                        component = {((name, tuple(at)),): Fraction(1)}
                     if written:
                         declared = METRIC["reference"][name]
                 # Un indice fuori dalla posizione dichiarata e stato alzato
                 # (per 1/c) o abbassato (per c).
                 for k in range(len(at) if declared else 0):
                     if places[k] != declared[k]:
-                        number = number / METRIC["c"][at[k] - 1] if places[k] else number * METRIC["c"][at[k] - 1]
+                        number = number / METRIC["c"][at[k] - ORIGIN] if places[k] else number * METRIC["c"][at[k] - ORIGIN]
                 if number == 0:
+                    product = {}
                     break
-            if number != 0:
-                key = tuple(sorted(components))
-                total[key] = total.get(key, 0) + number
+                product = {key: c * number for key, c in product.items()}
+                if component is not None:
+                    product = poly_times(product, component)
+                if not product:
+                    break
+            for key, c in product.items():
+                total[key] = total.get(key, 0) + c
     return {key: c for key, c in total.items() if c != 0}
 
 
@@ -612,8 +803,8 @@ def judge(text):
     except RecursionError:
         return "OUTSIDE", "troppo annidato"
     letters = sorted(free)
-    state = {"dimension": dimension, "left": left, "right": right, "letters": letters, "failing": [], "metric": METRIC}
-    for choice in itertools.product(range(1, dimension + 1), repeat=len(letters)):
+    state = {"dimension": dimension, "left": left, "right": right, "letters": letters, "failing": [], "metric": METRIC, "given": GIVEN, "origin": ORIGIN}
+    for choice in itertools.product(range(ORIGIN, ORIGIN + dimension), repeat=len(letters)):
         point = dict(zip(letters, choice))
         if value(left, dimension, point) != value(right, dimension, point):
             state["failing"].append(point)
@@ -653,7 +844,8 @@ def latex(tree, rng, top=True):
             # pedici di seguito sono un errore.
             if groups >= 2 or (groups == 1 and rng.random() < 0.5):
                 text += "{}"
-            text += ("^" if places[i] else "_") + "{" + "".join(str(x) for x in indices[i:j]) + "}"
+            # Dopo una lettera greca uno spazio: \mui sarebbe un altro comando.
+            text += ("^" if places[i] else "_") + "{" + "".join(str(x) + " " * (x in GREEK) for x in indices[i:j]).rstrip() + "}"
             i, groups = j, groups + 1
         return text
     if kind == "neg":
@@ -973,7 +1165,7 @@ def numeric_tree(poly, weights):
         for name, at in key:
             for k, up in enumerate(METRIC["reference"][name]):
                 if up and weights:
-                    coefficient = coefficient / METRIC["c"][at[k] - 1]
+                    coefficient = coefficient / METRIC["c"][at[k] - ORIGIN]
         adjusted[key] = coefficient
     return polynomial_tree(adjusted)
 
@@ -1106,17 +1298,222 @@ def generate_metric(rng):
     return metric_statement(rng, name, entries, epsilon, body)
 
 
+# ---------------------------------------------------------------------------
+# 5c. Generare enunciati con tensori dati, indici greci, valori da 0
+# ---------------------------------------------------------------------------
+#
+# Come per la metrica, chi genera non e l'oracolo: compone un enunciato e
+# lascia a judge() di dire se e vero, falso o fuori linguaggio. Per avere
+# molti veri, il secondo membro e spesso il valore del primo calcolato
+# dall'oracolo sul testo gia scritto; i falsi di poco nascono cambiando dopo
+# una cosa sola nelle ipotesi: un elemento di una tabella, un segno della
+# metrica, la posizione di un indice di una tabella, il numero da cui
+# cominciano i valori.
+
+GREEK_POOL = ["\\mu", "\\nu", "\\rho", "\\sigma", "\\alpha", "\\beta", "\\gamma", "\\lambda", "\\kappa", "\\tau"]
+
+
+def element_tree(rng, dimension):
+    """Un elemento di una tabella: un numero, oppure un piccolo polinomio in
+    scalari e in componenti con l'indice numerico, da 1 a dimension."""
+    number = ("num", Fraction(rng.choice((0, 0, 1, 1, 2, 3, 5, Fraction(1, 2), Fraction(2, 3)))))
+    scalar = ("sym", "t", rng.choice("xyz"), (), ())
+    component = ("sym", "t", rng.choice("EB"), (rng.randint(1, dimension),), (False,))
+    pick = rng.random()
+    if pick < 0.55:
+        tree = number
+    elif pick < 0.7:
+        tree = scalar
+    elif pick < 0.85:
+        tree = component
+    elif pick < 0.93:
+        tree = ("mul", ("num", Fraction(rng.choice((2, 3)))), rng.choice((scalar, component)))
+    else:
+        tree = ("add", rng.choice((scalar, component)), number)
+    return ("neg", tree) if rng.random() < 0.25 and tree[0] != "add" else tree
+
+
+def respell(tree, letters, shift):
+    """tree con le lettere degli indici cambiate secondo letters e i numeri
+    scritti come indici aumentati di shift."""
+    return map_tree(tree, lambda s: s[:3] + (tuple(letters.get(i, i) if isinstance(i, str) else i + shift for i in s[3]),) + s[4:])
+
+
+def given_text(rng, name, places, elements, holders, shift):
+    """L'ipotesi che da per componenti il tensore name: scritto con gli
+    indici holders nelle posizioni places, poi un elenco per un indice e una
+    tabella per due."""
+    cells = [latex(respell(element, {}, shift), rng) for element in elements]
+    # Ogni tanto un numero preceduto da un 1 senza nulla in mezzo, "1 2": chi
+    # lo leggesse come prodotto avrebbe lo stesso valore, e gli elementi
+    # sarebbero ancora quanti devono. Rompe la sola regola dei due numeri uno
+    # dopo l'altro, e va rifiutato.
+    numbers = [k for k, cell in enumerate(cells) if cell[0].isdigit()]
+    if numbers and rng.random() < 0.04:
+        k = rng.choice(numbers)
+        cells[k] = "1 " + cells[k]
+    if len(places) == 1:
+        body = "(%s)" % ", ".join(cells)
+    else:
+        size = int(round(len(cells) ** 0.5))
+        environment = rng.choice(("pmatrix", "pmatrix", "bmatrix", "matrix"))
+        rows = " \\\\ ".join(" & ".join(cells[r * size:(r + 1) * size]) for r in range(size))
+        body = "\\begin{%s} %s \\end{%s}" % (environment, rows, environment)
+    return "%s = %s" % (latex(("sym", "t", name, tuple(holders), tuple(places)), rng), body)
+
+
+def generate_given(rng):
+    """Un enunciato con tensori dati per componenti, con indici greci o con i
+    valori degli indici che cominciano da 0, con o senza metrica."""
+    global EXACT
+    dimension = rng.choice((2, 2, 3, 3, 4))
+    origin = rng.choice((1, 1, 0))
+    greek = rng.random() < 0.4
+    metric = rng.random() < 0.65
+    entries = [Fraction(rng.choice((1, 1, 1, -1, -1, 2, 3, Fraction(1, 2)))) for _ in range(dimension)]
+    name = rng.choice("gh")
+    given = {}
+    if rng.random() < 0.2:
+        # Una sola componente di una tabella, con gli indici numerici: con
+        # una metrica anche alzati o abbassati.
+        # Ogni tanto la tabella e un elenco: accanto a un vettore dato un
+        # numero in alto resta rifiutato, perche potrebbe essere una potenza.
+        free = []
+        rank = 2 if rng.random() < 0.75 else 1
+        given["T"] = [tuple(metric and rng.random() < 0.5 for _ in range(rank)), [element_tree(rng, dimension) for _ in range(dimension ** rank)]]
+        left = ("sym", "t", "T", tuple(rng.randint(1, dimension) for _ in range(rank)), tuple(metric and rng.random() < 0.5 for _ in range(rank)))
+        if not metric:
+            left = ("mul", ("sym", "d", "", (1, 1), (False, False)), left[:4] + (given["T"][0],))
+    else:
+        free = sorted(rng.sample(INDEX_LETTERS[:4], rng.choice((0, 0, 0, 1, 1, 2))))
+        where = {letter: rng.random() < 0.5 for letter in free}
+        left = (factored_side if rng.random() < 0.15 else random_side)(rng, dimension, set(free), rng.random() < (0.25 if metric else 0.6))
+        if metric:
+            left = with_metric(rng, place(rng, left, where), name)
+        elif not any(s[1] in "de" for s in symbols_of(left)):
+            # Senza metrica l'enunciato si riconosce da una delta.
+            left = ("mul", ("sym", "d", "", (1, 1), (False, False)), left)
+        # I tensori dati: alcuni di quelli del primo membro con uno o due
+        # indici, nelle posizioni che l'ipotesi sceglie.
+        ranks = {}
+        for symbol in symbols_of(left):
+            if symbol[1] == "t" and len(symbol[3]) in (1, 2):
+                ranks.setdefault(symbol[2], set()).add(len(symbol[3]))
+        names = sorted(tensor for tensor, found in ranks.items() if len(found) == 1)
+        rng.shuffle(names)
+        for tensor in names[:rng.choice((0, 1, 1, 2, 2))]:
+            rank = min(ranks[tensor])
+            given[tensor] = [tuple(metric and rng.random() < 0.5 for _ in range(rank)), [element_tree(rng, dimension) for _ in range(dimension ** rank)]]
+    # Ogni tanto un elemento nomina un tensore dato, lo stesso o un altro:
+    # rompe quella regola sola, e l'enunciato va rifiutato.
+    if given and rng.random() < 0.04:
+        tensor, other = rng.choice(sorted(given)), rng.choice(sorted(given))
+        rank = len(given[other][0])
+        given[tensor][1][rng.randrange(len(given[tensor][1]))] = ("sym", "t", other, (1,) * rank, (False,) * rank)
+    has_epsilon = any(s[1] == "e" for s in symbols_of(left))
+    epsilon = (Fraction(rng.choice((1, 1, 1, -1, 2))), rng.random() < 0.5) if metric and rng.random() < (0.94 if has_epsilon else 0.05) else None
+
+    # Come l'enunciato scrive gli indici: lettere greche, e i numeri contati
+    # dall'origine.
+    letters = sorted({i for s in symbols_of(left) for i in s[3] if isinstance(i, str)})
+    spell = dict(zip(letters, rng.sample(GREEK_POOL, len(letters)))) if greek and len(letters) <= len(GREEK_POOL) else {}
+    shift = origin - 1
+    left = respell(left, spell, shift)
+    free = [spell.get(letter, letter) for letter in free]
+    holders = rng.sample(GREEK_POOL, 2) if greek else rng.sample("ijkl", 2)
+    listed = rng.sample(sorted(set(spell.values()) or set(letters)), min(len(letters), rng.choice((1, 2)))) or holders[:1]
+    said = rng.random() < (0.85 if origin == 0 or greek or not (metric or given) else 0.3)
+    quantified = bool(free) and rng.random() < 0.6
+    EXACT = metric
+    left_text = latex(left, rng)
+    EXACT = False
+
+    def hypotheses(first):
+        """Le ipotesi, con i valori degli indici che cominciano da first."""
+        parts = []
+        if metric:
+            upper = rng.random() < 0.25
+            parts.append("%s%s{%s} = \\%s{diag}(%s)" % (name, "^" if upper else "_", " ".join(holders), rng.choice(("operatorname", "operatorname", "mathrm")),
+                                                         ", ".join(number_text(1 / c if upper else c) for c in entries)))
+        if epsilon:
+            parts.append("\\varepsilon%s{%s} = %s" % ("^" if epsilon[1] else "_", "".join(str(first + k) for k in range(dimension)), number_text(epsilon[0])))
+        for tensor in sorted(given):
+            parts.append(given_text(rng, tensor, given[tensor][0], given[tensor][1], holders[:len(given[tensor][0])], shift))
+        if said:
+            parts.append("%s \\in \\{%s\\}" % (", ".join(listed), ", ".join(str(first + k) for k in range(dimension))))
+        rng.shuffle(parts)
+        return parts
+
+    # Un segno di somma davanti al primo prodotto, su una sua lettera
+    # ripetuta: dice anche lui da dove cominciano i valori, e quanti sono.
+    summed = None
+    head = left
+    while head[0] in ("add", "sub"):
+        head = head[1]
+    if not free and head[0] != "neg" and len(expand(head)) == 1 and rng.random() < 0.2:
+        repeated = sorted(letter for letter, n in count_letters(expand(head)[0][1]).items() if n == 2)
+        summed = repeated[0] if repeated else None
+
+    def statement(parts, body, first):
+        if summed:
+            body = "\\sum_{%s=%d}^{%d} %s" % (summed, first, first + dimension - 1, body)
+        if quantified:
+            body = "\\forall %s \\in \\{%s\\}\\ %s" % (", ".join(free), ", ".join(str(first + k) for k in range(dimension)),
+                                                       rng.choice(("\\left( %s \\right)", "(%s)")) % body)
+        return "%s \\implies %s" % (" \\land ".join(parts), body) if parts else body
+
+    # Il secondo membro: il valore del primo, quando non ha indici liberi e
+    # l'oracolo lo sa leggere; altrimenti il primo scritto in un altro modo,
+    # alterato, o un altro membro a caso.
+    exact = None
+    if not free:
+        try:
+            read_dimension, read_left, _, _ = read_statement(statement(hypotheses(origin), left_text + " = 0", origin))
+            poly = value(read_left, read_dimension, {})
+            exact = numeric_tree(poly, True) if METRIC else polynomial_tree(poly)
+        except (Outside, KeyError, IndexError):
+            pass
+    how, first = rng.random(), origin
+    if exact is None:
+        right = shuffled(rng, left) if how < 0.5 else perturb(rng, shuffled(rng, left), dimension) if how < 0.8 else ("num", Fraction(0))
+    elif how < 0.4:
+        right = exact
+    elif how < 0.52:
+        right = perturb(rng, exact, dimension)
+    else:
+        # Il valore giusto, e poi una cosa sola cambiata nelle ipotesi.
+        right = exact
+        tensor = rng.choice(sorted(given)) if given else None
+        if how < 0.66 and tensor:
+            k = rng.randrange(len(given[tensor][1]))
+            given[tensor][1][k] = ("add", given[tensor][1][k], ("num", Fraction(1)))
+        elif how < 0.78 and metric:
+            entries[rng.randrange(dimension)] *= -1
+        elif how < 0.88 and tensor and metric:
+            k = rng.randrange(len(given[tensor][0]))
+            given[tensor][0] = tuple(not up if n == k else up for n, up in enumerate(given[tensor][0]))
+        elif said or quantified or epsilon:
+            first = 1 - origin
+    EXACT = metric
+    body = "%s = %s" % (left_text, latex(right, rng))
+    EXACT = False
+    return statement(hypotheses(first), body, first)
+
+
 def generate(rng, metric=True):
     """Ritorna il testo di un enunciato con almeno una delta o un simbolo di
     Levi-Civita, salvo una volta su venti: quelli senza il programma non li
-    riconosce, e l'oracolo lo sa. Una volta su tre, se metric e vero, e un
-    enunciato con una metrica dichiarata."""
-    global METRIC
+    riconosce, e l'oracolo lo sa. Se metric e vero, una volta su quattro ha
+    tensori dati per componenti, indici greci o valori da 0, e una volta su
+    quattro una metrica dichiarata e basta."""
+    global METRIC, GIVEN, ORIGIN
+    if metric and rng.random() < 0.25:
+        return generate_given(rng)
     if metric and rng.random() < 0.34:
         return generate_metric(rng)
     # Senza metrica: i conti che servono a generare non devono vedere quella
-    # dell'enunciato di prima.
-    METRIC = None
+    # dell'enunciato di prima, ne i suoi tensori dati.
+    METRIC, GIVEN, ORIGIN = None, {}, 1
     for _ in range(50):
         text = generate_any(rng)
         if "\\delta" in text or "psilon" in text or rng.random() < 0.05:
@@ -1265,9 +1662,11 @@ def check_counterexample(verdict, state):
             point[letter] = int(number)
     if sorted(point) != state["letters"]:
         return "il controesempio non da un valore agli indici liberi"
-    global METRIC
+    global METRIC, GIVEN, ORIGIN
     dimension = state["dimension"]
-    METRIC = state["metric"]
+    METRIC, GIVEN, ORIGIN = state["metric"], state["given"], state["origin"]
+    if any(not ORIGIN <= v <= ORIGIN + dimension - 1 for v in point.values()):
+        return "il controesempio da a un indice un valore che non ha"
     left, right = value(state["left"], dimension, point), value(state["right"], dimension, point)
     if left == right:
         return "nel controesempio i due membri sono uguali"
@@ -1275,7 +1674,7 @@ def check_counterexample(verdict, state):
     if not values:
         return None if found.group(2) == "i due membri sono diversi" else "valori del controesempio non leggibili"
     try:
-        _, shown_left, shown_right, shown_free = read_statement("%s = %s" % values.groups(), dimension)
+        _, shown_left, shown_right, shown_free = read_statement("%s = %s" % values.groups(), dimension, state["origin"])
     except Outside as problem:
         return "i valori scritti non si rileggono: %s" % problem
     if shown_free or value(shown_left, dimension, {}) != left or value(shown_right, dimension, {}) != right:
@@ -1374,7 +1773,15 @@ def main_data(program, path, expected, work):
 # ---------------------------------------------------------------------------
 
 def expected_answer(dimension, left, right, claim, point, shown):
-    """Che cosa deve rispondere il verificatore: True per accettato."""
+    """Che cosa deve rispondere il verificatore: True per accettato. I
+    tensori dati sono in GIVEN, con gli elementi come sono scritti nel
+    certificato."""
+    for name, elements in GIVEN.items():
+        # Un elemento non ha lettere tra gli indici e non nomina un tensore
+        # dato: altrimenti il certificato va respinto, e non c'e conto da fare.
+        for element in elements:
+            if any(s[1] == "t" and s[2] in GIVEN or any(isinstance(i, str) or not 1 <= i <= dimension for i in s[3]) for s in symbols_of(element)):
+                return False
     try:
         free = conventions(left, right, dimension)
         for tree in shown:
@@ -1404,7 +1811,7 @@ def expected_answer(dimension, left, right, claim, point, shown):
 
 
 def main_certificates(checker, seed, count, work):
-    global METRIC
+    global METRIC, GIVEN, ORIGIN
     rng = random.Random(seed)
     cases = []
     while len(cases) < count:
@@ -1425,6 +1832,9 @@ def main_certificates(checker, seed, count, work):
             if reader.peek() is not None or reader.sums:
                 continue
             reader_dimension = rng.choice((2, 3, 4))
+        # Un certificato non ha tensori dati finche non li mette qui sotto, e
+        # i suoi valori vanno da 1 a d.
+        GIVEN, ORIGIN = {}, 1
         dimension = reader_dimension if rng.random() < 0.85 else rng.choice((1, 2, 3, 4))
 
         # Una regola della convenzione rotta da sola, in un certificato che
@@ -1477,10 +1887,67 @@ def main_certificates(checker, seed, count, work):
             if said is not None:
                 metric_fault = said != entries
                 metric_line = "metric " + " ".join(str(c.numerator) if c.denominator == 1 else "(frac %d %d)" % (c.numerator, c.denominator) for c in said)
+        # Una volta su cinque alcuni tensori dell'enunciato sono dati per
+        # componenti. L'affermazione e i valori scritti sono calcolati con
+        # quegli elementi; poi, ogni tanto, la voce scritta ne ha uno
+        # cambiato (e allora l'oracolo rifa il conto con quello), oppure e
+        # scritta male: un elemento in meno o in piu, un rango che non e
+        # quello con cui il tensore compare, un elemento con una lettera tra
+        # gli indici o che nomina il tensore stesso. Allora va respinto.
+        GIVEN, given_lines, given_fault, altered = {}, [], False, None
+        if rng.random() < 0.2:
+            ranks = {}
+            for symbol in symbols_of(left) + symbols_of(right):
+                if symbol[1] == "t" and len(symbol[3]) in (1, 2):
+                    ranks.setdefault(symbol[2], set()).add(len(symbol[3]))
+            names = sorted(tensor for tensor, found in ranks.items() if len(found) == 1)
+            rng.shuffle(names)
+            for tensor in names[:rng.choice((1, 1, 2))]:
+                rank = min(ranks[tensor])
+                GIVEN[tensor] = [element_tree(rng, dimension) for _ in range(dimension ** rank)]
+                written, said_rank, fault = list(GIVEN[tensor]), rank, rng.random()
+                if fault < 0.05:
+                    written.pop()
+                elif fault < 0.1:
+                    written.append(("num", Fraction(1)))
+                elif fault < 0.15:
+                    said_rank = rank + rng.choice((-1, 1))
+                elif fault < 0.2:
+                    written[rng.randrange(len(written))] = ("sym", "t", tensor, (1,) * rank, (False,) * rank)
+                elif fault < 0.25:
+                    written[rng.randrange(len(written))] = ("sym", "t", "E", ("i",), (False,))
+                elif fault < 0.45:
+                    k = rng.randrange(len(written))
+                    altered = (tensor, k, ("add", written[k], ("num", Fraction(1))))
+                    written[k] = altered[2]
+                given_fault = given_fault or (fault < 0.25 and (written != GIVEN[tensor] or said_rank != rank))
+                given_lines.append("given %s %d %s" % (tensor, said_rank, " ".join(certificate_of(e) for e in written)))
+                if rng.random() < 0.05:
+                    # La stessa voce due volte: un certificato scritto male.
+                    given_lines.append(given_lines[-1])
+                    given_fault = True
         try:
             free = sorted(conventions(left, right, dimension))
         except Outside:
             free = sorted({i for s in symbols_of(left) + symbols_of(right) for i in s[3] if isinstance(i, str)})[:2]
+        # Con dei tensori dati e senza indici liberi, piu di meta delle volte
+        # il secondo membro e il valore del primo: un certificato vero, che
+        # un verificatore che leggesse male le componenti respingerebbe. Una
+        # volta su quattro quel valore e calcolato con una tabella letta per
+        # colonne: allora il certificato e sbagliato, se la tabella non e
+        # simmetrica, e solo chi la legge per colonne lo accetterebbe.
+        if GIVEN and not free and not twisted and not given_fault and rng.random() < 0.6:
+            tables = [tensor for tensor in sorted(GIVEN) if len(GIVEN[tensor]) == dimension ** 2 and dimension > 1]
+            swapped = rng.choice(tables) if tables and rng.random() < 0.25 else None
+            kept = GIVEN[swapped] if swapped else None
+            if swapped:
+                GIVEN[swapped] = [kept[(k % dimension) * dimension + k // dimension] for k in range(dimension ** 2)]
+            try:
+                right = polynomial_tree(value(left, dimension, {}))
+            except (Outside, KeyError, IndexError):
+                pass
+            if swapped:
+                GIVEN[swapped] = kept
         claim, point, shown = "holds", {}, [None, None]
         if not twisted and rng.random() < 0.55:
             claim = "fails"
@@ -1498,7 +1965,10 @@ def main_certificates(checker, seed, count, work):
                         shown[k] = None
                     if shown[k] is not None and rng.random() < 0.2:
                         shown[k] = ("add", shown[k], ("num", Fraction(1)))
-        lines = ["certificate indices", "dimension %d" % dimension] + ([metric_line] if metric_line else [])
+        # L'elemento cambiato: da qui l'oracolo conta con quello scritto.
+        if altered:
+            GIVEN[altered[0]][altered[1]] = altered[2]
+        lines = ["certificate indices", "dimension %d" % dimension] + ([metric_line] if metric_line else []) + given_lines
         lines.append("statement (= %s %s)" % (certificate_of(left), certificate_of(right)))
         if claim == "holds":
             lines.append("holds")
@@ -1509,8 +1979,8 @@ def main_certificates(checker, seed, count, work):
                     lines.append("%s %s" % (word, certificate_of(tree)))
         lines.append("end")
         try:
-            wanted = not metric_fault and expected_answer(dimension, left, right, claim, point, shown)
-        except KeyError:
+            wanted = not metric_fault and not given_fault and expected_answer(dimension, left, right, claim, point, shown)
+        except (KeyError, IndexError):
             wanted = False
         cases.append(("\n".join(lines) + "\n", wanted))
     path = os.path.join(work, "tensors_%d.cert" % seed)

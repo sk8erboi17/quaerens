@@ -2,14 +2,15 @@
  * 39 di parser.c, capitolo 38 di main.c, capitolo 19 di checker.c): delta di
  * Kronecker, simbolo di Levi-Civita, componenti di tensori qualsiasi, con la
  * convenzione di Einstein, in dimensione fissa, anche con una metrica
- * diagonale dichiarata tra le ipotesi.
+ * diagonale dichiarata tra le ipotesi, con tensori dati per componenti, con
+ * indici greci e con indici che cominciano da 0.
  *
  * Compilazione ed esecuzione, dalla cartella principale del repository:
  *
  *     cc -std=c11 -O2 -Wall -Wextra -Werror -o /tmp/test_index_identities \
  *         tests/tensor_calculus/test_index_identities.c && /tmp/test_index_identities
  *
- * I dati sono in cinque file accanto a questo, ognuno con la sua nota
+ * I dati sono in nove file accanto a questo, ognuno con la sua nota
  * (*_about.tex):
  *
  *   - index_identities.tex: identità vere, prese dagli esercizi svolti e
@@ -24,7 +25,15 @@
  *     smentiti;
  *   - metric_identities.tex e false_metric_identities.tex: identità con una
  *     metrica dichiarata tra le ipotesi (capitolo 39 di parser.c), vere e
- *     false di poco, con gli stessi controlli dei primi due file.
+ *     false di poco, con gli stessi controlli dei primi due file;
+ *   - given_components.tex e false_given_components.tex: enunciati che tra
+ *     le ipotesi danno un tensore per componenti, con una tabella o con un
+ *     elenco (39d), veri e falsi di poco: una componente cambiata, un segno
+ *     della metrica, un indice alzato letto come abbassato, gli indici da 0
+ *     a 3 letti come da 1 a 4;
+ *   - index_ranges.tex e false_index_ranges.tex: identità con gli indici
+ *     greci o con i valori che cominciano da 0 (37d, 37f, 39e), vere e false
+ *     di poco.
  *
  * I certificati alterati sono antiregressione per il verificatore: quello di
  * un'identità vera con "fails" al posto di "holds", quello di una falsa con
@@ -107,7 +116,7 @@ static int check_certified(const char *path, int truth, int expected) {
         IndexStatement read;
         arena_used = arena_keep;
         failure = NULL;
-        int reread_ok = strstr(statement.formula, "\\implies") ? parse_metric_statement(statement.formula, &read) : parse_index_statement(statement.formula, &read);
+        int reread_ok = strstr(statement.formula, "\\implies") ? parse_index_hypotheses(statement.formula, &read) : parse_index_statement(statement.formula, &read);
         if (!reread_ok) { printf("  statement %d cannot be read again\n", total); continue; }
         for (int kind = 0; kind < (truth ? 1 : 2); kind++) {
             const char *wanted = truth ? "sono uguali" : kind == 0 ? "sono diversi" : "valore scritto";
@@ -265,6 +274,71 @@ int main(void) {
         {"g_{ij} = \\operatorname{diag}(-1, 1, 1, 1) \\implies a_{i} b^{i} = b_{i} a^{i}", PROVED, "declared metric",
          "an identity without delta or epsilon is recognised by its declared metric"},
 
+        /* I tensori dati per componenti (39d). La dimostrazione dice quali
+         * sono, e gli altri restano qualsiasi; un controesempio mostra i
+         * valori con le componenti dei tensori qualsiasi. */
+        {"g_{ij} = \\operatorname{diag}(2, 3) \\land T_{ij} = \\begin{pmatrix} 1 & 2 \\\\ 3 & 4 \\end{pmatrix} \\implies T^{i}{}_{i} = \\frac{11}{6}", PROVED,
+         "The components of $T$ are the ones that the statement declares", "the proof names the tensors given by their components"},
+        {"g_{ij} = \\operatorname{diag}(2, 3) \\land T_{ij} = \\begin{pmatrix} 1 & 2 \\\\ 3 & 4 \\end{pmatrix} \\implies T^{i}{}_{i} = 5", REFUTED,
+         "il primo membro vale \\frac{11}{6}, il secondo 5", "the Euclidean trace of a given table is refuted under the declared metric"},
+        {"g_{ij} = \\operatorname{diag}(2, 3) \\land T_{ij} = \\begin{pmatrix} 1 & 2 \\\\ 3 & 4 \\end{pmatrix} \\implies \\forall i, j \\in \\{1, 2\\}\\ (T^{i}{}_{j} = T_{j}{}^{i})", REFUTED,
+         "i = 2, j = 1: il primo membro vale 1, il secondo \\frac{2}{3}", "raising the first index of a given table is not raising the second"},
+        {"A_{i} = (a, 2 b, a b - \\frac{1}{2}) \\implies \\varepsilon_{ijk} A_{j} A_{k} = 0", PROVED, "The letters $a$, $b$ denote arbitrary tensors",
+         "the letters in the elements of a list stay arbitrary"},
+        {"A_{i} = (a, 2 b, a b - \\frac{1}{2}) \\implies \\delta_{ij} A_{i} A_{j} = a a + 4 b b + a a b b - a b", REFUTED, "\\frac{1}{4} - a b + a a + a a b b + 4 b b",
+         "the value of a side with given components is a polynomial in the letters of the elements"},
+        {"F_{ij} = \\begin{pmatrix} 1 & 2 \\\\ 3 & 4 \\end{pmatrix} \\implies \\delta_{ij} F_{ij} = 5", PROVED, "dimension $2$",
+         "a table declares the dimension, and can be given without a metric"},
+        {"F^{ij} = \\begin{pmatrix} 1 & 2 \\\\ 3 & 4 \\end{pmatrix} \\implies \\delta_{11} F^{21} = 2", REFUTED, "il primo membro vale 3, il secondo 2",
+         "the first index of a table is the row: a table read by columns is refuted"},
+
+        /* Che cosa manca a un'ipotesi con una tabella, detto nel motivo. */
+        {"g_{ij} = \\operatorname{diag}(1, 1) \\land F = \\begin{pmatrix} 1 & 2 \\\\ 3 & 4 \\end{pmatrix} \\implies F^{i}{}_{i} = 5", UNSUPPORTED, "non dice se le componenti",
+         "a table without the positions of its indices is refused"},
+        {"g_{ij} = \\operatorname{diag}(1, 1) \\land F_{ij} = \\begin{pmatrix} 1 & F_{11} \\\\ 3 & 4 \\end{pmatrix} \\implies F^{i}{}_{i} = 5", UNSUPPORTED, "potrebbero contraddirsi",
+         "a table that names itself is refused"},
+        {"g_{ij} = \\operatorname{diag}(1, 1) \\land F_{ij} = \\begin{pmatrix} 1 & A_{1} \\\\ 3 & 4 \\end{pmatrix} \\land A_{i} = (1, 2) \\implies F^{i}{}_{i} = 5", UNSUPPORTED, "prima di nominarlo",
+         "a tensor used in a table cannot be given afterwards"},
+        {"g_{ij} = \\operatorname{diag}(1, 1) \\land F_{ij} = \\begin{pmatrix} 1 2 \\\\ 3 & 4 \\end{pmatrix} \\implies F^{i}{}_{i} = 5", UNSUPPORTED, "due numeri uno dopo l'altro",
+         "two numbers without a separator in a table are refused, not multiplied"},
+        {"g_{ij} = \\operatorname{diag}(1, 1) \\land F_{ij} = \\begin{pmatrix} 1 & 2 & 3 \\\\ 3 & 4 & 5 \\\\ 1 & 1 & 1 \\end{pmatrix} \\implies F^{i}{}_{i} = 5", UNSUPPORTED, "due dimensioni diverse",
+         "a table and a metric of different sizes are refused"},
+        {"F_{ij} = \\begin{pmatrix} 1 & 2 \\\\ 3 & 4 \\end{pmatrix} \\implies \\delta_{ij} F^{ij} = 5", UNSUPPORTED, "serve una metrica",
+         "without a metric a given tensor keeps the positions of its hypothesis"},
+        {"A^{i} = (1, 2) \\implies \\delta_{11} A^{2} = 2", UNSUPPORTED, "può essere una potenza",
+         "a numeric upper index on a given vector is still refused"},
+
+        /* Gli indici greci e i valori che cominciano da 0 (37d, 37f, 39e): il
+         * controesempio nomina gli indici come l'enunciato e conta i valori
+         * dalla sua origine, anche negli indici delle componenti. */
+        {"\\sum_{\\mu=0}^{3} \\delta_{\\mu\\mu} = 4", PROVED, "from $0$ to $3$", "a summation sign from 0 declares where the values start"},
+        {"\\forall \\mu, \\nu \\in \\{0, 1, 2, 3\\}\\ (\\delta_{\\mu\\nu} = \\delta_{\\nu 0}\\delta_{\\mu 1})", REFUTED,
+         "\\mu = 0, \\nu = 0: il primo membro vale 1, il secondo 0", "a counterexample names the Greek indices and counts their values from 0"},
+        {"\\forall \\alpha \\in \\{0, 1, 2\\}\\ (\\varepsilon_{\\alpha\\beta\\gamma} a_{\\beta} b_{\\gamma} = 0)", REFUTED,
+         "\\alpha = 0: il primo membro vale a_{1} b_{2} - a_{2} b_{1}, il secondo 0", "the components of a counterexample are numbered from 0 when the indices are"},
+        {"i \\in \\{0, 1\\} \\land A_{i} = (a, 2 b) \\implies \\forall i \\in \\{0, 1\\}\\ (\\delta_{ij} A_{j} = A_{1}\\delta_{i0})", REFUTED,
+         "i = 0: il primo membro vale a, il secondo 2 b", "the first element of a list is the component 0 when the indices start from 0"},
+        {"\\mu \\in \\{0, 1, 2, 3\\} \\land g_{\\mu\\nu} = \\operatorname{diag}(1, -1, -1, -1) \\implies A^{\\mu} B_{\\mu} = A_{0} B_{0} - A_{1} B_{1} - A_{2} B_{2} - A_{3} B_{3}", PROVED,
+         "for $i = 0, \\dots, 3$", "with indices from 0 to 3 the first number of the metric is the component 0"},
+        {"\\mu \\in \\{0, 1, 2, 3\\} \\land g_{\\mu\\nu} = \\operatorname{diag}(1, -1, -1, -1) \\implies A^{\\mu} B_{\\mu} = -A_{0} B_{0} - A_{1} B_{1} - A_{2} B_{2} + A_{3} B_{3}", REFUTED,
+         "il primo membro vale A^{0} B_{0} + A^{1} B_{1} + A^{2} B_{2} + A^{3} B_{3}", "the time index read as the last one is refuted"},
+        {"g_{\\mu\\nu} = \\operatorname{diag}(1, -1, -1, -1) \\implies A^{\\mu} B_{\\mu} = A_{\\mu} B^{\\mu}", UNSUPPORTED, "va dichiarato da dove cominciano",
+         "Greek indices without declared values are refused"},
+        {"g_{ij} = \\operatorname{diag}(1, -1) \\implies A^{i} B_{i} = A_{0} B_{0} - A_{1} B_{1}", UNSUPPORTED, "lo deve dichiarare l'enunciato",
+         "the index 0 without a declaration is refused"},
+        {"\\mu \\in \\{0, 1, 2, 3\\} \\land g_{\\mu\\nu} = \\operatorname{diag}(1, -1, -1, -1) \\implies A^{\\mu} B_{\\mu} = A_{1} B_{1} - A_{2} B_{2} - A_{3} B_{3} - A_{4} B_{4}", UNSUPPORTED,
+         "l'indice numerico 4 è fuori dai valori da 0 a 3", "an index from 1 to 4 under values declared from 0 to 3 is refused"},
+        {"\\sum_{\\mu=0}^{3} \\sum_{\\nu=1}^{4} \\delta_{\\mu\\nu}\\delta_{\\mu\\nu} = 4", UNSUPPORTED, "a partire da 0 e a partire da 1",
+         "two declarations that start from different values are refused"},
+        {"\\varepsilon_{\\alpha\\beta\\gamma\\delta}\\varepsilon_{\\alpha\\beta\\gamma\\delta} = 24", UNSUPPORTED, "come indici non si usano",
+         "delta is a symbol of the language, not an index"},
+
+        /* Un enunciato sulle matrici senza notazione con gli indici resta del
+         * capitolo 32, anche ora che una tabella può stare tra le ipotesi di
+         * un'identità con gli indici. */
+        {"\\begin{pmatrix} 1 & 2 \\\\ 3 & 4 \\end{pmatrix} \\begin{pmatrix} 0 & 1 \\\\ 1 & 0 \\end{pmatrix} = \\begin{pmatrix} 2 & 1 \\\\ 4 & 3 \\end{pmatrix}", PROVED, "",
+         "a statement on matrices without index notation is still read by chapter 32"},
+
         /* Gli enunciati che gli altri linguaggi leggevano restano loro: una
          * lettera greca dichiarata con \colon è un'applicazione. */
         {"\\delta \\colon S \\to T \\implies \\forall x \\in S\\ (\\delta(x) \\in T)", PROVED, "", "a declared map named delta is still read by chapter 28"},
@@ -276,14 +350,20 @@ int main(void) {
     int passed = 1;
     engine_init();
 
-    /* I tre file di dati. */
+    /* I file di dati. */
     passed = check_all_proved("tests/tensor_calculus/index_identities.tex") && passed;
     passed = check_certified("tests/tensor_calculus/index_identities.tex", 1, 77) && passed;
     passed = check_certified("tests/tensor_calculus/false_index_identities.tex", 0, 46) && passed;
-    passed = check_all_unsupported("tests/tensor_calculus/index_notation_beyond.tex", 48) && passed;
+    passed = check_all_unsupported("tests/tensor_calculus/index_notation_beyond.tex", 77) && passed;
     passed = check_all_proved("tests/tensor_calculus/metric_identities.tex") && passed;
     passed = check_certified("tests/tensor_calculus/metric_identities.tex", 1, 35) && passed;
     passed = check_certified("tests/tensor_calculus/false_metric_identities.tex", 0, 18) && passed;
+    passed = check_all_proved("tests/tensor_calculus/given_components.tex") && passed;
+    passed = check_certified("tests/tensor_calculus/given_components.tex", 1, 45) && passed;
+    passed = check_certified("tests/tensor_calculus/false_given_components.tex", 0, 36) && passed;
+    passed = check_all_proved("tests/tensor_calculus/index_ranges.tex") && passed;
+    passed = check_certified("tests/tensor_calculus/index_ranges.tex", 1, 25) && passed;
+    passed = check_certified("tests/tensor_calculus/false_index_ranges.tex", 0, 16) && passed;
 
     /* I casi scritti qui sopra. */
     for (size_t i = 0; i < sizeof cases / sizeof *cases; i++) {
@@ -304,6 +384,18 @@ int main(void) {
     passed = check_result(v.certificate && strcmp(v.certificate, "certificate indices\ndimension 2\nmetric -1 1\n"
                           "statement (= (* (metric i j) (t A j)) (* (metric i a) (t A a)))\nholds\nend\n") == 0,
                           "the certificate of an identity with a metric is the unfolded identity: a lowered index is a contraction with the metric") && passed;
+    /* Le componenti date vanno nel certificato come dati, una voce given per
+     * tensore, per righe; i valori degli indici vi vanno sempre da 1 a d,
+     * anche quando l'enunciato li conta da 0 (A_{1} è (t A 2), e il punto
+     * i = 0 è "fails i 1"). */
+    v = prove("g_{ij} = \\operatorname{diag}(2, 3) \\land T_{ij} = \\begin{pmatrix} 1 & 2 \\\\ 3 & 4 \\end{pmatrix} \\implies T^{i}{}_{i} = \\frac{11}{6}", 'n', 0, 0);
+    passed = check_result(v.certificate && strcmp(v.certificate, "certificate indices\ndimension 2\nmetric 2 3\ngiven T 2 1 2 3 4\n"
+                          "statement (= (* (inverse i a) (t T a i)) (frac 11 6))\nholds\nend\n") == 0,
+                          "the certificate of a statement with a given table carries its components, by rows") && passed;
+    v = prove("i \\in \\{0, 1\\} \\land A_{i} = (a, 2 b) \\implies \\forall i \\in \\{0, 1\\}\\ (\\delta_{ij} A_{j} = A_{1}\\delta_{i0})", 'n', 0, 0);
+    passed = check_result(v.certificate && strcmp(v.certificate, "certificate indices\ndimension 2\ngiven A 1 (t a) (* 2 (t b))\n"
+                          "statement (= (* (delta i j) (t A j)) (* (t A 2) (delta i 1)))\nfails i 1\nleft (* 1 (t a))\nright (* 2 (t b))\nend\n") == 0,
+                          "in a certificate the values of the indices go from 1 to d also when the statement counts them from 0") && passed;
     v = prove("\\varepsilon_{ijk} a_{j} b_{k} = \\frac{1}{2} a_{i}", 'n', 0, 0);
     passed = check_result(v.certificate && strcmp(v.certificate, "certificate indices\ndimension 3\n"
                           "statement (= (* (* (eps i j k) (t a j)) (t b k)) (* (frac 1 2) (t a i)))\nfails i 1\n"

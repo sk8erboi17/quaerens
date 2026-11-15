@@ -1,0 +1,36 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_given\_components.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_given\_components.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_index\_identities.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 36 false statements with tensors given by their components. It is a regression test against false proofs: the engine must declare each one false, with a counterexample certified by the independent checker.
+
+\item \textbf{How the statements were built.} Each one is a true statement of \texttt{given\_components.tex} with one small change: a number or a component of a table; a sign of the metric, or the Euclidean metric in place of the declared one; a raised index read as a lowered one, or a table read by columns; the dual tensor and the boost with a wrong sign; indices from 0 to 3 read as from 1 to 4, so that $F^{12}$ is another component. Their falsity was confirmed by the oracle of \texttt{tools/fuzz/fuzz\_tensors.py} in its \texttt{data} mode.
+
+\item \textbf{What the engine needs in order to pass.} The same reading as for the true statements, and a point where the two sides differ. The test also alters each certificate and requires the checker to reject it.
+
+\item \textbf{Format expected by the test.} One \texttt{\textbackslash item} per statement, written as \texttt{\$\textbackslash displaystyle ...\$}. The hypotheses come first, joined by \texttt{\textbackslash land}, then \texttt{\textbackslash implies} and the identity. A tensor with two indices is given as $F_{\mu\nu} = \begin{pmatrix} \dots \end{pmatrix}$ and one with one index as $A^{i} = (a_1, \dots, a_d)$: the hypothesis writes the indices, and so says whether the components are the ones with upper or with lower indices; the first index is the row. The values of the indices are declared as $\mu, \nu \in \{0, 1, 2, 3\}$.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -Werror -o /tmp/test_index_identities \
+    tests/tensor_calculus/test_index_identities.c && /tmp/test_index_identities
+\end{verbatim}
+
+\item \textbf{Expected result.} The lines \texttt{PASS: 36 of 36 statements refuted, 36 with a certificate the checker accepts} and \texttt{PASS: 72 of 72 altered certificates rejected for the right reason}.
+
+\end{enumerate}
+\end{document}

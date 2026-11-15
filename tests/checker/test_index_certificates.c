@@ -36,6 +36,7 @@ typedef struct {
 
 /* Le voci comuni, e gli enunciati usati più volte. */
 #define HEAD "certificate indices\ndimension 3\n"
+#define TWO "certificate indices\ndimension 2\n"
 #define CONTRACTION "statement (= (* (eps i j k) (eps i m n)) (- (* (delta j m) (delta k n)) (* (delta j n) (delta k m))))\n"
 #define ODD "statement (= (eps i j k) (eps j i k))\n"
 #define CROSS "statement (= (* (* (eps i j k) (t a j)) (t b k)) 0)\n"
@@ -96,6 +97,59 @@ static const Case cases[] = {
      "certificate indices\ndimension 2\nmetric\nstatement (= (delta i i) 2)\nholds\nend\n"},
     {"a zero on the diagonal is refused even where the certificate does not use it", CK_REJECTED, "diversi da zero",
      "certificate indices\ndimension 2\nmetric 0 1\nstatement (= (metric 2 2) 1)\nholds\nend\n"},
+
+    /* Con la voce given: un tensore dato per componenti. Accettati. */
+    {"a given vector contracted with itself", CK_ACCEPTED, "", TWO "given A 1 1 2\nstatement (= (* (t A i) (t A i)) 5)\nholds\nend\n"},
+    {"a given table: the first index is the row", CK_ACCEPTED, "", TWO "given T 2 1 2 3 4\nstatement (= (t T 1 2) 2)\nholds\nend\n"},
+    {"the trace of a given table with the inverse of the metric", CK_ACCEPTED, "",
+     TWO "metric 2 3\ngiven T 2 1 2 3 4\nstatement (= (* (inverse i a) (t T a i)) (frac 11 6))\nholds\nend\n"},
+    {"the letters in the elements stay arbitrary", CK_ACCEPTED, "",
+     TWO "given A 1 (t a) (* 2 (t b))\nstatement (= (* (t A i) (t A i)) (+ (* (t a) (t a)) (* 4 (* (t b) (t b)))))\nholds\nend\n"},
+    {"elements that are components of a free tensor", CK_ACCEPTED, "",
+     TWO "given F 2 0 (t E 1) (neg (t E 1)) 0\nstatement (= (+ (t F i j) (t F j i)) 0)\nholds\nend\n"},
+    {"the entry given may come after the statement", CK_ACCEPTED, "", TWO "statement (= (* (t A i) (t A i)) 5)\ngiven A 1 1 2\nholds\nend\n"},
+    {"three given vectors: a cross product", CK_ACCEPTED, "",
+     HEAD "given a 1 1 2 3\ngiven b 1 4 5 6\ngiven c 1 -3 6 -3\nstatement (= (* (* (eps i j k) (t a j)) (t b k)) (t c i))\nholds\nend\n"},
+    {"a given scalar has one element", CK_ACCEPTED, "", TWO "given c 0 5\nstatement (= (* (t c) (t c)) 25)\nholds\nend\n"},
+    {"in one dimension a given tensor of any rank has one element", CK_ACCEPTED, "",
+     "certificate indices\ndimension 1\ngiven T 3 7\nstatement (= (t T 1 1 1) 7)\nholds\nend\n"},
+    {"a counterexample with given components, with its values", CK_ACCEPTED, "",
+     TWO "given A 1 (t a) (* 2 (t b))\nstatement (= (* (delta i j) (t A j)) (* (t A 2) (delta i 1)))\nfails i 1\nleft (* 1 (t a))\nright (* 2 (t b))\nend\n"},
+    {"a written value may name a given tensor: it stands for its element", CK_ACCEPTED, "",
+     TWO "given A 1 (t a) (* 2 (t b))\nstatement (= (* (delta i j) (t A j)) (* (t A 2) (delta i 1)))\nfails i 1\nleft (t A 1)\nright (t A 2)\nend\n"},
+
+    /* Con la voce given: respinti. Una componente cambiata, una tabella
+     * letta per colonne, un tensore dato trattato come qualsiasi, e le voci
+     * scritte male. */
+    {"one given component changed", CK_REJECTED, "sono diversi", TWO "given A 1 1 3\nstatement (= (* (t A i) (t A i)) 5)\nholds\nend\n"},
+    {"a given table read by columns", CK_REJECTED, "sono diversi", TWO "given T 2 1 2 3 4\nstatement (= (t T 1 2) 3)\nholds\nend\n"},
+    {"without the entry given the tensor is arbitrary", CK_REJECTED, "sono diversi", TWO "statement (= (* (t A i) (t A i)) 5)\nholds\nend\n"},
+    {"a given tensor is not arbitrary: no counterexample where its components agree", CK_REJECTED, "sono uguali",
+     TWO "given A 1 1 2\nstatement (= (t A 1) 1)\nfails\nend\n"},
+    {"a wrong written value with given components", CK_REJECTED, "valore scritto",
+     TWO "given A 1 (t a) (* 2 (t b))\nstatement (= (* (delta i j) (t A j)) (* (t A 2) (delta i 1)))\nfails i 1\nleft (* 2 (t a))\nright (* 2 (t b))\nend\n"},
+    {"a given table with an element missing", CK_REJECTED, "tanti elementi quanti sono i posti", TWO "given T 2 1 2 3\nstatement (= (t T 1 2) 2)\nholds\nend\n"},
+    {"a given vector with an element too many", CK_REJECTED, "tanti elementi quanti sono i posti", TWO "given A 1 1 2 3\nstatement (= (t A 1) 1)\nholds\nend\n"},
+    {"a given vector with no elements", CK_REJECTED, "tanti elementi quanti sono i posti", TWO "given A 1\nstatement (= (delta i i) 2)\nholds\nend\n"},
+    {"the elements of a given vector are as many as the dimension", CK_REJECTED, "tanti elementi quanti sono i posti",
+     HEAD "given A 1 1 2\nstatement (= (t A 1) 1)\nholds\nend\n"},
+    {"a given tensor used with another number of indices", CK_REJECTED, "due numeri diversi di indici",
+     TWO "given A 2 1 2 3 4\nstatement (= (* (t A i) (t A i)) 5)\nholds\nend\n"},
+    {"an element with a free letter among its indices", CK_REJECTED, "lettere tra gli indici", TWO "given A 1 (t a i) 2\nstatement (= (t A 2) 2)\nholds\nend\n"},
+    {"an element with a summed letter among its indices", CK_REJECTED, "lettere tra gli indici",
+     TWO "given A 1 (* (t a i) (t a i)) 2\nstatement (= (t A 2) 2)\nholds\nend\n"},
+    {"an element that names its own tensor", CK_REJECTED, "nomina un tensore dato", TWO "given A 1 (t A 2) 2\nstatement (= (t A 1) 2)\nholds\nend\n"},
+    {"two given tensors that name each other", CK_REJECTED, "nomina un tensore dato",
+     TWO "given A 1 (+ (t B 1) 1) 2\ngiven B 1 (t A 1) 1\nstatement (= 0 1)\nholds\nend\n"},
+    {"an element that names a tensor given later", CK_REJECTED, "nomina un tensore dato",
+     TWO "given A 1 (t B 1) 2\ngiven B 1 1 1\nstatement (= (t A 1) 1)\nholds\nend\n"},
+    {"an element with a numeric index outside the dimension", CK_REJECTED, "fuori dai valori", TWO "given A 1 (t a 3) 2\nstatement (= (t A 2) 2)\nholds\nend\n"},
+    {"the same tensor given twice", CK_REJECTED, "compare due volte", TWO "given A 1 1 2\ngiven A 1 1 2\nstatement (= (t A 1) 1)\nholds\nend\n"},
+    {"an entry given without the name of the tensor", CK_REJECTED, "nome di un tensore", TWO "given 1 1 2\nstatement (= (delta i i) 2)\nholds\nend\n"},
+    {"an entry given without the number of indices", CK_REJECTED, "quanti indici", TWO "given A (t a) 2\nstatement (= (t A 2) 2)\nholds\nend\n"},
+    {"the elements of an entry given stay on its line", CK_REJECTED, "voce sconosciuta", TWO "given A 1 1\n2\nstatement (= (t A 2) 2)\nholds\nend\n"},
+    {"a given tensor with too many indices for the checker", CK_UNSUPPORTED, "troppi indici",
+     "certificate indices\ndimension 1\ngiven A 65 1\nstatement (= (delta i i) 1)\nholds\nend\n"},
     {"a metric with three indices", CK_REJECTED, "due indici", "certificate indices\ndimension 2\nmetric 1 1\nstatement (= (metric i i i) 2)\nholds\nend\n"},
     {"two entries metric", CK_REJECTED, "due volte", "certificate indices\ndimension 2\nmetric 1 1\nmetric 1 1\nstatement (= (metric i i) 2)\nholds\nend\n"},
     {"an entry metric with a letter", CK_REJECTED, "voce metric", "certificate indices\ndimension 2\nmetric 1 (t a)\nstatement (= (metric i i) 2)\nholds\nend\n"},

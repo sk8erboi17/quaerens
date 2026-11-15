@@ -1,0 +1,36 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{given\_components.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{given\_components.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_index\_identities.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 45 true statements whose hypotheses give a tensor by its components: a table for a tensor with two indices, a list for one with one index, with rational numbers or with letters in the elements. The identity contracts the given tensors with the declared metric, or reads one of their components after raising or lowering an index. The test asks the engine to prove each one and to produce a certificate that the independent checker accepts.
+
+\item \textbf{Where the statements come from.} The scalar products and the lowered components of the IBS winter camp (exercise 1, with the Euclidean metric it declares); the four ways of writing a trace of Roma, exercise 3, with a constant metric in place of the one with $r^{2}$, which is not read yet; the electromagnetic field tensor with indices from 0 to 3 and signature $(+,-,-,-)$: $F^{\mu\nu}$ from $F_{\mu\nu}$ (Carati, 6.7.8 and 6.7.9), $F_{\mu\nu} F^{\mu\nu} = 2(B^{2} - E^{2})$ and $\varepsilon^{\mu\nu\lambda\rho} F_{\mu\nu} F_{\lambda\rho} = -8\,E \cdot B$ (Maryland), the dual tensor and the invariants of Jackson 11.14 (Baird), the fields after a boost along $x$ (Dinius, problem 5, with $c = \gamma$ and $s = \beta\gamma$); the moment of inertia about a line, $I_{r} = n_{i} I_{ij} n_{j}$, of two written exams of Brescia (Vuk, 2 July 2024 and 17 June 2025), written with a vector $m$ along the line instead of the unit vector, which has radicals; the perfect fluid of MPE B.2, multiplied by $c^{2}$ because a division by a letter is not read. Squares are written as products, $B_{1} B_{1}$. Every statement was confirmed by the oracle of \texttt{tools/fuzz/fuzz\_tensors.py} in its \texttt{data} mode, which has its own reader of the tables and looks up each component by row and column.
+
+\item \textbf{What the engine needs in order to pass.} To read the hypotheses, to take the components of a given tensor from its table instead of treating them as unknowns, to keep the letters in the elements arbitrary, to raise and lower the indices of a given tensor from the positions that its hypothesis writes, and to put the given components in the certificate.
+
+\item \textbf{Format expected by the test.} One \texttt{\textbackslash item} per statement, written as \texttt{\$\textbackslash displaystyle ...\$}. The hypotheses come first, joined by \texttt{\textbackslash land}, then \texttt{\textbackslash implies} and the identity. A tensor with two indices is given as $F_{\mu\nu} = \begin{pmatrix} \dots \end{pmatrix}$ and one with one index as $A^{i} = (a_1, \dots, a_d)$: the hypothesis writes the indices, and so says whether the components are the ones with upper or with lower indices; the first index is the row. The values of the indices are declared as $\mu, \nu \in \{0, 1, 2, 3\}$.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -Werror -o /tmp/test_index_identities \
+    tests/tensor_calculus/test_index_identities.c && /tmp/test_index_identities
+\end{verbatim}
+
+\item \textbf{Expected result.} The lines \texttt{PASS: 45 of 45 statements proved, each with a written proof}, \texttt{PASS: 45 of 45 statements proved, 45 with a certificate the checker accepts} and \texttt{PASS: 45 of 45 altered certificates rejected for the right reason}.
+
+\end{enumerate}
+\end{document}

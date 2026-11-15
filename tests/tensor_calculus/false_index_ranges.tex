@@ -1,0 +1,38 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Greek indices and indices that start from 0: false statements (16)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+The statements of \texttt{index\_ranges.tex} with one small change: a value that the indices do not take, the time index read as the last one instead of the first, a sign of the metric. All of them are false and must be refuted, with a counterexample whose certificate the checker accepts.
+
+\begin{enumerate}
+% Without a metric.
+\item $\displaystyle \forall \mu, \nu \in \{0, 1, 2, 3\}\ \left( \delta_{\mu\nu} = \delta_{\nu 0}\delta_{\mu 1} \right)$
+\item $\displaystyle \forall \mu \in \{0, 1, 2, 3\}\ \left( \delta_{\mu 0}\delta_{00} = \delta_{\mu 1} \right)$
+\item $\displaystyle \sum_{\mu=0}^{3} \delta_{\mu\mu} = 3$
+\item $\displaystyle \sum_{\mu=1}^{4} \delta_{\mu\mu} = 3$
+\item $\displaystyle \forall \alpha \in \{0, 1, 2\}\ \left( \varepsilon_{\alpha\beta\gamma} a_{\beta} b_{\gamma} = 0 \right)$
+\item $\displaystyle i \in \{0, 1, 2\} \implies \varepsilon_{012} = -1$
+\item $\displaystyle i \in \{0, 1, 2\} \implies \varepsilon_{021} = 1$
+\item $\displaystyle i \in \{0, 1, 2, 3\} \implies \delta_{ii} = 3$
+% With a declared metric.
+\item $\displaystyle \mu \in \{0, 1, 2, 3\} \land g_{\mu\nu} = \operatorname{diag}(1, -1, -1, -1) \implies A^{\mu} B_{\mu} = A_{0} B_{0} + A_{1} B_{1} + A_{2} B_{2} + A_{3} B_{3}$
+\item $\displaystyle \mu \in \{0, 1, 2, 3\} \land g_{\mu\nu} = \operatorname{diag}(1, -1, -1, -1) \implies A^{\mu} B_{\mu} = -A_{0} B_{0} + A_{1} B_{1} + A_{2} B_{2} + A_{3} B_{3}$
+\item $\displaystyle \mu \in \{0, 1, 2, 3\} \land g_{\mu\nu} = \operatorname{diag}(1, -1, -1, -1) \implies A^{\mu} B_{\mu} = -A_{0} B_{0} - A_{1} B_{1} - A_{2} B_{2} + A_{3} B_{3}$
+\item $\displaystyle \mu \in \{1, 2, 3, 4\} \land g_{\mu\nu} = \operatorname{diag}(1, -1, -1, -1) \implies A^{\mu} B_{\mu} = -A_{1} B_{1} - A_{2} B_{2} - A_{3} B_{3} + A_{4} B_{4}$
+\item $\displaystyle g_{\mu\nu} = \operatorname{diag}(1, -1, -1, -1) \land \varepsilon^{0123} = 1 \implies \varepsilon^{\mu\nu\rho\sigma}\varepsilon_{\mu\nu\rho\sigma} = 24$
+\item $\displaystyle g_{\mu\nu} = \operatorname{diag}(1, -1, -1, -1) \land \varepsilon^{0123} = 1 \implies \varepsilon_{0123} = 1$
+\item $\displaystyle g_{\mu\nu} = \operatorname{diag}(1, -1) \land \varepsilon_{01} = 1 \implies \varepsilon^{01} = 1$
+\item $\displaystyle \mu \in \{0, 1\} \land g_{\mu\nu} = \operatorname{diag}(2, 3) \implies M^{\mu\nu} u_{\mu} v_{\nu} = M_{00} u_{0} v_{0} + M_{01} u_{0} v_{1} + M_{10} u_{1} v_{0} + M_{11} u_{1} v_{1}$
+\end{enumerate}
+\end{document}

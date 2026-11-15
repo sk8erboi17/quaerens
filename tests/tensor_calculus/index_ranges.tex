@@ -1,0 +1,47 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Greek indices and indices that start from 0: true statements (25)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Identities with indices written with Greek letters, or whose values start from 0, as in the books of relativity. The statement declares where the values start: with the quantifiers, with a summation sign, with a hypothesis that lists the indices, or with the declared value of $\varepsilon$. All of them are true and must be proved, with a certificate that the checker accepts.
+
+\begin{enumerate}
+% Without a metric.
+\item $\displaystyle \forall i, j \in \{0, 1, 2, 3\}\ \left( \delta_{ij} = \delta_{ji} \right)$
+\item $\displaystyle \forall \mu, \nu \in \{0, 1, 2, 3\}\ \left( \delta_{\mu\nu} = \delta_{\nu\mu} \right)$
+\item $\displaystyle \forall \mu, \rho \in \{0, 1, 2, 3\}\ \left( \delta_{\mu\nu}\delta_{\nu\rho} = \delta_{\mu\rho} \right)$
+\item $\displaystyle \forall \mu \in \{0, 1, 2, 3\}\ \left( \delta_{\mu 0}\delta_{00} = \delta_{\mu 0} \right)$
+\item $\displaystyle \sum_{\mu=0}^{3} \delta_{\mu\mu} = 4$
+\item $\displaystyle \sum_{\mu=1}^{4} \delta_{\mu\mu} = 4$
+\item $\displaystyle \forall \alpha \in \{0, 1, 2\}\ \left( \varepsilon_{\alpha\beta\gamma} a_{\beta} a_{\gamma} = 0 \right)$
+\item $\displaystyle \forall \alpha, \beta, \mu, \nu \in \{1, 2, 3\}\ \left( \varepsilon_{\lambda\alpha\beta}\varepsilon_{\lambda\mu\nu} = \delta_{\alpha\mu}\delta_{\beta\nu} - \delta_{\alpha\nu}\delta_{\beta\mu} \right)$
+\item $\displaystyle \forall \alpha, a \in \{0, 1, 2\}\ \left( \delta_{\alpha a} = \delta_{a\alpha} \right)$
+\item $\displaystyle i \in \{0, 1, 2\} \implies \varepsilon_{012} = 1$
+\item $\displaystyle i \in \{0, 1, 2\} \implies \varepsilon_{120} = 1$
+\item $\displaystyle i \in \{1, 2, 3\} \implies \delta_{ii} = 3$
+\item $\displaystyle \mu \in \{0, 1, 2, 3\} \implies \delta_{\mu\mu} = 4$
+% With a declared metric.
+\item $\displaystyle \mu \in \{0, 1, 2, 3\} \land g_{\mu\nu} = \operatorname{diag}(1, -1, -1, -1) \implies A^{\mu} B_{\mu} = A_{\mu} B^{\mu}$
+\item $\displaystyle \mu \in \{0, 1, 2, 3\} \land g_{\mu\nu} = \operatorname{diag}(1, -1, -1, -1) \implies A^{\mu} B_{\mu} = A_{0} B_{0} - A_{1} B_{1} - A_{2} B_{2} - A_{3} B_{3}$
+\item $\displaystyle \mu \in \{1, 2, 3, 4\} \land g_{\mu\nu} = \operatorname{diag}(1, -1, -1, -1) \implies A^{\mu} B_{\mu} = A_{1} B_{1} - A_{2} B_{2} - A_{3} B_{3} - A_{4} B_{4}$
+\item $\displaystyle \mu \in \{0, 1, 2, 3\} \land g_{\mu\nu} = \operatorname{diag}(-1, 1, 1, 1) \implies g^{\mu\nu} g_{\mu\nu} = 4$
+\item $\displaystyle \mu \in \{0, 1, 2, 3\} \land g_{\mu\nu} = \operatorname{diag}(-1, 1, 1, 1) \implies \forall \mu, \rho \in \{0, 1, 2, 3\}\ \left( g_{\mu\nu} g^{\nu\rho} = \delta_{\mu}^{\rho} \right)$
+\item $\displaystyle g_{\mu\nu} = \operatorname{diag}(-1, 1, 1, 1) \implies \forall \mu, \rho \in \{0, 1, 2, 3\}\ \left( \delta^{\mu}_{\nu}\delta^{\nu}_{\rho} = \delta^{\mu}_{\rho} \right)$
+\item $\displaystyle g_{\mu\nu} = \operatorname{diag}(1, -1, -1, -1) \land \varepsilon^{0123} = 1 \implies \varepsilon^{\mu\nu\rho\sigma}\varepsilon_{\mu\nu\rho\sigma} = -24$
+\item $\displaystyle g_{\mu\nu} = \operatorname{diag}(1, -1, -1, -1) \land \varepsilon^{0123} = 1 \implies \varepsilon_{0123} = -1$
+\item $\displaystyle g_{\mu\nu} = \operatorname{diag}(1, -1, -1, -1) \land \varepsilon_{0123} = 1 \implies \varepsilon^{\mu\nu\rho\sigma}\varepsilon_{\mu\nu\rho\lambda} = -6\delta^{\sigma}_{\lambda}$
+\item $\displaystyle g_{\mu\nu} = \operatorname{diag}(1, -1) \land \varepsilon_{01} = 1 \implies \varepsilon^{01} = -1$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, -1) \land \varepsilon_{01} = 1 \implies \varepsilon^{ij}\varepsilon_{ij} = -2$
+\item $\displaystyle \mu \in \{0, 1\} \land g_{\mu\nu} = \operatorname{diag}(2, 3) \implies M^{\mu\nu} u_{\mu} v_{\nu} = \frac{1}{4} M_{00} u_{0} v_{0} + \frac{1}{6} M_{01} u_{0} v_{1} + \frac{1}{6} M_{10} u_{1} v_{0} + \frac{1}{9} M_{11} u_{1} v_{1}$
+\end{enumerate}
+\end{document}

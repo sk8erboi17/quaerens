@@ -72,7 +72,9 @@
  * ipotesi che dichiarano una metrica, e svolge gli indici alzati e abbassati
  * in contrazioni con la metrica: è uno svolgimento come quelli del capitolo
  * 17, e il motore lo ricontrolla calcolando l'identità scritta e quella
- * svolta in ogni punto (38d in main.c).
+ * svolta in ogni punto (38d in main.c). Legge anche le ipotesi che danno un
+ * tensore per componenti, con una tabella o un elenco, e quella che dice da
+ * quale numero cominciano i valori degli indici.
  *
  * COME STA NEL PROGRAMMA
  *
@@ -96,7 +98,7 @@
  *   21. Lettura degli enunciati da un file .tex
  *   34. Funzioni di più variabili: notazione e albero
  *   37. Indici: notazione e albero
- *   39. Indici con una metrica dichiarata
+ *   39. Indici: metrica e componenti dichiarate
  */
 
 /* =============================================================================
@@ -10667,15 +10669,17 @@ static int parse_partial_statement(const char *text, PartialStatement *out) {
  *
  * La grammatica, dalla precedenza più bassa alla più alta:
  *
- *     enunciato := { \forall lettera { ',' lettera } \in \{ 1 ',' 2 ',' ... ',' d \} }
+ *     enunciato := { \forall lettera { ',' lettera } \in valori }
  *                  ( '(' identità ')' | identità )
+ *     valori    := \{ 1 ',' 2 ',' ... ',' d \} | \{ 0 ',' 1 ',' ... ',' d - 1 \}
  *     identità  := somma '=' somma
  *     somma     := ['-' | '+'] prodotto { ('+' | '-') prodotto }
- *     prodotto  := { \sum '_' '{' lettera '=' 1 '}' '^' numero } fattore { [\cdot] fattore }
+ *     prodotto  := { \sum '_' '{' lettera '=' (0 | 1) '}' '^' numero } fattore { [\cdot] fattore }
  *     fattore   := numero | \frac '{' numero '}' '{' numero '}' | '(' somma ')' | simbolo
- *     simbolo   := (\delta | \varepsilon | \epsilon | lettera) { gruppo | '{' '}' }
+ *     simbolo   := (\delta | \varepsilon | \epsilon | lettera latina) { gruppo | '{' '}' }
  *     gruppo    := ('_' | '^') ( indice | '{' indice { indice } '}' )
- *     indice    := lettera latina | cifra da 1 a 9, solo in basso
+ *     indice    := lettera | cifra, solo in basso
+ *     lettera   := lettera latina | lettera greca diversa da \delta e da \varepsilon
  *
  * Le convenzioni che il lettore fissa. Sono scritte per esteso perché sono
  * il solo punto in cui un enunciato può essere letto in un senso diverso da
@@ -10711,9 +10715,8 @@ static int parse_partial_statement(const char *text, PartialStatement *out) {
  *        spaziotempo: \varepsilon^{ijkl}\varepsilon_{ijkl} vale 24 o -24), e
  *        scegliere quale sarebbe scegliere una metrica per chi scrive. Chi
  *        vuole le due posizioni dichiara la metrica tra le ipotesi (capitolo
- *        39). Per lo stesso motivo sono rifiutati gli indici greci, che per
- *        convenzione sono quelli dello spaziotempo. Gli indici di un tensore si leggono nell'ordine in cui
- *        sono scritti: T^{i}_{j} è la componente (i, j).
+ *        39). Gli indici di un tensore si leggono nell'ordine in cui sono
+ *        scritti: T^{i}_{j} è la componente (i, j).
  *
  *   37c. La convenzione di Einstein. In un prodotto, una lettera che compare
  *        due volte come indice è sommata da 1 a d; una che compare una volta
@@ -10739,6 +10742,18 @@ static int parse_partial_statement(const char *text, PartialStatement *out) {
  *        (\delta_{ii} = 3) l'enunciato è rifiutato: è vero in tre dimensioni
  *        e falso nelle altre, e il lettore non indovina.
  *
+ *        I valori degli indici sono d numeri di seguito: da 1 a d, oppure
+ *        da 0 a d - 1, come nei libri di relatività. Da quale numero
+ *        cominciano lo dice l'enunciato, scrivendolo: \forall \mu \in
+ *        \{0, 1, 2, 3\}, \sum_{\mu=0}^{3}, o un'ipotesi del capitolo 39. Se
+ *        nessuno lo dice cominciano da 1, e allora lo 0 scritto come indice
+ *        è rifiutato. Dentro il programma i valori sono sempre da 1 a d: il
+ *        lettore, finito l'enunciato, sposta di uno i numeri scritti come
+ *        indici (index_shift()), e chi scrive un valore lo riporta
+ *        all'origine dell'enunciato (IndexStatement.origin). Cambiare nome
+ *        ai valori non cambia nessuna somma e nessuna uguaglianza: è la
+ *        stessa identità.
+ *
  *   37e. I numeri al posto degli indici, \varepsilon_{123} = 1, sono valori
  *        fissi, una cifra per indice. Solo in basso: a^{2} è più spesso un
  *        quadrato che la seconda componente, e le potenze qui non ci sono.
@@ -10747,11 +10762,27 @@ static int parse_partial_statement(const char *text, PartialStatement *out) {
  *        in alto non può essere una potenza. Accanto a un tensore resta
  *        rifiutato anche lì; lo scrive solo il motore, nei valori che
  *        mostra (A^{1} B_{1}), che non contengono potenze e che rilegge con
- *        parse_index_values().
+ *        parse_index_values(). Fa eccezione un tensore che un'ipotesi dà
+ *        con una tabella (39d): ha sempre due indici, non è mai uno scalare,
+ *        e F^{01} può essere solo una sua componente.
+ *
+ *   37f. Gli indici greci. Una lettera greca fa da indice come una latina:
+ *        F_{\mu\nu} F^{\mu\nu}. Il lettore la sostituisce con una lettera
+ *        latina che nell'enunciato non compare (index_token_letter()), e da
+ *        lì in poi il programma conosce solo lettere latine; la lettera
+ *        greca torna quando si scrive un messaggio o un controesempio
+ *        (index_label[]). Lettere greche diverse ricevono lettere latine
+ *        diverse, e nessuna è già dell'enunciato: l'identità è la stessa,
+ *        con un altro nome per gli indici. \delta e \varepsilon restano i
+ *        simboli di questo linguaggio, e come indici non si usano. Per
+ *        convenzione gli indici greci sono quelli dello spaziotempo, che i
+ *        libri contano da 0 a 3 oppure da 1 a 4: con un indice greco
+ *        l'enunciato deve dichiarare da dove cominciano i valori (37d).
  *
  * Ciò che resta fuori ha il suo motivo nel verdetto: le derivate (\partial,
  * \nabla, la virgola tra gli indici), i simboli di Christoffel, la notazione
- * con i vettori (\times, \mathbf), le potenze, le lettere greche.
+ * con i vettori (\times, \mathbf), le potenze, le lettere greche come nomi
+ * di tensori.
  */
 
 /* Un insieme di lettere usate come indici: il bit di posto index_slot(c)
@@ -10801,9 +10832,12 @@ typedef enum {
  * dell'identità. Sta nell'arena, come i suoi vettori.
  *
  * index[] e upper[] descrivono gli indici di un simbolo, nell'ordine in cui
- * sono scritti: una lettera vale il suo carattere, un numero v (da 1 a 9)
- * vale v, e i due casi non si confondono perché ogni lettera vale almeno
- * 'A'. I tre insiemi li calcola index_scan() (37c). Gli ultimi tre campi
+ * sono scritti: una lettera vale il suo carattere (per una lettera greca,
+ * quello della latina che la rappresenta, 37f), un numero vale sé stesso, e
+ * i due casi non si confondono perché un numero è una cifra o al più 10 e
+ * ogni lettera vale almeno 'A'. Mentre si legge il numero è la cifra
+ * scritta; a enunciato finito è il valore da 1 a d (37d). I tre insiemi li
+ * calcola index_scan() (37c). Gli ultimi tre campi
  * sono annotazioni lasciate dal motore (38b in main.c): il lettore li lascia
  * a zero. */
 typedef struct IndexNode IndexNode;
@@ -10827,13 +10861,29 @@ struct IndexNode {
 /* Un'identità con gli indici, letta e controllata: i due membri, la
  * dimensione, gli indici liberi (gli stessi nei due membri) e, per ogni
  * lettera, il rango del tensore che nomina: rank[index_slot(c)] è il numero
- * dei suoi indici, o -1 se c non è il nome di un tensore. Con una metrica
- * dichiarata porta anche ciò che il capitolo 39 ha letto e svolto. */
+ * dei suoi indici, o -1 se c non è il nome di un tensore. Con delle ipotesi
+ * porta anche ciò che il capitolo 39 ha letto e svolto.
+ *
+ * Negli alberi i valori degli indici vanno sempre da 1 a dimension; origin
+ * è il numero da cui cominciano nell'enunciato, 0 o 1 (37d): un valore v
+ * degli alberi vi è scritto v + origin - 1. label[index_slot(c)] è come
+ * l'enunciato scrive l'indice che gli alberi chiamano c: la lettera stessa,
+ * o il comando della lettera greca che c rappresenta (37f). */
 typedef struct {
     IndexNode *left, *right;
     int dimension;
+    int origin;
     IndexSet free;
     int rank[INDEX_LETTERS];
+    char label[INDEX_LETTERS][12];
+
+    /* 39d. Le componenti dei tensori che un'ipotesi dà con una tabella o
+     * con un elenco: given[index_slot(c)] è NULL se c non è uno di loro,
+     * altrimenti punta ai suoi dimension elevato a rank elementi, nell'arena,
+     * con il primo indice che varia per ultimo (per righe, in una tabella).
+     * Ogni elemento è un albero senza lettere tra gli indici e senza tensori
+     * dati: un polinomio nelle componenti dei tensori qualsiasi. */
+    IndexNode **given[INDEX_LETTERS];
 
     /* Solo con una metrica dichiarata (capitolo 39); altrimenti metric è
      * NULL e gli altri campi non contano. left e right sono allora
@@ -10856,12 +10906,28 @@ static IndexSet index_names;                   /* le lettere che nominano un ten
 static IndexSet index_used;                    /* le lettere usate come indici */
 static int index_epsilon;                      /* quanti indici ha il simbolo di Levi-Civita; 0 se non compare */
 static int index_top;                          /* il più grande numero scritto come indice; 0 se non ce ne sono */
-static int index_summed;                       /* fin dove arrivano i segni di somma scritti; 0 se non ce ne sono */
+static int index_zero;                         /* 1 se tra gli indici è scritto lo 0 */
+static int index_summed;                       /* quanti valori percorrono i segni di somma scritti; 0 se non ce ne sono */
+static int index_low;                          /* 37d: il numero da cui cominciano i valori degli indici, 0 o 1,
+                                                  se una dichiarazione lo dice; altrimenti -1 */
+static int index_greek;                        /* 37f: 1 se tra gli indici c'è una lettera greca */
 static int index_metric_slot = -1;             /* il posto della lettera che un'ipotesi ha dichiarato metrica
                                                   (capitolo 39), o -1: senza metrica vale il capitolo 37 */
+static IndexSet index_given_names;             /* le lettere dei tensori che un'ipotesi dà per componenti (39d) */
+static IndexNode **index_given[INDEX_LETTERS]; /* i loro elementi (IndexStatement.given), o NULL */
 static int index_engine_text;                  /* 1 mentre si rilegge un testo scritto dal motore
                                                   (parse_index_values()): lì un numero in alto è un indice,
                                                   perché il motore non scrive potenze */
+
+/* 37f. Le lettere greche lette come indici. index_taken sono le lettere
+ * latine che non possono rappresentarne una: quelle scritte nell'enunciato
+ * e quelle già assegnate. index_alias[i] è la lettera latina che sta per
+ * greek_letters[i] (capitolo 17), o 0 se quella non è ancora comparsa.
+ * index_label[s] è come si scrive l'indice di posto s in un messaggio: la
+ * lettera stessa, o il comando della lettera greca che rappresenta. */
+static IndexSet index_taken;
+static int index_alias[sizeof greek_letters / sizeof *greek_letters];
+static char index_label[INDEX_LETTERS][12];
 
 /* 37d. Un segno di somma scritto davanti a un prodotto, \sum_{i=1}^{3}: la
  * lettera, come posto, e il prodotto che lo segue, in cui la convenzione
@@ -10909,6 +10975,37 @@ static void index_unexpected(void) {
     for (size_t i = 0; i < sizeof greek_letters / sizeof *greek_letters; i++)
         if (is_command(greek_letters[i])) { syntax("le lettere greche, come nomi di tensori o di scalari, non sono ancora trattate nelle identità con gli indici"); return; }
     syntax(token.kind == T_COMMAND ? "comando LaTeX non supportato in un'identità con gli indici" : "simbolo inatteso in un'identità con gli indici");
+}
+
+/* 37f. Se il token corrente è una lettera che può fare da indice, ritorna la
+ * lettera latina con cui il programma la conosce: sé stessa, o quella che
+ * sta per una lettera greca, scelta la prima volta tra le lettere che
+ * l'enunciato non usa. Altrimenti ritorna 0. Non supera il token. Se le
+ * lettere latine sono finite annota l'errore. */
+static int index_token_letter(void) {
+    if (token.kind == T_LETTER) return token.ch;
+    for (size_t i = 0; i < sizeof greek_letters / sizeof *greek_letters; i++) {
+        if (!is_command(greek_letters[i]) || strcmp(greek_letters[i], "delta") == 0) continue;
+        if (!index_alias[i]) {
+            IndexSet spare = ~index_taken & ((1ULL << INDEX_LETTERS) - 1);
+            if (!spare) { syntax("troppi indici: non restano lettere latine per rappresentare quelli greci"); return 0; }
+            int slot = index_first_slot(spare);
+            index_taken |= 1ULL << slot;
+            index_alias[i] = index_letter(slot);
+            snprintf(index_label[slot], sizeof index_label[slot], "\\%s", greek_letters[i]);
+        }
+        index_greek = 1;
+        return index_alias[i];
+    }
+    return 0;
+}
+
+/* 37d. Annota che una dichiarazione fa cominciare da first i valori degli
+ * indici: da 0 o da 1, e tutte le dichiarazioni devono dire lo stesso. */
+static void index_range(long long first) {
+    if (first != 0 && first != 1) syntax("i valori degli indici cominciano da 1, oppure da 0");
+    else if (index_low >= 0 && index_low != first) syntax("i valori degli indici sono dichiarati in due modi che non sono d'accordo: a partire da 0 e a partire da 1");
+    else index_low = (int)first;
 }
 
 /* Ritorna un nodo nuovo di tipo kind con i figli a e b e gli altri campi a
@@ -10967,27 +11064,32 @@ static void index_groups(IndexNode *leaf) {
 
         /* Un indice solo, oppure tutti quelli tra le graffe. */
         do {
-            if (token.kind == T_LETTER) {
+            int letter = index_token_letter();
+            if (letter) {
                 if (count == MAX_FORMULA) { syntax("troppi indici"); return; }
-                index_used |= 1ULL << index_slot(token.ch);
-                entry[count] = token.ch;
+                index_used |= 1ULL << index_slot(letter);
+                entry[count] = letter;
                 above[count++] = (unsigned char)upper;
             } else if (token.kind == T_NUM) {
                 /* 37e. Una cifra per indice, solo in basso: in alto accanto
                  * a un tensore può essere una potenza, e senza metrica
                  * anche accanto a un simbolo. Nei valori che il motore ha
-                 * scritto è un indice. Senza graffe un pedice è un solo
-                 * token, come in TeX: a_12 è a_{1} seguito da 2, e non lo
-                 * si legge in nessuno dei due modi. */
-                if (upper && !index_engine_text && (index_metric_slot < 0 || leaf->kind == IX_TENSOR)) {
+                 * scritto è un indice, e così accanto a un tensore dato con
+                 * una tabella, che ha sempre due indici. Senza graffe un
+                 * pedice è un solo token, come in TeX: a_12 è a_{1} seguito
+                 * da 2, e non lo si legge in nessuno dei due modi. */
+                int table = leaf->kind == IX_TENSOR && (index_given_names >> index_slot(leaf->name) & 1) && index_first[index_slot(leaf->name)]->rank == 2;
+                if (upper && !index_engine_text && !table && (index_metric_slot < 0 || leaf->kind == IX_TENSOR)) {
                     syntax("un numero in alto può essere una potenza: gli indici numerici si scrivono in basso, e le potenze non sono trattate");
                     return;
                 }
                 if (!braces && token.digits > 1) { syntax("più indici numerici vanno scritti tra graffe, come \\varepsilon_{123}"); return; }
                 for (int k = 0; k < token.digits; k++) {
+                    /* Se lo 0 e il numero più grande sono tra i valori
+                     * degli indici lo si sa a enunciato finito (37d). */
                     int digit = token.start[k] - '0';
-                    if (digit == 0) { syntax("un indice numerico va da 1 alla dimensione: lo zero non è ammesso"); return; }
                     if (count == MAX_FORMULA) { syntax("troppi indici"); return; }
+                    if (digit == 0) index_zero = 1;
                     if (digit > index_top) index_top = digit;
                     entry[count] = digit;
                     above[count++] = (unsigned char)upper;
@@ -10995,12 +11097,11 @@ static void index_groups(IndexNode *leaf) {
             } else if (is_char(',') || is_char(';')) {
                 syntax("una virgola o un punto e virgola tra gli indici indicano una derivata: non è ancora trattata");
                 return;
-            } else if (token.kind == T_COMMAND) {
-                syntax("gli indici greci non sono ancora letti: l'identità si scrive con lettere latine, e la metrica dello spaziotempo si dichiara tra le ipotesi, "
-                       "g_{ij} = \\operatorname{diag}(-1, 1, 1, 1) \\implies ...");
+            } else if (is_command("delta") || is_command("varepsilon") || is_command("epsilon")) {
+                syntax("\\delta e \\varepsilon sono i simboli di questo linguaggio: come indici non si usano, e all'indice si dà un'altra lettera");
                 return;
-            } else {
-                syntax("tra gli indici sono ammesse solo lettere latine e cifre");
+            } else if (!syntax_error) {
+                syntax("tra gli indici sono ammesse solo lettere e cifre");
                 return;
             }
             next_token();
@@ -11133,20 +11234,24 @@ static IndexNode *index_factor(void) {
 
 /* 37d. Legge un segno di somma, \sum_{i=1}^{3}, e ne ritorna l'elemento, con
  * la lettera e senza ancora il prodotto; NULL dopo un errore. La somma
- * comincia da 1 e arriva a un numero scritto, che è la dimensione. */
+ * comincia da 1, o da 0, e arriva a un numero scritto: dice così da dove
+ * cominciano i valori degli indici e quanti sono, cioè la dimensione. */
 static IndexSum *index_sum_sign(void) {
     static const char *const form = "un segno di somma su un indice si scrive \\sum_{i=1}^{3}";
     next_token();
     expect_char('_', form);
     expect_char('{', form);
-    if (!syntax_error && token.kind != T_LETTER) syntax(form);
+    int letter = syntax_error ? 0 : index_token_letter();
+    if (!letter) syntax(form);
     if (syntax_error) return NULL;
-    int slot = index_slot(token.ch);
+    int slot = index_slot(letter);
     index_used |= 1ULL << slot;
     next_token();
     expect_char('=', form);
-    if (!syntax_error && (token.kind != T_NUM || token.value != 1)) syntax("una somma su un indice comincia da 1");
+    if (!syntax_error && (token.kind != T_NUM || token.value > 1)) syntax("una somma su un indice comincia da 1, oppure da 0");
     if (syntax_error) return NULL;
+    int first = (int)token.value;
+    index_range(first);
     next_token();
     expect_char('}', form);
     expect_char('^', form);
@@ -11154,12 +11259,12 @@ static IndexSum *index_sum_sign(void) {
     if (braces) next_token();
     if (!syntax_error && (token.kind != T_NUM || token.value < 1 || token.value > INT_MAX || (!braces && token.digits > 1))) syntax(form);
     if (syntax_error) return NULL;
-    int upper = (int)token.value;
+    int count = (int)token.value - first + 1;
     next_token();
     if (braces) expect_char('}', form);
     if (syntax_error) return NULL;
-    if (index_summed && index_summed != upper) { syntax("due segni di somma arrivano a numeri diversi: la dimensione è una sola"); return NULL; }
-    index_summed = upper;
+    if (index_summed && index_summed != count) { syntax("due segni di somma arrivano a numeri diversi: la dimensione è una sola"); return NULL; }
+    index_summed = count;
     IndexSum *sum = arena_alloc(sizeof *sum);
     if (!sum) return NULL;
     sum->slot = slot;
@@ -11225,37 +11330,48 @@ static void index_identity(IndexStatement *out) {
     out->right = index_sum();
 }
 
+/* 37d. Legge l'insieme dei valori degli indici, che comincia al token
+ * corrente: \{1, 2, 3\} oppure \{0, 1, 2, 3\}, numeri di seguito a partire
+ * da 1 o da 0. Annota da dove cominciano (index_range()) e ritorna quanti
+ * sono; 0 dopo un errore. */
+static int index_values(void) {
+    static const char *const form = "i valori degli indici si scrivono per esteso e in ordine, a partire da 1 oppure da 0: \\{1, 2, 3\\}";
+    if (!is_char(ESCAPED + '{')) { syntax(form); return 0; }
+    long long first = 0;
+    int count = 0;
+    do {
+        next_token();
+        if (token.kind != T_NUM || (count ? token.value != first + count : token.value > 1)) { syntax(form); return 0; }
+        if (!count) first = token.value;
+        count++;
+        next_token();
+    } while (is_char(','));
+    if (!is_char(ESCAPED + '}')) { syntax(form); return 0; }
+    next_token();
+    index_range(first);
+    return syntax_error ? 0 : count;
+}
+
 /* 37d. Legge i quantificatori davanti all'identità, se ci sono:
  * \forall i, j \in \{1, 2, 3\}, anche più di uno di seguito. Aggiunge a
  * *declared gli indici che nominano e ritorna la dimensione che dichiarano,
- * cioè quanti numeri elenca l'insieme, o 0 se non ci sono quantificatori. I
- * numeri devono essere 1, 2, ..., d in quest'ordine: un insieme come
- * \{0, 1, 2, 3\} è quello degli indici dello spaziotempo, che qui non ci
- * sono (37b). */
+ * cioè quanti numeri elenca l'insieme (index_values()), o 0 se non ci sono
+ * quantificatori. */
 static int index_prefix(IndexSet *declared) {
     int dimension = 0;
     while (is_command("forall") && !syntax_error) {
         /* Le lettere, separate da virgole. */
         do {
             next_token();
-            if (token.kind != T_LETTER) { syntax("dopo \\forall servono gli indici liberi: lettere separate da virgole"); return 0; }
-            *declared |= 1ULL << index_slot(token.ch);
+            int letter = index_token_letter();
+            if (!letter) { syntax("dopo \\forall servono gli indici liberi: lettere separate da virgole"); return 0; }
+            *declared |= 1ULL << index_slot(letter);
             next_token();
         } while (is_char(','));
         if (!is_command("in")) { syntax("dopo gli indici quantificati serve \\in e l'insieme dei loro valori, \\{1, 2, 3\\}"); return 0; }
         next_token();
-        if (!is_char(ESCAPED + '{')) { syntax("i valori degli indici si scrivono per esteso, \\{1, 2, 3\\}"); return 0; }
-
-        /* I numeri da 1 a d. */
-        int count = 0;
-        do {
-            next_token();
-            if (token.kind != T_NUM || token.value != count + 1) { syntax("i valori degli indici si scrivono in ordine a partire da 1, \\{1, 2, 3\\}"); return 0; }
-            count++;
-            next_token();
-        } while (is_char(','));
-        if (!is_char(ESCAPED + '}')) { syntax("i valori degli indici si scrivono per esteso, \\{1, 2, 3\\}"); return 0; }
-        next_token();
+        int count = index_values();
+        if (!count) return 0;
         if (dimension && dimension != count) { syntax("gli indici quantificati variano in insiemi diversi: la dimensione è una sola"); return 0; }
         dimension = count;
     }
@@ -11315,8 +11431,8 @@ static void index_scan(IndexNode *node) {
     } else if (node->kind == IX_MUL) {
         IndexSet clash = (a->bound & (b->free | b->bound)) | (b->bound & a->free);
         if (clash) {
-            index_complain("l'indice %c compare più di due volte in un prodotto: un indice ripetuto due volte è sommato, tre non hanno significato; "
-                           "si rinomina l'indice sommato", index_letter(index_first_slot(clash)));
+            index_complain("l'indice %s compare più di due volte in un prodotto: un indice ripetuto due volte è sommato, tre non hanno significato; "
+                           "si rinomina l'indice sommato", index_label[index_first_slot(clash)]);
             return;
         }
         node->here = a->free & b->free;
@@ -11324,8 +11440,8 @@ static void index_scan(IndexNode *node) {
         node->bound = a->bound | b->bound | node->here;
     } else {
         if (!index_is_zero(a) && !index_is_zero(b) && a->free != b->free) {
-            index_complain("due addendi di una somma hanno indici liberi diversi: l'indice %c è libero in uno solo dei due",
-                           index_letter(index_first_slot(a->free ^ b->free)));
+            index_complain("due addendi di una somma hanno indici liberi diversi: l'indice %s è libero in uno solo dei due",
+                           index_label[index_first_slot(a->free ^ b->free)]);
             return;
         }
         node->free = index_is_zero(a) ? b->free : a->free;
@@ -11333,16 +11449,48 @@ static void index_scan(IndexNode *node) {
     }
 }
 
+/* 37d. Aggiunge by a ogni numero scritto come indice nel sottoalbero node,
+ * che può essere NULL: porta i valori dall'origine dell'enunciato a quella
+ * del programma, dove vanno da 1 a d. Ogni albero va spostato una volta
+ * sola. */
+static void index_shift(IndexNode *node, int by) {
+    if (!node || !by) return;
+    for (int i = 0; i < node->rank; i++)
+        if (node->index[i] < 'A') node->index[i] += by;
+    index_shift(node->a, by);
+    index_shift(node->b, by);
+}
+
 /* Prepara il lettore per un enunciato nuovo scritto in formula: azzera ciò
  * che il capitolo annota mentre legge e si porta sul primo token. */
 static void index_begin(const char *formula) {
     memset(index_first, 0, sizeof index_first);
+    memset(index_given, 0, sizeof index_given);
+    memset(index_alias, 0, sizeof index_alias);
     index_first_epsilon = NULL;
-    index_names = index_used = 0;
-    index_epsilon = index_top = index_summed = 0;
+    index_names = index_used = index_given_names = 0;
+    index_epsilon = index_top = index_zero = index_summed = index_greek = 0;
+    index_low = -1;
     index_sums = NULL;
     index_metric_slot = -1;
     index_engine_text = 0;
+
+    /* 37f. Le lettere latine scritte nell'enunciato, che non possono
+     * rappresentare una lettera greca: tutte quelle del testo, tranne i nomi
+     * dei comandi. Si guardano i caratteri e non i token, perché l'elenco
+     * deve essere completo anche se la lettura si fermerà a metà. Sono di
+     * più di quelle che fanno da indice o da nome (ci sono le lettere di
+     * {diag} e di {pmatrix}): ne restano comunque abbastanza. */
+    index_taken = 0;
+    for (const char *p = formula; *p; p++) {
+        if (*p == '\\') {
+            if (!*++p) break;
+            while (isalpha((unsigned char)p[0]) && isalpha((unsigned char)p[1])) p++;
+        } else if ((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z')) {
+            index_taken |= 1ULL << index_slot(*p);
+        }
+    }
+    for (int slot = 0; slot < INDEX_LETTERS; slot++) snprintf(index_label[slot], sizeof index_label[slot], "%c", index_letter(slot));
     syntax_error = NULL;
     cursor = formula;
     next_token();
@@ -11350,15 +11498,17 @@ static void index_begin(const char *formula) {
 
 /* Legge l'identità con gli indici che comincia al token corrente, con i suoi
  * quantificatori, fino alla fine del testo, e la mette in *out con la
- * dimensione, gli indici liberi e i ranghi dei tensori. dimension, se non è
- * zero, è la dimensione già nota a chi chiama (il motore, che rilegge i
- * valori che ha scritto, o il capitolo 39, che l'ha letta dalla metrica):
- * vale quando l'identità non ne dichiara una, e deve coincidere con quella
- * dichiarata. Ritorna 1 se riesce; altrimenti 0, con il motivo in
- * syntax_error o in failure.
+ * dimensione, l'origine dei valori, gli indici liberi e i ranghi dei
+ * tensori. dimension, se non è zero, è la dimensione già nota a chi chiama
+ * (il motore, che rilegge i valori che ha scritto, o il capitolo 39, che
+ * l'ha letta dalle ipotesi): vale quando l'identità non ne dichiara una, e
+ * deve coincidere con quella dichiarata. Ritorna 1 se riesce; altrimenti 0,
+ * con il motivo in syntax_error o in failure.
  *
  * Chi chiama ha già preparato il lettore (index_begin()) e l'arena, dove
- * stanno i nodi. */
+ * stanno i nodi; se sa da dove cominciano i valori degli indici lo ha già
+ * detto con index_range(). I numeri scritti come indici nei due membri
+ * escono portati ai valori da 1 a d (37d). */
 static int index_statement_body(int dimension, IndexStatement *out) {
     memset(out, 0, sizeof *out);
 
@@ -11414,8 +11564,8 @@ static int index_statement_body(int dimension, IndexStatement *out) {
     if (syntax_error) return 0;
     out->free = index_is_zero(out->left) ? out->right->free : out->left->free;
     if (!index_is_zero(out->left) && !index_is_zero(out->right) && out->left->free != out->right->free) {
-        index_complain("i due membri hanno indici liberi diversi: l'indice %c è libero in uno solo dei due",
-                       index_letter(index_first_slot(out->left->free ^ out->right->free)));
+        index_complain("i due membri hanno indici liberi diversi: l'indice %s è libero in uno solo dei due",
+                       index_label[index_first_slot(out->left->free ^ out->right->free)]);
         return 0;
     }
 
@@ -11423,21 +11573,21 @@ static int index_statement_body(int dimension, IndexStatement *out) {
      * somma già nel suo prodotto. */
     for (const IndexSum *sum = index_sums; sum; sum = sum->next)
         if (!(sum->term->bound >> sum->slot & 1)) {
-            index_complain("il segno di somma su %c rende esplicita la somma di un indice ripetuto: qui %c non compare due volte nel prodotto che lo segue",
-                           index_letter(sum->slot), index_letter(sum->slot));
+            index_complain("il segno di somma su %s rende esplicita la somma di un indice ripetuto: qui %s non compare due volte nel prodotto che lo segue",
+                           index_label[sum->slot], index_label[sum->slot]);
             return 0;
         }
     if (listed && declared != out->free) {
         int slot = index_first_slot(declared ^ out->free);
-        index_complain(declared >> slot & 1 ? "l'indice %c è quantificato, ma nell'identità non è libero" : "l'indice %c è libero nell'identità, ma non è quantificato",
-                       index_letter(slot));
+        index_complain(declared >> slot & 1 ? "l'indice %s è quantificato, ma nell'identità non è libero" : "l'indice %s è libero nell'identità, ma non è quantificato",
+                       index_label[slot]);
         return 0;
     }
 
     /* 37a. Una lettera è il nome di una grandezza o un indice, non tutti e
      * due: k \delta_{ik} si leggerebbe in due modi. */
     if (index_names & index_used) {
-        index_complain("la lettera %c è usata sia come indice sia come nome di una grandezza", index_letter(index_first_slot(index_names & index_used)));
+        index_complain("la lettera %s è usata sia come indice sia come nome di una grandezza", index_label[index_first_slot(index_names & index_used)]);
         return 0;
     }
 
@@ -11449,7 +11599,7 @@ static int index_statement_body(int dimension, IndexStatement *out) {
         if (!said[i]) continue;
         if (out->dimension && out->dimension != said[i]) {
             index_complain("la dimensione è detta in due modi che non sono d'accordo, %d e %d: dai quantificatori, dal numero di indici del simbolo "
-                           "di Levi-Civita, da un segno di somma", out->dimension, said[i]);
+                           "di Levi-Civita, da un segno di somma, dalle ipotesi", out->dimension, said[i]);
             return 0;
         }
         out->dimension = said[i];
@@ -11460,12 +11610,28 @@ static int index_statement_body(int dimension, IndexStatement *out) {
         return 0;
     }
 
-    /* 37e. Un numero scritto come indice è uno dei valori da 1 a d. */
-    if (index_top > out->dimension) {
-        index_complain("l'indice numerico %d è fuori dai valori da 1 a %d", index_top, out->dimension);
+    /* 37d, 37f. Da dove cominciano i valori: da 1, se nessuno lo dice; con
+     * un indice greco va detto. */
+    if (index_greek && index_low < 0) {
+        syntax("con gli indici greci va dichiarato da dove cominciano i loro valori, perché i libri li contano da 0 a 3 oppure da 1 a 4: "
+               "\\forall \\mu \\in \\{0, 1, 2, 3\\} davanti all'identità, \\sum_{\\mu=0}^{3}, oppure \\mu, \\nu \\in \\{0, 1, 2, 3\\} tra le ipotesi");
         return 0;
     }
+    out->origin = index_low < 0 ? 1 : index_low;
+
+    /* 37e. Un numero scritto come indice è uno dei d valori; poi i numeri
+     * passano ai valori da 1 a d del programma. */
+    int last = out->origin + out->dimension - 1, below = index_zero && out->origin == 1;
+    if (below || index_top > last) {
+        index_complain("l'indice numerico %d è fuori dai valori da %d a %d%s", below ? 0 : index_top, out->origin, last,
+                       below ? ": se gli indici cominciano da 0 lo deve dichiarare l'enunciato, con \\forall \\mu \\in \\{0, 1, 2, 3\\}, con \\sum_{\\mu=0}^{3} "
+                               "o tra le ipotesi" : "");
+        return 0;
+    }
+    index_shift(out->left, 1 - out->origin);
+    index_shift(out->right, 1 - out->origin);
     for (int slot = 0; slot < INDEX_LETTERS; slot++) out->rank[slot] = index_first[slot] ? index_first[slot]->rank : -1;
+    memcpy(out->label, index_label, sizeof out->label);
     return 1;
 }
 
@@ -11478,49 +11644,69 @@ static int parse_index_statement(const char *formula, IndexStatement *out) {
 
 /* Rilegge un testo che il motore ha scritto, text: i valori dei due membri
  * di un'identità in un punto, "valore = valore", nella dimensione dimension
- * dell'enunciato. È un'identità senza ipotesi, letta come le altre, con una
- * differenza: una componente vi può avere un indice numerico in alto,
- * T^{1}{}_{2}, dove sta l'indice del tensore nell'enunciato (37e spiega
- * perché in un enunciato non si può). Il risultato va in *out, e in
- * index_first[] restano le componenti com'erano scritte. */
-static int parse_index_values(const char *text, int dimension, IndexStatement *out) {
+ * dell'enunciato e con i valori degli indici che cominciano da origin, come
+ * lì. È un'identità senza ipotesi, letta come le altre, con una differenza:
+ * una componente vi può avere un indice numerico in alto, T^{1}{}_{2}, dove
+ * sta l'indice del tensore nell'enunciato (37e spiega perché in un
+ * enunciato non si può). Il risultato va in *out, e in index_first[]
+ * restano le componenti com'erano scritte. */
+static int parse_index_values(const char *text, int dimension, int origin, IndexStatement *out) {
     index_begin(text);
     index_engine_text = 1;
+    index_range(origin);
     int read = index_statement_body(dimension, out);
     index_engine_text = 0;
     return read;
 }
 
 /* =============================================================================
- * 39. INDICI CON UNA METRICA DICHIARATA
+ * 39. INDICI: METRICA E COMPONENTI DICHIARATE
  * ============================================================================
  *
  * Nel capitolo 37 in alto o in basso è lo stesso. Con una metrica non lo è:
  * A^{i} e A_{i} sono due elenchi di numeri diversi, legati da A_{i} = g_{ij}
  * A^{j}. Le fonti non sono d'accordo su quale metrica sottintendere, né sul
- * segno di \varepsilon: qui non si sottintende nulla. La dichiara
- * l'enunciato, tra le ipotesi:
+ * segno di \varepsilon, né sul numero da cui contano gli indici: qui non si
+ * sottintende nulla. Lo dichiara l'enunciato, tra le ipotesi:
  *
  *     g_{ij} = \operatorname{diag}(-1, 1, 1, 1) \land \varepsilon_{1234} = 1
  *         \implies \varepsilon^{ijkl}\varepsilon_{ijkl} = -24
  *
+ * Tra le ipotesi l'enunciato può anche dare un tensore per componenti, come
+ * fanno gli esercizi di elettromagnetismo con il tensore del campo:
+ *
+ *     \mu, \nu \in \{0, 1, 2, 3\} \land g_{\mu\nu} = \operatorname{diag}(1, -1, -1, -1)
+ *         \land F_{\mu\nu} = \begin{pmatrix} 0 & E_{1} & E_{2} & E_{3} \\ -E_{1} & 0 & -B_{3} & B_{2} \\
+ *                                           -E_{2} & B_{3} & 0 & -B_{1} \\ -E_{3} & -B_{2} & B_{1} & 0 \end{pmatrix}
+ *         \implies F_{\mu\nu} F^{\mu\nu} = 2 (B_{1} B_{1} + B_{2} B_{2} + B_{3} B_{3} - E_{1} E_{1} - E_{2} E_{2} - E_{3} E_{3})
+ *
  *     enunciato := ipotesi { \land ipotesi } \implies enunciato del capitolo 37
- *     ipotesi   := lettera ('_' | '^') '{' lettera lettera '}' '='
- *                      (\operatorname | \mathrm) '{' diag '}' '(' numero { ',' numero } ')'
- *                | (\varepsilon | \epsilon) ('_' | '^') '{' 1 2 ... d '}' '=' numero
+ *     ipotesi   := tensore '=' (\operatorname | \mathrm) '{' diag '}' '(' numero { ',' numero } ')'
+ *                | tensore '=' tabella
+ *                | tensore '=' '(' elemento { ',' elemento } ')'
+ *                | (\varepsilon | \epsilon) ('_' | '^') '{' cifre in ordine '}' '=' numero
+ *                | lettera { ',' lettera } \in valori
+ *     tensore   := lettera latina { gruppo | '{' '}' }
+ *     tabella   := \begin '{' ambiente '}' riga { '\\' riga } ['\\'] \end '{' ambiente '}'
+ *     riga      := elemento { '&' elemento }
+ *     elemento  := somma del capitolo 37, senza lettere tra gli indici
  *     numero    := ['-'] (intero | \frac '{' intero '}' '{' intero '}')
+ *
+ * gruppo, lettera e valori sono quelli del capitolo 37; l'ambiente è pmatrix,
+ * bmatrix o matrix; gli indici del tensore di un'ipotesi sono lettere, tutte
+ * diverse.
  *
  * Che cosa vuol dire, punto per punto.
  *
- *   39a. Le ipotesi. La prima forma dichiara la metrica: una lettera, e i
- *        numeri c_1, ..., c_d della diagonale di g_{ij}, tutti diversi da
- *        zero; fuori dalla diagonale la metrica è zero. Quanti sono i numeri
- *        è la dimensione. Scritta con gli indici in alto, g^{ij} =
- *        diag(...), dichiara l'inversa, e allora i c_i sono i reciproci. Solo
- *        metriche diagonali con numeri razionali: le altre chiedono
- *        un'inversa vera (le matrici) o delle funzioni delle coordinate, e
- *        sono rifiutate. La seconda forma dichiara quanto vale \varepsilon
- *        con gli indici 1, 2, ..., d in ordine, e in quale posizione: va
+ *   39a. La metrica e \varepsilon. La prima forma dichiara la metrica: una
+ *        lettera con due indici, e i numeri c_1, ..., c_d della diagonale di
+ *        g_{ij}, tutti diversi da zero; fuori dalla diagonale la metrica è
+ *        zero. Quanti sono i numeri è la dimensione. Scritta con gli indici
+ *        in alto, g^{ij} = diag(...), dichiara l'inversa, e allora i c_i
+ *        sono i reciproci. Solo metriche diagonali con numeri razionali: le
+ *        altre chiedono un'inversa vera (le matrici) o delle funzioni delle
+ *        coordinate, e sono rifiutate. La quarta forma dichiara quanto vale
+ *        \varepsilon con gli indici in ordine, e in quale posizione: va
  *        detta, se \varepsilon compare, perché \varepsilon^{1234} e
  *        \varepsilon_{1234} differiscono per il prodotto dei c_i, e i libri
  *        non scelgono allo stesso modo quale dei due vale 1.
@@ -11551,22 +11737,82 @@ static int parse_index_values(const char *text, int dimension, IndexStatement *o
  *        anche l'identità com'è scritta, moltiplicando ogni componente per
  *        il c_i o l'1/c_i di ogni indice spostato (38d in main.c).
  *
- * I valori degli indici vanno da 1 a d, come nel capitolo 37; gli indici
- * sono lettere latine. Le lettere greche e gli indici da 0 a 3 della
- * relatività non sono ancora letti.
+ *   39d. Le componenti date. La seconda e la terza forma danno un tensore
+ *        per componenti: con due indici una tabella, con uno un elenco. Dove
+ *        stanno gli indici lo dice l'ipotesi, scrivendoli: F_{\mu\nu} = ...
+ *        dà le componenti con i due indici in basso, F^{\mu\nu} = ... quelle
+ *        con i due in alto, T^{\mu}{}_{\nu} = ... quelle miste. Senza indici
+ *        (F = ...) l'ipotesi è rifiutata: una tabella non dice da sé se i
+ *        suoi numeri sono le componenti in alto o in basso, e con una
+ *        metrica che non è l'identità sono numeri diversi. Il primo indice
+ *        scritto è la riga e il secondo la colonna; la prima riga e la prima
+ *        colonna sono il primo valore degli indici (39e). Le lettere
+ *        dell'ipotesi sono segnaposto: non sono indici dell'identità.
+ *
+ *        Un elemento è un numero, oppure un polinomio in scalari e in
+ *        componenti di tensori qualsiasi scritte con gli indici numerici:
+ *        E_{1}, 2 a b - \frac{1}{3}. Non contiene lettere tra gli indici,
+ *        né \delta, \varepsilon o la metrica, né un tensore dato: una
+ *        tabella che nomina sé stessa, o due che si nominano a vicenda,
+ *        possono non avere soluzione. I suoi tensori hanno gli indici in
+ *        basso, perché un numero in alto è rifiutato (37e): non c'è quindi
+ *        nulla da alzare o abbassare, e l'elemento va nel certificato com'è
+ *        scritto. In un elemento un numero sta solo davanti ai fattori che
+ *        moltiplica: "1 2" è quasi sempre "1 & 2" scritto male, e come
+ *        prodotto varrebbe 2.
+ *
+ *        Un tensore dato non è più qualsiasi: le sue componenti, nelle
+ *        posizioni dell'ipotesi, sono quelle scritte. Nell'identità si usa
+ *        come ogni altro tensore: l'ipotesi è la sua prima occorrenza, e
+ *        scritto con un indice in un'altra posizione ha quell'indice alzato
+ *        o abbassato con la metrica dichiarata (39b, 39c). L'enunciato vale
+ *        allora per ogni scelta dei tensori qualsiasi, compresi quelli che
+ *        compaiono negli elementi. Le componenti si possono dare anche senza
+ *        una metrica: valgono le regole del capitolo 37, e il tensore ha
+ *        sempre gli indici dove li ha l'ipotesi.
+ *
+ *        Perché un lettore di tabelle qui, e non matrix_table() del capitolo
+ *        31. Là un elemento è un'espressione del capitolo 9, dove E_{01} è
+ *        il termine di posto 1 di una successione (lo zero davanti si perde)
+ *        e una lettera è una variabile; qui un elemento è scritto nella
+ *        lingua dell'identità, con le stesse componenti e gli stessi
+ *        controlli. Del capitolo 31 si usano i nomi degli ambienti
+ *        (matrix_environments[]) e matrix_word(), che li legge.
+ *
+ *   39e. I valori degli indici. L'ultima forma, \mu, \nu \in \{0, 1, 2, 3\},
+ *        dice quali sono i valori degli indici: quanti, cioè la dimensione,
+ *        e da dove cominciano (37d). Le lettere elencate sono indici, e non
+ *        possono nominare un tensore; i valori sono gli stessi per tutti gli
+ *        indici dell'enunciato, perché la dimensione è una sola. Da dove
+ *        cominciano lo dice anche il valore dichiarato di \varepsilon:
+ *        \varepsilon_{0123} = 1.
+ *
+ * La dimensione la dicono i numeri della metrica, le righe di una tabella,
+ * gli elementi di un elenco e i valori degli indici: devono essere
+ * altrettanti (index_said()), e d'accordo con ciò che dice l'identità.
  */
 
-/* Ciò che le ipotesi dichiarano (39a), mentre si legge l'enunciato. */
+/* Ciò che le ipotesi dichiarano, mentre si legge l'enunciato. */
 static Frac *index_metric;        /* i numeri c_i della diagonale di g_{ij}, nell'arena; NULL finché non c'è la metrica */
-static int index_metric_size;     /* quanti sono: la dimensione */
+static int index_metric_size;     /* quanti sono */
 static int index_epsilon_said;    /* 1 se un'ipotesi dà il valore di \varepsilon */
 static Frac index_epsilon_value;  /* quel valore */
 static int index_epsilon_upper;   /* 1 se è dato con gli indici in alto */
 static int index_epsilon_digits;  /* quanti indici ha la \varepsilon dell'ipotesi */
+static int index_said_size;       /* la dimensione che le ipotesi dicono; 0 se nessuna la dice */
 
 /* Le lettere che nell'enunciato non compaiono, per gli indici nuovi dello
  * svolgimento (39c). */
 static IndexSet index_spare;
+
+/* Annota che un'ipotesi dice che le dimensioni sono count: tutte quelle che
+ * ne dicono una devono dire la stessa. */
+static void index_said(int count) {
+    if (index_said_size && index_said_size != count)
+        index_complain("due ipotesi dicono due dimensioni diverse, %d e %d: i numeri della diagonale della metrica, le righe di una tabella, "
+                       "gli elementi di un elenco e i valori degli indici devono essere altrettanti", index_said_size, count);
+    else index_said_size = count;
+}
 
 /* numero := ['-'] (intero | \frac{intero}{intero}). Lo mette in *out. */
 static void index_signed_number(Frac *out) {
@@ -11577,27 +11823,18 @@ static void index_signed_number(Frac *out) {
     if (negative && !syntax_error) *out = frac_neg(*out);
 }
 
-/* 39a. Legge l'ipotesi che dichiara la metrica; il token corrente è la sua
- * lettera. Mette i numeri della diagonale di g_{ij} in index_metric. */
-static void index_metric_hypothesis(void) {
+/* 39a. Legge il secondo membro dell'ipotesi che dichiara la metrica: il
+ * token corrente è \operatorname o \mathrm, e leaf è la metrica com'è scritta
+ * nel primo membro. Mette i numeri della diagonale di g_{ij} in
+ * index_metric. */
+static void index_metric_hypothesis(const IndexNode *leaf) {
     static const char *const form = "la metrica si dichiara con g_{ij} = \\operatorname{diag}(c_1, ..., c_d), con i due indici in basso o i due in alto";
     /* I numeri letti: non possono essere più dei caratteri dell'enunciato. */
     static Frac value[MAX_FORMULA];
+    int slot = index_slot(leaf->name), count = 0;
     if (index_metric) { syntax("la metrica è dichiarata due volte"); return; }
-    int slot = index_slot(token.ch), count = 0;
-    next_token();
-    int upper = is_char('^');
-    if (!upper && !is_char('_')) { syntax(form); return; }
-    next_token();
-    expect_char('{', form);
-    for (int k = 0; k < 2 && !syntax_error; k++) {
-        if (token.kind != T_LETTER) syntax(form);
-        else next_token();
-    }
-    expect_char('}', form);
-    expect_char('=', form);
-    if (!syntax_error && !is_command("operatorname") && !is_command("mathrm")) syntax(form);
-    if (syntax_error) return;
+    if (leaf->rank != 2 || leaf->upper[0] != leaf->upper[1]) { syntax(form); return; }
+    if (index_first[slot]) { index_complain("la lettera %c è già il nome di un tensore: non può essere anche la metrica", leaf->name); return; }
     next_token();
     expect_char('{', form);
     for (const char *word = "diag"; *word && !syntax_error; word++) {
@@ -11615,7 +11852,7 @@ static void index_metric_hypothesis(void) {
         index_signed_number(&value[count]);
         if (syntax_error || failure) return;
         if (value[count].num == 0) { syntax("un numero della diagonale della metrica è zero: la metrica non avrebbe un'inversa"); return; }
-        if (upper) value[count] = frac_div(frac_int(1), value[count]);
+        if (leaf->upper[0]) value[count] = frac_div(frac_int(1), value[count]);
         count++;
     } while (is_char(','));
     if (token.kind != T_CLOSE) { syntax(form); return; }
@@ -11625,10 +11862,169 @@ static void index_metric_hypothesis(void) {
     memcpy(index_metric, value, sizeof *value * (size_t)count);
     index_metric_size = count;
     index_metric_slot = slot;
+    index_said(count);
 }
 
-/* 39a. Legge l'ipotesi che dichiara il valore di \varepsilon con gli indici
- * in ordine; il token corrente è \varepsilon. */
+/* 39d. Controlla che il sottoalbero node sia un elemento di una tabella o di
+ * un elenco: numeri e componenti di tensori qualsiasi con gli indici
+ * numerici, con un numero solo davanti ai fattori che moltiplica. Un errore
+ * è annotato con syntax(). */
+static void index_element_check(const IndexNode *node) {
+    if (syntax_error || node->kind == IX_NUM) return;
+    if (index_is_leaf(node)) {
+        if (node->kind != IX_TENSOR) {
+            syntax("un elemento di una tabella è fatto di numeri, di scalari e di componenti di tensori qualsiasi: non di \\delta, di \\varepsilon o della metrica");
+            return;
+        }
+        if (index_given_names >> index_slot(node->name) & 1) {
+            index_complain("un elemento di una tabella nomina %c, che è un tensore dato per componenti: una tabella non può nominare sé stessa né un'altra, "
+                           "perché le due potrebbero contraddirsi", node->name);
+            return;
+        }
+        for (int i = 0; i < node->rank; i++)
+            if (node->index[i] >= 'A') { syntax("un elemento di una tabella è una sola componente: i suoi indici sono numeri, come E_{1}, non lettere"); return; }
+        return;
+    }
+    if (node->kind == IX_MUL && node->b->kind == IX_NUM) {
+        syntax("in un elemento di una tabella un numero sta solo davanti ai fattori che moltiplica: due numeri uno dopo l'altro sono quasi sempre "
+               "due elementi a cui manca il segno che li separa");
+        return;
+    }
+    index_element_check(node->a);
+    if (node->b) index_element_check(node->b);
+}
+
+/* 39d. elemento := somma del capitolo 37, senza lettere tra gli indici. */
+static IndexNode *index_element(void) {
+    const IndexSum *sums = index_sums;
+    IndexNode *element = index_sum();
+    if (!syntax_error && index_sums != sums) syntax("in un elemento di una tabella non c'è nulla da sommare: un segno di somma non ha posto");
+    if (!syntax_error && !failure) index_element_check(element);
+    return element;
+}
+
+/* 39d. Legge il secondo membro dell'ipotesi che dà per componenti il tensore
+ * leaf, scritto nel primo membro con i suoi indici: una tabella, se il token
+ * corrente è \begin, altrimenti un elenco tra parentesi. Lascia gli elementi
+ * in index_given[], per righe, e fa di leaf la prima occorrenza del tensore:
+ * dove stanno i suoi indici nell'ipotesi è dove stanno le componenti date. */
+static void index_given_hypothesis(IndexNode *leaf) {
+    /* Gli elementi letti: ognuno occupa almeno un carattere dell'enunciato. */
+    static IndexNode *entry[MAX_FORMULA];
+    int slot = index_slot(leaf->name), count = 0, rows = 0;
+    if (index_first[slot] || slot == index_metric_slot) {
+        index_complain("la lettera %c è già usata: un tensore dato per componenti si dichiara una volta sola, prima di nominarlo", leaf->name);
+        return;
+    }
+
+    /* Da qui la lettera nomina un tensore dato, anche per i suoi elementi,
+     * che non lo possono nominare. */
+    index_first[slot] = leaf;
+    index_names |= 1ULL << slot;
+    index_given_names |= 1ULL << slot;
+    if (token.kind == T_OPEN) {
+        /* Un elenco: un indice. */
+        if (leaf->rank != 1) {
+            syntax("un elenco tra parentesi dà le componenti di un tensore con un indice: con due indici serve una tabella, \\begin{pmatrix} ... \\end{pmatrix}");
+            return;
+        }
+        do {
+            next_token();
+            if (count == MAX_FORMULA) { syntax("troppi elementi in un elenco"); return; }
+            entry[count++] = index_element();
+        } while (is_char(',') && !syntax_error);
+        if (!syntax_error && token.kind != T_CLOSE) syntax("un elenco di componenti si chiude con la parentesi: A^{i} = (a_1, ..., a_d)");
+        if (syntax_error) return;
+        next_token();
+        rows = count;
+    } else {
+        /* Una tabella: due indici, il primo per le righe. Gli ambienti sono
+         * quelli del capitolo 31 che scrivono una matrice e basta: non il
+         * determinante, non array con le sue colonne. */
+        char name[16], closing[16];
+        int known = 0, cols = 0, in_row = 0;
+        if (leaf->rank != 2) {
+            syntax("una tabella dà le componenti di un tensore con due indici, il primo per le righe e il secondo per le colonne: "
+                   "con un indice serve un elenco, A^{i} = (a_1, ..., a_d)");
+            return;
+        }
+        if (matrix_word(name, sizeof name))
+            for (size_t i = 0; i < sizeof matrix_environments / sizeof *matrix_environments; i++)
+                known |= strcmp(name, matrix_environments[i].name) == 0 && !matrix_environments[i].determinant && !matrix_environments[i].columns;
+        if (!known) { syntax("le componenti di un tensore con due indici si danno con una tabella: \\begin{pmatrix} ... \\end{pmatrix}, oppure bmatrix o matrix"); return; }
+        next_token();
+        while (!syntax_error) {
+            if (count == MAX_FORMULA) { syntax("troppi elementi in una tabella"); return; }
+            entry[count++] = index_element();
+            in_row++;
+            if (is_char('&')) { next_token(); continue; }
+
+            /* Fine di una riga: tutte hanno lo stesso numero di elementi. */
+            if (rows == 0) cols = in_row;
+            else if (in_row != cols) syntax("le righe di una tabella devono avere lo stesso numero di elementi");
+            rows++;
+            in_row = 0;
+            if (!is_char(ESCAPED + '\\')) break;
+            next_token();
+            if (is_command("end")) break;  /* un a capo dopo l'ultima riga */
+        }
+        if (syntax_error) return;
+        if (!is_command("end") || !matrix_word(closing, sizeof closing) || strcmp(closing, name) != 0) {
+            syntax("una tabella va chiusa con \\end e lo stesso ambiente con cui è aperta");
+            return;
+        }
+        next_token();
+        if (rows != cols) {
+            index_complain("la tabella di %c ha %d righe e %d colonne: le componenti di un tensore con due indici sono una tabella quadrata", leaf->name, rows, cols);
+            return;
+        }
+    }
+    if (syntax_error || failure) return;
+    index_said(rows);
+    index_given[slot] = arena_alloc(sizeof *entry * (size_t)count);
+    if (index_given[slot]) memcpy(index_given[slot], entry, sizeof *entry * (size_t)count);
+}
+
+/* 39a, 39d. Legge l'ipotesi su un tensore scritto con i suoi indici: la
+ * metrica, o le componenti di un tensore dato; il token corrente è la sua
+ * lettera. */
+static void index_tensor_hypothesis(void) {
+    static const char *const form = "un'ipotesi su un tensore lo scrive con i suoi indici, lettere tutte diverse, e ne dà la metrica o le componenti: "
+                                    "g_{ij} = \\operatorname{diag}(c_1, ..., c_d), F_{ij} = \\begin{pmatrix} ... \\end{pmatrix}, A^{i} = (a_1, ..., a_d)";
+    if (token.kind != T_LETTER) {
+        syntax("le lettere greche, come nomi di tensori, non sono ancora trattate: la metrica e i tensori dati per componenti hanno per nome una lettera latina");
+        return;
+    }
+    IndexNode *leaf = index_new(IX_TENSOR, NULL, NULL);
+    leaf->name = token.ch;
+    next_token();
+
+    /* Gli indici dell'ipotesi sono segnaposto, non indici dell'identità: non
+     * restano tra quelli usati. */
+    IndexSet used = index_used;
+    index_groups(leaf);
+    index_used = used;
+    if (syntax_error || failure) return;
+    if (leaf->rank == 0) {
+        index_complain("l'ipotesi su %c va scritta con i suoi indici, %c_{ij} = ... oppure %c^{ij} = ...: senza, non dice se le componenti sono quelle "
+                       "con gli indici in basso o in alto", leaf->name, leaf->name, leaf->name);
+        return;
+    }
+    for (int i = 0; i < leaf->rank; i++) {
+        if (leaf->index[i] < 'A') { syntax(form); return; }
+        for (int j = 0; j < i; j++)
+            if (leaf->index[j] == leaf->index[i]) { syntax(form); return; }
+    }
+    expect_char('=', form);
+    if (syntax_error) return;
+    if (is_command("operatorname") || is_command("mathrm")) index_metric_hypothesis(leaf);
+    else if (is_command("begin") || token.kind == T_OPEN) index_given_hypothesis(leaf);
+    else syntax(form);
+}
+
+/* 39a, 39e. Legge l'ipotesi che dichiara il valore di \varepsilon con gli
+ * indici in ordine; il token corrente è \varepsilon. Gli indici in ordine
+ * dicono anche da dove cominciano i valori: \varepsilon_{0123}. */
 static void index_epsilon_hypothesis(void) {
     static const char *const form = "il valore di \\varepsilon si dichiara con gli indici in ordine, \\varepsilon_{1234} = 1 oppure \\varepsilon^{1234} = 1";
     if (index_epsilon_said) { syntax("il valore di \\varepsilon è dichiarato due volte"); return; }
@@ -11639,8 +12035,9 @@ static void index_epsilon_hypothesis(void) {
     expect_char('{', form);
     if (!syntax_error && token.kind != T_NUM) syntax(form);
     for (int k = 0; !syntax_error && k < token.digits; k++)
-        if (token.start[k] != '1' + k) syntax(form);
+        if (token.start[k] != token.start[0] + k) syntax(form);
     if (syntax_error) return;
+    index_range(token.start[0] - '0');
     index_epsilon_digits = token.digits;
     next_token();
     expect_char('}', form);
@@ -11652,12 +12049,42 @@ static void index_epsilon_hypothesis(void) {
     index_epsilon_upper = upper;
 }
 
-/* 39a. Legge le ipotesi, fino a \implies compreso. */
+/* 39e. Legge l'ipotesi che dichiara i valori degli indici, \mu, \nu \in
+ * \{0, 1, 2, 3\}; il token corrente è la sua prima lettera. */
+static void index_values_hypothesis(void) {
+    static const char *const form = "i valori degli indici si dichiarano elencando gli indici e poi i valori, \\mu, \\nu \\in \\{0, 1, 2, 3\\}";
+    for (;;) {
+        int letter = index_token_letter();
+        if (!letter) { syntax(form); return; }
+        index_used |= 1ULL << index_slot(letter);
+        next_token();
+        if (!is_char(',')) break;
+        next_token();
+    }
+    if (!is_command("in")) { syntax(form); return; }
+    next_token();
+    int count = index_values();
+    if (count) index_said(count);
+}
+
+/* Legge le ipotesi, fino a \implies compreso. */
 static void index_hypotheses(void) {
     while (!syntax_error && !failure) {
-        if (token.kind == T_LETTER) index_metric_hypothesis();
-        else if (is_command("varepsilon") || is_command("epsilon")) index_epsilon_hypothesis();
-        else syntax("un'ipotesi dichiara la metrica, g_{ij} = \\operatorname{diag}(-1, 1, 1, 1), oppure il valore di \\varepsilon con gli indici in ordine, \\varepsilon_{1234} = 1");
+        if (is_command("varepsilon") || is_command("epsilon")) {
+            index_epsilon_hypothesis();
+        } else if (index_token_letter()) {
+            /* Una lettera seguita da una virgola o da \in è il primo di un
+             * elenco di indici; altrimenti è il nome di un tensore. */
+            ParserState here = parser_save();
+            next_token();
+            int listed = is_char(',') || is_command("in");
+            parser_restore(here);
+            if (listed) index_values_hypothesis();
+            else index_tensor_hypothesis();
+        } else if (!syntax_error) {
+            syntax("un'ipotesi dichiara la metrica, g_{ij} = \\operatorname{diag}(-1, 1, 1, 1), le componenti di un tensore, F_{ij} = \\begin{pmatrix} ... \\end{pmatrix}, "
+                   "il valore di \\varepsilon con gli indici in ordine, \\varepsilon_{1234} = 1, oppure i valori degli indici, \\mu, \\nu \\in \\{0, 1, 2, 3\\}");
+        }
         if (syntax_error || failure) return;
         if (is_command("implies")) { next_token(); return; }
         if (!is_command("land")) { syntax("dopo un'ipotesi serve \\land e un'altra ipotesi, oppure \\implies e l'identità"); return; }
@@ -11689,8 +12116,8 @@ static void index_positions(IndexNode *node) {
             else below |= bit;
         }
         if (node->here & ~(above & below)) {
-            index_complain("l'indice %c è sommato, ma compare due volte nella stessa posizione: con una metrica si contrae un indice in alto con uno in basso",
-                           index_letter(index_first_slot(node->here & ~(above & below))));
+            index_complain("l'indice %s è sommato, ma compare due volte nella stessa posizione: con una metrica si contrae un indice in alto con uno in basso",
+                           index_label[index_first_slot(node->here & ~(above & below))]);
             return;
         }
         node->up = above & node->free;
@@ -11705,14 +12132,14 @@ static void index_positions(IndexNode *node) {
     } else if (node->kind == IX_MUL) {
         IndexSet same = node->here & ~(a->up ^ b->up);
         if (same) {
-            index_complain("l'indice %c è sommato, ma compare due volte nella stessa posizione: con una metrica si contrae un indice in alto con uno in basso",
-                           index_letter(index_first_slot(same)));
+            index_complain("l'indice %s è sommato, ma compare due volte nella stessa posizione: con una metrica si contrae un indice in alto con uno in basso",
+                           index_label[index_first_slot(same)]);
             return;
         }
         node->up = (a->up | b->up) & node->free;
     } else {
         if (!index_is_zero(a) && !index_is_zero(b) && a->up != b->up) {
-            index_complain("l'indice libero %c è in alto in un addendo e in basso in un altro", index_letter(index_first_slot(a->up ^ b->up)));
+            index_complain("l'indice libero %s è in alto in un addendo e in basso in un altro", index_label[index_first_slot(a->up ^ b->up)]);
             return;
         }
         node->up = index_is_zero(a) ? b->up : a->up;
@@ -11803,31 +12230,47 @@ static IndexNode *index_unfold(const IndexNode *node, const IndexStatement *s) {
 }
 
 /* Legge l'enunciato con le ipotesi scritto in formula (vedi la testa del
- * capitolo) e lo mette in *out: l'identità svolta in left e right, quella
- * scritta in written_left e written_right, la metrica e ciò che è
- * dichiarato di \varepsilon. Ritorna 1 se riesce; altrimenti 0, con il
- * motivo in syntax_error o in failure.
+ * capitolo) e lo mette in *out, con le componenti dei tensori dati. Con una
+ * metrica dichiarata, in più: l'identità svolta in left e right, quella
+ * scritta in written_left e written_right, la metrica e ciò che è dichiarato
+ * di \varepsilon. Senza, l'identità è una del capitolo 37, e metric è NULL.
+ * Ritorna 1 se riesce; altrimenti 0, con il motivo in syntax_error o in
+ * failure.
  *
  * I nodi stanno nell'arena, che chi chiama ha già preparato. */
-static int parse_metric_statement(const char *formula, IndexStatement *out) {
+static int parse_index_hypotheses(const char *formula, IndexStatement *out) {
     index_begin(formula);
     index_metric = NULL;
-    index_metric_size = index_epsilon_said = 0;
+    index_metric_size = index_epsilon_said = index_said_size = 0;
 
-    /* 39a. Le ipotesi, poi l'identità, con la dimensione della metrica. */
+    /* Le ipotesi, poi l'identità, con la dimensione che le ipotesi dicono. */
     index_hypotheses();
     if (syntax_error || failure) return 0;
-    if (!index_metric) {
-        syntax("tra le ipotesi manca la metrica: g_{ij} = \\operatorname{diag}(c_1, ..., c_d), con i numeri della sua diagonale");
+    if (index_epsilon_said && !index_metric) {
+        syntax("tra le ipotesi manca la metrica: il valore di \\varepsilon si dichiara insieme a g_{ij} = \\operatorname{diag}(c_1, ..., c_d), con i numeri della sua diagonale");
         return 0;
     }
     if (index_epsilon_said && index_epsilon_digits != index_metric_size) {
         index_complain("il valore di \\varepsilon è dichiarato con %d indici, ma la metrica ha %d numeri sulla diagonale", index_epsilon_digits, index_metric_size);
         return 0;
     }
-    if (!index_statement_body(index_metric_size, out)) return 0;
+    if (!index_statement_body(index_said_size, out)) return 0;
+
+    /* 39d. Le componenti date: i numeri scritti come indici nei loro
+     * elementi passano ai valori da 1 a d, come quelli dell'identità (37d).
+     * Gli elementi di un tensore sono d elevato al suo rango, perché la
+     * dimensione dell'enunciato è quella che le ipotesi dicono. */
+    for (int slot = 0; slot < INDEX_LETTERS; slot++) {
+        if (!index_given[slot]) continue;
+        int count = out->rank[slot] == 2 ? out->dimension * out->dimension : out->dimension;
+        for (int k = 0; k < count; k++) index_shift(index_given[slot][k], 1 - out->origin);
+        out->given[slot] = index_given[slot];
+    }
+
+    /* Senza una metrica non c'è altro: valgono le regole del capitolo 37. */
+    if (!index_metric) return 1;
     if (index_used >> index_metric_slot & 1) {
-        index_complain("la lettera %c è la metrica: non può fare anche da indice", index_letter(index_metric_slot));
+        index_complain("la lettera %s è la metrica: non può fare anche da indice", index_label[index_metric_slot]);
         return 0;
     }
     if (index_epsilon && !index_epsilon_said) {
@@ -11841,7 +12284,7 @@ static int parse_metric_statement(const char *formula, IndexStatement *out) {
     index_positions(out->right);
     if (syntax_error) return 0;
     if (!index_is_zero(out->left) && !index_is_zero(out->right) && out->left->up != out->right->up) {
-        index_complain("l'indice libero %c è in alto in un membro e in basso nell'altro", index_letter(index_first_slot(out->left->up ^ out->right->up)));
+        index_complain("l'indice libero %s è in alto in un membro e in basso nell'altro", index_label[index_first_slot(out->left->up ^ out->right->up)]);
         return 0;
     }
 

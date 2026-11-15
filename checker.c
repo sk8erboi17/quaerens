@@ -221,7 +221,9 @@
  *     ogni scelta dei tensori che nomina e per ogni valore degli indici
  *     liberi, con gli indici ripetuti sommati; oppure non vale nel punto
  *     indicato. Questo programma rifà il conto su tutti i valori degli
- *     indici. Il teorema esatto è in testa al capitolo 19.
+ *     indici. Un tensore può essere dato per componenti, con una voce
+ *     given: allora "ogni scelta" riguarda gli altri. Il teorema esatto è
+ *     in testa al capitolo 19.
  *
  * COMPILAZIONE
  *
@@ -9988,6 +9990,54 @@ static void ck_check_partial(void) {
  * svolto: T^{i}, con T dato in basso, è scritto (* (inverse i y) (t T y)).
  * Che lo svolgimento dica la stessa cosa dell'enunciato di partenza non lo
  * controlla questo programma: ne risponde chi ha scritto il certificato.
+ * Lo stesso per i valori degli indici: qui vanno da 1 a d, anche se
+ * l'enunciato di partenza li contava da 0, e per i nomi degli indici, che
+ * qui sono lettere latine.
+ *
+ * LE COMPONENTI DATE
+ *
+ * Con una voce in più, anche ripetuta per tensori diversi,
+ *
+ *     given A r e_1 e_2 ... e_N
+ *
+ * il tensore A, con r indici, non è più qualsiasi: è dato per componenti.
+ * Gli elementi sono N = d^r, tutti sulla stessa riga, e sono espressioni
+ * della notazione qui sopra senza lettere tra gli indici e senza tensori
+ * dati. La componente (x1, ..., xr) di A vale l'elemento di posto
+ * 1 + (x1 - 1) d^(r-1) + ... + (xr - 1): l'ultimo indice varia per primo,
+ * come in una tabella letta per righe. Per esempio, in dimensione 2,
+ *
+ *     given F 2 0 (t b) (neg (t b)) 0
+ *
+ * dice F_11 = 0, F_12 = b, F_21 = -b, F_22 = 0, con b uno scalare qualsiasi.
+ *
+ * Il teorema, con le voci given. Chiamiamo liberi i tensori nominati che non
+ * hanno una voce given. Ogni elemento è un polinomio nelle componenti dei
+ * tensori liberi, e dove l'enunciato scrive una componente di un tensore
+ * dato si intende il suo elemento. Con "holds": per ogni scelta dei tensori
+ * liberi, e per ogni valore da 1 a d di ciascun indice libero, i due membri
+ * sono uguali. Con "fails": nel punto scritto i due membri sono due
+ * polinomi diversi nelle componenti dei tensori liberi, quindi per qualche
+ * scelta dei tensori liberi lì l'uguaglianza non vale.
+ *
+ * Perché è lo stesso conto. L'ipotesi "A ha queste componenti" dice proprio
+ * che ogni componente di A è il suo elemento: sostituire è usare l'ipotesi,
+ * né più né meno. Dopo la sostituzione ogni membro, in un punto, è ancora
+ * una somma di prodotti di componenti e di numeri, cioè un polinomio, ma
+ * nelle sole componenti dei tensori liberi; e quelle sono davvero
+ * indeterminate indipendenti, perché di un tensore libero non si sa nulla.
+ * Il Fatto qui sotto si applica a loro, e decide in tutti e due i versi.
+ *
+ * Perché un elemento non può nominare un tensore dato. Le voci given
+ * sarebbero allora un sistema di equazioni tra componenti, A_1 = A_2 + 1 e
+ * A_2 = A_1, che può non avere soluzioni: "per ogni scelta dei tensori che
+ * hanno queste componenti" sarebbe vero a vuoto, e si dimostrerebbe
+ * qualunque cosa. Con elementi fatti solo di tensori liberi le componenti
+ * date esistono sempre e sono determinate: non c'è nulla di vuoto.
+ *
+ * Che gli elementi siano proprio quelli che l'enunciato di partenza
+ * intendeva (le righe e le colonne di una tabella, gli indici in alto o in
+ * basso) non lo controlla questo programma: riceve gli elementi già letti.
  *
  * PERCHÉ IL CONTO È COMPLETO
  *
@@ -10177,6 +10227,18 @@ static int ck_ix_rank[CK_IX_LETTERS];
 static long long ck_ix_steps;
 static const CkNum *ck_ix_metric;
 
+/* Le voci given: per il nome di ogni tensore dato gli alberi dei suoi
+ * elementi, nell'ordine in cui sono scritti, e quanti sono; NULL per un
+ * tensore libero. ck_ix_in_given vale 1 mentre ck_ix_scan() guarda un
+ * elemento, che non può nominare un tensore dato. */
+static CkIx **ck_ix_given[CK_IX_LETTERS];
+static long long ck_ix_given_count[CK_IX_LETTERS];
+static int ck_ix_in_given;
+
+/* Quanti indici può avere un tensore dato. Il limite serve solo a non
+ * contare all'infinito in dimensione 1, dove d^r vale 1 per ogni r. */
+#define CK_IX_MAX_GIVEN_RANK 64
+
 /* Ritorna 1 se node è un simbolo con gli indici. */
 static int ck_ix_is_symbol(const CkIx *node) {
     return node->kind == CK_IX_DELTA || node->kind == CK_IX_EPS || node->kind == CK_IX_TENSOR || node->kind == CK_IX_METRIC || node->kind == CK_IX_INVERSE;
@@ -10304,6 +10366,7 @@ static void ck_ix_scan(CkIx *node) {
             int *rank = &ck_ix_rank[ck_ix_slot(node->name)];
             if (*rank >= 0 && *rank != node->rank) { ck_reject("un tensore compare con due numeri diversi di indici"); return; }
             *rank = node->rank;
+            if (ck_ix_in_given && ck_ix_given[ck_ix_slot(node->name)]) { ck_reject("un elemento di una voce given nomina un tensore dato"); return; }
         }
 
         /* Gli indici: i numeri tra 1 e d, le lettere una o due volte. */
@@ -10346,10 +10409,13 @@ static void ck_ix_scan(CkIx *node) {
  * il valore della lettera. */
 static long long ck_ix_at(long long x) { return x < 0 ? -x : ck_ix_value[x]; }
 
+static CkIxPoly ck_ix_eval(const CkIx *node);
+
 /* Ritorna il valore del simbolo node nel punto in corso, in cui tutte le
  * sue lettere hanno un valore: 0 o 1 per la delta, 0, 1 o -1 per il simbolo
  * di Levi-Civita (le definizioni sono in testa al capitolo), l'indeterminata
- * della componente per un tensore. */
+ * della componente per un tensore libero, il valore dell'elemento per un
+ * tensore dato. */
 static CkIxPoly ck_ix_symbol(const CkIx *node) {
     if (node->kind == CK_IX_DELTA) return ck_ix_poly_number(ck_num_int(ck_ix_at(node->index[0]) == ck_ix_at(node->index[1])));
     if (node->kind == CK_IX_METRIC || node->kind == CK_IX_INVERSE) {
@@ -10386,6 +10452,15 @@ static CkIxPoly ck_ix_symbol(const CkIx *node) {
         if (place > (LLONG_MAX / CK_IX_LETTERS - 1 - digit) / ck_ix_dimension) { ck_unsupported("un tensore ha troppe componenti per il verificatore"); return ck_ix_poly_number(ck_num_int(0)); }
         place = place * ck_ix_dimension + digit;
     }
+
+    /* Un tensore dato: il suo elemento di quel posto. Il posto c'è: gli
+     * indici sono r, quanti dice la voce given (ck_ix_scan()), ognuno tra 1
+     * e d, e gli elementi sono d^r. L'elemento non ha lettere tra gli
+     * indici, quindi il suo valore non dipende dal punto e calcolarlo non
+     * tocca i valori delle lettere; non nomina tensori dati, quindi il conto
+     * non torna qui. */
+    CkIx **given = ck_ix_given[ck_ix_slot(node->name)];
+    if (given) return ck_ix_eval(given[place]);
     CkIxPoly component = ck_ix_poly_number(ck_num_int(1));
     component.term[0].degree = 1;
     component.term[0].factor[0] = place * CK_IX_LETTERS + ck_ix_slot(node->name);
@@ -10407,8 +10482,6 @@ static CkIxPoly ck_ix_keep(CkIxPoly p, size_t base) {
     ck_used = base + ((bytes + 15) & ~(size_t)15);
     return (CkIxPoly){p.count, home};
 }
-
-static CkIxPoly ck_ix_eval(const CkIx *node);
 
 /* Ritorna la somma, su tutti i valori da 1 a d delle lettere di open, del
  * prodotto o del simbolo node: sono le lettere che la convenzione somma in
@@ -10457,7 +10530,11 @@ static void ck_check_indices(void) {
 
     ck_ix_steps = 0;
     ck_ix_metric = NULL;
-    for (int i = 0; i < CK_IX_LETTERS; i++) ck_ix_rank[i] = -1;
+    ck_ix_in_given = 0;
+    for (int i = 0; i < CK_IX_LETTERS; i++) {
+        ck_ix_rank[i] = -1;
+        ck_ix_given[i] = NULL;
+    }
 
     /* Le voci. */
     while (ck_status == CK_ACCEPTED && !ended) {
@@ -10481,6 +10558,22 @@ static void ck_check_indices(void) {
                 if (ck_status == CK_ACCEPTED && (number->kind != CK_IX_NUMBER || number->number.num == 0)) ck_reject("certificato scritto male: la voce metric ha numeri diversi da zero");
                 entry[diagonal++] = number->number;
             }
+        } else if (ck_word("given")) {
+            /* Il nome del tensore, quanti indici ha, e gli elementi fino
+             * alla fine della riga. Ogni elemento occupa almeno due
+             * caratteri della riga, con lo spazio che lo precede. */
+            ck_skip();
+            if (!ck_ix_is_letter(*ck_cursor) || !isspace((unsigned char)ck_cursor[1])) { ck_reject("certificato scritto male: la voce given comincia con il nome di un tensore, una lettera"); return; }
+            int slot = ck_ix_slot(*ck_cursor++);
+            if (ck_ix_given[slot]) ck_reject(twice);
+            if (!ck_read_integer(&value) || value < 0) { ck_reject("certificato scritto male: dopo il nome, la voce given dice quanti indici ha il tensore"); return; }
+            if (value > CK_IX_MAX_GIVEN_RANK) { ck_unsupported("un tensore dato ha troppi indici per il verificatore"); return; }
+            CkIx **entry = ck_alloc(sizeof *entry * (strcspn(ck_cursor, "\n") / 2 + 2));
+            if (ck_status != CK_ACCEPTED) return;
+            ck_ix_given[slot] = entry;
+            ck_ix_given_count[slot] = 0;
+            ck_ix_rank[slot] = (int)value;
+            for (ck_skip(); *ck_cursor && *ck_cursor != '\n' && ck_status == CK_ACCEPTED; ck_skip()) entry[ck_ix_given_count[slot]++] = ck_ix_read();
         } else if (ck_word("statement")) {
             /* (= L R): l'unica relazione ammessa. */
             if (side[0]) ck_reject(twice);
@@ -10518,9 +10611,28 @@ static void ck_check_indices(void) {
     if (claim && (written[0] || written[1])) { ck_reject("certificato scritto male: le voci left e right accompagnano fails"); return; }
     if (ck_ix_metric && diagonal != dimension) { ck_reject("certificato scritto male: la voce metric ha tanti numeri quante sono le dimensioni"); return; }
 
+    /* Le voci given: d^r elementi per un tensore con r indici, ognuno senza
+     * lettere tra gli indici e senza tensori dati (vedi la testa del
+     * capitolo). */
+    ck_ix_dimension = dimension;
+    ck_ix_in_given = 1;
+    for (int slot = 0; slot < CK_IX_LETTERS && ck_status == CK_ACCEPTED; slot++) {
+        if (!ck_ix_given[slot]) continue;
+        /* d^r, fermandosi appena supera il numero degli elementi: così il
+         * prodotto non esce mai dagli interi. */
+        long long count = ck_ix_given_count[slot], places = 1;
+        for (int r = 0; r < ck_ix_rank[slot] && places <= count; r++) places = places > count / dimension ? count + 1 : places * dimension;
+        if (places != count) { ck_reject("una voce given ha tanti elementi quanti sono i posti del tensore: la dimensione elevata al numero degli indici"); break; }
+        for (long long k = 0; k < places && ck_status == CK_ACCEPTED; k++) {
+            ck_ix_scan(ck_ix_given[slot][k]);
+            if (ck_status == CK_ACCEPTED && (ck_ix_given[slot][k]->free | ck_ix_given[slot][k]->bound)) ck_reject("un elemento di una voce given ha delle lettere tra gli indici");
+        }
+    }
+    ck_ix_in_given = 0;
+    if (ck_status != CK_ACCEPTED) return;
+
     /* La convenzione degli indici, nei due membri e nei valori scritti: gli
      * stessi indici liberi nei due membri, nessuno nei valori. */
-    ck_ix_dimension = dimension;
     ck_ix_scan(side[0]);
     ck_ix_scan(side[1]);
     for (int k = 0; k < 2; k++)

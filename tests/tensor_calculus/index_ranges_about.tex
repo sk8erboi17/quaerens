@@ -1,0 +1,36 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{index\_ranges.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{index\_ranges.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_index\_identities.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 25 true identities whose indices are Greek letters, or take values that start from 0, as in the books of relativity. No convention is assumed: each statement declares where the values of its indices start. The test asks the engine to prove each one and to produce a certificate that the independent checker accepts.
+
+\item \textbf{Where the statements come from.} The identities of \texttt{index\_identities.tex} and of \texttt{metric\_identities.tex} written as the sources write them in space-time: $\varepsilon^{\mu\nu\rho\sigma}\varepsilon_{\mu\nu\rho\sigma} = -24$ with $\varepsilon^{0123} = 1$ (Jackson, Baird, Maryland), $g^{\mu\nu} g_{\mu\nu} = 4$ (Flogen), the scalar product with the time component numbered 0. The first statement was in \texttt{index\_notation\_beyond.tex} until the values from 0 were read. Every statement was confirmed by the oracle of \texttt{tools/fuzz/fuzz\_tensors.py} in its \texttt{data} mode, which keeps the Greek letters and the values as they are written.
+
+\item \textbf{What the engine needs in order to pass.} To read a Greek letter as an index, to read where the values start, and to count the written numeric indices from there.
+
+\item \textbf{Format expected by the test.} One \texttt{\textbackslash item} per statement, written as \texttt{\$\textbackslash displaystyle ...\$}. The values of the indices are declared by the quantifiers, $\forall \mu \in \{0, 1, 2, 3\}$, by a summation sign, $\sum_{\mu=0}^{3}$, by a hypothesis, $\mu, \nu \in \{0, 1, 2, 3\}$, or by the declared value of $\varepsilon$, $\varepsilon^{0123} = 1$.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -Werror -o /tmp/test_index_identities \
+    tests/tensor_calculus/test_index_identities.c && /tmp/test_index_identities
+\end{verbatim}
+
+\item \textbf{Expected result.} The lines \texttt{PASS: 25 of 25 statements proved, each with a written proof}, \texttt{PASS: 25 of 25 statements proved, 25 with a certificate the checker accepts} and \texttt{PASS: 25 of 25 altered certificates rejected for the right reason}.
+
+\end{enumerate}
+\end{document}

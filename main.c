@@ -457,7 +457,8 @@
  * rifà il conto su tutti i valori degli indici: DIMOSTRATO e FALSO vogliono
  * che lo accetti. Con una metrica dichiarata (capitolo 39) il certificato è
  * dell'identità svolta, e che sia la stessa di quella scritta lo ricontrolla
- * il motore (38d), non il verificatore.
+ * il motore (38d), non il verificatore. Le componenti di un tensore dato da
+ * una tabella vanno nel certificato come dati (38g).
  *
  * Il certificato dimostra una cosa precisa, enunciata in testa a checker.c,
  * e non di più. La sua parte principale dice che per ogni n dal caso base in
@@ -510,7 +511,7 @@
  *   21. Lettura degli enunciati da un file .tex             (parser.c)
  *   34. Funzioni di più variabili: notazione e albero       (parser.c)
  *   37. Indici: notazione e albero                          (parser.c)
- *   39. Indici con una metrica dichiarata                   (parser.c)
+ *   39. Indici: metrica e componenti dichiarate             (parser.c)
  *   10. Vocabolario: le successioni note, come dati
  *   11. Valutazione: dall'albero alla frazione
  *   12. Test di annullamento
@@ -46464,7 +46465,26 @@ static int uses_partial_notation(const char *formula) {
  *        un punto d'esempio della dimostrazione, sono riletti dal capitolo
  *        37 e ricalcolati (index_reread()). Con una metrica le componenti
  *        sono scritte con gli indici dove l'enunciato li dichiara, A^{1}
- *        B_{1}, e la rilettura controlla anche questo.
+ *        B_{1}, e la rilettura controlla anche questo. Qui dentro i valori
+ *        degli indici vanno sempre da 1 a d; se l'enunciato li conta da 0
+ *        (37d in parser.c) è solo chi scrive a tenerne conto: un valore v
+ *        è scritto v + origin - 1, nel punto del controesempio e negli
+ *        indici delle componenti. Nel certificato restano da 1 a d. Un
+ *        indice greco è scritto con la sua lettera greca
+ *        (IndexStatement.label); nel certificato con la lettera latina che
+ *        lo rappresenta (37f).
+ *
+ *   38g. Le componenti date (39d in parser.c). Un tensore che un'ipotesi dà
+ *        con una tabella o con un elenco non è un atomo: in un punto vale
+ *        il polinomio del suo elemento di quel posto, negli atomi dei
+ *        tensori qualsiasi che l'elemento nomina (index_leaf()). Il resto
+ *        del conto non cambia, e l'enunciato vale per ogni scelta dei
+ *        tensori che restano qualsiasi. Nel certificato le componenti vanno
+ *        come dati, una voce given per tensore, e il verificatore le
+ *        sostituisce per conto suo: che la tabella sia stata letta bene
+ *        (righe e colonne, posizioni) non lo vede nemmeno lui, perché riceve
+ *        gli elementi già letti. Lo vedono i test e l'oracolo del fuzz, che
+ *        ha un lettore suo.
  *
  * Il lavoro (i punti e gli addendi visitati) è contato contro il budget di
  * --model-steps, lo stesso da cui viene quello dato al verificatore
@@ -46503,9 +46523,12 @@ static int index_stopped;
  * valore che value[] dà alla sua lettera. */
 static int index_at(int entry, const int *value) { return entry < 'A' ? entry : value[index_slot(entry)]; }
 
+static Poly index_value(IndexNode *node, int *value);
+
 /* 38a. Ritorna il valore del simbolo leaf, con le sue lettere ai valori di
  * value[]: un numero per la delta e per il simbolo di Levi-Civita, l'atomo
- * della componente per un tensore.
+ * della componente per un tensore qualsiasi, il polinomio dell'elemento per
+ * un tensore dato per componenti (38g).
  *
  * Il simbolo di Levi-Civita ha d indici, con valori da 1 a d. Se due
  * coincidono vale 0. Altrimenti sono una permutazione di (1, ..., d), e
@@ -46564,6 +46587,15 @@ static Poly index_leaf(const IndexNode *leaf, const int *value) {
         if (place > (INDEX_PLACES - digit) / index_dimension) { fail("un tensore ha troppe componenti"); return zero; }
         place = place * index_dimension + digit;
     }
+
+    /* 38g. Un tensore dato: il suo elemento di quel posto, per i numeri
+     * degli indici spostati. L'elemento non ha lettere tra gli indici, e un
+     * punto qualsiasi gli va bene. */
+    IndexNode **given = s->given[index_slot(leaf->name)];
+    if (given) {
+        int none[INDEX_LETTERS] = {0};
+        return poly_mul(poly_const(num_frac(moved)), index_value(given[place], none));
+    }
     Term component;
     component.coef = num_frac(moved);
     component.mono = mono_atom(atom_var(INDEX_ATOMS + (int)place * INDEX_LETTERS + index_slot(leaf->name)), frac_int(1));
@@ -46614,8 +46646,6 @@ static void index_prepare(IndexNode *node) {
     for (int i = 0; i < count; i++)
         if (!index_is_leaf(node->factor[i])) index_prepare(node->factor[i]);
 }
-
-static Poly index_value(IndexNode *node, int *value);
 
 /* 38c. Ritorna la somma, sui valori da 1 a d delle lettere di open, del
  * prodotto dei fattori di node (index_prepare()); le altre lettere hanno già
@@ -46725,7 +46755,8 @@ static int index_digit(long long place, int rank, int i) {
  * tensore con gli indici dove sono dichiarati, cioè dove stanno nella sua
  * prima occorrenza, e così è scritta: A^{1} B_{1}, T^{1}{}_{2}. Scritta in
  * basso, A_{1}, nell'enunciato vorrebbe dire la componente abbassata, che
- * è un altro numero. */
+ * è un altro numero. Gli indici sono scritti a partire dall'origine
+ * dell'enunciato (38f). */
 static int index_put_poly(char *out, size_t size, Poly p) {
     const IndexStatement *s = index_statement;
     size_t length = 0;
@@ -46749,7 +46780,7 @@ static int index_put_poly(char *out, size_t size, Poly p) {
             long long code = atoms[term->mono.factor[f].atom].id - INDEX_ATOMS, place = code / INDEX_LETTERS;
             Frac e = term->mono.factor[f].exp;
             int slot = (int)(code % INDEX_LETTERS), rank = index_ranks[slot];
-            if (e.den != 1 || e.num < 1 || (rank > 0 && index_dimension > 9)) return 0;
+            if (e.den != 1 || e.num < 1 || (rank > 0 && index_dimension + s->origin - 1 > 9)) return 0;
             const unsigned char *upper = s->metric ? s->reference[slot] : NULL;
             for (long long k = 0; k < e.num; k++) {
                 if (!index_append(out, size, &length, bare ? "%c" : " %c", index_letter(slot))) return 0;
@@ -46760,7 +46791,7 @@ static int index_put_poly(char *out, size_t size, Poly p) {
                 for (int d = 0; d < rank; d++) {
                     int above = upper && upper[d], opens = d == 0 || above != (upper && upper[d - 1]);
                     if (opens && !index_append(out, size, &length, "%s%s{", d ? "}{}" : "", above ? "^" : "_")) return 0;
-                    if (!index_append(out, size, &length, "%d", index_digit(place, rank, d))) return 0;
+                    if (!index_append(out, size, &length, "%d", index_digit(place, rank, d) + s->origin - 1)) return 0;
                 }
                 if (rank > 0 && !index_append(out, size, &length, "}")) return 0;
             }
@@ -46780,7 +46811,7 @@ static int index_reread(const char *left_text, const char *right_text, Poly left
     const IndexStatement *current = index_statement;
     int value[INDEX_LETTERS] = {0};
     if (snprintf(text, sizeof text, "%s = %s", left_text, right_text) >= (int)sizeof text) return 0;
-    if (!parse_index_values(text, index_dimension, &again) || again.free) return 0;
+    if (!parse_index_values(text, index_dimension, current->origin, &again) || again.free) return 0;
 
     /* Una lettera deve nominare lo stesso tensore dell'enunciato e, con una
      * metrica, avere gli indici dove l'enunciato li dichiara: è la
@@ -46804,15 +46835,17 @@ static int index_reread(const char *left_text, const char *right_text, Poly left
     return same;
 }
 
-/* Scrive in out, capiente size, il punto value[] degli indici liberi free:
- * "i = 1, j = 2", con ogni uguaglianza tra due quote (il dollaro per il
- * LaTeX, niente per il verdetto). Ritorna 0 se non ci sta. */
-static int index_put_point(char *out, size_t size, IndexSet free, const int *value, const char *quote) {
+/* Scrive in out, capiente size, il punto value[] degli indici liberi free
+ * dell'enunciato s: "i = 1, j = 2", con ogni uguaglianza tra due quote (il
+ * dollaro per il LaTeX, niente per il verdetto), gli indici con il nome che
+ * hanno nell'enunciato e i valori contati dalla sua origine (38f). Ritorna
+ * 0 se non ci sta. */
+static int index_put_point(char *out, size_t size, const IndexStatement *s, const int *value, const char *quote) {
     size_t length = 0;
     out[0] = 0;
     for (int slot = 0, first = 1; slot < INDEX_LETTERS; slot++) {
-        if (!(free >> slot & 1)) continue;
-        if (!index_append(out, size, &length, "%s%s%c = %d%s", first ? "" : ", ", quote, index_letter(slot), value[slot], quote)) return 0;
+        if (!(s->free >> slot & 1)) continue;
+        if (!index_append(out, size, &length, "%s%s%s = %d%s", first ? "" : ", ", quote, s->label[slot], value[slot] + s->origin - 1, quote)) return 0;
         first = 0;
     }
     return 1;
@@ -46864,7 +46897,7 @@ static int index_decide(IndexStatement *s, int *value, long long *points, Poly *
          * dimostrazione, se il suo valore si scrive e si rilegge. */
         if (!index_sampled && left->count && index_put_poly(index_sample_value, sizeof index_sample_value, *left) &&
             index_reread(index_sample_value, index_sample_value, *left, *left))
-            index_sampled = index_put_point(index_sample_point, sizeof index_sample_point, s->free, value, "$");
+            index_sampled = index_put_point(index_sample_point, sizeof index_sample_point, s, value, "$");
         if (failure || index_stopped) return -1;
 
         /* Ogni punto è un conto a sé: l'arena torna com'era. */
@@ -46958,21 +46991,41 @@ static void index_put_number(Frac q) {
     else proof_add("%s\\frac{%lld}{%lld}", q.num < 0 ? "-" : "", q.num < 0 ? -q.num : q.num, q.den);
 }
 
+/* Ritorna quanti sono gli elementi del tensore dato di posto slot
+ * nell'enunciato s: d elevato al suo rango, che è 1 o 2 (39d in parser.c). */
+static int index_given_count(const IndexStatement *s, int slot) {
+    return s->rank[slot] == 2 ? s->dimension * s->dimension : s->dimension;
+}
+
+/* Ritorna quanti sono i tensori di s dati per componenti (given diverso da
+ * zero) oppure qualsiasi (given zero); se write non è zero ne scrive anche
+ * le lettere nella dimostrazione, separate da virgole. */
+static int index_letters(const IndexStatement *s, int given, int write) {
+    int count = 0;
+    for (int slot = 0; slot < INDEX_LETTERS; slot++) {
+        if (s->rank[slot] < 0 || (s->given[slot] != NULL) != (given != 0)) continue;
+        if (write) proof_add(count ? ", $%c$" : " $%c$", index_letter(slot));
+        count++;
+    }
+    return count;
+}
+
 /* Scrive nella dimostrazione le convenzioni con cui l'enunciato s è stato
- * letto (37a-37d, e 39a-39b con una metrica): la dimensione, la metrica,
- * gli indici ripetuti, i simboli che compaiono, i tensori qualsiasi. */
+ * letto (37a-37d, e 39a-39e con le ipotesi): la dimensione, la metrica, i
+ * valori degli indici, gli indici ripetuti, i simboli che compaiono, i
+ * tensori dati per componenti, i tensori qualsiasi. */
 static void index_put_conventions(const IndexStatement *s, int has_delta, int has_epsilon) {
-    int tensors = 0;
+    int first = s->origin, last = s->origin + s->dimension - 1;
     if (s->metric) {
         proof_add("The statement is read in dimension $%d$ with the declared metric, which is diagonal: $g_{ii} = ", s->dimension);
         for (int i = 0; i < s->dimension; i++) {
             proof_add(i ? ", " : "");
             index_put_number(s->metric[i]);
         }
-        proof_add("$ for $i = 1, \\dots, %d$, and $g^{ii} = 1/g_{ii}$. Every index takes the values from $1$ to $%d$, and an index written once "
+        proof_add("$ for $i = %d, \\dots, %d$, and $g^{ii} = 1/g_{ii}$. Every index takes the values from $%d$ to $%d$, and an index written once "
                   "above and once below in a product is summed over them (Einstein convention). A tensor has its indices in the positions where "
                   "the statement first writes it; an index written in the other position has been raised or lowered with the metric. ",
-                  s->dimension, s->dimension);
+                  first, last, first, last);
         if (has_delta) proof_add("The symbol $\\delta^{i}_{j}$ is $1$ when $i = j$ and $0$ otherwise. ");
         if (has_epsilon) {
             proof_add("The symbol $\\varepsilon$ with its $%d$ indices %s is $", s->dimension, s->epsilon_upper ? "above" : "below");
@@ -46980,20 +47033,24 @@ static void index_put_conventions(const IndexStatement *s, int has_delta, int ha
             proof_add("$ times the sign of the permutation they form, and $0$ when two of them coincide. ");
         }
     } else {
-        proof_add("The statement is read in dimension $%d$: every index takes the values from $1$ to $%d$, and an index written twice in a product "
-                  "is summed over them (Einstein convention); upper and lower indices are not distinguished. ", s->dimension, s->dimension);
+        proof_add("The statement is read in dimension $%d$: every index takes the values from $%d$ to $%d$, and an index written twice in a product "
+                  "is summed over them (Einstein convention); upper and lower indices are not distinguished. ", s->dimension, first, last);
         if (has_delta) proof_add("The symbol $\\delta_{ij}$ is $1$ when $i = j$ and $0$ otherwise. ");
         if (has_epsilon) proof_add("The symbol $\\varepsilon$ with $%d$ indices is the sign of the permutation they form, and $0$ when two of them coincide. ", s->dimension);
     }
-    for (int slot = 0; slot < INDEX_LETTERS; slot++)
-        if (s->rank[slot] >= 0) tensors++;
+
+    /* 38g. I tensori dati, poi quelli che restano qualsiasi. */
+    int tensors = index_letters(s, 1, 0);
+    if (tensors) {
+        proof_add(tensors == 1 ? "The components of" : "The components of each of");
+        index_letters(s, 1, 1);
+        proof_add(" are the ones that the statement declares, with the indices in the positions written there: in a table the first index is the row "
+                  "and the second the column, and the first row and column are the value $%d$. ", first);
+    }
+    tensors = index_letters(s, 0, 0);
     if (!tensors) return;
     proof_add(tensors == 1 ? "The letter" : "The letters");
-    for (int slot = 0, first = 1; slot < INDEX_LETTERS; slot++) {
-        if (s->rank[slot] < 0) continue;
-        proof_add(first ? " $%c$" : ", $%c$", index_letter(slot));
-        first = 0;
-    }
+    index_letters(s, 0, 1);
     proof_add(tensors == 1 ? " denotes an arbitrary tensor: its" : " denote arbitrary tensors: their");
     proof_add(" components are independent unknowns, and the two sides are compared as polynomials in them. ");
 }
@@ -47012,7 +47069,7 @@ static int index_mentions(const IndexNode *node, IndexKind kind) {
  * Svuota l'arena e la tabella degli atomi: i risultati di chiamate
  * precedenti non sono più validi. */
 static Verdict prove_indices(const char *formula) {
-    static char note[400], detail[1024 + 2 * 512 + 96], point[1024], side[2][512];
+    static char note[512], detail[1024 + 2 * 512 + 96], point[1024], side[2][512];
     Verdict verdict = {UNSUPPORTED, 0, 0, 0, NULL, NULL, NULL, "con il conto su tutti i valori degli indici", NULL, NULL};
     IndexStatement statement;
     int value[INDEX_LETTERS];
@@ -47025,20 +47082,23 @@ static Verdict prove_indices(const char *formula) {
     atom_count = 0;
     base_poly_count = 0;
     failure = NULL;
-    /* Con delle ipotesi davanti a \implies l'enunciato dichiara una metrica
-     * (capitolo 39 di parser.c); senza, è del capitolo 37. */
-    int read = strstr(formula, "\\implies") ? parse_metric_statement(formula, &statement) : parse_index_statement(formula, &statement);
+    /* Con delle ipotesi davanti a \implies l'enunciato dichiara una
+     * metrica, delle componenti o i valori degli indici (capitolo 39 di
+     * parser.c); senza, è del capitolo 37. */
+    int read = strstr(formula, "\\implies") ? parse_index_hypotheses(formula, &statement) : parse_index_statement(formula, &statement);
     if (!read) { verdict.reason = syntax_error ? syntax_error : failure; return verdict; }
     const IndexNode *shown[2] = {statement.metric ? statement.written_left : statement.left, statement.metric ? statement.written_right : statement.right};
     int has_delta = index_mentions(shown[0], IX_DELTA) || index_mentions(shown[1], IX_DELTA);
     int has_epsilon = index_mentions(shown[0], IX_EPSILON) || index_mentions(shown[1], IX_EPSILON);
-    int has_tensors = index_mentions(shown[0], IX_TENSOR) || index_mentions(shown[1], IX_TENSOR);
+    int has_given = index_letters(&statement, 1, 0) > 0, has_tensors = index_letters(&statement, 0, 0) > 0;
     /* Con una metrica la nota dice anche di che cosa è il certificato: il
      * verificatore ricontrolla l'identità svolta (39c), e che sia la stessa
      * di quella scritta lo ricontrolla solo il motore (index_decide()). */
-    snprintf(note, sizeof note, "in dimensione %d%s: gli indici vanno da 1 a %d, sono sommati se ripetuti, %s%s%s", statement.dimension,
-             statement.metric ? ", con la metrica dichiarata" : "", statement.dimension,
-             statement.metric ? "uno in alto e uno in basso" : "e in alto o in basso sono lo stesso", has_tensors ? "; le lettere sono tensori qualsiasi" : "",
+    snprintf(note, sizeof note, "in dimensione %d%s: gli indici vanno da %d a %d, sono sommati se ripetuti, %s%s%s%s", statement.dimension,
+             statement.metric ? ", con la metrica dichiarata" : "", statement.origin, statement.origin + statement.dimension - 1,
+             statement.metric ? "uno in alto e uno in basso" : "e in alto o in basso sono lo stesso",
+             has_given ? "; i tensori dati hanno le componenti dichiarate" : "",
+             !has_tensors ? "" : has_given ? "; le altre lettere sono tensori qualsiasi" : "; le lettere sono tensori qualsiasi",
              statement.metric ? "; il certificato è dell'identità svolta, dove alzare e abbassare un indice è una contrazione con la metrica" : "");
 
     /* 38b-38d. Il conto. */
@@ -47053,6 +47113,8 @@ static Verdict prove_indices(const char *formula) {
         index_prepare(statement.written_left);
         index_prepare(statement.written_right);
     }
+    for (int slot = 0; slot < INDEX_LETTERS; slot++)
+        for (int k = 0; statement.given[slot] && k < index_given_count(&statement, slot); k++) index_prepare(statement.given[slot][k]);
     int outcome = failure ? -1 : index_decide(&statement, value, &points, &left, &right);
     if (outcome == -2) {
         /* Lo svolgimento ha cambiato l'enunciato: un errore del lettore. */
@@ -47091,6 +47153,16 @@ static Verdict prove_indices(const char *formula) {
         for (int i = 0; i < statement.dimension; i++) {
             cert_add(" ");
             index_cert_number(statement.metric[i]);
+        }
+        cert_add("\n");
+    }
+    /* 38g. Le componenti date: il nome, il rango, e gli elementi per righe. */
+    for (int slot = 0; slot < INDEX_LETTERS; slot++) {
+        if (!statement.given[slot]) continue;
+        cert_add("given %c %d", index_letter(slot), statement.rank[slot]);
+        for (int k = 0; k < index_given_count(&statement, slot); k++) {
+            cert_add(" ");
+            index_cert(statement.given[slot][k]);
         }
         cert_add("\n");
     }
@@ -47136,7 +47208,7 @@ static Verdict prove_indices(const char *formula) {
             int single = !(statement.free & (statement.free - 1));
             proof_add(single ? "The free index is " : "The free indices are ");
             for (int slot = 0, first = 1; slot < INDEX_LETTERS; slot++)
-                if (statement.free >> slot & 1) { proof_add(first ? "$%c$" : ", $%c$", index_letter(slot)); first = 0; }
+                if (statement.free >> slot & 1) { proof_add(first ? "$%s$" : ", $%s$", statement.label[slot]); first = 0; }
             proof_add(": there are $%lld$ choices of %s, and for each one the two sides were computed and coincide. ", points,
                       single ? "its value" : "their values");
             if (index_sampled) proof_add("For example, for %s both sides are $%s$. ", index_sample_point, index_sample_value);
@@ -47151,12 +47223,12 @@ static Verdict prove_indices(const char *formula) {
     }
 
     /* Il controesempio: il punto, e i due valori se si sono potuti scrivere. */
-    if (!statement.free || !index_put_point(point, sizeof point, statement.free, value, "")) snprintf(point, sizeof point, "senza indici liberi");
+    if (!statement.free || !index_put_point(point, sizeof point, &statement, value, "")) snprintf(point, sizeof point, "senza indici liberi");
     if (written) snprintf(detail, sizeof detail, "%s: il primo membro vale %s, il secondo %s", point, side[0], side[1]);
     else snprintf(detail, sizeof detail, "%s: i due membri sono diversi", point);
     proof_add("\\textbf{Counterexample.} ");
     index_put_conventions(&statement, has_delta, has_epsilon);
-    if (statement.free && index_put_point(point, sizeof point, statement.free, value, "$")) proof_add("For %s the ", point);
+    if (statement.free && index_put_point(point, sizeof point, &statement, value, "$")) proof_add("For %s the ", point);
     else proof_add("The ");
     if (written) proof_add("left-hand side is $%s$ and the right-hand side is $%s$", side[0], side[1]);
     else proof_add("two sides are different");
@@ -47421,8 +47493,11 @@ static Verdict prove_core(const char *formula, int variable, int has_base, long 
      * l'enunciato che resta dopo aver sviluppato i determinanti, e lo
      * svolgimento spiegherebbe quello, "h - 9 = 0", come se fosse ciò che è
      * stato scritto: finché non sa mostrare anche lo sviluppo, il documento
-     * di queste voci è quello senza svolgimento. */
-    if (uses_matrices(formula) && !uses_partial_notation(formula)) {
+     * di queste voci è quello senza svolgimento.
+     *
+     * Un'altra eccezione: un'identità con gli indici (capitolo 38) che tra
+     * le ipotesi dà un tensore con una tabella. La legge quel capitolo. */
+    if (uses_matrices(formula) && !uses_partial_notation(formula) && !uses_index_notation(formula)) {
         if (stack_guard) return too_long;
         Verdict verdict = prove_matrix(formula);
         explanation.steps = 0;
