@@ -1,7 +1,7 @@
 /* Test di dominio: derivate n-esime e di ordine fisso (capitolo 27 di
  * main.c, e il segno di derivata letto dal capitolo 21 di parser.c).
  *
- * Quattro controlli; i primi due sono descritti in tests/statement_checks.h:
+ * Cinque controlli; i primi due sono descritti in tests/statement_checks.h:
  *
  *   1. ogni enunciato di nth_derivatives.tex viene dimostrato, con la
  *      dimostrazione scritta;
@@ -12,7 +12,14 @@
  *      una funzione e le sue derivate scritte a mano devono essere
  *      confermate nei punti dove la funzione è definita, e solo lì; una
  *      derivata scritta sbagliata, come la darebbe una regola rotta di
- *      derive(), deve essere smentita.
+ *      derive(), deve essere smentita;
+ *   5. una parentesi dopo il segno di derivata dice dove finisce la
+ *      funzione: un altro fattore accanto è una scrittura ambigua, che non
+ *      viene né dimostrata né smentita (9d di parser.c). Il programma
+ *      leggeva \frac{d}{dx}(x^{2}) \cdot (x + 1) come la derivata di tutto
+ *      il prodotto, e dimostrava "= 3x^{2} + 2x", che chi scrive così
+ *      intende di solito come 2x(x + 1). Le scritture che non sono
+ *      ambigue restano decise.
  *
  * Gli enunciati sono dati: il motore non ne conosce nessuno in anticipo.
  * Che gli enunciati dei due file .tex siano veri e falsi l'ha controllato
@@ -202,6 +209,45 @@ static int check_taylor(void) {
     return check_result(passed == count, summary);
 }
 
+/* Controllo 5: le scritture ambigue non hanno un verdetto, con il motivo
+ * di 9d; quelle non ambigue lo hanno, ed è quello atteso. */
+static int check_ambiguous_writing(void) {
+    static const char *const ambiguous[] = {
+        "\\frac{d}{dx}\\left( x^{2} \\right) \\cdot \\left( x + 1 \\right) = 3x^{2} + 2x",
+        "\\frac{d}{dx}\\left( x^{2} \\right) \\cdot \\left( x + 1 \\right) = 2x^{2} + 2x",
+        "\\frac{d}{dx}(x^{2})(x + 1) = 3x^{2} + 2x",
+        "\\frac{d}{dx}(x^{2}) x = 3x^{2}",
+        "\\frac{d}{dx}(x^{3}) / x = 3x",
+        "\\frac{d}{dx}(x^{2}) \\sin x = 2x \\sin x + x^{2} \\cos x",
+        "\\forall x \\in \\mathbb{R}\\ \\left(\\frac{d}{dx}\\left( x^{2} \\right) \\cdot (x + 1) > 0 \\iff x > 0\\right)",
+    };
+    static const struct { const char *text; Outcome outcome; } plain[] = {
+        {"\\frac{d}{dx}\\left( x^{2} \\cdot (x + 1) \\right) = 3x^{2} + 2x", PROVED},
+        {"\\frac{d}{dx}\\left( x^{2} \\cdot (x + 1) \\right) = 2x^{2} + 2x", REFUTED},
+        {"\\frac{d}{dx}(x + 1)^{2} = 2(x + 1)", PROVED},
+        {"\\frac{d}{dx} x^{2} \\sin x = 2x \\sin x + x^{2} \\cos x", PROVED},
+        {"\\frac{d}{dx} x^{2} (x + 1) = 3x^{2} + 2x", PROVED},
+    };
+    int passed = 1;
+    for (int i = 0; i < (int)(sizeof ambiguous / sizeof *ambiguous); i++) {
+        Verdict verdict = prove(ambiguous[i], 'n', 0, 0);
+        if (verdict.outcome == UNSUPPORTED && verdict.reason && strstr(verdict.reason, "ambiguo")) continue;
+        printf("  an ambiguous writing got a verdict: %s: ", ambiguous[i]);
+        verdict_print(stdout, &verdict);
+        putchar('\n');
+        passed = 0;
+    }
+    for (int i = 0; i < (int)(sizeof plain / sizeof *plain); i++) {
+        Verdict verdict = prove(plain[i].text, 'n', 0, 0);
+        if (verdict.outcome == plain[i].outcome) continue;
+        printf("  unexpected verdict for %s: ", plain[i].text);
+        verdict_print(stdout, &verdict);
+        putchar('\n');
+        passed = 0;
+    }
+    return check_result(passed, "a bracket after the derivative sign ends the function: a factor next to it is refused as ambiguous, and plain writings keep their verdicts");
+}
+
 int main(void) {
     engine_init();
 
@@ -211,6 +257,7 @@ int main(void) {
     passed = check_none_proved("tests/derivatives/false_nth_derivatives.tex") && passed;
     passed = check_expected() && passed;
     passed = check_taylor() && passed;
+    passed = check_ambiguous_writing() && passed;
 
     /* Nessun passo delle dimostrazioni scritte deve aver fallito il suo
      * controllo indipendente. */

@@ -685,6 +685,7 @@ static Node *parse_expr(void);
 static Node *parse_term(void);
 static Node *parse_factor(void);
 static Node *parse_primary(void);
+static int starts_factor(void);
 
 /* group := '{' expr '}' | un solo token */
 static Node *parse_group(void) {
@@ -910,8 +911,31 @@ static void parse_leibniz(int *variable, int *order, long long *times) {
     else if (above) syntax(shape);
 }
 
+/* 9d. Legge la funzione che segue un segno di derivata, con il token
+ * corrente sul suo inizio: il term che segue il segno, come il corpo di una
+ * somma.
+ *
+ * Tranne quando comincia con una parentesi. Lì chi scrive ha detto dove
+ * finisce la funzione: è quel fattore (con il suo esponente, se c'è), e un
+ * altro fattore accanto non si sa se sta dentro o fuori dalla derivata.
+ * Leggerlo dentro, come un term qualsiasi, faceva dimostrare
+ * \frac{d}{dx}(x^{2}) \cdot (x + 1) = 3x^{2} + 2x, che chi scrive così
+ * intende di solito come 2x(x + 1), cioè falso: tra le due letture il
+ * programma non sceglie, e la scrittura è un errore di sintassi. Si scrive
+ * con tutto il prodotto in una parentesi, o con la derivata tra parentesi.
+ * Il differenziale di un integrale non è un fattore della funzione: resta
+ * fuori, a chi legge l'integrale (9j). */
+static Node *parse_derived_function(void) {
+    if (token.kind != T_OPEN) return parse_term();
+    Node *function = parse_factor();
+    if (is_command("cdot") || is_command("times") || is_char('/') || (starts_factor() && !is_char(DIFFERENTIAL)))
+        syntax("dopo il segno di derivata una parentesi dice dove finisce la funzione: un altro fattore accanto è ambiguo; "
+               "si scrive con tutto il prodotto in una sola parentesi, oppure con la derivata tra parentesi");
+    return function;
+}
+
 /* 9d. leibniz term dentro un'espressione: il nodo N_DERIV, con la funzione
- * da derivare che è il term che segue il segno, come il corpo di una somma.
+ * da derivare che segue il segno (parse_derived_function()).
  * Il token corrente è il \frac del segno. Dentro un'espressione l'ordine
  * deve essere un numero: una derivata n-esima chiede l'induzione del
  * capitolo 27, che parte solo da un enunciato che comincia con il segno.
@@ -922,7 +946,7 @@ static Node *parse_derivative_sign(void) {
     long long times;
     parse_leibniz(&variable, &order, &times);
     if (order) { syntax("dentro un'espressione l'ordine di una derivata deve essere un numero, come in \\frac{d^{2}}{dx^{2}}"); return node_num(0); }
-    Node *node = node_new(N_DERIV, parse_term(), NULL);
+    Node *node = node_new(N_DERIV, parse_derived_function(), NULL);
     node->name = variable;
     node->value = times;
     return node;
@@ -1215,7 +1239,8 @@ static int parse_statement(const char *text, Statement *statement) {
  *     \frac{d^{2}}{dx^{2}} x^{3} = 6x,        \frac{d}{dx} \ln x = \frac{1}{x}
  *
  * Il segno di derivata è la frazione di Leibniz (parse_leibniz()). La
- * funzione è il term che segue il segno, come per il corpo di una somma. Se
+ * funzione è il term che segue il segno, come per il corpo di una somma, o
+ * il solo fattore tra parentesi (parse_derived_function()). Se
  * dopo la funzione il testo finisce, l'enunciato è una richiesta, e formula
  * resta NULL:
  *
@@ -1233,7 +1258,7 @@ static int parse_derivative_statement(const char *text, DerivativeStatement *out
 
     /* La funzione; poi, se non è una richiesta, il segno di uguale e la
      * formula. */
-    out->function = parse_term();
+    out->function = parse_derived_function();
     if (token.kind != T_END) {
         expect_char('=', "dopo la funzione da derivare serve = e la formula della derivata");
         out->formula = parse_expr();
