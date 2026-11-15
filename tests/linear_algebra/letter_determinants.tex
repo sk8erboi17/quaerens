@@ -1,0 +1,58 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Determinants with a letter (38)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Every statement below is true. A determinant, or a trace, has a letter in its entries, and the statement says where the letter lives: for which values the matrix is singular, which numbers are the eigenvalues, which polynomial the determinant is. The engine must prove each one: it replaces every determinant by its polynomial and decides what is left. The sources and the third computation are in \texttt{letter\_determinants\_about.tex}.
+
+\begin{enumerate}
+\item $\displaystyle \forall h \in \mathbb{R}\ \left( \det \begin{pmatrix} 1 & 2 & 3 \\ 0 & 1 & 2 \\ -1 & 4 & h \end{pmatrix} = 0 \iff h = 9 \right)$
+\item $\displaystyle \forall h \in \mathbb{R}\ \left( \det \begin{pmatrix} 1 & 2 & 3 \\ 0 & 1 & 2 \\ -1 & 4 & h \end{pmatrix} = h - 9 \right)$
+\item $\displaystyle \forall h \in \mathbb{R}\ \left( \det \begin{pmatrix} 1 & -3 & 1 & 2 \\ h & 0 & 0 & 0 \\ 1 & -1 & 0 & 0 \\ 0 & 0 & 0 & h \end{pmatrix} = 0 \iff h = 0 \right)$
+\item $\displaystyle \forall h \in \mathbb{R}\ \left( \det \begin{pmatrix} 1 & 2 & 1 & 1 \\ 2 & 1 & 0 & 0 \\ 0 & 1 & 1 & h \\ 3 & 2 & 1 & 1 \end{pmatrix} = 0 \iff h = 1 \right)$
+\item $\displaystyle \forall h \in \mathbb{R}\ \left( \det \begin{pmatrix} 0 & h & 1 & 0 \\ 0 & 1 & 2 & 1 \\ h + 1 & 0 & 0 & 0 \\ 0 & 2 & 1 & 3 \end{pmatrix} = 0 \iff \left( h = -1 \lor h = \frac{1}{5} \right) \right)$
+\item $\displaystyle \forall h \in \mathbb{R}\ \left( \det \begin{pmatrix} 0 & h & 1 & 0 \\ 0 & 1 & 2 & 1 \\ h + 1 & 0 & 0 & 0 \\ 0 & 2 & 1 & 3 \end{pmatrix} \neq 0 \iff \left( h \neq -1 \land h \neq \frac{1}{5} \right) \right)$
+\item $\displaystyle \forall k \in \mathbb{R}\ \left( \det \begin{pmatrix} k + 1 & k + 2 & k + 3 \\ 1 & 2 & 3 \\ 1 - 2k & 2 - 2k & 3 - 2k \end{pmatrix} = 0 \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \det \begin{pmatrix} x & x - 1 & x - 2 \\ 1 - x & 2 - x & 3 - x \\ 4 & 5 & 6 \end{pmatrix} = 0 \right)$
+\item $\displaystyle \forall a \in \mathbb{R}\ \left( \det \begin{pmatrix} 1 & 1 & 0 \\ 1 & 0 & -1 \\ 0 & -1 & a^{2} - 2 \end{pmatrix} = 0 \iff \left( a = -1 \lor a = 1 \right) \right)$
+\item $\displaystyle \forall a \in \mathbb{R}\ \left( \det \begin{pmatrix} 2 & -3 & 1 \\ 1 & a^{2} - 14 & 4 \\ -1 & 5 & 3 \end{pmatrix} = 0 \iff \left( a = -4 \lor a = 4 \right) \right)$
+\item $\displaystyle \forall t \in \mathbb{R}\ \left( \det \begin{pmatrix} t & 1 & -1 \\ 0 & 2 & 1 \\ 0 & 1 & t \end{pmatrix} = 0 \iff \left( t = 0 \lor t = \frac{1}{2} \right) \right)$
+\item $\displaystyle M = \begin{pmatrix} 5 & -5 & -1 \\ 0 & 2 & 0 \\ 20 & -32 & -4 \end{pmatrix} \implies \forall s \in \mathbb{R}\ \left( \det\left( M - sI \right) = 0 \iff \left( s = 0 \lor s = 1 \lor s = 2 \right) \right)$
+\item $\displaystyle A = \begin{pmatrix} -6 & 3 & -2 \\ -8 & 5 & -2 \\ 7 & -3 & 3 \end{pmatrix} \implies \forall s \in \mathbb{R}\ \left( \det\left( A - sI \right) = 0 \iff \left( s = -1 \lor s = 1 \lor s = 2 \right) \right)$
+\item $\displaystyle A = \begin{pmatrix} -6 & 3 & -2 \\ -8 & 5 & -2 \\ 7 & -3 & 3 \end{pmatrix} \implies \forall s \in \mathbb{R}\ \left( \det\left( A - sI \right) = -s^{3} + 2s^{2} + s - 2 \right)$
+\item $\displaystyle A = \begin{pmatrix} -2 & 11 \\ -10 & 5 \end{pmatrix} \implies \forall s \in \mathbb{R}\ \left( \det\left( A - sI \right) \neq 0 \right)$
+\item $\displaystyle A = \begin{pmatrix} -2 & 11 \\ -10 & 5 \end{pmatrix} \implies \forall s \in \mathbb{R}\ \left( \det\left( A - sI \right) = s^{2} - 3s + 100 \right)$
+\item $\displaystyle A = \begin{pmatrix} -2 & 11 \\ -10 & 5 \end{pmatrix} \implies \forall s \in \mathbb{R}\ \left( \det\left( A^{T} A - sI \right) = 0 \iff \left( s = 50 \lor s = 200 \right) \right)$
+\item $\displaystyle \forall s \in \mathbb{R}\ \left( \det \begin{pmatrix} \frac{40}{3} - s & -\frac{23}{2} \\ -\frac{23}{2} & \frac{52}{3} - s \end{pmatrix} = 0 \iff \left( s = \frac{46}{3} - \frac{\sqrt{545}}{2} \lor s = \frac{46}{3} + \frac{\sqrt{545}}{2} \right) \right)$
+\item $\displaystyle \forall s \in \mathbb{R}\ \left( \det \begin{pmatrix} \frac{40}{3} - s & -\frac{23}{2} \\ -\frac{23}{2} & \frac{52}{3} - s \end{pmatrix} = s^{2} - \frac{92}{3} s + \frac{3559}{36} \right)$
+\item $\displaystyle A = \begin{pmatrix} \frac{80}{3} & -6 & 0 \\ -6 & 12 & 0 \\ 0 & 0 & \frac{116}{3} \end{pmatrix} \implies \forall s \in \mathbb{R}\ \left( \det\left( A - sI \right) = 0 \iff \left( s = \frac{2}{3} \left( 29 - \sqrt{202} \right) \lor s = \frac{2}{3} \left( 29 + \sqrt{202} \right) \lor s = \frac{116}{3} \right) \right)$
+\item $\displaystyle \forall k \in \mathbb{R}\ \left( \operatorname{tr} \begin{pmatrix} k & 1 \\ 1 & k^{2} \end{pmatrix} = k^{2} + k \right)$
+\item $\displaystyle \forall k \in \mathbb{R}\ \left( \det \begin{pmatrix} k & 1 \\ -1 & k \end{pmatrix} > 0 \right)$
+\item $\displaystyle \exists k \in \mathbb{R}\ \left( \det \begin{pmatrix} k & 2 \\ 1 & k \end{pmatrix} = 0 \right)$
+\item $\displaystyle \forall k \in \mathbb{R}\ \left( \det \begin{pmatrix} k & 1 \\ 1 & k \end{pmatrix} = 0 \iff \left( k = -1 \lor k = 1 \right) \right)$
+\item $\displaystyle \forall k \in \mathbb{R}\ \left( \det \begin{pmatrix} k & 1 \\ 1 & k \end{pmatrix} < 0 \iff -1 < k < 1 \right)$
+\item $\displaystyle \forall k \in \mathbb{R}\ \left( \det \begin{pmatrix} k & 2 \\ 2 & k \end{pmatrix} \ge 0 \iff \left( k \le -2 \lor k \ge 2 \right) \right)$
+\item $\displaystyle \forall k \in \mathbb{R}\ \left( \begin{vmatrix} k & 1 \\ 1 & k \end{vmatrix} = k^{2} - 1 \right)$
+\item $\displaystyle \forall k \in \mathbb{R}\ \left( \det\left( \begin{pmatrix} k & 1 \\ 2 & 3 \end{pmatrix} \begin{pmatrix} 1 & k \\ 0 & 2 \end{pmatrix} \right) = \det \begin{pmatrix} k & 1 \\ 2 & 3 \end{pmatrix} \cdot \det \begin{pmatrix} 1 & k \\ 0 & 2 \end{pmatrix} \right)$
+\item $\displaystyle \forall k \in \mathbb{R}\ \left( \det \begin{pmatrix} k & 1 \\ 2 & 3 \end{pmatrix}^{2} = \left( \det \begin{pmatrix} k & 1 \\ 2 & 3 \end{pmatrix} \right)^{2} \right)$
+\item $\displaystyle \forall k \in \mathbb{R}\ \left( \det \begin{pmatrix} k & 1 & 2 \\ 0 & k & 3 \\ 1 & 0 & k \end{pmatrix}^{T} = \det \begin{pmatrix} k & 1 & 2 \\ 0 & k & 3 \\ 1 & 0 & k \end{pmatrix} \right)$
+\item $\displaystyle \forall t \in \mathbb{R}\ \left( \det \begin{pmatrix} t & 1 & 0 & 0 \\ 1 & t & 1 & 0 \\ 0 & 1 & t & 1 \\ 0 & 0 & 1 & t \end{pmatrix} = t^{4} - 3t^{2} + 1 \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( \det \begin{pmatrix} 1 & 1 & 1 \\ 1 & 2 & 4 \\ 1 & x & x^{2} \end{pmatrix} = 0 \iff \left( x = 1 \lor x = 2 \right) \right)$
+\item $\displaystyle \forall k \in \mathbb{R}\ \left( \det\left( k \begin{pmatrix} 1 & 2 \\ 3 & 4 \end{pmatrix} \right) = -2k^{2} \right)$
+\item $\displaystyle \forall k \in \mathbb{R}\ \left( \det \begin{pmatrix} \frac{k}{2} & 1 \\ 3 & 2^{-1} k \end{pmatrix} = \frac{k^{2}}{4} - 3 \right)$
+\item $\displaystyle \forall a \in \mathbb{R}\ \forall s \in \mathbb{R}\ \left( \det \begin{pmatrix} a - s & 1 \\ 1 & a - s \end{pmatrix} = a^{2} - 2as + s^{2} - 1 \right)$
+\item $\displaystyle \forall x \in \mathbb{R}\ \left( x \det \begin{pmatrix} 1 & 2 \\ 3 & 4 \end{pmatrix} = 4 \iff x = -2 \right)$
+\item $\displaystyle \forall k \in \mathbb{R}\ \left( \operatorname{tr}\left( \begin{pmatrix} k & 1 \\ 1 & k \end{pmatrix} \begin{pmatrix} k & 1 \\ 1 & k \end{pmatrix} \right) = 2k^{2} + 2 \right)$
+\item $\displaystyle \forall k \in \mathbb{R}\ \left( \operatorname{tr} \begin{pmatrix} k(k + 1) & 1 \\ 1 & 2 \end{pmatrix} = k^{2} + k + 2 \right)$
+\end{enumerate}
+\end{document}

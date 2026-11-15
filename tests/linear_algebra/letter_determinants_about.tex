@@ -1,0 +1,47 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{letter\_determinants.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{letter\_determinants.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_linear\_algebra.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 38 true statements in which a determinant, or a trace, has a letter in its entries and the statement places the letter in $\mathbb{R}$: the values of a parameter for which a matrix is singular, the eigenvalues of a matrix as the roots of $\det(A - sI)$, the polynomial that a determinant is, an inequality that a determinant satisfies. The test asks the engine to prove each one and to write its proof.
+
+\item \textbf{Sources.} The results printed in collections of exercises, transcribed from the pages:
+\begin{itemize}
+\item statements 1--8: E. Abbena, A.M. Fino, G.M. Gianella, \emph{Geometria e Algebra Lineare I}, Universit\`a di Torino, chapter 5, exercises [3], [4], [5], [6] (pages 59--60; printed results on pages 64--66: $A^{-1}$ exists for $h \neq 9$, for $h \neq 0$, for $h \neq 1$, for $h \neq -1$ and $h \neq \frac{1}{5}$) and [11], [12] (determinants that vanish for every value of the letter);
+\item statements 9--11: the matrices of the coefficients of the linear systems of exercises [13], [14] and [20] of the same chapter (pages 61--62), where the discussion of the system starts from the values at which the determinant vanishes; the letter $\lambda$ of [20] is written $t$, because the engine does not read Greek letters as variables. These three results were not read from the book: they come from the third computation below;
+\item statements 12--14: A. Vietri, \emph{Soluzioni con suggerimenti e osservazioni}, Sapienza Universit\`a di Roma, exercise 108 (eigenvalues $0$, $1$, $2$), and S. Patr\`i, \emph{Appunti di algebra lineare}, 2008, page 31 (eigenvalues $1$, $2$, $-1$ and characteristic polynomial $-\lambda^{3} + 2\lambda^{2} + \lambda - 2$);
+\item statements 15--17: the solutions of exercise 5.3 of Trefethen and Bau, \emph{Numerical Linear Algebra} ($A$ has no real eigenvalue; the eigenvalues of $A^{T}A$ are the squares of the singular values, $50$ and $200$);
+\item statements 18--20: Rosso, \emph{Propriet\`a di inerzia} (exercises on the tensor of inertia, Universit\`a di Pavia), exercises 2.5 and 2.13: the principal moments of inertia as the eigenvalues of the matrix of inertia, $\frac{46}{3} \mp \frac{\sqrt{545}}{2}$ and $\frac{2}{3}(29 \mp \sqrt{202})$, as reported and confirmed in \texttt{photos/dati\_esercizi/analisi\_analisi\_tensoriale.md} (sections A.6 and A.8), with $m = l = 1$;
+\item statements 21--38: built for this test, one for each thing the engine must read: a trace, an inequality, an existence, an interval of solutions, bars for a determinant, a product, a power and a transpose inside a determinant, a multiple of a matrix, entries with fractions, two letters, a determinant without letters beside a letter, a product of matrices and a product of letters inside a trace (where the degree of the polynomial is the sum of the degrees of the factors).
+\end{itemize}
+
+\item \textbf{A third computation.} Every statement was decided by an independent oracle, \texttt{tools/fuzz/fuzz\_linear\_algebra.py data}, which does not use the program: it reads the file with its own reader, expands each determinant by Laplace expansion on its own polynomials, and decides the condition on the letter with exact fractions, separating the real roots with Sturm's theorem and looking at the condition at every root and at one point of every interval between two roots. The oracle found all 38 true. The engine finds the same polynomials in another way (from the values of the determinant on a grid of points), and the checker in a third one (the Leibniz formula).
+
+\item \textbf{What is being tested.} The reading of a determinant inside a statement of another language (chapter 31 of \texttt{parser.c}); the expansion of a determinant with a letter into a polynomial, its certificate, and the statement that is left for the sign table (paragraph 32g of \texttt{main.c}); the check of an expansion (paragraph 17d of \texttt{checker.c}). Of the 38 verdicts, 35 carry the certificate of the statement that is left and the certificates of the expansions; statements 18 and 20 (square roots in the result) and 35 (two letters) say that only the expansion is certified.
+
+\item \textbf{Format expected by the test.} One \texttt{\textbackslash item} per statement, with the formula written as \texttt{\$\textbackslash displaystyle ...\$}. A name is given to a matrix before $\implies$, and the quantifier follows.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -Werror -o /tmp/test_linear_algebra \
+    tests/linear_algebra/test_linear_algebra.c && /tmp/test_linear_algebra
+python3 -I tools/fuzz/fuzz_linear_algebra.py data \
+    tests/linear_algebra/letter_determinants.tex
+\end{verbatim}
+
+\item \textbf{Expected result.} The lines \texttt{PASS: 38 of 38 statements proved, each with a written proof, in tests/linear\_algebra/letter\_determinants.tex} and \texttt{PASS: 38 of 38 statements of tests/linear\_algebra/letter\_determinants.tex are proved; 35 carry certificates \dots}; the oracle prints \texttt{VERO} 38 times.
+\end{enumerate}
+\end{document}

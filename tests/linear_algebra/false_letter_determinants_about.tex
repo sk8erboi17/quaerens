@@ -1,0 +1,39 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_letter\_determinants.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_letter\_determinants.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_linear\_algebra.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 34 false statements about determinants with a letter. They guard against the worst error of the engine, a proof of something false: each one must be declared false, with a counterexample or with the proof of its negation, and never be proved.
+
+\item \textbf{How they were made.} Each statement is one of \texttt{letter\_determinants.tex} with its result wrong by little: a value of the parameter moved ($h = 8$ in place of $h = 9$), forgotten (only $h = -1$, without $h = \frac{1}{5}$) or added; an eigenvalue changed ($3$ in place of $2$) or forgotten; a coefficient or a sign of the polynomial changed; a square root divided by another number; an entry of the matrix changed, so that the determinant no longer vanishes for every value; an inequality that fails at one point only ($\det \ge 100$ where the minimum is below $100$; $> 1$ where the value $1$ is reached); an endpoint included in place of excluded, and the other way round; a sum in place of a product of two determinants.
+
+\item \textbf{A third computation.} The independent oracle \texttt{tools/fuzz/fuzz\_linear\_algebra.py data}, which does not use the program, found all 34 false. See \texttt{letter\_determinants\_about.tex} for how it decides.
+
+\item \textbf{What is being tested.} That the expansion of a determinant and the sign table that follows do not let a wrong result through, and that the verdict is \texttt{FALSO}, not only ``not proved''. Of the 34 verdicts, 33 carry the certificates; statement 19, with a square root in the result, says that only the expansion is certified.
+
+\item \textbf{Format expected by the test.} One \texttt{\textbackslash item} per statement, with the formula written as \texttt{\$\textbackslash displaystyle ...\$}.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -Werror -o /tmp/test_linear_algebra \
+    tests/linear_algebra/test_linear_algebra.c && /tmp/test_linear_algebra
+python3 -I tools/fuzz/fuzz_linear_algebra.py data \
+    tests/linear_algebra/false_letter_determinants.tex
+\end{verbatim}
+
+\item \textbf{Expected result.} The line \texttt{PASS: 34 of 34 statements of tests/linear\_algebra/false\_letter\_determinants.tex are declared false; 33 carry certificates \dots}; the oracle prints \texttt{FALSO} 34 times. These statements are regression tests: they are not removed or weakened to let a change of the engine pass.
+\end{enumerate}
+\end{document}

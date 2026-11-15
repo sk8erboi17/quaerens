@@ -16,7 +16,7 @@
  *
  * COME È FATTO
  *
- * Quattro notazioni, quattro alberi, una sola tecnica (discesa ricorsiva:
+ * Cinque notazioni, cinque alberi, una sola tecnica (discesa ricorsiva:
  * una funzione per regola della grammatica):
  *
  *   - le espressioni, con somme, prodotti, potenze e funzioni: Node
@@ -44,6 +44,9 @@
  *     I nomi visibili e i metadati delle variabili crescono con il testo.
  *     Un tentativo di lettura salva solo gli slot validi, in uno snapshot
  *     che resta valido anche se quei vettori vengono riallocati.
+ *   - gli enunciati sulle matrici scritte per esteso, con i loro prodotti,
+ *     determinanti, ranghi e inverse: MatrixNode (capitolo 31), le cui
+ *     foglie sono espressioni.
  *
  * Svolgere una definizione è l'unico punto, oltre alle convenzioni di
  * lettura, in cui questo file può cambiare il senso di un enunciato. Lo
@@ -80,6 +83,7 @@
  *    9. Parsing: dal LaTeX all'albero
  *   14. Insiemi: notazione e albero
  *   17. Quantificatori: notazione e albero
+ *   31. Matrici: notazione e albero
  *   21. Lettura degli enunciati da un file .tex
  *   34. Funzioni di più variabili: notazione e albero
  */
@@ -9182,6 +9186,461 @@ static Sentence *abstract_unfold(const Sentence *root) {
     if (unfold_capacity) memset(unfold_to, 0, unfold_capacity * sizeof *unfold_to);
     unfold_copying = 0;
     return unfold_sentence(root);
+}
+
+/* =============================================================================
+ * 31. MATRICI: NOTAZIONE E ALBERO
+ * ============================================================================
+ *
+ * Gli enunciati dell'algebra lineare su matrici scritte per esteso, con
+ * elementi numerici: "il prodotto di queste due matrici è quest'altra", "il
+ * determinante vale -2", "il rango è 2", "l'inversa è questa". Li decide il
+ * capitolo 32 di main.c, con un conto esatto sui razionali; qui c'è solo
+ * com'è scritto l'enunciato.
+ *
+ *     matrici     := [ definizione { ',' definizione } \implies ] msum [ relazione msum ]
+ *     definizione := Maiuscola '=' msum
+ *     relazione   := '=' | \neq | \ne | '<' | '>' | \le | \leq | \ge | \geq
+ *     msum        := ['-' | '+'] mterm { ('+' | '-') mterm }
+ *     mterm       := mfactor { [\cdot] mfactor }
+ *     mfactor     := mprimary { '^' esponente }
+ *     esponente   := T | t | \top | cifra
+ *                  | '{' (T | t | \top | (\mathrm | \mathsf) '{' T '}' | ['-'] numero) '}'
+ *     mprimary    := tabella | '(' msum ')' | \det mfactor | funzione mfactor
+ *                  | Maiuscola definita | I ['_' group] | factor del capitolo 9
+ *     tabella     := \begin '{' ambiente '}' riga { '\\' riga } ['\\'] \end '{' ambiente '}'
+ *     riga        := expr { '&' expr }
+ *     funzione    := (\operatorname | \mathrm | \text) '{' (rank | rk | rg | tr | det) '}'
+ *
+ * L'ambiente è pmatrix, bmatrix, matrix, array (seguito dalle sue colonne,
+ * come {ccc}) oppure vmatrix. I primi quattro scrivono la stessa matrice:
+ * cambiano solo le parentesi disegnate intorno. vmatrix, le due sbarre, è il
+ * determinante della tabella che contiene.
+ *
+ * Le convenzioni che la grammatica fissa:
+ *
+ *   - Due fattori accostati si moltiplicano, come nel capitolo 9: è il
+ *     prodotto di due matrici, o di un numero per una matrice. \times non è
+ *     accettato: tra vettori è il prodotto vettoriale, che qui non c'è, e
+ *     non va letto come altro.
+ *   - L'argomento di \det, del rango e della traccia è un fattore solo, con
+ *     i suoi esponenti, come quello di \sin: `\det A^{-1}` è il determinante
+ *     dell'inversa, `\det A B` è (det A) B.
+ *   - Una lettera maiuscola è una matrice a cui l'enunciato ha dato un nome,
+ *     prima di \implies: "A = ..., B = ... \implies A B = ...", come "date
+ *     le matrici A e B" dei libri. Ogni definizione usa solo i nomi che la
+ *     precedono, e un nome non si definisce due volte. La sola maiuscola che
+ *     vale senza definizione è I, l'identità: I_{3} è quella 3 x 3, e I
+ *     senza pedice quella della dimensione che il contesto impone, che
+ *     trova il motore (32d). Ogni altra maiuscola è un errore: non c'è una
+ *     matrice "qualsiasi" in questo linguaggio.
+ *   - Tutto il resto è un numero, letto con le regole del capitolo 9: gli
+ *     elementi di una tabella sono expr, e un fattore che non comincia come
+ *     una matrice è un factor di quel capitolo, con i suoi esponenti. Che
+ *     siano numeri razionali lo controlla il motore: qui una lettera
+ *     minuscola si legge, e là si rifiuta.
+ *   - Un esponente scritto qui è T (la trasposta) oppure un numero intero;
+ *     senza graffe è un solo token, come in TeX: `A^12` è A^1 seguito da 2.
+ *   - Due numeri scritti uno dopo l'altro, separati solo da spazi, non si
+ *     leggono: `1 2` in una tabella è quasi sempre `1 & 2` scritto male, e
+ *     come prodotto varrebbe 2 (parse_matrix_statement()).
+ *   - Senza relazione l'enunciato è una richiesta: calcolare l'espressione.
+ *
+ * CON UNA LETTERA. Un enunciato che dice dove stanno le sue lettere, con un
+ * quantificatore o con \{k \in \mathbb{R} \mid ...\}, è dei capitoli 17 e
+ * 18, che le matrici non le leggono. Può però contenere, dove quei capitoli
+ * leggono un numero, un mfactor di questo capitolo che vale un numero: un
+ * determinante o una traccia, anche di una matrice con le lettere negli
+ * elementi. Davanti può avere le stesse definizioni:
+ *
+ *     con lettere := [ definizione { ',' definizione } \implies ] enunciato dei capitoli 17 e 18
+ *
+ *     A = \begin{pmatrix} 2 & 1 \\ 1 & 2 \end{pmatrix} \implies \{s \in \mathbb{R} \mid \det(A - sI) = 0\}
+ *
+ * Qui c'è solo come si trovano quei fattori (matrix_starts_here()); che cosa
+ * valgono, e come l'enunciato si riscrive con il loro valore, è il
+ * paragrafo 32g di main.c.
+ *
+ * Warning: uses_matrices(), nel capitolo 20 di main.c, manda qui un
+ * enunciato quando vi trova uno di questi ambienti. Se ne aggiungi uno a
+ * matrix_environments[], lì non serve altro: guarda la stessa tabella.
+ */
+
+/* Tipi di nodo di un'espressione tra matrici. Tra parentesi i campi usati.
+ *
+ * Warning: se aggiungi un tipo, aggiungi il suo caso in matrix_eval() e in
+ * matrix_cert_node() (capitolo 32 di main.c), e la sua parola nel capitolo
+ * 17 di checker.c. */
+typedef enum {
+    M_SCALAR,     /* un numero: scalar, la sua espressione */
+    M_TABLE,      /* una matrice scritta: rows, cols, entry */
+    M_IDENTITY,   /* l'identità: rows, la dimensione; 0 se è scritta senza pedice */
+    M_NEG,        /* -a */
+    M_ADD,        /* a + b */
+    M_SUB,        /* a - b */
+    M_MUL,        /* a b */
+    M_POWER,      /* a elevata all'intero power, anche negativo o zero */
+    M_TRANSPOSE,  /* la trasposta di a */
+    M_DET,        /* il determinante di a */
+    M_RANK,       /* il rango di a */
+    M_TRACE       /* la traccia di a */
+} MatrixKind;
+
+/* Un nodo dell'albero di un'espressione tra matrici: una sua
+ * sotto-espressione, che vale una matrice oppure un numero. Quale delle due
+ * lo stabilisce il motore calcolandola: l'albero registra solo com'è
+ * scritta. I nodi stanno nell'arena; i campi che il tipo non usa sono zero.
+ *
+ * Un nome definito dall'enunciato non ha un nodo suo: dove compare c'è
+ * l'albero della sua definizione, lo stesso nodo ogni volta. L'albero è
+ * quindi un grafo senza cicli, e chi lo visita può passare più volte dallo
+ * stesso nodo. */
+typedef struct MatrixNode MatrixNode;
+struct MatrixNode {
+    MatrixKind kind;
+    MatrixNode *a, *b;  /* gli operandi */
+    Node *scalar;       /* M_SCALAR: l'espressione del numero (capitolo 8) */
+    int rows, cols;     /* M_TABLE: righe e colonne, almeno 1. M_IDENTITY: rows è la
+                           dimensione; se vale 0 la mette il motore, quando il
+                           contesto la fissa (32d) */
+    Node **entry;       /* M_TABLE: le rows * cols espressioni degli elementi, per righe */
+    long long power;    /* M_POWER: l'esponente */
+};
+
+/* Come sono messi in relazione i due membri di un enunciato sulle matrici;
+ * MATRIX_ASKED se il secondo membro non c'è, ed è una richiesta. */
+typedef enum { MATRIX_ASKED, MATRIX_EQ, MATRIX_NEQ, MATRIX_LT, MATRIX_LE, MATRIX_GT, MATRIX_GE } MatrixRelation;
+
+/* Un enunciato sulle matrici: i due membri e la loro relazione, con i nomi
+ * già sostituiti dalle definizioni. In una richiesta right è NULL. Le
+ * definizioni restano anche da sole, nell'ordine in cui sono scritte: il
+ * motore controlla che ognuna abbia un valore, anche se nessuno la usa. */
+typedef struct {
+    MatrixNode *left, *right;
+    MatrixRelation relation;
+    int definitions;             /* definizioni valide in definition[] */
+    MatrixNode *definition[26];  /* gli alberi delle matrici con un nome: al più una per lettera */
+} MatrixStatement;
+
+/* Gli ambienti LaTeX che scrivono una tabella di numeri. determinant dice se
+ * l'ambiente ne è il determinante (le due sbarre); columns se dopo il nome
+ * vuole la descrizione delle colonne, che si salta. */
+static const struct { const char *name; int determinant, columns; } matrix_environments[] = {
+    {"pmatrix", 0, 0}, {"bmatrix", 0, 0}, {"matrix", 0, 0}, {"array", 0, 1}, {"vmatrix", 1, 0},
+};
+
+/* Le matrici a cui l'enunciato in corso ha dato un nome: il posto i è la
+ * lettera 'A' + i, e vale NULL finché non è definita. */
+static MatrixNode *matrix_named[26];
+
+/* Ritorna un nodo nuovo di tipo kind con operandi a e b, e gli altri campi a
+ * zero. Con l'arena piena ritorna un nodo di riserva, come node_new(). */
+static MatrixNode *matrix_node(MatrixKind kind, MatrixNode *a, MatrixNode *b) {
+    static MatrixNode spare;
+    MatrixNode *node = arena_alloc(sizeof *node);
+    if (!node) node = &spare;
+    memset(node, 0, sizeof *node);
+    node->kind = kind;
+    node->a = a;
+    node->b = b;
+    return node;
+}
+
+/* Legge una parola tra graffe, {parola}, dal testo che segue il comando
+ * corrente, e la copia in word (al più size - 1 lettere). Il lettore di
+ * token la darebbe una lettera alla volta: qui serve intera, perché è il
+ * nome di un ambiente o di una funzione. Ritorna 1 se c'è, e allora il
+ * cursore resta subito dopo la graffa chiusa: chi chiama legge poi il
+ * token successivo con next_token(). Altrimenti ritorna 0 e non sposta
+ * nulla. */
+static int matrix_word(char *word, size_t size) {
+    const char *p = cursor;
+    size_t length = 0;
+    while (isspace((unsigned char)*p)) p++;
+    if (*p != '{') return 0;
+    for (p++; isalpha((unsigned char)*p); p++)
+        if (length + 1 < size) word[length++] = *p;
+    word[length] = 0;
+    if (*p != '}' || length == 0) return 0;
+    cursor = p + 1;
+    return 1;
+}
+
+static MatrixNode *matrix_sum(void);
+static MatrixNode *matrix_factor(void);
+
+/* tabella := \begin '{' ambiente '}' riga { '\\' riga } ['\\'] \end '{' ambiente '}'
+ *
+ * Il token corrente è \begin. Ritorna il nodo M_TABLE, oppure il suo
+ * determinante se l'ambiente è vmatrix. */
+static MatrixNode *matrix_table(void) {
+    char name[16], closing[16];
+    int environment = -1;
+    if (matrix_word(name, sizeof name))
+        for (size_t i = 0; i < sizeof matrix_environments / sizeof *matrix_environments; i++)
+            if (strcmp(name, matrix_environments[i].name) == 0) environment = (int)i;
+    if (environment < 0) { syntax("dopo \\begin serve un ambiente che scrive una matrice, come pmatrix"); return matrix_node(M_SCALAR, NULL, NULL); }
+
+    /* Le colonne di array, {ccc} o {rr|r}: dicono solo come allineare. */
+    if (matrix_environments[environment].columns) {
+        while (isspace((unsigned char)*cursor)) cursor++;
+        const char *close = *cursor == '{' ? strchr(cursor, '}') : NULL;
+        if (!close) { syntax("dopo \\begin{array} servono le colonne tra graffe"); return matrix_node(M_SCALAR, NULL, NULL); }
+        cursor = close + 1;
+    }
+    next_token();
+
+    /* Gli elementi, per righe. Ognuno occupa almeno un carattere del testo
+     * che resta: tanti posti bastano di sicuro, senza contare prima. */
+    MatrixNode *table = matrix_node(M_TABLE, NULL, NULL);
+    table->entry = arena_alloc((strlen(token.start) + 1) * sizeof *table->entry);
+    if (!table->entry) { syntax(OUT_OF_MEMORY); return table; }
+    for (int count = 0, in_row = 0; !syntax_error;) {
+        table->entry[count++] = parse_expr();
+        in_row++;
+        if (is_char('&')) { next_token(); continue; }
+
+        /* Fine di una riga: tutte devono avere gli stessi elementi. */
+        if (table->rows == 0) table->cols = in_row;
+        else if (in_row != table->cols) syntax("le righe di una matrice devono avere lo stesso numero di elementi");
+        table->rows++;
+        in_row = 0;
+        if (!is_char(ESCAPED + '\\')) break;
+        next_token();
+        if (is_command("end")) break;  /* un a capo dopo l'ultima riga */
+    }
+
+    /* La chiusura, con lo stesso ambiente. */
+    if (!is_command("end") || !matrix_word(closing, sizeof closing) || strcmp(closing, name) != 0)
+        syntax("una matrice va chiusa con \\end e lo stesso ambiente con cui è aperta");
+    else next_token();
+    return matrix_environments[environment].determinant ? matrix_node(M_DET, table, NULL) : table;
+}
+
+/* Se il token corrente comincia il nome di una funzione delle matrici scritto
+ * per esteso, \operatorname{rank} o \mathrm{tr}, lo supera, mette in *kind
+ * il tipo del suo nodo e ritorna 1. Altrimenti non tocca nulla e ritorna 0.
+ * I nomi del rango sono quelli dei libri italiani e inglesi. */
+static int matrix_function(MatrixKind *kind) {
+    static const struct { const char *word; MatrixKind kind; } names[] = {
+        {"rank", M_RANK}, {"rk", M_RANK}, {"rg", M_RANK}, {"tr", M_TRACE}, {"det", M_DET},
+    };
+    char word[16];
+    if (!is_command("operatorname") && !is_command("mathrm") && !is_command("text")) return 0;
+    const char *before = cursor;
+    if (!matrix_word(word, sizeof word)) return 0;
+    for (size_t i = 0; i < sizeof names / sizeof *names; i++)
+        if (strcmp(word, names[i].word) == 0) {
+            *kind = names[i].kind;
+            next_token();
+            return 1;
+        }
+    cursor = before;
+    return 0;
+}
+
+/* mprimary: vedi la grammatica in testa al capitolo. */
+static MatrixNode *matrix_primary(void) {
+    MatrixKind function;
+    if (is_command("begin")) return matrix_table();
+    if (token.kind == T_OPEN) {
+        next_token();
+        MatrixNode *inner = matrix_sum();
+        if (token.kind == T_CLOSE) next_token(); else syntax("manca la parentesi chiusa");
+        return inner;
+    }
+    if (is_command("det")) {
+        next_token();
+        return matrix_node(M_DET, matrix_factor(), NULL);
+    }
+    if (matrix_function(&function)) return matrix_node(function, matrix_factor(), NULL);
+
+    /* Una maiuscola: un nome definito, oppure l'identità. */
+    if (token.kind == T_LETTER && isupper(token.ch)) {
+        int name = token.ch;
+        next_token();
+        if (matrix_named[name - 'A']) return matrix_named[name - 'A'];
+        if (name != 'I') { syntax("una lettera maiuscola è una matrice, e va definita prima di \\implies: A = ... \\implies ..."); return matrix_node(M_SCALAR, NULL, NULL); }
+        MatrixNode *identity = matrix_node(M_IDENTITY, NULL, NULL);
+        if (is_char('_')) {
+            next_token();
+            Node *size = parse_group();
+            if (size->kind != N_NUM || size->value < 1 || size->value > INT_MAX) syntax("il pedice di I è la sua dimensione: un numero intero positivo");
+            else identity->rows = (int)size->value;
+        }
+        return identity;
+    }
+
+    /* Un numero, con le regole del capitolo 9. */
+    if (starts_factor()) {
+        MatrixNode *number = matrix_node(M_SCALAR, NULL, NULL);
+        number->scalar = parse_factor();
+        return number;
+    }
+    syntax(token.kind == T_COMMAND ? "comando LaTeX non supportato in un enunciato sulle matrici" : "espressione incompleta o simbolo inatteso");
+    return matrix_node(M_SCALAR, NULL, NULL);
+}
+
+/* esponente: il token corrente è '^'. Ritorna base con l'esponente
+ * applicato: la trasposta, oppure una potenza intera. */
+static MatrixNode *matrix_exponent(MatrixNode *base) {
+    const char *shape = "l'esponente di una matrice è T, per la trasposta, oppure un numero intero";
+    char word[4];
+    next_token();
+    int braces = is_char('{');
+    if (braces) next_token();
+
+    /* La trasposta: T, t, \top, e tra graffe anche \mathrm{T}. */
+    int transpose = (token.kind == T_LETTER && (token.ch == 'T' || token.ch == 't')) || is_command("top");
+    if (braces && (is_command("mathrm") || is_command("mathsf")))
+        transpose = matrix_word(word, sizeof word) && (strcmp(word, "T") == 0 || strcmp(word, "t") == 0);
+    MatrixNode *node = matrix_node(transpose ? M_TRANSPOSE : M_POWER, base, NULL);
+    if (transpose) {
+        next_token();
+    } else {
+        /* Un intero. Senza graffe TeX prende una cifra sola (parse_group()). */
+        int negative = braces && is_char('-');
+        if (negative) next_token();
+        if (token.kind != T_NUM) { syntax(shape); return node; }
+        node->power = negative ? -token.value : token.value;
+        if (!braces && token.digits > 1) {
+            node->power = token.start[0] - '0';
+            cursor = token.start + 1;
+        }
+        next_token();
+    }
+    if (braces) expect_char('}', shape);
+    return node;
+}
+
+/* mfactor := mprimary { '^' esponente }
+ *
+ * Un numero letto dal capitolo 9 arriva qui con i suoi esponenti già letti
+ * da parse_factor(): un '^' può seguire solo una matrice o una parentesi. */
+static MatrixNode *matrix_factor(void) {
+    MatrixNode *node = matrix_primary();
+    while (is_char('^') && !syntax_error) node = matrix_exponent(node);
+    return node;
+}
+
+/* Ritorna 1 se il token corrente può iniziare un mfactor: serve a
+ * riconoscere il prodotto scritto per accostamento. Sono i modi in cui
+ * comincia una matrice, più quelli in cui comincia un fattore del capitolo
+ * 9 (starts_factor()), tra i quali ci sono già le lettere e le parentesi. */
+static int matrix_starts_factor(void) {
+    return is_command("begin") || is_command("det") || is_command("operatorname") || is_command("mathrm") ||
+           is_command("text") || starts_factor();
+}
+
+/* mterm := mfactor { [\cdot] mfactor } */
+static MatrixNode *matrix_term(void) {
+    MatrixNode *node = matrix_factor();
+    while (!syntax_error) {
+        if (is_command("times")) syntax("\\times non è letto come prodotto tra matrici: si accostano i fattori, o si scrive \\cdot");
+        if (is_command("cdot")) next_token();
+        else if (!matrix_starts_factor()) break;
+        node = matrix_node(M_MUL, node, matrix_factor());
+    }
+    return node;
+}
+
+/* msum := ['-' | '+'] mterm { ('+' | '-') mterm } */
+static MatrixNode *matrix_sum(void) {
+    MatrixNode *node;
+    if (is_char('-')) { next_token(); node = matrix_node(M_NEG, matrix_term(), NULL); }
+    else { if (is_char('+')) next_token(); node = matrix_term(); }
+    while (!syntax_error) {
+        if (is_char('+')) { next_token(); node = matrix_node(M_ADD, node, matrix_term()); }
+        else if (is_char('-')) { next_token(); node = matrix_node(M_SUB, node, matrix_term()); }
+        else break;
+    }
+    return node;
+}
+
+/* Comincia a leggere text con il lettore di questo capitolo: nessuna matrice
+ * ha ancora un nome, e il token corrente è il primo. Se text non si può
+ * leggere syntax_error dice perché. */
+static void matrix_start(const char *text) {
+    memset(matrix_named, 0, sizeof matrix_named);
+    syntax_error = NULL;
+    cursor = text;
+    next_token();
+
+    /* Due numeri separati solo da spazi, "1 2". Per il capitolo 9 sarebbero
+     * un prodotto, 2; in una tabella sono quasi sempre due elementi a cui
+     * manca &, e stampati da LaTeX si leggono 12. Sono tre letture diverse
+     * dello stesso testo: non se ne sceglie una, lo si rifiuta. */
+    for (const char *p = text; *p && !syntax_error; p++) {
+        const char *next = p + 1;
+        if (!isdigit((unsigned char)*p) || !isspace((unsigned char)*next)) continue;
+        while (isspace((unsigned char)*next)) next++;
+        if (isdigit((unsigned char)*next))
+            syntax("due numeri scritti uno dopo l'altro: tra due elementi di una matrice serve &, e un prodotto si scrive con \\cdot");
+    }
+}
+
+/* Legge le definizioni che stanno prima di \implies: Maiuscola =
+ * espressione, separate da virgole. Le aggiunge a out, e lascia come token
+ * corrente il primo dopo \implies. Il nome vale da dopo la sua definizione,
+ * così nessuna può nominare sé stessa o una che la segue. */
+static void matrix_definitions(MatrixStatement *out) {
+    for (int defining = 1; defining && !syntax_error;) {
+        if (token.kind != T_LETTER || !isupper(token.ch)) { syntax("prima di \\implies servono definizioni di matrici: A = ..., B = ..."); break; }
+        int name = token.ch;
+        next_token();
+        if (matrix_named[name - 'A']) syntax("una matrice è definita due volte");
+        expect_char('=', "manca = nella definizione di una matrice");
+        MatrixNode *value = matrix_sum();
+        if (syntax_error) break;
+        matrix_named[name - 'A'] = value;
+        out->definition[out->definitions++] = value;
+        if (is_command("implies")) defining = 0;
+        else if (!is_char(',')) syntax("dopo la definizione di una matrice serve una virgola o \\implies");
+        if (!syntax_error) next_token();
+    }
+}
+
+/* Ritorna 1 se il token corrente comincia un fattore di questo capitolo che
+ * non è un numero del capitolo 9: una tabella, \det, il rango o la traccia.
+ * Non sposta nulla. Serve a chi cerca questi fattori dentro un enunciato di
+ * un altro linguaggio, per mettere al loro posto il loro valore (32g di
+ * main.c): un \begin{cases} non è uno di loro. */
+static int matrix_starts_here(void) {
+    ParserState here = parser_save();
+    const char *here_consumed = consumed;
+    MatrixKind kind;
+    char name[16];
+    int found = is_command("det") || matrix_function(&kind);
+    if (!found && is_command("begin") && matrix_word(name, sizeof name))
+        for (size_t i = 0; i < sizeof matrix_environments / sizeof *matrix_environments; i++) found |= strcmp(name, matrix_environments[i].name) == 0;
+    parser_restore(here);
+    consumed = here_consumed;
+    return found;
+}
+
+/* Analizza text come enunciato sulle matrici (vedi la grammatica in testa
+ * al capitolo) e lo mette in *out. Ritorna 1 se riesce; altrimenti ritorna
+ * 0 e syntax_error dice perché. */
+static int parse_matrix_statement(const char *text, MatrixStatement *out) {
+    memset(out, 0, sizeof *out);
+    matrix_start(text);
+    if (strstr(text, "\\implies")) matrix_definitions(out);
+
+    /* Il primo membro, la relazione, il secondo; oppure una richiesta. */
+    out->left = matrix_sum();
+    if (token.kind != T_END) {
+        if (is_char('=')) out->relation = MATRIX_EQ;
+        else if (is_command("neq") || is_command("ne")) out->relation = MATRIX_NEQ;
+        else if (is_char('<')) out->relation = MATRIX_LT;
+        else if (is_char('>')) out->relation = MATRIX_GT;
+        else if (is_command("le") || is_command("leq")) out->relation = MATRIX_LE;
+        else if (is_command("ge") || is_command("geq")) out->relation = MATRIX_GE;
+        else syntax("manca la relazione tra i due membri");
+        next_token();
+        out->right = matrix_sum();
+    }
+    if (token.kind != T_END) syntax("testo inatteso dopo l'enunciato");
+    return syntax_error == NULL;
 }
 
 /* =============================================================================

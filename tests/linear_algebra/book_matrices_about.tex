@@ -1,0 +1,46 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{book\_matrices.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{book\_matrices.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_linear\_algebra.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 64 true statements about matrices with rational entries written in full: a product, a determinant, a rank, an inverse, a trace, a power has the stated value. The test asks the engine to prove each one, to write its proof, and to attach a certificate that the independent checker accepts.
+
+\item \textbf{Sources.} The results printed in collections of exercises of a first course in linear algebra, transcribed from the pages (the extracted text of the PDF files loses signs):
+\begin{itemize}
+\item statements 1--17: A. Vietri, \emph{Soluzioni con suggerimenti e osservazioni (esercizi di algebra lineare e geometria)}, Sapienza Universit\`a di Roma, a.a.\ 2025--26, exercises 1, 2, 4, 5, 6 (pages 3--4);
+\item statements 18--32: E. Abbena, A.M. Fino, G.M. Gianella, \emph{Geometria e Algebra Lineare I}, Universit\`a di Torino, chapter 5, exercises [1], [2], [7]--[10] with their printed results, and exercises [3], [6], [11], [12], which have a parameter, at fixed values of the parameter ($h = 9$ and $h = 10$; $h = -1$, $h = \frac{1}{5}$ and $h = 0$; $k = 1$; $x = 3$);
+\item statements 33--37: A. Berarducci, \emph{Esercizi svolti di algebra lineare}, Pisa, 2014, exercises 1.4 (a basis of a kernel) and 1.7 (a nilpotent matrix);
+\item statements 38--41: the solutions of exercise 5.3 of Trefethen and Bau, \emph{Numerical Linear Algebra} (determinant, inverse, and the squares of the singular values, $200$ and $50$, through $A^{T}A$);
+\item statements 42--45: S. Patr\`i, \emph{Appunti di algebra lineare}, 2008, page 31 (eigenvalues $1$, $2$, $-1$ and the characteristic polynomial $-\lambda^{3} + 2\lambda^{2} + \lambda - 2$, here as an instance of the Cayley--Hamilton theorem);
+\item statements 46--49: Vietri, exercise 108 (eigenvalues $0$, $1$, $2$);
+\item statements 50--64: concrete instances reported in the research notes of \texttt{photos/resoconti\_agenti/algebra\_lineare\_ricerca/} from Treil, \emph{Linear Algebra Done Wrong} (3.3.3, 6.2.4, 7.4.1), Hefferon, \emph{Linear Algebra} (Four.I.1.2, Four.I.1.19, Three.IV.4.15), Kazdan, \emph{Linear Algebra Problems} (34c, 53) and Kuttler, \emph{A First Course in Linear Algebra} (chapter 3, exercise 4).
+\end{itemize}
+
+\item \textbf{A third computation.} Every statement was recomputed by an independent oracle, \texttt{tools/fuzz/fuzz\_linear\_algebra.py data}, which reads the file with its own reader and computes with exact fractions and without any elimination (determinants by Laplace expansion, ranks by minors, inverses by cofactors). The oracle found all 64 true: no printed result of these exercises is wrong. The data were not produced by the engine.
+
+\item \textbf{What is being tested.} The reading of matrices and of the operations between them (chapter 31 of \texttt{parser.c}); the exact computation with Gauss--Jordan elimination, the names given to matrices, the identity written without its size, the number $0$ read as the zero matrix (chapter 32 of \texttt{main.c}); the certificate and its check (chapter 17 of \texttt{checker.c}).
+
+\item \textbf{Format expected by the test.} One \texttt{\textbackslash item} per statement, with the formula written as \texttt{\$\textbackslash displaystyle ...\$}. Matrices are written with \texttt{pmatrix}; names are given before $\implies$, as in ``given the matrices $A$ and $B$''.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -Werror -o /tmp/test_linear_algebra \
+    tests/linear_algebra/test_linear_algebra.c && /tmp/test_linear_algebra
+\end{verbatim}
+
+\item \textbf{Expected result.} The lines \texttt{PASS: 64 of 64 statements proved, each with a written proof}, \texttt{PASS: 64 of 64 statements \dots{} are proved with a certificate that the checker accepts, and rejects with the claim reversed}, and \texttt{PASS: 63 of 63 negations \dots{} are declared false, with a certificate} (the statement with $>$ has no negation written with $=$ or $\neq$).
+\end{enumerate}
+\end{document}

@@ -119,6 +119,18 @@
  * (\in \mathbb{R}), che senza una primitiva si decide per confronto con
  * x^{-a} (\ln x)^{-b}.
  *
+ * E l'algebra lineare sulle matrici scritte per esteso, con elementi
+ * razionali (capitolo 31 in parser.c, capitolo 32): "il prodotto di queste
+ * due matrici è quest'altra", il determinante, il rango, l'inversa, la
+ * trasposta, le potenze. I due membri si calcolano con i razionali esatti e
+ * l'eliminazione di Gauss, che di ogni determinante, rango e inversa lascia
+ * un testimone: il verificatore li ricontrolla con soli prodotti, senza
+ * eliminare. Un'espressione senza relazione chiede il suo valore, RISOLTO.
+ * Con una lettera negli elementi, e la lettera nel suo insieme, un
+ * determinante diventa il suo polinomio e l'enunciato passa alla tabella dei
+ * segni: per quali valori di un parametro una matrice è singolare, quali
+ * sono i suoi autovalori.
+ *
  * E le funzioni di più variabili (capitolo 35): "f(x, y) = x^2 y \implies
  * \nabla f(1, 2) = (4, 1)", le derivate parziali scritte con \partial o con
  * il pedice, il gradiente e la matrice hessiana, come formule o in un punto,
@@ -489,6 +501,7 @@
  *    9. Parsing: dal LaTeX all'albero                       (parser.c)
  *   14. Insiemi: notazione e albero                         (parser.c)
  *   17. Quantificatori: notazione e albero                  (parser.c)
+ *   31. Matrici: notazione e albero                         (parser.c)
  *   21. Lettura degli enunciati da un file .tex             (parser.c)
  *   34. Funzioni di più variabili: notazione e albero       (parser.c)
  *   10. Vocabolario: le successioni note, come dati
@@ -526,6 +539,7 @@
  *   28. Insiemi qualsiasi: modelli finiti anche con SAT, istanze, uguali al posto di uguali
  *   29. Limiti
  *   30. Integrali: primitive, integrali definiti e impropri
+ *   32. Algebra lineare esatta: matrici a elementi razionali
  *   35. Funzioni di più variabili: derivate parziali, gradiente, hessiana
  *   20. Dimostrare un enunciato
  *   41. La spiegazione scritta                              (output.c)
@@ -44056,6 +44070,1571 @@ static Verdict prove_integral(const char *formula) {
 }
 
 /* =============================================================================
+ * 32. ALGEBRA LINEARE ESATTA: MATRICI A ELEMENTI RAZIONALI
+ * ============================================================================
+ *
+ * Decide gli enunciati del capitolo 31 (parser.c): due espressioni tra
+ * matrici scritte per esteso, messe in relazione. "Il prodotto di queste due
+ * matrici è quest'altra", "il determinante vale -2", "il rango è 2",
+ * "l'inversa è questa". Senza relazione l'enunciato è una richiesta, e la
+ * risposta è il valore dell'espressione.
+ *
+ * COME
+ *
+ * Un enunciato così non ha lettere: i suoi due membri sono numeri razionali
+ * o tabelle di numeri razionali, e si calcolano. Il metodo è uno solo, quello
+ * dei libri:
+ *
+ *   32a. le operazioni tra matrici, con i razionali esatti del capitolo 3;
+ *   32b. l'eliminazione di Gauss, che dà il rango, il determinante e
+ *        l'inversa, ognuno con un testimone che lo fa ricontrollare
+ *        moltiplicando;
+ *   32c. i numeri scritti nell'enunciato;
+ *   32d. il valore di un'espressione, con le regole sui tipi (un numero o
+ *        una matrice) e sulle dimensioni, e la dimensione di I quando non è
+ *        scritta;
+ *   32e. il confronto dei due membri;
+ *   32f. il certificato per checker.c;
+ *   32g. una lettera negli elementi: il determinante diventa un polinomio,
+ *        trovato con lo stesso conto sui numeri fatto in abbastanza punti,
+ *        e l'enunciato con il polinomio al suo posto passa ai capitoli che
+ *        sanno deciderlo;
+ *   32h. il verdetto, e la risposta di una richiesta, riletta.
+ *
+ * Nessun numero in virgola mobile: un determinante che vale zero deve valere
+ * zero. Nessuna formula per un tipo di matrice: una 2 x 2 e una 5 x 5
+ * passano per la stessa eliminazione.
+ *
+ * CHE COSA VUOL DIRE UN ENUNCIATO
+ *
+ *   - Due matrici sono uguali se hanno le stesse dimensioni e gli stessi
+ *     elementi. Due matrici di dimensioni diverse sono diverse: "=" è falso
+ *     e "\neq" è vero.
+ *   - Un numero e una matrice sono cose diverse, anche se la matrice è
+ *     1 x 1: sommarli o confrontarli è un errore di scrittura, e il verdetto
+ *     è NON SUPPORTATO. Fa eccezione lo 0 scritto da solo come membro, che
+ *     accanto a una matrice è la matrice nulla delle stesse dimensioni:
+ *     "A B = 0", come in ogni libro.
+ *   - Un'operazione che non è definita (una somma o un prodotto con le
+ *     dimensioni sbagliate, il determinante di una matrice non quadrata,
+ *     l'inversa di una matrice singolare) rende l'enunciato senza senso: NON
+ *     SUPPORTATO, con il motivo, come \frac{1}{0} = 1 nel capitolo 13. Mai
+ *     FALSO: "A^{-1} = B" con A singolare non è un'uguaglianza sbagliata, è
+ *     un'uguaglianza che non dice nulla.
+ *   - Il rango è la dimensione dello spazio generato dalle righe, sui
+ *     razionali; sui reali è lo stesso numero, perché l'eliminazione usa solo
+ *     le quattro operazioni.
+ *   - x^0 vale 1 per ogni numero x, e A^0 è l'identità per ogni matrice
+ *     quadrata A: il prodotto di nessun fattore, come in rat_pow_int().
+ *
+ * IL CONTROLLO INDIPENDENTE
+ *
+ * Ha due livelli, e nessuno dei due rifà l'eliminazione.
+ *
+ * Qui: ogni cosa che l'eliminazione trova (un'inversa, un determinante, un
+ * rango) esce con un testimone, e il testimone si ricontrolla con dei
+ * prodotti prima di usare il risultato (32b). Moltiplicare è un altro conto
+ * rispetto a eliminare: un errore nella ricerca di un perno o in uno
+ * scambio fa fallire il prodotto.
+ *
+ * Nel verificatore: ogni verdetto DIMOSTRATO, FALSO o RISOLTO di questo
+ * capitolo vuole che checker.c abbia accettato il certificato (32f), che
+ * porta l'enunciato e gli stessi testimoni. Lì i due membri si ricalcolano
+ * da capo con un'altra aritmetica (interi a 128 bit invece di 64) e con
+ * sole somme, prodotti e confronti: il verificatore non elimina, non cerca
+ * perni, non sceglie nulla. Se respinge, il motore ha sbagliato e il
+ * verdetto è NON DIMOSTRATO; se non sa controllare (numeri troppo grandi)
+ * il verdetto è ancora NON DIMOSTRATO, perché un risultato che il
+ * verificatore non ha visto qui non ha un altro controllo che lo regga.
+ *
+ * PERCHÉ COSÌ
+ *
+ * Trovare è difficile, controllare è facile: un'eliminazione ha scelte
+ * (quale perno, quale scambio) e casi (la colonna senza perno), un prodotto
+ * no. Tenere l'eliminazione solo nel motore, e far viaggiare ciò che basta
+ * a ricontrollarla, lascia al verificatore il conto più corto da credere.
+ * L'alternativa, che il verificatore rifacesse l'eliminazione con il suo
+ * codice, è stata la prima versione: due eliminazioni sono lo stesso metodo
+ * scritto due volte, e un'idea sbagliata sul metodo sarebbe stata in tutte
+ * e due.
+ *
+ * L'eliminazione sui razionali è la più semplice che dia tutti e tre i
+ * testimoni. Quella senza frazioni di Bareiss (18t-h2) tiene i numeri più
+ * piccoli, ma dà solo il determinante: qui i numeri sono quelli degli
+ * esercizi, e la semplicità vale di più. Un numero che esce dai limiti del
+ * capitolo 3 ferma il conto con NON SUPPORTATO.
+ *
+ * Che cosa manca, e dove andrebbe: con una lettera ci sono solo il
+ * determinante e la traccia (32g); il rango, l'inversa e i confronti tra
+ * matrici con una lettera vogliono la discussione per casi sul parametro
+ * (le celle di 18t, con il conto di questo capitolo in un punto di ogni
+ * cella) o, per le identità, elementi che siano polinomi; i sistemi lineari
+ * e i sottospazi sono il capitolo 33, non ancora scritto.
+ */
+
+#define MATRIX_WORK 20000000  /* prodotti tra razionali concessi al conto di un enunciato: un'identità I_{3000}
+                                 è una riga di testo, e il suo determinante ne chiederebbe miliardi */
+
+/* Una matrice di numeri razionali: rows righe e cols colonne, almeno una, con
+ * gli elementi per righe in at[], nell'arena. L'elemento della riga i e
+ * della colonna j, contate da zero, è at[i * cols + j] (matrix_at()). Una
+ * matrice con rows e cols a zero è il risultato di un conto fallito: non ha
+ * elementi, e ogni ciclo su di lei non fa nulla. */
+typedef struct {
+    int rows, cols;
+    Frac *at;
+} Matrix;
+
+/* Il valore di un'espressione del capitolo 31: un numero (is_matrix a 0, in
+ * number) oppure una matrice (is_matrix a 1, in matrix). Il campo che non
+ * serve non ha significato. */
+typedef struct {
+    int is_matrix;
+    Frac number;
+    Matrix matrix;
+} MatrixValue;
+
+/* Il valore di un conto fallito: `failure` dice perché. */
+static const MatrixValue MATRIX_NONE = {0, {0, 1}, {0, 0, NULL}};
+
+/* I motivi che ricorrono in più punti, e come si dice nel verdetto il metodo
+ * di questo capitolo. */
+static const char *const MATRIX_SINGULAR = "l'inversa non esiste: la matrice è singolare, cioè il suo determinante è zero";
+static const char *const MATRIX_NOT_SQUARE = "determinante, traccia, inversa e potenze sono definiti solo per una matrice quadrata";
+static const char *const MATRIX_METHOD = "con il calcolo esatto sulle matrici";
+
+/* Prodotti tra razionali già contati per l'enunciato in corso. */
+static long long matrix_work;
+
+/* Conta amount prodotti tra razionali. Ritorna 1 se il conto sta ancora nel
+ * suo budget; altrimenti annota l'errore e ritorna 0. */
+static int matrix_spend(long long amount) {
+    if (amount > MATRIX_WORK - matrix_work) { fail("conto sulle matrici troppo lungo"); return 0; }
+    matrix_work += amount;
+    return 1;
+}
+
+/* 32a. LE OPERAZIONI
+ *
+ * Ogni funzione ritorna una matrice nuova, nell'arena; dopo un errore
+ * ritorna la matrice senza elementi, e chi chiama guarda `failure` alla
+ * fine, come nel resto del programma. */
+
+/* Ritorna una matrice rows x cols con gli elementi non inizializzati. Le
+ * due dimensioni sono almeno 1: una tabella letta ha almeno un elemento,
+ * un'identità un pedice positivo, e le operazioni partono da quelle. */
+static Matrix matrix_new(int rows, int cols) {
+    Matrix m = {0, 0, NULL};
+    if (failure) return m;
+    if ((size_t)rows > ARENA_BYTES / sizeof(Frac) / (size_t)cols) { fail(OUT_OF_MEMORY); return m; }
+    m.at = arena_alloc((size_t)rows * (size_t)cols * sizeof(Frac));
+    if (!m.at) return m;
+    m.rows = rows;
+    m.cols = cols;
+    return m;
+}
+
+/* Ritorna l'indirizzo dell'elemento di m nella riga i e colonna j, da zero. */
+static Frac *matrix_at(Matrix m, int i, int j) { return &m.at[(size_t)i * (size_t)m.cols + (size_t)j]; }
+
+/* Ritorna la matrice nulla rows x cols. */
+static Matrix matrix_zero(int rows, int cols) {
+    Matrix m = matrix_new(rows, cols);
+    for (int i = 0; i < m.rows * m.cols; i++) m.at[i] = frac_int(0);
+    return m;
+}
+
+/* Ritorna l'identità n x n: 1 sulla diagonale, 0 altrove. */
+static Matrix matrix_identity(int n) {
+    Matrix m = matrix_zero(n, n);
+    for (int i = 0; i < m.rows; i++) *matrix_at(m, i, i) = frac_int(1);
+    return m;
+}
+
+/* Ritorna c m: ogni elemento di m moltiplicato per c. */
+static Matrix matrix_scale(Matrix m, Frac c) {
+    Matrix r = matrix_new(m.rows, m.cols);
+    if (!matrix_spend((long long)r.rows * r.cols)) return (Matrix){0, 0, NULL};
+    for (int i = 0; i < r.rows * r.cols; i++) r.at[i] = frac_mul(c, m.at[i]);
+    return r;
+}
+
+/* Ritorna a + b, oppure a - b se subtract è diverso da zero. Le due matrici
+ * devono avere le stesse dimensioni: lo controlla chi chiama. */
+static Matrix matrix_add(Matrix a, Matrix b, int subtract) {
+    Matrix r = matrix_new(a.rows, a.cols);
+    for (int i = 0; i < r.rows * r.cols; i++) r.at[i] = frac_add(a.at[i], subtract ? frac_neg(b.at[i]) : b.at[i]);
+    return r;
+}
+
+/* Ritorna il prodotto righe per colonne a b: l'elemento (i, j) è la somma
+ * su k di a(i, k) b(k, j). Le colonne di a devono essere quante le righe di
+ * b: lo controlla chi chiama. */
+static Matrix matrix_mul(Matrix a, Matrix b) {
+    Matrix r = matrix_new(a.rows, b.cols);
+    if (!matrix_spend((long long)r.rows * r.cols * a.cols)) return (Matrix){0, 0, NULL};
+    for (int i = 0; i < r.rows; i++)
+        for (int j = 0; j < r.cols; j++) {
+            Frac sum = frac_int(0);
+            for (int k = 0; k < a.cols; k++) sum = frac_add(sum, frac_mul(*matrix_at(a, i, k), *matrix_at(b, k, j)));
+            *matrix_at(r, i, j) = sum;
+        }
+    return r;
+}
+
+/* Ritorna la trasposta di m: le righe al posto delle colonne. */
+static Matrix matrix_transpose(Matrix m) {
+    Matrix r = matrix_new(m.cols, m.rows);
+    for (int i = 0; i < r.rows; i++)
+        for (int j = 0; j < r.cols; j++) *matrix_at(r, i, j) = *matrix_at(m, j, i);
+    return r;
+}
+
+/* Ritorna 1 se a e b hanno le stesse dimensioni e gli stessi elementi. Se
+ * hanno le stesse dimensioni e differiscono, mette in *row e *col il primo
+ * posto, da zero, in cui differiscono. */
+static int matrix_same(Matrix a, Matrix b, int *row, int *col) {
+    if (a.rows != b.rows || a.cols != b.cols) return 0;
+    for (int i = 0; i < a.rows; i++)
+        for (int j = 0; j < a.cols; j++)
+            if (frac_cmp(*matrix_at(a, i, j), *matrix_at(b, i, j)) != 0) { *row = i; *col = j; return 0; }
+    return 1;
+}
+
+/* 32b. L'ELIMINAZIONE, E I TESTIMONI CHE LASCIA
+ *
+ * Rango, determinante e inversa vengono tutti dall'eliminazione di Gauss.
+ * Ma ciò che il capitolo consegna non è "l'eliminazione ha detto": è un
+ * testimone, cioè delle matrici con cui chiunque ricontrolla il risultato
+ * moltiplicando, senza rifare l'eliminazione. È ciò che riceve il
+ * verificatore (32f), che di eliminazioni non ne fa; e ogni testimone viene
+ * ricontrollato già qui, con gli stessi prodotti, prima di essere usato. Un
+ * testimone che non torna è un errore dell'eliminazione: conta tra i passi
+ * non giustificati, e il conto fallisce.
+ *
+ * LA FORMA RIDOTTA. Tre operazioni sulle righe di una matrice non cambiano
+ * lo spazio che le righe generano: scambiare due righe, moltiplicare una
+ * riga per un numero diverso da zero, sommare a una riga un multiplo di
+ * un'altra. Con queste si porta la matrice alla forma ridotta: in ogni riga
+ * non nulla il primo elemento non nullo, il perno, vale 1; nella colonna di
+ * un perno tutti gli altri elementi sono zero; i perni scendono verso
+ * destra. Si procede una colonna alla volta:
+ *
+ *   (1) si cerca, dalla prima riga senza perno in giù, una riga con un
+ *       elemento non nullo nella colonna; se non c'è, la colonna non ha
+ *       perno e si passa alla successiva;
+ *   (2) la si porta al posto della prima riga senza perno, con uno scambio;
+ *   (3) la si divide per il suo elemento nella colonna, che diventa 1;
+ *   (4) a ogni altra riga si sottrae il multiplo di questa che azzera il
+ *       suo elemento nella colonna.
+ *
+ * Nelle righe sotto i perni già trovati le colonne precedenti sono tutte
+ * nulle: quelle con un perno perché (4) le ha azzerate, quelle senza perché
+ * lo erano quando sono state saltate, e i passi successivi toccano solo le
+ * colonne dalla loro in poi. Per questo (3) e (4) partono dalla colonna del
+ * perno.
+ *
+ * Ogni operazione sulle righe è il prodotto a sinistra per una matrice
+ * invertibile. Fatte sulla matrice [A | I], con l'identità accanto, le
+ * stesse operazioni lasciano a destra il loro prodotto E: la matrice per cui
+ * E A è la forma ridotta di A. Da E vengono i testimoni dell'inversa e del
+ * rango. */
+
+/* Porta m alla forma ridotta rispetto alle sue prime `leading` colonne; le
+ * altre seguono le stesse operazioni (è il blocco I di [A | I]). m viene
+ * modificata. Ritorna il numero dei perni. */
+static int matrix_reduce(Matrix m, int leading) {
+    int pivots = 0;
+    if (!matrix_spend((long long)m.rows * m.cols * (m.rows < leading ? m.rows : leading))) return 0;
+    for (int c = 0; c < leading && pivots < m.rows && !failure; c++) {
+        /* (1) Il perno della colonna c. */
+        int p = pivots;
+        while (p < m.rows && matrix_at(m, p, c)->num == 0) p++;
+        if (p == m.rows) continue;
+
+        /* (2) Lo scambio. */
+        for (int j = 0; j < m.cols && p != pivots; j++) {
+            Frac swap = *matrix_at(m, p, j);
+            *matrix_at(m, p, j) = *matrix_at(m, pivots, j);
+            *matrix_at(m, pivots, j) = swap;
+        }
+
+        /* (3) La riga del perno divisa per il perno. */
+        Frac pivot = *matrix_at(m, pivots, c);
+        for (int j = c; j < m.cols; j++) *matrix_at(m, pivots, j) = frac_div(*matrix_at(m, pivots, j), pivot);
+
+        /* (4) Le altre righe, azzerate nella colonna c. */
+        for (int i = 0; i < m.rows; i++) {
+            Frac factor = *matrix_at(m, i, c);
+            if (i == pivots || factor.num == 0) continue;
+            for (int j = c; j < m.cols; j++)
+                *matrix_at(m, i, j) = frac_add(*matrix_at(m, i, j), frac_neg(frac_mul(factor, *matrix_at(m, pivots, j))));
+        }
+        pivots++;
+    }
+    return pivots;
+}
+
+/* Ritorna la matrice [a | I]: a con accanto l'identità che ha le sue righe. */
+static Matrix matrix_beside_identity(Matrix a) {
+    Matrix both = matrix_new(a.rows, a.cols + a.rows);
+    for (int i = 0; i < both.rows; i++)
+        for (int j = 0; j < both.cols; j++) *matrix_at(both, i, j) = j < a.cols ? *matrix_at(a, i, j) : frac_int(j - a.cols == i);
+    return both;
+}
+
+/* Annota che un testimone non ha superato il suo controllo: un errore
+ * dell'eliminazione, che ferma il conto. */
+static void matrix_witness_failed(void) {
+    if (failure) return;
+    unjustified_steps++;
+    fail("un testimone trovato dall'eliminazione non supera il controllo con i prodotti");
+}
+
+/* L'INVERSA. Se A, quadrata di n righe, ha n perni, [A | I] diventa
+ * [I | W]: il prodotto E delle operazioni porta A in I, cioè E A = I, e I
+ * in W = E. Il testimone è W, e il controllo è A W = I. Per una matrice
+ * quadrata basta questo lato: da A W = I segue det(A) det(W) = 1 (teorema di
+ * Binet), quindi A è invertibile, e moltiplicando a sinistra per la sua
+ * inversa si ottiene che è W. Con meno di n perni una riga di A è
+ * combinazione delle altre, e l'inversa non c'è. */
+
+/* Se la matrice quadrata a è invertibile mette in *inverse la sua inversa,
+ * ricontrollata, e ritorna 1; altrimenti ritorna 0. */
+static int matrix_inverse(Matrix a, Matrix *inverse) {
+    int n = a.rows, row, col;
+    Matrix both = matrix_beside_identity(a);
+    if (matrix_reduce(both, n) != n || failure) return 0;
+
+    /* [I | W]: il blocco di destra. */
+    Matrix w = matrix_new(n, n);
+    for (int i = 0; i < w.rows; i++)
+        for (int j = 0; j < w.cols; j++) *matrix_at(w, i, j) = *matrix_at(both, i, n + j);
+    if (!matrix_same(matrix_mul(a, w), matrix_identity(n), &row, &col)) matrix_witness_failed();
+    *inverse = w;
+    return !failure;
+}
+
+/* IL RANGO. È la dimensione dello spazio generato dalle righe, e la forma
+ * ridotta la mostra: le righe con un perno sono indipendenti (ognuna ha un 1
+ * dove tutte le altre hanno 0), le altre sono nulle, e lo spazio è lo stesso
+ * di partenza. Il rango r è quindi il numero dei perni. Il testimone lo
+ * fissa da sopra e da sotto con quattro matrici, tutte lette da [A | I]
+ * ridotta, dove A ha m righe e n colonne e i perni stanno nelle colonne
+ * c_1 < ... < c_r:
+ *
+ *     F, r righe e n colonne: le righe non nulle della forma ridotta;
+ *     C, m righe e r colonne: le colonne c_1, ..., c_r di A;
+ *     G, r righe e m colonne: le prime r righe di E;
+ *     H, n righe e r colonne: 1 nel posto (c_i, i), 0 altrove.
+ *
+ *   A = C F. La colonna j della forma ridotta dice come la colonna j di A
+ *   si scrive con le colonne dei perni: le operazioni sulle righe non
+ *   cambiano le relazioni tra le colonne. Le righe di A sono allora
+ *   combinazioni delle r righe di F: il rango è al più r.
+ *
+ *   G A H = I. G A sono le prime r righe di E A, cioè F; e F H prende di F
+ *   le colonne dei perni, che sono l'identità. Le r righe di G A sono quindi
+ *   indipendenti (una loro combinazione nulla, moltiplicata per H, dà i
+ *   coefficienti stessi) e sono combinazioni delle righe di A: il rango è
+ *   almeno r.
+ *
+ * Con r = 0 la matrice è nulla, e non c'è nulla da moltiplicare. */
+
+/* Il testimone del rango di una matrice (vedi qui sopra). Con rank = 0 le
+ * quattro matrici non hanno elementi. */
+typedef struct {
+    int rank;        /* il rango r */
+    Matrix c, f;     /* A = C F: il rango è al più r */
+    Matrix g, h;     /* G A H = I: il rango è almeno r */
+} RankWitness;
+
+/* Ritorna il rango di a con il suo testimone, ricontrollato. */
+static RankWitness matrix_rank(Matrix a) {
+    RankWitness w = {0, {0, 0, NULL}, {0, 0, NULL}, {0, 0, NULL}, {0, 0, NULL}};
+    int m = a.rows, n = a.cols, row, col;
+    Matrix both = matrix_beside_identity(a);
+    int r = matrix_reduce(both, n);
+    if (failure || r == 0) return w;
+
+    /* Le quattro matrici. La colonna del perno della riga i è la prima in
+     * cui la riga ridotta non è zero. */
+    w.c = matrix_new(m, r);
+    w.f = matrix_new(r, n);
+    w.g = matrix_new(r, m);
+    w.h = matrix_zero(n, r);
+    if (failure) return w;
+    for (int i = 0; i < r; i++) {
+        int pivot = 0;
+        while (matrix_at(both, i, pivot)->num == 0) pivot++;
+        for (int j = 0; j < n; j++) *matrix_at(w.f, i, j) = *matrix_at(both, i, j);
+        for (int j = 0; j < m; j++) *matrix_at(w.g, i, j) = *matrix_at(both, i, n + j);
+        for (int k = 0; k < m; k++) *matrix_at(w.c, k, i) = *matrix_at(a, k, pivot);
+        *matrix_at(w.h, pivot, i) = frac_int(1);
+    }
+
+    /* I due controlli, con soli prodotti. */
+    if (!matrix_same(matrix_mul(w.c, w.f), a, &row, &col) ||
+        !matrix_same(matrix_mul(matrix_mul(w.g, a), w.h), matrix_identity(r), &row, &col)) matrix_witness_failed();
+    w.rank = r;
+    return w;
+}
+
+/* IL DETERMINANTE. Qui l'eliminazione è quella che non divide le righe e
+ * non tocca quelle sopra il perno, perché di ogni passo resti traccia: per
+ * ogni colonna k,
+ *
+ *   (1) si cerca dalla riga k in giù un elemento non nullo nella colonna, e
+ *       lo si porta nella riga k con uno scambio; se non c'è, la colonna è
+ *       già a posto e si passa oltre;
+ *   (2) a ogni riga i sotto la k si sottrae la riga k moltiplicata per
+ *       f = (elemento di i nella colonna) / (perno), e f si annota.
+ *
+ * Alla fine la matrice è U, triangolare superiore. Gli f annotati, messi
+ * sotto la diagonale di una matrice L che ha 1 sulla diagonale, e l'ordine
+ * p in cui gli scambi hanno lasciato le righe di A, danno
+ *
+ *     (la matrice che ha per riga i la riga p_i di A) = L U:
+ *
+ * disfare i passi (2), dal primo all'ultimo, vuol dire sommare alla riga i
+ * la riga k per f, ed è ciò che fa il prodotto per L. Uno scambio fatto al
+ * passo k scambia anche gli f già annotati delle due righe: sono i
+ * moltiplicatori di quelle righe, e le seguono.
+ *
+ * Il determinante cambia segno a ogni scambio e non cambia in (2); quello
+ * di una matrice triangolare è il prodotto della diagonale. Quindi
+ *
+ *     det(A) = (+1 o -1 secondo il numero degli scambi) u_11 u_22 ... u_nn.
+ *
+ * Il testimone è (p, L, U), e il controllo è l'uguaglianza scritta sopra,
+ * un prodotto. Vale anche per una matrice singolare: una colonna senza
+ * perno lascia uno zero sulla diagonale di U, e il determinante è zero. */
+
+/* Il testimone del determinante di una matrice quadrata di n righe (vedi qui
+ * sopra), con il determinante che se ne legge. */
+typedef struct {
+    Frac value;   /* il determinante */
+    int *row;     /* la permutazione p: n numeri da 1 a n, nell'arena */
+    Matrix l, u;  /* L triangolare inferiore con 1 sulla diagonale, U triangolare superiore */
+} DeterminantWitness;
+
+/* Ritorna il determinante della matrice quadrata a con il suo testimone,
+ * ricontrollato. */
+static DeterminantWitness matrix_determinant(Matrix a) {
+    DeterminantWitness w = {frac_int(0), NULL, {0, 0, NULL}, {0, 0, NULL}};
+    int n = a.rows, row, col;
+    w.row = arena_alloc((size_t)n * sizeof *w.row);
+    w.l = matrix_identity(n);
+    w.u = matrix_new(n, n);
+    if (failure || !w.row || !matrix_spend((long long)n * n * n)) return w;
+    memcpy(w.u.at, a.at, (size_t)n * (size_t)n * sizeof(Frac));
+    for (int i = 0; i < n; i++) w.row[i] = i + 1;
+    Frac value = frac_int(1);
+    for (int k = 0; k < n && !failure; k++) {
+        /* (1) Il perno, e lo scambio: delle righe di U, dei moltiplicatori
+         * già annotati in L, dei posti nella permutazione. */
+        int p = k;
+        while (p < n && matrix_at(w.u, p, k)->num == 0) p++;
+        if (p == n) continue;
+        if (p != k) {
+            for (int j = 0; j < n; j++) {
+                Frac swap = *matrix_at(w.u, p, j);
+                *matrix_at(w.u, p, j) = *matrix_at(w.u, k, j);
+                *matrix_at(w.u, k, j) = swap;
+            }
+            for (int j = 0; j < k; j++) {
+                Frac swap = *matrix_at(w.l, p, j);
+                *matrix_at(w.l, p, j) = *matrix_at(w.l, k, j);
+                *matrix_at(w.l, k, j) = swap;
+            }
+            int swap = w.row[p];
+            w.row[p] = w.row[k];
+            w.row[k] = swap;
+            value = frac_neg(value);
+        }
+
+        /* (2) Le righe sotto, con il moltiplicatore annotato. */
+        for (int i = k + 1; i < n; i++) {
+            if (matrix_at(w.u, i, k)->num == 0) continue;
+            Frac f = frac_div(*matrix_at(w.u, i, k), *matrix_at(w.u, k, k));
+            *matrix_at(w.l, i, k) = f;
+            for (int j = k; j < n; j++) *matrix_at(w.u, i, j) = frac_add(*matrix_at(w.u, i, j), frac_neg(frac_mul(f, *matrix_at(w.u, k, j))));
+        }
+    }
+    for (int i = 0; i < n; i++) value = frac_mul(value, *matrix_at(w.u, i, i));
+
+    /* Il controllo: le righe di a nell'ordine p sono L U. */
+    Matrix permuted = matrix_new(n, n);
+    for (int i = 0; i < permuted.rows; i++)
+        for (int j = 0; j < n; j++) *matrix_at(permuted, i, j) = *matrix_at(a, w.row[i] - 1, j);
+    if (!matrix_same(matrix_mul(w.l, w.u), permuted, &row, &col)) matrix_witness_failed();
+    w.value = value;
+    return w;
+}
+
+/* 32c. I NUMERI DELL'ENUNCIATO
+ *
+ * Gli elementi delle tabelle e i fattori numerici arrivano dal capitolo 9
+ * come alberi di espressioni. Qui devono essere numeri razionali scritti
+ * con le quattro operazioni e le potenze a esponente intero scritto: sono
+ * le sole cose che la notazione dei certificati delle matrici sa dire
+ * (matrix_cert_number()), e un numero che il verificatore non può
+ * ricalcolare non entra in un verdetto di questo capitolo. Una radice, \pi,
+ * una funzione fermano il conto con il motivo. Una lettera anche, tranne
+ * quando 32g le ha dato un valore: lì il conto si fa in un punto alla volta,
+ * e in ogni punto la lettera è un numero.
+ *
+ * Warning: matrix_number() e matrix_cert_number() devono accettare gli
+ * stessi alberi. Se ne allarghi una, allarga l'altra, il capitolo 17 di
+ * checker.c e, per ciò che può contenere una lettera, letter_degree_number()
+ * (32g). */
+
+#define MAX_LETTERS 3  /* lettere diverse in un'espressione di 32g */
+
+/* Le lettere a cui 32g ha dato un valore: letter_name[i] vale
+ * letter_value[i], per i minore di letter_count. Fuori da 32g letter_count
+ * è zero, e una lettera in un enunciato ferma il conto. */
+static int letter_name[MAX_LETTERS], letter_count;
+static Frac letter_value[MAX_LETTERS];
+
+/* Se node è un esponente intero scritto, un numero o il suo opposto, lo
+ * mette in *exponent e ritorna 1. */
+static int matrix_exponent_value(const Node *node, long long *exponent) {
+    int negative = node->kind == N_NEG;
+    if (negative) node = node->a;
+    if (node->kind != N_NUM) return 0;
+    *exponent = negative ? -node->value : node->value;
+    return 1;
+}
+
+/* Ritorna base elevato a exponent, anche negativo, con le moltiplicazioni
+ * ripetute di rat_pow_int(). */
+static Frac matrix_number_power(Frac base, long long exponent) {
+    if (exponent < -MAX_POWER || exponent > MAX_POWER) { fail("esponente costante troppo grande"); return frac_int(0); }
+    if (exponent < 0) { base = frac_div(frac_int(1), base); exponent = -exponent; }
+    Frac result = frac_int(1);
+    for (long long i = 0; i < exponent && !failure; i++) result = frac_mul(result, base);
+    return result;
+}
+
+/* Ritorna il numero razionale scritto dall'albero node. */
+static Frac matrix_number(const Node *node) {
+    long long exponent;
+    if (failure) return frac_int(0);
+    switch (node->kind) {
+    case N_NUM: return frac_make(node->value, 1);
+    case N_VAR:
+        for (int i = 0; i < letter_count; i++)
+            if (letter_name[i] == node->name) return letter_value[i];
+        break;
+    case N_NEG: return frac_neg(matrix_number(node->a));
+    case N_ADD: return frac_add(matrix_number(node->a), matrix_number(node->b));
+    case N_SUB: return frac_add(matrix_number(node->a), frac_neg(matrix_number(node->b)));
+    case N_MUL: return frac_mul(matrix_number(node->a), matrix_number(node->b));
+    case N_DIV: return frac_div(matrix_number(node->a), matrix_number(node->b));
+    case N_POW:
+        if (matrix_exponent_value(node->b, &exponent)) return matrix_number_power(matrix_number(node->a), exponent);
+        break;
+    default:
+        break;
+    }
+    fail("in un enunciato sulle matrici i numeri si scrivono con interi, frazioni, somme, prodotti e potenze intere: "
+         "niente radici o funzioni, e una lettera solo se l'enunciato dice dove sta, con \\forall k \\in \\mathbb{R} o \\{k \\in \\mathbb{R} \\mid ...\\}");
+    return frac_int(0);
+}
+
+/* 32d. IL VALORE DI UN'ESPRESSIONE
+ *
+ * Ogni nodo vale un numero o una matrice, e ogni operazione dice che cosa
+ * accetta:
+ *
+ *     -a, a + b, a - b   due numeri, o due matrici con le stesse dimensioni;
+ *     a b                due numeri; un numero e una matrice (il multiplo);
+ *                        due matrici, con le colonne di a quante le righe di b;
+ *     a^k                un numero, o una matrice quadrata; con k negativo
+ *                        l'inverso, o l'inversa, elevati a -k;
+ *     a^T                una matrice;
+ *     det, tr            una matrice quadrata;       rango: una matrice.
+ *
+ * Ogni altra combinazione ferma il conto con il suo motivo: l'enunciato non
+ * ha senso così com'è scritto.
+ *
+ * LA DIMENSIONE DI I. Nei libri l'identità si scrive quasi sempre senza
+ * pedice: "A^2 - 5A + 6I = 0", "A B = I". La sua dimensione è quella che
+ * rende sensata l'operazione in cui compare, e c'è un solo modo di
+ * sceglierla:
+ *
+ *   - sommata a una matrice, o confrontata con una matrice: il numero delle
+ *     sue righe;
+ *   - moltiplicata a destra di una matrice, A I: il numero delle colonne
+ *     di A; a sinistra, I A: il numero delle righe;
+ *   - dentro un opposto, una trasposta, una potenza, un multiplo: quella
+ *     che il contesto chiede a tutta l'espressione.
+ *
+ * Per questo il valore si calcola portando con sé `want`, la dimensione
+ * che il contesto chiede a un'identità senza pedice (0 se non ne chiede
+ * nessuna), e di due operandi si calcola prima quello che la sua dimensione
+ * la sa già (matrix_shape()), per ricavarne quella dell'altro. Dove nessun
+ * contesto la fissa, "\det I" o "I = I", il conto si ferma: va scritta.
+ * Trovata, la dimensione resta annotata nel nodo, così il certificato scrive
+ * un'identità con la sua dimensione, e il verificatore non deve dedurre
+ * nulla.
+ *
+ * Se la matrice accanto non è quadrata, la dimensione presa è quella che
+ * rende l'identità diversa da lei: "A B = I" con A B di 2 righe e 3 colonne
+ * è falso qualunque sia I, e "A + I" non è definita. */
+
+/* Che cosa si sa della forma di un'espressione senza calcolarla, in ordine
+ * crescente: è un numero; è fatta solo di identità senza dimensione; ha una
+ * matrice con le dimensioni scritte. */
+enum { SHAPE_NUMBER, SHAPE_OPEN, SHAPE_FIXED };
+
+/* Ritorna la forma, tra le tre qui sopra, dell'espressione node. */
+static int matrix_shape(const MatrixNode *node) {
+    switch (node->kind) {
+    case M_SCALAR: case M_DET: case M_RANK: case M_TRACE:
+        return SHAPE_NUMBER;
+    case M_TABLE:
+        return SHAPE_FIXED;
+    case M_IDENTITY:
+        return node->rows ? SHAPE_FIXED : SHAPE_OPEN;
+    case M_NEG: case M_POWER: case M_TRANSPOSE:
+        return matrix_shape(node->a);
+    default: {
+        int a = matrix_shape(node->a), b = matrix_shape(node->b);
+        return a > b ? a : b;
+    }
+    }
+}
+
+/* Ritorna la dimensione che un'identità senza pedice deve avere accanto al
+ * valore first, già calcolato, in un'operazione di tipo kind (M_MUL per il
+ * prodotto; ogni altro tipo vale per la somma e per il confronto).
+ * first_is_left dice se first è l'operando di sinistra; want è la
+ * dimensione che il contesto chiede all'operazione intera, e passa oltre un
+ * numero: in 2 I la dimensione di I non la dà il 2. */
+static int matrix_want(MatrixKind kind, MatrixValue first, int first_is_left, int want) {
+    if (!first.is_matrix) return want;
+    return kind == M_MUL && first_is_left ? first.matrix.cols : first.matrix.rows;
+}
+
+/* Ritorna value elevato a power (vedi la tabella in testa al paragrafo). */
+static MatrixValue matrix_power(MatrixValue value, long long power) {
+    if (failure) return MATRIX_NONE;
+    if (!value.is_matrix) return (MatrixValue){0, matrix_number_power(value.number, power), {0, 0, NULL}};
+    if (power < -MAX_POWER || power > MAX_POWER) { fail("esponente costante troppo grande"); return MATRIX_NONE; }
+    if (value.matrix.rows != value.matrix.cols) { fail(MATRIX_NOT_SQUARE); return MATRIX_NONE; }
+    Matrix base = value.matrix;
+    if (power < 0 && !matrix_inverse(value.matrix, &base)) { fail(MATRIX_SINGULAR); return MATRIX_NONE; }
+    Matrix result = matrix_identity(base.rows);
+    for (long long i = 0; i < (power < 0 ? -power : power) && !failure; i++) result = matrix_mul(result, base);
+    return (MatrixValue){1, {0, 1}, result};
+}
+
+/* Ritorna il risultato dell'operazione kind (M_ADD, M_SUB o M_MUL) tra i
+ * valori x e y, nell'ordine in cui sono scritti. */
+static MatrixValue matrix_combine(MatrixKind kind, MatrixValue x, MatrixValue y) {
+    if (failure) return MATRIX_NONE;
+    if (kind == M_MUL) {
+        if (!x.is_matrix && !y.is_matrix) return (MatrixValue){0, frac_mul(x.number, y.number), {0, 0, NULL}};
+        if (!x.is_matrix) return (MatrixValue){1, {0, 1}, matrix_scale(y.matrix, x.number)};
+        if (!y.is_matrix) return (MatrixValue){1, {0, 1}, matrix_scale(x.matrix, y.number)};
+        if (x.matrix.cols != y.matrix.rows) { fail("prodotto di due matrici non definito: le colonne della prima non sono quante le righe della seconda"); return MATRIX_NONE; }
+        return (MatrixValue){1, {0, 1}, matrix_mul(x.matrix, y.matrix)};
+    }
+    if (x.is_matrix != y.is_matrix) { fail("un numero e una matrice non si sommano"); return MATRIX_NONE; }
+    if (!x.is_matrix) return (MatrixValue){0, frac_add(x.number, kind == M_SUB ? frac_neg(y.number) : y.number), {0, 0, NULL}};
+    if (x.matrix.rows != y.matrix.rows || x.matrix.cols != y.matrix.cols) { fail("somma di due matrici non definita: non hanno le stesse dimensioni"); return MATRIX_NONE; }
+    return (MatrixValue){1, {0, 1}, matrix_add(x.matrix, y.matrix, kind == M_SUB)};
+}
+
+/* Ritorna il valore dell'espressione node, con want la dimensione chiesta
+ * dal contesto a un'identità senza pedice (0 se non ne chiede). Annota nel
+ * nodo di ogni identità senza pedice la dimensione trovata. Dopo un errore
+ * `failure` dice perché, e il valore non ha significato. */
+static MatrixValue matrix_eval(MatrixNode *node, int want) {
+    if (failure) return MATRIX_NONE;
+    switch (node->kind) {
+    case M_SCALAR:
+        return (MatrixValue){0, matrix_number(node->scalar), {0, 0, NULL}};
+    case M_TABLE: {
+        Matrix m = matrix_new(node->rows, node->cols);
+        for (int i = 0; i < m.rows * m.cols; i++) m.at[i] = matrix_number(node->entry[i]);
+        return (MatrixValue){1, {0, 1}, m};
+    }
+    case M_IDENTITY:
+        if (!node->rows && !want) { fail("la dimensione di I non è fissata dal contesto: va scritta con il pedice, I_{n}"); return MATRIX_NONE; }
+        if (!node->rows) node->rows = want;
+        return (MatrixValue){1, {0, 1}, matrix_identity(node->rows)};
+    case M_NEG: {
+        MatrixValue a = matrix_eval(node->a, want);
+        if (!a.is_matrix) return (MatrixValue){0, frac_neg(a.number), {0, 0, NULL}};
+        return (MatrixValue){1, {0, 1}, matrix_scale(a.matrix, frac_int(-1))};
+    }
+    case M_POWER:
+        return matrix_power(matrix_eval(node->a, want), node->power);
+    case M_TRANSPOSE: {
+        MatrixValue a = matrix_eval(node->a, want);
+        if (!failure && !a.is_matrix) fail("la trasposta si fa di una matrice, non di un numero");
+        return failure ? MATRIX_NONE : (MatrixValue){1, {0, 1}, matrix_transpose(a.matrix)};
+    }
+    case M_DET: case M_RANK: case M_TRACE: {
+        /* L'argomento è un'espressione a sé: il contesto non gli chiede nulla. */
+        MatrixValue a = matrix_eval(node->a, 0);
+        Frac trace = frac_int(0);
+        if (failure) return MATRIX_NONE;
+        if (!a.is_matrix) { fail("determinante, rango e traccia si calcolano di una matrice, non di un numero"); return MATRIX_NONE; }
+        if (node->kind != M_RANK && a.matrix.rows != a.matrix.cols) { fail(MATRIX_NOT_SQUARE); return MATRIX_NONE; }
+        if (node->kind == M_RANK) return (MatrixValue){0, frac_int(matrix_rank(a.matrix).rank), {0, 0, NULL}};
+        if (node->kind == M_DET) return (MatrixValue){0, matrix_determinant(a.matrix).value, {0, 0, NULL}};
+        for (int i = 0; i < a.matrix.rows; i++) trace = frac_add(trace, *matrix_at(a.matrix, i, i));
+        return (MatrixValue){0, trace, {0, 0, NULL}};
+    }
+    default: {
+        /* Somma, differenza, prodotto: prima l'operando che sa la propria
+         * dimensione, poi l'altro con quella che il primo gli impone. */
+        MatrixValue x, y;
+        if (matrix_shape(node->b) > matrix_shape(node->a)) {
+            y = matrix_eval(node->b, want);
+            x = matrix_eval(node->a, matrix_want(node->kind, y, 0, want));
+        } else {
+            x = matrix_eval(node->a, want);
+            y = matrix_eval(node->b, matrix_want(node->kind, x, 1, want));
+        }
+        return matrix_combine(node->kind, x, y);
+    }
+    }
+}
+
+/* 32e. IL CONFRONTO E LA SCRITTURA DEI VALORI */
+
+/* Ritorna 1 se node è lo 0 scritto da solo: accanto a una matrice è la
+ * matrice nulla (vedi la testa del capitolo). */
+static int matrix_is_zero(const MatrixNode *node) {
+    return node->kind == M_SCALAR && node->scalar->kind == N_NUM && node->scalar->value == 0;
+}
+
+/* Aggiunge alla dimostrazione in corso il valore value in LaTeX: un numero,
+ * oppure la matrice tra parentesi tonde. È scritto in modo che il capitolo
+ * 31 lo rilegga uguale: serve anche per la risposta di una richiesta. */
+static void matrix_put(MatrixValue value) {
+    char number[64];
+    if (!value.is_matrix) {
+        number[0] = 0;
+        frac_latex(value.number, number, sizeof number);
+        proof_add("%s", number);
+        return;
+    }
+    proof_add("\\begin{pmatrix} ");
+    for (int i = 0; i < value.matrix.rows; i++)
+        for (int j = 0; j < value.matrix.cols; j++) {
+            number[0] = 0;
+            frac_latex(*matrix_at(value.matrix, i, j), number, sizeof number);
+            proof_add("%s%s", j ? " & " : i ? " \\\\ " : "", number);
+        }
+    proof_add(" \\end{pmatrix}");
+}
+
+/* Ritorna 1 se tra i valori left e right vale relation, 0 se non vale; in
+ * tutti e due i casi scrive in note, di size byte, che cosa lo mostra, in
+ * italiano. Tra due matrici si confronta solo con = e \neq; tra un numero e
+ * una matrice mai (lo 0 da solo è già diventato la matrice nulla): in
+ * quei casi annota l'errore. */
+static int matrix_holds(MatrixValue left, MatrixValue right, MatrixRelation relation, char *note, size_t size) {
+    char a[64] = "", b[64] = "";
+    int row = 0, col = 0;
+    note[0] = 0;
+    if (failure) return 0;
+    if (left.is_matrix != right.is_matrix) { fail("un numero e una matrice non si confrontano: solo lo 0 da solo, che è la matrice nulla"); return 0; }
+    if (!left.is_matrix) {
+        int order = frac_cmp(left.number, right.number);
+        frac_latex(left.number, a, sizeof a);
+        frac_latex(right.number, b, sizeof b);
+        snprintf(note, size, "il primo membro vale %s, il secondo %s", a, b);
+        return relation == MATRIX_EQ ? order == 0 : relation == MATRIX_NEQ ? order != 0 : relation == MATRIX_LT ? order < 0 :
+               relation == MATRIX_LE ? order <= 0 : relation == MATRIX_GT ? order > 0 : order >= 0;
+    }
+    if (relation != MATRIX_EQ && relation != MATRIX_NEQ) { fail("due matrici si confrontano solo con = e \\neq"); return 0; }
+    int same = matrix_same(left.matrix, right.matrix, &row, &col);
+    if (same) {
+        snprintf(note, size, "i due membri sono la stessa matrice");
+    } else if (left.matrix.rows != right.matrix.rows || left.matrix.cols != right.matrix.cols) {
+        snprintf(note, size, "il primo membro è una matrice %d x %d, il secondo %d x %d", left.matrix.rows, left.matrix.cols,
+                 right.matrix.rows, right.matrix.cols);
+    } else {
+        frac_latex(*matrix_at(left.matrix, row, col), a, sizeof a);
+        frac_latex(*matrix_at(right.matrix, row, col), b, sizeof b);
+        snprintf(note, size, "nella riga %d e colonna %d il primo membro vale %s, il secondo %s", row + 1, col + 1, a, b);
+    }
+    return (relation == MATRIX_EQ) == same;
+}
+
+/* 32f. IL CERTIFICATO
+ *
+ * Il certificato è l'enunciato, riscritto nella notazione del capitolo 17
+ * di checker.c, con la verità che il motore afferma e un testimone per
+ * ogni determinante, rango e inversa:
+ *
+ *     certificate matrices
+ *     statement (= (det (matrix 2 2 1 2 3 4)) -2)
+ *     claim true
+ *     witness lu 1 2 (matrix 2 2 1 0 3 1) (matrix 2 2 1 2 0 -2)
+ *     end
+ *
+ * Il verificatore non fa eliminazioni: somma, moltiplica e confronta. Ciò
+ * che è un conto diretto (somme, prodotti, trasposte, potenze, tracce) lo
+ * rifà da sé; ciò che il motore ha trovato eliminando lo ricontrolla sul
+ * testimone, che è lo stesso che 32b ha già ricontrollato qui:
+ *
+ *     witness inverse W            A W è l'identità;
+ *     witness lu p1 ... pn L U     le righe di A nell'ordine p sono L U;
+ *     witness rank r C F G H       A = C F, e G A H è l'identità;
+ *     witness rank 0               A è la matrice nulla.
+ *
+ * I testimoni stanno dopo l'enunciato, uno per riga, nell'ordine in cui il
+ * verificatore li chiede leggendo: per ogni nodo prima quelli dei suoi
+ * operandi, da sinistra a destra, poi il suo. È l'ordine in cui
+ * matrix_cert_node() scrive, e matrix_cert_witnesses() lo ripercorre
+ * uguale.
+ *
+ * I nomi dati dall'enunciato non ci sono: dove compare un nome è scritta la
+ * sua definizione, e i suoi testimoni si ripetono. Che cosa cambia rispetto
+ * all'enunciato com'è scritto, ed è tutto ciò che il verificatore non
+ * ricontrolla perché è lettura: l'identità ha sempre la sua dimensione
+ * (32d), lo 0 accanto a una matrice è scritto (zero r c), > e \ge sono
+ * scritti come < e <= con i membri scambiati, una potenza negativa come
+ * potenza dell'inversa.
+ *
+ * Warning: se aggiungi un tipo di nodo o una relazione, aggiungi qui la sua
+ * parola e nel capitolo 17 di checker.c il suo conto; se il nodo nuovo
+ * vuole un testimone, anche il suo caso in matrix_cert_witnesses(), nello
+ * stesso ordine di matrix_cert_node(). */
+
+/* Scrive il numero dell'albero node, uno di quelli che matrix_number()
+ * accetta: gli stessi casi, con le parole del verificatore. Una lettera si
+ * scrive com'è: serve al certificato di uno sviluppo (32g). */
+static void matrix_cert_number(const Node *node) {
+    static const char *const words[] = {[N_NEG] = "neg", [N_ADD] = "+", [N_SUB] = "-", [N_MUL] = "*", [N_DIV] = "/"};
+    long long exponent;
+    switch (node->kind) {
+    case N_NUM:
+        cert_add("%lld", node->value);
+        return;
+    case N_VAR:
+        if (node->name >= 128 || !islower(node->name)) break;
+        cert_add("%c", node->name);
+        return;
+    case N_NEG: case N_ADD: case N_SUB: case N_MUL: case N_DIV:
+        cert_add("(%s ", words[node->kind]);
+        matrix_cert_number(node->a);
+        if (node->b) { cert_add(" "); matrix_cert_number(node->b); }
+        cert_add(")");
+        return;
+    case N_POW:
+        /* a^{-k} è 1 / a^k: la potenza del verificatore ha un esponente
+         * non negativo. */
+        if (!matrix_exponent_value(node->b, &exponent)) break;
+        cert_add(exponent < 0 ? "(/ 1 (^ " : "(^ ");
+        matrix_cert_number(node->a);
+        cert_add(exponent < 0 ? " %lld))" : " %lld)", exponent < 0 ? -exponent : exponent);
+        return;
+    default:
+        break;
+    }
+    certificate_broken = 1;
+}
+
+/* Scrive, preceduta da uno spazio, la matrice di numeri m: (matrix righe
+ * colonne elementi...). */
+static void matrix_cert_table(Matrix m) {
+    cert_add(" (matrix %d %d", m.rows, m.cols);
+    for (int i = 0; i < m.rows * m.cols; i++) {
+        cert_add(" ");
+        cert_frac(m.at[i]);
+    }
+    cert_add(")");
+}
+
+/* Scrive l'espressione node, senza testimoni. Va chiamata dopo
+ * matrix_eval(), che ha annotato le dimensioni delle identità: una ancora
+ * senza dimensione rende certificate_broken uguale a 1. */
+static void matrix_cert_node(MatrixNode *node) {
+    static const char *const words[] = {[M_NEG] = "neg", [M_ADD] = "+", [M_SUB] = "-", [M_MUL] = "*",
+                                        [M_TRANSPOSE] = "transpose", [M_DET] = "det", [M_RANK] = "rank", [M_TRACE] = "trace"};
+    switch (node->kind) {
+    case M_SCALAR:
+        matrix_cert_number(node->scalar);
+        return;
+    case M_TABLE:
+        cert_add("(matrix %d %d", node->rows, node->cols);
+        for (int i = 0; i < node->rows * node->cols; i++) {
+            cert_add(" ");
+            matrix_cert_number(node->entry[i]);
+        }
+        cert_add(")");
+        return;
+    case M_IDENTITY:
+        if (!node->rows) certificate_broken = 1;
+        cert_add("(identity %d)", node->rows);
+        return;
+    case M_POWER: {
+        /* Con l'esponente negativo: l'inverso di un numero, o l'inversa di
+         * una matrice, elevati all'opposto. Che cosa sia la base lo dice la
+         * sua forma, ora che le identità hanno la loro dimensione. */
+        const char *inverse = node->power >= 0 ? "" : matrix_shape(node->a) == SHAPE_NUMBER ? "(/ 1 " : "(inv ";
+        cert_add("(^ %s", inverse);
+        matrix_cert_node(node->a);
+        cert_add("%s %lld)", inverse[0] ? ")" : "", node->power < 0 ? -node->power : node->power);
+        return;
+    }
+    default:
+        cert_add("(%s ", words[node->kind]);
+        matrix_cert_node(node->a);
+        if (node->b) { cert_add(" "); matrix_cert_node(node->b); }
+        cert_add(")");
+        return;
+    }
+}
+
+/* Scrive le voci witness dell'espressione node, una per riga, nell'ordine
+ * in cui il verificatore le chiede (vedi la testa del paragrafo). Ogni
+ * testimone si ricava ricalcolando il valore dell'operando: è lo stesso
+ * conto di matrix_eval(), che lo ha già ricontrollato. Un conto che qui
+ * fallisce rende certificate_broken uguale a 1. */
+static void matrix_cert_witnesses(MatrixNode *node) {
+    /* Prima gli operandi, da sinistra a destra. */
+    if (node->a) matrix_cert_witnesses(node->a);
+    if (node->b) matrix_cert_witnesses(node->b);
+    int inverse = node->kind == M_POWER && node->power < 0 && matrix_shape(node->a) != SHAPE_NUMBER;
+    if (node->kind != M_DET && node->kind != M_RANK && !inverse) return;
+
+    /* Poi il nodo: il valore del suo operando, e ciò che l'eliminazione ne
+     * lascia. */
+    MatrixValue a = matrix_eval(node->a, 0);
+    if (failure || !a.is_matrix) { certificate_broken = 1; return; }
+    if (inverse) {
+        Matrix w;
+        if (!matrix_inverse(a.matrix, &w)) { certificate_broken = 1; return; }
+        cert_add("witness inverse");
+        matrix_cert_table(w);
+    } else if (node->kind == M_DET) {
+        DeterminantWitness w = matrix_determinant(a.matrix);
+        if (failure) { certificate_broken = 1; return; }
+        cert_add("witness lu");
+        for (int i = 0; i < a.matrix.rows; i++) cert_add(" %d", w.row[i]);
+        matrix_cert_table(w.l);
+        matrix_cert_table(w.u);
+    } else {
+        RankWitness w = matrix_rank(a.matrix);
+        if (failure) { certificate_broken = 1; return; }
+        cert_add("witness rank %d", w.rank);
+        if (w.rank) {
+            matrix_cert_table(w.c);
+            matrix_cert_table(w.f);
+            matrix_cert_table(w.g);
+            matrix_cert_table(w.h);
+        }
+    }
+    cert_add("\n");
+}
+
+/* Scrive in certificate_text il certificato dell'enunciato st, i cui membri
+ * valgono left e right, con la verità truth. Un membro che è lo 0 da solo
+ * accanto a una matrice si scrive come la matrice nulla che è. */
+static void matrix_certificate(const MatrixStatement *st, MatrixValue left, MatrixValue right, int truth) {
+    static const char *const words[] = {[MATRIX_EQ] = "=", [MATRIX_NEQ] = "neq", [MATRIX_LT] = "<", [MATRIX_LE] = "<=",
+                                        [MATRIX_GT] = "<", [MATRIX_GE] = "<="};
+    int swapped = st->relation == MATRIX_GT || st->relation == MATRIX_GE;
+    MatrixNode *member[2] = {swapped ? st->right : st->left, swapped ? st->left : st->right};
+    MatrixValue value[2] = {swapped ? right : left, swapped ? left : right};
+    certificate_length = 0;
+    certificate_broken = 0;
+
+    /* L'enunciato e la sua verità; poi i testimoni, membro per membro
+     * nell'ordine in cui sono scritti. Lo 0 che sta per la matrice nulla
+     * non ha operandi, e non ne chiede. */
+    cert_add("certificate matrices\nstatement (%s", words[st->relation]);
+    for (int side = 0; side < 2; side++) {
+        cert_add(" ");
+        if (matrix_is_zero(member[side]) && value[side].is_matrix) cert_add("(zero %d %d)", value[side].matrix.rows, value[side].matrix.cols);
+        else matrix_cert_node(member[side]);
+    }
+    cert_add(")\nclaim %s\n", truth ? "true" : "false");
+    for (int side = 0; side < 2; side++) matrix_cert_witnesses(member[side]);
+    cert_add("end\n");
+}
+
+/* 32g. CON UNA LETTERA: UN DETERMINANTE È UN POLINOMIO
+ *
+ * A che cosa serve. "Per quali k la matrice è singolare?", "quali sono gli
+ * autovalori?": negli esercizi il determinante ha dentro una lettera, e la
+ * domanda è un'equazione o una disequazione in quella lettera.
+ *
+ *     \{k \in \mathbb{R} \mid \det \begin{pmatrix} k & 1 \\ 1 & k \end{pmatrix} = 0\}
+ *     A = \begin{pmatrix} 2 & 1 \\ 1 & 2 \end{pmatrix} \implies \{s \in \mathbb{R} \mid \det(A - sI) = 0\}
+ *     \forall k \in \mathbb{R}\ (\det \begin{pmatrix} k & 1 \\ 1 & k \end{pmatrix} = 0 \iff k = 1 \lor k = -1)
+ *
+ * È ciò che si fa a mano: si sviluppa il determinante, si ottiene un
+ * polinomio, e l'esercizio diventa un esercizio di algebra, che il programma
+ * sa già fare (la tabella dei segni, 18p; un parametro, 18t). Qui si fa solo
+ * il primo passo: ogni determinante, e ogni traccia, viene sostituito nel
+ * testo dal suo polinomio, e l'enunciato che ne risulta si rilegge da capo e
+ * passa a prove_quantified(), come fa 18v-8 con le applicazioni. Il secondo
+ * enunciato qui sopra diventa \{s \in \mathbb{R} \mid (s^{2} - 4 s + 3) = 0\}.
+ *
+ * Come si trova il polinomio. Non con un conto simbolico sulle matrici: con
+ * il conto sui numeri di questo capitolo, fatto in tanti punti quanti
+ * bastano. Se gli elementi sono polinomi nelle lettere, il determinante è un
+ * polinomio nelle lettere, e di ogni lettera si sa limitare il grado: quello
+ * di una somma è al più il più grande dei due, quello di un prodotto la
+ * somma, quello del determinante di una matrice n x n al più n volte quello
+ * degli elementi, perché il determinante è una somma di prodotti di n
+ * elementi. E un polinomio di grado al più d in una lettera è determinato
+ * dai suoi valori in d + 1 punti: due polinomi così che coincidono in d + 1
+ * punti hanno per differenza un polinomio di grado al più d con d + 1
+ * radici, cioè il polinomio nullo. Con più lettere lo stesso ragionamento,
+ * una lettera alla volta, dice che bastano i valori sulla griglia dei punti
+ * con la prima lettera in 0, ..., d_0, la seconda in 0, ..., d_1, e così via.
+ *
+ *   g1. le lettere dell'espressione, e per ognuna il limite del grado;
+ *   g2. il valore dell'espressione in ogni punto della griglia: è il conto
+ *       di 32d con i numeri al posto delle lettere, con l'eliminazione e i
+ *       suoi testimoni;
+ *   g3. dai valori ai coefficienti, una lettera alla volta;
+ *   g4. il polinomio scritto, e il certificato dello sviluppo;
+ *   g5. l'enunciato riscritto, e il verdetto.
+ *
+ * IL CONTROLLO INDIPENDENTE. Il polinomio trovato è un'interpolazione: con
+ * un limite del grado sbagliato sarebbe un altro polinomio, senza che nulla
+ * qui se ne accorga. Per questo ogni sviluppo ha il suo certificato, nella
+ * notazione con le lettere del capitolo 17 di checker.c (17d), e senza che
+ * il verificatore lo accetti non si sostituisce nulla. Là il determinante si
+ * ricalcola per un'altra strada: con la sua definizione, la formula di
+ * Leibniz, sui polinomi, senza punti e senza eliminazione. I due conti non
+ * hanno in comune né il metodo né l'aritmetica. E il polinomio che il
+ * certificato nomina non sono i coefficienti trovati: è il testo che entra
+ * nell'enunciato, riletto. Così anche un errore nello scriverlo è un altro
+ * polinomio, e viene respinto.
+ *
+ * CHE COSA È CERTIFICATO. Il verdetto poggia su due certificati: quello
+ * dello sviluppo ("per ogni valore delle lettere il determinante vale questo
+ * polinomio") e quello dell'enunciato che resta, quando il suo metodo lo
+ * scrive. Che l'enunciato che resta sia quello di partenza con il polinomio
+ * al posto del determinante è lettura, come in ogni altro certificato. Se
+ * l'enunciato che resta non ha un certificato il verdetto lo dice, e dice
+ * che lo sviluppo ce l'ha.
+ *
+ * CHE COSA RESTA FUORI, con il motivo nel verdetto: il rango e l'inversa
+ * accanto a una lettera (dipendono dal valore della lettera: è la
+ * discussione per casi, la tappa dopo); un confronto tra matrici con una
+ * lettera; elementi che non sono polinomi (una divisione per una lettera,
+ * una radice, una funzione); più di MAX_LETTERS lettere. Un enunciato con
+ * una lettera deve dire dove sta, con \mathbb: senza, è del resto del
+ * capitolo, che le lettere le rifiuta.
+ */
+
+#define MAX_LETTER_DEGREE 24    /* limite del grado in una lettera */
+#define MAX_LETTER_POINTS 4096  /* punti della griglia, e coefficienti del polinomio */
+
+static const char *const LETTER_SHAPE =
+    "accanto a una lettera gli elementi di una matrice sono polinomi nelle lettere minuscole: niente divisioni per una lettera, radici, funzioni o nomi di matrici";
+static const char *const LETTER_CASES =
+    "con una lettera il rango e l'inversa cambiano con il valore della lettera: la discussione per casi non è ancora trattata";
+static const char *const LETTER_MATRIX =
+    "in un enunciato con una lettera una matrice sta solo dentro un determinante o una traccia: i confronti tra matrici con una lettera non sono ancora trattati";
+
+/* Il limite del grado di un'espressione in ognuna delle lettere di
+ * letter_name[]: at[i] per la lettera i. */
+typedef struct {
+    long long at[MAX_LETTERS];
+} LetterDegree;
+
+/* Ritorna il limite del grado della somma (sum a 0: il più grande dei due,
+ * lettera per lettera) o del prodotto (sum a 1: la somma) di due
+ * espressioni con i limiti a e b. */
+static LetterDegree degree_join(LetterDegree a, LetterDegree b, int sum) {
+    for (int i = 0; i < MAX_LETTERS; i++) a.at[i] = sum ? a.at[i] + b.at[i] : a.at[i] > b.at[i] ? a.at[i] : b.at[i];
+    return a;
+}
+
+/* Ritorna il limite del grado di un prodotto di times fattori con il limite
+ * a. Oltre MAX_LETTER_DEGREE il numero non serve più, e si ferma lì vicino
+ * per non uscire dagli interi. */
+static LetterDegree degree_times(LetterDegree a, long long times) {
+    for (int i = 0; i < MAX_LETTERS; i++) a.at[i] = a.at[i] && times > MAX_LETTER_DEGREE ? MAX_LETTER_DEGREE + 1 : a.at[i] * times;
+    return a;
+}
+
+/* Ritorna 1 se un'espressione con il limite a non contiene lettere. */
+static int degree_free(LetterDegree a) {
+    for (int i = 0; i < MAX_LETTERS; i++)
+        if (a.at[i]) return 0;
+    return 1;
+}
+
+/* g1. Ritorna il limite del grado del numero scritto da node in ognuna delle
+ * lettere, e aggiunge a letter_name[] quelle che incontra per la prima
+ * volta, con il valore zero. Annota un errore se node non è un polinomio
+ * nelle lettere: gli alberi accettati sono quelli di matrix_number(), con
+ * le divisioni solo per un numero e le potenze negative solo di un numero. */
+static LetterDegree letter_degree_number(const Node *node) {
+    LetterDegree none = {{0}}, a;
+    long long exponent;
+    if (failure) return none;
+    switch (node->kind) {
+    case N_NUM:
+        return none;
+    case N_VAR: {
+        /* Solo le minuscole. Una maiuscola è il nome di una matrice (capitolo
+         * 31), e tra gli elementi il capitolo 9 la leggerebbe come una
+         * lettera qualsiasi: una matrice a blocchi, \begin{pmatrix} A & 0 \\
+         * 0 & k \end{pmatrix}, diventerebbe una 2 x 2 con un numero A. */
+        int i = 0;
+        if (node->name >= 128 || !islower(node->name)) break;
+        while (i < letter_count && letter_name[i] != node->name) i++;
+        if (i == MAX_LETTERS) { fail("troppe lettere diverse in un determinante"); return none; }
+        if (i == letter_count) {
+            letter_name[letter_count++] = node->name;
+            letter_value[i] = frac_int(0);
+        }
+        none.at[i] = 1;
+        return none;
+    }
+    case N_NEG:
+        return letter_degree_number(node->a);
+    case N_ADD: case N_SUB: case N_MUL:
+        a = letter_degree_number(node->a);
+        return degree_join(a, letter_degree_number(node->b), node->kind == N_MUL);
+    case N_DIV:
+        a = letter_degree_number(node->a);
+        if (!degree_free(letter_degree_number(node->b))) break;
+        return a;
+    case N_POW:
+        a = letter_degree_number(node->a);
+        if (!matrix_exponent_value(node->b, &exponent) || (exponent < 0 && !degree_free(a))) break;
+        return degree_times(a, exponent < 0 ? 0 : exponent);
+    default:
+        break;
+    }
+    fail(LETTER_SHAPE);
+    return none;
+}
+
+/* g1. Ritorna il limite del grado dell'espressione node in ognuna delle
+ * lettere (vedi la testa del paragrafo), e ne raccoglie le lettere in
+ * letter_name[]. Annota un errore per ciò che con una lettera non si
+ * tratta: il rango, l'inversa, un elemento che non è un polinomio. */
+static LetterDegree letter_degree(MatrixNode *node) {
+    LetterDegree none = {{0}}, a;
+    if (failure) return none;
+    switch (node->kind) {
+    case M_SCALAR:
+        return letter_degree_number(node->scalar);
+    case M_TABLE:
+        for (int i = 0; i < node->rows * node->cols; i++) none = degree_join(none, letter_degree_number(node->entry[i]), 0);
+        return none;
+    case M_IDENTITY:
+        return none;
+    case M_NEG: case M_TRANSPOSE: case M_TRACE:
+        return letter_degree(node->a);
+    case M_ADD: case M_SUB: case M_MUL:
+        a = letter_degree(node->a);
+        return degree_join(a, letter_degree(node->b), node->kind == M_MUL);
+    case M_POWER:
+        /* Un esponente negativo: l'inverso di un numero senza lettere, mai
+         * un'inversa. */
+        a = letter_degree(node->a);
+        if (node->power < 0 && (matrix_shape(node->a) != SHAPE_NUMBER || !degree_free(a))) {
+            fail(matrix_shape(node->a) == SHAPE_NUMBER ? LETTER_SHAPE : LETTER_CASES);
+            return none;
+        }
+        return degree_times(a, node->power < 0 ? 0 : node->power);
+    case M_DET: {
+        /* n volte il grado degli elementi: n sono le righe dell'argomento,
+         * e le dice il suo valore con le lettere a zero. */
+        a = letter_degree(node->a);
+        MatrixValue value = matrix_eval(node->a, 0);
+        return failure ? none : degree_times(a, value.is_matrix ? value.matrix.rows : 1);
+    }
+    default:
+        fail(LETTER_CASES);
+        return none;
+    }
+}
+
+/* I coefficienti del polinomio di g3, e prima i valori di g2 sulla griglia.
+ * Il posto e_0 + (d_0 + 1) e_1 + (d_0 + 1)(d_1 + 1) e_2 + ... è quello del
+ * punto in cui la lettera i vale e_i, e poi del coefficiente del monomio in
+ * cui la lettera i ha l'esponente e_i; d_i è il limite del grado. */
+static Frac letter_grid[MAX_LETTER_POINTS];
+
+/* g2, g3. Calcola il polinomio che l'espressione node, che vale un numero,
+ * è nelle lettere di letter_name[], con i limiti dei gradi degree: mette i
+ * coefficienti in letter_grid[] e ne ritorna il numero, 0 dopo un errore. */
+static int letter_polynomial(MatrixNode *node, LetterDegree degree) {
+    int size = 1;
+    for (int i = 0; i < letter_count; i++) {
+        if (degree.at[i] > MAX_LETTER_DEGREE || size * (degree.at[i] + 1) > MAX_LETTER_POINTS) {
+            fail("il determinante ha un grado troppo alto nelle sue lettere");
+            return 0;
+        }
+        size *= (int)degree.at[i] + 1;
+    }
+
+    /* g2. I valori: nel punto numero p la lettera i vale la cifra i di p,
+     * scritto con le basi d_0 + 1, d_1 + 1, ... La memoria di ogni conto si
+     * restituisce: resta solo il numero. */
+    for (int p = 0; p < size && !failure; p++) {
+        size_t mark = arena_used;
+        for (int i = 0, rest = p; i < letter_count; rest /= (int)degree.at[i] + 1, i++) letter_value[i] = frac_int(rest % ((int)degree.at[i] + 1));
+        MatrixValue value = matrix_eval(node, 0);
+        if (!failure && value.is_matrix) fail(LETTER_MATRIX);
+        letter_grid[p] = value.number;
+        arena_used = mark;
+    }
+
+    /* g3. Dai valori ai coefficienti, una lettera alla volta: lungo la
+     * lettera i la griglia è fatta di file di d + 1 posti, distanti stride,
+     * e ogni fila è un polinomio di grado al più d in quella lettera, dato
+     * dai valori nei punti 0, 1, ..., d.
+     *
+     * Le differenze divise di Newton lo scrivono come
+     *
+     *     c_0 + c_1 x + c_2 x (x - 1) + ... + c_d x (x - 1) ... (x - d + 1):
+     *
+     * c_j è la differenza divisa dei primi j + 1 punti, e ogni differenza
+     * divisa è (quella dei punti dopo il primo - quella dei punti prima
+     * dell'ultimo) / (ultimo punto - primo punto), che qui è il numero k
+     * dei passi. Il giro su j all'indietro le calcola sul posto.
+     *
+     * Poi lo schema di Horner svolge i prodotti, da c_d in giù: a ogni
+     * passo il polinomio P già svolto diventa P (x - j) + c_j. I suoi
+     * coefficienti stanno nei posti da j + 1 a d, e quelli nuovi vanno nei
+     * posti da j a d: nel posto t entra il coefficiente che stava lì (il
+     * prodotto per x lo sposta di un grado; nel posto j c'è c_j) meno j
+     * volte quello del posto dopo. */
+    for (int i = 0, stride = 1; i < letter_count && !failure; stride *= (int)degree.at[i] + 1, i++) {
+        int d = (int)degree.at[i];
+        for (int first = 0; first < size; first++) {
+            Frac *row = &letter_grid[first];
+            if (first / stride % (d + 1)) continue;
+            for (int k = 1; k <= d; k++)
+                for (int j = d; j >= k; j--) row[j * stride] = frac_div(frac_add(row[j * stride], frac_neg(row[(j - 1) * stride])), frac_int(k));
+            for (int j = d - 1; j >= 0; j--)
+                for (int t = j; t < d; t++) row[t * stride] = frac_add(row[t * stride], frac_neg(frac_mul(frac_int(j), row[(t + 1) * stride])));
+        }
+    }
+    return failure ? 0 : size;
+}
+
+/* Mette in exponent[] gli esponenti delle lettere nel monomio che ha il
+ * posto place in letter_grid[], con i limiti dei gradi degree. */
+static void letter_exponents(int place, LetterDegree degree, int *exponent) {
+    for (int i = 0; i < letter_count; place /= (int)degree.at[i] + 1, i++) exponent[i] = place % ((int)degree.at[i] + 1);
+}
+
+/* g4. Aggiunge a text, di size byte, il polinomio di letter_grid[], che ha
+ * count coefficienti: in LaTeX, dai gradi più alti, scritto in modo che il
+ * capitolo 9 lo rilegga uguale. */
+static void letter_latex(int count, LetterDegree degree, char *text, size_t size) {
+    size_t start = strlen(text);
+    for (int place = count - 1; place >= 0 && !failure; place--) {
+        char body[32 * MAX_LETTERS] = "";
+        int exponent[MAX_LETTERS];
+        letter_exponents(place, degree, exponent);
+        for (int i = 0; i < letter_count; i++) {
+            if (exponent[i] == 0) continue;
+            text_add(body, sizeof body, "%s%c", body[0] ? " " : "", letter_name[i]);
+            if (exponent[i] > 1) text_add(body, sizeof body, "^{%d}", exponent[i]);
+        }
+        term_latex(letter_grid[place], body, text + start, size - start);
+    }
+    if (!text[start]) text_add(text, size, "0");
+}
+
+/* g4. Scrive in certificate_text il certificato dello sviluppo: per ogni
+ * valore delle lettere, l'espressione node vale il polinomio written (17d
+ * di checker.c). Va chiamata con almeno una lettera in letter_name[]. */
+static void letter_certificate(MatrixNode *node, const Node *written) {
+    certificate_length = 0;
+    certificate_broken = 0;
+    cert_add("certificate matrices\nletters");
+    for (int i = 0; i < letter_count; i++) cert_add(" %c", letter_name[i]);
+    cert_add("\nstatement (= ");
+    matrix_cert_node(node);
+    cert_add(" ");
+    matrix_cert_number(written);
+    cert_add(")\nclaim true\nend\n");
+}
+
+/* g1-g4. Sviluppa l'espressione node, che è scritta nel testo da from a to:
+ * ne trova il polinomio, lo fa certificare, e aggiunge il polinomio tra
+ * parentesi a text (di size byte), il suo certificato a certificates (di
+ * bytes byte) e la riga "espressione = polinomio" alla dimostrazione in
+ * corso. Ritorna NULL se riesce; altrimenti il motivo, e allora *rejected
+ * dice se è il verificatore ad aver respinto lo sviluppo.
+ *
+ * Il certificato non parla dei coefficienti trovati: parla del polinomio
+ * così com'è scritto nel testo, riletto dal lettore delle espressioni. È
+ * quel testo che entra nell'enunciato, ed è quel lettore che poi lo legge:
+ * un errore nello scriverlo darebbe un altro polinomio, che il verificatore
+ * respinge. */
+static const char *letter_expand(MatrixNode *node, const char *from, const char *to, char *text, size_t size,
+                                 char *certificates, size_t bytes, int *rejected) {
+    static char problem[512];
+    const char *why = "il certificato dello sviluppo non si può scrivere", *certificate = certificate_text;
+    size_t start = strlen(text);
+    *rejected = 0;
+
+    /* g1-g3. Le lettere, i gradi, il polinomio. */
+    letter_count = 0;
+    LetterDegree degree = letter_degree(node);
+    int count = letter_polynomial(node, degree);
+    if (failure) return failure;
+
+    /* g4. Il polinomio tra parentesi, e la riga della dimostrazione. */
+    text_add(text, size, "(");
+    letter_latex(count, degree, text, size);
+    text_add(text, size, ")");
+    proof_add("$%.*s = %s$. ", (int)(to - from), from, text + start);
+    if (failure || proof_broken) return failure ? failure : "dimostrazione troppo lunga da scrivere";
+
+    /* g4. Il polinomio riletto. Il lettore è a metà dell'enunciato: lo si
+     * lascia dov'era. */
+    ParserState here = parser_save();
+    const char *here_consumed = consumed;
+    syntax_error = NULL;
+    cursor = text + start;
+    next_token();
+    Node *written = parse_expr();
+    int reread = !syntax_error && token.kind == T_END;
+    parser_restore(here);
+    consumed = here_consumed;
+    if (!reread) return "il polinomio di uno sviluppo, scritto, non si rilegge";
+
+    /* g4. Il certificato: con le lettere quello di 17d; senza, l'enunciato
+     * "espressione = numero" con i testimoni di 32f. */
+    if (letter_count) {
+        letter_certificate(node, written);
+    } else {
+        MatrixNode *number = matrix_node(M_SCALAR, NULL, NULL);
+        number->scalar = written;
+        const MatrixStatement stated = {node, number, MATRIX_EQ, 0, {NULL}};
+        const MatrixValue value = {0, letter_grid[0], {0, 0, NULL}};
+        matrix_certificate(&stated, value, value, 1);
+    }
+    CkAnswer checked = certificate_broken ? CK_UNSUPPORTED : ck_check(&certificate, &why, checker_steps());
+    if (checked != CK_ACCEPTED) {
+        *rejected = checked == CK_REJECTED;
+        snprintf(problem, sizeof problem, checked == CK_REJECTED ? "il verificatore indipendente ha respinto lo sviluppo di un determinante: %s"
+                                                                 : "il verificatore non sa controllare lo sviluppo di un determinante: %s", why);
+        return problem;
+    }
+    text_add(certificates, bytes, "%s%s", certificates[0] ? "\n" : "", certificate_text);
+    return failure;
+}
+
+/* g5. Decide l'enunciato formula, che ha una matrice scritta per esteso e
+ * dice dove stanno le sue lettere (vedi la testa del paragrafo): sviluppa
+ * ogni determinante e ogni traccia, e fa decidere a prove_quantified()
+ * l'enunciato che resta. Svuota l'arena: i risultati di chiamate precedenti
+ * non sono più validi. */
+static Verdict prove_matrix_letters(const char *formula) {
+    static char rewritten[2 * MAX_FORMULA], expansions[4 * MAX_FORMULA], certificates[CERTIFICATE_BYTES], method[256], reason[768];
+    Verdict verdict = {UNSUPPORTED, 0, 0, 0, NULL, NULL, NULL, MATRIX_METHOD, NULL, NULL};
+    MatrixStatement names;
+
+    /* Ripartenza da zero, e le definizioni, se l'enunciato comincia con il
+     * nome di una matrice: danno un nome a degli alberi, e una che
+     * l'enunciato non usa non viene guardata. */
+    proof_reset();
+    arena_used = arena_keep;
+    failure = NULL;
+    matrix_work = 0;
+    rewritten[0] = certificates[0] = 0;
+    memset(&names, 0, sizeof names);
+    matrix_start(formula);
+    if (token.kind == T_LETTER && isupper(token.ch)) matrix_definitions(&names);
+
+    /* I fattori da sviluppare, uno dopo l'altro: ciò che sta tra l'uno e
+     * l'altro si copia com'è. `copied` è dove la copia è arrivata. */
+    const char *copied = token.start;
+    while (token.kind != T_END && !syntax_error && !failure) {
+        if (!matrix_starts_here()) { next_token(); continue; }
+        const char *from = token.start;
+        MatrixNode *node = matrix_factor();
+        if (syntax_error) break;
+        int rejected;
+        text_add(rewritten, sizeof rewritten, "%.*s", (int)(from - copied), copied);
+        const char *problem = letter_expand(node, from, consumed, rewritten, sizeof rewritten, certificates, sizeof certificates, &rejected);
+        if (problem && !failure) {
+            /* Lo sviluppo c'è, ma il verificatore non lo ha accettato. */
+            if (rejected) unjustified_steps++;
+            return (Verdict){NOT_PROVED, 0, 0, 0, problem, NULL, NULL, NULL, NULL, NULL};
+        }
+        copied = consumed;
+    }
+    if (!syntax_error && !failure) text_add(rewritten, sizeof rewritten, "%s", copied);
+    if (syntax_error || failure) { verdict.reason = syntax_error ? syntax_error : failure; return verdict; }
+    if (strlen(rewritten) >= MAX_FORMULA || proof_length >= sizeof expansions) {
+        verdict.reason = "enunciato troppo lungo, una volta sviluppati i determinanti";
+        return verdict;
+    }
+    memcpy(expansions, proof_text, proof_length + 1);
+
+    /* L'enunciato che resta, da capo. Se è deciso, il metodo dice anche
+     * dello sviluppo, e la dimostrazione lo riporta in fondo. Senza nessuno
+     * sviluppo (le matrici stavano solo in definizioni non usate) è un
+     * enunciato come gli altri. */
+    verdict = prove_quantified(rewritten);
+    if (!certificates[0]) return verdict;
+    if (verdict.outcome != PROVED && verdict.outcome != REFUTED && verdict.outcome != SOLVED) return verdict;
+    snprintf(method, sizeof method, "%s, dopo aver sviluppato determinanti e tracce in polinomi", verdict.method ? verdict.method : MATRIX_METHOD);
+    verdict.method = method;
+    proof_add(" The statement decided here is the given one with each determinant or trace replaced by its expansion, "
+              "a polynomial found from exact values at enough points and confirmed by the independent checker: %s"
+              "The statement becomes $%s$.", expansions, rewritten);
+    if (proof_broken) return (Verdict){UNSUPPORTED, 0, 0, 0, "dimostrazione troppo lunga da scrivere", NULL, NULL, NULL, NULL, NULL};
+    verdict.proof = proof_text;
+
+    /* I certificati: quello dell'enunciato che resta, se c'è, e dopo di lui
+     * quelli degli sviluppi. Se manca, il motivo dice che cosa è certificato
+     * lo stesso. */
+    if (verdict.certificate) {
+        cert_add("\n%s", certificates);
+        verdict.certificate = certificate_text;
+        if (!certificate_broken) return verdict;
+        verdict.reason = "i certificati sono troppo lunghi da scrivere insieme";
+    }
+    snprintf(reason, sizeof reason, "lo sviluppo di determinanti e tracce ha il suo certificato, verificato; l'enunciato che ne risulta no%s%s",
+             verdict.reason ? ", " : "", verdict.reason ? verdict.reason : "");
+    verdict.reason = reason;
+    verdict.certificate = NULL;
+    return verdict;
+}
+
+/* 32h. IL VERDETTO */
+
+/* Prova a dimostrare, smentire o risolvere l'enunciato sulle matrici scritto
+ * in formula (vedi la testa del capitolo). Svuota l'arena: i risultati di
+ * chiamate precedenti non sono più validi.
+ *
+ * Una richiesta si risolve in due tempi: si calcola il valore, lo si scrive,
+ * e l'enunciato "espressione = valore scritto" passa da capo per questa
+ * stessa funzione, che lo rilegge e lo fa certificare. Così ciò che si
+ * consegna è ciò che è stato controllato: un errore nello scrivere il
+ * valore cambia ciò che si rilegge, e il verificatore lo respinge.
+ *
+ * Un enunciato che dice dove stanno le sue lettere, con \mathbb, è di 32g. */
+static Verdict prove_matrix(const char *formula) {
+    static char answer[3 * MAX_FORMULA], reread[4 * MAX_FORMULA], note[256], problem[512];
+    Verdict verdict = {UNSUPPORTED, 0, 0, 0, NULL, NULL, NULL, MATRIX_METHOD, NULL, NULL};
+    MatrixStatement st;
+
+    /* Nessuna lettera ha un valore, se non dentro 32g: anche dopo un suo
+     * conto interrotto a metà. */
+    letter_count = 0;
+    if (strstr(formula, "\\mathbb")) return prove_matrix_letters(formula);
+
+    /* Ripartenza da zero per il nuovo enunciato, e lettura. */
+    proof_reset();
+    arena_used = arena_keep;
+    failure = NULL;
+    matrix_work = 0;
+    if (!parse_matrix_statement(formula, &st)) { verdict.reason = syntax_error; return verdict; }
+
+    /* Le definizioni, nell'ordine in cui sono scritte: ognuna deve avere un
+     * valore da sola, senza che un contesto le presti una dimensione. */
+    for (int i = 0; i < st.definitions && !failure; i++) matrix_eval(st.definition[i], 0);
+
+    /* Una richiesta: il valore, scritto, e l'enunciato che lo afferma. */
+    if (st.relation == MATRIX_ASKED) {
+        MatrixValue value = matrix_eval(st.left, 0);
+        if (!failure) matrix_put(value);
+        if (failure || proof_broken || proof_length >= sizeof answer || strlen(formula) + proof_length + 4 >= sizeof reread) {
+            verdict.reason = failure ? failure : "risultato troppo lungo da scrivere";
+            return verdict;
+        }
+        memcpy(answer, proof_text, proof_length + 1);
+        snprintf(reread, sizeof reread, "%s = %s", formula, answer);
+        Verdict stated = prove_matrix(reread);
+        if (stated.outcome != PROVED) {
+            /* Riletta e falsa: il valore scritto non è quello calcolato. Il
+             * motivo della chiamata interna può stare in `problem`, dove va
+             * scritto quello nuovo: prima lo si copia, accorciato quanto
+             * basta perché ci stia con ciò che lo precede. */
+            char inner[256];
+            if (stated.outcome == REFUTED) unjustified_steps++;
+            snprintf(inner, sizeof inner, "%s", stated.reason ? stated.reason : "risulta falsa");
+            snprintf(problem, sizeof problem, "la risposta calcolata, riletta come enunciato, non è stata dimostrata: %s", inner);
+            return (Verdict){NOT_PROVED, 0, 0, 0, problem, NULL, NULL, NULL, NULL, NULL};
+        }
+        stated.outcome = SOLVED;
+        stated.detail = answer;
+        return stated;
+    }
+
+    /* I due membri: prima quello che sa la propria dimensione (32d). Lo 0
+     * da solo accanto a una matrice è la matrice nulla. */
+    MatrixValue left, right;
+    if (matrix_shape(st.right) > matrix_shape(st.left)) {
+        right = matrix_eval(st.right, 0);
+        left = matrix_eval(st.left, matrix_want(M_ADD, right, 0, 0));
+    } else {
+        left = matrix_eval(st.left, 0);
+        right = matrix_eval(st.right, matrix_want(M_ADD, left, 1, 0));
+    }
+    if (!failure && (st.relation == MATRIX_EQ || st.relation == MATRIX_NEQ)) {
+        if (matrix_is_zero(st.right) && left.is_matrix) right = (MatrixValue){1, {0, 1}, matrix_zero(left.matrix.rows, left.matrix.cols)};
+        if (matrix_is_zero(st.left) && right.is_matrix) left = (MatrixValue){1, {0, 1}, matrix_zero(right.matrix.rows, right.matrix.cols)};
+    }
+    int truth = matrix_holds(left, right, st.relation, note, sizeof note);
+    if (failure) { verdict.reason = failure; return verdict; }
+
+    /* La dimostrazione scritta: i due valori, e che cosa ne segue. */
+    proof_add("Exact computation with rational numbers. The left-hand side is $");
+    matrix_put(left);
+    proof_add("$. The right-hand side is $");
+    matrix_put(right);
+    proof_add(truth ? "$. Hence the stated relation holds." : "$. Hence the stated relation does not hold.");
+    if (proof_broken) { verdict.reason = "dimostrazione troppo lunga da scrivere"; return verdict; }
+
+    /* Il certificato, e la risposta del verificatore (vedi "Il controllo
+     * indipendente" in testa al capitolo). */
+    const char *why = "il certificato non si può scrivere", *text = certificate_text;
+    matrix_certificate(&st, left, right, truth);
+    CkAnswer checked = certificate_broken ? CK_UNSUPPORTED : ck_check(&text, &why, checker_steps());
+    if (checked != CK_ACCEPTED) {
+        if (checked == CK_REJECTED) unjustified_steps++;
+        snprintf(problem, sizeof problem, checked == CK_REJECTED ? "il verificatore indipendente ha respinto il certificato: %s"
+                                                                 : "il verificatore non sa controllare il certificato: %s", why);
+        return (Verdict){NOT_PROVED, 0, 0, 0, problem, NULL, NULL, NULL, NULL, NULL};
+    }
+    verdict.outcome = truth ? PROVED : REFUTED;
+    verdict.note = truth ? NULL : note;
+    verdict.proof = proof_text;
+    verdict.certificate = certificate_text;
+    return verdict;
+}
+
+/* Ritorna 1 se formula scrive una matrice per esteso, con uno degli
+ * ambienti di matrix_environments[] (capitolo 31): è un enunciato di questo
+ * capitolo, e prove_core() lo manda qui. Un altro ambiente, come cases, non
+ * conta. */
+static int uses_matrices(const char *formula) {
+    for (const char *p = strstr(formula, "\\begin"); p; p = strstr(p + 1, "\\begin")) {
+        const char *name = p + 6;
+        while (isspace((unsigned char)*name)) name++;
+        if (*name != '{') continue;
+        for (size_t i = 0; i < sizeof matrix_environments / sizeof *matrix_environments; i++) {
+            size_t length = strlen(matrix_environments[i].name);
+            if (strncmp(name + 1, matrix_environments[i].name, length) == 0 && name[1 + length] == '}') return 1;
+        }
+    }
+    return 0;
+}
+
+/* =============================================================================
  * 35. FUNZIONI DI PIÙ VARIABILI: DERIVATE PARZIALI, GRADIENTE, HESSIANA
  * ============================================================================
  *
@@ -44857,7 +46436,10 @@ static int uses_partial_notation(const char *formula) {
  * comincia con il segno di derivata di Leibniz, va al capitolo 27; se
  * comincia con \lim, anche dopo \nexists, è un limite e va al capitolo 29.
  * Prima di tutto, un enunciato che comincia con \int è un integrale, e va al
- * capitolo 30, qualunque cosa contenga dopo.
+ * capitolo 30, qualunque cosa contenga dopo. E prima ancora di questo, un
+ * enunciato che scrive una matrice per esteso, con \begin{pmatrix} o un
+ * ambiente simile, va al capitolo 32 (uses_matrices()): lì una maiuscola è
+ * una matrice, non un insieme, e nessun altro capitolo legge quegli ambienti.
  *
  * Guardare solo i simboli non basta, e ha già causato una dimostrazione falsa:
  * S \times T = T \times S non contiene né unioni né inclusioni, veniva letto
@@ -45026,6 +46608,26 @@ static Verdict prove_core(const char *formula, int variable, int has_base, long 
      * questo rifiuto 6000 radici una dentro l'altra fermavano il programma. */
     const Verdict too_long = {UNSUPPORTED, variable, 0, 0, "enunciato troppo lungo", NULL, NULL, NULL, NULL, NULL};
     stack_guard = strlen(formula) >= MAX_FORMULA;
+
+    /* Una matrice scritta per esteso: un enunciato del capitolo 32, prima
+     * di ogni altra lettura. Tranne quando l'enunciato è sulle funzioni di
+     * più variabili (capitolo 35): lì una tabella è il secondo membro di
+     * un'hessiana, e la legge quel capitolo, più sotto. Senza questa
+     * eccezione 39 enunciati dei test di Analisi 2 finivano qui, e
+     * risultavano non supportati.
+     *
+     * Lo svolgimento (capitolo 40) non vale per queste voci. Con una
+     * lettera negli elementi il capitolo 32 consegna alla tabella dei segni
+     * l'enunciato che resta dopo aver sviluppato i determinanti, e lo
+     * svolgimento spiegherebbe quello, "h - 9 = 0", come se fosse ciò che è
+     * stato scritto: finché non sa mostrare anche lo sviluppo, il documento
+     * di queste voci è quello senza svolgimento. */
+    if (uses_matrices(formula) && !uses_partial_notation(formula)) {
+        if (stack_guard) return too_long;
+        Verdict verdict = prove_matrix(formula);
+        explanation.steps = 0;
+        return verdict;
+    }
 
     /* \int in testa: un integrale (capitolo 30), qualunque cosa segua. */
     if (starts_with_integral(formula)) return stack_guard ? too_long : prove_integral(formula);

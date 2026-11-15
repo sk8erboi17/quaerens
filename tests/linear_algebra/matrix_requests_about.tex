@@ -1,0 +1,33 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{matrix\_requests.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{matrix\_requests.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_linear\_algebra.c} in this folder, which holds the expected answers.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 24 requests: an expression between matrices written without a relation, as in ``compute the inverse of $L$'', ``compute $CA + B^{-1}$'', ``compute the five ranks''. The engine answers RISOLTO with the value: a number, or a matrix written with \texttt{pmatrix}.
+
+\item \textbf{Expected answers.} The results printed in the collections of exercises listed in \texttt{book\_matrices\_about.tex} (Vietri, exercises 1, 2, 4, 5, 6; Abbena, Fino and Gianella, chapter 5, exercises [1], [2], [7]--[10]; Trefethen and Bau 5.3; Hefferon Three.IV.4.15; Kuttler), written as the engine writes a value: fractions in lowest terms with the sign in front. The inverse of request 22, printed in the book as $\frac{1}{100}$ times a matrix of integers, is expected with the fractions written out; statement 39 of \texttt{book\_matrices.tex} says that the two are the same matrix.
+
+\item \textbf{What is being tested.} That a value delivered is a value checked: the engine writes the value, reads it back with its own reader as the statement ``expression $=$ value'', and has that statement certified by the independent checker. An error in writing the value would change what is read back, and the checker would reject it.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -Werror -o /tmp/test_linear_algebra \
+    tests/linear_algebra/test_linear_algebra.c && /tmp/test_linear_algebra
+\end{verbatim}
+
+\item \textbf{Expected result.} The line \texttt{PASS: 24 of 24 requests \dots{} solved with the expected value, each with a verified certificate}.
+\end{enumerate}
+\end{document}

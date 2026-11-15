@@ -1,0 +1,35 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_book\_matrices.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_book\_matrices.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_linear\_algebra.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 56 false statements: the statements of \texttt{book\_matrices.tex} with the result wrong by a little. It is an anti-regression test against false proofs: the engine must never prove one of them, and since every statement of this language is decided by a finite exact computation, it must declare each one false, with a certificate.
+
+\item \textbf{Kinds of error.} One entry of a matrix changed (a sign, a value off by one, another denominator); two entries exchanged; the transposed result; a result with the wrong shape; a determinant with the wrong sign, off by one, or halved; a rank one too large or one too small; a forgotten inverse or a changed sign in an expression; a sum of determinants in place of a product; an equality where the two sides differ and a $\neq$ where they agree; a wrong eigenvalue ($\det(A - 3I) = 0$); a changed coefficient of the characteristic polynomial; a factor $\frac{1}{10}$ in place of $\frac{1}{100}$; an inequality the wrong way round.
+
+\item \textbf{A third computation.} Every statement was found false by the independent oracle \texttt{tools/fuzz/fuzz\_linear\_algebra.py data}, which does not use the engine. A statement in which an operation is not defined does not belong here: the engine answers that it has no meaning, not that it is false.
+
+\item \textbf{What the engine needs in order to pass.} An exact computation of both sides; a certificate with the claim \texttt{false} that the independent checker accepts after recomputing both sides itself; and the same certificate with the claim reversed must be rejected.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -Werror -o /tmp/test_linear_algebra \
+    tests/linear_algebra/test_linear_algebra.c && /tmp/test_linear_algebra
+\end{verbatim}
+
+\item \textbf{Expected result.} The line \texttt{PASS: 56 of 56 statements \dots{} are declared false with a certificate that the checker accepts, and rejects with the claim reversed}. These statements are not to be removed or weakened to make a change pass: if one of them is proved, the engine is wrong.
+\end{enumerate}
+\end{document}

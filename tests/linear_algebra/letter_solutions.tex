@@ -1,0 +1,43 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Determinants with a letter: exercises to solve (23)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Each item asks for a set of solutions: the values of a parameter for which a matrix is singular, or is invertible, the eigenvalues of a matrix, the values for which a determinant is negative. The engine must solve each one, and the solutions it writes must be the ones listed in \texttt{test\_linear\_algebra.c}. See \texttt{letter\_solutions\_about.tex}.
+
+\begin{enumerate}
+\item $\displaystyle \{h \in \mathbb{R} \mid \det \begin{pmatrix} 1 & 2 & 3 \\ 0 & 1 & 2 \\ -1 & 4 & h \end{pmatrix} = 0\}$
+\item $\displaystyle \{h \in \mathbb{R} \mid \det \begin{pmatrix} 1 & 2 & 3 \\ 0 & 1 & 2 \\ -1 & 4 & h \end{pmatrix} \neq 0\}$
+\item $\displaystyle \{h \in \mathbb{R} \mid \det \begin{pmatrix} 1 & -3 & 1 & 2 \\ h & 0 & 0 & 0 \\ 1 & -1 & 0 & 0 \\ 0 & 0 & 0 & h \end{pmatrix} = 0\}$
+\item $\displaystyle \{h \in \mathbb{R} \mid \det \begin{pmatrix} 1 & 2 & 1 & 1 \\ 2 & 1 & 0 & 0 \\ 0 & 1 & 1 & h \\ 3 & 2 & 1 & 1 \end{pmatrix} = 0\}$
+\item $\displaystyle \{h \in \mathbb{R} \mid \det \begin{pmatrix} 0 & h & 1 & 0 \\ 0 & 1 & 2 & 1 \\ h + 1 & 0 & 0 & 0 \\ 0 & 2 & 1 & 3 \end{pmatrix} = 0\}$
+\item $\displaystyle \{h \in \mathbb{R} \mid \det \begin{pmatrix} 0 & h & 1 & 0 \\ 0 & 1 & 2 & 1 \\ h + 1 & 0 & 0 & 0 \\ 0 & 2 & 1 & 3 \end{pmatrix} \neq 0\}$
+\item $\displaystyle \{k \in \mathbb{R} \mid \det \begin{pmatrix} k + 1 & k + 2 & k + 3 \\ 1 & 2 & 3 \\ 1 - 2k & 2 - 2k & 3 - 2k \end{pmatrix} = 0\}$
+\item $\displaystyle \{a \in \mathbb{R} \mid \det \begin{pmatrix} 1 & 1 & 0 \\ 1 & 0 & -1 \\ 0 & -1 & a^{2} - 2 \end{pmatrix} = 0\}$
+\item $\displaystyle \{a \in \mathbb{R} \mid \det \begin{pmatrix} 2 & -3 & 1 \\ 1 & a^{2} - 14 & 4 \\ -1 & 5 & 3 \end{pmatrix} = 0\}$
+\item $\displaystyle \{t \in \mathbb{R} \mid \det \begin{pmatrix} t & 1 & -1 \\ 0 & 2 & 1 \\ 0 & 1 & t \end{pmatrix} = 0\}$
+\item $\displaystyle M = \begin{pmatrix} 5 & -5 & -1 \\ 0 & 2 & 0 \\ 20 & -32 & -4 \end{pmatrix} \implies \{s \in \mathbb{R} \mid \det\left( M - sI \right) = 0\}$
+\item $\displaystyle A = \begin{pmatrix} -6 & 3 & -2 \\ -8 & 5 & -2 \\ 7 & -3 & 3 \end{pmatrix} \implies \{s \in \mathbb{R} \mid \det\left( A - sI \right) = 0\}$
+\item $\displaystyle A = \begin{pmatrix} -2 & 11 \\ -10 & 5 \end{pmatrix} \implies \{s \in \mathbb{R} \mid \det\left( A - sI \right) = 0\}$
+\item $\displaystyle A = \begin{pmatrix} -2 & 11 \\ -10 & 5 \end{pmatrix} \implies \{s \in \mathbb{R} \mid \det\left( A^{T} A - sI \right) = 0\}$
+\item $\displaystyle \{s \in \mathbb{R} \mid \det \begin{pmatrix} \frac{40}{3} - s & -\frac{23}{2} \\ -\frac{23}{2} & \frac{52}{3} - s \end{pmatrix} = 0\}$
+\item $\displaystyle A = \begin{pmatrix} \frac{80}{3} & -6 & 0 \\ -6 & 12 & 0 \\ 0 & 0 & \frac{116}{3} \end{pmatrix} \implies \{s \in \mathbb{R} \mid \det\left( A - sI \right) = 0\}$
+\item $\displaystyle \{k \in \mathbb{R} \mid \det \begin{pmatrix} k & 1 \\ 1 & k \end{pmatrix} < 0\}$
+\item $\displaystyle \{k \in \mathbb{R} \mid \det \begin{pmatrix} k & 2 \\ 2 & k \end{pmatrix} \ge 0\}$
+\item $\displaystyle \{k \in \mathbb{R} \mid \det \begin{pmatrix} k & 1 \\ -1 & k \end{pmatrix} > 0\}$
+\item $\displaystyle \{x \in \mathbb{R} \mid \det \begin{pmatrix} 1 & 1 & 1 \\ 1 & 2 & 4 \\ 1 & x & x^{2} \end{pmatrix} = 0\}$
+\item $\displaystyle \{t \in \mathbb{R} \mid \det \begin{pmatrix} t & 1 & 0 & 0 \\ 1 & t & 1 & 0 \\ 0 & 1 & t & 1 \\ 0 & 0 & 1 & t \end{pmatrix} = 0\}$
+\item $\displaystyle \{k \in \mathbb{R} \mid \operatorname{tr} \begin{pmatrix} k & 1 \\ 1 & k^{2} \end{pmatrix} < 2\}$
+\item $\displaystyle \forall a \in \mathbb{R}\ \{s \in \mathbb{R} \mid \det \begin{pmatrix} a - s & 1 \\ 1 & a - s \end{pmatrix} = 0\}$
+\end{enumerate}
+\end{document}

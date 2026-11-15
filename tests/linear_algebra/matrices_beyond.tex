@@ -1,0 +1,38 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Linear algebra beyond the language (18)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Every statement below is true, and none of them is in the language of the domain so far: entries with $\pi$ or a square root, a letter that the statement does not place in a set, a $1 \times 1$ matrix read as a number, a determinant written with bars around a matrix, a power with a letter as exponent; and, with a letter placed in $\mathbb{R}$, a rank, an inverse, an equality between matrices, an entry divided by the letter, a Greek letter. The engine may say that it cannot read or decide them; it must never declare one of them false. They are the next things to learn, in the order of \texttt{handoff-algebra-lineare.md}.
+
+\begin{enumerate}
+\item $\displaystyle \begin{pmatrix} 1 & 0 & 0 \\ 0 & 7\pi & 0 \\ 0 & 0 & 123 \end{pmatrix}^{-1} = \begin{pmatrix} 1 & 0 & 0 \\ 0 & \frac{1}{7\pi} & 0 \\ 0 & 0 & \frac{1}{123} \end{pmatrix}$
+\item $\displaystyle \begin{pmatrix} 1 & \pi \\ 1 & 0 \end{pmatrix}^{-1} = \begin{pmatrix} 0 & 1 \\ \frac{1}{\pi} & -\frac{1}{\pi} \end{pmatrix}$
+\item $\displaystyle \det \begin{pmatrix} 2 & \pi & 0 & 0 \\ 0 & 1 & 0 & -8 \\ \sqrt{3} & 0 & 11 & 0 \\ 0 & 0 & -2 & -3 \end{pmatrix} = -66 - 16\pi\sqrt{3}$
+\item $\displaystyle \det \begin{pmatrix} k + 1 & k + 2 & k + 3 \\ 1 & 2 & 3 \\ 1 - 2k & 2 - 2k & 3 - 2k \end{pmatrix} = 0$
+\item $\displaystyle \det \begin{pmatrix} x & x - 1 & x - 2 \\ 1 - x & 2 - x & 3 - x \\ 4 & 5 & 6 \end{pmatrix} = 0$
+\item $\displaystyle \det \begin{pmatrix} a & b \\ c & d \end{pmatrix} = ad - bc$
+\item $\displaystyle \det\left( \begin{pmatrix} a & b \\ c & d \end{pmatrix} \begin{pmatrix} e & f \\ g & h \end{pmatrix} \right) = \det \begin{pmatrix} a & b \\ c & d \end{pmatrix} \cdot \det \begin{pmatrix} e & f \\ g & h \end{pmatrix}$
+\item $\displaystyle \begin{pmatrix} 1 & 2 \end{pmatrix} \begin{pmatrix} 3 \\ 4 \end{pmatrix} = 11$
+\item $\displaystyle \left| \begin{pmatrix} 1 & 2 \\ 3 & 4 \end{pmatrix} \right| = -2$
+\item $\displaystyle \begin{pmatrix} 1 & 2 \\ 3 & 4 \end{pmatrix} = \begin{pmatrix} \sqrt{1} & \sqrt{4} \\ \sqrt{9} & \sqrt{16} \end{pmatrix}$
+\item $\displaystyle \forall k \in \mathbb{R}\ \left( \operatorname{rank} \begin{pmatrix} k & 1 \\ 1 & k \end{pmatrix} = 2 \iff \left( k \neq -1 \land k \neq 1 \right) \right)$
+\item $\displaystyle \forall k \in \mathbb{R}\ \left( \begin{pmatrix} k & 1 \\ 0 & 1 \end{pmatrix}^{2} = \begin{pmatrix} k^{2} & k + 1 \\ 0 & 1 \end{pmatrix} \right)$
+\item $\displaystyle \forall h \in \mathbb{R}\ \left( h \neq 9 \implies \det \begin{pmatrix} 1 & 2 & 3 \\ 0 & 1 & 2 \\ -1 & 4 & h \end{pmatrix}^{-1} = \frac{1}{h - 9} \right)$
+\item $\displaystyle \forall k \in \mathbb{R}\ \left( k \neq 0 \implies \det \begin{pmatrix} \frac{1}{k} & 1 \\ 1 & k \end{pmatrix} = 0 \right)$
+\item $\displaystyle \forall \lambda \in \mathbb{R}\ \left( \det \begin{pmatrix} \lambda & 1 \\ 1 & \lambda \end{pmatrix} = \lambda^{2} - 1 \right)$
+\item $\displaystyle \begin{pmatrix} 2 & 0 \\ 0 & 3 \end{pmatrix}^{n} = \begin{pmatrix} 2^{n} & 0 \\ 0 & 3^{n} \end{pmatrix}$
+\item $\displaystyle \begin{pmatrix} \cos t & -\sin t \\ \sin t & \cos t \end{pmatrix} \begin{pmatrix} \cos t & \sin t \\ -\sin t & \cos t \end{pmatrix} = \begin{pmatrix} 1 & 0 \\ 0 & 1 \end{pmatrix}$
+\item $\displaystyle \operatorname{rank} \begin{pmatrix} 1 & 2 \\ 2 & 4 \end{pmatrix} + \dim \ker \begin{pmatrix} 1 & 2 \\ 2 & 4 \end{pmatrix} = 2$
+\end{enumerate}
+\end{document}

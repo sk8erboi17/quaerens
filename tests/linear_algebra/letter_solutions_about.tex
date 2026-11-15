@@ -1,0 +1,43 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{letter\_solutions.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{letter\_solutions.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_linear\_algebra.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 23 exercises to solve: the set of the values of a letter for which a condition on a determinant, or on a trace, holds. They are the questions of the collections of exercises: for which values of the parameter the matrix is singular, for which it is invertible, which are the eigenvalues. The engine must answer \texttt{RISOLTO} with the solutions written as in the books.
+
+\item \textbf{Sources.} The same exercises as \texttt{letter\_determinants.tex}: Abbena, Fino and Gianella, chapter 5, [3]--[6], [11], [13], [14], [20] (requests 1--10); Vietri, exercise 108, and Patr\`i, page 31 (11, 12); Trefethen and Bau, exercise 5.3 (13, 14: no real eigenvalue, and $50$ and $200$); Rosso, exercises 2.5 and 2.13 (15, 16: the principal moments of inertia); requests 17--23 were built for this test (inequalities, an equation of fourth degree with four irrational roots, a trace, a parameter beside the unknown).
+
+\item \textbf{Expected solutions.} They are listed in \texttt{expected\_solutions[]} in \texttt{test\_linear\_algebra.c}, in the order of the file and written as the program writes them. They were confirmed by an oracle that does not use the program:
+\begin{verbatim}
+python3 -I tools/fuzz/fuzz_linear_algebra.py answers \
+    tests/linear_algebra/letter_solutions.tex \
+    tests/linear_algebra/test_linear_algebra.c
+\end{verbatim}
+The oracle expands each determinant with its own polynomials, reads the expected solutions as a condition on the letter, and compares the two conditions at every real root of the polynomials involved and at one point of every interval between two roots, with exact fractions and with exact arithmetic on the square roots: the comparison is complete, not a sample. It confirms requests 1--22. Request 23 has a parameter, and the oracle confirms it at 13 values of the parameter only; by hand, $(a - s)^{2} - 1 = 0$ exactly when $s = a - 1$ or $s = a + 1$.
+
+\item \textbf{What is being tested.} That the engine solves, and does not only confirm; that what it writes is read again: the test builds from each request and its expected solutions the statement ``the condition holds if and only if the solutions hold'' and asks the engine to prove it. The same statements with solutions wrong by little are in \texttt{false\_letter\_determinants.tex}.
+
+\item \textbf{Format expected by the test.} One \texttt{\textbackslash item} per request, written as $\{x \in \mathbb{R} \mid \ldots\}$, with the definitions of the matrices, or the quantifier on a parameter, in front.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -Werror -o /tmp/test_linear_algebra \
+    tests/linear_algebra/test_linear_algebra.c && /tmp/test_linear_algebra
+\end{verbatim}
+
+\item \textbf{Expected result.} The line \texttt{PASS: 23 of 23 requests of tests/linear\_algebra/letter\_solutions.tex solved with the expected solutions, which are proved when read again as a statement}; the oracle prints \texttt{0 not confirmed}.
+\end{enumerate}
+\end{document}

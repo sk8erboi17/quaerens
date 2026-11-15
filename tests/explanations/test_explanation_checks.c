@@ -257,6 +257,12 @@ static void check_unexplained(void) {
         "\\{x \\in \\mathbb{R} \\mid x^{3} - x - 1 > 0\\}",
         "\\lnot \\forall x \\in \\mathbb{R}\\ (x^{2} > 0)",
         "\\forall a \\in \\mathbb{R}\\ \\{x \\in \\mathbb{R} \\mid a x > 1\\}",
+
+        /* Un determinante con una lettera (32g): la tabella dei segni decide
+         * l'enunciato che resta dopo lo sviluppo, e lo svolgimento
+         * spiegherebbe quello al posto di ciò che è scritto. */
+        "\\{h \\in \\mathbb{R} \\mid \\det \\begin{pmatrix} h & 3 \\\\ 3 & 1 \\end{pmatrix} = 0\\}",
+        "A = \\begin{pmatrix} 2 & 1 \\\\ 1 & 2 \\end{pmatrix} \\implies \\{s \\in \\mathbb{R} \\mid \\det(A - sI) = 0\\}",
     };
     const char *inside = "\\{x \\in \\mathbb{R} \\mid x^{2} - 5x + 6 < 0\\}";
     explanations_wanted = 1;

@@ -1,0 +1,76 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Matrices with rational entries: results wrong by a little (56)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Every statement below is false. Each is a statement of \texttt{book\_matrices.tex} with its result changed by a little: one entry of a matrix, a sign, a rank or a determinant off by one, two entries exchanged, a transposed result, a result with the wrong shape, an equality where the two sides differ and a $\neq$ where they agree. Every one was found false by an independent oracle with exact fractions (\texttt{tools/fuzz/fuzz\_linear\_algebra.py data}). The engine must declare each of them false, and must never prove one.
+
+\begin{enumerate}
+\item $\displaystyle \begin{pmatrix} 1 & 1 & 2 \\ 1 & 0 & 1 \\ -2 & 4 & 0 \end{pmatrix}^{-1} = \begin{pmatrix} -2 & 4 & \frac{1}{2} \\ -1 & 2 & \frac{1}{2} \\ 2 & -3 & \frac{1}{2} \end{pmatrix}$
+\item $\displaystyle \begin{pmatrix} 1 & 1 & 2 \\ 1 & 0 & 1 \\ -2 & 4 & 0 \end{pmatrix}^{-1} = \begin{pmatrix} -2 & 4 & \frac{1}{2} \\ -1 & 2 & \frac{1}{3} \\ 2 & -3 & -\frac{1}{2} \end{pmatrix}$
+\item $\displaystyle A = \begin{pmatrix} 1 & -1 \\ 0 & 0 \\ -1 & 0 \end{pmatrix}, B = \begin{pmatrix} 1 & -1 \\ -1 & 0 \end{pmatrix}, C = \begin{pmatrix} 1 & -1 & 1 \\ 0 & 0 & 2 \end{pmatrix} \implies C A + B^{-1} = \begin{pmatrix} 0 & -2 \\ -3 & 1 \end{pmatrix}$
+\item $\displaystyle A = \begin{pmatrix} 1 & -1 \\ 0 & 0 \\ -1 & 0 \end{pmatrix}, B = \begin{pmatrix} 1 & -1 \\ -1 & 0 \end{pmatrix}, C = \begin{pmatrix} 1 & -1 & 1 \\ 0 & 0 & 2 \end{pmatrix} \implies C A + B = \begin{pmatrix} 0 & -2 \\ -3 & -1 \end{pmatrix}$
+\item $\displaystyle A = \begin{pmatrix} 1 & -1 \\ 0 & 0 \\ -1 & 0 \end{pmatrix}, B = \begin{pmatrix} 1 & -1 \\ -1 & 0 \end{pmatrix}, C = \begin{pmatrix} 1 & -1 & 1 \\ 0 & 0 & 2 \end{pmatrix} \implies C A - B^{-1} = \begin{pmatrix} 0 & -2 \\ -3 & -1 \end{pmatrix}$
+\item $\displaystyle B = \begin{pmatrix} 1 & -1 \\ -1 & 0 \end{pmatrix} \implies B \cdot B = \begin{pmatrix} 2 & -1 \\ 1 & 1 \end{pmatrix}$
+\item $\displaystyle B = \begin{pmatrix} 1 & -1 \\ -1 & 0 \end{pmatrix} \implies \det B \cdot \det B = -\det\left( B \cdot B \right)$
+\item $\displaystyle B = \begin{pmatrix} 1 & -1 \\ -1 & 0 \end{pmatrix} \implies \det B + \det B = \det\left( B + B \right)$
+\item $\displaystyle \begin{vmatrix} 2 & -1 \\ -1 & 1 \end{vmatrix} = 3$
+\item $\displaystyle \operatorname{rank} \begin{pmatrix} 1 & 1 & 1 \\ 1 & 9 & 1 \\ 1 & 0 & 2 \end{pmatrix} = 2$
+\item $\displaystyle \operatorname{rank} \begin{pmatrix} 1 & 1 & 1 \\ 1 & 9 & 1 \\ -2 & 0 & -2 \end{pmatrix} = 3$
+\item $\displaystyle \operatorname{rank} \begin{pmatrix} 1 & 1 & 1 \\ 1 & 9 & 1 \\ -2 & 0 & -2 \end{pmatrix} = 1$
+\item $\displaystyle \operatorname{rank} \begin{pmatrix} 1 & 1 & 1 \\ 1 & 9 & 1 \end{pmatrix} = 3$
+\item $\displaystyle \operatorname{rank} \begin{pmatrix} 1 & -2 \\ -1 & 2 \\ 3 & -6 \end{pmatrix} = 2$
+\item $\displaystyle \operatorname{rank} \begin{pmatrix} 1 & 2 & -1 & 0 \\ 3 & 0 & 0 & 1 \\ -2 & -4 & 2 & 0 \end{pmatrix} = 3$
+\item $\displaystyle \begin{pmatrix} 1 & 1 & 1 \\ 1 & 9 & 1 \\ 1 & 0 & 2 \end{pmatrix}^{-1} = \begin{pmatrix} \frac{9}{4} & -\frac{1}{4} & -1 \\ \frac{1}{8} & \frac{1}{8} & 0 \\ -\frac{9}{8} & \frac{1}{8} & 1 \end{pmatrix}$
+\item $\displaystyle \begin{pmatrix} 1 & 1 & 1 \\ 1 & 9 & 1 \\ 1 & 0 & 2 \end{pmatrix}^{-1} = \begin{pmatrix} \frac{9}{4} & -\frac{1}{8} & -\frac{9}{8} \\ -\frac{1}{4} & \frac{1}{8} & \frac{1}{8} \\ -1 & 0 & 1 \end{pmatrix}$
+\item $\displaystyle \det \begin{pmatrix} 1 & 1 & 1 \\ 1 & 9 & 1 \\ -2 & 0 & -2 \end{pmatrix} \neq 0$
+\item $\displaystyle \begin{pmatrix} 1 & 1 & 1 \\ 1 & 9 & 1 \\ 1 & 0 & 2 \end{pmatrix} \begin{pmatrix} 1 & -2 \\ -1 & 2 \\ 3 & -6 \end{pmatrix} = \begin{pmatrix} 3 & -6 \\ -5 & 10 \\ 7 & 14 \end{pmatrix}$
+\item $\displaystyle \begin{pmatrix} 1 & 1 & 1 \\ 1 & 9 & 1 \\ 1 & 0 & 2 \end{pmatrix} \begin{pmatrix} 1 & -2 \\ -1 & 2 \\ 3 & -6 \end{pmatrix} = \begin{pmatrix} 3 & -5 & 7 \\ -6 & 10 & -14 \end{pmatrix}$
+\item $\displaystyle \begin{pmatrix} 1 & 1 & 1 \\ 1 & 9 & 1 \end{pmatrix} \begin{pmatrix} 1 & 1 & 1 \\ 1 & 9 & 1 \\ 1 & 0 & 2 \end{pmatrix} = \begin{pmatrix} 3 & 10 & 4 \\ 11 & 81 & 12 \end{pmatrix}$
+\item $\displaystyle \begin{pmatrix} 1 & 1 & 1 \\ 1 & 9 & 1 \end{pmatrix} \begin{pmatrix} 1 & 1 & 1 \\ 1 & 9 & 1 \\ 1 & 0 & 2 \end{pmatrix} = \begin{pmatrix} 3 & 10 & 4 \\ 12 & 82 & 11 \end{pmatrix}$
+\item $\displaystyle \det \begin{pmatrix} 2 & 2 & 2 & 2 & 2 \\ 1 & 1 & 1 & 1 & 5 \\ 1 & 1 & 1 & 4 & 1 \\ 1 & 1 & 3 & 1 & 1 \\ 1 & 2 & 1 & 1 & 1 \end{pmatrix} = -48$
+\item $\displaystyle \det \begin{pmatrix} 2 & 2 & 2 & 2 & 2 \\ 1 & 1 & 1 & 1 & 5 \\ 1 & 1 & 1 & 4 & 1 \\ 1 & 1 & 3 & 1 & 1 \\ 1 & 2 & 1 & 1 & 1 \end{pmatrix} = 24$
+\item $\displaystyle \det\left( \begin{pmatrix} 2 & -1 & 1 \\ 0 & 7 & -1 \\ 0 & 0 & -1 \end{pmatrix} \begin{pmatrix} 2 & 0 & 0 \\ 3 & -1 & 0 \\ 7 & 7 & 5 \end{pmatrix} \begin{pmatrix} 1 & 0 & 0 \\ 0 & 3 & 0 \\ 10 & 0 & 1 \end{pmatrix} \right) = -420$
+\item $\displaystyle \det\left( \begin{pmatrix} 2 & -1 & 1 \\ 0 & 7 & -1 \\ 0 & 0 & -1 \end{pmatrix} \begin{pmatrix} 2 & 0 & 0 \\ 3 & -1 & 0 \\ 7 & 7 & 5 \end{pmatrix} \begin{pmatrix} 1 & 0 & 0 \\ 0 & 3 & 0 \\ 10 & 0 & 1 \end{pmatrix} \right) = 421$
+\item $\displaystyle \det \begin{pmatrix} 1 & 2 & 0 \\ -1 & 2 & 2 \\ 1 & -1 & -1 \end{pmatrix} = -2$
+\item $\displaystyle \begin{pmatrix} 1 & 2 & 0 \\ -1 & 2 & 2 \\ 1 & -1 & -1 \end{pmatrix}^{-1} = \begin{pmatrix} 0 & 1 & 2 \\ \frac{1}{2} & -\frac{1}{2} & -1 \\ -\frac{1}{2} & \frac{3}{2} & 1 \end{pmatrix}$
+\item $\displaystyle \det \begin{pmatrix} 1 & 3 & -1 \\ 2 & 1 & -1 \\ 2 & -1 & 0 \end{pmatrix} = 3$
+\item $\displaystyle \begin{pmatrix} 1 & 3 & -1 \\ 2 & 1 & -1 \\ 2 & -1 & 0 \end{pmatrix}^{-1} = \begin{pmatrix} \frac{1}{3} & -\frac{1}{3} & \frac{2}{3} \\ \frac{2}{3} & -\frac{2}{3} & \frac{1}{3} \\ \frac{4}{3} & \frac{7}{3} & \frac{5}{3} \end{pmatrix}$
+\item $\displaystyle \det \begin{pmatrix} 1 & 2 & 3 \\ 0 & 1 & 2 \\ -1 & 4 & 10 \end{pmatrix} = 0$
+\item $\displaystyle \begin{pmatrix} 1 & 2 & 3 \\ 0 & 1 & 2 \\ -1 & 4 & 10 \end{pmatrix}^{-1} = \begin{pmatrix} 2 & -8 & 1 \\ -2 & 12 & -2 \\ 1 & -6 & 1 \end{pmatrix}$
+\item $\displaystyle \det \begin{pmatrix} 0 & 0 & 1 & 0 \\ 0 & 1 & 2 & 1 \\ 1 & 0 & 0 & 0 \\ 0 & 2 & 1 & 3 \end{pmatrix} = 0$
+\item $\displaystyle \det \begin{pmatrix} 0 & \frac{1}{5} & 1 & 0 \\ 0 & 1 & 2 & 1 \\ \frac{6}{5} & 0 & 0 & 0 \\ 0 & 2 & 1 & 3 \end{pmatrix} \neq 0$
+\item $\displaystyle \det \begin{pmatrix} 0 & 2 & -1 & -3 \\ 4 & 1 & 0 & 0 \\ 2 & -1 & 1 & 0 \\ 1 & 0 & -2 & 0 \end{pmatrix} = -39$
+\item $\displaystyle \det \begin{pmatrix} 1 & 2 & 3 & 4 & -1 \\ 5 & -2 & 6 & 0 & -1 \\ 2 & -3 & 4 & -1 & 7 \\ 0 & 1 & 2 & 3 & 4 \\ 1 & -1 & 0 & 0 & 0 \end{pmatrix} = 94$
+\item $\displaystyle \det \begin{pmatrix} 0 & 0 & 0 & 1 & 2 \\ 1 & 3 & 2 & -1 & 0 \\ 4 & 3 & 2 & 1 & 5 \\ 1 & -1 & 2 & 1 & 3 \\ 0 & 2 & 3 & -1 & 4 \end{pmatrix} = -99$
+\item $\displaystyle \det \begin{pmatrix} 1 & -2 & 3 & -4 \\ -2 & 3 & -4 & 1 \\ 3 & -4 & 1 & -2 \\ -4 & 1 & -2 & 3 \end{pmatrix} = 161$
+\item $\displaystyle \det \begin{pmatrix} 2 & 3 & 4 \\ 1 & 2 & 3 \\ -1 & 0 & 1 \end{pmatrix} = 1$
+\item $\displaystyle A = \begin{pmatrix} 3 & 2 & 3 & -3 \\ 0 & 1 & -3 & 0 \\ 1 & 0 & 3 & -1 \end{pmatrix} \implies A \begin{pmatrix} -3 & 1 \\ 3 & 0 \\ 1 & 0 \\ 0 & -1 \end{pmatrix} = 0$
+\item $\displaystyle \operatorname{rank} \begin{pmatrix} 3 & 2 & 3 & -3 \\ 0 & 1 & -3 & 0 \\ 1 & 0 & 3 & -1 \end{pmatrix} = 3$
+\item $\displaystyle N = \begin{pmatrix} 0 & 1 & 0 \\ 0 & 0 & 1 \\ 0 & 0 & 0 \end{pmatrix} \implies N^{2} = 0$
+\item $\displaystyle N = \begin{pmatrix} 0 & 1 & 0 \\ 0 & 0 & 1 \\ 0 & 0 & 0 \end{pmatrix} \implies N^{3} \neq 0$
+\item $\displaystyle \begin{pmatrix} -2 & 11 \\ -10 & 5 \end{pmatrix}^{-1} = \frac{1}{100} \begin{pmatrix} 5 & 11 \\ 10 & -2 \end{pmatrix}$
+\item $\displaystyle \begin{pmatrix} -2 & 11 \\ -10 & 5 \end{pmatrix}^{-1} = \frac{1}{10} \begin{pmatrix} 5 & -11 \\ 10 & -2 \end{pmatrix}$
+\item $\displaystyle A = \begin{pmatrix} -2 & 11 \\ -10 & 5 \end{pmatrix} \implies \operatorname{tr}\left( A^{T} A \right) = 249$
+\item $\displaystyle A = \begin{pmatrix} -6 & 3 & -2 \\ -8 & 5 & -2 \\ 7 & -3 & 3 \end{pmatrix} \implies \det\left( A - 3I \right) = 0$
+\item $\displaystyle A = \begin{pmatrix} -6 & 3 & -2 \\ -8 & 5 & -2 \\ 7 & -3 & 3 \end{pmatrix} \implies \det\left( A - I \right) \neq 0$
+\item $\displaystyle A = \begin{pmatrix} -6 & 3 & -2 \\ -8 & 5 & -2 \\ 7 & -3 & 3 \end{pmatrix} \implies -A^{3} + 2A^{2} + A + 2I = 0$
+\item $\displaystyle A = \begin{pmatrix} -6 & 3 & -2 \\ -8 & 5 & -2 \\ 7 & -3 & 3 \end{pmatrix} \implies -A^{3} + 2A^{2} - A - 2I = 0$
+\item $\displaystyle M = \begin{pmatrix} 5 & -5 & -1 \\ 0 & 2 & 0 \\ 20 & -32 & -4 \end{pmatrix} \implies \det\left( M - 3I \right) = 0$
+\item $\displaystyle \det \begin{pmatrix} 1 & -1 \\ 2 & 0 \end{pmatrix} = \det \begin{pmatrix} 2 & 1 \\ 1 & 1 \end{pmatrix}$
+\item $\displaystyle \det \begin{pmatrix} 4 & 2 & 1 \\ 2 & 3 & -1 \\ 1 & -1 & 2 \end{pmatrix} < 0$
+\item $\displaystyle A = \begin{pmatrix} 3 & 2 \\ 2 & 3 \end{pmatrix}, P = \begin{pmatrix} 1 & 1 \\ 1 & -1 \end{pmatrix}, D = \begin{pmatrix} 5 & 0 \\ 0 & 1 \end{pmatrix} \implies A P = D P$
+\item $\displaystyle P = \begin{pmatrix} 1 & 1 \\ 1 & -1 \end{pmatrix} \implies P^{T} P = I$
+\item $\displaystyle \begin{pmatrix} 2 & 1 \\ 1 & 1 \end{pmatrix} \begin{pmatrix} 1 \\ -1 \end{pmatrix} = \begin{pmatrix} 1 & 0 \end{pmatrix}$
+\end{enumerate}
+\end{document}
