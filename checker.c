@@ -242,6 +242,14 @@
  *     elementi sono funzioni, l'identità vale dove quegli elementi sono
  *     definiti e diversi da zero. Il teorema esatto è in testa al capitolo
  *     19.
+ *   - "certificate numbers" (capitolo 20): un enunciato con quantificatori
+ *     sui numeri (tutti interi, o tutti razionali, o tutti reali) è vero, o
+ *     è falso, e lo mostrano dei numeri scritti nel certificato: per un
+ *     "esiste" un valore in cui la condizione vale, per un "per ogni" un
+ *     valore in cui fallisce. Questo programma ricalcola l'enunciato su
+ *     quei valori, con i conti esatti. Un "per ogni" vero e un "esiste"
+ *     falso non si mostrano così: un certificato che ne avrebbe bisogno è
+ *     respinto. Il teorema esatto è in testa al capitolo 20.
  *
  * COMPILAZIONE
  *
@@ -269,6 +277,7 @@
  *   17. Matrici
  *   18. Derivate parziali
  *   19. Identità con gli indici
+ *   20. Enunciati sui numeri: testimoni
  *   15. Controllo di un certificato
  *   16. main
  */
@@ -11544,6 +11553,433 @@ static void ck_check_indices(void) {
 }
 
 /* =============================================================================
+ * 20. ENUNCIATI SUI NUMERI: TESTIMONI
+ * ============================================================================
+ *
+ * A che cosa serve. "Per ogni x, y interi: se x = k^2 + 7 per qualche k e
+ * y = j^2 + 7 per qualche j, allora x = y." È falso, e per vederlo bastano
+ * quattro numeri: x = 7, y = 8, k = 0, j = 1. Chi li ha trovati può aver
+ * fatto qualsiasi ricerca; controllare che smentiscano l'enunciato è un
+ * conto. Questo capitolo fa quel conto.
+ *
+ * Il certificato.
+ *
+ *     certificate numbers
+ *     kind int                  int, rat o real: di che numeri si parla
+ *     statement (forall (var 120) (set) (forall (var 121) (set) ...))
+ *     fails                     oppure holds: che cosa si afferma
+ *     witness 0 7               il valore per il quantificatore numero 0
+ *     witness 1 8               (contati da 0 nell'ordine in cui sono scritti)
+ *     witness 2 0
+ *     witness 3 1
+ *     end
+ *
+ * L'enunciato è nella notazione a parentesi:
+ *
+ *     (forall (var N) SET C)  (exists (var N) SET C)
+ *     SET = (set [ge L | gt L] [except P/Q]...)   un estremo, dei punti tolti
+ *     (and C C) (or C C) (implies C C) (iff C C) (not C)
+ *     (= E E) (neq E E) (less E E) (lesseq E E)
+ *     (in E SET)        E sta nell'insieme: l'estremo e i punti tolti
+ *     (divides E E)     il secondo è il primo per un intero (solo con int)
+ *     E = N | (var N) | (add E E) | (sub E E) | (neg E) | (mul E E)
+ *       | (pow E K) | (div E N)
+ *
+ * con N intero non negativo, K da 1 a 16, (div E N) solo con rat e real e N
+ * positivo. Con int ogni variabile è un intero; con rat un razionale; con
+ * real un numero reale.
+ *
+ * TEOREMA. Se il certificato è accettato con "holds", l'enunciato è vero
+ * tra i numeri del suo genere; con "fails", è falso.
+ *
+ * Perché. Il conto dà a ogni condizione uno di tre esiti: vera, falsa,
+ * non stabilita. È la logica a tre valori di Kleene, e ha questa proprietà:
+ * se l'esito è "vera" o "falsa", la condizione lo è davvero, qualunque cosa
+ * valgano le parti non stabilite. Per induzione sulla condizione:
+ *
+ *   20a. Un confronto, un'appartenenza, una divisibilità tra espressioni
+ *        chiuse (ogni variabile ha il valore del testimone del suo
+ *        quantificatore): si calcolano i due membri, numeri razionali
+ *        esatti, e si confronta. u divide v vuol dire che v è u per un
+ *        intero: zero divide solo zero, e altrimenti il quoziente deve
+ *        essere intero. I numeri razionali sono anche numeri reali, e le
+ *        espressioni sono polinomi: il valore calcolato è quello vero anche
+ *        con real.
+ *   20b. I connettivi: "e" è falsa se una parte è falsa, vera se lo sono
+ *        tutte e due; "o" al contrario; "non" scambia; "implica" è "non A,
+ *        oppure B"; "se e solo se" si stabilisce solo con tutte e due le
+ *        parti stabilite. Negli altri casi: non stabilita.
+ *   20c. "Per ogni x in A, C" con un testimone w: se w è in A e C con x = w
+ *        è falsa, allora "per ogni" è falso, perché w è uno degli x. Mai
+ *        vero: un valore solo non dice nulla degli altri. Senza testimone:
+ *        non stabilita.
+ *   20d. "Esiste x in A, C" con un testimone w: se w è in A e C con x = w è
+ *        vera, allora "esiste" è vero. Mai falso. Senza testimone: non
+ *        stabilita.
+ *
+ * Un testimone deve stare nell'insieme del suo quantificatore: con int deve
+ * essere intero, e deve rispettare l'estremo e i punti tolti. Se non ci sta
+ * il certificato è respinto, non ignorato: chi lo ha scritto si è sbagliato.
+ *
+ * Il certificato è accettato se l'esito dell'enunciato è quello affermato.
+ * Se è l'opposto, o non è stabilito, è respinto. Un "per ogni" vero e un
+ * "esiste" falso non si stabiliscono mai: per quelli servirebbe una
+ * dimostrazione, e questo capitolo non ne legge.
+ *
+ * Qui non si cerca nulla: nessun valore è provato oltre a quelli scritti.
+ */
+
+/* I generi di numeri di un enunciato (voce kind). */
+enum { CK_N_INT, CK_N_RAT, CK_N_REAL };
+
+/* I nodi dell'albero di un enunciato sui numeri: condizioni ed espressioni. */
+typedef enum {
+    CK_N_FORALL, CK_N_EXISTS, CK_N_AND, CK_N_OR, CK_N_IMPLIES, CK_N_IFF, CK_N_NOT,
+    CK_N_EQ, CK_N_NEQ, CK_N_LESS, CK_N_LESSEQ, CK_N_IN, CK_N_DIVIDES,
+    CK_N_NUMBER, CK_N_VAR, CK_N_ADD, CK_N_SUB, CK_N_NEG, CK_N_MUL, CK_N_POW, CK_N_DIV
+} CkNKind;
+
+/* Un insieme di numeri: tutti quelli del genere dell'enunciato, da un
+ * estremo in su se bounded (escluso se strict), meno i punti di hole[]. */
+#define CK_N_HOLES 8
+typedef struct {
+    int bounded, strict;
+    long long low;
+    int holes;
+    CkNum hole[CK_N_HOLES];
+} CkNSet;
+
+/* Un nodo: una condizione o un'espressione dell'enunciato. a e b sono le
+ * parti; value è il numero scritto (CK_N_NUMBER), la lettera (CK_N_VAR, e
+ * la variabile legata di un quantificatore), l'esponente (CK_N_POW) o il
+ * divisore (CK_N_DIV); set è l'insieme di un quantificatore o di
+ * un'appartenenza; quantifier è il numero d'ordine di un quantificatore,
+ * contato da 0 come sono scritti. I nodi vivono nell'arena. */
+typedef struct CkNNode {
+    CkNKind kind;
+    const struct CkNNode *a, *b;
+    long long value;
+    CkNSet set;
+    int quantifier;
+} CkNNode;
+
+/* Lo stato del controllo: il genere, quanti quantificatori ha l'enunciato,
+ * il testimone di ognuno (given dice se c'è), e le variabili che hanno un
+ * valore nel punto dell'enunciato che si sta calcolando. */
+#define CK_N_QUANTIFIERS 64
+#define CK_N_DEPTH 200
+static int ck_n_kind, ck_n_quantifiers, ck_n_bound;
+static int ck_n_given[CK_N_QUANTIFIERS];
+static CkNum ck_n_witness[CK_N_QUANTIFIERS];
+static long long ck_n_letter[CK_N_QUANTIFIERS];
+static CkNum ck_n_value[CK_N_QUANTIFIERS];
+
+/* Supera il carattere c, dopo gli spazi; altrimenti respinge. */
+static void ck_n_expect(char c) {
+    ck_skip();
+    if (*ck_cursor == c) ck_cursor++;
+    else ck_reject("certificato scritto male: parentesi attesa in un enunciato sui numeri");
+}
+
+/* Legge una parola fatta di lettere, o il segno =, e la mette in word. */
+static void ck_n_word(char *word, size_t size) {
+    size_t length = 0;
+    ck_skip();
+    while ((isalpha((unsigned char)*ck_cursor) || *ck_cursor == '=') && length + 1 < size) word[length++] = *ck_cursor++;
+    word[length] = 0;
+}
+
+/* Legge P/Q, con Q positivo, e ne ritorna il valore. */
+static CkNum ck_n_fraction(void) {
+    long long num = 0, den = 1;
+    if (!ck_read_integer(&num)) { ck_reject("certificato scritto male: numero atteso"); return ck_num_int(0); }
+    if (*ck_cursor == '/') {
+        ck_cursor++;
+        if (!ck_read_integer(&den) || den <= 0) { ck_reject("certificato scritto male: denominatore atteso"); return ck_num_int(0); }
+    }
+    return ck_num_make(num, den);
+}
+
+/* Legge (set [ge L | gt L] [except P/Q]...). */
+static CkNSet ck_n_set(void) {
+    CkNSet set = {0};
+    char word[16];
+    ck_n_expect('(');
+    ck_n_word(word, sizeof word);
+    if (strcmp(word, "set") != 0) ck_reject("certificato scritto male: insieme di numeri atteso");
+    for (ck_skip(); *ck_cursor != ')' && ck_status == CK_ACCEPTED; ck_skip()) {
+        ck_n_word(word, sizeof word);
+        if ((strcmp(word, "ge") == 0 || strcmp(word, "gt") == 0) && !set.bounded) {
+            set.bounded = 1;
+            set.strict = word[1] == 't';
+            if (!ck_read_integer(&set.low)) ck_reject("certificato scritto male: estremo di un insieme atteso");
+        } else if (strcmp(word, "except") == 0 && set.holes < CK_N_HOLES) {
+            set.hole[set.holes++] = ck_n_fraction();
+        } else {
+            ck_reject("certificato scritto male: insieme di numeri non riconosciuto");
+        }
+    }
+    ck_n_expect(')');
+    return set;
+}
+
+/* Legge (var N) e ritorna la lettera N. */
+static long long ck_n_variable(void) {
+    char word[16];
+    long long letter = 0;
+    ck_n_expect('(');
+    ck_n_word(word, sizeof word);
+    if (strcmp(word, "var") != 0 || !ck_read_integer(&letter) || letter < 0) ck_reject("certificato scritto male: variabile attesa");
+    ck_n_expect(')');
+    return letter;
+}
+
+/* Alloca un nodo dell'albero. Ritorna un nodo vuoto, mai NULL: se la
+ * memoria è finita lo stato non è più CK_ACCEPTED e chi chiama si ferma. */
+static CkNNode *ck_n_node(CkNKind kind) {
+    static CkNNode none;
+    CkNNode *node = ck_alloc(sizeof *node);
+    if (!node) { none = (CkNNode){0}; return &none; }
+    *node = (CkNNode){0};
+    node->kind = kind;
+    return node;
+}
+
+/* Legge un'espressione. */
+static const CkNNode *ck_n_term(int depth) {
+    static const struct { const char *word; CkNKind kind; } binary[] = {{"add", CK_N_ADD}, {"sub", CK_N_SUB}, {"mul", CK_N_MUL}};
+    char word[16];
+    CkNNode *node = ck_n_node(CK_N_NUMBER);
+    if (depth > CK_N_DEPTH) { ck_unsupported("enunciato sui numeri con troppe parentesi una dentro l'altra"); return node; }
+    ck_skip();
+    if (*ck_cursor != '(') {
+        if (!ck_read_integer(&node->value) || node->value < 0) ck_reject("certificato scritto male: numero atteso in un'espressione");
+        return node;
+    }
+    const char *start = ck_cursor;
+    ck_cursor++;
+    ck_n_word(word, sizeof word);
+    if (strcmp(word, "var") == 0) {
+        ck_cursor = start;
+        node->kind = CK_N_VAR;
+        node->value = ck_n_variable();
+        return node;
+    }
+    for (size_t i = 0; i < sizeof binary / sizeof *binary; i++)
+        if (strcmp(word, binary[i].word) == 0) {
+            node->kind = binary[i].kind;
+            node->a = ck_n_term(depth + 1);
+            node->b = ck_n_term(depth + 1);
+            ck_n_expect(')');
+            return node;
+        }
+    if (strcmp(word, "neg") == 0) {
+        node->kind = CK_N_NEG;
+        node->a = ck_n_term(depth + 1);
+    } else if (strcmp(word, "pow") == 0) {
+        node->kind = CK_N_POW;
+        node->a = ck_n_term(depth + 1);
+        if (!ck_read_integer(&node->value) || node->value < 1 || node->value > 16) ck_reject("un esponente va da 1 a 16");
+    } else if (strcmp(word, "div") == 0) {
+        node->kind = CK_N_DIV;
+        node->a = ck_n_term(depth + 1);
+        if (ck_n_kind == CK_N_INT || !ck_read_integer(&node->value) || node->value < 1)
+            ck_reject("una divisione è per un intero positivo scritto, e non tra interi");
+    } else {
+        ck_reject("certificato scritto male: espressione non riconosciuta");
+    }
+    ck_n_expect(')');
+    return node;
+}
+
+/* Legge una condizione. I quantificatori ricevono il loro numero d'ordine. */
+static const CkNNode *ck_n_condition(int depth) {
+    static const struct { const char *word; CkNKind kind; int terms; } form[] = {
+        {"and", CK_N_AND, 0}, {"or", CK_N_OR, 0}, {"implies", CK_N_IMPLIES, 0}, {"iff", CK_N_IFF, 0},
+        {"=", CK_N_EQ, 1}, {"neq", CK_N_NEQ, 1}, {"less", CK_N_LESS, 1}, {"lesseq", CK_N_LESSEQ, 1}, {"divides", CK_N_DIVIDES, 1}};
+    char word[16];
+    CkNNode *node = ck_n_node(CK_N_NOT);
+    if (depth > CK_N_DEPTH) { ck_unsupported("enunciato sui numeri con troppe parentesi una dentro l'altra"); return node; }
+    ck_n_expect('(');
+    ck_n_word(word, sizeof word);
+    if (ck_status != CK_ACCEPTED) return node;
+    for (size_t i = 0; i < sizeof form / sizeof *form; i++)
+        if (strcmp(word, form[i].word) == 0) {
+            node->kind = form[i].kind;
+            if (node->kind == CK_N_DIVIDES && ck_n_kind != CK_N_INT) ck_reject("la divisibilità è tra interi");
+            node->a = form[i].terms ? ck_n_term(depth + 1) : ck_n_condition(depth + 1);
+            node->b = form[i].terms ? ck_n_term(depth + 1) : ck_n_condition(depth + 1);
+            ck_n_expect(')');
+            return node;
+        }
+    if (strcmp(word, "forall") == 0 || strcmp(word, "exists") == 0) {
+        node->kind = word[0] == 'f' ? CK_N_FORALL : CK_N_EXISTS;
+        if (ck_n_quantifiers == CK_N_QUANTIFIERS) { ck_unsupported("troppi quantificatori in un enunciato sui numeri"); return node; }
+        node->quantifier = ck_n_quantifiers++;
+        node->value = ck_n_variable();
+        node->set = ck_n_set();
+        node->a = ck_n_condition(depth + 1);
+    } else if (strcmp(word, "not") == 0) {
+        node->a = ck_n_condition(depth + 1);
+    } else if (strcmp(word, "in") == 0) {
+        node->kind = CK_N_IN;
+        node->a = ck_n_term(depth + 1);
+        node->set = ck_n_set();
+    } else {
+        ck_reject("certificato scritto male: condizione sui numeri non riconosciuta");
+    }
+    ck_n_expect(')');
+    return node;
+}
+
+/* Ritorna a - b come segno: -1, 0, 1. */
+static int ck_n_compare(CkNum a, CkNum b) { return ck_num_sign(ck_num_add(a, ck_num_neg(b))); }
+
+/* Ritorna 1 se il numero x sta nell'insieme set (20a): del genere
+ * dell'enunciato, sopra l'estremo, e diverso dai punti tolti. */
+static int ck_n_member(CkNum x, const CkNSet *set) {
+    if (ck_n_kind == CK_N_INT && x.den != 1) return 0;
+    if (set->bounded) {
+        int side = ck_n_compare(x, ck_num_int(set->low));
+        if (side < 0 || (side == 0 && set->strict)) return 0;
+    }
+    for (int i = 0; i < set->holes; i++) if (ck_n_compare(x, set->hole[i]) == 0) return 0;
+    return 1;
+}
+
+/* Calcola l'espressione n, le cui variabili hanno tutte un valore. Una
+ * variabile senza valore non è di un quantificatore con il suo testimone:
+ * il certificato è respinto. */
+static CkNum ck_n_number(const CkNNode *n) {
+    CkNum zero = ck_num_int(0), a, b;
+    if (ck_status != CK_ACCEPTED) return zero;
+    switch (n->kind) {
+    case CK_N_NUMBER: return ck_num_int(n->value);
+    case CK_N_VAR:
+        /* La più interna con quella lettera. */
+        for (int i = ck_n_bound - 1; i >= 0; i--) if (ck_n_letter[i] == n->value) return ck_n_value[i];
+        ck_reject("una variabile di un enunciato sui numeri non ha un valore");
+        return zero;
+    case CK_N_NEG: return ck_num_neg(ck_n_number(n->a));
+    case CK_N_ADD: case CK_N_SUB: case CK_N_MUL:
+        a = ck_n_number(n->a); b = ck_n_number(n->b);
+        if (ck_status != CK_ACCEPTED) return zero;
+        return n->kind == CK_N_MUL ? ck_num_mul(a, b) : ck_num_add(a, n->kind == CK_N_SUB ? ck_num_neg(b) : b);
+    case CK_N_POW:
+        a = b = ck_n_number(n->a);
+        for (long long i = 1; i < n->value && ck_status == CK_ACCEPTED; i++) a = ck_num_mul(a, b);
+        return a;
+    case CK_N_DIV: return ck_num_mul(ck_n_number(n->a), ck_num_make(1, n->value));
+    default:
+        ck_reject("certificato scritto male: espressione attesa");
+        return zero;
+    }
+}
+
+/* Calcola la condizione n con la logica a tre valori del capitolo: ritorna
+ * 1 se è stabilito che è vera, 0 che è falsa, -1 se non è stabilito. */
+static int ck_n_truth(const CkNNode *n) {
+    int a, b;
+    if (ck_status != CK_ACCEPTED) return -1;
+    switch (n->kind) {
+    /* 20a. I confronti, l'appartenenza, la divisibilità. */
+    case CK_N_EQ: case CK_N_NEQ: case CK_N_LESS: case CK_N_LESSEQ: {
+        int side = ck_n_compare(ck_n_number(n->a), ck_n_number(n->b));
+        if (ck_status != CK_ACCEPTED) return -1;
+        return n->kind == CK_N_EQ ? side == 0 : n->kind == CK_N_NEQ ? side != 0 : n->kind == CK_N_LESS ? side < 0 : side <= 0;
+    }
+    case CK_N_IN: {
+        CkNum x = ck_n_number(n->a);
+        return ck_status == CK_ACCEPTED ? ck_n_member(x, &n->set) : -1;
+    }
+    case CK_N_DIVIDES: {
+        CkNum u = ck_n_number(n->a), v = ck_n_number(n->b);
+        if (ck_status != CK_ACCEPTED) return -1;
+        if (u.num == 0) return v.num == 0;
+        CkNum quotient = ck_num_mul(v, ck_num_inv(u));
+        return ck_status == CK_ACCEPTED ? quotient.den == 1 : -1;
+    }
+
+    /* 20b. I connettivi. */
+    case CK_N_NOT:
+        a = ck_n_truth(n->a);
+        return a < 0 ? -1 : !a;
+    case CK_N_AND: case CK_N_OR: case CK_N_IMPLIES:
+        a = ck_n_truth(n->a); b = ck_n_truth(n->b);
+        if (n->kind == CK_N_IMPLIES && a >= 0) a = !a;
+        if (n->kind == CK_N_AND) return a == 0 || b == 0 ? 0 : a == 1 && b == 1 ? 1 : -1;
+        return a == 1 || b == 1 ? 1 : a == 0 && b == 0 ? 0 : -1;
+    case CK_N_IFF:
+        a = ck_n_truth(n->a); b = ck_n_truth(n->b);
+        return a < 0 || b < 0 ? -1 : a == b;
+
+    /* 20c, 20d. I quantificatori, con il loro testimone. */
+    case CK_N_FORALL: case CK_N_EXISTS: {
+        if (!ck_n_given[n->quantifier]) return -1;
+        CkNum witness = ck_n_witness[n->quantifier];
+        if (!ck_n_member(witness, &n->set)) { ck_reject("un testimone non sta nell'insieme del suo quantificatore"); return -1; }
+        if (ck_n_bound == CK_N_QUANTIFIERS) { ck_unsupported("troppi quantificatori uno dentro l'altro"); return -1; }
+        ck_n_letter[ck_n_bound] = n->value;
+        ck_n_value[ck_n_bound++] = witness;
+        a = ck_n_truth(n->a);
+        ck_n_bound--;
+        if (n->kind == CK_N_FORALL) return a == 0 ? 0 : -1;
+        return a == 1 ? 1 : -1;
+    }
+    default:
+        ck_reject("certificato scritto male: condizione attesa");
+        return -1;
+    }
+}
+
+/* Controlla un certificato numbers, dopo la sua intestazione: legge le voci
+ * fino a "end" e poi fa il conto. */
+static void ck_check_numbers(void) {
+    const CkNNode *statement = NULL;
+    int claim = -1, kind = -1;
+    ck_n_quantifiers = ck_n_bound = 0;
+    memset(ck_n_given, 0, sizeof ck_n_given);
+    for (;;) {
+        while (isspace((unsigned char)*ck_cursor)) ck_cursor++;
+        if (ck_status != CK_ACCEPTED) return;
+        if (ck_word("end")) break;
+        if (ck_word("kind") && kind < 0 && !statement) {
+            kind = ck_word("int") ? CK_N_INT : ck_word("rat") ? CK_N_RAT : ck_word("real") ? CK_N_REAL : -1;
+            if (kind < 0) { ck_reject("certificato scritto male: i generi di numeri sono int, rat e real"); return; }
+            ck_n_kind = kind;
+        } else if (ck_word("statement") && kind >= 0 && !statement) {
+            statement = ck_n_condition(0);
+        } else if (ck_word("holds") && statement && claim < 0) {
+            claim = 1;
+        } else if (ck_word("fails") && statement && claim < 0) {
+            claim = 0;
+        } else if (ck_word("witness") && claim >= 0) {
+            long long which = -1;
+            if (!ck_read_integer(&which) || which < 0 || which >= ck_n_quantifiers || ck_n_given[which]) {
+                ck_reject("un testimone è di un quantificatore dell'enunciato, e uno solo");
+                return;
+            }
+            ck_n_witness[which] = ck_n_fraction();
+            ck_n_given[which] = 1;
+        } else {
+            ck_reject("certificato scritto male: voce sconosciuta o fuori posto, o \"end\" mancante");
+            return;
+        }
+        ck_skip();
+        if (*ck_cursor && *ck_cursor != '\n') { ck_reject("certificato scritto male: testo in più alla fine di una voce"); return; }
+    }
+    if (!statement || claim < 0) { ck_reject("certificato scritto male: mancano l'enunciato o ciò che se ne afferma"); return; }
+
+    /* Il conto. L'esito deve essere quello affermato: l'opposto è un
+     * certificato sbagliato, e "non stabilito" è un certificato che non
+     * mostra nulla. */
+    int truth = ck_n_truth(statement);
+    if (ck_status != CK_ACCEPTED) return;
+    if (truth < 0) ck_reject("i testimoni non bastano a stabilire se l'enunciato è vero o falso");
+    else if (truth != claim) ck_reject("con questi testimoni l'enunciato ha il valore opposto a quello affermato");
+}
+
+/* =============================================================================
  * 15. CONTROLLO DI UN CERTIFICATO
  * ============================================================================
  *
@@ -11622,6 +12058,13 @@ static void ck_read_certificate(CkCertificate *cert) {
     if (ck_word("indices")) {
         cert->checked = 1;
         ck_check_indices();
+        return;
+    }
+
+    /* Un enunciato sui numeri, con i suoi testimoni (capitolo 20). */
+    if (ck_word("numbers")) {
+        cert->checked = 1;
+        ck_check_numbers();
         return;
     }
     if (!ck_word("induction")) { ck_reject("certificato scritto male: manca l'intestazione"); return; }
