@@ -179,6 +179,9 @@
  *     clausola vuota continua a escludere tutti i controesempi originali.
  *     Le formule con quantificatori su parti possono restare astratte;
  *     comprehend ne aggiunge istanze universali con comprensioni esplicite.
+ *     Un'equipotenza tra due insiemi diventa una proposizione nuova, che
+ *     implica che due funzioni nuove si disfano a vicenda (11m-e): in una
+ *     refutazione l'equipotenza si può usare, non dimostrare.
  *     Non assume un principio induttivo: deve comparire nell'enunciato.
  *     Il controllo non cerca genitori, sostituzioni o unificatori.
  *   - "certificate signs" (capitolo 12): con C la condizione nella variabile
@@ -4064,6 +4067,58 @@ static CkRLiteral ck_r_formula(const CkNode *n, int positive) {
         return ck_r_connect(a, b, !every);
     }
     case CK_FORALLPART: case CK_EXISTSPART: return ck_r_schema(n, positive);
+    case CK_EQUIPOTENT: {
+        /* 11m-e. L'EQUIPOTENZA NELLE CLAUSOLE: SI PUÒ USARE, NON DIMOSTRARE
+         *
+         * "A e B sono equipotenti" dice che esiste una biiezione, cioè (11c)
+         * due funzioni \varphi da A a B e \psi da B ad A che si disfano a
+         * vicenda. Tra le clausole un "esiste" su delle funzioni non si
+         * scrive. Si scrive però questo: una proposizione nuova e, due
+         * funzioni nuove \varphi e \psi, e le quattro clausole di
+         *
+         *     e  implica  per ogni x di A: \varphi(x) è in B e \psi(\varphi(x)) = x
+         *     e  implica  per ogni y di B: \psi(y) è in A e \varphi(\psi(y)) = y
+         *
+         * e al posto dell'equipotenza, in quel punto dell'enunciato, si
+         * mette e.
+         *
+         * Perché non si dimostra nulla di falso. Una refutazione mostra che
+         * le clausole non hanno modelli; conclude che la negazione
+         * dell'enunciato non ne ha solo se ogni modello di quella si estende
+         * a uno delle clausole. Si estende: a e si dà il valore che
+         * l'equipotenza ha nel modello. Se è vera c'è una biiezione di A su
+         * B: \varphi è quella su A, \psi la sua inversa su B, e fuori (il
+         * dominio comune ha altri elementi) valgono qualsiasi cosa; le
+         * quattro clausole valgono. Se è falsa, e è falsa e le quattro
+         * clausole valgono comunque, con funzioni qualsiasi. In tutti e due
+         * i casi e vale esattamente quando vale l'equipotenza, quindi tutto
+         * il resto dell'enunciato ha lo stesso valore di prima, qualunque
+         * sia il punto, positivo o negativo, in cui l'equipotenza compare.
+         *
+         * Che cosa non dà. Nulla permette di ricavare e: per dimostrare
+         * un'equipotenza servirebbe la biiezione, e qui non c'è modo di
+         * esibirla (lo fa 11c, con witness, nei certificati structure).
+         * Ogni occorrenza ha la sua e e le sue funzioni: due scritture della
+         * stessa equipotenza non si riconoscono, ed è un altro modo di dire
+         * meno, mai di più. I lati che sono prodotti di insiemi (11c) non si
+         * trattano qui. */
+        if (ck_side_count(n->value, 0) != 1 || ck_side_count(n->value, 1) != 1) {
+            ck_unsupported("la saturazione tratta l'equipotenza tra due insiemi, non tra prodotti");
+            return zero;
+        }
+        int from = ck_declared + ck_side_sort(n->value, 0, 0), to = ck_declared + ck_side_sort(n->value, 1, 0);
+        int name = ck_r_symbol(0, 1), there = ck_r_symbol(1, 0), back = ck_r_symbol(1, 0);
+        if (ck_status != CK_ACCEPTED) return zero;
+        int proposition = ck_r_term(name, NULL), x = -1;
+        int image = ck_r_term(there, &x), returned = ck_r_term(back, &image);
+        int preimage = ck_r_term(back, &x), again = ck_r_term(there, &preimage);
+        CkRLiteral unless = {proposition, 0, 1};
+        ck_r_emit(unless, (CkRLiteral){ck_r_term(from, &x), 0, 1}, (CkRLiteral){ck_r_term(to, &image), 0, 0}, 3);
+        ck_r_emit(unless, (CkRLiteral){ck_r_term(from, &x), 0, 1}, (CkRLiteral){returned, x, 0}, 3);
+        ck_r_emit(unless, (CkRLiteral){ck_r_term(to, &x), 0, 1}, (CkRLiteral){ck_r_term(from, &preimage), 0, 0}, 3);
+        ck_r_emit(unless, (CkRLiteral){ck_r_term(to, &x), 0, 1}, (CkRLiteral){again, x, 0}, 3);
+        return (CkRLiteral){proposition, 0, !positive};
+    }
     default:
         ck_unsupported("la saturazione non tratta questo nodo dell'enunciato");
         return zero;
