@@ -11457,7 +11457,12 @@ typedef struct {
      * l'identità svolta, senza più indici in alto e in basso, e
      * written_left e written_right quella scritta. */
     IndexNode *written_left, *written_right;
-    const Frac *metric;         /* i dimension numeri c_i della diagonale di g_{ij}, tutti diversi da zero */
+    const Frac *metric;         /* i dimension numeri c_i della diagonale di g_{ij}, tutti diversi da zero;
+                                   se metric_top non è NULL dice solo che una metrica c'è */
+    IndexNode **metric_top;     /* 39f. Se un elemento della diagonale è una funzione delle coordinate: per ogni
+                                   elemento di g_{ij} l'albero del numeratore e, in metric_bottom, quello del
+                                   denominatore, fatti di numeri e di lettere senza indici; altrimenti NULL */
+    IndexNode **metric_bottom;
     Frac epsilon;               /* quanto vale \varepsilon con gli indici 1, 2, ..., d in ordine, se un'ipotesi
                                    lo dichiara: c'è sempre quando \varepsilon compare nell'identità */
     int epsilon_upper;          /* 1 se quel valore è dichiarato con gli indici in alto */
@@ -11485,6 +11490,9 @@ static IndexNode **index_given[INDEX_LETTERS]; /* i loro elementi (IndexStatemen
 static int index_engine_text;                  /* 1 mentre si rilegge un testo scritto dal motore
                                                   (parse_index_values()): lì un numero in alto è un indice,
                                                   perché il motore non scrive potenze */
+static int index_in_metric;                    /* 39f: 1 mentre si legge un elemento della diagonale della
+                                                  metrica: lì una lettera è uno scalare senza indici, e un
+                                                  numero in alto è un esponente */
 
 /* 37f. Le lettere greche lette come indici. index_taken sono le lettere
  * latine che non possono rappresentarne una: quelle scritte nell'enunciato
@@ -11739,6 +11747,24 @@ static void index_number(Frac *out) {
 
 static IndexNode *index_sum(void);
 
+/* 39f. Legge un esponente, in un elemento della diagonale della metrica: il
+ * token corrente è '^'. Ritorna base moltiplicata per sé stessa quante volte
+ * dice l'esponente, un intero da 1 a 16: il prodotto ripetuto è ciò che il
+ * resto del programma conosce, e i suoi fattori sono lo stesso nodo. */
+static IndexNode *index_power(IndexNode *base) {
+    static const char *const form = "nella diagonale della metrica un esponente è un numero intero da 1 a 16, come r^{2}";
+    next_token();
+    int braces = is_char('{');
+    if (braces) next_token();
+    if (token.kind != T_NUM || token.value < 1 || token.value > 16 || (!braces && token.digits > 1)) { syntax(form); return base; }
+    int times = (int)token.value;
+    next_token();
+    if (braces) expect_char('}', form);
+    IndexNode *power = base;
+    for (int k = 1; k < times; k++) power = index_new(IX_MUL, power, base);
+    return power;
+}
+
 /* fattore := numero | \frac{numero}{numero} | '(' somma ')' | simbolo */
 static IndexNode *index_factor(void) {
     IndexNode *node = index_new(IX_NUM, NULL, NULL);
@@ -11762,7 +11788,8 @@ static IndexNode *index_factor(void) {
             return node;
         }
         next_token();
-        if (is_char('^')) index_unexpected();
+        if (is_char('^') && index_in_metric) node = index_power(node);
+        else if (is_char('^')) index_unexpected();
         return node;
     }
 
@@ -11773,6 +11800,15 @@ static IndexNode *index_factor(void) {
     node->name = token.kind == T_LETTER ? token.ch : 0;
     if (node->kind == IX_TENSOR && index_slot(node->name) == index_metric_slot) node->kind = IX_METRIC;
     next_token();
+    if (index_in_metric && node->kind == IX_TENSOR) {
+        /* 39f. Una lettera di un elemento della metrica: uno scalare, senza
+         * indici da leggere; ciò che la segue in alto è un esponente. */
+        node->index = arena_alloc(sizeof *node->index);
+        node->upper = arena_alloc(sizeof *node->upper);
+        if (!node->index || !node->upper) return node;
+        index_declare(node);
+        return is_char('^') && !syntax_error ? index_power(node) : node;
+    }
     index_groups(node);
     if (syntax_error || failure) return node;
     if (delta && node->rank != 2) { syntax("la delta di Kronecker ha due indici"); return node; }
@@ -12040,7 +12076,7 @@ static void index_begin(const char *formula) {
     index_low = -1;
     index_sums = NULL;
     index_metric_slot = -1;
-    index_engine_text = 0;
+    index_engine_text = index_in_metric = 0;
 
     /* 37f. Le lettere latine scritte nell'enunciato, che non possono
      * rappresentare una lettera greca: tutte quelle del testo, tranne i nomi
@@ -12248,7 +12284,7 @@ static int parse_index_values(const char *text, int dimension, int origin, Index
  *         \implies F_{\mu\nu} F^{\mu\nu} = 2 (B_{1} B_{1} + B_{2} B_{2} + B_{3} B_{3} - E_{1} E_{1} - E_{2} E_{2} - E_{3} E_{3})
  *
  *     enunciato := ipotesi { \land ipotesi } \implies enunciato del capitolo 37
- *     ipotesi   := tensore '=' (\operatorname | \mathrm) '{' diag '}' '(' numero { ',' numero } ')'
+ *     ipotesi   := tensore '=' (\operatorname | \mathrm) '{' diag '}' '(' voce { ',' voce } ')'
  *                | tensore '=' tabella
  *                | tensore '=' '(' elemento { ',' elemento } ')'
  *                | (\varepsilon | \epsilon) ('_' | '^') '{' cifre in ordine '}' '=' numero
@@ -12258,6 +12294,9 @@ static int parse_index_values(const char *text, int dimension, int origin, Index
  *     riga      := elemento { '&' elemento }
  *     elemento  := somma del capitolo 37, senza lettere tra gli indici
  *     numero    := ['-'] (intero | \frac '{' intero '}' '{' intero '}')
+ *     voce      := numero | funzione | ['-'] \frac '{' funzione '}' '{' funzione '}' [prodotto]
+ *     funzione  := somma del capitolo 37 fatta di numeri e di lettere senza indici, dove
+ *                  una lettera o una parentesi può avere un esponente intero, r^{2}
  *
  * gruppo, lettera e valori sono quelli del capitolo 37; l'ambiente è pmatrix,
  * bmatrix o matrix; gli indici del tensore di un'ipotesi sono lettere, tutte
@@ -12354,6 +12393,22 @@ static int parse_index_values(const char *text, int dimension, int origin, Index
  *        cominciano lo dice anche il valore dichiarato di \varepsilon:
  *        \varepsilon_{0123} = 1.
  *
+ *   39f. La metrica con funzioni delle coordinate. Un elemento della
+ *        diagonale può essere, invece di un numero, un polinomio o una
+ *        frazione di due polinomi in lettere senza indici: le coordinate e
+ *        i parametri, come in diag(1, r^{2}) e in diag(1, \frac{1}{1 - k
+ *        r^{2}}, r^{2}). Quelle lettere sono scalari qualsiasi, e
+ *        l'enunciato vale per ogni loro valore in cui la metrica è
+ *        invertibile: dove ogni elemento è definito e diverso da zero. Lo
+ *        dicono il verdetto e il certificato; il lettore qui non lo può
+ *        controllare, e che un elemento non sia il polinomio nullo lo
+ *        guarda il motore. Solo in questi elementi un numero in alto è un
+ *        esponente, r^{2}: sono funzioni delle coordinate, non componenti,
+ *        e le coordinate si scrivono con lettere diverse (x^{2} è il
+ *        quadrato di x, non una seconda coordinata). Le funzioni
+ *        goniometriche non sono lette: \sin\theta si scrive con una
+ *        lettera.
+ *
  * La dimensione la dicono i numeri della metrica, le righe di una tabella,
  * gli elementi di un elenco e i valori degli indici: devono essere
  * altrettanti (index_said()), e d'accordo con ciò che dice l'identità.
@@ -12361,6 +12416,7 @@ static int parse_index_values(const char *text, int dimension, int origin, Index
 
 /* Ciò che le ipotesi dichiarano, mentre si legge l'enunciato. */
 static Frac *index_metric;        /* i numeri c_i della diagonale di g_{ij}, nell'arena; NULL finché non c'è la metrica */
+static IndexNode **index_metric_top, **index_metric_bottom;  /* 39f: IndexStatement.metric_top e metric_bottom */
 static int index_metric_size;     /* quanti sono */
 static int index_epsilon_said;    /* 1 se un'ipotesi dà il valore di \varepsilon */
 static Frac index_epsilon_value;  /* quel valore */
@@ -12390,15 +12446,70 @@ static void index_signed_number(Frac *out) {
     if (negative && !syntax_error) *out = frac_neg(*out);
 }
 
-/* 39a. Legge il secondo membro dell'ipotesi che dichiara la metrica: il
+/* 39f. Controlla che il sottoalbero node sia una funzione delle coordinate
+ * come la vuole un elemento della metrica: numeri e lettere senza indici che
+ * non nominano un tensore dato. Un errore è annotato con syntax(). */
+static void index_function_check(const IndexNode *node) {
+    if (syntax_error || node->kind == IX_NUM) return;
+    if (index_is_leaf(node)) {
+        if (node->kind != IX_TENSOR || node->rank != 0 || (index_given_names >> index_slot(node->name) & 1))
+            syntax("un elemento della diagonale della metrica è un numero o una funzione delle coordinate: numeri e lettere senza indici, "
+                   "come in \\operatorname{diag}(1, r^{2})");
+        return;
+    }
+    index_function_check(node->a);
+    if (node->b) index_function_check(node->b);
+}
+
+/* 39f. voce := funzione | ['-'] \frac{funzione}{funzione} [prodotto]. Legge
+ * un elemento della diagonale che non è un numero, dal token corrente, e ne
+ * mette il numeratore in *top e il denominatore in *bottom. */
+static void index_metric_entry(IndexNode **top, IndexNode **bottom) {
+    static const char *const form = "un elemento della diagonale della metrica è un numero, un polinomio nelle lettere delle coordinate o una frazione di due polinomi";
+    ParserState here = parser_save();
+    int negative = is_char('-'), fraction = 0;
+    index_in_metric = 1;
+    *bottom = index_new(IX_NUM, NULL, NULL);
+    (*bottom)->number = frac_int(1);
+    if (negative) next_token();
+    if (is_command("frac") || is_command("dfrac") || is_command("tfrac")) {
+        next_token();
+        expect_char('{', form);
+        *top = index_sum();
+        expect_char('}', form);
+        expect_char('{', form);
+        IndexNode *below = index_sum();
+        expect_char('}', form);
+        if (!syntax_error && index_starts_factor()) *top = index_new(IX_MUL, *top, index_term());
+        fraction = !syntax_error && (is_char(',') || token.kind == T_CLOSE);
+        if (fraction) {
+            *bottom = below;
+            if (negative) *top = index_new(IX_NEG, *top, NULL);
+        }
+    }
+    if (!fraction) {
+        /* Non è una frazione sola: è una somma, e lì una frazione ha per
+         * termini due numeri. Si rilegge dall'inizio. */
+        parser_restore(here);
+        *top = index_sum();
+    }
+    index_in_metric = 0;
+    if (syntax_error || failure) return;
+    index_function_check(*top);
+    index_function_check(*bottom);
+}
+
+/* 39a, 39f. Legge il secondo membro dell'ipotesi che dichiara la metrica: il
  * token corrente è \operatorname o \mathrm, e leaf è la metrica com'è scritta
  * nel primo membro. Mette i numeri della diagonale di g_{ij} in
- * index_metric. */
+ * index_metric; se un elemento è una funzione delle coordinate, mette gli
+ * alberi di tutti in index_metric_top e index_metric_bottom. */
 static void index_metric_hypothesis(const IndexNode *leaf) {
     static const char *const form = "la metrica si dichiara con g_{ij} = \\operatorname{diag}(c_1, ..., c_d), con i due indici in basso o i due in alto";
-    /* I numeri letti: non possono essere più dei caratteri dell'enunciato. */
+    /* Gli elementi letti: non possono essere più dei caratteri dell'enunciato. */
     static Frac value[MAX_FORMULA];
-    int slot = index_slot(leaf->name), count = 0;
+    static IndexNode *top[MAX_FORMULA], *bottom[MAX_FORMULA];
+    int slot = index_slot(leaf->name), count = 0, functions = 0;
     if (index_metric) { syntax("la metrica è dichiarata due volte"); return; }
     if (leaf->rank != 2 || leaf->upper[0] != leaf->upper[1]) { syntax(form); return; }
     if (index_first[slot]) { index_complain("la lettera %c è già il nome di un tensore: non può essere anche la metrica", leaf->name); return; }
@@ -12412,21 +12523,44 @@ static void index_metric_hypothesis(const IndexNode *leaf) {
     if (!syntax_error && token.kind != T_OPEN) syntax(form);
     if (syntax_error) return;
 
-    /* I numeri della diagonale: dell'inversa, se gli indici sono in alto. */
+    /* Gli elementi della diagonale: dell'inversa, se gli indici sono in
+     * alto. Ognuno si prova a leggere come numero; se non lo è, è una
+     * funzione delle coordinate (39f), e si rilegge dall'inizio. */
     do {
         next_token();
         if (count == MAX_FORMULA) { syntax("troppi numeri nella metrica"); return; }
+        ParserState here = parser_save();
         index_signed_number(&value[count]);
-        if (syntax_error || failure) return;
-        if (value[count].num == 0) { syntax("un numero della diagonale della metrica è zero: la metrica non avrebbe un'inversa"); return; }
-        if (leaf->upper[0]) value[count] = frac_div(frac_int(1), value[count]);
+        if (failure) return;
+        if (!syntax_error && (is_char(',') || token.kind == T_CLOSE)) {
+            if (value[count].num == 0) { syntax("un numero della diagonale della metrica è zero: la metrica non avrebbe un'inversa"); return; }
+            if (leaf->upper[0]) value[count] = frac_div(frac_int(1), value[count]);
+            top[count] = index_new(IX_NUM, NULL, NULL);
+            top[count]->number = value[count];
+            bottom[count] = index_new(IX_NUM, NULL, NULL);
+            bottom[count]->number = frac_int(1);
+        } else {
+            parser_restore(here);
+            functions = 1;
+            value[count] = frac_int(1);
+            index_metric_entry(leaf->upper[0] ? &bottom[count] : &top[count], leaf->upper[0] ? &top[count] : &bottom[count]);
+            if (syntax_error || failure) return;
+        }
         count++;
     } while (is_char(','));
     if (token.kind != T_CLOSE) { syntax(form); return; }
     next_token();
+    if (index_first[slot]) { index_complain("la lettera %c è la metrica: non può comparire tra i suoi elementi", leaf->name); return; }
     index_metric = arena_alloc(sizeof *index_metric * (size_t)count);
     if (!index_metric) return;
     memcpy(index_metric, value, sizeof *value * (size_t)count);
+    if (functions) {
+        index_metric_top = arena_alloc(sizeof *top * (size_t)count);
+        index_metric_bottom = arena_alloc(sizeof *bottom * (size_t)count);
+        if (!index_metric_top || !index_metric_bottom) return;
+        memcpy(index_metric_top, top, sizeof *top * (size_t)count);
+        memcpy(index_metric_bottom, bottom, sizeof *bottom * (size_t)count);
+    }
     index_metric_size = count;
     index_metric_slot = slot;
     index_said(count);
@@ -12808,6 +12942,7 @@ static IndexNode *index_unfold(const IndexNode *node, const IndexStatement *s) {
 static int parse_index_hypotheses(const char *formula, IndexStatement *out) {
     index_begin(formula);
     index_metric = NULL;
+    index_metric_top = index_metric_bottom = NULL;
     index_metric_size = index_epsilon_said = index_said_size = 0;
 
     /* Le ipotesi, poi l'identità, con la dimensione che le ipotesi dicono. */
@@ -12860,6 +12995,8 @@ static int parse_index_hypotheses(const char *formula, IndexStatement *out) {
     out->written_left = out->left;
     out->written_right = out->right;
     out->metric = index_metric;
+    out->metric_top = index_metric_top;
+    out->metric_bottom = index_metric_bottom;
     out->epsilon = index_epsilon_value;
     out->epsilon_upper = index_epsilon_upper;
     for (int slot = 0; slot < INDEX_LETTERS; slot++) out->reference[slot] = index_first[slot] ? index_first[slot]->upper : NULL;

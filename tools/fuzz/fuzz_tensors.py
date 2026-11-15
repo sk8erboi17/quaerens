@@ -47,6 +47,15 @@ scritti (da 0 a d - 1 se cosi e dichiarato), e la componente di un tensore
 dato e il polinomio del suo elemento, cercato per riga e colonna nella
 tabella com'e scritta.
 
+Gli elementi della diagonale della metrica possono essere funzioni delle
+coordinate: polinomi, o frazioni di polinomi, in lettere senza indici. Allora
+l'oracolo calcola ogni membro come una frazione di polinomi (Ratio), senza
+ridurla, e due valori sono uguali quando lo e il prodotto in croce: e
+l'uguaglianza dove gli elementi della metrica sono definiti e diversi da
+zero. Il programma tiene le frazioni in un altro modo, e il verificatore in
+un terzo (un polinomio su un prodotto di potenze dei numeratori e dei
+denominatori della metrica).
+
 Righe stampate. BUG: il programma ha dimostrato un falso, ha dichiarato falso
 un vero, ha dato un controesempio o dei valori sbagliati, oppure il
 verificatore ha accettato un certificato che l'oracolo giudica sbagliato.
@@ -100,6 +109,68 @@ def is_letter(token):
     return token is not None and len(token) == 1 and token.isalpha()
 
 
+def poly_times(p, q):
+    """Il prodotto di due polinomi nelle componenti: dizionari da monomio
+    (componenti in ordine) a coefficiente."""
+    result = {}
+    for a, x in p.items():
+        for b, y in q.items():
+            key = tuple(sorted(a + b))
+            result[key] = result.get(key, 0) + x * y
+    return {key: c for key, c in result.items() if c != 0}
+
+
+def poly_plus(p, q):
+    result = dict(p)
+    for key, c in q.items():
+        result[key] = result.get(key, 0) + c
+    return {key: c for key, c in result.items() if c != 0}
+
+
+class Ratio:
+    """Una frazione di polinomi nelle componenti, non ridotta. Due frazioni
+    sono uguali quando lo e il prodotto in croce: i denominatori non sono mai
+    il polinomio nullo, quindi e l'uguaglianza dove non si annullano."""
+
+    __hash__ = None
+
+    def __init__(self, num, den=None):
+        self.num = dict(num)
+        self.den = dict(den) if den is not None else {(): Fraction(1)}
+
+    @staticmethod
+    def of(x):
+        if isinstance(x, Ratio):
+            return x
+        if isinstance(x, dict):
+            return Ratio(x)
+        return Ratio({(): Fraction(x)} if x != 0 else {})
+
+    def __mul__(self, other):
+        other = Ratio.of(other)
+        return Ratio(poly_times(self.num, other.num), poly_times(self.den, other.den))
+
+    __rmul__ = __mul__
+
+    def __truediv__(self, other):
+        other = Ratio.of(other)
+        return Ratio(poly_times(self.num, other.den), poly_times(self.den, other.num))
+
+    def __rtruediv__(self, other):
+        return Ratio.of(other) / self
+
+    def __add__(self, other):
+        other = Ratio.of(other)
+        return Ratio(poly_plus(poly_times(self.num, other.den), poly_times(other.num, self.den)), poly_times(self.den, other.den))
+
+    def __eq__(self, other):
+        other = Ratio.of(other)
+        return poly_times(self.num, other.den) == poly_times(other.num, self.den)
+
+    def __ne__(self, other):
+        return not self == other
+
+
 def is_index(token):
     """Una lettera che puo fare da indice: latina, o greca."""
     return is_letter(token) or token in GREEK
@@ -146,6 +217,7 @@ class Reader:
         self.origins = set()  # da dove cominciano i valori degli indici, secondo chi lo dichiara
         self.listed = set()   # le lettere che un'ipotesi elenca come indici
         self.said = []      # le dimensioni dette dalle ipotesi
+        self.scalars = False  # vero mentre si legge un elemento della metrica: le lettere sono scalari, e un numero in alto e un esponente
         self.greek = False  # vero se un indice e una lettera greca
 
     def peek(self):
@@ -200,6 +272,72 @@ class Reader:
         self.take("\\}")
         self.origins.add(first)
         return count
+
+    def power(self, tree):
+        """Un esponente dopo una lettera o una parentesi, in un elemento
+        della metrica: il prodotto ripetuto."""
+        self.take("^")
+        if self.peek() == "{":
+            self.take()
+            times = self.number()
+            self.take("}")
+        else:
+            token = self.take()
+            if not token.isdigit() or len(token) != 1:
+                raise Outside("esponente")
+            times = int(token)
+        if not 1 <= times <= 16:
+            raise Outside("esponente fuori da 1..16")
+        result = tree
+        for _ in range(times - 1):
+            result = ("mul", result, tree)
+        return result
+
+    def metric_entry(self):
+        """Un elemento della diagonale: un numero (una Fraction), oppure una
+        funzione delle coordinate: la coppia degli alberi del numeratore e
+        del denominatore."""
+        start = self.pos
+        try:
+            number = self.signed()
+            if self.peek() in (",", ")"):
+                return number
+        except Outside:
+            pass
+        self.pos = start
+        self.scalars = True
+        try:
+            negative = self.peek() == "-"
+            top = None
+            if negative:
+                self.take()
+            if self.peek() in ("\\frac", "\\dfrac", "\\tfrac"):
+                try:
+                    self.take()
+                    self.take("{")
+                    top = self.sum()
+                    self.take("}")
+                    self.take("{")
+                    bottom = self.sum()
+                    self.take("}")
+                    if self.starts_factor():
+                        top = ("mul", top, self.term())
+                    if self.peek() not in (",", ")"):
+                        top = None
+                except Outside:
+                    top = None
+            if top is None:
+                # Non e una frazione sola: una somma, riletta dall'inizio.
+                self.pos = start
+                top, bottom = self.sum(), ("num", Fraction(1))
+            elif negative:
+                top = ("neg", top)
+        finally:
+            self.scalars = False
+        for symbol in symbols_of(top) + symbols_of(bottom):
+            if symbol[1] != "t" or symbol[3] or symbol[2] in self.given:
+                raise Outside("elemento della metrica")
+        return top, bottom
 
     def environment(self):
         """Il nome di un ambiente tra graffe, dopo \\begin o \\end."""
@@ -328,12 +466,23 @@ class Reader:
                         self.take(letter)
                     self.take("}")
                     self.take("(")
-                    entries = [self.signed()]
+                    entries = [self.metric_entry()]
                     while self.peek() == ",":
                         self.take()
-                        entries.append(self.signed())
+                        entries.append(self.metric_entry())
                     self.take(")")
-                    if any(c == 0 for c in entries):
+                    # Un elemento che e una funzione vale la frazione dei
+                    # polinomi dei suoi due alberi, che non hanno indici: ne
+                    # il numeratore ne il denominatore possono essere nulli.
+                    for k, entry in enumerate(entries):
+                        if isinstance(entry, tuple):
+                            if any(s[2] == token for tree in entry for s in symbols_of(tree)):
+                                raise Outside("la metrica tra i suoi elementi")
+                            above, below = value(entry[0], 1, {}), value(entry[1], 1, {})
+                            if not above or not below:
+                                raise Outside("elemento della metrica identicamente zero")
+                            entries[k] = Ratio(above, below)
+                    if any(not isinstance(c, Ratio) and c == 0 for c in entries):
                         raise Outside("zero sulla diagonale")
                     metric["c"] = [1 / c for c in entries] if places[0] else entries
                     metric["name"] = self.metric_name = token
@@ -438,8 +587,17 @@ class Reader:
             tree = self.sum()
             self.take(")")
             if self.peek() == "^":
-                raise Outside("potenza")
+                if not self.scalars:
+                    raise Outside("potenza")
+                tree = self.power(tree)
             return tree
+        if self.scalars and is_letter(token):
+            # In un elemento della metrica una lettera e uno scalare, senza
+            # indici da leggere; cio che la segue in alto e un esponente.
+            self.take()
+            symbol = ("sym", "t", token, (), ())
+            self.symbols.append(symbol)
+            return self.power(symbol) if self.peek() == "^" else symbol
         if token in SYMBOLS or (len(token) == 1 and token.isalpha()):
             self.take()
             kind = "g" if token == self.metric_name else SYMBOLS.get(token, "t")
@@ -721,28 +879,20 @@ def sign_of(values):
     return -1 if swaps % 2 else 1
 
 
-def poly_times(p, q):
-    """Il prodotto di due polinomi nelle componenti."""
-    result = {}
-    for a, x in p.items():
-        for b, y in q.items():
-            key = tuple(sorted(a + b))
-            result[key] = result.get(key, 0) + x * y
-    return {key: c for key, c in result.items() if c != 0}
-
-
 def value(tree, dimension, point):
     """Il valore di un membro nel punto: un polinomio nelle componenti dei
     tensori qualsiasi, come dizionario da monomio (componenti in ordine) a
-    coefficiente. I valori degli indici vanno da ORIGIN in su."""
-    total = {}
+    coefficiente; con una metrica di funzioni, una frazione di polinomi
+    (Ratio), se un suo elemento entra nel conto. I valori degli indici vanno
+    da ORIGIN in su."""
+    total, ratio = {}, None
     for coefficient, factors in expand(tree):
         counts = count_letters(factors)
         dummies = sorted(letter for letter, n in counts.items() if n == 2)
         for choice in itertools.product(range(ORIGIN, ORIGIN + dimension), repeat=len(dummies)):
             where = dict(point)
             where.update(zip(dummies, choice))
-            product = {(): Fraction(coefficient)}
+            product, scale = {(): Fraction(coefficient)}, None
             written = METRIC and METRIC.get("written")
             for _, kind, name, indices, places in factors:
                 at = [where[i] if isinstance(i, str) else i for i in indices]
@@ -784,14 +934,25 @@ def value(tree, dimension, point):
                 if number == 0:
                     product = {}
                     break
-                product = {key: c * number for key, c in product.items()}
-                if component is not None:
+                if isinstance(number, Ratio):
+                    # Un elemento di una metrica di funzioni: resta da parte,
+                    # e moltiplica il prodotto alla fine.
+                    scale = number if scale is None else scale * number
+                else:
+                    product = {key: c * number for key, c in product.items()}
+                if isinstance(component, Ratio):
+                    scale = component if scale is None else scale * component
+                elif component is not None:
                     product = poly_times(product, component)
                 if not product:
                     break
-            for key, c in product.items():
-                total[key] = total.get(key, 0) + c
-    return {key: c for key, c in total.items() if c != 0}
+            if scale is not None and product:
+                ratio = Ratio(product) * scale if ratio is None else ratio + Ratio(product) * scale
+            else:
+                for key, c in product.items():
+                    total[key] = total.get(key, 0) + c
+    total = {key: c for key, c in total.items() if c != 0}
+    return total if ratio is None else ratio + total
 
 
 def judge(text):
@@ -1312,6 +1473,13 @@ def generate_metric(rng):
 
 GREEK_POOL = ["\\mu", "\\nu", "\\rho", "\\sigma", "\\alpha", "\\beta", "\\gamma", "\\lambda", "\\kappa", "\\tau"]
 
+# Elementi della diagonale che sono funzioni delle coordinate, con lettere che
+# non fanno da indice ne da nome di un tensore negli enunciati generati. Una
+# e identicamente zero, e una ha un indice: vanno rifiutate.
+FUNCTION_ENTRIES = ["t^{2}", "t^{2}", "t^{2} f^{2}", "t", "2 f", "x^{2}", "\\frac{1}{1 - K t^{2}}", "(R + t f)^{2}", "\\frac{t^{2}}{1 + f^{2}}", "R - 1",
+                    "\\frac{1}{2} t^{3}", "1 - \\frac{1}{2} f", "\\frac{1}{t^{2}}", "-\\frac{f}{t}", "\\frac{R}{t - 1}", "\\frac{1}{1 - K t^{2}}",
+                    "t - t", "t_{1}", "\\delta_{11}"]
+
 
 def element_tree(rng, dimension):
     """Un elemento di una tabella: un numero, oppure un piccolo polinomio in
@@ -1371,6 +1539,9 @@ def generate_given(rng):
     greek = rng.random() < 0.4
     metric = rng.random() < 0.65
     entries = [Fraction(rng.choice((1, 1, 1, -1, -1, 2, 3, Fraction(1, 2)))) for _ in range(dimension)]
+    # Una volta su tre, con una metrica, alcuni elementi sono funzioni delle
+    # coordinate, scritte come testo: l'oracolo le legge come il resto.
+    functions = [rng.choice(FUNCTION_ENTRIES) if metric and rng.random() < 0.6 else None for _ in range(dimension)] if rng.random() < 0.5 else [None] * dimension
     name = rng.choice("gh")
     given = {}
     if rng.random() < 0.2:
@@ -1433,8 +1604,9 @@ def generate_given(rng):
         parts = []
         if metric:
             upper = rng.random() < 0.25
+            shown = [("-" if c < 0 else "") + function if function else number_text(1 / c if upper else c) for c, function in zip(entries, functions)]
             parts.append("%s%s{%s} = \\%s{diag}(%s)" % (name, "^" if upper else "_", " ".join(holders), rng.choice(("operatorname", "operatorname", "mathrm")),
-                                                         ", ".join(number_text(1 / c if upper else c) for c in entries)))
+                                                         ", ".join(shown)))
         if epsilon:
             parts.append("\\varepsilon%s{%s} = %s" % ("^" if epsilon[1] else "_", "".join(str(first + k) for k in range(dimension)), number_text(epsilon[0])))
         for tensor in sorted(given):
@@ -1470,7 +1642,21 @@ def generate_given(rng):
         try:
             read_dimension, read_left, _, _ = read_statement(statement(hypotheses(origin), left_text + " = 0", origin))
             poly = value(read_left, read_dimension, {})
-            exact = numeric_tree(poly, True) if METRIC else polynomial_tree(poly)
+            if any(functions):
+                # Con una metrica di funzioni il valore e una frazione N / D:
+                # l'enunciato vero e D per il primo membro uguale a N, se i
+                # due polinomi si sanno scrivere (componenti dichiarate in
+                # basso). Altrimenti resta un membro a caso.
+                poly = Ratio.of(poly)
+                lower = all(not any(METRIC["reference"][tensor]) for part in (poly.num, poly.den) for key in part for tensor, _ in key)
+                if lower:
+                    # Una volta su quattro il denominatore e dimenticato: un
+                    # falso che ha il numeratore giusto.
+                    exact = polynomial_tree(poly.num)
+                    if poly.den != {(): Fraction(1)} and rng.random() < 0.75:
+                        left_text = "(%s)(%s)" % (latex(polynomial_tree(poly.den), rng), left_text)
+            else:
+                exact = numeric_tree(poly, True) if METRIC else polynomial_tree(poly)
         except (Outside, KeyError, IndexError):
             pass
     how, first = rng.random(), origin
@@ -1886,7 +2072,36 @@ def main_certificates(checker, seed, count, work):
                 said = said[:-1] if rng.random() < 0.5 else said + [Fraction(1)]
             if said is not None:
                 metric_fault = said != entries
-                metric_line = "metric " + " ".join(str(c.numerator) if c.denominator == 1 else "(frac %d %d)" % (c.numerator, c.denominator) for c in said)
+                written = [str(c.numerator) if c.denominator == 1 else "(frac %d %d)" % (c.numerator, c.denominator) for c in said]
+                # Una volta su tre alcuni elementi sono funzioni, (/ N D):
+                # l'oracolo conta con la frazione dei due polinomi. Ogni
+                # tanto un numeratore e identicamente zero, o ha una lettera
+                # tra gli indici: allora il certificato va respinto.
+                if not metric_fault and rng.random() < 0.5:
+                    scalar = lambda letter: ("sym", "t", letter, (), ())
+                    pool = [(("mul", scalar("x"), scalar("x")), ("num", Fraction(1))),
+                            (("num", Fraction(1)), ("sub", ("num", Fraction(1)), ("mul", scalar("y"), scalar("x")))),
+                            (scalar("y"), ("add", scalar("x"), ("num", Fraction(2)))),
+                            (("mul", ("num", Fraction(2)), scalar("z")), scalar("y"))]
+                    for k in range(dimension):
+                        if rng.random() < 0.5:
+                            above, below = rng.choice(pool)
+                            fault = rng.random()
+                            if fault < 0.05:
+                                # Un elemento identicamente zero, e un
+                                # enunciato che un verificatore che lo
+                                # accettasse direbbe vero: 5 g_kk = 7 g_kk.
+                                above = ("sub", scalar("x"), scalar("x"))
+                                entry = ("sym", "L", "", (k + 1, k + 1), (False, False))
+                                left, right, twisted = ("mul", ("num", Fraction(5)), entry), ("mul", ("num", Fraction(7)), entry), True
+                            elif fault < 0.1:
+                                below = ("sym", "t", "E", ("i",), (False,))
+                            if fault < 0.1:
+                                metric_fault = True
+                            else:
+                                METRIC["c"][k] = Ratio(value(above, 1, {}), value(below, 1, {}))
+                            written[k] = "(/ %s %s)" % (certificate_of(above), certificate_of(below))
+                metric_line = "metric " + " ".join(written)
         # Una volta su cinque alcuni tensori dell'enunciato sono dati per
         # componenti. L'affermazione e i valori scritti sono calcolati con
         # quegli elementi; poi, ogni tanto, la voce scritta ne ha uno
@@ -1936,14 +2151,21 @@ def main_certificates(checker, seed, count, work):
         # volta su quattro quel valore e calcolato con una tabella letta per
         # colonne: allora il certificato e sbagliato, se la tabella non e
         # simmetrica, e solo chi la legge per colonne lo accetterebbe.
-        if GIVEN and not free and not twisted and not given_fault and rng.random() < 0.6:
+        functions = bool(METRIC) and any(isinstance(c, Ratio) for c in METRIC["c"])
+        if (GIVEN or functions) and not free and not twisted and not given_fault and rng.random() < 0.6:
             tables = [tensor for tensor in sorted(GIVEN) if len(GIVEN[tensor]) == dimension ** 2 and dimension > 1]
             swapped = rng.choice(tables) if tables and rng.random() < 0.25 else None
             kept = GIVEN[swapped] if swapped else None
             if swapped:
                 GIVEN[swapped] = [kept[(k % dimension) * dimension + k // dimension] for k in range(dimension ** 2)]
             try:
-                right = polynomial_tree(value(left, dimension, {}))
+                found = value(left, dimension, {})
+                if isinstance(found, dict):
+                    right = polynomial_tree(found)
+                else:
+                    # Una frazione N / D: il certificato vero e D per il
+                    # primo membro uguale a N.
+                    left, right = ("mul", polynomial_tree(found.den), left), polynomial_tree(found.num)
             except (Outside, KeyError, IndexError):
                 pass
             if swapped:
@@ -1960,7 +2182,8 @@ def main_certificates(checker, seed, count, work):
                     # valore: una lettera senza numero, un indice numerico
                     # oltre la diagonale della metrica.
                     try:
-                        shown[k] = polynomial_tree(value(tree, dimension, point))
+                        found = value(tree, dimension, point)
+                        shown[k] = polynomial_tree(found) if isinstance(found, dict) else None
                     except (Outside, KeyError, IndexError):
                         shown[k] = None
                     if shown[k] is not None and rng.random() < 0.2:

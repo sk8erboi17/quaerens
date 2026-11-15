@@ -1,0 +1,36 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{function\_metrics.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{function\_metrics.tex} is used for. That file is input for the engine in \texttt{main.c}; it is read by the test \texttt{test\_index\_identities.c} in this folder.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 33 true statements with a diagonal metric whose entries are functions of the coordinates. The test asks the engine to prove each one, where every entry of the metric is defined and different from zero, and to produce a certificate that the independent checker accepts.
+
+\item \textbf{Where the statements come from.} The contractions with explicit components of the sources (class B2 of the analysis): polar coordinates and the torus of the IBS winter camp, exercise 1(c) and 1(d); the vectors $V^{\mu}$, $U_{\mu}$ and the tensor $T_{\mu\nu}$ of Roma, exercise 3, with the four ways of writing a trace; the tensor of Roma, exercise 4, whose metric is given with upper indices. The coordinates are numbered from 1 in the order of the source, and the sine and the cosine of an angle are written with the letters $s$ and $c$, because trigonometric functions are not read: no statement here needs $s^{2} + c^{2} = 1$. A component that the source prints with a denominator is written multiplied by it, $r\,T^{3}{}_{1} = c$ for $T^{\phi}{}_{t} = \frac{1}{r}\cos\phi$. Every statement was confirmed by the oracle of \texttt{tools/fuzz/fuzz\_tensors.py} in its \texttt{data} mode, which computes with quotients of polynomials of its own.
+
+\item \textbf{What the engine needs in order to pass.} To read the entries of the metric, to compute each side as a quotient of polynomials, to compare two sides by cross-multiplication, and to write the numerator and the denominator of each entry in the certificate.
+
+\item \textbf{Format expected by the test.} One \texttt{\textbackslash item} per statement, written as \texttt{\$\textbackslash displaystyle ...\$}. The metric is declared as $g_{ij} = \operatorname{diag}(1, r^{2})$: an entry is a number, a polynomial in letters without indices, or a quotient $\frac{\dots}{\dots}$ of two of them. Only there a number above a letter is an exponent; in the tables, in the lists and in the identity a power is written as a product, $r r$.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -Werror -o /tmp/test_index_identities \
+    tests/tensor_calculus/test_index_identities.c && /tmp/test_index_identities
+\end{verbatim}
+
+\item \textbf{Expected result.} The lines \texttt{PASS: 33 of 33 statements proved, each with a written proof}, \texttt{PASS: 33 of 33 statements proved, 33 with a certificate the checker accepts} and \texttt{PASS: 33 of 33 altered certificates rejected for the right reason}.
+
+\end{enumerate}
+\end{document}

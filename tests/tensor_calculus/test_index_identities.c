@@ -3,14 +3,15 @@
  * Kronecker, simbolo di Levi-Civita, componenti di tensori qualsiasi, con la
  * convenzione di Einstein, in dimensione fissa, anche con una metrica
  * diagonale dichiarata tra le ipotesi, con tensori dati per componenti, con
- * indici greci e con indici che cominciano da 0.
+ * indici greci e con indici che cominciano da 0, con una metrica i cui
+ * elementi sono funzioni delle coordinate.
  *
  * Compilazione ed esecuzione, dalla cartella principale del repository:
  *
  *     cc -std=c11 -O2 -Wall -Wextra -Werror -o /tmp/test_index_identities \
  *         tests/tensor_calculus/test_index_identities.c && /tmp/test_index_identities
  *
- * I dati sono in nove file accanto a questo, ognuno con la sua nota
+ * I dati sono in undici file accanto a questo, ognuno con la sua nota
  * (*_about.tex):
  *
  *   - index_identities.tex: identità vere, prese dagli esercizi svolti e
@@ -33,7 +34,11 @@
  *     a 3 letti come da 1 a 4;
  *   - index_ranges.tex e false_index_ranges.tex: identità con gli indici
  *     greci o con i valori che cominciano da 0 (37d, 37f, 39e), vere e false
- *     di poco.
+ *     di poco;
+ *   - function_metrics.tex e false_function_metrics.tex: enunciati con una
+ *     metrica diagonale i cui elementi sono funzioni delle coordinate (39f),
+ *     veri dove la metrica è invertibile e falsi di poco: un esponente
+ *     sbagliato, un indice alzato letto come abbassato, un fattore perso.
  *
  * I certificati alterati sono antiregressione per il verificatore: quello di
  * un'identità vera con "fails" al posto di "holds", quello di una falsa con
@@ -63,7 +68,7 @@ static int alter_true(const char *certificate, IndexSet free, char *out, size_t 
  * il testo non ha la forma attesa o non ci sta. */
 static int alter_false(const char *certificate, int kind, char *out, size_t size) {
     const char *claim = strstr(certificate, "\nfails"), *left = strstr(certificate, "\nleft "), *right = strstr(certificate, "\nright ");
-    if (!claim || !left || !right) return 0;
+    if (!claim || (kind == 1 && (!left || !right))) return 0;
     int used = kind == 0 ? snprintf(out, size, "%.*s\nholds\nend\n", (int)(claim - certificate), certificate)
                          : snprintf(out, size, "%.*s\nleft (+ 1 %.*s)%s", (int)(left - certificate), certificate,
                                     (int)(right - left - 6), left + 6, right);
@@ -120,6 +125,9 @@ static int check_certified(const char *path, int truth, int expected) {
         if (!reread_ok) { printf("  statement %d cannot be read again\n", total); continue; }
         for (int kind = 0; kind < (truth ? 1 : 2); kind++) {
             const char *wanted = truth ? "sono uguali" : kind == 0 ? "sono diversi" : "valore scritto";
+            /* I valori dei due membri sono nel certificato solo quando sono
+             * polinomi (38h): senza, non c'è un valore scritto da alterare. */
+            if (kind == 1 && !strstr(kept, "\nleft ")) continue;
             alterations++;
             if (!(truth ? alter_true(kept, read.free, altered, sizeof altered) : alter_false(kept, kind, altered, sizeof altered))) {
                 printf("  statement %d: cannot build the altered certificate\n", total);
@@ -333,6 +341,32 @@ int main(void) {
         {"\\varepsilon_{\\alpha\\beta\\gamma\\delta}\\varepsilon_{\\alpha\\beta\\gamma\\delta} = 24", UNSUPPORTED, "come indici non si usano",
          "delta is a symbol of the language, not an index"},
 
+        /* La metrica con funzioni delle coordinate (39f, 38h): il verdetto e
+         * la dimostrazione dicono dove vale; i valori di un controesempio si
+         * scrivono solo quando sono polinomi. */
+        {"g_{ij} = \\operatorname{diag}(1, r^{2}) \\implies g^{ij} g_{ij} = 2", PROVED, "defined and different from zero",
+         "the proof of a statement with a metric of functions says where it holds"},
+        {"g_{ij} = \\operatorname{diag}(1, r^{2}) \\land A^{i} = (a, b) \\land C_{i} = (a, r b) \\implies \\forall i \\in \\{1, 2\\}\\ (A_{i} = C_{i})", REFUTED,
+         "i = 2: il primo membro vale r r b, il secondo r b", "a wrong exponent of a coordinate is refuted, with the two polynomials"},
+        {"g_{ij} = \\operatorname{diag}(1, r^{2}) \\land A_{i} = (a, b) \\implies A^{i} A_{i} = a a + b b", REFUTED, "senza indici liberi: i due membri sono diversi",
+         "a counterexample whose values are not polynomials says only that the sides differ"},
+        {"g_{ij} = \\operatorname{diag}(1, \\frac{1}{1 - k r^{2}}, r^{2}) \\implies g^{22} = 1 + k r r", REFUTED, "il primo membro vale 1 - k r r, il secondo 1 + k r r",
+         "the inverse of an entry that is a quotient is the quotient turned over"},
+        {"g_{ij} = \\operatorname{diag}(1, r^{2} - r^{2}) \\implies g^{ij} g_{ij} = 2", UNSUPPORTED, "identicamente zero",
+         "an entry of the metric that is identically zero is refused"},
+        {"g_{ij} = \\operatorname{diag}(1, \\frac{1}{k - k}) \\implies g^{ij} g_{ij} = 2", UNSUPPORTED, "identicamente zero",
+         "a denominator of the metric that is identically zero is refused"},
+        {"g_{ij} = \\operatorname{diag}(1, g^{2}) \\implies g^{ij} g_{ij} = 2", UNSUPPORTED, "non può comparire tra i suoi elementi",
+         "the metric cannot appear among its own entries"},
+        {"g_{ij} = \\operatorname{diag}(1, r^{2}) \\implies r_{i} r^{i} = 1", UNSUPPORTED, "compare con 0 e con 1 indici",
+         "a coordinate of the metric is a scalar: it cannot also be a vector"},
+        {"g_{ij} = \\operatorname{diag}(1, r^{2}) \\implies A_{i} A^{i} = A^{1} A^{1} + r^{2} A^{2} A^{2}", UNSUPPORTED, "può essere una potenza",
+         "outside the entries of the metric a number above a letter is still refused"},
+        {"g_{ij} = \\operatorname{diag}(1, \\delta_{11}) \\implies g^{ij} g_{ij} = 2", UNSUPPORTED, "numeri e lettere senza indici",
+         "an entry of the metric is made of numbers and letters without indices, not of symbols"},
+        {"g_{ij} = \\operatorname{diag}(1, r^{2}, r^{2} \\sin^{2}\\theta) \\implies g^{ij} g_{ij} = 3", UNSUPPORTED, "",
+         "a trigonometric function in the metric is refused"},
+
         /* Un enunciato sulle matrici senza notazione con gli indici resta del
          * capitolo 32, anche ora che una tabella può stare tra le ipotesi di
          * un'identità con gli indici. */
@@ -354,7 +388,7 @@ int main(void) {
     passed = check_all_proved("tests/tensor_calculus/index_identities.tex") && passed;
     passed = check_certified("tests/tensor_calculus/index_identities.tex", 1, 77) && passed;
     passed = check_certified("tests/tensor_calculus/false_index_identities.tex", 0, 46) && passed;
-    passed = check_all_unsupported("tests/tensor_calculus/index_notation_beyond.tex", 77) && passed;
+    passed = check_all_unsupported("tests/tensor_calculus/index_notation_beyond.tex", 84) && passed;
     passed = check_all_proved("tests/tensor_calculus/metric_identities.tex") && passed;
     passed = check_certified("tests/tensor_calculus/metric_identities.tex", 1, 35) && passed;
     passed = check_certified("tests/tensor_calculus/false_metric_identities.tex", 0, 18) && passed;
@@ -364,6 +398,9 @@ int main(void) {
     passed = check_all_proved("tests/tensor_calculus/index_ranges.tex") && passed;
     passed = check_certified("tests/tensor_calculus/index_ranges.tex", 1, 25) && passed;
     passed = check_certified("tests/tensor_calculus/false_index_ranges.tex", 0, 16) && passed;
+    passed = check_all_proved("tests/tensor_calculus/function_metrics.tex") && passed;
+    passed = check_certified("tests/tensor_calculus/function_metrics.tex", 1, 33) && passed;
+    passed = check_certified("tests/tensor_calculus/false_function_metrics.tex", 0, 24) && passed;
 
     /* I casi scritti qui sopra. */
     for (size_t i = 0; i < sizeof cases / sizeof *cases; i++) {
@@ -396,6 +433,14 @@ int main(void) {
     passed = check_result(v.certificate && strcmp(v.certificate, "certificate indices\ndimension 2\ngiven A 1 (t a) (* 2 (t b))\n"
                           "statement (= (* (delta i j) (t A j)) (* (t A 2) (delta i 1)))\nfails i 1\nleft (* 1 (t a))\nright (* 2 (t b))\nend\n") == 0,
                           "in a certificate the values of the indices go from 1 to d also when the statement counts them from 0") && passed;
+    /* Una metrica di funzioni va nel certificato con il numeratore e il
+     * denominatore di ogni elemento, e il verdetto dice dove l'identità vale. */
+    v = prove("g_{ij} = \\operatorname{diag}(1, \\frac{1}{1 - k r^{2}}) \\implies g^{22} = 1 - k r r", 'n', 0, 0);
+    passed = check_result(v.certificate && strcmp(v.certificate, "certificate indices\ndimension 2\n"
+                          "metric (/ 1 1) (/ 1 (- 1 (* (t k) (* (t r) (t r)))))\n"
+                          "statement (= (inverse 2 2) (- 1 (* (* (t k) (t r)) (t r))))\nholds\nend\n") == 0 &&
+                          v.note && strstr(v.note, "vale dove gli elementi della metrica sono definiti e diversi da zero"),
+                          "the certificate of a metric of functions carries numerators and denominators, and the verdict says where the identity holds") && passed;
     v = prove("\\varepsilon_{ijk} a_{j} b_{k} = \\frac{1}{2} a_{i}", 'n', 0, 0);
     passed = check_result(v.certificate && strcmp(v.certificate, "certificate indices\ndimension 3\n"
                           "statement (= (* (* (eps i j k) (t a j)) (t b k)) (* (frac 1 2) (t a i)))\nfails i 1\n"

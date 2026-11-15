@@ -50060,6 +50060,20 @@ static int uses_partial_notation(const char *formula) {
  *        gli elementi già letti. Lo vedono i test e l'oracolo del fuzz, che
  *        ha un lettore suo.
  *
+ *   38h. La metrica con funzioni delle coordinate (39f in parser.c). Gli
+ *        elementi della diagonale sono frazioni di polinomi nelle lettere
+ *        delle coordinate, e g^{ii} è la frazione rovesciata. Il valore di
+ *        un membro in un punto è allora una frazione di polinomi (Rat,
+ *        capitolo 7), e due valori sono uguali quando lo è il prodotto in
+ *        croce dei loro numeratori e denominatori (index_same()): non si
+ *        divide mai. L'uguaglianza così stabilita vale dove i denominatori
+ *        non si annullano, cioè dove gli elementi della metrica sono
+ *        definiti e diversi da zero: lo dicono il verdetto e la
+ *        dimostrazione. Un elemento che è il polinomio nullo non ha quel
+ *        "dove", e l'enunciato è rifiutato. Con una metrica di numeri i
+ *        denominatori sono tutti 1, e il conto è quello di prima. I valori
+ *        di un controesempio si scrivono solo quando sono polinomi.
+ *
  * Il lavoro (i punti e gli addendi visitati) è contato contro il budget di
  * --model-steps, lo stesso da cui viene quello dato al verificatore
  * (checker_steps()): un conto troppo lungo finisce con NON DIMOSTRATO.
@@ -50097,12 +50111,61 @@ static int index_stopped;
  * valore che value[] dà alla sua lettera. */
 static int index_at(int entry, const int *value) { return entry < 'A' ? entry : value[index_slot(entry)]; }
 
-static Poly index_value(IndexNode *node, int *value);
+static Rat index_value(IndexNode *node, int *value);
+
+/* 38h. La metrica dell'enunciato in corso: per ogni valore i da 1 a d di un
+ * indice, index_lower[i - 1] è g_{ii} e index_upper[i - 1] è g^{ii}, la sua
+ * inversa, come frazioni di polinomi nelle lettere degli elementi (numeri,
+ * per una metrica di numeri). Li prepara index_metric_values(), nell'arena;
+ * senza metrica non si usano. */
+static Rat *index_lower, *index_upper;
+
+/* 38h. Ritorna il polinomio 1 senza prendere memoria dall'arena: è il
+ * denominatore di quasi tutti i valori, e viene chiesto a ogni simbolo. */
+static Poly index_one(void) {
+    static Term one;
+    one.coef = num_int(1);
+    one.mono.count = 0;
+    return (Poly){1, &one};
+}
+
+/* 38h. Ritorna la frazione 1 se unit non è zero, altrimenti la frazione 0,
+ * senza prendere memoria. */
+static Rat index_whole(int unit) { return (Rat){unit ? index_one() : (Poly){0, NULL}, index_one()}; }
+
+/* 38h. Ritorna a b. Se i due denominatori sono 1 moltiplica solo i
+ * numeratori: è il caso di ogni metrica di numeri, e il conto costa quanto
+ * costava prima che i valori fossero frazioni. */
+static Rat index_times(Rat a, Rat b) {
+    if (poly_is_one(a.den) && poly_is_one(b.den)) return (Rat){poly_mul(a.num, b.num), a.den};
+    return rat_mul(a, b);
+}
+
+/* 38h. Ritorna 1 se le frazioni a e b sono uguali dove i loro denominatori
+ * non si annullano: lo sono esattamente quando il prodotto in croce
+ * a.num b.den - b.num a.den è il polinomio nullo (capitolo 12). I
+ * denominatori non sono mai il polinomio nullo (capitolo 7). */
+static int index_same(Rat a, Rat b) {
+    return poly_vanishes(poly_add(poly_mul(a.num, b.den), poly_mul(b.num, a.den), 1));
+}
+
+/* 38h. Ritorna 1 se la frazione r è un polinomio che si sa scrivere: il
+ * denominatore è 1 e ogni esponente è un intero positivo. Un denominatore
+ * di un solo termine il capitolo 7 lo porta al numeratore con gli esponenti
+ * negativi: non è un polinomio nemmeno quello. */
+static int index_plain(Rat r) {
+    if (!poly_is_one(r.den)) return 0;
+    for (int i = 0; i < r.num.count; i++)
+        for (int f = 0; f < r.num.term[i].mono.count; f++)
+            if (r.num.term[i].mono.factor[f].exp.den != 1 || r.num.term[i].mono.factor[f].exp.num < 1) return 0;
+    return 1;
+}
 
 /* 38a. Ritorna il valore del simbolo leaf, con le sue lettere ai valori di
  * value[]: un numero per la delta e per il simbolo di Levi-Civita, l'atomo
  * della componente per un tensore qualsiasi, il polinomio dell'elemento per
- * un tensore dato per componenti (38g).
+ * un tensore dato per componenti (38g). Con una metrica di funzioni è una
+ * frazione di polinomi (38h); altrimenti il denominatore è 1.
  *
  * Il simbolo di Levi-Civita ha d indici, con valori da 1 a d. Se due
  * coincidono vale 0. Altrimenti sono una permutazione di (1, ..., d), e
@@ -50111,8 +50174,8 @@ static Poly index_value(IndexNode *node, int *value);
  * ordine (due posti i < j con il valore in i maggiore di quello in j),
  * perché uno scambio di due posti vicini ne cambia il numero di uno.
  *
- * Con una metrica dichiarata (capitolo 39 di parser.c), diagonale con i
- * numeri c_1, ..., c_d. La metrica vale c_i con due indici uguali in basso,
+ * Con una metrica dichiarata (capitolo 39 di parser.c), diagonale con gli
+ * elementi c_1, ..., c_d. La metrica vale c_i con due indici uguali in basso,
  * 1/c_i con due uguali in alto, 1 con uno e uno, e 0 con due indici diversi.
  * \varepsilon vale, nella posizione in cui è dichiarato, il valore
  * dichiarato per il segno della permutazione. Un indice scritto in una
@@ -50123,23 +50186,23 @@ static Poly index_value(IndexNode *node, int *value);
  * T_{j} resta il solo addendo j = i. È così che si calcola l'identità com'è
  * scritta; in quella svolta (39c) ogni indice è al suo posto, e questi
  * fattori non ci sono. */
-static Poly index_leaf(const IndexNode *leaf, const int *value) {
-    const Poly zero = {0, NULL};
+static Rat index_leaf(const IndexNode *leaf, const int *value) {
+    const Rat zero = index_whole(0);
     const IndexStatement *s = index_statement;
-    if (leaf->kind == IX_DELTA) return index_at(leaf->index[0], value) == index_at(leaf->index[1], value) ? poly_const(num_int(1)) : zero;
+    if (leaf->kind == IX_DELTA) return index_at(leaf->index[0], value) == index_at(leaf->index[1], value) ? index_whole(1) : zero;
     if (leaf->kind == IX_METRIC || leaf->kind == IX_LOWER || leaf->kind == IX_UPPER) {
         int x = index_at(leaf->index[0], value);
         if (x != index_at(leaf->index[1], value)) return zero;
-        if (leaf->kind == IX_METRIC && leaf->upper[0] != leaf->upper[1]) return poly_const(num_int(1));
-        return poly_const(num_frac(leaf->kind == IX_UPPER || (leaf->kind == IX_METRIC && leaf->upper[0]) ? frac_div(frac_int(1), s->metric[x - 1]) : s->metric[x - 1]));
+        if (leaf->kind == IX_METRIC && leaf->upper[0] != leaf->upper[1]) return index_whole(1);
+        return leaf->kind == IX_UPPER || (leaf->kind == IX_METRIC && leaf->upper[0]) ? index_upper[x - 1] : index_lower[x - 1];
     }
 
     /* Gli indici spostati dalla posizione dichiarata. */
-    Frac moved = frac_int(1);
+    Rat moved = index_whole(1);
     for (int i = 0; s->metric && i < leaf->rank; i++) {
         int declared = leaf->kind == IX_EPSILON ? s->epsilon_upper : s->reference[index_slot(leaf->name)][i];
-        Frac c = s->metric[index_at(leaf->index[i], value) - 1];
-        if (leaf->upper[i] != declared) moved = frac_mul(moved, leaf->upper[i] ? frac_div(frac_int(1), c) : c);
+        int x = index_at(leaf->index[i], value);
+        if (leaf->upper[i] != declared) moved = index_times(moved, leaf->upper[i] ? index_upper[x - 1] : index_lower[x - 1]);
     }
     if (leaf->kind == IX_EPSILON) {
         int sign = 1;
@@ -50149,8 +50212,7 @@ static Poly index_leaf(const IndexNode *leaf, const int *value) {
                 if (x == y) return zero;
                 if (x > y) sign = -sign;
             }
-        if (s->metric) moved = frac_mul(moved, s->epsilon);
-        return poly_const(num_frac(frac_mul(moved, frac_int(sign))));
+        return index_times(moved, (Rat){poly_const(num_frac(frac_mul(s->metric ? s->epsilon : frac_int(1), frac_int(sign)))), index_one()});
     }
 
     /* Il posto della componente tra quelle del tensore: gli indici meno uno,
@@ -50162,18 +50224,18 @@ static Poly index_leaf(const IndexNode *leaf, const int *value) {
         place = place * index_dimension + digit;
     }
 
-    /* 38g. Un tensore dato: il suo elemento di quel posto, per i numeri
+    /* 38g. Un tensore dato: il suo elemento di quel posto, per i fattori
      * degli indici spostati. L'elemento non ha lettere tra gli indici, e un
      * punto qualsiasi gli va bene. */
     IndexNode **given = s->given[index_slot(leaf->name)];
     if (given) {
         int none[INDEX_LETTERS] = {0};
-        return poly_mul(poly_const(num_frac(moved)), index_value(given[place], none));
+        return index_times(moved, index_value(given[place], none));
     }
     Term component;
-    component.coef = num_frac(moved);
+    component.coef = num_int(1);
     component.mono = mono_atom(atom_var(INDEX_ATOMS + (int)place * INDEX_LETTERS + index_slot(leaf->name)), frac_int(1));
-    return poly_term(component);
+    return index_times(moved, (Rat){poly_term(component), index_one()});
 }
 
 /* 38b. Mette in list, se non è NULL, i fattori del prodotto che comincia in
@@ -50226,8 +50288,8 @@ static void index_prepare(IndexNode *node) {
  * il loro valore in value[], dove vengono scritti quelli delle lettere di
  * open. Ogni chiamata conta nel lavoro; finito il budget annota
  * index_stopped, e il valore ritornato non conta. */
-static Poly index_contract(IndexNode *node, IndexSet open, int *value) {
-    const Poly zero = {0, NULL};
+static Rat index_contract(IndexNode *node, IndexSet open, int *value) {
+    const Rat zero = index_whole(0);
     if (failure || index_stopped) return zero;
     if (++index_work > model_step_limit) { index_stopped = 1; return zero; }
 
@@ -50258,10 +50320,10 @@ static Poly index_contract(IndexNode *node, IndexSet open, int *value) {
 
     /* Tutte le lettere hanno un valore: il prodotto dei fattori. */
     if (!open) {
-        Poly product = poly_const(num_int(1));
-        for (int f = 0; f < node->factors && product.count; f++) {
+        Rat product = index_whole(1);
+        for (int f = 0; f < node->factors && product.num.count; f++) {
             IndexNode *factor = node->factor[f];
-            product = poly_mul(product, index_is_leaf(factor) ? index_leaf(factor, value) : index_value(factor, value));
+            product = index_times(product, index_is_leaf(factor) ? index_leaf(factor, value) : index_value(factor, value));
         }
         return product;
     }
@@ -50273,28 +50335,54 @@ static Poly index_contract(IndexNode *node, IndexSet open, int *value) {
         return index_contract(node, open & ~(1ULL << fixed), value);
     }
     int slot = index_first_slot(open);
-    Poly total = zero;
+    Rat total = zero;
     for (int v = 1; v <= index_dimension; v++) {
         value[slot] = v;
-        Poly addend = index_contract(node, open & ~(1ULL << slot), value);
-        if (addend.count) total = poly_add(total, addend, 0);
+        Rat addend = index_contract(node, open & ~(1ULL << slot), value);
+        if (addend.num.count) total = rat_add(total, addend, 0);
     }
     return total;
 }
 
 /* Ritorna il valore di node nel punto value[]: un polinomio nelle
- * componenti dei tensori (38a). Le lettere libere di node hanno il loro
- * valore in value[]; quelle sommate lo ricevono in index_contract(). node è
- * stato preparato da index_prepare(). */
-static Poly index_value(IndexNode *node, int *value) {
-    const Poly zero = {0, NULL};
-    if (node->kind == IX_NUM) return poly_const(num_frac(node->number));
-    if (node->kind == IX_NEG) return poly_add(zero, index_value(node->a, value), 1);
+ * componenti dei tensori (38a), o una frazione di polinomi con una metrica
+ * di funzioni (38h). Le lettere libere di node hanno il loro valore in
+ * value[]; quelle sommate lo ricevono in index_contract(). node è stato
+ * preparato da index_prepare(). */
+static Rat index_value(IndexNode *node, int *value) {
+    if (node->kind == IX_NUM) return (Rat){poly_const(num_frac(node->number)), index_one()};
+    if (node->kind == IX_NEG) return rat_add(index_whole(0), index_value(node->a, value), 1);
     if (node->kind == IX_ADD || node->kind == IX_SUB) {
-        Poly left = index_value(node->a, value);
-        return poly_add(left, index_value(node->b, value), node->kind == IX_SUB);
+        Rat left = index_value(node->a, value);
+        return rat_add(left, index_value(node->b, value), node->kind == IX_SUB);
     }
     return index_contract(node, node->sum, value);
+}
+
+/* 38h. Prepara index_lower[] e index_upper[] per l'enunciato s, che ha una
+ * metrica: i suoi elementi e i loro inversi. Ritorna 0, con il motivo in
+ * *why, se un elemento o il suo denominatore è il polinomio nullo: la
+ * metrica non sarebbe invertibile in nessun punto. Gli alberi degli
+ * elementi sono già stati preparati (index_prepare()). */
+static int index_metric_values(const IndexStatement *s, const char **why) {
+    int none[INDEX_LETTERS] = {0};
+    index_lower = arena_alloc(sizeof *index_lower * (size_t)s->dimension);
+    index_upper = arena_alloc(sizeof *index_upper * (size_t)s->dimension);
+    if (!index_lower || !index_upper) return 0;
+    for (int i = 0; i < s->dimension; i++) {
+        Rat top = s->metric_top ? index_value(s->metric_top[i], none) : rat_frac(s->metric[i]);
+        Rat bottom = s->metric_top ? index_value(s->metric_bottom[i], none) : index_whole(1);
+        if (failure || index_stopped) return 0;
+        if (!top.num.count || !bottom.num.count) {
+            *why = "un elemento della diagonale della metrica, o il suo denominatore, è identicamente zero: la metrica non avrebbe un'inversa";
+            return 0;
+        }
+        /* Gli elementi sono fatti di numeri e di lettere: top e bottom hanno
+         * denominatore 1, e il rapporto si scrive senza dividere. */
+        index_lower[i] = rat_make(top.num, bottom.num);
+        index_upper[i] = rat_make(bottom.num, top.num);
+    }
+    return 1;
 }
 
 /* Aggiunge al testo out, lungo *length e capiente size, un pezzo con la
@@ -50403,8 +50491,8 @@ static int index_reread(const char *left_text, const char *right_text, Poly left
      * componenti con gli indici numerici, ognuna sempre nelle stesse
      * posizioni, e non alzano né abbassano nulla. */
     index_statement = &again;
-    Poly reread = index_value(again.left, value);
-    int same = poly_equal(reread, left) && poly_equal(index_value(again.right, value), right) && !failure && !index_stopped;
+    Rat reread = index_value(again.left, value), other = index_value(again.right, value);
+    int same = index_plain(reread) && index_plain(other) && poly_equal(reread.num, left) && poly_equal(other.num, right) && !failure && !index_stopped;
     index_statement = current;
     return same;
 }
@@ -50435,7 +50523,7 @@ static int index_sampled;
 /* 38d. Prova tutti i punti degli indici liberi dell'enunciato s, già
  * preparato. Ritorna 1 se in ognuno i due membri sono uguali; 0 se in uno
  * sono diversi, e allora value[] è quel punto e *left e *right i due
- * valori, ancora nell'arena; -1 se il conto non è arrivato in fondo
+ * valori, ancora nell'arena (frazioni di polinomi, 38h); -1 se il conto non è arrivato in fondo
  * (`failure`, o il budget in index_stopped); -2 se in un punto l'identità
  * svolta e quella scritta non hanno gli stessi valori. *points è il numero
  * dei punti provati.
@@ -50447,7 +50535,7 @@ static int index_sampled;
  * spostati (index_leaf()), devono essere gli stessi polinomi. Sono due
  * conti diversi: uno contrae con la metrica su una lettera nuova, l'altro
  * moltiplica per un numero. */
-static int index_decide(IndexStatement *s, int *value, long long *points, Poly *left, Poly *right) {
+static int index_decide(IndexStatement *s, int *value, long long *points, Rat *left, Rat *right) {
     index_sampled = 0;
     *points = 0;
     for (int slot = 0; slot < INDEX_LETTERS; slot++) value[slot] = 1;
@@ -50456,11 +50544,11 @@ static int index_decide(IndexStatement *s, int *value, long long *points, Poly *
         size_t mark = arena_used;
         *left = index_value(s->left, value);
         *right = index_value(s->right, value);
-        int equal = poly_vanishes(poly_add(*left, *right, 1));
+        int equal = index_same(*left, *right);
         if (failure || index_stopped) return -1;
         if (s->metric) {
-            Poly written = index_value(s->written_left, value);
-            int same = poly_equal(written, *left) && poly_equal(index_value(s->written_right, value), *right);
+            Rat written = index_value(s->written_left, value);
+            int same = index_same(written, *left) && index_same(index_value(s->written_right, value), *right);
             if (failure || index_stopped) return -1;
             if (!same) return -2;
         }
@@ -50469,8 +50557,8 @@ static int index_decide(IndexStatement *s, int *value, long long *points, Poly *
 
         /* Il primo punto con un valore non nullo fa da esempio nella
          * dimostrazione, se il suo valore si scrive e si rilegge. */
-        if (!index_sampled && left->count && index_put_poly(index_sample_value, sizeof index_sample_value, *left) &&
-            index_reread(index_sample_value, index_sample_value, *left, *left))
+        if (!index_sampled && left->num.count && index_plain(*left) && index_put_poly(index_sample_value, sizeof index_sample_value, left->num) &&
+            index_reread(index_sample_value, index_sample_value, left->num, left->num))
             index_sampled = index_put_point(index_sample_point, sizeof index_sample_point, s, value, "$");
         if (failure || index_stopped) return -1;
 
@@ -50593,13 +50681,21 @@ static void index_put_conventions(const IndexStatement *s, int has_delta, int ha
     if (s->metric) {
         proof_add("The statement is read in dimension $%d$ with the declared metric, which is diagonal: $g_{ii} = ", s->dimension);
         for (int i = 0; i < s->dimension; i++) {
+            /* 38h. Un elemento che è una funzione: numeratore e denominatore
+             * di g_{ii}, se sono polinomi che si sanno scrivere. */
+            static char above[256], below[256];
             proof_add(i ? ", " : "");
-            index_put_number(s->metric[i]);
+            if (!s->metric_top) index_put_number(s->metric[i]);
+            else if (index_plain(index_lower[i]) && index_put_poly(above, sizeof above, index_lower[i].num)) proof_add("%s", above);
+            else if (index_plain(index_upper[i]) && index_put_poly(below, sizeof below, index_upper[i].num)) proof_add("\\frac{1}{%s}", below);
+            else proof_add("\\ast");
         }
         proof_add("$ for $i = %d, \\dots, %d$, and $g^{ii} = 1/g_{ii}$. Every index takes the values from $%d$ to $%d$, and an index written once "
                   "above and once below in a product is summed over them (Einstein convention). A tensor has its indices in the positions where "
                   "the statement first writes it; an index written in the other position has been raised or lowered with the metric. ",
                   first, last, first, last);
+        if (s->metric_top) proof_add("The letters in the entries of the metric are the coordinates and the parameters: the identity is proved where "
+                                     "every entry of the metric is defined and different from zero. ");
         if (has_delta) proof_add("The symbol $\\delta^{i}_{j}$ is $1$ when $i = j$ and $0$ otherwise. ");
         if (has_epsilon) {
             proof_add("The symbol $\\varepsilon$ with its $%d$ indices %s is $", s->dimension, s->epsilon_upper ? "above" : "below");
@@ -50643,12 +50739,12 @@ static int index_mentions(const IndexNode *node, IndexKind kind) {
  * Svuota l'arena e la tabella degli atomi: i risultati di chiamate
  * precedenti non sono più validi. */
 static Verdict prove_indices(const char *formula) {
-    static char note[512], detail[1024 + 2 * 512 + 96], point[1024], side[2][512];
+    static char note[640], detail[1024 + 2 * 512 + 96], point[1024], side[2][512];
     Verdict verdict = {UNSUPPORTED, 0, 0, 0, NULL, NULL, NULL, "con il conto su tutti i valori degli indici", NULL, NULL};
     IndexStatement statement;
     int value[INDEX_LETTERS];
     long long points;
-    Poly left, right;
+    Rat left, right;
 
     /* Ripartenza da zero per il nuovo enunciato, e lettura. */
     proof_reset();
@@ -50668,12 +50764,13 @@ static Verdict prove_indices(const char *formula) {
     /* Con una metrica la nota dice anche di che cosa è il certificato: il
      * verificatore ricontrolla l'identità svolta (39c), e che sia la stessa
      * di quella scritta lo ricontrolla solo il motore (index_decide()). */
-    snprintf(note, sizeof note, "in dimensione %d%s: gli indici vanno da %d a %d, sono sommati se ripetuti, %s%s%s%s", statement.dimension,
+    snprintf(note, sizeof note, "in dimensione %d%s: gli indici vanno da %d a %d, sono sommati se ripetuti, %s%s%s%s%s", statement.dimension,
              statement.metric ? ", con la metrica dichiarata" : "", statement.origin, statement.origin + statement.dimension - 1,
              statement.metric ? "uno in alto e uno in basso" : "e in alto o in basso sono lo stesso",
              has_given ? "; i tensori dati hanno le componenti dichiarate" : "",
              !has_tensors ? "" : has_given ? "; le altre lettere sono tensori qualsiasi" : "; le lettere sono tensori qualsiasi",
-             statement.metric ? "; il certificato è dell'identità svolta, dove alzare e abbassare un indice è una contrazione con la metrica" : "");
+             statement.metric ? "; il certificato è dell'identità svolta, dove alzare e abbassare un indice è una contrazione con la metrica" : "",
+             statement.metric_top ? "; vale dove gli elementi della metrica sono definiti e diversi da zero" : "");
 
     /* 38b-38d. Il conto. */
     index_dimension = statement.dimension;
@@ -50689,7 +50786,17 @@ static Verdict prove_indices(const char *formula) {
     }
     for (int slot = 0; slot < INDEX_LETTERS; slot++)
         for (int k = 0; statement.given[slot] && k < index_given_count(&statement, slot); k++) index_prepare(statement.given[slot][k]);
-    int outcome = failure ? -1 : index_decide(&statement, value, &points, &left, &right);
+    /* 38h. Gli elementi della metrica e i loro inversi. */
+    for (int i = 0; statement.metric_top && i < statement.dimension; i++) {
+        index_prepare(statement.metric_top[i]);
+        index_prepare(statement.metric_bottom[i]);
+    }
+    const char *singular = NULL;
+    if (statement.metric && !failure && !index_metric_values(&statement, &singular) && singular) {
+        verdict.reason = singular;
+        return verdict;
+    }
+    int outcome = failure || index_stopped ? -1 : index_decide(&statement, value, &points, &left, &right);
     if (outcome == -2) {
         /* Lo svolgimento ha cambiato l'enunciato: un errore del lettore. */
         unjustified_steps++;
@@ -50706,10 +50813,10 @@ static Verdict prove_indices(const char *formula) {
     /* 38f. I valori dei due membri nel controesempio, se si scrivono e,
      * riletti, sono quelli. Uno scritto che non si rilegge è un errore di
      * chi scrive, e il verdetto non viene emesso. */
-    int written = 0;
-    if (!outcome) {
-        written = index_put_poly(side[0], sizeof side[0], left) && index_put_poly(side[1], sizeof side[1], right);
-        if (written && !index_reread(side[0], side[1], left, right)) {
+    int written = 0, plain = !outcome && index_plain(left) && index_plain(right);
+    if (plain) {
+        written = index_put_poly(side[0], sizeof side[0], left.num) && index_put_poly(side[1], sizeof side[1], right.num);
+        if (written && !index_reread(side[0], side[1], left.num, right.num)) {
             unjustified_steps++;
             verdict.outcome = NOT_PROVED;
             verdict.reason = "i valori scritti dei due membri nel controesempio, riletti, non sono confermati";
@@ -50723,10 +50830,17 @@ static Verdict prove_indices(const char *formula) {
     certificate_broken = 0;
     cert_add("certificate indices\ndimension %d\n", statement.dimension);
     if (statement.metric) {
+        /* 38h. Un elemento che è una funzione va con il suo numeratore e il
+         * suo denominatore: (/ N D). */
         cert_add("metric");
         for (int i = 0; i < statement.dimension; i++) {
             cert_add(" ");
-            index_cert_number(statement.metric[i]);
+            if (!statement.metric_top) { index_cert_number(statement.metric[i]); continue; }
+            cert_add("(/ ");
+            index_cert(statement.metric_top[i]);
+            cert_add(" ");
+            index_cert(statement.metric_bottom[i]);
+            cert_add(")");
         }
         cert_add("\n");
     }
@@ -50751,10 +50865,13 @@ static Verdict prove_indices(const char *formula) {
         cert_add("fails");
         for (int slot = 0; slot < INDEX_LETTERS; slot++)
             if (statement.free >> slot & 1) cert_add(" %c %d", index_letter(slot), value[slot]);
-        cert_add("\nleft ");
-        index_cert_poly(left);
-        cert_add("\nright ");
-        index_cert_poly(right);
+        /* I valori dei due membri, quando sono polinomi (38h). */
+        if (plain) {
+            cert_add("\nleft ");
+            index_cert_poly(left.num);
+            cert_add("\nright ");
+            index_cert_poly(right.num);
+        }
         cert_add("\n");
     }
     cert_add("end\n");

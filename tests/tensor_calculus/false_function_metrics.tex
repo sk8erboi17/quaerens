@@ -1,0 +1,47 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{A diagonal metric whose entries are functions of the coordinates: false statements (24)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+The statements of \texttt{function\_metrics.tex} with one small change: an exponent of $r$, a raised index read as a lowered one, a lost factor, a sign. All of them are false and must be refuted, with a counterexample whose certificate the checker accepts.
+
+\begin{enumerate}
+% A wrong exponent of r, a lost factor.
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, r^{2}) \land A^{i} = (a, b) \land C_{i} = (a, r b) \implies \forall i \in \{1, 2\}\ \left( A_{i} = C_{i} \right)$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, r^{2}) \land A^{i} = (a, b) \implies A^{i} A_{i} = a a + r b b$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, r^{2}) \land \varepsilon_{12} = 1 \implies r \varepsilon^{12} = 1$
+\item $\displaystyle g_{ij} = \operatorname{diag}(r^{2}, (R + r c)^{2}) \land V^{i} = (u, v) \implies V^{i} V_{i} = r r u u + (R + r c) v v$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, r^{2}, r^{2} s^{2}) \land V^{i} = (r r, 0, 0, 1) \land U_{i} = (0, 0, r, r s) \land W_{i} = (-r r, 0, 0, r r s) \implies \forall i \in \{1, 2, 3, 4\}\ \left( V_{i} = W_{i} \right)$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, r^{2}, r^{2} s^{2}) \land V^{i} = (r r, 0, 0, 1) \land U_{i} = (0, 0, r, r s) \implies U_{i} V^{i} = r$
+\item $\displaystyle g^{ij} = \operatorname{diag}(-\frac{1}{r^{4}}, \frac{1}{r^{4}}, \frac{1}{r^{4}}, r^{2}) \land T_{ij} = \begin{pmatrix} 0 & x & 0 & r \\ -x & 0 & r & 0 \\ 0 & r & 0 & 0 \\ r & 0 & 0 & 0 \end{pmatrix} \implies T^{4}{}_{1} = r r$
+\item $\displaystyle g^{ij} = \operatorname{diag}(-\frac{1}{r^{4}}, \frac{1}{r^{4}}, \frac{1}{r^{4}}, r^{2}) \land T_{ij} = \begin{pmatrix} 0 & x & 0 & r \\ -x & 0 & r & 0 \\ 0 & r & 0 & 0 \\ r & 0 & 0 & 0 \end{pmatrix} \implies r r r r r T^{1}{}_{2} = -x$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, \frac{1}{1 - k r^{2}}, r^{2}) \implies g^{22} = 1 - k r$
+% A raised index read as a lowered one, the metric taken for its inverse or for the identity.
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, r^{2}) \land A_{i} = (a, b) \implies A^{i} A_{i} = a a + r r b b$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, r^{2}) \land A_{i} = (a, b) \implies A^{i} A_{i} = a a + b b$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, r^{2}) \implies g^{ij} g_{ij} = 1 + r r r r$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, r^{2}) \land \varepsilon_{12} = 1 \implies \varepsilon^{ij}\varepsilon_{ij} = 2$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, r^{2}, r^{2} s^{2}) \land V^{i} = (r r, 0, 0, 1) \land U_{i} = (0, 0, r, r s) \land W^{i} = (0, 0, r r r, r r r s s s) \implies \forall i \in \{1, 2, 3, 4\}\ \left( U^{i} = W^{i} \right)$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, r^{2}, 1) \land T_{ij} = \begin{pmatrix} 0 & 1 & r & 0 \\ 0 & s & 0 & 0 \\ r c & 0 & 0 & 0 \\ 0 & 0 & 0 & 1 \end{pmatrix} \implies T^{3}{}_{1} = r r r c$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, r^{2}, 1) \land T_{ij} = \begin{pmatrix} 0 & 1 & r & 0 \\ 0 & s & 0 & 0 \\ r c & 0 & 0 & 0 \\ 0 & 0 & 0 & 1 \end{pmatrix} \implies T^{i}{}_{i} = 1 + r r s$
+\item $\displaystyle g^{ij} = \operatorname{diag}(-\frac{1}{r^{4}}, \frac{1}{r^{4}}, \frac{1}{r^{4}}, r^{2}) \land T_{ij} = \begin{pmatrix} 0 & x & 0 & r \\ -x & 0 & r & 0 \\ 0 & r & 0 & 0 \\ r & 0 & 0 & 0 \end{pmatrix} \implies r r r T_{1}{}^{4} = 1$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, \frac{1}{1 - k r^{2}}, r^{2}) \implies g_{22} = 1 - k r r$
+% A sign.
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, r^{2}, r^{2} s^{2}) \land V^{i} = (r r, 0, 0, 1) \land U_{i} = (0, 0, r, r s) \land W_{i} = (r r, 0, 0, r r s s) \implies \forall i \in \{1, 2, 3, 4\}\ \left( V_{i} = W_{i} \right)$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, r^{2}, 1) \land T_{ij} = \begin{pmatrix} 0 & 1 & r & 0 \\ 0 & s & 0 & 0 \\ r c & 0 & 0 & 0 \\ 0 & 0 & 0 & 1 \end{pmatrix} \implies T_{3}{}^{1} = r c$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, r^{2}, 1) \land T_{ij} = \begin{pmatrix} 0 & 1 & r & 0 \\ 0 & s & 0 & 0 \\ r c & 0 & 0 & 0 \\ 0 & 0 & 0 & 1 \end{pmatrix} \implies g^{ij} T_{ij} = 1 - s$
+\item $\displaystyle g^{ij} = \operatorname{diag}(-\frac{1}{r^{4}}, \frac{1}{r^{4}}, \frac{1}{r^{4}}, r^{2}) \land T_{ij} = \begin{pmatrix} 0 & x & 0 & r \\ -x & 0 & r & 0 \\ 0 & r & 0 & 0 \\ r & 0 & 0 & 0 \end{pmatrix} \implies r r r T_{4}{}^{1} = 1$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, \frac{1}{1 - k r^{2}}, r^{2}) \implies g^{22} = 1 + k r r$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, \frac{1}{1 - k r^{2}}, r^{2}) \land A^{i} = (a, b, c) \implies (1 - k r r) A^{i} A_{i} = (1 - k r r)(a a + r r c c) - b b$
+\end{enumerate}
+\end{document}

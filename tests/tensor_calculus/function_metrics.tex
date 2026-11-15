@@ -1,0 +1,59 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{A diagonal metric whose entries are functions of the coordinates: true statements (33)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Statements that declare a diagonal metric whose entries are polynomials, or quotients of polynomials, in the letters of the coordinates. Each one holds where every entry of the metric is defined and different from zero, and must be proved with a certificate that the checker accepts.
+
+\begin{enumerate}
+% Polar coordinates in the plane (IBS winter camp, exercise 1(c)).
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, r^{2}) \implies g^{ij} g_{ij} = 2$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, r r) \implies g^{ij} g_{ij} = 2$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, r^{2}) \implies \forall i, k \in \{1, 2\}\ \left( g_{ij} g^{jk} = \delta_{i}^{k} \right)$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, r^{2}) \land A^{i} = (a, b) \land C_{i} = (a, r r b) \implies \forall i \in \{1, 2\}\ \left( A_{i} = C_{i} \right)$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, r^{2}) \land A^{i} = (a, b) \implies A^{i} A_{i} = a a + r r b b$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, r^{2}) \land A_{i} = (a, b) \implies r r A^{i} A_{i} = r r a a + b b$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, r^{2}) \implies A^{i} B_{i} = A_{i} B^{i}$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, r^{2}) \land \varepsilon_{12} = 1 \implies r r \varepsilon^{12} = 1$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, r^{2}) \land \varepsilon_{12} = 1 \implies r r \varepsilon^{ij}\varepsilon_{ij} = 2$
+\item $\displaystyle g^{ij} = \operatorname{diag}(1, \frac{1}{r^{2}}) \implies g_{22} = r r$
+% A torus (IBS winter camp, exercise 1(d)), with c for the cosine of the angle.
+\item $\displaystyle g_{ij} = \operatorname{diag}(r^{2}, (R + r c)^{2}) \land V^{i} = (u, v) \land W_{i} = (r r u, (R + r c)(R + r c) v) \implies \forall i \in \{1, 2\}\ \left( V_{i} = W_{i} \right)$
+\item $\displaystyle g_{ij} = \operatorname{diag}(r^{2}, (R + r c)^{2}) \land V^{i} = (u, v) \implies V^{i} V_{i} = r r u u + (R + r c)(R + r c) v v$
+% Spherical coordinates in space-time (Roma, exercise 3, (10)-(17)), with s for the sine of the angle.
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, r^{2}, r^{2} s^{2}) \land V^{i} = (r r, 0, 0, 1) \land U_{i} = (0, 0, r, r s) \land W_{i} = (-r r, 0, 0, r r s s) \implies \forall i \in \{1, 2, 3, 4\}\ \left( V_{i} = W_{i} \right)$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, r^{2}, r^{2} s^{2}) \land V^{i} = (r r, 0, 0, 1) \land U_{i} = (0, 0, r, r s) \land W^{i} = (0, 0, s, 1) \implies \forall i \in \{1, 2, 3, 4\}\ \left( r s U^{i} = W^{i} \right)$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, r^{2}, r^{2} s^{2}) \land V^{i} = (r r, 0, 0, 1) \land U_{i} = (0, 0, r, r s) \implies U_{i} V^{i} = r s$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, r^{2}, r^{2} s^{2}) \land V^{i} = (r r, 0, 0, 1) \land U_{i} = (0, 0, r, r s) \implies g_{ij} U^{i} V^{j} = r s$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, r^{2}, r^{2} s^{2}) \land V^{i} = (r r, 0, 0, 1) \land U_{i} = (0, 0, r, r s) \implies g^{ij} U_{i} V_{j} = r s$
+% Cylindrical coordinates (Roma, exercise 3, (18)-(25)), with s and c for the sine and the cosine of the angle.
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, r^{2}, 1) \land T_{ij} = \begin{pmatrix} 0 & 1 & r & 0 \\ 0 & s & 0 & 0 \\ r c & 0 & 0 & 0 \\ 0 & 0 & 0 & 1 \end{pmatrix} \implies r T^{3}{}_{1} = c$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, r^{2}, 1) \land T_{ij} = \begin{pmatrix} 0 & 1 & r & 0 \\ 0 & s & 0 & 0 \\ r c & 0 & 0 & 0 \\ 0 & 0 & 0 & 1 \end{pmatrix} \implies r T_{1}{}^{3} = 1$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, r^{2}, 1) \land T_{ij} = \begin{pmatrix} 0 & 1 & r & 0 \\ 0 & s & 0 & 0 \\ r c & 0 & 0 & 0 \\ 0 & 0 & 0 & 1 \end{pmatrix} \implies T_{3}{}^{1} = -r c$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, r^{2}, 1) \land T_{ij} = \begin{pmatrix} 0 & 1 & r & 0 \\ 0 & s & 0 & 0 \\ r c & 0 & 0 & 0 \\ 0 & 0 & 0 & 1 \end{pmatrix} \implies g^{ij} T_{ij} = 1 + s$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, r^{2}, 1) \land T_{ij} = \begin{pmatrix} 0 & 1 & r & 0 \\ 0 & s & 0 & 0 \\ r c & 0 & 0 & 0 \\ 0 & 0 & 0 & 1 \end{pmatrix} \implies g_{ij} T^{ij} = 1 + s$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, r^{2}, 1) \land T_{ij} = \begin{pmatrix} 0 & 1 & r & 0 \\ 0 & s & 0 & 0 \\ r c & 0 & 0 & 0 \\ 0 & 0 & 0 & 1 \end{pmatrix} \implies T^{i}{}_{i} = 1 + s$
+\item $\displaystyle g_{ij} = \operatorname{diag}(-1, 1, r^{2}, 1) \land T_{ij} = \begin{pmatrix} 0 & 1 & r & 0 \\ 0 & s & 0 & 0 \\ r c & 0 & 0 & 0 \\ 0 & 0 & 0 & 1 \end{pmatrix} \implies T_{i}{}^{i} = 1 + s$
+% A metric given with upper indices (Roma, exercise 4, (14)-(22)).
+\item $\displaystyle g^{ij} = \operatorname{diag}(-\frac{1}{r^{4}}, \frac{1}{r^{4}}, \frac{1}{r^{4}}, r^{2}) \land T_{ij} = \begin{pmatrix} 0 & x & 0 & r \\ -x & 0 & r & 0 \\ 0 & r & 0 & 0 \\ r & 0 & 0 & 0 \end{pmatrix} \implies r r r r T^{1}{}_{2} = -x$
+\item $\displaystyle g^{ij} = \operatorname{diag}(-\frac{1}{r^{4}}, \frac{1}{r^{4}}, \frac{1}{r^{4}}, r^{2}) \land T_{ij} = \begin{pmatrix} 0 & x & 0 & r \\ -x & 0 & r & 0 \\ 0 & r & 0 & 0 \\ r & 0 & 0 & 0 \end{pmatrix} \implies T^{4}{}_{1} = r r r$
+\item $\displaystyle g^{ij} = \operatorname{diag}(-\frac{1}{r^{4}}, \frac{1}{r^{4}}, \frac{1}{r^{4}}, r^{2}) \land T_{ij} = \begin{pmatrix} 0 & x & 0 & r \\ -x & 0 & r & 0 \\ 0 & r & 0 & 0 \\ r & 0 & 0 & 0 \end{pmatrix} \implies T_{1}{}^{4} = r r r$
+\item $\displaystyle g^{ij} = \operatorname{diag}(-\frac{1}{r^{4}}, \frac{1}{r^{4}}, \frac{1}{r^{4}}, r^{2}) \land T_{ij} = \begin{pmatrix} 0 & x & 0 & r \\ -x & 0 & r & 0 \\ 0 & r & 0 & 0 \\ r & 0 & 0 & 0 \end{pmatrix} \implies r r r T_{4}{}^{1} = -1$
+\item $\displaystyle g^{ij} = \operatorname{diag}(-\frac{1}{r^{4}}, \frac{1}{r^{4}}, \frac{1}{r^{4}}, r^{2}) \land T_{ij} = \begin{pmatrix} 0 & x & 0 & r \\ -x & 0 & r & 0 \\ 0 & r & 0 & 0 \\ r & 0 & 0 & 0 \end{pmatrix} \implies r r g_{44} = 1$
+% An entry that is a quotient of polynomials.
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, \frac{1}{1 - k r^{2}}, r^{2}) \implies g^{ij} g_{ij} = 3$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, \frac{1}{1 - k r^{2}}, r^{2}) \implies g^{22} = 1 - k r r$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, \frac{1}{1 - k r^{2}}, r^{2}) \implies (1 - k r r) g_{22} = 1$
+\item $\displaystyle g_{ij} = \operatorname{diag}(1, \frac{1}{1 - k r^{2}}, r^{2}) \land A^{i} = (a, b, c) \implies (1 - k r r) A^{i} A_{i} = (1 - k r r)(a a + r r c c) + b b$
+\end{enumerate}
+\end{document}
