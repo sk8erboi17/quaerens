@@ -1,0 +1,34 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{Compute a partial derivative, a gradient, a Hessian matrix (14)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Each item asks for a partial derivative, a gradient or a Hessian matrix, as a formula or at a point, with nothing after it: the engine answers with the result, written in a readable form, which it reads back and proves as a statement. The answer holds where the functions and the formulas are defined.
+
+\begin{enumerate}
+\item $\displaystyle f(x, y) = x^{2} y \implies \nabla f$
+\item $\displaystyle f(x, y) = x^{2} y \implies H_{f}$
+\item $\displaystyle f(x, y) = x^{3} + y^{3} - 3xy \implies \nabla f(1, 1)$
+\item $\displaystyle f(x, y) = x^{3} + y^{3} - 3xy \implies H_{f}(1, 1)$
+\item $\displaystyle f(x, y) = e^{xy} \implies \frac{\partial^{2} f}{\partial x \partial y}$
+\item $\displaystyle f(x, y) = \ln(x^{2} + y^{2}) \implies f_{x}$
+\item $\displaystyle f(x, y) = \ln(x^{2} + y^{2}) \implies \nabla f(1, 2)$
+\item $\displaystyle f(x, y, z) = xy^{2} + yz^{3} - z^{2} \implies \nabla f$
+\item $\displaystyle f(x, y, z) = xy^{2} + yz^{3} - z^{2} \implies H_{f}$
+\item $\displaystyle \frac{\partial}{\partial y}\left( x \sin(xy^{2}) \right)$
+\item $\displaystyle f(x, y) = \sqrt{x^{2} + y^{2}} \implies \nabla f(3, 4)$
+\item $\displaystyle f(x, y) = x^{2} + e^{xy} + 2\ln y \implies H_{f}(0, 1)$
+\item $\displaystyle u(x, t) = e^{-t} \sin x \implies u_{t} - u_{xx}$
+\item $\displaystyle f(x, y) = \frac{x - y}{x + y} \implies f_{xy}(1, 1)$
+\end{enumerate}
+\end{document}

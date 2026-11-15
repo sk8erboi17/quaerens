@@ -1,0 +1,26 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{True statements on partial derivatives that the engine does not prove yet (6)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Each item is true, but asks for something the engine cannot do yet: the exact values of sine and cosine at $\frac{\pi}{3}$, $\frac{\pi}{4}$ and $\frac{\pi}{6}$, or a derivative at a point where the rules of differentiation give no formula. None may be called false. The reasons are in \texttt{partial\_derivatives\_beyond\_about.tex}.
+
+\begin{enumerate}
+\item $\displaystyle f(x, y) = \sin(x) \cos(y) \implies f_{x}\left( \frac{\pi}{3}, \frac{\pi}{6} \right) = \frac{\sqrt{3}}{4}$
+\item $\displaystyle f(x, y) = \sin(x) \cos(y) \implies f_{x}\left( \frac{\pi}{3}, 0 \right) = \frac{1}{2}$
+\item $\displaystyle f(x, y) = \sin(xy) \implies \nabla f\left( 1, \frac{\pi}{4} \right) = \left( \frac{\pi \sqrt{2}}{8}, \frac{\sqrt{2}}{2} \right)$
+\item $\displaystyle f(x, y) = x |x| y \implies f_{x}(0, 1) = 0$
+\item $\displaystyle f(x, y) = |x|^{3} + y \implies \nabla f(0, 0) = (0, 1)$
+\item $\displaystyle f(x, y) = \sqrt{x^{4} + y^{4}} \implies \nabla f(0, 0) = (0, 0)$
+\end{enumerate}
+\end{document}

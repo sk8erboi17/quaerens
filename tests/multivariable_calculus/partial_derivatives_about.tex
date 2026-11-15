@@ -1,0 +1,34 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{partial\_derivatives.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{partial\_derivatives.tex} is used for. The file is read by \texttt{test\_multivariable\_calculus.c}.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 48 true statements on functions of two or three variables: partial derivatives of the first and second order, mixed derivatives, gradients and Hessian matrices, as formulas or at a point, and identities between derivatives (the equality of the mixed derivatives, the Laplace, heat and wave equations, the Cauchy--Riemann equations, Euler's identity for a homogeneous function).
+
+\item \textbf{What it exercises.} The notation of chapter 34 of \texttt{parser.c} in all its forms: the fraction with $\partial$ over a declared function, the same sign in front of an expression, the subscripts $f_{xy}$, $\nabla f$, $H_{f}$, a point after a derivative, several declared functions, a function used inside another. Then chapter 35 of \texttt{main.c}: the derivatives by the rules, their check against the Taylor series of the function along lines through six sample points (a mixed derivative never goes through a first derivative computed by the rules), the theses decided with interval arithmetic and by exact algebra, and the certificate for chapter 18 of \texttt{checker.c}. Items 26--28 and 40 have functions that are defined in none of the sample points of chapter 27, which gives one value to each letter.
+
+\item \textbf{Expected result.} Every statement is proved with a written proof; 47 carry a certificate that the independent verifier accepted. Item 41 ($x^{y}$) is proved without it: the verifier does not know the relation between $x^{y - 1}$ and $x^{y}$. Each certificate, altered in a formula or in a thesis, is no longer accepted; each statement that ends with an expression, with ``$+ 1$'' appended, is called false; each statement with one thesis, cut at the equal sign, is a request whose answer has the value of the stated result.
+
+\item \textbf{Sources.} Items 1--13: MIT 18.02SC, supplementary problems 2A-2, 2A-3, 2A-4, 2A-5 (\texttt{photos/derivate\_multivariate/mit\_1802sc\_supprob2.pdf}, p.~1; the results are not printed there). Items 14--18: LUMSA, \texttt{lumsa\_scheda\_max\_min.pdf}, p.~1 and 3. Items 19--20: UW CSE 446, section 3, problem 1.2 (\texttt{uw\_cse446\_section03\_solutions.pdf}, p.~2). Items 21--24: Tor Vergata, Morsella, exercise 2(b). Item 25: Firenze, Matucci, exercise 1.1. Items 26--28: Princeton ORF363, lecture 9, example 1. Items 29--30: MIT 2K-2, 2K-3. Item 32: UCLA 32B, \texttt{photos/forme\_differenziali/ucla\_andrews\_32b\_dtheta\_arctan.pdf}. The others are classical identities. All were confirmed by the independent oracle of \texttt{tools/fuzz/fuzz\_multivariable.py} (mode \texttt{check}), which reads the LaTeX with its own reader, differentiates with its own rules and compares the two sides at random rational points.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_multivariable_calculus \
+    tests/multivariable_calculus/test_multivariable_calculus.c && \
+    /tmp/test_multivariable_calculus
+\end{verbatim}
+\end{enumerate}
+\end{document}

@@ -21,7 +21,8 @@
  *
  *   - le espressioni, con somme, prodotti, potenze e funzioni: Node
  *     (capitoli 8 e 9), su cui poggiano anche gli enunciati sulle derivate
- *     e sugli integrali (9j);
+ *     e sugli integrali (9j), e quelli sulle funzioni di più variabili, con
+ *     le derivate parziali, il gradiente e l'hessiana (capitolo 34);
  *   - gli enunciati sugli insiemi: SetNode (capitolo 14);
  *   - gli enunciati con quantificatori, gli insiemi numerici e gli insiemi
  *     di soluzioni: Formula (capitolo 17), le cui foglie sono espressioni;
@@ -80,6 +81,7 @@
  *   14. Insiemi: notazione e albero
  *   17. Quantificatori: notazione e albero
  *   21. Lettura degli enunciati da un file .tex
+ *   34. Funzioni di più variabili: notazione e albero
  */
 
 /* =============================================================================
@@ -982,12 +984,22 @@ static Node *parse_integral_piece(void) {
     return NULL;
 }
 
+/* 34. Dentro un enunciato sulle funzioni di più variabili, e solo lì, un
+ * primary può essere una derivata parziale o una funzione dichiarata: lo
+ * legge il capitolo 34, che ritorna NULL se il token corrente non lo è. Il
+ * prototipo è in avanti perché quel lettore chiama a sua volta parse_term(). */
+static Node *parse_partial_piece(void);
+
 /* primary: vedi la grammatica in testa al capitolo. */
 static Node *parse_primary(void) {
     Function fn;
 
     /* 9j. Il differenziale e la sbarra di un integrale. */
     Node *piece = parse_integral_piece();
+    if (piece) return piece;
+
+    /* 34. Una derivata parziale o una funzione dichiarata. */
+    piece = parse_partial_piece();
     if (piece) return piece;
 
     /* 9a. Numero. */
@@ -9634,5 +9646,538 @@ static const char *read_item(const char *item, const char *end, Item *out) {
     out->conditional = unread == 1 || given_unread;
     if (unread == 2) return "dopo la formula ce n'è un'altra con un segno =: un \\item deve contenere un solo enunciato";
     return NULL;
+}
+
+/* =============================================================================
+ * 34. FUNZIONI DI PIÙ VARIABILI: NOTAZIONE E ALBERO
+ * ============================================================================
+ *
+ * A che cosa serve. Gli esercizi di Analisi 2 danno una funzione di due o
+ * più variabili e ne chiedono, o ne affermano, le derivate parziali, il
+ * gradiente, la matrice hessiana, anche calcolati in un punto, oppure
+ * un'uguaglianza che quelle derivate soddisfano:
+ *
+ *     f(x, y) = x^{2} y + \sin(xy) \implies \frac{\partial f}{\partial x} = 2xy + y \cos(xy)
+ *     f(x, y) = x^{3} + y^{3} - 3xy \implies \nabla f(1, 1) = (0, 0) \land H_{f}(1, 1) = \begin{pmatrix} 6 & -3 \\ -3 & 6 \end{pmatrix}
+ *     u(x, y) = \ln(x^{2} + y^{2}) \implies u_{xx} + u_{yy} = 0
+ *     \frac{\partial^{2}}{\partial x \partial y}\left( e^{xy} \right) = e^{xy} + xy e^{xy}
+ *     f(x, y) = x^{2} y \implies \nabla f
+ *
+ * L'ultimo, senza il segno di uguale, è una richiesta: calcolare. Qui c'è
+ * solo la lettura: che cosa vale una derivata lo stabilisce il capitolo 35
+ * di main.c.
+ *
+ * La grammatica:
+ *
+ *     multivariable := [ definition { ',' definition } \implies ] claim { \land claim }
+ *     definition    := lettera '(' lettera { ',' lettera } ')' '=' expr
+ *     claim         := expr [ '=' expr ]
+ *                    | \nabla lettera [point] [ '=' ( '(' expr { ',' expr } ')' | '0' ) ]
+ *                    | 'H' '_' lettera [point] [ '=' matrix ]
+ *     matrix        := \begin{pmatrix} expr { '&' expr } { '\\' expr { '&' expr } } \end{pmatrix}
+ *     point         := '(' expr { ',' expr } ')'
+ *
+ * dove expr è quella del capitolo 9, con un primary in più (lo aggiunge
+ * parse_partial_piece(), che parse_primary() chiama):
+ *
+ *     partial := \frac{\partial^{k} lettera}{\partial x \partial y^{2} ...} [point]
+ *              | \frac{\partial^{k}}{\partial x \partial y^{2} ...} factor
+ *              | lettera [ '_' pedice ] [point]
+ *     pedice  := lettera | '{' lettera { lettera } '}'
+ *
+ * e in queste tre regole la lettera, come quelle dopo \nabla e dopo H_, è il
+ * nome di una funzione dichiarata da una definition.
+ *
+ * Le convenzioni che la grammatica fissa:
+ *
+ *   - L'ordine delle derivate miste. Nella frazione si deriva per prima
+ *     rispetto all'ultima lettera scritta sotto: \frac{\partial^{2} f}{\partial
+ *     x \partial y} è la derivata rispetto a x della derivata rispetto a y.
+ *     Nel pedice si deriva per prima rispetto alla prima lettera: f_{xy} è la
+ *     derivata rispetto a y di f_x. Sono le due convenzioni dei libri, e sono
+ *     l'una il rovescio dell'altra; dove le derivate seconde sono continue
+ *     danno lo stesso valore (teorema di Schwarz), ma un enunciato dice
+ *     quella che scrive, e così viene controllato.
+ *   - Dopo una funzione dichiarata, o una sua derivata, una parentesi è il
+ *     punto in cui la si calcola, non un fattore: f_{x}(1, 2) è il valore di
+ *     f_x in (1, 2). Deve contenere un valore per ogni variabile della
+ *     funzione; con le variabili stesse, f(x, y), è la funzione. Le
+ *     coordinate non contengono le variabili della funzione.
+ *   - Il gradiente è la lista delle derivate prime, nell'ordine delle
+ *     variabili della definizione; "= 0" vuol dire che sono tutte zero.
+ *     L'hessiana H_{f} ha nella riga r e nella colonna c la derivata
+ *     f_{x_r x_c}. Stanno da soli al primo membro, e si svolgono in
+ *     un'uguaglianza per componente: il motore vede solo quelle.
+ *   - Il segno \frac{\partial}{\partial x} senza funzione sopra deriva il
+ *     fattore che lo segue, di solito una parentesi: le altre lettere sono
+ *     costanti. Dopo quel fattore non può seguirne un altro. Il segno
+ *     \frac{d}{dx} (9d) deriva invece tutto il term, e così legge
+ *     \frac{d}{dx}(x^{2}) \cdot (x + 1) come la derivata del prodotto, dove
+ *     chi scrive intende di solito il prodotto della derivata: una delle
+ *     due letture fa dimostrare un enunciato che per l'altra è falso. Qui
+ *     non si sceglie: quella scrittura è un errore di sintassi, e il fattore
+ *     si scrive prima del segno, (x + 1) \frac{\partial}{\partial x}(x^{2}).
+ *   - La lettera e è il numero di Nepero: non può essere una funzione, una
+ *     sua variabile, o la lettera rispetto a cui si deriva.
+ *
+ * Come arriva al motore. Ogni derivata scritta, e ogni funzione dichiarata
+ * usata in un'espressione, diventa un operando (PartialOperand), e nell'albero
+ * ha il posto di una variabile dal nome VAR_OPERAND più il suo numero
+ * d'ordine. Il motore calcola gli operandi nell'ordine in cui sono stati
+ * letti e li mette al loro posto: un operando letto dentro la funzione di un
+ * altro (una derivata dentro il segno di un'altra, una funzione nella
+ * definizione di un'altra) ha sempre un numero più basso.
+ */
+
+#define MAX_FUNCTIONS 4            /* funzioni dichiarate da un enunciato */
+#define MAX_FUNCTION_VARIABLES 4   /* variabili di una funzione dichiarata */
+#define MAX_PARTIAL_ORDER 4        /* ordine di una derivata parziale */
+#define MAX_OPERANDS 32            /* derivate e funzioni scritte in un enunciato */
+#define MAX_PARTIAL_CLAIMS 20      /* tesi, una per componente: il gradiente e l'hessiana di una funzione di 4 variabili */
+
+/* Il nome interno, fuori dai caratteri e dagli altri nomi interni (capitolo
+ * 1 di main.c), della variabile che tiene il posto dell'operando numero 0;
+ * gli altri seguono. */
+#define VAR_OPERAND 6400
+
+/* Una funzione dichiarata dall'enunciato: "f(x, y) = x^{2} y". Serve a dare
+ * un nome all'espressione di cui l'enunciato scrive le derivate, e a dire
+ * quali sono le sue variabili e in che ordine: l'ordine delle componenti del
+ * gradiente e delle coordinate di un punto. Le altre lettere di body sono
+ * parametri. Invariante: le lettere di variable[] sono tutte diverse, e
+ * nessuna è il nome di una funzione dichiarata o la lettera e. */
+typedef struct {
+    int name;                              /* la lettera f */
+    int variables;                         /* quante variabili ha: da 1 a MAX_FUNCTION_VARIABLES */
+    int variable[MAX_FUNCTION_VARIABLES];  /* le loro lettere, nell'ordine in cui sono scritte */
+    Node *body;                            /* l'espressione che la definisce, nell'arena */
+} DeclaredFunction;
+
+/* Un operando: una derivata parziale scritta nell'enunciato, o una funzione
+ * dichiarata usata in un'espressione (una derivata di ordine 0), se serve
+ * calcolata in un punto. Invariante: con function = -1 non c'è un punto, e
+ * nessuna lettera di by[] è la lettera e. */
+typedef struct {
+    int function;                         /* la funzione dichiarata, come indice in PartialStatement.function[]; -1 se la funzione è body */
+    Node *body;                           /* con function = -1 l'espressione scritta dopo il segno; altrimenti NULL */
+    int order;                            /* quante volte si deriva: da 0 a MAX_PARTIAL_ORDER */
+    int by[MAX_PARTIAL_ORDER];            /* le lettere rispetto a cui si deriva, nell'ordine in cui si deriva */
+    int at;                               /* 1 se la derivata è calcolata in un punto */
+    Node *point[MAX_FUNCTION_VARIABLES];  /* con at = 1 le coordinate, una per variabile della funzione, nel suo ordine */
+} PartialOperand;
+
+/* Che cosa chiede un enunciato senza il segno di uguale: nulla (è
+ * un'affermazione), il valore di un'espressione, un gradiente, un'hessiana.
+ * Dice in che forma va scritta la risposta. */
+typedef enum { ASKED_NOTHING, ASKED_VALUE, ASKED_GRADIENT, ASKED_HESSIAN } PartialRequest;
+
+/* Un enunciato sulle funzioni di più variabili, com'è scritto: le funzioni
+ * dichiarate, gli operandi, e le tesi, che sono uguaglianze tra espressioni
+ * in cui gli operandi compaiono come variabili (VAR_OPERAND + indice). Un
+ * gradiente o un'hessiana sono già svolti: una tesi per componente, riga per
+ * riga. In una richiesta le tesi hanno solo il primo membro (rhs è NULL), e
+ * sono le componenti di ciò che si chiede. Gli alberi stanno nell'arena. */
+typedef struct {
+    int functions;                          /* funzioni valide in function[] */
+    DeclaredFunction function[MAX_FUNCTIONS];
+    int operands;                           /* operandi validi in operand[] */
+    PartialOperand operand[MAX_OPERANDS];
+    int claims;                             /* tesi valide in claim[] */
+    Statement claim[MAX_PARTIAL_CLAIMS];
+    PartialRequest request;                 /* ASKED_NOTHING, o la forma della risposta chiesta */
+    int columns;                            /* in una richiesta: le colonne della risposta (le righe sono claims / columns) */
+    const char *asked_from, *asked_to;      /* in una richiesta: il testo di ciò che si chiede, [from, to) nell'enunciato */
+} PartialStatement;
+
+/* L'enunciato che parse_partial_statement() sta leggendo, o NULL: solo
+ * mentre non è NULL parse_partial_piece() riconosce derivate parziali e
+ * funzioni dichiarate, e ogni altro lettore resta quello di sempre. */
+static PartialStatement *partial_statement;
+
+/* Ritorna l'indice della funzione dichiarata di nome name nell'enunciato in
+ * lettura, o -1 se non c'è. */
+static int partial_function(int name) {
+    for (int i = 0; partial_statement && i < partial_statement->functions; i++)
+        if (partial_statement->function[i].name == name) return i;
+    return -1;
+}
+
+/* Aggiunge all'enunciato in lettura l'operando che deriva, rispetto alle
+ * order lettere di by[], la funzione dichiarata numero function oppure, con
+ * function = -1, l'espressione body; point, se non è NULL, sono le
+ * coordinate del punto in cui calcolarla. Ritorna la variabile che ne tiene
+ * il posto nell'albero. */
+static Node *partial_operand(int function, Node *body, const int *by, int order, Node *const *point) {
+    PartialStatement *st = partial_statement;
+    if (st->operands == MAX_OPERANDS) { syntax("troppe derivate parziali in un enunciato"); return node_num(0); }
+    PartialOperand *operand = &st->operand[st->operands];
+    memset(operand, 0, sizeof *operand);
+    operand->function = function;
+    operand->body = body;
+    operand->order = order;
+    for (int i = 0; i < order; i++) {
+        if (by[i] == 'e') syntax("la lettera e è il numero di Nepero: non si deriva rispetto a lei");
+        operand->by[i] = by[i];
+    }
+    for (int i = 0; point && i < st->function[function].variables; i++) operand->point[i] = point[i];
+    operand->at = point != NULL;
+    Node *node = node_new(N_VAR, NULL, NULL);
+    node->name = VAR_OPERAND + st->operands++;
+    return node;
+}
+
+/* point := '(' expr { ',' expr } ')', dopo la funzione dichiarata f o una sua
+ * derivata. Ritorna 1 e mette le coordinate in point[] se c'è un punto;
+ * ritorna 0 se non c'è la parentesi, o se contiene le variabili stesse della
+ * funzione, f(x, y), che è un altro modo di scrivere f. */
+static int parse_point(const DeclaredFunction *f, Node **point) {
+    const char *shape = "dopo una funzione dichiarata la parentesi contiene un valore per ogni sua variabile, separati da virgole";
+    int same = 1;
+    if (token.kind != T_OPEN) return 0;
+    next_token();
+    for (int i = 0; i < f->variables; i++) {
+        if (i) expect_char(',', shape);
+        point[i] = parse_expr();
+        same = same && point[i]->kind == N_VAR && point[i]->name == f->variable[i];
+    }
+    if (token.kind == T_CLOSE) next_token(); else syntax(shape);
+    if (same) return 0;
+
+    /* Una coordinata con dentro una variabile della funzione, f(y, x) o
+     * f(x + 1, y), sarebbe una composizione: non è trattata. */
+    for (int i = 0; i < f->variables; i++)
+        for (int j = 0; j < f->variables; j++)
+            if (node_uses_letter_parser(point[i], f->variable[j])) syntax("le coordinate di un punto non possono contenere le variabili della funzione");
+    return 1;
+}
+
+/* Ritorna 1 se text comincia con una frazione che ha \partial sopra: il
+ * segno di una derivata parziale. Come il segno di Leibniz (vedi
+ * starts_with_derivative()), non è mai una frazione di lettere. */
+static int starts_with_partial(const char *text) {
+    static const char *const fraction[] = {"\\frac", "\\dfrac", "\\tfrac"};
+    for (size_t i = 0; i < sizeof fraction / sizeof *fraction; i++) {
+        size_t length = strlen(fraction[i]);
+        if (strncmp(text, fraction[i], length) != 0) continue;
+        const char *above = text + length;
+        while (isspace((unsigned char)*above)) above++;
+        if (*above != '{') return 0;
+        for (above++; isspace((unsigned char)*above); above++) {}
+        return strncmp(above, "\\partial", 8) == 0 && !isalpha((unsigned char)above[8]);
+    }
+    return 0;
+}
+
+/* Legge un esponente che deve essere un numero intero scritto, da 1 in su,
+ * e lo ritorna; con un altro esponente segnala l'errore shape. Il token
+ * corrente è quello dopo il segno ^. */
+static long long parse_partial_exponent(const char *shape) {
+    Node *exponent = parse_group();
+    if (exponent->kind == N_NUM && exponent->value >= 1) return exponent->value;
+    syntax(shape);
+    return 1;
+}
+
+/* partial := \frac{\partial^{k} lettera}{\partial x \partial y^{2} ...} [point]
+ *          | \frac{\partial^{k}}{\partial x \partial y^{2} ...} factor
+ *
+ * Il token corrente è il \frac del segno. L'ordine k scritto sopra (1 se
+ * manca) deve essere la somma degli esponenti scritti sotto. */
+static Node *parse_partial_fraction(void) {
+    const char *shape = "una derivata parziale si scrive \\frac{\\partial^{2} f}{\\partial x \\partial y}, con lo stesso ordine sopra e sotto, al più 4";
+    int written[MAX_PARTIAL_ORDER], by[MAX_PARTIAL_ORDER], order = 0, function = -1;
+    long long above = 1;
+    Node *point[MAX_FUNCTION_VARIABLES];
+    next_token();
+
+    /* Sopra: \partial, o \partial^{k}, e la funzione dichiarata se c'è. */
+    expect_char('{', shape);
+    if (is_command("partial")) next_token(); else syntax(shape);
+    if (is_char('^')) { next_token(); above = parse_partial_exponent(shape); }
+    if (token.kind == T_LETTER) {
+        function = partial_function(token.ch);
+        if (function < 0) syntax("la funzione scritta sopra il segno di derivata parziale non è dichiarata: serve f(x, y) = ... \\implies prima della tesi");
+        next_token();
+    }
+    expect_char('}', shape);
+
+    /* Sotto: \partial x, \partial y^{2}, ... */
+    expect_char('{', shape);
+    while (is_command("partial")) {
+        next_token();
+        if (token.kind != T_LETTER) { syntax(shape); break; }
+        int letter = token.ch;
+        long long times = 1;
+        next_token();
+        if (is_char('^')) { next_token(); times = parse_partial_exponent(shape); }
+        if (times > MAX_PARTIAL_ORDER - order) { syntax(shape); break; }
+        for (long long i = 0; i < times; i++) written[order++] = letter;
+    }
+    expect_char('}', shape);
+    if (order == 0 || order != above) { syntax(shape); return node_num(0); }
+
+    /* Si deriva per prima rispetto all'ultima lettera scritta (vedi le
+     * convenzioni in testa al capitolo). */
+    for (int i = 0; i < order; i++) by[i] = written[order - 1 - i];
+
+    /* Senza funzione sopra, la funzione è il fattore che segue, e deve
+     * finire lì: \frac{\partial}{\partial x}(x^{2}) \cdot (x + 1) si può
+     * leggere con il secondo fattore dentro la derivata o fuori, e con la
+     * lettura sbagliata un enunciato falso risulterebbe dimostrato. */
+    if (function < 0) {
+        Node *body = parse_factor();
+        if (starts_factor() || is_command("cdot") || is_command("times") || is_char('/'))
+            syntax("dopo il segno \\frac{\\partial}{\\partial x} la funzione è un solo fattore, di solito tra parentesi: un altro fattore accanto "
+                   "si potrebbe leggere dentro o fuori dalla derivata, e va scritto prima del segno");
+        return partial_operand(-1, body, by, order, NULL);
+    }
+    int at = parse_point(&partial_statement->function[function], point);
+    return partial_operand(function, NULL, by, order, at ? point : NULL);
+}
+
+/* Vedi la dichiarazione prima di parse_primary(): se il token corrente è
+ * l'inizio di una derivata parziale o il nome di una funzione dichiarata,
+ * legge l'operando e ritorna la variabile che ne tiene il posto; altrimenti
+ * ritorna NULL senza toccare nulla. Fuori da un enunciato sulle funzioni di
+ * più variabili ritorna sempre NULL. */
+static Node *parse_partial_piece(void) {
+    const char *subscript = "il pedice di una funzione dichiarata elenca le lettere rispetto a cui si deriva, al più 4, come in f_{xy}";
+    int by[MAX_PARTIAL_ORDER], order = 0;
+    Node *point[MAX_FUNCTION_VARIABLES];
+    if (!partial_statement) return NULL;
+    if (is_command("nabla")) { syntax("il gradiente e l'hessiana si scrivono da soli al primo membro di un'uguaglianza"); return node_num(0); }
+    if ((is_command("frac") || is_command("dfrac") || is_command("tfrac")) && starts_with_partial(token.start)) return parse_partial_fraction();
+    int function = token.kind == T_LETTER ? partial_function(token.ch) : -1;
+    if (function < 0) return NULL;
+    next_token();
+
+    /* Il pedice: una lettera sola, o più lettere tra graffe. */
+    if (is_char('_')) {
+        next_token();
+        int braces = is_char('{');
+        if (braces) next_token();
+        while (token.kind == T_LETTER && (braces || order == 0)) {
+            if (order == MAX_PARTIAL_ORDER) { syntax(subscript); return node_num(0); }
+            by[order++] = token.ch;
+            next_token();
+        }
+        if (braces) expect_char('}', subscript);
+        if (order == 0) { syntax(subscript); return node_num(0); }
+    }
+    int at = parse_point(&partial_statement->function[function], point);
+    return partial_operand(function, NULL, by, order, at ? point : NULL);
+}
+
+/* Ritorna 1 se text comincia con la definizione di una funzione, lettera
+ * '(' lettera { ',' lettera } ')' '=': con \implies più avanti, è ciò che
+ * dice al capitolo 20 di main.c che l'enunciato è di questo capitolo. Usa il
+ * lettore di token, e lascia il suo stato da reimpostare. */
+static int starts_with_definition(const char *text) {
+    syntax_error = NULL;
+    cursor = text;
+    next_token();
+    int found = token.kind == T_LETTER;
+    next_token();
+    found = found && token.kind == T_OPEN;
+    do {
+        next_token();
+        found = found && token.kind == T_LETTER;
+        next_token();
+    } while (found && is_char(','));
+    found = found && token.kind == T_CLOSE;
+    next_token();
+    found = found && is_char('=');
+    syntax_error = NULL;
+    return found;
+}
+
+/* definition := lettera '(' lettera { ',' lettera } ')' '=' expr, dal token
+ * corrente: aggiunge la funzione a quelle dichiarate di *out. La funzione è
+ * nota solo dopo la sua definizione: non può comparire dentro se stessa. */
+static void parse_definition(PartialStatement *out) {
+    const char *shape = "una funzione si dichiara come f(x, y) = espressione, con al più 4 lettere diverse tra parentesi";
+    const char *names = "il nome di una funzione dichiarata non può essere una sua variabile, comparire nella sua definizione, o essere un nome già usato";
+    const char *euler = "la lettera e è il numero di Nepero: non può essere una funzione dichiarata o una sua variabile";
+    DeclaredFunction f;
+    memset(&f, 0, sizeof f);
+    if (token.kind != T_LETTER) { syntax(shape); return; }
+    f.name = token.ch;
+    next_token();
+    if (token.kind != T_OPEN) { syntax(shape); return; }
+
+    /* Le variabili: lettere diverse tra loro, e che non siano la lettera e
+     * o il nome di una funzione. */
+    do {
+        next_token();
+        if (token.kind != T_LETTER || f.variables == MAX_FUNCTION_VARIABLES) { syntax(shape); return; }
+        for (int i = 0; i < f.variables; i++)
+            if (f.variable[i] == token.ch) { syntax(shape); return; }
+        if (token.ch == 'e') { syntax(euler); return; }
+        if (token.ch == f.name || partial_function(token.ch) >= 0) { syntax(names); return; }
+        f.variable[f.variables++] = token.ch;
+        next_token();
+    } while (is_char(','));
+    if (token.kind != T_CLOSE) { syntax(shape); return; }
+    next_token();
+    expect_char('=', shape);
+    f.body = parse_expr();
+    if (f.name == 'e') syntax(euler);
+    else if (partial_function(f.name) >= 0 || node_uses_letter_parser(f.body, f.name)) syntax(names);
+    else if (out->functions == MAX_FUNCTIONS) syntax("troppe funzioni dichiarate in un enunciato");
+    if (!syntax_error) out->function[out->functions++] = f;
+}
+
+/* Aggiunge a *out la tesi lhs = rhs (rhs NULL: una componente di una
+ * richiesta). */
+static void partial_claim_add(PartialStatement *out, Node *lhs, Node *rhs) {
+    if (out->claims == MAX_PARTIAL_CLAIMS) { syntax("troppe tesi in un enunciato sulle funzioni di più variabili"); return; }
+    out->claim[out->claims++] = (Statement){lhs, rhs, REL_EQ};
+}
+
+/* Se il token corrente è \begin (o \end, secondo word) seguito da {pmatrix}
+ * o {bmatrix}, lo supera tutto e ritorna 1; altrimenti ritorna 0. Il nome
+ * dell'ambiente si legge dal testo: per il lettore di token sarebbero lettere
+ * sparse. */
+static int matrix_fence(const char *word) {
+    static const char *const names[] = {"{pmatrix}", "{bmatrix}"};
+    if (!is_command(word)) return 0;
+    for (size_t i = 0; i < sizeof names / sizeof *names; i++) {
+        size_t length = strlen(names[i]);
+        if (strncmp(cursor, names[i], length) != 0) continue;
+        cursor += length;
+        next_token();
+        return 1;
+    }
+    return 0;
+}
+
+/* claim: vedi la grammatica in testa al capitolo. Legge una tesi dal token
+ * corrente e la aggiunge a *out: un gradiente e un'hessiana come una tesi
+ * per componente, una richiesta come le sole componenti. */
+static void parse_partial_claim(PartialStatement *out) {
+    Node *left[MAX_FUNCTION_VARIABLES * MAX_FUNCTION_VARIABLES], *point[MAX_FUNCTION_VARIABLES];
+    PartialRequest shape = ASKED_VALUE;
+    int count = 1, columns = 1, function = -1;
+    const char *from = token.start;
+
+    /* \nabla f, oppure H_{f}: la lettera H seguita dal nome di una funzione
+     * dichiarata come pedice, se H non è lei stessa una funzione. Ogni altra
+     * scrittura che comincia con H è un'espressione. */
+    if (is_command("nabla")) {
+        next_token();
+        function = token.kind == T_LETTER ? partial_function(token.ch) : -1;
+        if (function < 0) { syntax("dopo \\nabla serve una funzione dichiarata, come in f(x, y) = ... \\implies \\nabla f = (..., ...)"); return; }
+        next_token();
+        shape = ASKED_GRADIENT;
+    } else if (token.kind == T_LETTER && token.ch == 'H' && partial_function('H') < 0) {
+        ParserState saved = parser_save();
+        int braces = 0;
+        next_token();
+        if (is_char('_')) {
+            next_token();
+            braces = is_char('{');
+            if (braces) next_token();
+            function = token.kind == T_LETTER ? partial_function(token.ch) : -1;
+        }
+        if (function >= 0) {
+            next_token();
+            if (braces && is_char('}')) next_token();
+            else if (braces) function = -1;
+        }
+        if (function >= 0) shape = ASKED_HESSIAN;
+        else parser_restore(saved);
+    }
+
+    /* Il primo membro: un'espressione, o le componenti di un gradiente o di
+     * un'hessiana. Nell'hessiana la riga r e la colonna c hanno f_{x_r x_c}:
+     * si deriva prima rispetto a x_r, poi rispetto a x_c. */
+    if (function >= 0) {
+        const DeclaredFunction *f = &out->function[function];
+        int at = parse_point(f, point), n = f->variables;
+        columns = n;
+        count = shape == ASKED_GRADIENT ? n : n * n;
+        for (int i = 0; i < count; i++) {
+            int by[2] = {f->variable[shape == ASKED_GRADIENT ? i : i / n], f->variable[i % n]};
+            left[i] = partial_operand(function, NULL, by, shape == ASKED_GRADIENT ? 1 : 2, at ? point : NULL);
+        }
+    } else {
+        left[0] = parse_expr();
+    }
+    const char *to = consumed;
+
+    /* Senza il segno di uguale è una richiesta, che deve essere la sola
+     * tesi: la risposta è una sola. */
+    if (!is_char('=')) {
+        if (out->claims || is_command("land") || is_command("wedge")) { syntax("una richiesta, senza il segno di uguale, deve essere la sola tesi"); return; }
+        out->request = shape;
+        out->columns = columns;
+        out->asked_from = from;
+        out->asked_to = to;
+        for (int i = 0; i < count; i++) partial_claim_add(out, left[i], NULL);
+        return;
+    }
+    next_token();
+
+    /* Il secondo membro: un'espressione; per un gradiente una lista, o 0;
+     * per un'hessiana una matrice. */
+    if (shape == ASKED_VALUE) { partial_claim_add(out, left[0], parse_expr()); return; }
+    const char *form = shape == ASKED_HESSIAN
+                           ? "un'hessiana è uguale a una matrice \\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}, con tante righe e colonne quante sono le variabili"
+                           : "un gradiente è uguale a una lista (a, b) con una componente per variabile, oppure a 0";
+    if (shape == ASKED_GRADIENT && token.kind != T_OPEN) {
+        Node *zero = parse_expr();
+        if (zero->kind != N_NUM || zero->value != 0) { syntax(form); return; }
+        for (int i = 0; i < count; i++) partial_claim_add(out, left[i], zero);
+        return;
+    }
+    if (shape == ASKED_GRADIENT) next_token();
+    else if (!matrix_fence("begin")) { syntax(form); return; }
+    for (int i = 0; i < count; i++) {
+        if (i % columns) expect_char(shape == ASKED_HESSIAN ? '&' : ',', form);
+        else if (i) expect_char(ESCAPED + '\\', form);
+        partial_claim_add(out, left[i], parse_expr());
+    }
+    if (shape == ASKED_GRADIENT) {
+        if (token.kind == T_CLOSE) next_token(); else syntax(form);
+    } else {
+        if (is_char(ESCAPED + '\\')) next_token();
+        if (!matrix_fence("end")) syntax(form);
+    }
+}
+
+/* Analizza text come enunciato sulle funzioni di più variabili (vedi
+ * PartialStatement e la grammatica in testa al capitolo) e lo mette in *out.
+ * Ritorna 1 se riesce; altrimenti ritorna 0 e syntax_error dice perché. */
+static int parse_partial_statement(const char *text, PartialStatement *out) {
+    memset(out, 0, sizeof *out);
+    int defined = starts_with_definition(text);
+    syntax_error = NULL;
+    cursor = text;
+    next_token();
+    partial_statement = out;
+
+    /* Le definizioni, se l'enunciato comincia con una. */
+    if (defined) {
+        for (;;) {
+            parse_definition(out);
+            if (!is_char(',')) break;
+            next_token();
+        }
+        if (is_command("implies") || is_command("Rightarrow") || is_command("Longrightarrow")) next_token();
+        else syntax("dopo le definizioni delle funzioni serve \\implies e la tesi");
+    }
+
+    /* Le tesi. */
+    for (;;) {
+        parse_partial_claim(out);
+        if (!is_command("land") && !is_command("wedge")) break;
+        next_token();
+    }
+    if (token.kind != T_END) syntax("testo inatteso dopo l'enunciato");
+
+    /* Da qui in poi ogni lettore torna quello di sempre, anche dopo un
+     * errore. */
+    partial_statement = NULL;
+    return syntax_error == NULL;
 }
 

@@ -197,6 +197,12 @@
  *     è (o non è, o non esiste) ciò che il certificato afferma. Il teorema
  *     esatto, con ciò che si cita senza dimostrarlo (il teorema di Taylor con
  *     il resto di Peano, la scala delle crescite), è in testa al capitolo 14.
+ *   - "certificate partial" (capitolo 18): ogni termine è una derivata
+ *     parziale, anche mista, di una funzione di più lettere, e vale la sua
+ *     formula G in ogni punto in cui la funzione è regolare e G è definita;
+ *     con un punto, lì la funzione è regolare, e il termine è il numero
+ *     G(P). Ogni tesi L = R vale dove i termini che nomina esistono e i due
+ *     membri sono definiti. Il teorema esatto è in testa al capitolo 18.
  *
  * COMPILAZIONE
  *
@@ -221,6 +227,7 @@
  *   12. Tabelle dei segni
  *   13. Derivate e primitive
  *   14. Limiti
+ *   18. Derivate parziali
  *   15. Controllo di un certificato
  *   16. main
  */
@@ -8551,6 +8558,310 @@ static void ck_check_limit(void) {
 }
 
 /* =============================================================================
+ * 18. DERIVATE PARZIALI
+ * ============================================================================
+ *
+ * Gli enunciati del capitolo 35 di mathresearcher: le derivate parziali di
+ * funzioni di più variabili, il gradiente e l'hessiana componente per
+ * componente, anche in un punto, e le uguaglianze che quelle derivate
+ * soddisfano. Il certificato nomina ogni derivata e poi scrive le tesi con
+ * quei nomi:
+ *
+ *     certificate partial
+ *     term A
+ *     of (* (^ x 2) y)
+ *     by x y
+ *     is (* 2 x)
+ *     at x 1 y 2
+ *     term B
+ *     of (ln (+ (^ x 2) (^ y 2)))
+ *     by x x
+ *     is (/ (- (* 2 (^ y 2)) (* 2 (^ x 2))) (^ (+ (^ x 2) (^ y 2)) 2))
+ *     statement (= A 2)
+ *     end
+ *
+ * Una voce term ha un nome (una lettera), la funzione F (of), le lettere
+ * rispetto a cui si deriva, nell'ordine in cui si deriva (by, anche nessuna:
+ * allora il termine è la funzione), una formula G (is) e, se c'è, un punto
+ * P (at: una lettera e la sua coordinata, per le lettere che si vogliono,
+ * ognuna una volta sola; le coordinate si calcolano prima di legare le
+ * lettere, quindi tutte insieme).
+ * Una voce statement è un'uguaglianza tra due espressioni, in cui i nomi dei
+ * termini stanno per i termini. Le parole e le convenzioni sono quelle del
+ * capitolo 13; tutte le lettere che non sono nomi di termini sono variabili
+ * reali, senza distinzione tra variabili e parametri.
+ *
+ * I NOMI. La funzione e le coordinate di un termine possono nominare i
+ * termini scritti prima di lui, mai se stesso o quelli dopo; una formula non
+ * nomina termini; e il nome di un termine non è mai una lettera rispetto a
+ * cui si deriva o di un punto. Così una lettera è, in tutto il certificato,
+ * o un termine o una variabile, e non c'è modo di leggerla in due sensi.
+ *
+ * I TEOREMI. Si dice che un termine esiste in un punto (un valore per ogni
+ * lettera) se lì esistono i termini che la sua funzione nomina, la funzione
+ * F, con quei termini al posto dei loro nomi, è regolare, e la formula G è
+ * definita (le parole "definita" e "regolare" sono quelle del capitolo 13).
+ *
+ *   - term, senza punto: in ogni punto in cui il termine esiste, la derivata
+ *     parziale di F rispetto alle lettere di by, una dopo l'altra, esiste e
+ *     vale G. È questo il valore del termine, in quel punto.
+ *   - term, con il punto P: il termine esiste in P (con le coordinate di P
+ *     al posto delle loro lettere), quindi lì la derivata esiste, e il
+ *     termine vale il numero G(P). Se una coordinata o una condizione di
+ *     esistenza non è un numero di cui si sa il segno (un razionale, o
+ *     c_0 + c_1 pi + c_2 e), il certificato non è controllabile.
+ *   - statement (= L R): in ogni punto in cui esistono i termini senza punto
+ *     che L e R nominano, e L e R sono definiti, vale L = R.
+ *
+ * PERCHÉ. La derivata parziale rispetto a x è, per definizione, la derivata
+ * della funzione della sola x che si ottiene tenendo ferme le altre lettere:
+ * è ciò che calcola il capitolo 13 (13c), per cui le altre lettere sono
+ * parametri, e vale in ogni punto in cui F è regolare. L'insieme di quei
+ * punti è aperto in tutte le lettere insieme (ogni condizione è stretta, su
+ * funzioni continue), e la derivata calcolata è una frazione di polinomi
+ * nelle stesse lettere di F, definita lì: la si può derivare di nuovo,
+ * rispetto a un'altra lettera, e per induzione le derivate miste sono quelle
+ * calcolate una dopo l'altra. Se la differenza dalla formula G è zero dove
+ * le due sono definite (13d), G vale la derivata dove il termine esiste.
+ *
+ * In un punto il conto è finito e completo: con le coordinate al posto delle
+ * lettere ogni condizione di esistenza annotata calcolando F e G (un
+ * divisore, l'argomento di un logaritmo, un radicando) è un numero, e il suo
+ * segno si legge dal numero stesso o dal suo intervallo razionale
+ * (ck_endpoint()). Se sono tutte dalla parte giusta il termine esiste in P,
+ * e il primo teorema dà il valore.
+ *
+ * Una tesi è una differenza che deve valere zero, come nel capitolo 13: i
+ * nomi dei termini vi valgono le loro formule (o i numeri, con un punto),
+ * che dove i termini esistono sono le derivate.
+ *
+ * Quando si respinge. La prova dello zero di 13d respinge un polinomio non
+ * nullo solo nei casi in cui è di sicuro diverso da zero in qualche punto di
+ * ogni aperto: lì il certificato afferma un'uguaglianza falsa. I casi 13d-3
+ * e 13d-4 parlano di una funzione della variabile numero 0; qui la numero 0
+ * è una lettera qualsiasi, e gli argomenti valgono lo stesso, perché le
+ * altre lettere sono per lei dei parametri e un polinomio non nullo resta
+ * non nullo per quasi tutti i loro valori.
+ *
+ * I valori assoluti si trattano come in 13f, con tutte le scelte dei segni;
+ * con un punto no: lì servirebbe il segno di ogni argomento nel punto, e il
+ * certificato non è controllabile.
+ */
+
+#define CK_MAX_PARTIALS 32  /* voci term di un certificato */
+#define CK_MAX_CLAIMS 32    /* voci statement di un certificato */
+
+/* Un termine di un certificato partial, come è stato letto: vedi la testa
+ * del capitolo. value è il valore del termine con un punto, nella
+ * valutazione in corso: lo calcola ck_partial_term(), e lo usano i termini
+ * e le tesi che vengono dopo. */
+typedef struct {
+    char name;                               /* il nome del termine */
+    const CkNode *of, *is;                   /* F e G */
+    int order;                               /* quante lettere ha by */
+    char by[CK_MAX_DERIVATIVE];              /* le lettere rispetto a cui si deriva, nell'ordine */
+    int at;                                  /* quante lettere ha il punto; 0 se non c'è */
+    char letter[CK_MAX_POINT];               /* le lettere del punto */
+    const CkNode *coordinate[CK_MAX_POINT];  /* le loro coordinate */
+    CkRat value;                             /* con un punto: G(P) */
+} CkPartial;
+
+static CkPartial ck_partials[CK_MAX_PARTIALS];
+static int ck_partial_count;
+
+/* Ritorna il valore di node, in cui i nomi dei primi count termini valgono
+ * i termini: il numero G(P) per un termine con un punto, altrimenti la sua
+ * formula G calcolata nel contesto in corso (se le lettere di un punto sono
+ * legate, lì). Con ck_recording acceso annota anche le condizioni perché
+ * ogni termine senza punto nominato esista nel contesto: calcola la sua
+ * funzione, che a sua volta nomina solo termini precedenti. */
+static CkRat ck_partial_eval(const CkNode *node, int count) {
+    int kept = ck_env_count;
+    for (int i = 0; i < count && ck_status == CK_ACCEPTED; i++) {
+        const CkPartial *t = &ck_partials[i];
+        if (!ck_mentions(node, t->name)) continue;
+        CkRat value = t->value;
+        if (!t->at) {
+            if (ck_recording) ck_partial_eval(t->of, i);
+            value = ck_eval(t->is);
+        }
+        if (ck_env_count == CK_MAX_ENV) { ck_unsupported("troppi termini in una sola espressione"); break; }
+        ck_env[ck_env_count++] = (CkBinding){t->name, value};
+    }
+    CkRat result = ck_eval(node);
+    ck_env_count = kept;
+    return result;
+}
+
+/* Controlla il termine numero i: l'identità tra la derivata calcolata qui e
+ * la formula (con final = 0 si calcola soltanto, come in 13f) e, se ha un
+ * punto, che lì esista; ne mette allora il valore in value. */
+static void ck_partial_term(int i, int final) {
+    CkPartial *t = &ck_partials[i];
+    CkRat derivative = ck_partial_eval(t->of, i);
+    for (int j = 0; j < t->order && ck_status == CK_ACCEPTED; j++) {
+        /* Le derivate delle lettere annotate valgono per la lettera di
+         * prima: si ricalcolano. */
+        ck_dx = t->by[j];
+        ck_derived = 0;
+        derivative = ck_derivative_times(derivative, 1);
+    }
+    CkRat formula = ck_eval(t->is);
+    if (final) ck_calculus_zero(ck_rat_add(derivative, formula, 1), "la derivata calcolata dal verificatore non è la formula del certificato");
+    if (!t->at || ck_status != CK_ACCEPTED) return;
+    if (ck_abs_count) { ck_unsupported("un valore assoluto in un certificato con un punto: lì servirebbe il segno del suo argomento"); return; }
+
+    /* Il punto: le coordinate, poi F e G con le lettere legate, annotando
+     * le condizioni di esistenza. Una costante la decide subito chi la
+     * annota (ck_condition(), ck_rat_div()); le altre restano annotate. */
+    static const char *const irregular = "in un punto la funzione non è regolare, o la formula della derivata non è definita";
+    static const char *const unknown = "non so stabilire che in un punto la funzione è regolare e la formula della derivata è definita";
+    CkRat coordinate[CK_MAX_POINT];
+    for (int j = 0; j < t->at; j++) coordinate[j] = ck_partial_eval(t->coordinate[j], i);
+    if (ck_env_count + t->at > CK_MAX_ENV) { ck_unsupported("troppe coordinate"); return; }
+    for (int j = 0; j < t->at; j++) ck_env[ck_env_count++] = (CkBinding){t->letter[j], coordinate[j]};
+    ck_divisor_count = ck_condition_count = 0;
+    ck_recording = 1;
+    ck_partial_eval(t->of, i);
+    t->value = ck_eval(t->is);
+    ck_recording = 0;
+    ck_env_count -= t->at;
+
+    /* Le condizioni rimaste: numeri con pi greco o con e, di cui si legge il
+     * segno nell'intervallo razionale di ck_endpoint(). */
+    for (int c = 0; c < ck_divisor_count + ck_condition_count && ck_status == CK_ACCEPTED; c++) {
+        CkCondition condition = c < ck_divisor_count ? (CkCondition){ck_divisors[c].value, 0, 1} : ck_conditions[c - ck_divisor_count];
+        CkNum low, high;
+        ck_endpoint(ck_rat_poly(condition.p), &low, &high);
+        if (ck_status != CK_ACCEPTED) break;
+        int positive = low.num > 0, negative = high.num < 0, zero = low.num == 0 && high.num == 0;
+        if (positive || (negative && !condition.positive)) continue;
+        if (condition.certain && (zero || negative)) ck_reject(irregular);
+        else ck_unsupported(unknown);
+    }
+
+    /* Chi annota le condizioni (capitolo 13) dà motivi che parlano di
+     * integrali e di intervalli: qui ciò che non va è nel punto, e il
+     * motivo lo dice. All'ingresso di questo paragrafo l'esito era
+     * "accettato", quindi ogni altro esito viene da qui. */
+    if (ck_status == CK_REJECTED) ck_reason = irregular;
+    if (ck_status == CK_UNSUPPORTED) ck_reason = unknown;
+}
+
+/* Fa i conti del certificato, con le tesi claim[]; con final = 0 è una
+ * valutazione di prova, di cui contano solo l'unità e i riferimenti (13f).
+ * Per ogni scelta dei segni dei valori assoluti (13f): i termini
+ * nell'ordine, poi le tesi. */
+static void ck_partial_pass(const CkNode *const *claim, int claims, int final) {
+    ck_real = 1;
+    ck_numeric = 0;
+    ck_shift = 0;
+    ck_env_count = 0;
+    ck_brick_count = 0;
+    ck_abs_count = 0;
+    for (int i = 0; i < ck_partial_count; i++) {
+        ck_collect_abs(ck_partials[i].of);
+        ck_collect_abs(ck_partials[i].is);
+        for (int j = 0; j < ck_partials[i].at; j++) ck_collect_abs(ck_partials[i].coordinate[j]);
+    }
+    for (int i = 0; i < claims; i++) ck_collect_abs(claim[i]);
+    for (ck_abs_pattern = 0; ck_abs_pattern < 1u << ck_abs_count && ck_status == CK_ACCEPTED; ck_abs_pattern++) {
+        for (int i = 0; i < ck_partial_count && ck_status == CK_ACCEPTED; i++) ck_partial_term(i, final);
+        for (int i = 0; i < claims && ck_status == CK_ACCEPTED; i++) {
+            CkRat gap = ck_rat_add(ck_partial_eval(claim[i]->a, ck_partial_count), ck_partial_eval(claim[i]->b, ck_partial_count), 1);
+            if (final) ck_calculus_zero(gap, "i due membri di una tesi non sono uguali");
+        }
+    }
+    ck_abs_pattern = 0;
+}
+
+/* Legge e controlla un certificato partial, dalla riga dopo l'intestazione
+ * fino a "end" compreso. */
+static void ck_check_partial(void) {
+    static const char *const names = "certificato scritto male: il nome di un termine è usato come lettera, o prima della sua voce";
+    const CkNode *claim[CK_MAX_CLAIMS];
+    int claims = 0;
+    ck_partial_count = 0;
+
+    /* Le voci term. */
+    for (ck_next_line(); ck_status == CK_ACCEPTED && ck_word("term"); ck_next_line()) {
+        CkPartial *t = &ck_partials[ck_partial_count];
+        if (ck_partial_count == CK_MAX_PARTIALS) { ck_unsupported("troppe voci term"); return; }
+        memset(t, 0, sizeof *t);
+        ck_skip();
+        if (!isalpha((unsigned char)*ck_cursor) || isalnum((unsigned char)ck_cursor[1])) { ck_reject("certificato scritto male: il nome di un termine è una lettera"); return; }
+        t->name = *ck_cursor++;
+        t->of = ck_read_voice("of");
+        ck_next_line();
+        if (!ck_word("by")) { ck_reject("certificato scritto male: una voce manca o è fuori posto"); return; }
+        for (ck_skip(); isalpha((unsigned char)*ck_cursor) && !isalnum((unsigned char)ck_cursor[1]); ck_skip()) {
+            if (t->order == CK_MAX_DERIVATIVE) { ck_unsupported("ordine di derivazione che il verificatore non tratta"); return; }
+            t->by[t->order++] = *ck_cursor++;
+        }
+        t->is = ck_read_voice("is");
+        ck_next_line();
+        if (ck_word("at")) {
+            for (ck_skip(); isalpha((unsigned char)*ck_cursor) && ck_status == CK_ACCEPTED; ck_skip()) {
+                if (t->at == CK_MAX_POINT) { ck_unsupported("troppe coordinate in un punto"); return; }
+                t->letter[t->at] = *ck_cursor++;
+                t->coordinate[t->at++] = ck_read();
+            }
+            if (!t->at) { ck_reject("certificato scritto male: un punto senza coordinate"); return; }
+        }
+        if (ck_status == CK_ACCEPTED) ck_partial_count++;
+    }
+
+    /* Le voci statement, e la fine. */
+    for (; ck_status == CK_ACCEPTED && ck_word("statement"); ck_next_line()) {
+        if (claims == CK_MAX_CLAIMS) { ck_unsupported("troppe voci statement"); return; }
+        claim[claims] = ck_read();
+        if (ck_status == CK_ACCEPTED && claim[claims]->kind != CK_EQ) { ck_unsupported("una tesi che non è un'uguaglianza"); return; }
+        claims++;
+    }
+    if (ck_status != CK_ACCEPTED) return;
+    if (!ck_word("end")) { ck_reject("certificato scritto male: voce sconosciuta o \"end\" mancante"); return; }
+    if (!ck_partial_count && !claims) { ck_reject("certificato scritto male: non afferma nulla"); return; }
+
+    /* I nomi (vedi la testa del capitolo). */
+    for (int i = 0; i < ck_partial_count; i++) {
+        char name = ck_partials[i].name;
+        for (int j = 0; j < ck_partial_count; j++) {
+            const CkPartial *t = &ck_partials[j];
+            int clash = (j != i && t->name == name) || ck_mentions(t->is, name) || (j <= i && ck_mentions(t->of, name));
+            for (int k = 0; k < t->order; k++) clash |= t->by[k] == name;
+            for (int k = 0; k < t->at; k++) clash |= t->letter[k] == name || (j <= i && ck_mentions(t->coordinate[k], name));
+            if (clash) { ck_reject(names); return; }
+        }
+
+        /* Un punto dà un valore solo a ogni lettera. */
+        for (int k = 0; k < ck_partials[i].at; k++)
+            for (int m = 0; m < k; m++)
+                if (ck_partials[i].letter[m] == ck_partials[i].letter[k]) { ck_reject("certificato scritto male: un punto dà due valori alla stessa lettera"); return; }
+    }
+
+    /* Le tre valutazioni, come in 13f. La variabile numero 0 è la prima
+     * lettera rispetto a cui si deriva, se ce n'è una: è di lei che parlano
+     * i casi 13d-3 e 13d-4 della prova dello zero. */
+    size_t mark = ck_used;
+    ck_unit = 1;
+    ck_root_unit_count = 0;
+    ck_variable = 0;
+    for (int pass = 0; pass < 3 && ck_status == CK_ACCEPTED; pass++) {
+        ck_trial = pass < 2;
+        ck_learning = pass == 0;
+        if (pass < 2) {
+            ck_used = mark;
+            ck_var_count = 0;
+            ck_sign_var = -1;
+            for (int i = 0; i < ck_partial_count && ck_var_count == 0; i++)
+                if (ck_partials[i].order) ck_var_letter(ck_partials[i].by[0]);
+        }
+        ck_partial_pass(claim, claims, pass == 2);
+    }
+    ck_real = ck_recording = 0;
+}
+
+/* =============================================================================
  * 15. CONTROLLO DI UN CERTIFICATO
  * ============================================================================
  *
@@ -8608,6 +8919,13 @@ static void ck_read_certificate(CkCertificate *cert) {
     if (ck_word("limit")) {
         cert->checked = 1;
         ck_check_limit();
+        return;
+    }
+
+    /* Le derivate parziali (capitolo 18). */
+    if (ck_word("partial")) {
+        cert->checked = 1;
+        ck_check_partial();
         return;
     }
     if (!ck_word("induction")) { ck_reject("certificato scritto male: manca l'intestazione"); return; }

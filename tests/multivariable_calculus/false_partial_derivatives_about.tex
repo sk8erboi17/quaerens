@@ -1,0 +1,34 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{false\_partial\_derivatives.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{false\_partial\_derivatives.tex} is used for. The file is read by \texttt{test\_multivariable\_calculus.c}.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 40 false statements, each made from a statement of \texttt{partial\_derivatives.tex} by a small change. It is the anti-regression against false proofs for this domain: none of these may ever be proved.
+
+\item \textbf{What it exercises.} The kinds of error: a coefficient (1, 14), a forgotten factor or term (3, 8, 10, 29), a sign (4, 7, 23, 33, 36), the letter of differentiation (2, 5, 9), the two components of a gradient exchanged (6, 37), one entry of a Hessian matrix (22, 24, 25, 27, 28, 31, 40), a mixed derivative taken for a pure one (12), the point or a value at the point (20, 21, 26, 30), an equation that the function does not satisfy (15, 16, 17, 32, 35), and the derivative read as a fraction of letters, $\frac{\partial f}{\partial x} = \frac{f}{x}$ (38).
+
+\item \textbf{Expected result.} Every statement is called false, with a counterexample: the values of the letters at a sample point at which each derivative given by the rules agrees with the Taylor series of the function and the two sides are certainly different; for a statement at a written point, the two values there.
+
+\item \textbf{Sources.} The same as \texttt{partial\_derivatives.tex}. That each statement is false was confirmed by the independent oracle of \texttt{tools/fuzz/fuzz\_multivariable.py} (mode \texttt{check}).
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_multivariable_calculus \
+    tests/multivariable_calculus/test_multivariable_calculus.c && \
+    /tmp/test_multivariable_calculus
+\end{verbatim}
+\end{enumerate}
+\end{document}

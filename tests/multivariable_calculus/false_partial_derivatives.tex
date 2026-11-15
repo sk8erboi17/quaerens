@@ -1,0 +1,60 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{False statements on partial derivatives, gradients and Hessian matrices (40)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+Each item is a statement of \texttt{partial\_derivatives.tex} made false by a small change: a coefficient, a sign, the variable of differentiation, a forgotten term, an entry of a matrix, a coordinate of the point. None may be proved, and every one is to be called false.
+
+\begin{enumerate}
+\item $\displaystyle w(x, y) = x^{3} y - 3xy^{2} + 2y^{2} \implies \frac{\partial w}{\partial x} = 3x^{2} y - 6y^{2}$
+\item $\displaystyle w(x, y) = x^{3} y - 3xy^{2} + 2y^{2} \implies \frac{\partial w}{\partial y} = 3x^{2} y - 3y^{2}$
+\item $\displaystyle w(x, y) = x^{3} y - 3xy^{2} + 2y^{2} \implies \frac{\partial w}{\partial y} = x^{3} - 6xy$
+\item $\displaystyle z(x, y) = \frac{x}{y} \implies \frac{\partial z}{\partial y} = \frac{x}{y^{2}}$
+\item $\displaystyle z(x, y) = \frac{x}{y} \implies \frac{\partial z}{\partial x} = \frac{1}{x}$
+\item $\displaystyle w(x, y) = \sin(3x + 2y) \implies \nabla w = \left( 2\cos(3x + 2y), 3\cos(3x + 2y) \right)$
+\item $\displaystyle w(x, y) = \sin(3x + 2y) \implies \nabla w = \left( 3\cos(3x + 2y), -2\cos(3x + 2y) \right)$
+\item $\displaystyle w(x, y) = e^{x^{2} y} \implies w_{x} = 2x e^{x^{2} y}$
+\item $\displaystyle w(x, y) = e^{x^{2} y} \implies w_{y} = 2xy e^{x^{2} y}$
+\item $\displaystyle z(x, y) = x \ln(2x + y) \implies z_{x} = \ln(2x + y) + \frac{x}{2x + y}$
+\item $\displaystyle w(x, y, z) = x^{2} z - 2yz^{3} \implies \nabla w = \left( 2xz, -2z^{3}, x^{2} - 2yz^{2} \right)$
+\item $\displaystyle f(x, y) = x^{5} y^{3} \implies f_{xy} = f_{xx}$
+\item $\displaystyle f(x, y) = x^{5} y^{3} \implies f_{xy} = 15x^{4} y^{3}$
+\item $\displaystyle f(x, y) = x^{2} y + 3xy^{2} \implies f_{x} = xy + 3y^{2}$
+\item $\displaystyle w(x, y) = x^{2} + y^{2} \implies w_{xx} + w_{yy} = 0$
+\item $\displaystyle w(x, y) = e^{ax} \sin(by) \implies w_{xx} + w_{yy} = 0$
+\item $\displaystyle w(x, y) = \ln(x^{2} + y^{2}) \implies w_{xx} - w_{yy} = 0$
+\item $\displaystyle z(x, y) = 3xy + x^{2} \implies \frac{\partial^{2} z}{\partial x \partial y} = 2$
+\item $\displaystyle z(x, y) = 3xy + x^{2} \implies \frac{\partial^{2} z}{\partial y^{2}} = 3$
+\item $\displaystyle z(x, y) = x^{2} + y^{2} - 2x \implies \nabla z(0, 1) = (0, 0)$
+\item $\displaystyle z(x, y) = x^{2} + y^{2} - 2x \implies \nabla z(1, 0) = (0, 1)$
+\item $\displaystyle z(x, y) = x^{2} + y^{2} - 2x \implies H_{z} = \begin{pmatrix} 2 & 0 \\ 0 & -2 \end{pmatrix}$
+\item $\displaystyle f(x, y) = x^{2} + e^{xy} + 2\ln y \implies \nabla f = \left( 2x + y e^{xy}, x e^{xy} - \frac{2}{y} \right)$
+\item $\displaystyle f(x, y) = x^{2} + e^{xy} + 2\ln y \implies H_{f} = \begin{pmatrix} 2 + y^{2} e^{xy} & e^{xy} + xy e^{xy} \\ e^{xy} + xy e^{xy} & x^{2} e^{xy} + \frac{2}{y^{2}} \end{pmatrix}$
+\item $\displaystyle f(x, y) = x^{2} + e^{xy} + 2\ln y \implies H_{f} = \begin{pmatrix} 2 + y^{2} e^{xy} & e^{xy} + x e^{xy} \\ e^{xy} + xy e^{xy} & x^{2} e^{xy} - \frac{2}{y^{2}} \end{pmatrix}$
+\item $\displaystyle f(x, y) = x^{4} + y^{4} - 4xy \implies \nabla f(1, -1) = 0$
+\item $\displaystyle f(x, y) = x^{4} + y^{4} - 4xy \implies H_{f}(1, 1) = \begin{pmatrix} 12 & 4 \\ 4 & 12 \end{pmatrix}$
+\item $\displaystyle f(x, y) = x^{4} + y^{4} - 4xy \implies H_{f}(1, 1) = \begin{pmatrix} 12 & -4 \\ -4 & 0 \end{pmatrix}$
+\item $\displaystyle \frac{\partial}{\partial x}\left( e^{x^{2} y^{3}} \sin(x + z) \right) = 2xy^{3} e^{x^{2} y^{3}} \sin(x + z)$
+\item $\displaystyle f(x, y) = -\ln(1 - x - y) - \ln x - \ln y \implies \nabla f\left( \frac{1}{3}, \frac{1}{2} \right) = (0, 0)$
+\item $\displaystyle f(x, y) = -\ln(1 - x - y) - \ln x - \ln y \implies H_{f}\left( \frac{1}{3}, \frac{1}{3} \right) = \begin{pmatrix} 18 & 9 \\ 9 & 9 \end{pmatrix}$
+\item $\displaystyle w(x, y, z) = \frac{1}{x^{2} + y^{2} + z^{2}} \implies w_{xx} + w_{yy} + w_{zz} = 0$
+\item $\displaystyle f(x, y) = \arctan\left( \frac{y}{x} \right) \implies \frac{\partial f}{\partial x} = \frac{y}{x^{2} + y^{2}}$
+\item $\displaystyle u(x, y) = x^{2} - y^{2}, v(x, y) = 2xy \implies u_{y} = v_{x}$
+\item $\displaystyle f(x, y) = x^{3} y^{2} \implies x f_{x} + y f_{y} = 6f$
+\item $\displaystyle u(x, t) = e^{-t} \sin x \implies u_{t} = -u_{xx}$
+\item $\displaystyle f(x, y) = \sqrt{x^{2} + y^{2}} \implies \nabla f(3, 4) = \left( \frac{4}{5}, \frac{3}{5} \right)$
+\item $\displaystyle f(x, y) = x^{2} \implies \frac{\partial f}{\partial x} = x$
+\item $\displaystyle \frac{\partial}{\partial x}\left( \frac{\partial}{\partial y}\left( x^{2} y^{3} \right) \right) = 6x^{2} y$
+\item $\displaystyle f(x, y) = e^{xy} \implies H_{f}(0, 0) = \begin{pmatrix} 0 & 1 \\ 1 & 1 \end{pmatrix}$
+\end{enumerate}
+\end{document}

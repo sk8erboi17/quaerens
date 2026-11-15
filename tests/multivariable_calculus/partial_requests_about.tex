@@ -1,0 +1,31 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{partial\_requests.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{partial\_requests.tex} is used for. It is a sample of requests to run by hand, \texttt{mathresearcher tests/multivariable\_calculus/partial\_requests.tex}, to see how the engine writes a gradient or a Hessian matrix; \texttt{test\_multivariable\_calculus.c} reads it too.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 14 requests, with nothing after them: a partial derivative, a gradient, a Hessian matrix, as a formula or at a point, and one expression made of two derivatives. The engine answers \texttt{RISOLTO} with the result.
+
+\item \textbf{What it exercises.} The request (35f of \texttt{main.c}): the derivatives by the rules, confirmed with the Taylor series of the function along lines; the answer written as an expression, a list or a matrix, after a light simplification that never changes where an expression is defined; and then the statement completed by the answer, read back from the text and proved as if the user had written it, with its certificate. The answer is delivered only if that statement is proved.
+
+\item \textbf{Expected result.} Every request is answered, with an accepted certificate. In \texttt{test\_multivariable\_calculus.c} the line \texttt{PASS: 7 of 7 requests answered as expected} fixes the text of some answers, and the lines \texttt{PASS: \ldots requests made from \ldots} check the requests made from the true statements against the stated results, at points that are not those of the engine.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o mathresearcher main.c && \
+    ./mathresearcher tests/multivariable_calculus/partial_requests.tex
+\end{verbatim}
+\end{enumerate}
+\end{document}

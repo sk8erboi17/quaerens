@@ -119,6 +119,14 @@
  * (\in \mathbb{R}), che senza una primitiva si decide per confronto con
  * x^{-a} (\ln x)^{-b}.
  *
+ * E le funzioni di più variabili (capitolo 35): "f(x, y) = x^2 y \implies
+ * \nabla f(1, 2) = (4, 1)", le derivate parziali scritte con \partial o con
+ * il pedice, il gradiente e la matrice hessiana, come formule o in un punto,
+ * e le uguaglianze che le derivate soddisfano (u_xx + u_yy = 0). Si deriva
+ * con le regole del capitolo 27, una lettera alla volta, e ogni derivata,
+ * anche mista, si ricontrolla con le serie di Taylor della funzione lungo
+ * delle rette; senza il segno di uguale è una richiesta.
+ *
  * Gli enunciati arrivano da un file .tex (un \item per enunciato, capitolo 21)
  * oppure, senza argomenti, da una riga di stdin. Dopo la formula un \item può
  * dire da quale n vale l'enunciato; ciò che il programma non sa leggere lo
@@ -461,6 +469,7 @@
  *   14. Insiemi: notazione e albero                         (parser.c)
  *   17. Quantificatori: notazione e albero                  (parser.c)
  *   21. Lettura degli enunciati da un file .tex             (parser.c)
+ *   34. Funzioni di più variabili: notazione e albero       (parser.c)
  *   10. Vocabolario: le successioni note, come dati
  *   11. Valutazione: dall'albero alla frazione
  *   12. Test di annullamento
@@ -495,6 +504,7 @@
  *   28. Insiemi qualsiasi: modelli finiti anche con SAT, istanze, uguali al posto di uguali
  *   29. Limiti
  *   30. Integrali: primitive, integrali definiti e impropri
+ *   35. Funzioni di più variabili: derivate parziali, gradiente, hessiana
  *   20. Dimostrare un enunciato
  *   22. Il documento finale                                 (output.c)
  *   23. main
@@ -26792,7 +26802,7 @@ static void calculus_certify(Verdict *verdict, const char *why, const Node *func
  *   27k-1. la derivata di ordine k, con le regole, confermata con la serie
  *          di Taylor in almeno un punto per ogni ordine (27h);
  *   27k-2. l'albero delle regole scritto come lo scriverebbe chi le ha
- *          appena applicate: senza fattori 1, addendi 0, esponenti 1 e segni
+ *          appena applicate: senza fattori 1, addendi 0, esponenti 1 e 0 e segni
  *          doppi, con i conti tra interi fatti e il numero davanti al
  *          prodotto (node_tidy()): 2x \tan x + \frac{x^{2}}{\cos^{2} x};
  *   27k-3. il testo scritto si rilegge con il lettore del programma, come
@@ -26923,6 +26933,10 @@ static Node *node_tidy(const Node *tree) {
         break;
     case N_POW:
         if (b_number && q == 1) return a;
+        /* u^0, che la regola delle potenze lascia derivando u (27e), è 1
+         * dove u ha un valore: ovunque, se u è totale. Senza, la derivata
+         * seconda di x^2 y si scriveva 2 \cdot x^{0} \cdot y. */
+        if (b_number && q == 0 && node_total(a)) return node_num(1);
         break;
     default:
         break;
@@ -42340,6 +42354,774 @@ static Verdict prove_integral(const char *formula) {
 }
 
 /* =============================================================================
+ * 35. FUNZIONI DI PIÙ VARIABILI: DERIVATE PARZIALI, GRADIENTE, HESSIANA
+ * ============================================================================
+ *
+ * A che cosa serve. "Il gradiente di x^2 y in (1, 2) è (4, 1)"; "la derivata
+ * mista di e^{xy} è e^{xy} + xy e^{xy}"; "ln(x^2 + y^2) soddisfa u_xx + u_yy =
+ * 0"; "calcola l'hessiana di x^3 + y^3 - 3xy". L'enunciato arriva nella
+ * notazione del capitolo 34 (parser.c): funzioni dichiarate, e tesi che sono
+ * uguaglianze tra espressioni in cui compaiono degli operandi, cioè derivate
+ * parziali, se serve calcolate in un punto. Un gradiente o un'hessiana sono
+ * già una tesi per componente.
+ *
+ * Qui non c'è una regola di derivazione nuova: derivare rispetto a x una
+ * funzione di x e y è derivare una funzione di x in cui y è una costante, e
+ * questo derive() (27c-27g) lo fa già. C'è ciò che il capitolo 27 non ha:
+ * più lettere che variano insieme, e quindi un controllo indipendente che
+ * non fissa le altre lettere una volta per tutte, il valore in un punto, più
+ * derivate nella stessa uguaglianza, e un certificato che le porta tutte.
+ *
+ * IL TEOREMA
+ *
+ * Sia F un'espressione nelle lettere x_1, ..., x_m (variabili e parametri:
+ * qui non c'è differenza), e sia U l'insieme dei punti in cui F è regolare:
+ * definita, con i radicandi e gli argomenti dei valori assoluti diversi da
+ * zero. U è aperto, perché ogni condizione è stretta e riguarda funzioni
+ * continue, e in U la funzione F ha derivate parziali continue di ogni
+ * ordine: è composta di funzioni che ne hanno. La derivata rispetto a x_i,
+ * per definizione, è la derivata della funzione di una variabile che si
+ * ottiene tenendo ferme le altre lettere: le regole del capitolo 27 la
+ * danno in ogni punto di U. Derivando ancora, rispetto a un'altra lettera,
+ * si resta in U: le derivate di ordine più alto, miste comprese, sono quelle
+ * che le regole danno una dopo l'altra, nell'ordine scritto.
+ *
+ * COME SI DECIDE UN ENUNCIATO
+ *
+ *   35a. Gli operandi, nell'ordine in cui sono stati letti: la funzione, con
+ *        gli operandi precedenti già al loro posto, si deriva con derive()
+ *        rispetto alle lettere scritte, una dopo l'altra; il risultato si
+ *        scrive in ordine (partial_tidy()), e se c'è un punto vi si mettono le
+ *        coordinate al posto delle variabili.
+ *   35b. Il controllo indipendente: ogni derivata delle regole si confronta
+ *        con quella letta dalle serie di Taylor della funzione lungo delle
+ *        rette, con gli intervalli (vedi "Le derivate miste lungo le rette",
+ *        più sotto), in sei punti di prova. Una smentita è un errore di una
+ *        regola; in almeno un punto le due devono coincidere.
+ *   35c. Le tesi, con gli operandi al loro posto, sono uguaglianze tra
+ *        espressioni senza segni di derivata. Ognuna si guarda nei punti di
+ *        prova in cui sono confermati gli operandi da cui dipende. Prima con
+ *        i numeri: se in un punto i due membri sono di sicuro diversi
+ *        l'enunciato è FALSO, con quel punto come controesempio; devono
+ *        coincidere almeno in uno. Poi con l'algebra esatta: la differenza
+ *        dei due membri si riduce a zero dove sono definiti, e dove lo sono
+ *        le funzioni di quegli operandi (27a, derivative_identity()).
+ *   35d. La dimostrazione scritta: ogni derivata e ogni tesi scritta si
+ *        rilegge dal testo e si ricalcola con i numeri (13g).
+ *   35e. Il certificato: le funzioni, le lettere rispetto a cui si deriva,
+ *        le derivate delle regole, i punti e le tesi, per il capitolo 18 di
+ *        checker.c, che deriva da sé e rifà i conti con la sua algebra.
+ *   35f. Una richiesta, senza il segno di uguale: la risposta si scrive, e
+ *        l'enunciato completato dalla risposta si rilegge e si dimostra come
+ *        se l'avesse scritto l'utente. Solo allora la risposta si consegna.
+ *
+ * Un FALSO poggia, come nel capitolo 27 (27i, 27j), su due conti scritti in
+ * modo diverso che in quel punto concordano: le regole e le serie di Taylor
+ * per ogni derivata, e poi gli intervalli sui due membri. Un punto in cui la
+ * funzione non è definita, o in cui le serie non confermano le regole, non
+ * si guarda: lì l'enunciato non dice nulla, o non si sa.
+ *
+ * Dove vale ciò che si dimostra. Un'uguaglianza senza punti vale dove le
+ * funzioni degli operandi che contiene sono regolari e i due membri definiti; il
+ * controllo con i numeri assicura che un punto così esiste. Un valore in un
+ * punto è affermato in quel punto: lì le serie di Taylor devono avere un
+ * valore, e gli intervalli lo danno solo dove ogni divisore, ogni argomento
+ * di logaritmo e ogni radicando è di sicuro dalla parte giusta.
+ *
+ * Che cosa non c'è, e dove andrebbe: i punti critici e la loro natura (il
+ * segno dei minori dell'hessiana in un punto: un capitolo 36, che userebbe
+ * questi operandi), le funzioni definite per casi e la derivata in un punto
+ * come limite del rapporto incrementale (capitolo 29), la regola della
+ * catena con una funzione senza espressione.
+ */
+
+/* Il nome interno della lettera t che percorre una retta (35b): fuori dai
+ * caratteri, dagli altri nomi interni e dai posti degli operandi
+ * (VAR_OPERAND, capitolo 34). */
+#define VAR_LINE 6399
+
+/* I punti di prova. Ogni riga è un punto: la lettera di posto r, tra quelle
+ * dell'enunciato in ordine alfabetico, vi prende il valore della colonna
+ * r modulo 4, più 1 per ogni giro (così cinque lettere non hanno mai due
+ * valori uguali). Le righe sono scelte perché le funzioni degli esercizi
+ * siano definite in almeno una: tutte le lettere piccole e positive (il
+ * logaritmo e la radice di 1 - x - y, di 1 - x^2 - y^2), tutte più grandi
+ * di 1 (la radice di x^2 + y^2 - 1), tutte negative, e i segni misti. Con
+ * un solo valore per lettera, come in sample_tree() (27h), che dà 2 a x, la
+ * radice di 1 - x^2 - y^2 non è definita in nessun punto di prova. */
+#define PARTIAL_POINTS 6
+#define PARTIAL_COLUMNS 4
+static const Frac partial_points[PARTIAL_POINTS][PARTIAL_COLUMNS] = {
+    {{3, 10}, {1, 5}, {2, 7}, {1, 9}},
+    {{7, 5}, {13, 10}, {9, 4}, {11, 6}},
+    {{-9, 10}, {-3, 5}, {-5, 4}, {-1, 7}},
+    {{13, 5}, {-11, 5}, {17, 6}, {-7, 3}},
+    {{-1, 4}, {1, 3}, {-2, 9}, {2, 5}},
+    {{23, 4}, {17, 5}, {31, 7}, {19, 3}},
+};
+
+/* Un operando calcolato (35a) e controllato (35b): è lo stato del motore per
+ * l'operando con lo stesso numero d'ordine dell'enunciato in corso. Gli
+ * alberi stanno nell'arena, e nessuno contiene il posto di un operando. */
+typedef struct {
+    Node *body;                    /* la funzione da derivare, con gli operandi precedenti al loro posto */
+    Node *domain;                  /* body, con le coordinate al posto delle variabili se c'è un punto: definita dove l'operando esiste */
+    Node *slope;                   /* la derivata data dalle regole, come funzione delle lettere, scritta in ordine */
+    Node *value;                   /* ciò che l'operando vale: slope, con le coordinate al posto delle variabili se c'è un punto */
+    unsigned agree;                /* il bit p è acceso se nel punto di prova p value coincide con la derivata letta dalle
+                                      serie di Taylor (numbers_agree() = 1) */
+    unsigned needs;                /* il bit j è acceso se l'operando dipende dall'operando j: lui stesso, quelli scritti
+                                      nella sua funzione o nel suo punto, e quelli da cui dipendono loro */
+} PartialValue;
+
+static PartialValue partial_value[MAX_OPERANDS];
+_Static_assert(MAX_OPERANDS <= 32, "PartialValue.needs ha un bit per ogni operando");
+
+/* Le lettere dell'enunciato in corso, in ordine alfabetico: variabili e
+ * parametri, senza la lettera e. Il posto di una lettera qui decide il suo
+ * valore nei punti di prova. */
+static int partial_letter[52], partial_letter_count;
+
+/* Riempie partial_letter[] con le lettere che compaiono in st: nelle
+ * funzioni, negli operandi (anche solo come lettera rispetto a cui si
+ * deriva), nelle coordinate dei punti e nelle tesi. */
+static void partial_letters(const PartialStatement *st) {
+    partial_letter_count = 0;
+    for (int letter = 'A'; letter <= 'z'; letter++) {
+        if (!isalpha(letter) || letter == 'e') continue;
+        int used = 0;
+        for (int i = 0; i < st->functions; i++) used |= node_has_variable(st->function[i].body, letter);
+        for (int i = 0; i < st->operands; i++) {
+            const PartialOperand *operand = &st->operand[i];
+            used |= node_has_variable(operand->body, letter);
+            for (int j = 0; j < operand->order; j++) used |= operand->by[j] == letter;
+            for (int j = 0; j < MAX_FUNCTION_VARIABLES; j++) used |= node_has_variable(operand->point[j], letter);
+        }
+        for (int i = 0; i < st->claims; i++) used |= node_has_variable(st->claim[i].lhs, letter) || node_has_variable(st->claim[i].rhs, letter);
+        if (used) partial_letter[partial_letter_count++] = letter;
+    }
+}
+
+/* Ritorna il valore, nel punto di prova p, della lettera di posto rank in
+ * partial_letter[] (vedi partial_points[]). */
+static Frac partial_coordinate(int rank, int p) {
+    Frac value = partial_points[p][rank % PARTIAL_COLUMNS];
+    value.num += (long long)(rank / PARTIAL_COLUMNS) * value.den;
+    return value;
+}
+
+/* Ritorna una copia di tree pronta per essere calcolata con i numeri nel
+ * punto di prova p: ogni lettera dell'enunciato vale il suo razionale, e i
+ * sotto-alberi interi sono già calcolati (node_fold()), come dopo
+ * sample_tree(). Restano la lettera e, pi greco e la lettera delle rette. */
+static Node *partial_sample(const Node *tree, int p) {
+    Node *copy = (Node *)tree;
+    for (int i = 0; i < partial_letter_count; i++) {
+        if (!node_has_variable(copy, partial_letter[i])) continue;
+        Frac value = partial_coordinate(i, p);
+        copy = node_replace(copy, partial_letter[i], node_new(N_DIV, node_num(value.num), node_num(value.den)));
+    }
+    return node_fold(copy, &(int){1});
+}
+
+/* Ritorna un intervallo che contiene il valore di tree nel punto di prova
+ * p; "non so" se non si calcola o non è definito. Non lascia nulla
+ * nell'arena. */
+static Range partial_range(const Node *tree, int p) {
+    size_t kept = arena_used;
+    Range value = sample_value(partial_sample(tree, p), VAR_LINE, range_none());
+    arena_used = kept;
+    return value;
+}
+
+/* Ritorna tree con gli operandi di numero minore di count sostituiti dal
+ * loro valore (35a). I valori non contengono posti di operandi, quindi basta
+ * un passaggio. */
+static Node *partial_placed(const Node *tree, int count) {
+    Node *copy = (Node *)tree;
+    for (int k = 0; k < count; k++)
+        if (node_has_variable(copy, VAR_OPERAND + k)) copy = node_replace(copy, VAR_OPERAND + k, partial_value[k].value);
+    return copy;
+}
+
+/* Ritorna l'insieme, un bit per operando, degli operandi di numero minore di
+ * count da cui tree dipende: quelli di cui contiene il posto, e quelli da
+ * cui dipendono loro (PartialValue.needs, già calcolato per ognuno). */
+static unsigned partial_needs(const Node *tree, int count) {
+    unsigned needs = 0;
+    for (int k = 0; k < count; k++)
+        if (node_has_variable(tree, VAR_OPERAND + k)) needs |= partial_value[k].needs;
+    return needs;
+}
+
+/* Ritorna tree scritto in ordine: node_tidy() (27k-2), ripetuta finché
+ * cambia qualcosa, al più quattro volte. Una volta sola non basta dopo aver
+ * messo dei numeri al posto delle lettere: node_tidy() fa i conti tra interi
+ * prima di togliere i fattori 1 e gli esponenti 0, e 2 + 1 \cdot e^{0}
+ * restava 2 + 1. Ogni passata conserva le condizioni di esistenza. */
+static Node *partial_tidy(const Node *tree) {
+    Node *tidy = node_tidy(tree);
+    for (int pass = 0; pass < 3; pass++) {
+        Node *again = node_tidy(tidy);
+        if (node_equal(again, tidy)) break;
+        tidy = again;
+    }
+    return tidy;
+}
+
+/* Ritorna 1 se in tree è rimasto il posto di un operando. */
+static int partial_pending(const Node *tree) {
+    if (!tree) return 0;
+    if (tree->kind == N_VAR && tree->name >= VAR_OPERAND && tree->name < VAR_OPERAND + MAX_OPERANDS) return 1;
+    return partial_pending(tree->a) || partial_pending(tree->b) || partial_pending(tree->c);
+}
+
+/* LE DERIVATE MISTE LUNGO LE RETTE (35b)
+ *
+ * Il problema. Per controllare derive() serve la derivata parziale di F in
+ * un punto P calcolata senza le sue regole. Il capitolo 27 ha le serie di
+ * Taylor con gli intervalli (27h), ma di una funzione di una variabile sola:
+ * bastano per una derivata come d^2 F / dx^2, non per una mista.
+ *
+ * L'idea. Lungo una retta per P una funzione di più variabili diventa una
+ * funzione di una sola: g(t) = F(P + t u). E la sua derivata k-esima in 0 è
+ * la forma che raccoglie tutte le derivate parziali di ordine k,
+ *
+ *     g^(k)(0) = D^k F(P)[u, ..., u],
+ *
+ * dove D^k F(P)[u_1, ..., u_k] è la somma, su tutte le scelte di una
+ * coordinata per ogni u_j, delle derivate parziali corrispondenti per i
+ * prodotti delle coordinate scelte: per k = 2 è u^T H u, con H l'hessiana.
+ * È lineare in ogni argomento, e simmetrica dove le derivate di ordine k
+ * sono continue (Schwarz). La derivata parziale rispetto alle lettere v_1,
+ * ..., v_k è D^k F(P)[e_1, ..., e_k], con e_j il versore di v_j.
+ *
+ * Una forma multilineare simmetrica L si ricava dai suoi valori sulla
+ * diagonale, L[u, ..., u], con la formula di polarizzazione:
+ *
+ *     k! L[u_1, ..., u_k] = somma su S contenuto in {1, ..., k} di
+ *                           (-1)^(k - |S|) L[u_S, ..., u_S],
+ *
+ * dove u_S è la somma degli u_j con j in S. (Sviluppando L[u_S, ..., u_S] per
+ * linearità, il termine L[u_{j_1}, ..., u_{j_k}] compare per ogni S che
+ * contiene tutti i j_i; se gli indici j_i non sono tutti diversi quegli S
+ * sono in numero pari, metà con un segno e metà con l'altro, e si
+ * cancellano; se sono tutti diversi resta solo S = {1, ..., k}, e le k!
+ * permutazioni danno lo stesso valore per simmetria.) Per k = 2:
+ * 2 F_xy = (F_xx + 2 F_xy + F_yy) - F_xx - F_yy.
+ *
+ * Il conto. Per ogni S non vuoto si sostituisce in F ogni lettera w con
+ * w + m t, dove m è quante volte w compare tra i v_j con j in S; jet_eval()
+ * dà i coefficienti della serie di Taylor in t = 0 della funzione di una
+ * variabile così ottenuta, e il coefficiente c_k(S) di t^k è
+ * L[u_S, ..., u_S] / k!. Quindi
+ *
+ *     la derivata parziale = somma su S di (-1)^(k - |S|) c_k(S),
+ *
+ * un intervallo che contiene la derivata vera. Se una sola delle serie è
+ * "non so" lo è il risultato: lì F non è regolare, o non si sa. E dove
+ * jet_eval() dà un valore F è analitica intorno a P come funzione di tutte
+ * le lettere, perché ogni condizione (un divisore, l'argomento di un
+ * logaritmo) è controllata in t = 0, cioè in P: le derivate sono continue,
+ * e la simmetria che la formula usa c'è.
+ *
+ * Perché è indipendente da derive(). Le serie si costruiscono dall'albero
+ * della funzione, non da quello delle derivate, con le ricorrenze di 27h; e
+ * una derivata mista non passa mai per una derivata prima calcolata con le
+ * regole. */
+
+/* Ritorna un intervallo che contiene, nel punto di prova p, la derivata
+ * parziale dell'operando operand, la cui funzione è body: vedi sopra.
+ * coordinate[] sono le coordinate del suo punto, se ne ha uno (allora f è la
+ * sua funzione dichiarata); altrimenti il punto è quello di prova. */
+static Range partial_taylor(const PartialOperand *operand, const DeclaredFunction *f, const Node *body, Node *const *coordinate, int p) {
+    Range total = {0, 0};
+    for (unsigned subset = operand->order > 0; subset < 1u << operand->order; subset++) {
+        size_t kept = arena_used;
+        Node *line = (Node *)body, *step = node_new(N_VAR, NULL, NULL);
+        int chosen = 0;
+        step->name = VAR_LINE;
+
+        /* Ogni lettera rispetto a cui si deriva diventa w + m t. Una
+         * lettera scritta più volte si tratta alla sua prima occorrenza. */
+        for (int i = 0; i < operand->order; i++) {
+            int times = 0, first = 1;
+            for (int j = 0; j < operand->order; j++) {
+                if (operand->by[j] != operand->by[i]) continue;
+                if (j < i) first = 0;
+                times += subset >> j & 1;
+            }
+            chosen += subset >> i & 1;
+            if (!first || !times) continue;
+            Node *letter = node_new(N_VAR, NULL, NULL);
+            letter->name = operand->by[i];
+            line = node_replace(line, operand->by[i], node_new(N_ADD, letter, node_new(N_MUL, node_num(times), step)));
+        }
+
+        /* Poi le variabili della funzione prendono le coordinate del punto,
+         * che non le contengono: l'ordine conta, perché una coordinata può
+         * contenere un parametro rispetto a cui si deriva, e quello non deve
+         * muoversi con t. */
+        for (int i = 0; operand->at && i < f->variables; i++) line = node_replace(line, f->variable[i], coordinate[i]);
+        Jet series = jet_eval(partial_sample(line, p), VAR_LINE, range_ratio(0, 1), operand->order);
+        arena_used = kept;
+        total = (operand->order - chosen) % 2 ? range_sub(total, series.c[operand->order]) : range_add(total, series.c[operand->order]);
+    }
+    return total;
+}
+
+/* 35a e 35b. Calcola l'operando numero k di st, che ha già calcolati i
+ * precedenti, e lo controlla con le serie di Taylor: riempie
+ * partial_value[k]. Ritorna NULL se riesce; altrimenti il motivo, e mette in
+ * *outcome se l'enunciato è NON SUPPORTATO (qualcosa che le regole non
+ * trattano) o NON DIMOSTRATO (una derivata non confermata). Una smentita,
+ * che è l'errore di una regola, conta tra i passi scartati. */
+static const char *partial_resolve(const PartialStatement *st, int k, Outcome *outcome) {
+    const PartialOperand *operand = &st->operand[k];
+    const DeclaredFunction *f = operand->function >= 0 ? &st->function[operand->function] : NULL;
+    PartialValue *v = &partial_value[k];
+    Node *coordinate[MAX_FUNCTION_VARIABLES];
+    memset(v, 0, sizeof *v);
+    *outcome = UNSUPPORTED;
+
+    /* La funzione e le coordinate, con gli operandi precedenti al loro
+     * posto. Il posto di un operando che restasse sarebbe una lettera
+     * qualsiasi per derive(), cioè una costante: la derivata sarebbe
+     * sbagliata senza che nulla lo segnali. Il lettore non lo permette
+     * (capitolo 34), e qui lo si controlla. */
+    v->body = v->domain = partial_placed(f ? f->body : operand->body, k);
+    v->needs = 1u << k | partial_needs(f ? f->body : operand->body, k);
+    int pending = partial_pending(v->body);
+    for (int i = 0; operand->at && i < f->variables; i++) {
+        coordinate[i] = partial_placed(operand->point[i], k);
+        v->needs |= partial_needs(operand->point[i], k);
+        pending |= partial_pending(coordinate[i]);
+        for (int j = 0; j < f->variables; j++)
+            if (node_has_variable(coordinate[i], f->variable[j])) return "le coordinate di un punto non possono contenere le variabili della funzione";
+    }
+    if (pending) return "una derivata parziale usa un operando letto dopo di lei";
+    for (int i = 0; operand->at && i < f->variables; i++) v->domain = node_replace(v->domain, f->variable[i], coordinate[i]);
+
+    /* Le regole, una lettera dopo l'altra. */
+    Node *slope = v->body;
+    for (int i = 0; i < operand->order && !failure; i++) {
+        slope = derive(slope, operand->by[i]);
+        if (!failure && node_count(slope) > MAX_DERIVATIVE_NODES) fail("la derivata calcolata con le regole è troppo lunga");
+    }
+    if (failure) return failure;
+    v->slope = v->value = partial_tidy(slope);
+    for (int i = 0; operand->at && i < f->variables; i++) v->value = node_replace(v->value, f->variable[i], coordinate[i]);
+    if (operand->at) v->value = partial_tidy(v->value);
+
+    /* 35b. Le regole contro le serie di Taylor, in ogni punto di prova. */
+    *outcome = NOT_PROVED;
+    for (int p = 0; p < PARTIAL_POINTS; p++) {
+        int agreement = numbers_agree(partial_range(v->value, p), partial_taylor(operand, f, v->body, coordinate, p));
+        if (agreement < 0) {
+            unjustified_steps++;
+            return "una derivata calcolata con le regole di derivazione è smentita dalle serie di Taylor della funzione";
+        }
+        if (agreement > 0) v->agree |= 1u << p;
+    }
+    if (failure) return failure;
+    if (v->agree) return NULL;
+    return operand->at ? "non riesco a confermare con i numeri una derivata nel punto scritto: lì la funzione non è definita o non è regolare, o i numeri non bastano"
+                       : "non riesco a confermare con i numeri una derivata calcolata con le regole di derivazione: nei punti di prova la funzione non è definita, o i numeri non bastano";
+}
+
+/* Scrive nella dimostrazione l'albero tree e lo rilegge dal testo, come in
+ * 13g: ritorna 1 se il riletto ha, con gli intervalli, lo stesso valore di
+ * tree in almeno un punto di prova, e in nessuno un valore di sicuro
+ * diverso. Chi scrive parte dagli alberi, chi controlla dai caratteri. Una
+ * formula troppo lunga per essere riletta non si scrive: al suo posto resta
+ * una frase, e ritorna 1. */
+static int partial_put_checked(const Node *tree) {
+    char text[MAX_FORMULA];
+    size_t from = proof_length;
+    put_node(tree, 0);
+    size_t length = proof_length - from, kept = arena_used;
+    if (length >= sizeof text || proof_length >= PROOF_BYTES - 1) {
+        proof_cut(from);
+        proof_add("\\text{(an expression too long to write here)}");
+        return 1;
+    }
+    memcpy(text, proof_text + from, length);
+    text[length] = '\0';
+    Node *reread = parse_expression(text);
+    int agreed = 0, sound = !syntax_error && !failure;
+    for (int p = 0; p < PARTIAL_POINTS && sound; p++) {
+        int agreement = numbers_agree(partial_range(reread, p), partial_range(tree, p));
+        sound = agreement >= 0;
+        agreed += agreement > 0;
+    }
+    sound = sound && !failure && agreed > 0;
+    syntax_error = failure = NULL;
+    arena_used = kept;
+    return sound;
+}
+
+/* Scrive nella dimostrazione l'operando numero k di st com'è scritto nei
+ * libri: la frazione con \partial, la funzione dichiarata o l'espressione
+ * tra parentesi, il punto. Sotto la frazione la lettera rispetto a cui si
+ * deriva per ultima è scritta per prima (capitolo 34). */
+static void partial_put_operand(const PartialStatement *st, int k) {
+    const PartialOperand *operand = &st->operand[k];
+    const DeclaredFunction *f = operand->function >= 0 ? &st->function[operand->function] : NULL;
+    if (operand->order > 1) proof_add("\\frac{\\partial^{%d}", operand->order);
+    else if (operand->order) proof_add("\\frac{\\partial");
+    if (f) proof_add(operand->order ? " %c" : "%c", f->name);
+    if (operand->order) {
+        proof_add("}{");
+        for (int i = operand->order - 1; i >= 0; i--) proof_add("\\partial %c%s", operand->by[i], i ? " " : "}");
+    }
+    if (!f) {
+        proof_add("\\left( ");
+        put_node(partial_value[k].body, 0);
+        proof_add(" \\right)");
+    }
+    for (int i = 0; operand->at && i < f->variables; i++) {
+        proof_add(i ? ", " : "\\left( ");
+        put_node(partial_placed(operand->point[i], k), 0);
+        if (i == f->variables - 1) proof_add(" \\right)");
+    }
+}
+
+/* Ritorna tree con il posto di ogni operando sostituito dalla lettera che
+ * gli dà il certificato, name[k] per l'operando k (35e). */
+static Node *partial_named(const Node *tree, const char *name, int count) {
+    Node *copy = (Node *)tree;
+    for (int k = 0; k < count; k++) {
+        if (!node_has_variable(copy, VAR_OPERAND + k)) continue;
+        Node *letter = node_new(N_VAR, NULL, NULL);
+        letter->name = name[k];
+        copy = node_replace(copy, VAR_OPERAND + k, letter);
+    }
+    return copy;
+}
+
+/* 35e. IL CERTIFICATO
+ *
+ * Porta al capitolo 18 di checker.c l'enunciato com'è stato letto, più le
+ * derivate che le regole hanno dato:
+ *
+ *     certificate partial
+ *     term A
+ *     of (* (^ x 2) y)
+ *     by x y
+ *     is (* 2 x)
+ *     at x 1 y 2
+ *     statement (= A 2)
+ *     end
+ *
+ * Una voce term per operando, nello stesso ordine: il nome (una lettera
+ * maiuscola che l'enunciato non usa), la funzione (of), in cui gli operandi
+ * precedenti compaiono con il loro nome, le lettere rispetto a cui si
+ * deriva nell'ordine in cui si deriva (by), la derivata delle regole (is),
+ * e il punto, se c'è (at). Poi una voce statement per tesi, con i nomi al
+ * posto degli operandi. Il verificatore deriva la funzione da sé, controlla
+ * che il risultato sia la formula di is, che nel punto la funzione sia
+ * regolare e la formula definita, e che i due membri di ogni tesi siano
+ * uguali: non usa nulla di ciò che il motore ha calcolato, tranne la formula
+ * di is, che ricontrolla.
+ *
+ * Scrive il certificato di st in certificate_text e ritorna NULL, oppure il
+ * motivo per cui il certificato non c'è. */
+static const char *partial_certificate(const PartialStatement *st) {
+    char name[MAX_OPERANDS];
+    int next = 'A';
+    certificate_length = 0;
+    certificate_broken = 0;
+    certificate_sequences = 0;
+
+    /* I nomi: le maiuscole che non sono lettere dell'enunciato. */
+    for (int k = 0; k < st->operands; k++) {
+        for (int i = 0; i < partial_letter_count; i++)
+            if (partial_letter[i] == next) { next++; i = -1; }
+        if (next > 'Z') return "troppe derivate per i nomi di un certificato";
+        name[k] = (char)next++;
+    }
+
+    /* La lettera e è il numero di Nepero: nessuna variabile si chiama così
+     * (capitolo 34), e a cert_node() basta un nome di variabile diverso. */
+    cert_real = 'x';
+    cert_add("certificate partial");
+    for (int k = 0; k < st->operands; k++) {
+        const PartialOperand *operand = &st->operand[k];
+        const DeclaredFunction *f = operand->function >= 0 ? &st->function[operand->function] : NULL;
+        cert_add("\nterm %c\nof ", name[k]);
+        cert_node(partial_named(f ? f->body : operand->body, name, k));
+        cert_add("\nby");
+        for (int i = 0; i < operand->order; i++) cert_add(" %c", operand->by[i]);
+        cert_add("\nis ");
+        cert_node(partial_value[k].slope);
+        for (int i = 0; operand->at && i < f->variables; i++) {
+            cert_add(i ? " %c " : "\nat %c ", f->variable[i]);
+            cert_node(partial_named(operand->point[i], name, k));
+        }
+    }
+    for (int c = 0; c < st->claims; c++) {
+        cert_add("\nstatement (= ");
+        cert_node(partial_named(st->claim[c].lhs, name, st->operands));
+        cert_add(" ");
+        cert_node(partial_named(st->claim[c].rhs, name, st->operands));
+        cert_add(")");
+    }
+    cert_add("\nend\n");
+    cert_real = 0;
+    return certificate_broken || certificate_sequences
+               ? "la notazione dei certificati delle derivate non ha arcoseno, arcocoseno e le successioni, o il testo è troppo lungo"
+               : NULL;
+}
+
+/* Ritorna 1 se in tree compare una radice, un valore assoluto che non è
+ * tutto l'argomento di un logaritmo, o una potenza con l'esponente che non
+ * è un intero scritto e la base che non è il numero e né un numero
+ * positivo scritto: nei punti in cui la
+ * loro base, o il loro argomento, vale zero la funzione non è regolare, e il
+ * certificato non dice nulla (capitolo 18 di checker.c). */
+static int partial_irregular(const Node *tree) {
+    if (!tree) return 0;
+    if (tree->kind == N_CALL && (tree->op == FN_ROOT || tree->op == FN_ABS)) return 1;
+    if (tree->kind == N_CALL && (tree->op == FN_LN || tree->op == FN_LOG) && tree->a->kind == N_CALL && tree->a->op == FN_ABS)
+        return partial_irregular(tree->a->a) || partial_irregular(tree->b);
+    int positive = (tree->kind == N_POW && tree->a->kind == N_VAR && tree->a->name == 'e') || (tree->kind == N_POW && tree->a->kind == N_NUM && tree->a->value > 0);
+    if (tree->kind == N_POW && !positive && tree->b->kind != N_NUM && !(tree->b->kind == N_NEG && tree->b->a->kind == N_NUM)) return 1;
+    return partial_irregular(tree->a) || partial_irregular(tree->b) || partial_irregular(tree->c);
+}
+
+/* Scrive in text, lungo size, il punto di prova p come controesempio della
+ * tesi numero claim (da 1; 0 se è la sola), i cui membri, con gli operandi
+ * al loro posto, sono lhs e rhs: i valori delle lettere che vi compaiono (in
+ * una tesi su un punto scritto possono non essercene), e il centro degli
+ * intervalli left e right in cui stanno lì i due membri. */
+static void partial_counterexample(char *text, size_t size, int p, int claim, const Node *lhs, const Node *rhs, Range left, Range right) {
+    size_t length = 0;
+    text[0] = '\0';
+    for (int i = 0; i < partial_letter_count && length < size; i++) {
+        if (!node_has_variable(lhs, partial_letter[i]) && !node_has_variable(rhs, partial_letter[i])) continue;
+        Frac value = partial_coordinate(i, p);
+        int written = snprintf(text + length, size - length, "%s%c = %lld", length ? ", " : "", partial_letter[i], value.num);
+        length += written > 0 ? (size_t)written : 0;
+        if (value.den == 1 || length >= size) continue;
+        written = snprintf(text + length, size - length, "/%lld", value.den);
+        length += written > 0 ? (size_t)written : 0;
+    }
+    if (length >= size) return;
+    int written = snprintf(text + length, size - length, "%s", length ? ": lì " : "");
+    length += written > 0 ? (size_t)written : 0;
+    if (claim && length < size) {
+        written = snprintf(text + length, size - length, "nella tesi numero %d, contando una tesi per componente, ", claim);
+        length += written > 0 ? (size_t)written : 0;
+    }
+
+    /* I due valori, arrotondati: servono a chi legge, non decidono nulla
+     * (lo hanno già fatto gli intervalli, in numbers_agree()). */
+    if (length < size)
+        snprintf(text + length, size - length, "il primo membro vale circa %.10g e il secondo circa %.10g", (left.low + left.high) / 2, (right.low + right.high) / 2);
+}
+
+/* Decide l'enunciato st, in cui ogni tesi ha i due membri, come descritto
+ * in testa al capitolo (da 35a a 35e), e ne ritorna il verdetto: verdict è
+ * quello che prove_partial() ha già preparato. Aggiunge la dimostrazione al
+ * testo in corso. */
+static Verdict partial_decide(const PartialStatement *st, Verdict verdict) {
+    static char text[640];
+    Node *left[MAX_PARTIAL_CLAIMS], *right[MAX_PARTIAL_CLAIMS], *source[MAX_PARTIAL_CLAIMS];
+    int irregular = 0;
+    partial_letters(st);
+
+    /* 35a, 35b. Gli operandi, nell'ordine in cui sono stati letti. */
+    for (int k = 0; k < st->operands; k++) {
+        const char *problem = partial_resolve(st, k, &verdict.outcome);
+        if (problem) { verdict.reason = problem; failure = NULL; return verdict; }
+        irregular |= partial_irregular(partial_value[k].domain);
+    }
+
+    /* 35c. Le tesi con i numeri. Ogni tesi si guarda nei punti di prova in
+     * cui sono confermati gli operandi da cui dipende, e solo loro: è
+     * affermata dove le sue funzioni sono regolari, non dove lo sono anche
+     * quelle di un'altra tesi dello stesso enunciato. Con "f = ln x" e
+     * "g = sqrt(x^2) y", la tesi g_x = y è falsa per x < 0 anche se lì f non
+     * c'è. La somma delle funzioni di quegli operandi dà poi all'algebra
+     * esatta i fatti del dominio (12d). */
+    verdict.outcome = NOT_PROVED;
+    for (int c = 0; c < st->claims; c++) {
+        unsigned needs = partial_needs(st->claim[c].lhs, st->operands) | partial_needs(st->claim[c].rhs, st->operands);
+        unsigned inside = (1u << PARTIAL_POINTS) - 1;
+        int compared = 0;
+        left[c] = partial_placed(st->claim[c].lhs, st->operands);
+        right[c] = partial_placed(st->claim[c].rhs, st->operands);
+        source[c] = NULL;
+        for (int k = 0; k < st->operands; k++) {
+            if (!(needs >> k & 1)) continue;
+            inside &= partial_value[k].agree;
+            source[c] = source[c] ? node_new(N_ADD, source[c], partial_value[k].domain) : partial_value[k].domain;
+        }
+        for (int p = 0; p < PARTIAL_POINTS; p++) {
+            if (!(inside >> p & 1)) continue;
+            Range l = partial_range(left[c], p), r = partial_range(right[c], p);
+            int agreement = numbers_agree(l, r);
+            if (agreement < 0) {
+                partial_counterexample(text, sizeof text, p, st->claims > 1 ? c + 1 : 0, left[c], right[c], l, r);
+                verdict.outcome = REFUTED;
+                verdict.detail = text;
+                return verdict;
+            }
+            compared |= agreement > 0;
+        }
+        if (failure) { verdict.reason = failure; failure = NULL; return verdict; }
+        if (!compared) {
+            snprintf(text, sizeof text, "non riesco a confermare con i numeri la tesi%s, in nessuno dei punti di prova", st->claims > 1 ? " (una delle componenti)" : "");
+            verdict.reason = text;
+            return verdict;
+        }
+    }
+
+    /* 35d. La dimostrazione scritta: le derivate, poi le tesi con le
+     * derivate al loro posto, ognuna con l'algebra esatta (35c). */
+    int sound = 1, x = partial_letter_count ? partial_letter[0] : 'x';
+    proof_add("\\textbf{Proof.} By the rules of differentiation, with every other letter held constant:\n\\begin{itemize}\n");
+    for (int k = 0; k < st->operands; k++) {
+        if (!st->operand[k].order) continue;
+        proof_add("\\item $");
+        partial_put_operand(st, k);
+        proof_add(" = ");
+        sound = partial_put_checked(partial_value[k].value) && sound;
+        proof_add("$;\n");
+    }
+    for (int c = 0; c < st->claims; c++) {
+        atom_count = base_poly_count = atan_count = 0;
+        if (!derivative_identity(left[c], right[c], source[c], 0, 0, x)) {
+            snprintf(text, sizeof text, "con le derivate calcolate con le regole, la differenza dei due membri della tesi non si riduce a zero con l'algebra esatta%s%s",
+                     failure ? ": " : "", failure ? failure : "");
+            failure = NULL;
+            verdict.reason = text;
+            return verdict;
+        }
+        proof_add("\\item with these derivatives the statement reads $");
+        sound = partial_put_checked(left[c]) && sound;
+        proof_add(" = ");
+        sound = partial_put_checked(right[c]) && sound;
+        proof_add("$: the two sides are equal where they are defined, because their difference reduces to $0$ by exact algebra;\n");
+    }
+    proof_add("\\item \\emph{Check with numbers}. Each derivative agrees with the one read from the Taylor series of the function along lines "
+              "through sample points, computed with interval arithmetic, and the two sides of the statement agree there.\n\\end{itemize}\n$\\Box$");
+    if (!sound) {
+        unjustified_steps++;
+        verdict.reason = "una formula della dimostrazione, riletta dal testo, non è confermata";
+        return verdict;
+    }
+    if (proof_length >= PROOF_BYTES - 1) { verdict.reason = "la dimostrazione è troppo lunga per essere scritta per intero"; return verdict; }
+    verdict.outcome = PROVED;
+    verdict.method = "con le regole di derivazione";
+    verdict.proof = proof_text;
+
+    /* 35e. La nota sui punti che il certificato non copre la decide questo
+     * capitolo, non calculus_certify(), che guarda una variabile sola e
+     * prenderebbe e^{\cos y}, con x la variabile, per una potenza con
+     * l'esponente non intero: per questo riceve una funzione senza radici. */
+    calculus_certify(&verdict, partial_certificate(st), node_num(0), x);
+    if (verdict.certificate && irregular)
+        verdict.note = "il certificato non copre i punti in cui la base di una radice o di una potenza con l'esponente non intero, o l'argomento di un valore assoluto, vale zero";
+    return verdict;
+}
+
+/* 35f. Scrive in completed, lungo size, l'enunciato formula, che è la
+ * richiesta st, completato dalla risposta: " = " e le componenti chieste,
+ * ognuna con gli operandi al loro posto e scritta in ordine (partial_tidy()),
+ * nella forma che la richiesta vuole (un'espressione, una lista, una
+ * matrice). Mette in *answer l'inizio della risposta dentro completed.
+ * Ritorna NULL, oppure il motivo, con *outcome come per partial_resolve(). */
+static const char *partial_answer(const char *formula, const PartialStatement *st, char *completed, size_t size, const char **answer, Outcome *outcome) {
+    partial_letters(st);
+    for (int k = 0; k < st->operands; k++) {
+        const char *problem = partial_resolve(st, k, outcome);
+        if (problem) return problem;
+    }
+
+    /* La risposta si scrive nel testo della dimostrazione, che poi torna
+     * com'era: put_node() scrive lì. */
+    size_t from = proof_length;
+    const char *between = st->request == ASKED_HESSIAN ? " & " : ", ";
+    if (st->request != ASKED_VALUE) proof_add(st->request == ASKED_HESSIAN ? "\\begin{pmatrix} " : "\\left( ");
+    for (int c = 0; c < st->claims; c++) {
+        if (c) proof_add("%s", c % st->columns ? between : " \\\\ ");
+        put_node(partial_tidy(partial_placed(st->claim[c].lhs, st->operands)), 0);
+    }
+    if (st->request != ASKED_VALUE) proof_add(st->request == ASKED_HESSIAN ? " \\end{pmatrix}" : " \\right)");
+    int broken = failure || proof_length >= PROOF_BYTES - 1;
+    int length = broken ? -1 : snprintf(completed, size, "%s = %s", formula, proof_text + from);
+    proof_cut(from);
+    *outcome = NOT_PROVED;
+    if (failure) return failure;
+    if (length < 0 || (size_t)length >= size) return "la risposta è troppo lunga per essere scritta e riletta";
+    *answer = completed + strlen(formula) + 3;
+    return NULL;
+}
+
+/* Dimostra, smentisce o risolve l'enunciato sulle funzioni di più variabili
+ * scritto in formula, come descritto in testa al capitolo. Il verdetto
+ * DIMOSTRATO, o RISOLTO per una richiesta, porta il certificato di 35e se il
+ * verificatore lo accetta; altrimenti dice perché manca, e se il
+ * verificatore lo respinge il verdetto è NON DIMOSTRATO. Svuota l'arena e la
+ * tabella degli atomi: i risultati di chiamate precedenti non sono più
+ * validi. */
+static Verdict prove_partial(const char *formula) {
+    static PartialStatement st;
+    static char completed[4 * MAX_FORMULA], problem[640];
+    Verdict verdict = {UNSUPPORTED, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL};
+    const char *answer = NULL;
+
+    /* Ripartenza da zero per il nuovo enunciato, e parsing. */
+    proof_reset();
+    arena_used = arena_keep;
+    atom_count = base_poly_count = atan_count = 0;
+    failure = NULL;
+    if (!parse_partial_statement(formula, &st)) { verdict.reason = syntax_error; return verdict; }
+    if (failure) { verdict.reason = failure; return verdict; }
+
+    /* 35f. Una richiesta: la risposta, e l'enunciato completato riletto. */
+    if (st.request) {
+        const char *why = partial_answer(formula, &st, completed, sizeof completed, &answer, &verdict.outcome);
+        if (why) { verdict.reason = why; failure = NULL; return verdict; }
+        if (!parse_partial_statement(completed, &st) || failure || st.request) {
+            unjustified_steps++;
+            verdict.reason = "la risposta scritta non si rilegge con il lettore del programma";
+            failure = NULL;
+            return verdict;
+        }
+        proof_add("\\textbf{Solution.} $%s$.\n\n", answer);
+    }
+    verdict = partial_decide(&st, verdict);
+    if (!answer) return verdict;
+
+    /* La risposta si consegna solo se l'enunciato completato è dimostrato.
+     * Smentito, è un errore del programma: nello scrivere o nel rileggere. */
+    if (verdict.outcome == PROVED) {
+        verdict.outcome = SOLVED;
+        verdict.detail = answer;
+        verdict.note = verdict.note ? "dove le funzioni e le derivate sono definite; il certificato non copre i punti in cui la base di una radice o di una "
+                                      "potenza con l'esponente non intero, o l'argomento di un valore assoluto, vale zero"
+                                    : "dove le funzioni e le derivate sono definite";
+        return verdict;
+    }
+    if (verdict.outcome == REFUTED) unjustified_steps++;
+    snprintf(problem, sizeof problem, "la risposta calcolata, riletta come enunciato, non è confermata%s%s", verdict.reason ? ": " : "", verdict.reason ? verdict.reason : "");
+    return (Verdict){NOT_PROVED, 0, 0, 0, problem, NULL, NULL, NULL, NULL, NULL};
+}
+
+/* Ritorna 1 se formula è un enunciato di questo capitolo: contiene \partial
+ * o \nabla, che nessun altro lettore conosce, oppure comincia con la
+ * definizione di una funzione, f(x, y) = ..., seguita più avanti da
+ * \implies. Lo usa il capitolo 20. Usa il lettore di token del parser, e
+ * lascia il suo stato da reimpostare. */
+static int uses_partial_notation(const char *formula) {
+    for (const char *p = strchr(formula, '\\'); p; p = strchr(p + 1, '\\'))
+        if ((strncmp(p, "\\partial", 8) == 0 && !isalpha((unsigned char)p[8])) || (strncmp(p, "\\nabla", 6) == 0 && !isalpha((unsigned char)p[6]))) return 1;
+    return strstr(formula, "\\implies") && starts_with_definition(formula);
+}
+
+/* =============================================================================
  * 20. DIMOSTRARE UN ENUNCIATO
  * ============================================================================
  *
@@ -42582,6 +43364,10 @@ static Verdict prove_core(const char *formula, int variable, int has_base, long 
         }
         return verdict;
     }
+
+    /* Le funzioni di più variabili (capitolo 35): \partial, \nabla, o una
+     * funzione dichiarata e poi \implies. Nessun altro metodo le legge. */
+    if (uses_partial_notation(formula)) return prove_partial(formula);
 
     /* Il segno di derivata in testa: l'enunciato è del capitolo 27, anche
      * quando il capitolo 27 non lo sa leggere. Non prosegue come algebra,

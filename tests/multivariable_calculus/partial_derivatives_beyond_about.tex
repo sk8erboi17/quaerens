@@ -1,0 +1,32 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\allowdisplaybreaks
+
+\title{About \texttt{partial\_derivatives\_beyond.tex}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+This note explains what the test data in \texttt{partial\_derivatives\_beyond.tex} is used for. The file is read by \texttt{test\_multivariable\_calculus.c}.
+
+\begin{enumerate}
+\item \textbf{Purpose.} The file holds 6 true statements that the engine does not prove yet. The test checks only that none is called false: the engine may answer that it does not know, never that a true statement is false. When one becomes provable it moves to \texttt{partial\_derivatives.tex}.
+
+\item \textbf{Why each is beyond reach.} Items 1--3 need the exact values of sine and cosine at $\frac{\pi}{3}$, $\frac{\pi}{4}$ and $\frac{\pi}{6}$: the derivatives are computed and confirmed with numbers, but the exact algebra of chapter 11 does not reduce $\cos\frac{\pi}{3}$ to $\frac{1}{2}$ (the same happens to $\cos\frac{\pi}{3} = \frac{1}{2}$ alone). Items 4--6 are derivatives at a point at which the function is not regular (the argument of an absolute value, or a radicand, is zero): the derivative exists there, but the rules of differentiation give no formula, and it should be computed as the limit of the difference quotient.
+
+\item \textbf{Expected result.} No statement is called false; today all six are answered \texttt{NON DIMOSTRATO}.
+
+\item \textbf{How to run it.} From the top folder of the repository:
+\begin{verbatim}
+cc -std=c11 -O2 -Wall -Wextra -o /tmp/test_multivariable_calculus \
+    tests/multivariable_calculus/test_multivariable_calculus.c && \
+    /tmp/test_multivariable_calculus
+\end{verbatim}
+\end{enumerate}
+\end{document}
