@@ -3153,7 +3153,8 @@ static void ck_instance_equipotent(const CkNode *q) {
  * nomi delle parti (11g); per un'equipotenza, i nomi delle funzioni (11j). */
 static void ck_instance(void) {
     const CkNode *q = ck_read_available(), *body = q;
-    if (ck_status == CK_ACCEPTED && q->kind == CK_EQUIPOTENT) { ck_instance_equipotent(q); return; }
+    if (ck_status != CK_ACCEPTED) return;
+    if (q->kind == CK_EQUIPOTENT) { ck_instance_equipotent(q); return; }
     unsigned mask = ck_names(q);
     int count = 0, parts = q->kind == CK_FORALLPART || q->kind == CK_EXISTSPART;
     for (ck_skip(); ck_status == CK_ACCEPTED && *ck_cursor && *ck_cursor != '\n'; ck_skip(), count++) {
@@ -4854,6 +4855,9 @@ static void ck_check_structure(int kind) {
             ck_suppose(denied, 0);
             for (int i = 0; i < axioms; i++) ck_suppose(laws[i], 0);
             ck_assumed[cases] = ck_read_condition();
+            /* Una condizione respinta non si suppone: il suo albero può
+             * nominare il simbolo 0 anche quando non ce n'è nessuno. */
+            if (ck_status != CK_ACCEPTED) return;
             ck_suppose(ck_assumed[cases++], 0);
         } else if (kind == 2 && cases && ck_word("instance")) {
             ck_instance();

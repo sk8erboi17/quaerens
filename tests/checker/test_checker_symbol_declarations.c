@@ -1,5 +1,8 @@
 /* Deposito indipendente delle dichiarazioni, oltre 256 simboli, con
- * modelli veri e alterati, prove FO e nomi introdotti nei rami.
+ * modelli veri e alterati, prove FO e nomi introdotti nei rami. E i
+ * certificati senza alcun simbolo dichiarato che ne nominano uno, in una
+ * voce case o instance: respinti, non un accesso a un deposito vuoto (li
+ * ha trovati fuzz_structure_certificates.py, seme 55413, il 16 novembre).
  *
  * Compilazione ed esecuzione dalla cartella principale:
  * cc -std=c11 -O2 -Wall -Wextra -Werror -o /tmp/test_checker_symbol_declarations \
@@ -79,5 +82,12 @@ int main(void) {
     printf("%s: declaration size overflow remains unsupported and releases its storage\n",ok?"PASS":"FAIL");passed &= ok;
     proof(text,sizeof text,512,0);
     passed=expect("a complete proof succeeds after unsupported symbol storage has been cleared",text,CK_ACCEPTED) && passed;
+    passed=expect("a case that names a symbol when none is declared is rejected",
+                  "certificate structure\nsort S\nstatement (forall x S (= x x))\ncase (not (forall x S (= x y)))\nend\n",CK_REJECTED) && passed;
+    passed=expect("an instance that names a symbol when none is declared is rejected",
+                  "certificate structure\nsort S\nstatement (forall x S (= x x))\ncase (not (forall x S (= x x)))\ninstance (forall x S (= y x)) y\nend\n",CK_REJECTED) && passed;
+    passed=expect("a renamed bound letter in the case, leaving it free, is rejected",
+                  "certificate structure\nsort S\nstatement (not (exists a S (exists b S (not (= a b)))))\n"
+                  "case (not (not (exists c S (exists b S (not (= a b))))))\nend\n",CK_REJECTED) && passed;
     return passed?0:1;
 }
