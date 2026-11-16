@@ -1708,6 +1708,13 @@ typedef struct {
     const CkNode *brick[CK_MAX_BRICKS]; /* i fattori suggeriti per i logaritmi */
     int bricks;
     int defined;                        /* 1 se c'è la voce "defined" */
+    char recurrence;                    /* la successione della voce "recurrence" (vedi in testa), o 0 */
+    long long first, shift;             /* i0 e r di "recurrence" */
+    int order;                          /* d di "recurrence" */
+    const CkNode *initial[CK_MAX_ORDER];/* le voci "initial", in ordine */
+    int initials;
+    const CkNode *rule;                 /* la voce "rule" */
+    const CkNode *closed;               /* C, il secondo membro dell'enunciato prima dell'identità */
     const CkNode *sets;                 /* certificato "sets": l'enunciato; altrimenti NULL */
     int checked;                        /* 1 per un certificato dei capitoli 11 e 12, già controllato mentre lo si leggeva */
 } CkCertificate;
@@ -13548,6 +13555,134 @@ static void ck_check_infinite(void) {
  * lecito trattare somme e successioni come lettere.
  */
 
+/* =============================================================================
+ * LA VOCE "recurrence": UNA SUCCESSIONE DEFINITA PER RICORRENZA
+ * =============================================================================
+ *
+ *     certificate induction
+ *     variable n
+ *     base 0
+ *     recurrence a 0 2 2
+ *     initial 2
+ *     initial 5
+ *     rule (- (* 5 (seq a (+ n 1))) (* 6 (seq a n)))
+ *     statement (= (seq a n) (+ (^ 2 n) (^ 3 n)))
+ *     factor 1
+ *     end
+ *
+ * "recurrence S i0 d r" dice che S è la successione con i d valori iniziali
+ * delle voci "initial", S(i0), ..., S(i0 + d - 1), e con S(n + r) uguale
+ * all'espressione della voce "rule" per ogni n >= m0 = i0 - (r - d): nella
+ * regola S compare solo come (seq S e), con e uguale a n + j e r - d <= j <
+ * r, cioè solo con i d termini che precedono S(n + r). L'enunciato è
+ * (= (seq S n) C), con C una formula in cui S non compare.
+ *
+ * Il verificatore controlla:
+ *
+ *   1. i valori iniziali: C(i0 + j) è il valore iniziale numero j, per
+ *      j < d, come il caso base (il numeratore della differenza è nullo);
+ *   2. l'identità C(n + r) = la regola con C(n + j) al posto di (seq S
+ *      (+ n j)): la scrive da sé, sostituendo, e la controlla come un
+ *      certificato di induzione con il caso base m0 (che deve essere la
+ *      voce base) e il fattore del certificato.
+ *
+ * TEOREMA. Se il certificato è accettato, per ogni intero n >= i0 e per
+ * ogni valore dei parametri tali che i valori iniziali e C(i0), ...,
+ * C(i0 + d - 1) siano definiti e l'identità lo sia da m0 a n - r, vale
+ * S(n) = C(n). (Una ricorrenza determina la successione.)
+ *
+ * Perché. Per n < i0 + d è il controllo 1. Per n = N + r con N >= m0: per
+ * induzione tutti i termini da i0 a N + r - 1 sono uguali, quindi la regola
+ * calcolata sui termini di S dà lo stesso numero che calcolata sui C(N +
+ * j); il primo è S(N + r), il secondo è C(N + r) per l'identità, che vale
+ * per il teorema del certificato di induzione. N + r - d >= i0 perché N >=
+ * m0: la regola non chiede termini prima dei valori iniziali.
+ */
+
+/* Ritorna un nodo nuovo con i campi dati. */
+static CkNode *ck_tree(CkKind kind, long long value, char name, const CkNode *a, const CkNode *b, const CkNode *c) {
+    CkNode *node = ck_alloc(sizeof *node);
+    *node = (CkNode){.kind = kind, .value = value, .name = name, .a = a, .b = b, .c = c};
+    return node;
+}
+
+/* La copia di t con by al posto della lettera letter libera (non dove una
+ * somma o un prodotto la usano come indice). */
+static const CkNode *ck_put_letter(const CkNode *t, char letter, const CkNode *by) {
+    if (!t || ck_status != CK_ACCEPTED) return t;
+    if (t->kind == CK_LETTER) return t->name == letter ? by : t;
+    int bound = (t->kind == CK_SUM || t->kind == CK_PROD) && t->name == letter;
+    return ck_tree(t->kind, t->value, t->name, ck_put_letter(t->a, letter, by), ck_put_letter(t->b, letter, by),
+                   bound ? t->c : ck_put_letter(t->c, letter, by));
+}
+
+/* 1 se la successione name compare nell'albero t. */
+static int ck_names_sequence(const CkNode *t, char name) {
+    if (!t) return 0;
+    if (t->kind == CK_SEQ && t->name == name) return 1;
+    return ck_names_sequence(t->a, name) || ck_names_sequence(t->b, name) || ck_names_sequence(t->c, name);
+}
+
+/* Se l'indice e è la variabile variable più un intero scritto, n, (+ n j),
+ * (+ j n) o (- n j), mette lo spostamento in *j e ritorna 1. */
+static int ck_index_shift(const CkNode *e, char variable, long long *j) {
+    if (e->kind == CK_LETTER && e->name == variable) { *j = 0; return 1; }
+    if ((e->kind == CK_ADD || e->kind == CK_SUB) && e->a->kind == CK_LETTER && e->a->name == variable && e->b->kind == CK_NUMBER) {
+        *j = e->kind == CK_ADD ? e->b->value : -e->b->value;
+        return 1;
+    }
+    if (e->kind == CK_ADD && e->b->kind == CK_LETTER && e->b->name == variable && e->a->kind == CK_NUMBER) { *j = e->a->value; return 1; }
+    return 0;
+}
+
+/* La regola t con C(e) al posto di ogni (seq name e); 0 in *bad se un
+ * termine non è uno dei d che precedono S(n + r). */
+static const CkNode *ck_put_terms(const CkNode *t, const CkCertificate *cert, int *bad) {
+    if (!t || ck_status != CK_ACCEPTED) return t;
+    if (t->kind == CK_SEQ && t->name == cert->recurrence) {
+        long long j = 0;
+        if (!ck_index_shift(t->a, cert->variable, &j) || j < cert->shift - cert->order || j >= cert->shift) { *bad = 1; return t; }
+        return ck_put_letter(cert->closed, cert->variable, t->a);
+    }
+    if ((t->kind == CK_SUM || t->kind == CK_PROD) && ck_names_sequence(t->c, cert->recurrence)) { *bad = 1; return t; }
+    return ck_tree(t->kind, t->value, t->name, ck_put_terms(t->a, cert, bad), ck_put_terms(t->b, cert, bad), ck_put_terms(t->c, cert, bad));
+}
+
+/* Controlla la forma delle voci "recurrence", "initial" e "rule" e mette
+ * nel certificato, al posto dell'enunciato, l'identità (vedi in testa). */
+static void ck_recurrence(CkCertificate *cert) {
+    const char *shape = "certificato con recurrence: servono recurrence, d voci initial, rule, e l'enunciato (= (seq S n) C)";
+    if (!cert->recurrence || !cert->rule || cert->initials != cert->order) { ck_reject(shape); return; }
+    if (cert->left->kind != CK_SEQ || cert->left->name != cert->recurrence || cert->left->a->kind != CK_LETTER ||
+        cert->left->a->name != cert->variable) {
+        ck_reject(shape);
+        return;
+    }
+    for (int i = 0; i < ck_sequence_count; i++)
+        if (ck_sequences[i].name == cert->recurrence) { ck_reject("la successione di recurrence ha anche una voce sequence o define"); return; }
+    if (ck_names_sequence(cert->right, cert->recurrence)) { ck_reject("la formula C nomina la successione che definisce"); return; }
+    for (int j = 0; j < cert->order; j++)
+        if (ck_names_sequence(cert->initial[j], cert->recurrence) || ck_mentions(cert->initial[j], cert->variable)) {
+            ck_reject("un valore iniziale nomina la successione o la variabile");
+            return;
+        }
+    if (cert->recurrence == cert->variable) { ck_reject("la successione di recurrence ha il nome della variabile"); return; }
+    if (cert->base != cert->first - (cert->shift - cert->order)) {
+        ck_reject("con recurrence il caso base è m0 = i0 - (r - d), il primo n in cui vale la regola");
+        return;
+    }
+    /* L'identità C(n + r) = la regola con C(n + j) al posto dei termini. */
+    int bad = 0;
+    cert->closed = cert->right;
+    const CkNode *step = cert->shift ? ck_tree(CK_ADD, 0, 0, ck_tree(CK_LETTER, 0, cert->variable, NULL, NULL, NULL),
+                                              ck_tree(CK_NUMBER, cert->shift, 0, NULL, NULL, NULL), NULL)
+                                     : ck_tree(CK_LETTER, 0, cert->variable, NULL, NULL, NULL);
+    const CkNode *right = ck_put_terms(cert->rule, cert, &bad);
+    if (bad) { ck_reject("la regola nomina un termine della successione che non è uno dei d che precedono S(n + r)"); return; }
+    cert->left = ck_put_letter(cert->closed, cert->variable, step);
+    cert->right = right;
+}
+
 /* Legge le voci del certificato che comincia in ck_cursor, fino a "end"
  * compreso. Una voce sconosciuta o mancante rende il certificato sbagliato. */
 static void ck_read_certificate(CkCertificate *cert) {
@@ -13703,6 +13838,29 @@ static void ck_read_certificate(CkCertificate *cert) {
                 ck_fixed[ck_fixed_count].name = *ck_cursor++;
                 ck_fixed[ck_fixed_count++].tree = ck_read();
             }
+        } else if (ck_word("recurrence")) {
+            /* "recurrence": nome, i0, d, r (vedi in testa). */
+            long long order = 0;
+            if (cert->recurrence) { ck_reject(twice); return; }
+            ck_skip();
+            if (!isalpha((unsigned char)*ck_cursor)) { ck_reject("certificato scritto male: recurrence S i0 d r"); return; }
+            cert->recurrence = *ck_cursor++;
+            if (!ck_read_integer(&cert->first) || !ck_read_integer(&order) || !ck_read_integer(&cert->shift)) {
+                ck_reject("certificato scritto male: recurrence S i0 d r");
+                return;
+            }
+            if (order < 1 || order > CK_MAX_ORDER) { ck_unsupported("ordine di ricorrenza che il verificatore non tratta"); return; }
+            if (cert->first > CK_MAX_BASE || cert->first < -CK_MAX_BASE || cert->shift > CK_MAX_BASE || cert->shift < -CK_MAX_BASE) {
+                ck_unsupported("indici troppo grandi per il verificatore");
+                return;
+            }
+            cert->order = (int)order;
+        } else if (ck_word("initial")) {
+            if (cert->initials == CK_MAX_ORDER) { ck_reject("troppe voci initial"); return; }
+            cert->initial[cert->initials++] = ck_read();
+        } else if (ck_word("rule")) {
+            if (cert->rule) { ck_reject(twice); return; }
+            cert->rule = ck_read();
         } else if (ck_word("generic")) {
             if (cert->generics == CK_MAX_GENERIC) { ck_unsupported("troppe voci generic"); return; }
             cert->generic[cert->generics++] = ck_read();
@@ -13715,6 +13873,7 @@ static void ck_read_certificate(CkCertificate *cert) {
     }
     if (ck_status == CK_ACCEPTED && (!seen_variable || !seen_base || !cert->left || !cert->factor))
         ck_reject("certificato incompleto: servono variable, base, statement e factor");
+    if (ck_status == CK_ACCEPTED && (cert->recurrence || cert->initials || cert->rule)) ck_recurrence(cert);
 
     /* Un valore si dà a un parametro, una volta sola: non alla variabile di
      * induzione. */
@@ -13808,6 +13967,15 @@ static void ck_verify(const CkCertificate *cert) {
 
     /* Controllo 1. */
     if (start.num.count != 0) { ck_reject("il caso base non vale: i due membri sono diversi"); return; }
+
+    /* Con "recurrence": i valori iniziali, C(i0 + j) uguale al valore j. */
+    for (int j = 0; cert->recurrence && j < cert->order && ck_status == CK_ACCEPTED; j++) {
+        ck_numeric = 1;
+        ck_point = cert->first + j;
+        CkRat value = ck_rat_add(ck_eval(cert->closed), ck_eval(cert->initial[j]), 1);
+        ck_numeric = 0;
+        if (ck_status == CK_ACCEPTED && value.num.count != 0) { ck_reject("un valore iniziale non è quello della formula C"); return; }
+    }
 
     /* Controllo 2: N1 D0 Wd = Wn N0 D1. */
     CkPoly left = ck_poly_mul(ck_poly_mul(next.num, now.den), factor.den);

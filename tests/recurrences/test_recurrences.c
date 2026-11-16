@@ -80,7 +80,15 @@ static int check_expected(void) {
         if (verdict.outcome != e->outcome) problem = "unexpected verdict";
         else if (e->outcome == REFUTED && verdict.witness != e->witness) problem = "refuted at an unexpected index";
         else if (e->outcome == PROVED && (!verdict.proof || !strstr(verdict.proof, e->text))) problem = "the written proof lacks an expected sentence";
-        else if (e->outcome == PROVED && (verdict.certificate || !verdict.reason)) problem = "the verdict must say why there is no certificate";
+        else if (e->outcome == PROVED) {
+            /* Una formula chiusa ha il suo certificato (26a, voce recurrence
+             * del certificato di induzione), che il verificatore accetta da
+             * capo; una stima (26b) no, e il verdetto dice perché. */
+            int closed = strstr(e->formula, "\\implies a_{n} =") || strstr(e->formula, "= a_{n}");
+            const char *cursor = verdict.certificate, *why = "";
+            if (closed && (!cursor || ck_check(&cursor, &why, 0) != CK_ACCEPTED)) problem = "a closed form must have a certificate the checker accepts";
+            else if (!closed && (verdict.certificate || !verdict.reason)) problem = "the verdict must say why there is no certificate";
+        }
         if (!problem) { passed++; continue; }
         printf("  %s: %s\n    got: ", problem, e->formula);
         verdict_print(stdout, &verdict);

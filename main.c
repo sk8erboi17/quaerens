@@ -6910,6 +6910,12 @@ static int cert_signs;
  * come nel capitolo 27. */
 static int cert_real;
 
+/* 26a. Diverso da zero mentre si scrive la regola di una successione
+ * dichiarata (recurrence_certificate()): è il suo nome, e allora un suo
+ * termine si scrive (seq S indice), come nella voce "recurrence" del
+ * verificatore. */
+static int cert_declared;
+
 /* Aggiunge un pezzo al certificato, con la sintassi di printf. */
 static void cert_add(const char *format, ...) {
     if (certificate_broken) return;
@@ -6999,6 +7005,12 @@ static void cert_node(const Node *n) {
         else cert_letter(n->name);
         return;
     case N_SEQ:
+        if (cert_declared && n->name == cert_declared) {
+            cert_add("(seq %c ", cert_declared);
+            cert_node(n->a);
+            cert_add(")");
+            return;
+        }
         for (int i = 0; i < LIBRARY_COUNT; i++)
             if (library[i].name == n->name) { cert_term(i, n->a); return; }
         certificate_broken = 1;
@@ -26992,6 +27004,47 @@ static Span put_comparison(const Node *lhs, Relation rel, const Node *rhs) {
     return span;
 }
 
+/* 26a. Il certificato del teorema della formula chiusa, nella voce
+ * "recurrence" del certificato di induzione di checker.c: identity è il
+ * certificato, già accettato, dell'identità della regola; se ne tiene tutto
+ * (il fattore, le voci generic, brick, defined e le successioni nominate)
+ * tranne l'enunciato, al cui posto vanno le voci recurrence, initial e rule
+ * e l'enunciato (= (seq S n) C). Il verificatore riscrive da sé l'identità
+ * dalla regola e da C, e controlla i valori iniziali. Ritorna 1 se l'ha
+ * accettato, e allora il certificato è in certificate_text; 0 altrimenti,
+ * con il motivo in *why. */
+static int recurrence_certificate(const Declared *seq, const Node *closed, int variable, const char *identity, const char **why) {
+    size_t size = strlen(identity) + 1;
+    char *inner = malloc(size);
+    *why = "memoria esaurita";
+    if (!inner) return 0;
+    memcpy(inner, identity, size);
+    const char *statement = strstr(inner, "\nstatement "), *rest = statement ? strchr(statement + 1, '\n') : NULL;
+    *why = "il certificato dell'identità della regola non ha la forma attesa";
+    if (!statement || !rest || !isalpha(seq->name) || seq->name == variable) { free(inner); return 0; }
+    certificate_length = 0;
+    certificate_broken = 0;
+    cert_add("%.*s", (int)(statement - inner + 1), inner);
+    cert_add("recurrence %c %lld %d %lld", seq->name, seq->first, seq->order, seq->shift);
+    for (int j = 0; j < seq->order; j++) {
+        cert_add("\ninitial ");
+        cert_node(seq->initial[j]);
+    }
+    cert_declared = seq->name;
+    cert_add("\nrule ");
+    cert_node(seq->step);
+    cert_add("\nstatement (= (seq %c %c) ", seq->name, variable);
+    cert_node(closed);
+    cert_add(")");
+    cert_declared = 0;
+    cert_add("%s", rest);
+    free(inner);
+    *why = "la regola o i valori iniziali usano qualcosa che la notazione dei certificati non ha";
+    if (certificate_broken) return 0;
+    const char *text = certificate_text;
+    return ck_check(&text, why, checker_steps()) == CK_ACCEPTED;
+}
+
 /* 26a. Dimostra la tesi "s_n = closed" per la successione seq, con il
  * teorema della formula chiusa (vedi la testa del capitolo): i valori
  * iniziali, i primi termini calcolati dalla regola, e la regola stessa per
@@ -27105,8 +27158,19 @@ static Verdict prove_closed_form(const Declared *seq, Node *closed, int variable
         return verdict;
     }
     verdict.outcome = PROVED;
-    verdict.reason = "il teorema che una ricorrenza determina la successione non è nella notazione dei certificati";
     verdict.proof = proof_text;
+    /* Il certificato: quello dell'identità, con la ricorrenza (voce
+     * "recurrence" di checker.c). Senza il primo non c'è il secondo, e il
+     * motivo è il suo. */
+    const char *why = "";
+    if (!inner.certificate) {
+        verdict.reason = inner.reason ? inner.reason : "l'identità della regola non ha un certificato";
+    } else if (recurrence_certificate(seq, closed, variable, inner.certificate, &why)) {
+        verdict.certificate = certificate_text;
+    } else {
+        snprintf(text, sizeof text, "il certificato della ricorrenza non è accettato: %s", why);
+        verdict.reason = text;
+    }
     return verdict;
 }
 
