@@ -264,6 +264,13 @@
  *     refutazione per saturazione come in 11m; il solo passo che fa conti
  *     è compute, una clausola chiusa vera tra gli interi. Il teorema esatto
  *     è in testa a 20f.
+ *   - "certificate infinite" (capitolo 20, 20g): un enunciato su insiemi
+ *     qualsiasi, come in 11, è falso in un'interpretazione sugli interi data
+ *     dal certificato (ogni insieme un insieme di interi, ogni simbolo
+ *     un'espressione o una condizione nei suoi argomenti), anche infinita:
+ *     dunque non vale per ogni scelta degli insiemi e dei simboli. Il
+ *     verificatore scrive da sé l'affermazione sugli interi che lo dice, e
+ *     la controlla come 20f. Il teorema esatto è in testa a 20g.
  *
  * COMPILAZIONE
  *
@@ -292,7 +299,8 @@
  *   18. Derivate parziali
  *   19. Identità con gli indici
  *   20. Enunciati sui numeri: testimoni, il conto completo su un intero,
- *       e le dimostrazioni dalle leggi degli interi (20f)
+ *       le dimostrazioni dalle leggi degli interi (20f), e i controesempi
+ *       infiniti sugli interi (20g)
  *   15. Controllo di un certificato
  *   16. main
  */
@@ -11775,7 +11783,8 @@ enum { CK_N_INT, CK_N_RAT, CK_N_REAL };
 typedef enum {
     CK_N_FORALL, CK_N_EXISTS, CK_N_AND, CK_N_OR, CK_N_IMPLIES, CK_N_IFF, CK_N_NOT,
     CK_N_EQ, CK_N_NEQ, CK_N_LESS, CK_N_LESSEQ, CK_N_IN, CK_N_DIVIDES,
-    CK_N_NUMBER, CK_N_VAR, CK_N_ADD, CK_N_SUB, CK_N_NEG, CK_N_MUL, CK_N_POW, CK_N_DIV
+    CK_N_NUMBER, CK_N_VAR, CK_N_ADD, CK_N_SUB, CK_N_NEG, CK_N_MUL, CK_N_POW, CK_N_DIV,
+    CK_N_CASES   /* 20g, nelle sole voci define: (cases C E F), E dove vale C, F altrove */
 } CkNKind;
 
 /* Un insieme di numeri: tutti quelli del genere dell'enunciato, da un
@@ -11797,6 +11806,7 @@ typedef struct {
 typedef struct CkNNode {
     CkNKind kind;
     const struct CkNNode *a, *b;
+    const struct CkNNode *c;     /* 20g: la condizione di (cases C E F); a e b sono E e F */
     long long value;
     CkNSet set;
     int quantifier;
@@ -11884,6 +11894,12 @@ static CkNNode *ck_n_node(CkNKind kind) {
     return node;
 }
 
+/* 20g: le voci define di un certificato infinite possono scrivere
+ * (cases C E F); altrove no. Una condizione sta dentro un'espressione solo
+ * lì. */
+static int ck_g_cases;
+static const CkNNode *ck_n_condition(int depth);
+
 /* Legge un'espressione. */
 static const CkNNode *ck_n_term(int depth) {
     static const struct { const char *word; CkNKind kind; } binary[] = {{"add", CK_N_ADD}, {"sub", CK_N_SUB}, {"mul", CK_N_MUL}};
@@ -11924,6 +11940,11 @@ static const CkNNode *ck_n_term(int depth) {
         node->a = ck_n_term(depth + 1);
         if (ck_n_kind == CK_N_INT || !ck_read_integer(&node->value) || node->value < 1)
             ck_reject("una divisione è per un intero positivo scritto, e non tra interi");
+    } else if (ck_g_cases && strcmp(word, "cases") == 0) {
+        node->kind = CK_N_CASES;
+        node->c = ck_n_condition(depth + 1);
+        node->a = ck_n_term(depth + 1);
+        node->b = ck_n_term(depth + 1);
     } else {
         ck_reject("certificato scritto male: espressione non riconosciuta");
     }
@@ -12689,24 +12710,15 @@ static void ck_a_compute(void) {
     ck_r_add(c);
 }
 
-/* Legge un certificato arithmetic, dopo la sua intestazione, fino a "end"
- * compreso: traduce l'enunciato, fa le clausole e segue i passi. Non
- * controlla che l'ultima clausola sia vuota: lo fa ck_check_arithmetic(). */
-static void ck_a_read(void) {
-    const CkNode *laws[CK_A_LAWS], *statement = NULL;
-    int kind = -1;
-    ck_n_quantifiers = ck_n_bound = 0;
-    ck_a_active = 0;
+/* Traduce l'enunciato read (20f), poi legge le voci clausify, component,
+ * complement e step fino a "end" compreso, e fa le clausole e i passi. Non
+ * controlla che l'ultima clausola sia vuota: lo fa chi chiama. */
+static void ck_a_steps(const CkNNode *read) {
+    const CkNode *laws[CK_A_LAWS], *statement = ck_status == CK_ACCEPTED ? ck_a_translate(read, laws) : NULL;
     for (;;) {
         while (isspace((unsigned char)*ck_cursor)) ck_cursor++;
         if (ck_status != CK_ACCEPTED || ck_word("end")) return;
-        if (kind < 0 && ck_word("kind")) {
-            if (!ck_word("int")) { ck_unsupported("20f ha le leggi dei soli interi"); return; }
-            kind = ck_n_kind = CK_N_INT;
-        } else if (kind >= 0 && !statement && ck_word("statement")) {
-            const CkNNode *read = ck_n_condition(0);
-            if (ck_status == CK_ACCEPTED) statement = ck_a_translate(read, laws);
-        } else if (statement && !ck_r.started && ck_word("clausify")) {
+        if (statement && !ck_r.started && ck_word("clausify")) {
             ck_r_prepare_clauses(statement, laws, CK_A_LAWS, ck_word("forward"), 1);
             ck_a_active = 1;
         } else if (ck_r.started && ck_word("component")) {
@@ -12721,9 +12733,421 @@ static void ck_a_read(void) {
     }
 }
 
+/* Legge un certificato arithmetic, dopo la sua intestazione, fino a "end"
+ * compreso: le voci kind e statement, poi ck_a_steps(). */
+static void ck_a_read(void) {
+    ck_n_quantifiers = ck_n_bound = 0;
+    ck_a_active = 0;
+    while (isspace((unsigned char)*ck_cursor)) ck_cursor++;
+    if (!ck_word("kind")) { ck_reject("certificato scritto male: manca la voce kind"); return; }
+    if (!ck_word("int")) { ck_unsupported("20f ha le leggi dei soli interi"); return; }
+    ck_n_kind = CK_N_INT;
+    while (isspace((unsigned char)*ck_cursor)) ck_cursor++;
+    if (!ck_word("statement")) { ck_reject("certificato scritto male: manca l'enunciato"); return; }
+    const CkNNode *read = ck_n_condition(0);
+    ck_a_steps(read);
+}
+
 /* Controlla un certificato arithmetic, dopo la sua intestazione. */
 static void ck_check_arithmetic(void) {
     ck_a_read();
+    ck_a_active = 0;
+    if (ck_status != CK_ACCEPTED) return;
+    if (!ck_r.started || !ck_r.clauses || ck_r.clause[ck_r.clauses - 1].count)
+        ck_reject("la refutazione non termina con la clausola vuota");
+}
+
+/* 20g. UN CONTROESEMPIO INFINITO: UN'INTERPRETAZIONE SUGLI INTERI
+ *
+ * A che cosa serve. "Se f: S -> S è iniettiva, allora è suriettiva." Vale
+ * in ogni insieme finito, quindi non ha controesempi finiti (11a), ed è
+ * falso: S gli interi da 0 in su e f(x) = x + 1, e 0 non è un valore di f.
+ * Un modello infinito non si calcola come uno finito. Ma se è fatto di
+ * interi, dire che l'enunciato vi è falso è un enunciato sugli interi, e
+ * 20f sa controllarne una dimostrazione.
+ *
+ * Il certificato.
+ *
+ *     certificate infinite
+ *     sort S                          gli insiemi, i simboli e l'enunciato, come in 11
+ *     symbol f S S
+ *     statement (implies (forall a S (forall b S ...)) (forall y S (exists x S ...)))
+ *     interpret S (set ge 0)          ogni insieme: un insieme di interi, come in 20
+ *     define f (add (var 0) 1)        ogni simbolo: un'espressione nei suoi argomenti
+ *     witness 2 0                     facoltativo: un valore per un quantificatore
+ *     clausify                        da qui come 20f: compute e i passi di 11m
+ *     step ...
+ *     end
+ *
+ * Una voce define scrive, nella notazione di 20, il valore di un simbolo in
+ * funzione dei suoi argomenti, (var 0) e (var 1): un'espressione per un
+ * elemento o un'applicazione, una condizione per una parte o una
+ * relazione, senza quantificatori e senza altre lettere. In un'espressione
+ * di define, e solo lì, (cases C E F) vale E dove vale la condizione C, F
+ * altrove: f(x) = x - 1 per x > 0 e f(0) = 0 è
+ * (cases (less 0 (var 0)) (sub (var 0) 1) 0). Gli insiemi sono quelli di 11
+ * senza parti, applicazioni o numeri scritti (11h, 11i).
+ *
+ * L'affermazione. Il verificatore scrive da sé un enunciato sugli interi,
+ * la congiunzione, nell'ordine dei simboli, delle chiusure (per f da A e B
+ * a C: per ogni x in [A] e y in [B], la definizione di f in x, y sta in
+ * [C]; per un elemento: la sua definizione sta in [C]; nessuna se [C] sono
+ * tutti gli interi) e della negazione dell'enunciato tradotto:
+ *
+ *     (forall x S c)       (forall (var L) [S] c), L = 1000 + profondità
+ *     (exists x S c)       (exists (var L) [S] c)
+ *     (f t u)              la definizione di f con t e u al posto di (var 0), (var 1)
+ *     (= t u)              (= t u)
+ *     true                 (= 0 0)
+ *
+ * con le lettere delle chiusure da 2000. Poi ogni condizione elementare A
+ * che contiene un (cases C E F) diventa (or (and C A[E]) (and (not C)
+ * A[F])), il primo da sinistra per volta, finché non ne restano.
+ *
+ * I testimoni. "witness K V" dà l'intero V al quantificatore numero K di
+ * quell'enunciato, contati da 0 in ordine di scrittura, se lì vale come un
+ * "esiste": un exists che vi compare in positivo, o un forall in negativo
+ * (sotto un numero dispari di not e di premesse di implies; dentro un iff
+ * nessuno dei due). Allora (exists (var L) A c) diventa (and (in V A)
+ * c[V]), e (forall (var L) A c) diventa (implies (in V A) c[V]), con V al
+ * posto della lettera L nel corpo. Quella è l'affermazione: da clausify in
+ * poi il certificato è un certificato arithmetic (20f) di quell'enunciato.
+ *
+ * TEOREMA. Se il certificato è accettato, l'enunciato è falso
+ * nell'interpretazione in cui ogni insieme è l'insieme di interi della sua
+ * voce interpret e ogni simbolo è ciò che dice la sua voce define: quindi
+ * non vale per ogni scelta degli insiemi e dei simboli. Se l'enunciato è
+ * "non E", come 11 scrive una richiesta di esempio di E, in
+ * quell'interpretazione vale E: l'esempio c'è.
+ *
+ * Perché. Per 20f l'affermazione vale tra gli interi. Le chiusure dicono
+ * che le voci define danno funzioni ed elementi dei loro insiemi: è
+ * un'interpretazione di 11, e in essa il valore di un termine è quello
+ * della sua traduzione, un quantificatore su S prova gli elementi di [S],
+ * e un'uguaglianza, una parte o una relazione applicata valgono quando
+ * vale la loro traduzione. Quindi la traduzione dell'enunciato vale
+ * esattamente dove vale l'enunciato, e l'affermazione dice che non vale.
+ * Sostituire non cattura nulla: le definizioni non hanno quantificatori, né
+ * lettere diverse da (var 0) e (var 1), e le lettere dell'enunciato e
+ * delle chiusure sono da 1000 in su. Espandere un cases è un'equivalenza:
+ * A[cases(C, E, F)] vale se e solo se valgono C e A[E] o valgono non C e
+ * A[F]; se lo stesso cases compare più volte nell'atomo, lo si sostituisce
+ * ovunque insieme, e vale lo stesso, perché è lo stesso termine. Un
+ * testimone rende l'affermazione più forte, mai più debole: V in A e c[V]
+ * implicano "esiste x in A con c", e in una posizione positiva una formula
+ * più forte al posto di una più debole dà un enunciato più forte; in una
+ * negativa lo stesso vale per il forall, che lì si nega. Se vale
+ * l'affermazione con i testimoni, vale quella senza. Nel corpo nessun
+ * quantificatore rilega L: le lettere dell'enunciato crescono con la
+ * profondità, e quelle delle chiusure sono altre.
+ */
+
+#define CK_G_LETTER 1000    /* la lettera del quantificatore a profondità k dell'enunciato: 1000 + k */
+#define CK_G_CLOSURE 2000   /* quelle degli argomenti di una chiusura */
+#define CK_G_WORK 1000000   /* nodi scritti espandendo i cases, al più */
+
+/* L'interpretazione del certificato in corso: un insieme per insieme
+ * dichiarato, una definizione per simbolo, nell'arena. ck_g_claim è
+ * l'affermazione dell'ultimo certificato infinite letto, per chi lo scrive
+ * (Proof/IndependentChecker.c la mostra a chi cerca l'interpretazione). */
+static CkNSet *ck_g_set;
+static const CkNNode **ck_g_define;
+static const CkNNode *ck_g_claim;
+static long ck_g_work;
+static int ck_g_witnesses;
+static int ck_g_witness_quantifier[CK_N_QUANTIFIERS];
+static long long ck_g_witness_value[CK_N_QUANTIFIERS];
+
+static CkNNode *ck_g_make(CkNKind kind, const CkNNode *a, const CkNNode *b) {
+    CkNNode *node = ck_n_node(kind);
+    node->a = a;
+    node->b = b;
+    return node;
+}
+
+static const CkNNode *ck_g_variable(long long letter) {
+    CkNNode *node = ck_n_node(CK_N_VAR);
+    node->value = letter;
+    return node;
+}
+
+/* La definizione def con gli argomenti args al posto di (var 0), (var 1).
+ * Gli argomenti non si copiano: un argomento usato due volte è lo stesso
+ * nodo, e così lo è il suo cases (vedi in testa). */
+static const CkNNode *ck_g_substitute(const CkNNode *def, const CkNNode *const *args) {
+    if (!def || ck_status != CK_ACCEPTED) return def;
+    if (def->kind == CK_N_VAR) return args[def->value];
+    CkNNode *copy = ck_n_node(def->kind);
+    *copy = *def;
+    copy->a = ck_g_substitute(def->a, args);
+    copy->b = ck_g_substitute(def->b, args);
+    copy->c = ck_g_substitute(def->c, args);
+    return copy;
+}
+
+/* 1 se def nomina solo (var 0) ... (var arity-1) e non ha quantificatori. */
+static int ck_g_definition_ok(const CkNNode *def, int arity) {
+    if (!def) return 1;
+    if (def->kind == CK_N_FORALL || def->kind == CK_N_EXISTS) return 0;
+    if (def->kind == CK_N_VAR && (def->value < 0 || def->value >= arity)) return 0;
+    return ck_g_definition_ok(def->a, arity) && ck_g_definition_ok(def->b, arity) && ck_g_definition_ok(def->c, arity);
+}
+
+/* La traduzione di un termine di 11 sotto depth quantificatori. */
+static const CkNNode *ck_g_term(const CkNode *t, int depth) {
+    if (ck_status != CK_ACCEPTED) return ck_n_node(CK_N_NUMBER);
+    if (t->kind == CK_VAR) return ck_g_variable(CK_G_LETTER + depth - 1 - t->value);
+    if (t->kind != CK_APP) { ck_unsupported("20g: un termine che non è un simbolo applicato"); return ck_n_node(CK_N_NUMBER); }
+    const CkNNode *args[2] = {NULL, NULL};
+    int arity = ck_symbols[t->value].arity;
+    if (arity > 0) args[0] = ck_g_term(t->a, depth);
+    if (arity > 1) args[1] = ck_g_term(t->b, depth);
+    return ck_g_substitute(ck_g_define[t->value], args);
+}
+
+/* La traduzione di una condizione di 11 sotto depth quantificatori. */
+static const CkNNode *ck_g_condition(const CkNode *c, int depth) {
+    static const CkNKind connective[] = {[CK_AND] = CK_N_AND, [CK_OR] = CK_N_OR, [CK_IMPLIES] = CK_N_IMPLIES, [CK_IFF] = CK_N_IFF};
+    if (ck_status != CK_ACCEPTED) return ck_n_node(CK_N_NOT);
+    switch (c->kind) {
+    case CK_TRUE: return ck_g_make(CK_N_EQ, ck_n_node(CK_N_NUMBER), ck_n_node(CK_N_NUMBER));
+    case CK_EQ:
+        if (c->b) return ck_g_make(CK_N_EQ, ck_g_term(c->a, depth), ck_g_term(c->b, depth));
+        if (c->a->kind != CK_APP) break;
+        return ck_g_term(c->a, depth);   /* una parte o una relazione: la sua definizione è una condizione */
+    case CK_NOT: return ck_g_make(CK_N_NOT, ck_g_condition(c->a, depth), NULL);
+    case CK_AND: case CK_OR: case CK_IMPLIES: case CK_IFF:
+        return ck_g_make(connective[c->kind], ck_g_condition(c->a, depth), ck_g_condition(c->b, depth));
+    case CK_FORALL: case CK_EXISTS: {
+        if (depth >= CK_G_CLOSURE - CK_G_LETTER) { ck_unsupported("20g: troppi quantificatori uno dentro l'altro"); break; }
+        CkNNode *q = ck_n_node(c->kind == CK_FORALL ? CK_N_FORALL : CK_N_EXISTS);
+        q->value = CK_G_LETTER + depth;
+        q->set = ck_g_set[c->value];
+        q->a = ck_g_condition(c->a, depth + 1);
+        return q;
+    }
+    default: break;
+    }
+    ck_unsupported("20g: l'enunciato ha parti, applicazioni o equipotenze come oggetti, che qui non si interpretano");
+    return ck_n_node(CK_N_NOT);
+}
+
+/* Il primo (cases ...) di un'espressione da sinistra, il più esterno, o NULL. */
+static const CkNNode *ck_g_first_cases(const CkNNode *t) {
+    if (!t) return NULL;
+    if (t->kind == CK_N_CASES) return t;
+    const CkNNode *found = ck_g_first_cases(t->a);
+    return found ? found : ck_g_first_cases(t->b);
+}
+
+/* t con il nodo which, ovunque compaia, al posto di by. */
+static const CkNNode *ck_g_replace(const CkNNode *t, const CkNNode *which, const CkNNode *by) {
+    if (!t || ck_status != CK_ACCEPTED) return t;
+    if (t == which) return by;
+    if (++ck_g_work > CK_G_WORK) { ck_unsupported("20g: troppi casi da espandere"); return t; }
+    CkNNode *copy = ck_n_node(t->kind);
+    *copy = *t;
+    copy->a = ck_g_replace(t->a, which, by);
+    copy->b = ck_g_replace(t->b, which, by);
+    copy->c = ck_g_replace(t->c, which, by);
+    return copy;
+}
+
+/* La condizione n senza cases (vedi in testa). */
+static const CkNNode *ck_g_expand(const CkNNode *n) {
+    if (!n || ck_status != CK_ACCEPTED) return n;
+    switch (n->kind) {
+    case CK_N_FORALL: case CK_N_EXISTS: case CK_N_NOT: case CK_N_AND: case CK_N_OR: case CK_N_IMPLIES: case CK_N_IFF: {
+        CkNNode *copy = ck_n_node(n->kind);
+        *copy = *n;
+        copy->a = ck_g_expand(n->a);
+        if (n->kind != CK_N_FORALL && n->kind != CK_N_EXISTS && n->kind != CK_N_NOT) copy->b = ck_g_expand(n->b);
+        return copy;
+    }
+    default: {
+        const CkNNode *which = ck_g_first_cases(n->a);
+        if (!which) which = ck_g_first_cases(n->b);
+        if (!which) return n;
+        const CkNNode *then = ck_g_replace(n, which, which->a), *otherwise = ck_g_replace(n, which, which->b);
+        const CkNNode *both = ck_g_make(CK_N_OR, ck_g_make(CK_N_AND, which->c, then),
+                                        ck_g_make(CK_N_AND, ck_g_make(CK_N_NOT, which->c, NULL), otherwise));
+        return ck_g_expand(both);
+    }
+    }
+}
+
+/* Il corpo t con il numero value al posto della lettera letter. */
+static const CkNNode *ck_g_instance(const CkNNode *t, long long letter, const CkNNode *value) {
+    if (!t || ck_status != CK_ACCEPTED) return t;
+    if (t->kind == CK_N_VAR) return t->value == letter ? value : t;
+    if (++ck_g_work > CK_G_WORK) { ck_unsupported("20g: affermazione troppo grande"); return t; }
+    CkNNode *copy = ck_n_node(t->kind);
+    *copy = *t;
+    copy->a = ck_g_instance(t->a, letter, value);
+    copy->b = ck_g_instance(t->b, letter, value);
+    copy->c = ck_g_instance(t->c, letter, value);
+    return copy;
+}
+
+/* La condizione n con i testimoni (vedi in testa), letta con la polarità
+ * polarity (1 positiva, -1 negativa, 0 dentro un iff); *count conta i
+ * quantificatori incontrati, in ordine di scrittura. */
+static const CkNNode *ck_g_witnessed(const CkNNode *n, int polarity, int *count) {
+    if (!n || ck_status != CK_ACCEPTED) return n;
+    switch (n->kind) {
+    case CK_N_FORALL: case CK_N_EXISTS: {
+        int number = (*count)++, w = -1;
+        for (int i = 0; i < ck_g_witnesses; i++) if (ck_g_witness_quantifier[i] == number) w = i;
+        const CkNNode *body = ck_g_witnessed(n->a, polarity, count);
+        if (w < 0) {
+            CkNNode *copy = ck_n_node(n->kind);
+            *copy = *n;
+            copy->a = body;
+            return copy;
+        }
+        int exists = n->kind == CK_N_EXISTS;
+        if (polarity != (exists ? 1 : -1)) { ck_reject("un testimone per un quantificatore che lì non vale come un esiste"); return n; }
+        long long v = ck_g_witness_value[w];
+        CkNNode *number_node = ck_n_node(CK_N_NUMBER);
+        number_node->value = v < 0 ? -v : v;
+        const CkNNode *value = v < 0 ? ck_g_make(CK_N_NEG, number_node, NULL) : number_node;
+        CkNNode *in = ck_n_node(CK_N_IN);
+        in->a = value;
+        in->set = n->set;
+        return ck_g_make(exists ? CK_N_AND : CK_N_IMPLIES, in, ck_g_instance(body, n->value, value));
+    }
+    case CK_N_NOT: return ck_g_make(CK_N_NOT, ck_g_witnessed(n->a, -polarity, count), NULL);
+    case CK_N_AND: case CK_N_OR: case CK_N_IMPLIES: case CK_N_IFF: {
+        int first = n->kind == CK_N_IMPLIES ? -polarity : n->kind == CK_N_IFF ? 0 : polarity;
+        const CkNNode *a = ck_g_witnessed(n->a, first, count);
+        return ck_g_make(n->kind, a, ck_g_witnessed(n->b, n->kind == CK_N_IFF ? 0 : polarity, count));
+    }
+    default: return n;
+    }
+}
+
+/* L'affermazione del certificato: le chiusure e la negazione dell'enunciato. */
+static const CkNNode *ck_g_make_claim(const CkNode *statement) {
+    const CkNNode *claim = ck_g_make(CK_N_NOT, ck_g_condition(statement, 0), NULL);
+    for (int s = ck_declared - 1; s >= 0 && ck_status == CK_ACCEPTED; s--) {
+        const CkSymbol *y = &ck_symbols[s];
+        if (y->result == CK_BOOL) continue;
+        const CkNSet *target = &ck_g_set[y->result];
+        if (!target->bounded && !target->holes) continue;
+        const CkNNode *args[2] = {ck_g_variable(CK_G_CLOSURE), ck_g_variable(CK_G_CLOSURE + 1)};
+        CkNNode *in = ck_n_node(CK_N_IN);
+        in->a = ck_g_substitute(ck_g_define[s], args);
+        in->set = *target;
+        const CkNNode *body = in;
+        for (int i = y->arity - 1; i >= 0; i--) {
+            CkNNode *q = ck_n_node(CK_N_FORALL);
+            q->value = CK_G_CLOSURE + i;
+            q->set = ck_g_set[y->arg[i]];
+            q->a = body;
+            body = q;
+        }
+        claim = ck_g_make(CK_N_AND, body, claim);
+    }
+    claim = ck_g_expand(claim);
+    int count = 0;
+    claim = ck_g_witnessed(claim, 1, &count);
+    for (int i = 0; i < ck_g_witnesses && ck_status == CK_ACCEPTED; i++)
+        if (ck_g_witness_quantifier[i] >= count) ck_reject("un testimone per un quantificatore che l'affermazione non ha");
+    return claim;
+}
+
+/* Legge un certificato infinite, dopo la sua intestazione, fino a "end"
+ * compreso: gli insiemi, i simboli, l'enunciato e l'interpretazione, poi
+ * l'affermazione va a ck_a_steps() (20f). */
+static void ck_g_read(void) {
+    const CkNode *statement = NULL;
+    int interpreted = 0, defined = 0;
+    ck_sort_count = ck_symbol_count = ck_declared = ck_bound_count = 0;
+    ck_n_quantifiers = ck_n_bound = 0;
+    ck_a_active = ck_g_cases = 0;
+    ck_n_kind = CK_N_INT;
+    ck_g_claim = NULL;
+    ck_g_work = 0;
+    ck_g_witnesses = 0;
+    for (;;) {
+        const char *name;
+        while (isspace((unsigned char)*ck_cursor)) ck_cursor++;
+        if (ck_status != CK_ACCEPTED) return;
+        const char *at = ck_cursor;
+        if (ck_word("clausify")) { ck_cursor = at; break; }
+        if (!statement && ck_word("sort")) {
+            if (!ck_sorts_reserve((size_t)ck_sort_count + 1)) return;
+            if (!ck_name(&name) || ck_sort_of(name) >= 0) { ck_reject("certificato scritto male: sort senza nome, o due volte"); return; }
+            ck_skip();
+            if (*ck_cursor && *ck_cursor != '\n') { ck_unsupported("20g interpreta solo insiemi qualsiasi"); return; }
+            ck_sorts[ck_sort_count++] = (CkSort){.name = name, .size = (size_t)-1, .kind = 0, .base = -1, .target = -1, .symbol = -1};
+        } else if (!statement && ck_word("symbol")) {
+            int sort[3], count = 0;
+            if (!ck_symbols_reserve((size_t)ck_symbol_count + 1)) return;
+            CkSymbol *y = &ck_symbols[ck_symbol_count];
+            memset(y, 0, sizeof *y);
+            if (!ck_name(&y->name) || ck_symbol_of(y->name) >= 0) { ck_reject("certificato scritto male: symbol senza nome, o due volte"); return; }
+            for (ck_skip(); *ck_cursor && *ck_cursor != '\n'; ck_skip()) {
+                if (count == 3 || !ck_name(&name)) { ck_reject("certificato scritto male: symbol con troppi insiemi"); return; }
+                sort[count++] = strcmp(name, "bool") == 0 ? CK_BOOL : ck_sort_of(name);
+            }
+            if (count == 0) { ck_reject("certificato scritto male: symbol senza insiemi"); return; }
+            y->arity = count - 1;
+            y->result = sort[count - 1];
+            for (int i = 0; i < count; i++) {
+                if (sort[i] < 0 || (sort[i] == CK_BOOL && i < y->arity)) { ck_reject("certificato scritto male: symbol con un insieme non dichiarato"); return; }
+                if (i < y->arity) y->arg[i] = sort[i];
+            }
+            ck_symbol_count++;
+        } else if (!statement && ck_word("statement")) {
+            statement = ck_read_condition();
+            ck_declared = ck_symbol_count;
+            ck_g_set = ck_alloc((size_t)(ck_sort_count ? ck_sort_count : 1) * sizeof *ck_g_set);
+            ck_g_define = ck_alloc((size_t)(ck_declared ? ck_declared : 1) * sizeof *ck_g_define);
+            if (ck_status != CK_ACCEPTED) return;
+            for (int i = 0; i < ck_sort_count; i++) ck_g_set[i] = (CkNSet){0};
+            for (int i = 0; i < ck_declared; i++) ck_g_define[i] = NULL;
+        } else if (statement && ck_word("interpret")) {
+            int s = ck_name(&name) ? ck_sort_of(name) : -1;
+            if (s < 0 || (interpreted >> s & 1)) { ck_reject("interpret di un insieme non dichiarato, o due volte"); return; }
+            if (s >= (int)(sizeof(int) * CHAR_BIT) - 1) { ck_unsupported("20g: troppi insiemi"); return; }
+            ck_g_set[s] = ck_n_set();
+            interpreted |= 1 << s;
+        } else if (statement && ck_word("define")) {
+            int s = ck_name(&name) ? ck_symbol_of(name) : -1;
+            if (s < 0 || ck_g_define[s]) { ck_reject("define di un simbolo non dichiarato, o due volte"); return; }
+            ck_g_cases = 1;
+            const CkNNode *def = ck_symbols[s].result == CK_BOOL ? ck_n_condition(0) : ck_n_term(0);
+            ck_g_cases = 0;
+            if (ck_status != CK_ACCEPTED) return;
+            if (!ck_g_definition_ok(def, ck_symbols[s].arity)) { ck_reject("una definizione nomina lettere che non sono i suoi argomenti, o ha quantificatori"); return; }
+            ck_g_define[s] = def;
+            defined++;
+        } else if (statement && ck_word("witness")) {
+            long long which = -1, value = 0;
+            if (!ck_read_integer(&which) || which < 0 || which >= INT_MAX || !ck_read_integer(&value)) { ck_reject("certificato scritto male: witness K V"); return; }
+            for (int i = 0; i < ck_g_witnesses; i++)
+                if (ck_g_witness_quantifier[i] == which) { ck_reject("due testimoni per lo stesso quantificatore"); return; }
+            if (ck_g_witnesses == CK_N_QUANTIFIERS) { ck_unsupported("20g: troppi testimoni"); return; }
+            ck_g_witness_quantifier[ck_g_witnesses] = (int)which;
+            ck_g_witness_value[ck_g_witnesses++] = value;
+        } else {
+            ck_reject("certificato scritto male: voce sconosciuta o fuori posto, o \"end\" mancante");
+            return;
+        }
+    }
+    if (!statement) { ck_reject("certificato incompleto: manca l'enunciato"); return; }
+    if (interpreted != (int)((1u << ck_sort_count) - 1) || defined != ck_declared) {
+        ck_reject("certificato incompleto: un insieme senza interpret o un simbolo senza define");
+        return;
+    }
+    ck_g_claim = ck_g_make_claim(statement);
+    ck_a_steps(ck_g_claim);
+}
+
+/* Controlla un certificato infinite, dopo la sua intestazione. */
+static void ck_check_infinite(void) {
+    ck_g_read();
     ck_a_active = 0;
     if (ck_status != CK_ACCEPTED) return;
     if (!ck_r.started || !ck_r.clauses || ck_r.clause[ck_r.clauses - 1].count)
@@ -12823,6 +13247,13 @@ static void ck_read_certificate(CkCertificate *cert) {
     if (ck_word("arithmetic")) {
         cert->checked = 1;
         ck_check_arithmetic();
+        return;
+    }
+
+    /* Un enunciato falso in un'interpretazione sugli interi (20g). */
+    if (ck_word("infinite")) {
+        cert->checked = 1;
+        ck_check_infinite();
         return;
     }
     if (!ck_word("induction")) { ck_reject("certificato scritto male: manca l'intestazione"); return; }
