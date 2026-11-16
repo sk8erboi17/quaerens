@@ -5,7 +5,14 @@
  * I certificati giusti devono essere accettati; quelli con un testimone
  * sbagliato, fuori dal suo insieme, mancante o in più, con l'affermazione
  * opposta, o che vorrebbero mostrare con un valore un "per ogni" vero o un
- * "esiste" falso, devono essere respinti. Poi un oracolo: enunciati a caso
+ * "esiste" falso, devono essere respinti. Un quantificatore senza
+ * testimone si stabilisce solo con il conto completo di 20e, su una
+ * variabile intera: i suoi certificati giusti sono accettati, quelli con
+ * l'affermazione opposta e quelli fuori dalla sua portata (numeri reali,
+ * due variabili, un divisore che dipende dalla variabile, numeri troppo
+ * grandi) no; e un secondo oracolo confronta quel conto, su enunciati a
+ * caso in una variabile, con la prova diretta di tutti gli interi tra -400
+ * e 400. Poi il primo oracolo: enunciati a caso
  * con le variabili confinate tra -2 e 2, di cui un conto diretto in C
  * stabilisce la verità provando tutti i valori; per ognuno si cercano i
  * testimoni che il verificatore accetta, provandoli tutti, e si controlla
@@ -57,8 +64,12 @@ static int certificates(void) {
                      "values for which the statement holds are not a counterexample");
     errors += expect(answer(SQUARES "fails\nwitness 0 7\nwitness 1 8\nwitness 2 0\nwitness 3 2\nend\n") == CK_REJECTED,
                      "a wrong witness of a hypothesis leaves the counterexample unproved");
-    errors += expect(answer(SQUARES "fails\nwitness 0 7\nwitness 1 8\nwitness 2 0\nend\n") == CK_REJECTED,
-                     "a missing witness leaves the counterexample unproved");
+    errors += expect(answer(SQUARES "fails\nwitness 1 8\nwitness 2 0\nwitness 3 1\nend\n") == CK_REJECTED,
+                     "a missing witness of the statement's own quantifier leaves the counterexample unproved");
+    /* Il testimone di j manca, ma con y = 8 "esiste j con 8 = j^2 + 7" è
+     * una sola variabile intera: lo stabilisce il conto di 20e. */
+    errors += expect(answer(SQUARES "fails\nwitness 0 7\nwitness 1 8\nwitness 2 0\nend\n") == CK_ACCEPTED,
+                     "a witness that the complete count finds by itself may be missing");
     errors += expect(answer(SQUARES "holds\nwitness 0 7\nwitness 1 8\nwitness 2 0\nwitness 3 1\nend\n") == CK_REJECTED,
                      "a false statement is not accepted as holding");
     errors += expect(answer(SQUARES "fails\nwitness 0 7\nwitness 1 8\nwitness 2 0\nwitness 3 1\nwitness 4 0\nend\n") == CK_REJECTED,
@@ -72,8 +83,10 @@ static int certificates(void) {
                      "a true universal statement is not shown by one value");
     errors += expect(answer("certificate numbers\nkind int\nstatement (exists (var 120) (set) (neq (var 120) (var 120)))\nfails\nwitness 0 3\nend\n") == CK_REJECTED,
                      "a false existential statement is not shown by one value");
-    errors += expect(answer("certificate numbers\nkind int\nstatement (forall (var 120) (set) (= (var 120) (var 120)))\nholds\nend\n") == CK_REJECTED,
-                     "a true universal statement is not accepted without anything");
+    errors += expect(answer("certificate numbers\nkind real\nstatement (forall (var 120) (set) (= (var 120) (var 120)))\nholds\nend\n") == CK_REJECTED,
+                     "a true universal statement on real numbers is not accepted without anything");
+    errors += expect(answer("certificate numbers\nkind int\nstatement (forall (var 120) (set) (forall (var 121) (set) (= (add (var 120) (var 121)) (add (var 121) (var 120)))))\nholds\nend\n") == CK_REJECTED,
+                     "a true universal statement in two variables is not accepted without anything");
 
     /* Un "esiste" vero, con il suo testimone; i generi di numeri. */
     errors += expect(answer("certificate numbers\nkind int\nstatement (exists (var 120) (set ge 1) (= (mul (var 120) (var 120)) 49))\nholds\nwitness 0 7\nend\n") == CK_ACCEPTED,
@@ -111,6 +124,164 @@ static int certificates(void) {
                      "numbers too large are not accepted");
     return errors;
 }
+
+/* 20e. Un quantificatore su un intero senza testimone, stabilito dal conto
+ * completo: ciò che il conto stabilisce, ciò che smentisce, ciò che non
+ * raggiunge. */
+#define ONE(set, body) "certificate numbers\nkind int\nstatement (forall (var 120) " set " " body ")\n"
+#define SOME(set, body) "certificate numbers\nkind int\nstatement (exists (var 120) " set " " body ")\n"
+#define X "(var 120)"
+static int counted(void) {
+    int errors = 0;
+
+    /* Veri per ogni intero, o falsi per ogni intero: il conto li stabilisce. */
+    errors += expect(answer(ONE("(set)", "(= " X " " X ")") "holds\nend\n") == CK_ACCEPTED, "x = x for every integer");
+    errors += expect(answer(ONE("(set)", "(divides 2 (mul " X " (add " X " 1)))") "holds\nend\n") == CK_ACCEPTED,
+                     "two divides x (x + 1) for every integer");
+    errors += expect(answer(ONE("(set)", "(divides 6 (mul (mul " X " (add " X " 1)) (add " X " 2)))") "holds\nend\n") == CK_ACCEPTED,
+                     "six divides x (x + 1) (x + 2) for every integer");
+    errors += expect(answer(ONE("(set ge 1)", "(less 0 " X ")") "holds\nend\n") == CK_ACCEPTED, "every positive integer is above zero");
+    errors += expect(answer(ONE("(set)", "(lesseq " X " (mul " X " " X "))") "holds\nend\n") == CK_ACCEPTED, "x <= x^2 for every integer");
+    errors += expect(answer(SOME("(set)", "(= (mul " X " " X ") 2)") "fails\nend\n") == CK_ACCEPTED, "no integer has square two");
+    errors += expect(answer(SOME("(set ge 1)", "(= (add " X " 101) 101)") "fails\nend\n") == CK_ACCEPTED, "no positive integer m has m + 101 = 101");
+    errors += expect(answer(SOME("(set)", "(= (mul " X " " X ") 49)") "holds\nend\n") == CK_ACCEPTED, "the count finds an integer with square 49");
+
+    /* Radici lontane dall'origine e un insieme che comincia lontano: il
+     * conto arriva fin dove il limite delle radici e il periodo dicono. */
+    errors += expect(answer(SOME("(set)", "(= (mul (sub " X " 97) (add " X " 83)) 0)") "holds\nend\n") == CK_ACCEPTED,
+                     "the count reaches a root at 97");
+    errors += expect(answer(ONE("(set)", "(neq (mul (sub " X " 97) (add " X " 83)) 0)") "holds\nend\n") == CK_REJECTED,
+                     "a polynomial with roots at 97 and -83 is not always different from zero");
+    errors += expect(answer(ONE("(set ge 98)", "(less 0 (mul (sub " X " 97) (add " X " 83)))") "holds\nend\n") == CK_ACCEPTED,
+                     "above its largest root the polynomial is positive");
+    errors += expect(answer(SOME("(set ge 1000)", "(divides 7 (sub " X " 5))") "holds\nend\n") == CK_ACCEPTED,
+                     "the count goes one period beyond the bound of the set");
+    errors += expect(answer(SOME("(set ge 1000)", "(and (divides 7 (sub " X " 5)) (less " X " 1006))") "fails\nend\n") == CK_ACCEPTED,
+                     "below 1006 no integer from 1000 on is 5 modulo 7");
+
+    /* Le due confutazioni che servivano: fissati i valori trovati da chi ha
+     * cercato, resta un quantificatore su un intero. "Per ogni x: se x = k
+     * + 100 con k positivo, allora x = m + 101 con m positivo" è falso con
+     * x = 101 e k = 1; "per ogni m esiste x positivo con x - m >= 0 e m - x
+     * >= 0" è falso con m = 0. */
+    errors += expect(answer("certificate numbers\nkind int\nstatement (forall (var 120) (set) (implies (exists (var 107) (set ge 1) (= (var 120) (add (var 107) 100))) "
+                            "(exists (var 109) (set ge 1) (= (var 120) (add (var 109) 101)))))\nfails\nwitness 0 101\nwitness 1 1\nend\n") == CK_ACCEPTED,
+                     "a counterexample whose last step is a count over one integer is accepted");
+    errors += expect(answer("certificate numbers\nkind int\nstatement (forall (var 120) (set) (implies (exists (var 107) (set ge 1) (= (var 120) (add (var 107) 100))) "
+                            "(exists (var 109) (set ge 1) (= (var 120) (add (var 109) 101)))))\nfails\nwitness 0 102\nwitness 1 2\nend\n") == CK_REJECTED,
+                     "a value for which the statement holds is not a counterexample, and the count says so");
+    errors += expect(answer("certificate numbers\nkind int\nstatement (forall (var 109) (set) (exists (var 120) (set ge 1) (and (in (sub (var 120) (var 109)) (set ge 0)) "
+                            "(in (sub (var 109) (var 120)) (set ge 0)))))\nfails\nwitness 0 0\nend\n") == CK_ACCEPTED,
+                     "a counterexample that needs every positive integer to fail is accepted");
+    errors += expect(answer("certificate numbers\nkind int\nstatement (forall (var 109) (set) (exists (var 120) (set ge 1) (and (in (sub (var 120) (var 109)) (set ge 0)) "
+                            "(in (sub (var 109) (var 120)) (set ge 0)))))\nfails\nwitness 0 3\nend\n") == CK_REJECTED,
+                     "three is not a counterexample: x = 3 is there");
+
+    /* L'affermazione opposta a ciò che il conto trova. */
+    errors += expect(answer(ONE("(set)", "(divides 4 (mul " X " (add " X " 1)))") "holds\nend\n") == CK_REJECTED, "four does not divide every x (x + 1)");
+    errors += expect(answer(ONE("(set)", "(less " X " (mul " X " " X "))") "holds\nend\n") == CK_REJECTED, "x < x^2 fails at zero and at one");
+    errors += expect(answer(SOME("(set)", "(= (mul " X " " X ") 4)") "fails\nend\n") == CK_REJECTED, "an integer with square four exists");
+    errors += expect(answer(ONE("(set ge 0)", "(less 0 " X ")") "holds\nend\n") == CK_REJECTED, "zero is not above zero");
+    errors += expect(answer(ONE("(set except 0/1)", "(neq " X " 0)") "holds\nend\n") == CK_ACCEPTED, "a removed point is not tried");
+
+    /* Fuori dalla portata del conto: non stabilito, quindi respinto,
+     * qualunque cosa si affermi. */
+    errors += expect(answer(ONE("(set except 0/1)", "(divides " X " (mul " X " " X "))") "holds\nend\n") != CK_ACCEPTED,
+                     "a divisor that depends on the variable is not counted");
+    errors += expect(answer(ONE("(set)", "(neq " X " 1000000)") "holds\nend\n") != CK_ACCEPTED, "a window too wide is not counted: not accepted as true");
+    errors += expect(answer(ONE("(set)", "(neq " X " 1000000)") "fails\nend\n") != CK_ACCEPTED, "a window too wide is not counted: not accepted as false");
+    errors += expect(answer(ONE("(set)", "(neq " X " 1000000)") "fails\nwitness 0 1000000\nend\n") == CK_ACCEPTED, "the same statement with its counterexample written");
+    errors += expect(answer("certificate numbers\nkind rat\nstatement (forall (var 120) (set) (= " X " " X "))\nholds\nend\n") != CK_ACCEPTED,
+                     "rational numbers are not counted");
+    errors += expect(answer(ONE("(set)", "(= (pow (pow (pow " X " 4) 4) 4) (pow (pow (pow " X " 4) 4) 4))") "holds\nend\n") != CK_ACCEPTED,
+                     "a degree above the limit is not counted");
+    return errors;
+}
+
+/* L'ORACOLO DEL CONTO. Enunciati a caso in una sola variabile intera: un
+ * quantificatore, un insieme, e due condizioni elementari unite da un
+ * connettivo, con coefficienti tra -5 e 5. La verità la stabilisce qui un
+ * conto diretto su tutti gli interi tra -400 e 400, molto oltre i punti in
+ * cui queste condizioni possono cambiare (le radici stanno entro 6, i
+ * periodi entro 60): il verificatore, che ne prova molti meno, deve dire
+ * lo stesso, con "holds" e con "fails". */
+static unsigned long count_seed = 20261116;
+static int count_random(int low, int high) {
+    count_seed = count_seed * 1103515245u + 12345u;
+    return low + (int)((count_seed >> 8) % (unsigned long)(high - low + 1));
+}
+
+/* Una condizione elementare a caso: kind dice la forma, p, q, r i numeri. */
+typedef struct { int kind, p, q, r; } CountAtom;
+
+static int count_atom_holds(CountAtom a, long long x) {
+    switch (a.kind) {
+    case 0: return a.p * x * x + a.q * x + a.r == 0;
+    case 1: return a.p * x + a.q < a.r;
+    case 2: return a.p * x * x * x + a.q != a.r * x;
+    case 3: return a.p * x * x <= a.q * x + a.r;
+    case 4: { long long d = a.p < 0 ? -a.p : a.p, v = x * x + a.q * x + a.r; return d == 0 ? v == 0 : v % d == 0; }
+    default: { long long d = a.p < 0 ? -a.p : a.p, v = a.q * x + a.r; return d == 0 ? v == 0 : v % d == 0; }
+    }
+}
+
+/* Scrive l'intero v nella notazione dei certificati: i numeri scritti non
+ * sono negativi. */
+static int count_number(char *text, size_t size, int v) {
+    return v < 0 ? snprintf(text, size, "(neg %d)", -v) : snprintf(text, size, "%d", v);
+}
+
+static void count_atom_text(char *text, size_t size, CountAtom a) {
+    char p[16], q[16], r[16];
+    count_number(p, sizeof p, a.p); count_number(q, sizeof q, a.q); count_number(r, sizeof r, a.r);
+    switch (a.kind) {
+    case 0: snprintf(text, size, "(= (add (add (mul %s (mul " X " " X ")) (mul %s " X ")) %s) 0)", p, q, r); break;
+    case 1: snprintf(text, size, "(less (add (mul %s " X ") %s) %s)", p, q, r); break;
+    case 2: snprintf(text, size, "(neq (add (mul %s (pow " X " 3)) %s) (mul %s " X "))", p, q, r); break;
+    case 3: snprintf(text, size, "(lesseq (mul %s (pow " X " 2)) (add (mul %s " X ") %s))", p, q, r); break;
+    case 4: snprintf(text, size, "(divides %s (add (add (mul " X " " X ") (mul %s " X ")) %s))", p, q, r); break;
+    default: snprintf(text, size, "(divides %s (add (mul %s " X ") %s))", p, q, r); break;
+    }
+}
+
+static int count_oracle(void) {
+    static const char *const sets[4] = {"(set)", "(set ge 1)", "(set ge 0)", "(set except 0/1)"};
+    static const char *const connectives[4] = {"and", "or", "implies", "iff"};
+    int errors = 0, agreed = 0, held = 0;
+    for (int trial = 0; trial < 3000; trial++) {
+        int every = count_random(0, 1), set = count_random(0, 3), connective = count_random(0, 3);
+        CountAtom a = {count_random(0, 5), count_random(-5, 5), count_random(-5, 5), count_random(-5, 5)};
+        CountAtom b = {count_random(0, 5), count_random(-5, 5), count_random(-5, 5), count_random(-5, 5)};
+
+        /* La verità, provando tutti gli interi dell'insieme tra -400 e 400. */
+        int truth = every;
+        for (long long x = -400; x <= 400; x++) {
+            if ((set == 1 && x < 1) || (set == 2 && x < 0) || (set == 3 && x == 0)) continue;
+            int left = count_atom_holds(a, x), right = count_atom_holds(b, x);
+            int body = connective == 0 ? left && right : connective == 1 ? left || right : connective == 2 ? !left || right : left == right;
+            if (every) truth = truth && body; else truth = truth || body;
+        }
+
+        char left[200], right[200], text[700];
+        count_atom_text(left, sizeof left, a); count_atom_text(right, sizeof right, b);
+        for (int claim = 0; claim < 2; claim++) {
+            snprintf(text, sizeof text, "certificate numbers\nkind int\nstatement (%s " X " %s (%s %s %s))\n%s\nend\n",
+                     every ? "forall" : "exists", sets[set], connectives[connective], left, right, claim ? "holds" : "fails");
+            int accepted = answer(text) == CK_ACCEPTED;
+            if (accepted != (claim == truth)) {
+                printf("FAILED: the count %s \"%s\" for a statement that is %s:\n%s", accepted ? "accepted" : "did not accept",
+                       claim ? "holds" : "fails", truth ? "true" : "false", text);
+                errors++;
+            } else agreed++;
+        }
+        held += truth;
+    }
+    errors += expect(held > 300 && held < 2700, "the statements of the count oracle are of both kinds");
+    printf("count oracle: 3000 statements in one integer variable, %d true, %d answers as the direct count says: %s\n",
+           held, agreed, errors ? "FAIL" : "PASS");
+    return errors;
+}
+#undef X
 
 /* L'ORACOLO. Un enunciato a caso ha due quantificatori su variabili intere
  * confinate tra -2 e 2 dal suo stesso testo, e un corpo fatto di due
@@ -202,7 +373,7 @@ static int oracle(void) {
 }
 
 int main(void) {
-    int errors = certificates() + oracle();
+    int errors = certificates() + counted() + count_oracle() + oracle();
     if (errors) { printf("%d checks failed\n", errors); return 1; }
     printf("number statements with witnesses: all checks passed\n");
     return 0;

@@ -251,8 +251,11 @@
  *     "esiste" un valore in cui la condizione vale, per un "per ogni" un
  *     valore in cui fallisce. Questo programma ricalcola l'enunciato su
  *     quei valori, con i conti esatti. Un "per ogni" vero e un "esiste"
- *     falso non si mostrano così: un certificato che ne avrebbe bisogno è
- *     respinto. Il teorema esatto è in testa al capitolo 20.
+ *     falso non si mostrano con un valore: si stabiliscono solo dove,
+ *     fissati gli altri numeri, resta una sola variabile intera e una
+ *     condizione che basta provare su un numero finito di interi (20e).
+ *     Altrimenti un certificato che ne avrebbe bisogno è respinto. Il
+ *     teorema esatto è in testa al capitolo 20.
  *
  * COMPILAZIONE
  *
@@ -280,7 +283,7 @@
  *   17. Matrici
  *   18. Derivate parziali
  *   19. Identità con gli indici
- *   20. Enunciati sui numeri: testimoni
+ *   20. Enunciati sui numeri: testimoni, e il conto completo su un intero
  *   15. Controllo di un certificato
  *   16. main
  */
@@ -11656,7 +11659,7 @@ static void ck_check_indices(void) {
 }
 
 /* =============================================================================
- * 20. ENUNCIATI SUI NUMERI: TESTIMONI
+ * 20. ENUNCIATI SUI NUMERI: TESTIMONI, E IL CONTO COMPLETO SU UN INTERO
  * ============================================================================
  *
  * A che cosa serve. "Per ogni x, y interi: se x = k^2 + 7 per qualche k e
@@ -11719,17 +11722,25 @@ static void ck_check_indices(void) {
  *   20d. "Esiste x in A, C" con un testimone w: se w è in A e C con x = w è
  *        vera, allora "esiste" è vero. Mai falso. Senza testimone: non
  *        stabilita.
+ *   20e. Un quantificatore senza testimone, con int, quando C non ha altri
+ *        quantificatori e ogni altra variabile ha già un valore: si
+ *        stabilisce con un conto finito e completo (sotto, in testa a
+ *        ck_n_counted()). È il solo modo in cui un "per ogni" risulta vero
+ *        e un "esiste" falso. Serve a chi smentisce "per ogni x esiste m
+ *        tale che x = m + 101" con x = 101: che nessun m positivo vada
+ *        bene non lo mostra un numero, lo mostra il conto.
  *
  * Un testimone deve stare nell'insieme del suo quantificatore: con int deve
  * essere intero, e deve rispettare l'estremo e i punti tolti. Se non ci sta
  * il certificato è respinto, non ignorato: chi lo ha scritto si è sbagliato.
  *
  * Il certificato è accettato se l'esito dell'enunciato è quello affermato.
- * Se è l'opposto, o non è stabilito, è respinto. Un "per ogni" vero e un
- * "esiste" falso non si stabiliscono mai: per quelli servirebbe una
+ * Se è l'opposto, o non è stabilito, è respinto. Fuori da 20e un "per ogni"
+ * vero e un "esiste" falso non si stabiliscono: per quelli servirebbe una
  * dimostrazione, e questo capitolo non ne legge.
  *
- * Qui non si cerca nulla: nessun valore è provato oltre a quelli scritti.
+ * Qui non si cerca nulla. I soli valori provati oltre a quelli scritti sono
+ * quelli del conto di 20e, che li prova tutti.
  */
 
 /* I generi di numeri di un enunciato (voce kind). */
@@ -11979,6 +11990,211 @@ static CkNum ck_n_number(const CkNNode *n) {
     }
 }
 
+/* 20e. UN QUANTIFICATORE SU UN INTERO, STABILITO CON UN CONTO COMPLETO
+ *
+ * "Per ogni x in A, C(x)" o "esiste x in A, C(x)", con A un insieme di
+ * interi, senza testimone, C senza quantificatori, e ogni altra variabile
+ * di C con un valore. Allora ogni espressione di C è un polinomio in x a
+ * coefficienti interi (numeri scritti, valori interi, somme, prodotti,
+ * potenze), e C è fatta di:
+ *
+ *   - confronti p(x) = 0, p(x) != 0, p(x) < 0, p(x) <= 0, con p la
+ *     differenza dei due membri; e così le appartenenze (in E A'), che
+ *     dicono E(x) >= l e E(x) != h per l'estremo e i punti tolti di A';
+ *   - divisibilità (divides d E) con d un numero, cioè senza x.
+ *
+ * Due fatti.
+ *
+ * (1) Limite delle radici (Cauchy). Se p(x) = a_n x^n + ... + a_0 ha
+ *     grado n >= 1 e p(r) = 0, allora |r| <= 1 + max |a_i| / |a_n| sugli i
+ *     minori di n. (Se |r| <= 1 non c'è nulla da mostrare. Se |r| > 1, da
+ *     a_n r^n = -(a_{n-1} r^{n-1} + ... + a_0) viene
+ *     |a_n| |r|^n <= M (|r|^n - 1) / (|r| - 1) < M |r|^n / (|r| - 1),
+ *     con M quel massimo: quindi |r| - 1 < M / |a_n|.) Qui i coefficienti
+ *     sono interi, |a_n| >= 1, e basta R = 1 + M. Oltre R, da una parte e
+ *     dall'altra, p non si annulla, quindi non cambia segno: ogni confronto
+ *     ha lo stesso valore per tutti gli x > R, e lo stesso per tutti gli
+ *     x < -R. Un polinomio costante non dipende da x.
+ * (2) Periodo. Se d != 0 e p ha coefficienti interi, p(x + d) - p(x) è un
+ *     multiplo di d (ogni (x + d)^k - x^k lo è): "d divide p(x)" ha lo
+ *     stesso valore in x e in x + d. Se d = 0, "0 divide p(x)" vuol dire
+ *     p(x) = 0: un confronto.
+ *
+ * Sia R il più grande dei limiti dei confronti (compresi x >= l e x != h
+ * dell'insieme A) e L il minimo comune multiplo dei |d|. Per (1) e (2),
+ * per x > R il valore di C(x) dipende solo dal resto di x diviso L, e così
+ * per x < -R. Gli interi da -(R + L) a R + L contengono tutti quelli tra
+ * -R e R e, da ciascuna parte, L interi consecutivi oltre R, cioè un
+ * rappresentante di ogni resto: ogni altro intero ha lo stesso valore di
+ * uno di loro, e sta in A quando ci sta quello (per x > R ogni x sta in A o
+ * nessuno, e così per x < -R). Quindi "per ogni x in A" è vero se e solo se
+ * C vale in tutti gli x di A tra -(R + L) e R + L, ed "esiste" è vero se e
+ * solo se vale in uno di loro. Il conto li prova tutti.
+ *
+ * Non si tratta: un genere diverso da int (lì le radici non sono interi da
+ * elencare), un divisore che dipende da x, un grado sopra CK_N_DEGREE, una
+ * finestra di più di CK_N_WINDOW interi da una parte. In quei casi l'esito
+ * resta "non stabilito". */
+#define CK_N_DEGREE 32
+#define CK_N_WINDOW 100000
+
+/* Un polinomio nella variabile del quantificatore che si sta contando:
+ * coef[i] è il coefficiente di x^i, per i da 0 a degree. Invariante:
+ * degree è 0 oppure coef[degree] non è zero. */
+typedef struct {
+    int degree;
+    CkNum coef[CK_N_DEGREE + 1];
+} CkNPoly;
+
+/* Ritorna 1 se la condizione n contiene un quantificatore. */
+static int ck_n_quantified(const CkNNode *n) {
+    if (!n || n->kind >= CK_N_EQ) return 0;
+    if (n->kind == CK_N_FORALL || n->kind == CK_N_EXISTS) return 1;
+    return ck_n_quantified(n->a) || ck_n_quantified(n->b);
+}
+
+/* Mette in *p l'espressione n come polinomio nella variabile letter, con
+ * ogni altra variabile al suo valore. Ritorna 0 se il grado supera
+ * CK_N_DEGREE, o se l'espressione non è un polinomio a coefficienti interi
+ * (una divisione). Una variabile senza valore respinge il certificato. */
+static int ck_n_poly(const CkNNode *n, long long letter, CkNPoly *p) {
+    CkNPoly a, b;
+    memset(p, 0, sizeof *p);
+    for (int i = 0; i <= CK_N_DEGREE; i++) p->coef[i] = ck_num_int(0);
+    if (ck_status != CK_ACCEPTED) return 0;
+    switch (n->kind) {
+    case CK_N_NUMBER: p->coef[0] = ck_num_int(n->value); return 1;
+    case CK_N_VAR:
+        /* La variabile del conto nasconde una più esterna con la stessa
+         * lettera, come in ck_n_number(). */
+        if (n->value == letter) { p->degree = 1; p->coef[1] = ck_num_int(1); }
+        else p->coef[0] = ck_n_number(n);
+        return ck_status == CK_ACCEPTED;
+    case CK_N_NEG: case CK_N_ADD: case CK_N_SUB:
+        if (!ck_n_poly(n->a, letter, &a)) return 0;
+        if (n->kind == CK_N_NEG) { b = a; memset(&a, 0, sizeof a); for (int i = 0; i <= CK_N_DEGREE; i++) a.coef[i] = ck_num_int(0); }
+        else if (!ck_n_poly(n->b, letter, &b)) return 0;
+        for (int i = 0; i <= CK_N_DEGREE; i++) {
+            p->coef[i] = ck_num_add(a.coef[i], n->kind == CK_N_ADD ? b.coef[i] : ck_num_neg(b.coef[i]));
+            if (p->coef[i].num != 0) p->degree = i;
+        }
+        return ck_status == CK_ACCEPTED;
+    case CK_N_MUL: case CK_N_POW:
+        if (!ck_n_poly(n->a, letter, &a)) return 0;
+        if (n->kind == CK_N_MUL && !ck_n_poly(n->b, letter, &b)) return 0;
+        if (n->kind == CK_N_POW) b = a;
+        /* Una potenza è un prodotto ripetuto: value - 1 volte per a. */
+        for (long long times = n->kind == CK_N_POW ? n->value - 1 : 1; times > 0; times--) {
+            if (a.degree + b.degree > CK_N_DEGREE) return 0;
+            CkNPoly product;
+            memset(&product, 0, sizeof product);
+            for (int i = 0; i <= CK_N_DEGREE; i++) product.coef[i] = ck_num_int(0);
+            for (int i = 0; i <= a.degree; i++)
+                for (int j = 0; j <= b.degree; j++)
+                    product.coef[i + j] = ck_num_add(product.coef[i + j], ck_num_mul(a.coef[i], b.coef[j]));
+            for (int i = 0; i <= CK_N_DEGREE; i++) if (product.coef[i].num != 0) product.degree = i;
+            b = product;
+        }
+        *p = b;
+        return ck_status == CK_ACCEPTED;
+    default: return 0;
+    }
+}
+
+/* Allarga *bound al limite delle radici di p meno il numero shift (fatto
+ * (1) di 20e): 1 più il più grande valore assoluto dei coefficienti sotto
+ * quello di grado massimo. Ritorna 0 se un coefficiente non è intero, o se
+ * il limite supera CK_N_WINDOW. */
+static int ck_n_roots(CkNPoly p, CkNum shift, long long *bound) {
+    p.coef[0] = ck_num_add(p.coef[0], ck_num_neg(shift));
+    if (ck_status != CK_ACCEPTED) return 0;
+    for (int i = 0; i <= p.degree; i++) if (p.coef[i].den != 1) return 0;
+    for (int i = 0; i < p.degree; i++) {
+        __int128 size = p.coef[i].num < 0 ? -p.coef[i].num : p.coef[i].num;
+        if (size >= CK_N_WINDOW) return 0;
+        if (1 + (long long)size > *bound) *bound = 1 + (long long)size;
+    }
+    return 1;
+}
+
+/* Allarga *bound per le due condizioni che dicono "il polinomio p sta
+ * nell'insieme set": sopra l'estremo, diverso dai punti tolti. */
+static int ck_n_set_roots(const CkNPoly *p, const CkNSet *set, long long *bound) {
+    if (set->bounded && !ck_n_roots(*p, ck_num_int(set->low), bound)) return 0;
+    for (int i = 0; i < set->holes; i++)
+        if (set->hole[i].den == 1 && !ck_n_roots(*p, set->hole[i], bound)) return 0;
+    return 1;
+}
+
+/* Guarda le condizioni elementari di n, senza quantificatori, come
+ * funzioni della variabile letter: allarga *bound al limite R di 20e e
+ * *period al periodo L. Ritorna 0 se una di loro non è tra quelle che 20e
+ * tratta, o se R o L superano CK_N_WINDOW. */
+static int ck_n_reach(const CkNNode *n, long long letter, long long *bound, long long *period) {
+    CkNPoly a, b;
+    switch (n->kind) {
+    case CK_N_NOT: return ck_n_reach(n->a, letter, bound, period);
+    case CK_N_AND: case CK_N_OR: case CK_N_IMPLIES: case CK_N_IFF:
+        return ck_n_reach(n->a, letter, bound, period) && ck_n_reach(n->b, letter, bound, period);
+    case CK_N_EQ: case CK_N_NEQ: case CK_N_LESS: case CK_N_LESSEQ:
+        if (!ck_n_poly(n->a, letter, &a) || !ck_n_poly(n->b, letter, &b)) return 0;
+        for (int i = 0; i <= CK_N_DEGREE; i++) {
+            a.coef[i] = ck_num_add(a.coef[i], ck_num_neg(b.coef[i]));
+            if (a.coef[i].num != 0) a.degree = i;
+        }
+        while (a.degree > 0 && a.coef[a.degree].num == 0) a.degree--;
+        return ck_n_roots(a, ck_num_int(0), bound);
+    case CK_N_IN:
+        return ck_n_poly(n->a, letter, &a) && ck_n_set_roots(&a, &n->set, bound);
+    case CK_N_DIVIDES: {
+        if (!ck_n_poly(n->a, letter, &a) || !ck_n_poly(n->b, letter, &b) || a.degree > 0 || a.coef[0].den != 1) return 0;
+        __int128 d = a.coef[0].num < 0 ? -a.coef[0].num : a.coef[0].num;
+        if (d == 0) return ck_n_roots(b, ck_num_int(0), bound);
+        for (int i = 0; i <= b.degree; i++) if (b.coef[i].den != 1) return 0;
+        if (d > CK_N_WINDOW) return 0;
+        __int128 common = (__int128)*period / ck_gcd(*period, d) * d;
+        if (common > CK_N_WINDOW) return 0;
+        *period = (long long)common;
+        return 1;
+    }
+    default: return 0;
+    }
+}
+
+static int ck_n_truth(const CkNNode *n);
+
+/* Stabilisce il quantificatore n, senza testimone, con il conto di 20e:
+ * ritorna 1 se è vero, 0 se è falso, -1 se il conto non si applica. */
+static int ck_n_counted(const CkNNode *n) {
+    long long bound = 0, period = 1;
+    CkNPoly x;
+    if (ck_n_kind != CK_N_INT || ck_n_quantified(n->a)) return -1;
+    memset(&x, 0, sizeof x);
+    for (int i = 0; i <= CK_N_DEGREE; i++) x.coef[i] = ck_num_int(0);
+    x.degree = 1; x.coef[1] = ck_num_int(1);
+    if (!ck_n_set_roots(&x, &n->set, &bound) || !ck_n_reach(n->a, n->value, &bound, &period)) return -1;
+    if (ck_status != CK_ACCEPTED || bound + period > CK_N_WINDOW) return -1;
+    if (ck_n_bound == CK_N_QUANTIFIERS) { ck_unsupported("troppi quantificatori uno dentro l'altro"); return -1; }
+
+    /* Tutti gli interi dell'insieme tra -(R + L) e R + L. */
+    int every = 1, found = 0;
+    ck_n_letter[ck_n_bound++] = n->value;
+    for (long long v = -(bound + period); v <= bound + period && ck_status == CK_ACCEPTED; v++) {
+        if (!ck_n_member(ck_num_int(v), &n->set)) continue;
+        ck_n_value[ck_n_bound - 1] = ck_num_int(v);
+        int truth = ck_n_truth(n->a);
+        if (truth < 0) { every = found = -1; break; }
+        if (truth) found = 1;
+        else every = 0;
+        /* Un valore basta a smentire un "per ogni" e a confermare un
+         * "esiste": il resto del conto non cambierebbe l'esito. */
+        if (n->kind == CK_N_FORALL ? !every : found) break;
+    }
+    ck_n_bound--;
+    if (ck_status != CK_ACCEPTED || every < 0) return -1;
+    return n->kind == CK_N_FORALL ? every : found;
+}
+
 /* Calcola la condizione n con la logica a tre valori del capitolo: ritorna
  * 1 se è stabilito che è vera, 0 che è falsa, -1 se non è stabilito. */
 static int ck_n_truth(const CkNNode *n) {
@@ -12016,9 +12232,9 @@ static int ck_n_truth(const CkNNode *n) {
         a = ck_n_truth(n->a); b = ck_n_truth(n->b);
         return a < 0 || b < 0 ? -1 : a == b;
 
-    /* 20c, 20d. I quantificatori, con il loro testimone. */
+    /* 20c, 20d. I quantificatori, con il loro testimone; 20e senza. */
     case CK_N_FORALL: case CK_N_EXISTS: {
-        if (!ck_n_given[n->quantifier]) return -1;
+        if (!ck_n_given[n->quantifier]) return ck_n_counted(n);
         CkNum witness = ck_n_witness[n->quantifier];
         if (!ck_n_member(witness, &n->set)) { ck_reject("un testimone non sta nell'insieme del suo quantificatore"); return -1; }
         if (ck_n_bound == CK_N_QUANTIFIERS) { ck_unsupported("troppi quantificatori uno dentro l'altro"); return -1; }
