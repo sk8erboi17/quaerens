@@ -180,8 +180,11 @@
  *     Le formule con quantificatori su parti possono restare astratte;
  *     comprehend ne aggiunge istanze universali con comprensioni esplicite.
  *     Un'equipotenza tra due insiemi diventa una proposizione nuova, che
- *     implica che due funzioni nuove si disfano a vicenda (11m-e): in una
- *     refutazione l'equipotenza si può usare, non dimostrare.
+ *     implica che due funzioni nuove si disfano a vicenda (11m-e): così in
+ *     una refutazione l'equipotenza si può usare. Per dimostrarla il
+ *     certificato deve esibire la biiezione: biject dà due termini, e la
+ *     proposizione segue se quei termini si disfano a vicenda tra i due
+ *     insiemi, cosa che i passi devono poi mostrare (11m-f).
  *     Non assume un principio induttivo: deve comparire nell'enunciato.
  *     Il controllo non cerca genitori, sostituzioni o unificatori.
  *   - "certificate signs" (capitolo 12): con C la condizione nella variabile
@@ -3659,6 +3662,11 @@ static void ck_check_case(void) {
  * alternarsi: ogni simbolo dichiara il proprio ruolo, senza un suffisso
  * riservato. La forma opzionale clausify forward usa implicazioni nella
  * direzione positiva della NNF, preservando ogni controesempio originale.
+ *
+ * Un'equipotenza tra due insiemi e una proposizione nuova con due funzioni
+ * nuove (11m-e, in ck_r_formula()). biject j t u ne esibisce la biiezione
+ * con due termini, e aggiunge "se t e u si disfano a vicenda tra i due
+ * insiemi, la proposizione vale" (11m-f, sopra ck_r_biject()).
  * Riferimenti: Kovacs e Voronkov (2013), First-Order Theorem Proving and
  * Vampire; Bachmair e Ganzinger (1994), Rewrite-based Equational Theorem
  * Proving with Selection and Simplification.
@@ -3721,6 +3729,12 @@ typedef struct {
     const CkRPart *part;
 } CkRSchema;
 
+/* Un'equipotenza incontrata nella clausificazione (11m-e): proposition è
+ * il termine della proposizione che ne ha preso il posto, from e to i
+ * simboli dei predicati di dominio dei suoi due insiemi. Serve a biject
+ * (11m-f), che la nomina con il suo numero d'ordine. */
+typedef struct { int proposition, from, to; } CkREquipotence;
+
 /* Stato di un controllo, indipendente dal motore. I contatori delimitano
  * i depositi term/argument/symbol/clause e le pile binding/universals.
  * variable numera i nomi prima della normalizzazione; started distingue
@@ -3732,7 +3746,9 @@ typedef struct {
  * schema/schema_cap conservano schemas astrazioni; part e parallelo a
  * binding per distinguere elementi e comprensioni. forward seleziona la
  * forma direzionale della clausificazione; zero conserva il protocollo
- * storico con equivalenze complete e gli stessi indici di clausola. */
+ * storico con equivalenze complete e gli stessi indici di clausola.
+ * equipotence/equipotence_cap conservano le equipotences equipotenze
+ * incontrate, nell'ordine in cui la clausificazione le ha incontrate. */
 typedef struct {
     int terms, args, symbols, clauses, variable, bound, universal, started;
     int components;
@@ -3745,9 +3761,11 @@ typedef struct {
     CkRPart *part;                /* contesto delle parti, parallelo a binding */
     CkRSchema *schema;            /* formule astratte con quantificatori su parti */
     int schemas;                 /* numero delle formule quantificate astratte */
+    CkREquipotence *equipotence;  /* equipotenze diventate proposizioni (11m-e) */
+    int equipotences;
     size_t symbol_cap, argument_cap, binding_cap, universal_cap, hash_cap;
     size_t term_cap, clause_cap, component_cap;
-    size_t part_cap, schema_cap;
+    size_t part_cap, schema_cap, equipotence_cap;
     unsigned long long work;
 } CkRState;
 static CkRState ck_r;
@@ -3758,7 +3776,7 @@ static void ck_r_clear(void) {
     free(ck_r.symbol); free(ck_r.argument); free(ck_r.binding);
     free(ck_r.universals); free(ck_r.hash); free(ck_r.term); free(ck_r.clause);
     free(ck_r.component);
-    free(ck_r.part); free(ck_r.schema);
+    free(ck_r.part); free(ck_r.schema); free(ck_r.equipotence);
     memset(&ck_r, 0, sizeof ck_r);
 }
 
@@ -3966,13 +3984,14 @@ static int ck_r_input_term(const CkNode *n) {
     return ck_r_term(id, args);
 }
 
-/* Sostituisce il solo parametro v0 di una proprieta con un termine.
+/* Sostituisce il solo parametro v0 di una proprieta, o di un termine letto
+ * come applicazione (11m-f), con un termine.
  * Il sostituente non viene attraversato: nessuna sua variabile puo essere
  * catturata o risostituita se ha lo stesso numero del segnaposto. */
 static int ck_r_parameter(int term, int value) {
     if (!term || !ck_r_visit()) return 0;
     if (term == -1) return value;
-    if (term < 0) { ck_reject("una comprensione ha piu di un parametro libero"); return 0; }
+    if (term < 0) { ck_reject("una comprensione o una biiezione ha piu di un parametro libero"); return 0; }
     CkRTerm n = ck_r.term[term];
     int *args = ck_r_array((size_t)n.count, sizeof *args);
     if (n.count && !args) return 0;
@@ -4104,9 +4123,9 @@ static CkRLiteral ck_r_formula(const CkNode *n, int positive) {
          * il resto dell'enunciato ha lo stesso valore di prima, qualunque
          * sia il punto, positivo o negativo, in cui l'equipotenza compare.
          *
-         * Che cosa non dà. Nulla permette di ricavare e: per dimostrare
-         * un'equipotenza servirebbe la biiezione, e qui non c'è modo di
-         * esibirla (lo fa 11c, con witness, nei certificati structure).
+         * Che cosa non dà. Da queste clausole nulla permette di ricavare e:
+         * per dimostrare un'equipotenza serve la biiezione, e la esibisce
+         * una riga biject (11m-f, più sotto), come instance in 11c.
          * Ogni occorrenza ha la sua e e le sue funzioni: due scritture della
          * stessa equipotenza non si riconoscono, ed è un altro modo di dire
          * meno, mai di più. I lati che sono prodotti di insiemi (11c) non si
@@ -4121,6 +4140,11 @@ static CkRLiteral ck_r_formula(const CkNode *n, int positive) {
         int proposition = ck_r_term(name, NULL), x = -1;
         int image = ck_r_term(there, &x), returned = ck_r_term(back, &image);
         int preimage = ck_r_term(back, &x), again = ck_r_term(there, &preimage);
+        if (ck_r.equipotences == INT_MAX || !ck_reserve((void **)&ck_r.equipotence, &ck_r.equipotence_cap,
+                (size_t)ck_r.equipotences + 1, sizeof *ck_r.equipotence)) {
+            ck_unsupported("troppe equipotenze nel certificato"); return zero;
+        }
+        ck_r.equipotence[ck_r.equipotences++] = (CkREquipotence){proposition, from, to};
         CkRLiteral unless = {proposition, 0, 1};
         ck_r_emit(unless, (CkRLiteral){ck_r_term(from, &x), 0, 1}, (CkRLiteral){ck_r_term(to, &image), 0, 0}, 3);
         ck_r_emit(unless, (CkRLiteral){ck_r_term(from, &x), 0, 1}, (CkRLiteral){returned, x, 0}, 3);
@@ -4321,6 +4345,83 @@ static void ck_r_comprehend(void) {
     CkRLiteral result = ck_r_formula(schema.body, schema.positive);
     ck_r_emit(ck_r_not(schema.name), result, result, 2);
     ck_r.bound = ck_r.universal = 0;
+}
+
+/* 11m-f. biject j t u: L'EQUIPOTENZA SI DIMOSTRA ESIBENDO LA BIIEZIONE
+ *
+ * j è il numero d'ordine di un'equipotenza tra due insiemi A e B, che la
+ * clausificazione ha sostituito con la proposizione e (11m-e). t e u sono
+ * due termini scritti con i simboli che ci sono già, con al più la
+ * variabile v0: si leggono come le applicazioni x -> t(x) e x -> u(x). Si
+ * aggiungono le clausole di
+ *
+ *     se  per ogni x di A: t(x) è in B e u(t(x)) = x
+ *     e   per ogni y di B: u(y) è in A e t(u(y)) = y,   allora e.
+ *
+ * Cioè, con due costanti nuove a e b al posto di "un x di A per cui non
+ * vale" e "un y di B per cui non vale", le quattro clausole di
+ *
+ *     (a è in A e (t(a) non è in B oppure u(t(a)) != a))  oppure
+ *     (b è in B e (u(b) non è in A oppure t(u(b)) != b))  oppure  e.
+ *
+ * È instance (equipotent A B) g h di 11c, tra le clausole e con termini al
+ * posto dei nomi: così la biiezione può essere una composta, o una funzione
+ * di Skolem (l'inversa di una funzione suriettiva è quella che sceglie,
+ * per ogni y, l'x che l'ipotesi dice che esiste).
+ *
+ * Perché non si dimostra nulla di falso. Come in 11m-e, si prende un
+ * modello M della negazione dell'enunciato già esteso alle clausole che ci
+ * sono: lì e vale esattamente quando A e B sono equipotenti, e ogni
+ * simbolo di t e di u è una funzione di M, quindi x -> t(x) e x -> u(x)
+ * sono due applicazioni del dominio comune in sé. Se le due condizioni
+ * scritte sopra valgono in M, la prima dice che t manda A in B ed è
+ * iniettiva su A (ha u come inversa a sinistra), la seconda che ogni y di
+ * B è t(u(y)) con u(y) in A, cioè che t manda A su tutto B: t ristretta
+ * ad A è una biiezione di A su B, A e B sono equipotenti, e è vera e le
+ * quattro clausole valgono con a e b qualsiasi. Se una delle due non vale,
+ * c'è un x di A, o un y di B, per cui non vale: a (o b) prende quel
+ * valore, l'altra costante uno qualsiasi, e le quattro clausole valgono,
+ * qualunque sia e. In tutti e due i casi M si estende, senza cambiare
+ * nulla di ciò che c'era: una refutazione continua a escludere ogni
+ * controesempio dell'enunciato.
+ *
+ * Che cosa non fa. Non assume che t e u si disfino a vicenda: se non lo
+ * fanno, le clausole nuove non dicono nulla di e, e la refutazione deve
+ * ricavare le due condizioni dalle ipotesi con i passi di sempre. Non
+ * cerca la biiezione: il certificato la porta scritta. Non ne costruisce
+ * una per casi: due insiemi di due elementi non hanno, in generale, un
+ * termine che mandi l'uno sull'altro. */
+static void ck_r_biject(void) {
+    int id = ck_r_index(ck_r.equipotences);
+    if (ck_status != CK_ACCEPTED) return;
+    int there = ck_r_read_term(0, 0), back = ck_r_read_term(0, 0);
+    if (ck_status != CK_ACCEPTED) return;
+    if (ck_r.bound || ck_r.universal) { ck_reject("contesto non valido per una biiezione"); return; }
+    CkREquipotence e = ck_r.equipotence[id];
+    int a = ck_r_term(ck_r_symbol(0, 0), NULL), b = ck_r_term(ck_r_symbol(0, 0), NULL);
+    if (ck_status != CK_ACCEPTED) return;
+
+    /* Warning: ck_r_parameter() respinge ogni variabile diversa da v0. Chi
+     * la togliesse lascerebbe passare un t(x, y), che non è un'applicazione. */
+    int image = ck_r_parameter(there, a), returned = ck_r_parameter(back, image);
+    int preimage = ck_r_parameter(back, b), again = ck_r_parameter(there, preimage);
+    if (ck_status != CK_ACCEPTED) return;
+    CkRLiteral holds = {e.proposition, 0, 0};
+    CkRLiteral a_in = {ck_r_term(e.from, &a), 0, 0}, b_in = {ck_r_term(e.to, &b), 0, 0};
+    CkRLiteral image_out = {ck_r_term(e.to, &image), 0, 1}, not_returned = {returned, a, 1};
+    CkRLiteral preimage_out = {ck_r_term(e.from, &preimage), 0, 1}, not_again = {again, b, 1};
+
+    /* (a_in e (image_out o not_returned)) o (b_in e (preimage_out o
+     * not_again)) o holds, distribuita: una clausola per ogni scelta di un
+     * congiunto a sinistra e di uno a destra. */
+    CkRLiteral first[] = {holds, a_in, b_in};
+    CkRLiteral second[] = {holds, a_in, preimage_out, not_again};
+    CkRLiteral third[] = {holds, image_out, not_returned, b_in};
+    CkRLiteral fourth[] = {holds, image_out, not_returned, preimage_out, not_again};
+    ck_r_add((CkRClause){.count=3, .literal=first});
+    ck_r_add((CkRClause){.count=4, .literal=second});
+    ck_r_add((CkRClause){.count=4, .literal=third});
+    ck_r_add((CkRClause){.count=5, .literal=fourth});
 }
 
 /* component C introduce b come nome di forall(vars(C)) C e aggiunge
@@ -4702,6 +4803,8 @@ static void ck_check_structure(int kind) {
             ck_r_complement_component();
         } else if (kind == 3 && ck_r.started && ck_word("comprehend")) {
             ck_r_comprehend();
+        } else if (kind == 3 && ck_r.started && ck_word("biject")) {
+            ck_r_biject();
         } else if (kind == 3 && ck_r.started && ck_word("step")) {
             ck_r_step();
         } else if (kind == 2 && statement && ck_word("case")) {
