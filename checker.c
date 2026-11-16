@@ -12772,13 +12772,25 @@ static void ck_a_read(void) {
     ck_a_steps(read);
 }
 
+/* 1 se tra le clausole della refutazione in corso ce n'è una vuota: una
+ * delle iniziali, quando l'enunciato (o una foglia di 20g) è falso già
+ * nella sua traduzione, come "4 < 0", o una dedotta. Ogni clausola è una
+ * delle iniziali, equisoddisfacibili con la negazione dell'enunciato e con
+ * le leggi, o segue da altre con un passo controllato: una vuota le rende
+ * insoddisfacibili. */
+static int ck_a_refuted(void) {
+    if (!ck_r.started) return 0;
+    for (int i = ck_r.clauses - 1; i >= 0; i--)
+        if (!ck_r.clause[i].count) return 1;
+    return 0;
+}
+
 /* Controlla un certificato arithmetic, dopo la sua intestazione. */
 static void ck_check_arithmetic(void) {
     ck_a_read();
     ck_a_active = 0;
     if (ck_status != CK_ACCEPTED) return;
-    if (!ck_r.started || !ck_r.clauses || ck_r.clause[ck_r.clauses - 1].count)
-        ck_reject("la refutazione non termina con la clausola vuota");
+    if (!ck_a_refuted()) ck_reject("la refutazione non termina con la clausola vuota");
 }
 
 /* 20g. UN CONTROESEMPIO INFINITO: UN'INTERPRETAZIONE SUGLI INTERI
@@ -13253,19 +13265,6 @@ static const CkNNode *ck_g_make_claim(const CkNode *statement) {
  * 20g: a una parte, come all'affermazione intera, si applica 20f.
  */
 
-/* 1 se tra le clausole della refutazione in corso ce n'è una vuota: una
- * delle iniziali, quando l'affermazione di una foglia è falsa già nella sua
- * traduzione (0 = 1), o una dedotta. Ogni clausola è una delle iniziali,
- * equisoddisfacibili con la negazione dell'affermazione e con le leggi, o
- * segue da altre con un passo controllato: una vuota le rende
- * insoddisfacibili. */
-static int ck_g_refuted(void) {
-    if (!ck_r.started) return 0;
-    for (int i = ck_r.clauses - 1; i >= 0; i--)
-        if (!ck_r.clause[i].count) return 1;
-    return 0;
-}
-
 /* 1 se la condizione n ha un quantificatore. */
 static int ck_g_quantified(const CkNNode *n) {
     if (!n) return 0;
@@ -13394,7 +13393,7 @@ static void ck_g_parts(const CkNode *statement, int law_count) {
             if (ck_status != CK_ACCEPTED) return;
             leaves++;
             if (ck_g_partial) continue;
-            if (!ck_g_refuted()) { ck_reject("la refutazione di una foglia non arriva alla clausola vuota"); return; }
+            if (!ck_a_refuted()) { ck_reject("la refutazione di una foglia non arriva alla clausola vuota"); return; }
             ck_used = mark;
             ck_g_claim = NULL;
         }
@@ -13538,7 +13537,7 @@ static void ck_check_infinite(void) {
     ck_g_read();
     ck_a_active = 0;
     if (ck_status != CK_ACCEPTED) return;
-    if (!ck_g_refuted()) ck_reject("la refutazione non termina con la clausola vuota");
+    if (!ck_a_refuted()) ck_reject("la refutazione non termina con la clausola vuota");
 }
 
 /* =============================================================================

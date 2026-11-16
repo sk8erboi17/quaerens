@@ -549,8 +549,68 @@ static void test_translation(void) {
     printf("traduzione: %d enunciati veri, %d falsi\n", truths[1], truths[0]);
 }
 
+/* Un enunciato vero a vuoto ("se y = y implica 4 < 0, allora ..."), da
+ * fuzz_numbers.py, seme 44: la clausola vuota è già tra quelle che il
+ * verificatore fa dall'enunciato (un letterale t \neq t), e il certificato
+ * che Vampire scrive non ha passi oltre i fatti compute. Prima il
+ * verificatore guardava solo l'ultima clausola, e lo respingeva. */
+static const char *const VACUOUS_CERTIFICATE =
+    "certificate arithmetic\n"
+    "kind int\n"
+    "statement (forall (var 120) (set ge 0) (implies (and (lesseq (neg 2) (var 120)) (lesseq (var 120) 2)) (forall (var 121) (set except 0/1) (implies (and (lesseq (neg 3) (var 121)) (lesseq (var 121) 3)) (implies (implies (= (var 121) (var 121)) (less 4 0)) (implies (neq (pow (var 121) 3) (pow (var 121) 3)) (divides (add (mul 0 4) 2) (add 2 2))))))))\n"
+    "clausify forward\n"
+    "step compute (clause (ne (f 4) (f 5)))\n"
+    "step compute (clause (pos (f 3 (f 4) (f 5))))\n"
+    "step compute (clause (neg (f 3 (f 5) (f 4))))\n"
+    "step compute (clause (ne (f 4) (f 6)))\n"
+    "step compute (clause (pos (f 3 (f 4) (f 6))))\n"
+    "step compute (clause (neg (f 3 (f 6) (f 4))))\n"
+    "step compute (clause (ne (f 4) (f 7)))\n"
+    "step compute (clause (pos (f 3 (f 4) (f 7))))\n"
+    "step compute (clause (neg (f 3 (f 7) (f 4))))\n"
+    "step compute (clause (ne (f 4) (f 8)))\n"
+    "step compute (clause (pos (f 3 (f 4) (f 8))))\n"
+    "step compute (clause (neg (f 3 (f 8) (f 4))))\n"
+    "step compute (clause (ne (f 5) (f 6)))\n"
+    "step compute (clause (pos (f 3 (f 5) (f 6))))\n"
+    "step compute (clause (neg (f 3 (f 6) (f 5))))\n"
+    "step compute (clause (ne (f 5) (f 7)))\n"
+    "step compute (clause (pos (f 3 (f 5) (f 7))))\n"
+    "step compute (clause (neg (f 3 (f 7) (f 5))))\n"
+    "step compute (clause (ne (f 5) (f 8)))\n"
+    "step compute (clause (pos (f 3 (f 5) (f 8))))\n"
+    "step compute (clause (neg (f 3 (f 8) (f 5))))\n"
+    "step compute (clause (ne (f 6) (f 7)))\n"
+    "step compute (clause (pos (f 3 (f 6) (f 7))))\n"
+    "step compute (clause (neg (f 3 (f 7) (f 6))))\n"
+    "step compute (clause (ne (f 6) (f 8)))\n"
+    "step compute (clause (pos (f 3 (f 6) (f 8))))\n"
+    "step compute (clause (neg (f 3 (f 8) (f 6))))\n"
+    "step compute (clause (ne (f 7) (f 8)))\n"
+    "step compute (clause (pos (f 3 (f 7) (f 8))))\n"
+    "step compute (clause (neg (f 3 (f 8) (f 7))))\n"
+    "step compute (clause (eq (f 0 (f 5) (f 5)) (f 6)))\n"
+    "step compute (clause (eq (f 0 (f 5) (f 6)) (f 7)))\n"
+    "step compute (clause (eq (f 0 (f 5) (f 7)) (f 8)))\n"
+    "step compute (clause (eq (f 0 (f 6) (f 6)) (f 8)))\n"
+    "step compute (clause (eq (f 2 (f 6) (f 6)) (f 8)))\n"
+    "end\n"
+    ;
+
+static void test_vacuous(void) {
+    const char *why = "";
+    expect(answer_of(VACUOUS_CERTIFICATE, &why) == CK_ACCEPTED, "un enunciato vero già nella sua traduzione è accettato senza passi");
+    /* replaced() scrive in un deposito suo: si copia a ogni passo. */
+    static char a[1 << 16], b[1 << 16];
+    snprintf(a, sizeof a, "%s", replaced(VACUOUS_CERTIFICATE, "(less 4 0)", "(less 0 4)"));
+    snprintf(b, sizeof b, "%s", replaced(a, "(neq (pow (var 121) 3) (pow (var 121) 3))", "(= (var 121) (var 121))"));
+    snprintf(a, sizeof a, "%s", replaced(b, "(divides (add (mul 0 4) 2) (add 2 2))", "(divides 3 (add 2 2))"));
+    expect(strstr(a, "(divides 3 (add 2 2))") && answer_of(a, &why) != CK_ACCEPTED, "reso falso (3 non divide 4), senza passi non è accettato");
+}
+
 int main(void) {
     test_certificates();
+    test_vacuous();
     test_compute();
     test_laws();
     test_translation();
