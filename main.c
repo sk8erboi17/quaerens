@@ -25006,6 +25006,189 @@ static int iterates_declared(void) {
 
 /* Il lavoro di prove_quantified(), che ne descrive il contratto. Al ritorno
  * la tabella `maps` contiene ancora le applicazioni dell'enunciato. */
+/* 19z. LA NOTAZIONE DEI CERTIFICATI NUMBERS
+ *
+ * Un enunciato con quantificatori sui numeri, tutti interi o tutti
+ * razionali o tutti reali, con espressioni polinomiali, nella notazione dei
+ * certificati numbers (capitolo 20 di checker.c):
+ *
+ *     (forall x SET C)  (exists x SET C)     x è (var N), N la lettera
+ *     SET = (set [ge L | gt L] [except P/Q]...)
+ *     (and C C) (or C C) (implies C C) (iff C C) (not C)
+ *     (= E E) (neq E E) (less E E) (lesseq E E)
+ *     (in E SET)  (divides E E)              "il primo divide il secondo"
+ *     E = N | (var N) | (add E E) | (sub E E) | (neg E) | (mul E E)
+ *       | (pow E K) | (div E N)
+ *
+ * La scrive numbers_notation(), per dare un certificato ai controesempi
+ * del motore (prove_quantified()). Le stesse funzioni, nell'integrazione in
+ * Vampire, consegnano l'enunciato alle teorie aritmetiche. */
+
+/* Le lettere legate nel punto dell'enunciato che numbers_formula() sta
+ * scrivendo, dalla più esterna: un'espressione può usare solo queste. */
+static int numbers_bound[64], numbers_bound_count;
+
+/* Il genere dei numeri dell'enunciato consegnato: 0 non ancora fissato, poi
+ * 1 interi, 2 razionali, 3 reali. Lo fissa il primo insieme incontrato, e
+ * tutti gli altri devono avere lo stesso. */
+static int numbers_base;
+
+/* Scrive l'insieme di numeri set. Ritorna 0 se non è del genere degli altri
+ * insiemi dell'enunciato, o è \mathbb{C}. */
+static int numbers_set(const NumberSet *set) {
+    int base = set->complex ? 0 : set->integers ? 1 : set->reals ? 3 : 2;
+    if (!base || (numbers_base && numbers_base != base)) return 0;
+    numbers_base = base;
+    cert_add("(set");
+    if (set->bounded) cert_add(" %s %lld", set->strict ? "gt" : "ge", set->low);
+    for (int i = 0; i < set->holes; i++) cert_add(" except %lld/%lld", set->hole[i].num, set->hole[i].den);
+    cert_add(")");
+    return 1;
+}
+
+/* Scrive l'espressione n. Ritorna 0 se ha qualcosa che non si consegna
+ * (vedi sopra): una lettera non legata, una funzione, un esponente che non
+ * è un intero scritto da 1 a 16, una divisione che non è per un intero
+ * scritto diverso da zero, o una divisione tra interi. */
+static int numbers_term(const Node *n) {
+    static const char *const word[] = {[N_ADD] = "add", [N_SUB] = "sub", [N_MUL] = "mul"};
+    if (!n) return 0;
+    switch (n->kind) {
+    case N_NUM:
+        if (n->value < 0) return 0;
+        cert_add("%lld", n->value);
+        return 1;
+    case N_VAR:
+        for (int i = 0; i < numbers_bound_count; i++)
+            if (numbers_bound[i] == n->name) { cert_add("(var %d)", n->name); return 1; }
+        return 0;
+    case N_NEG:
+        cert_add("(neg ");
+        if (!numbers_term(n->a)) return 0;
+        cert_add(")");
+        return 1;
+    case N_ADD: case N_SUB: case N_MUL:
+        cert_add("(%s ", word[n->kind]);
+        if (!numbers_term(n->a)) return 0;
+        cert_add(" ");
+        if (!numbers_term(n->b)) return 0;
+        cert_add(")");
+        return 1;
+    case N_POW:
+        if (!n->b || n->b->kind != N_NUM || n->b->value < 1 || n->b->value > 16) return 0;
+        cert_add("(pow ");
+        if (!numbers_term(n->a)) return 0;
+        cert_add(" %lld)", n->b->value);
+        return 1;
+    case N_DIV:
+        /* Tra interi il quoziente non è un intero: sarebbe un altro genere. */
+        if (numbers_base == 1 || !n->b || n->b->kind != N_NUM || n->b->value <= 0) return 0;
+        cert_add("(div ");
+        if (!numbers_term(n->a)) return 0;
+        cert_add(" %lld)", n->b->value);
+        return 1;
+    default:
+        return 0;
+    }
+}
+
+/* Scrive la condizione f. Ritorna 0 se ha qualcosa che non si consegna. */
+static int numbers_formula(const Formula *f) {
+    static const char *const word[] = {[F_EQUAL] = "=", [F_DISTINCT] = "neq", [F_LESS] = "less", [F_LESS_EQ] = "lesseq",
+                                       [F_AND] = "and", [F_OR] = "or", [F_IMPLIES] = "implies", [F_IFF] = "iff"};
+    if (!f) return 0;
+    switch (f->kind) {
+    case F_EQUAL: case F_DISTINCT: case F_LESS: case F_LESS_EQ:
+        cert_add("(%s ", word[f->kind]);
+        if (!numbers_term(f->left)) return 0;
+        cert_add(" ");
+        if (!numbers_term(f->right)) return 0;
+        cert_add(")");
+        return 1;
+    case F_AND: case F_OR: case F_IMPLIES: case F_IFF:
+        cert_add("(%s ", word[f->kind]);
+        if (!numbers_formula(f->a)) return 0;
+        cert_add(" ");
+        if (!numbers_formula(f->b)) return 0;
+        cert_add(")");
+        return 1;
+    case F_NOT:
+        cert_add("(not ");
+        if (!numbers_formula(f->a)) return 0;
+        cert_add(")");
+        return 1;
+    case F_FORALL: case F_EXISTS:
+        /* Una coppia (17t-2) o un quantificatore sul resto non si traducono. */
+        if (f->pair || f->complex || numbers_bound_count == (int)(sizeof numbers_bound / sizeof *numbers_bound)) return 0;
+        cert_add("(%s (var %d) ", f->kind == F_FORALL ? "forall" : "exists", f->variable);
+        if (!numbers_set(&f->numbers)) return 0;
+        cert_add(" ");
+        numbers_bound[numbers_bound_count++] = f->variable;
+        int written = numbers_formula(f->a);
+        numbers_bound_count--;
+        if (!written) return 0;
+        cert_add(")");
+        return 1;
+    case F_IN:
+        /* \notin è la negazione (swapped). */
+        if (f->swapped) cert_add("(not ");
+        cert_add("(in ");
+        if (!numbers_term(f->left)) return 0;
+        cert_add(" ");
+        if (!numbers_set(&f->numbers)) return 0;
+        cert_add(f->swapped ? "))" : ")");
+        return 1;
+    case F_DIVIDES:
+        /* Solo tra interi: tra razionali "divide" chiede un quoziente
+         * intero, che è di nuovo un altro genere. \nmid è la negazione. */
+        if (numbers_base != 1) return 0;
+        if (f->swapped) cert_add("(not ");
+        cert_add("(divides ");
+        if (!numbers_term(f->left)) return 0;
+        cert_add(" ");
+        if (!numbers_term(f->right)) return 0;
+        cert_add(f->swapped ? "))" : ")");
+        return 1;
+    default:
+        return 0;
+    }
+}
+
+/* L'enunciato thesis, appena letto, nella notazione qui sopra: il testo
+ * "kind K\nstatement S\n" di un certificato numbers (capitolo 20 di
+ * checker.c), in un deposito del thread valido fino alla chiamata dopo; NULL
+ * se non sta nel frammento. Serve a dare un certificato ai controesempi del
+ * motore (prove_quantified()). Il testo si scrive nel deposito dei
+ * certificati e se ne copia: lo si chiama appena letto l'enunciato, quando
+ * nessun certificato è in corso, e lo si lascia vuoto. */
+static const char *numbers_notation(const Formula *thesis) {
+    static const char *const kind[] = {NULL, "int", "rat", "real"};
+    static char *kept;
+    static size_t kept_size;
+    certificate_length = 0;
+    certificate_broken = 0;
+    numbers_base = numbers_bound_count = 0;
+    const char *text = NULL;
+    if (numbers_formula(thesis) && numbers_base && !certificate_broken) {
+        size_t need = certificate_length + 32;
+        if (need > kept_size) {
+            char *grown = realloc(kept, need);
+            if (grown) { kept = grown; kept_size = need; }
+        }
+        if (need <= kept_size) {
+            snprintf(kept, kept_size, "kind %s\nstatement %.*s\n", kind[numbers_base], (int)certificate_length, certificate_text);
+            text = kept;
+        }
+    }
+    certificate_length = 0;
+    certificate_broken = 0;
+    return text;
+}
+
+/* L'enunciato in corso nella notazione dei certificati numbers, scritto da
+ * decide_quantified() appena letto, o NULL (vedi 19z, numbers_witnessed()). */
+static const char *quantified_notation;
+
 static Verdict decide_quantified(const char *formula) {
     Verdict verdict = {UNSUPPORTED, 0, 0, 0, NULL, NULL, NULL, "con le regole sui quantificatori", NULL, NULL};
 
@@ -25059,6 +25242,12 @@ static Verdict decide_quantified(const char *formula) {
         if (!failure) formula_check(thesis);
         scope_count = 0;
     }
+
+    /* 19z. L'enunciato nella notazione dei certificati numbers, scritto ora,
+     * appena letto: le regole che seguono possono riscrivere l'albero, e il
+     * certificato deve dire l'enunciato com'è (vedi prove_quantified()). */
+    if (!syntax_error && !failure && !map_count && !pair_set_count && !statement_parameter_count && !derivative_signs)
+        quantified_notation = numbers_notation(thesis);
 
     /* 26c. Le iterate di un'applicazione: una successione per ricorrenza. */
     if (!syntax_error && !failure && iterates_declared()) return decide_iterates(thesis);
@@ -25275,6 +25464,74 @@ static Verdict decide_quantified(const char *formula) {
     return verdict;
 }
 
+/* 19z. IL CONTROESEMPIO COME CERTIFICATO
+ *
+ * "Per ogni a, x interi: ..." è falso, e il verdetto porta i numeri che lo
+ * mostrano: "controesempio a = 2, x = -1". Quei numeri sono un certificato
+ * numbers (capitolo 20 di checker.c): l'enunciato, che fallisce, con un
+ * testimone per ogni quantificatore che i numeri nominano. Il verificatore
+ * ricalcola l'enunciato su di loro, e accetta solo se l'esito è stabilito e
+ * falso: un quantificatore più interno che nessun numero stabilisce (un
+ * "esiste" che dovrebbe fallire per ogni valore) lo lascia non stabilito, e
+ * allora il certificato non c'è. Il testimone della n-esima volta che una
+ * lettera compare nel controesempio va all'n-esimo quantificatore, in
+ * ordine di scrittura, che la lega ("k = 1, k = 0" per due k): se fosse
+ * quello sbagliato il verificatore lo respingerebbe, non accetterebbe il
+ * falso.
+ *
+ * L'enunciato si scrive appena letto (19z in decide_quantified()), perché
+ * il certificato deve dire quello e non un albero riscritto dalle regole. */
+
+static void numbers_witnessed(Verdict *verdict) {
+    static char *text;
+    static size_t size;
+    const char *statement = strstr(quantified_notation, "\nstatement ");
+    if (!statement) return;
+    statement += 11;
+    size_t statement_length = strcspn(statement, "\n");
+    size_t need = strlen(quantified_notation) + strlen(verdict->detail) * 4 + 128;
+    if (need > size) {
+        char *grown = realloc(text, need);
+        if (!grown) return;
+        text = grown;
+        size = need;
+    }
+    int length = snprintf(text, size, "certificate numbers\n%.*s\nfails\n", (int)(statement + statement_length - quantified_notation),
+                          quantified_notation);
+    int seen[256] = {0};   /* per lettera: quante volte è già comparsa nel controesempio */
+    for (const char *p = verdict->detail; *p;) {
+        while (*p == ' ' || *p == ',') p++;
+        if (!*p) break;
+        if (!isalpha((unsigned char)*p) || p[1] != ' ' || p[2] != '=' || p[3] != ' ') return;
+        char letter = *p;
+        p += 4;
+        const char *value = p;
+        if (*p == '-') p++;
+        if (!isdigit((unsigned char)*p)) return;
+        while (isdigit((unsigned char)*p)) p++;
+        if (*p == '/') {
+            p++;
+            if (!isdigit((unsigned char)*p)) return;
+            while (isdigit((unsigned char)*p)) p++;
+        }
+        if (*p && *p != ',') return;
+        /* L'n-esimo quantificatore, in ordine di scrittura, che lega letter. */
+        int number = 0, found = -1, skip = seen[(unsigned char)letter]++;
+        char wanted[32];
+        snprintf(wanted, sizeof wanted, " (var %d) (set", (int)(unsigned char)letter);
+        for (const char *at = statement; at < statement + statement_length; at++) {
+            if (strncmp(at, "(forall", 7) != 0 && strncmp(at, "(exists", 7) != 0) continue;
+            if (found < 0 && strncmp(at + 7, wanted, strlen(wanted)) == 0 && skip-- == 0) found = number;
+            number++;
+        }
+        if (found < 0) return;
+        length += snprintf(text + length, size - (size_t)length, "witness %d %.*s\n", found, (int)(p - value), value);
+    }
+    snprintf(text + length, size - (size_t)length, "end\n");
+    const char *cursor = text, *why = "";
+    if (ck_check(&cursor, &why, checker_steps()) == CK_ACCEPTED) verdict->certificate = text;
+}
+
 /* Decide l'enunciato con quantificatori scritto in formula e ne ritorna il
  * verdetto, con la dimostrazione scritta.
  *
@@ -25286,7 +25543,9 @@ static Verdict decide_quantified(const char *formula) {
  * Svuota l'arena e la tabella degli atomi: i risultati di chiamate precedenti
  * non sono più validi. */
 static Verdict prove_quantified(const char *formula) {
+    quantified_notation = NULL;
     Verdict verdict = decide_quantified(formula);
+    if (verdict.outcome == REFUTED && !verdict.certificate && verdict.detail && quantified_notation) numbers_witnessed(&verdict);
 
     /* Le applicazioni dichiarate valgono solo per questo enunciato: il parser
      * delle espressioni, che serve anche agli altri metodi, non deve più
