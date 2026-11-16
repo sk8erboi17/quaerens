@@ -256,6 +256,14 @@
  *     condizione che basta provare su un numero finito di interi (20e).
  *     Altrimenti un certificato che ne avrebbe bisogno è respinto. Il
  *     teorema esatto è in testa al capitolo 20.
+ *   - "certificate arithmetic" (capitolo 20, 20f): un enunciato con
+ *     quantificatori sugli interi, nella stessa notazione, è vero tra gli
+ *     interi. Il verificatore lo traduce da sé in un enunciato di 11 su un
+ *     solo insieme, con somma, opposto, prodotto e minore come simboli di
+ *     cui sa solo le leggi degli interi, che aggiunge, e segue una
+ *     refutazione per saturazione come in 11m; il solo passo che fa conti
+ *     è compute, una clausola chiusa vera tra gli interi. Il teorema esatto
+ *     è in testa a 20f.
  *
  * COMPILAZIONE
  *
@@ -283,7 +291,8 @@
  *   17. Matrici
  *   18. Derivate parziali
  *   19. Identità con gli indici
- *   20. Enunciati sui numeri: testimoni, e il conto completo su un intero
+ *   20. Enunciati sui numeri: testimoni, il conto completo su un intero,
+ *       e le dimostrazioni dalle leggi degli interi (20f)
  *   15. Controllo di un certificato
  *   16. main
  */
@@ -3750,12 +3759,16 @@ typedef struct { int proposition, from, to; } CkREquipotence;
  * binding per distinguere elementi e comprensioni. forward seleziona la
  * forma direzionale della clausificazione; zero conserva il protocollo
  * storico con equivalenze complete e gli stessi indici di clausola.
+ * whole vale uno solo in 20f, dove l'unico insieme è tutto il dominio:
+ * i quantificatori non hanno il letterale del dominio e le funzioni non
+ * hanno le clausole di chiusura (il perché è in testa a 20f).
  * equipotence/equipotence_cap conservano le equipotences equipotenze
  * incontrate, nell'ordine in cui la clausificazione le ha incontrate. */
 typedef struct {
     int terms, args, symbols, clauses, variable, bound, universal, started;
     int components;
     int forward;                 /* nomi positivi della NNF: solo q=>F */
+    int whole;                   /* 20f: un solo insieme, che è tutto il dominio: nessun predicato di dominio */
     CkRSymbol *symbol;
     int *argument, *binding, *universals, *hash;
     CkRTerm *term;
@@ -4091,11 +4104,11 @@ static CkRLiteral ck_r_formula(const CkNode *n, int positive) {
         ck_r.part[ck_r.bound] = (CkRPart){0};
         ck_r.binding[ck_r.bound++] = value;
         if (every) ck_r.universals[ck_r.universal++] = value;
-        a = (CkRLiteral){ck_r_term(ck_declared + (int)n->value, &value), 0, every};
+        if (!ck_r.whole) a = (CkRLiteral){ck_r_term(ck_declared + (int)n->value, &value), 0, every};
         b = ck_r_formula(n->a, positive);
         ck_r.bound--;
         if (every) ck_r.universal--;
-        return ck_r_connect(a, b, !every);
+        return ck_r.whole ? b : ck_r_connect(a, b, !every);
     }
     case CK_FORALLPART: case CK_EXISTSPART: return ck_r_schema(n, positive);
     case CK_EQUIPOTENT: {
@@ -4163,14 +4176,17 @@ static CkRLiteral ck_r_formula(const CkNode *n, int positive) {
 
 /* Ricostruisce le clausole iniziali: chiusura delle funzioni dichiarate,
  * negazione della tesi e leggi delle parti gia validate da 11h. forward
- * sceglie implicazioni positive nella NNF, zero equivalenze complete. */
-static void ck_r_prepare_mode(const CkNode *statement, const CkNode *const *laws, int count, int forward) {
+ * sceglie implicazioni positive nella NNF, zero equivalenze complete.
+ * whole (20f) toglie i letterali del dominio e la chiusura: i simboli dei
+ * domini restano, con i loro numeri, e nessuna clausola li usa. */
+static void ck_r_prepare_clauses(const CkNode *statement, const CkNode *const *laws, int count, int forward, int whole) {
     ck_r_clear();
     ck_r.started = 1;
     ck_r.forward = forward;
+    ck_r.whole = whole;
     for (int i = 0; i < ck_declared; i++) ck_r_symbol(ck_symbols[i].arity, ck_symbols[i].result == CK_BOOL);
     for (int i = 0; i < ck_sort_count; i++) ck_r_symbol(1, 1);
-    for (int f = 0; f < ck_declared && ck_status == CK_ACCEPTED; f++) {
+    for (int f = 0; f < ck_declared && ck_status == CK_ACCEPTED && !whole; f++) {
         const CkSymbol *s = &ck_symbols[f];
         if (s->result == CK_BOOL) continue;
         int args[2] = {-1, -2}, value = ck_r_term(f, args);
@@ -4186,6 +4202,11 @@ static void ck_r_prepare_mode(const CkNode *statement, const CkNode *const *laws
         root = ck_r_formula(laws[i], 1);
         ck_r_emit(root, root, root, 1);
     }
+}
+
+/* Le clausole iniziali con i predicati del dominio, come in tutto 11m. */
+static void ck_r_prepare_mode(const CkNode *statement, const CkNode *const *laws, int count, int forward) {
+    ck_r_prepare_clauses(statement, laws, count, forward, 0);
 }
 
 /* La notazione storica conserva le equivalenze complete e gli indici dei
@@ -4606,8 +4627,12 @@ static int ck_r_replace(int t, int position, int *cursor, int expected, int repl
 /* Controlla un passo, senza cercare genitori o sostituzioni. I due genitori
  * sono standardizzati separatamente prima di applicare la sostituzione:
  * le loro variabili non possono essere identificate soltanto per nome. */
+/* 20f: una clausola chiusa vera tra gli interi, il solo passo che fa conti. */
+static void ck_a_compute(void);
+
 static void ck_r_step(void) {
     if (ck_r_word("split")) { ck_r_split(); return; }
+    if (ck_r_word("compute")) { ck_a_compute(); return; }
     int kind = ck_r_word("resolve") ? 0 : ck_r_word("reflex") ? 1 : ck_r_word("factor") ? 2 : ck_r_word("super") ? 3 : ck_r_word("equalfactor") ? 4 : -1;
     if (kind < 0) { ck_reject("regola di saturazione sconosciuta"); return; }
     int p = ck_r_index(ck_r.clauses);
@@ -12298,6 +12323,413 @@ static void ck_check_numbers(void) {
     else if (truth != claim) ck_reject("con questi testimoni l'enunciato ha il valore opposto a quello affermato");
 }
 
+/* 20f. UNA DIMOSTRAZIONE PER SATURAZIONE DALLE LEGGI DEGLI INTERI
+ *
+ * A che cosa serve. "Per ogni a, b, c interi: se (ab - 2)(a - b) = 0 e
+ * (bc - 2)(b - c) = 0, allora (ac - 2)(a - c) = 0." È vero, e nessun numero
+ * lo mostra: serve una dimostrazione per ogni valore, e con tre variabili il
+ * conto di 20e non c'è. Ce n'è una per saturazione (11m), se ai passi si
+ * danno le leggi degli interi: da ab = 2 e bc = 2 viene b(a - c) = 0, b non
+ * è zero, quindi a = c. Chi la trova può aver fatto qualsiasi ricerca;
+ * questo capitolo controlla i passi.
+ *
+ * Il certificato.
+ *
+ *     certificate arithmetic
+ *     kind int                             le leggi sono quelle degli interi
+ *     statement (forall (var 97) (set) ...)   l'enunciato, nella notazione di 20
+ *     clausify                             oppure clausify forward, come in 11m
+ *     step compute (clause (ne (f 4) (f 6)))   una clausola chiusa, vera
+ *     step resolve ...                     i passi di 11m, e component, complement
+ *     end
+ *
+ * La traduzione. Il verificatore scrive da sé l'enunciato come un enunciato
+ * del capitolo 11 su un solo insieme Z, con questi simboli, nell'ordine dei
+ * loro numeri:
+ *
+ *     0 add: Z Z -> Z, la somma            2 mul: Z Z -> Z, il prodotto
+ *     1 neg: Z -> Z, l'opposto             3 less: Z Z -> bool, il minore stretto
+ *     4, 5, ...: un elemento di Z per ogni numero che la traduzione scrive,
+ *        dal più piccolo, di nome nV se vale V: 0 e 1 sempre, i numeri
+ *        delle espressioni, i valori assoluti degli estremi e dei punti
+ *        tolti interi
+ *
+ * e dopo di loro, come in 11m, il predicato del dominio di Z (che qui
+ * nessuna clausola usa), i simboli di Skolem e i nomi. Le parti:
+ *
+ *     (forall (var N) A C)   (forall x Z (implies [x in A] C))
+ *     (exists (var N) A C)   (exists x Z (and [x in A] C))
+ *     (in E A)               [E in A]
+ *     [t in A]               la congiunzione, nell'ordine, di (not (less t L))
+ *                            per ge L o di (less L t) per gt L, e di
+ *                            (not (= t P)) per ogni punto tolto P intero;
+ *                            un estremo negativo -V è (neg nV), e senza
+ *                            nulla da scrivere il quantificatore non ha guardia
+ *     (sub E F)              (add E (neg F))
+ *     (pow E K)              (mul ... (mul (mul E E) E) ... E), K copie di E
+ *     (lesseq E F)           (not (less F E))
+ *     (neq E F)              (not (= E F))
+ *     (divides U V)          (exists k Z (= V (mul U k)))
+ *
+ * Tra gli interi ogni riga dice lo stesso della parte che traduce: a <= b
+ * vuol dire che b < a non vale, perché l'ordine è totale; un punto tolto
+ * che non è intero non toglie nessun intero; u divide v se v è u per un
+ * intero, e allora zero divide solo zero, come in 20a.
+ *
+ * Le leggi. Alla traduzione si aggiungono, come le voci axiom di 11c, le
+ * leggi di ck_a_laws[] (sotto), nel loro ordine. Ognuna è vera tra gli
+ * interi con i simboli letti come sopra: sono quelle di un anello
+ * commutativo con unità senza divisori dello zero, di un ordine totale
+ * compatibile con la somma e con il prodotto dei positivi, e la sola che
+ * distingue gli interi dagli altri anelli ordinati, che tra x e x + 1 non
+ * ci sono interi. Alcune seguono dalle altre e ci sono per accorciare le
+ * dimostrazioni: una legge vera in più non fa accettare il falso. Non c'è
+ * l'induzione, che non è una legge sola: ciò che ne ha bisogno qui non si
+ * dimostra.
+ *
+ * Il passo compute. "step compute (clause L...)" aggiunge una clausola
+ * senza variabili, con i termini fatti dei soli add, neg, mul e numeri, se
+ * è vera tra gli interi: si calcolano i termini, interi esatti, e almeno un
+ * letterale deve valere ((eq s t) se valgono lo stesso, (pos (less s t))
+ * se il primo è minore, e i loro contrari). È così che i passi sanno che
+ * 0 e 2 sono diversi, o che 1 + 1 = 2. Un simbolo di Skolem, un nome o il
+ * predicato del dominio in una clausola di compute: respinta, perché il
+ * loro valore non è un conto.
+ *
+ * TEOREMA. Se il certificato è accettato, l'enunciato è vero tra gli interi.
+ *
+ * Perché. Sia l'enunciato falso tra gli interi. Gli interi, con i simboli
+ * letti come sopra, sono allora un'interpretazione in cui la traduzione è
+ * falsa (dice dello stesso intero ciò che dice l'enunciato) e le leggi sono
+ * vere. Il suo dominio è Z e nient'altro, e Z non è vuoto: il predicato del
+ * dominio varrebbe su tutto, e per questo la clausificazione (whole in
+ * ck_r) non lo scrive, né scrive le clausole di chiusura, che direbbero che
+ * la somma di due interi è un intero. Con il dominio intero ogni "esiste"
+ * ha un testimone, e le funzioni di Skolem e i nomi delle sottoformule si
+ * definiscono come in 11m: l'interpretazione si estende a una in cui valgono
+ * tutte le clausole iniziali. Ogni passo di 11m porta da clausole vere a una
+ * clausola vera; una clausola di compute è vera, perché parla solo dei
+ * simboli fissati, che lì hanno il loro valore tra gli interi. La clausola
+ * vuota, alla fine, sarebbe vera: impossibile.
+ *
+ * Non c'è ricerca, e in nessun passo che non sia compute si fa un conto:
+ * add e less sono simboli qualsiasi, che sanno solo ciò che dicono le leggi.
+ */
+
+/* I simboli dichiarati della traduzione, nell'ordine dei loro numeri; i
+ * numeri cominciano da CK_A_NUMERALS. */
+enum { CK_A_ADD, CK_A_NEG, CK_A_MUL, CK_A_LESS, CK_A_NUMERALS };
+
+/* Quanti numeri diversi la traduzione di un enunciato può scrivere. */
+#define CK_A_MAX_NUMERALS 256
+
+/* I numeri della traduzione, in ordine crescente: il simbolo
+ * CK_A_NUMERALS + i vale ck_a_numeral[i]. ck_a_active vale uno dopo la
+ * riga clausify di un certificato arithmetic, e solo allora compute è un
+ * passo. */
+static long long ck_a_numeral[CK_A_MAX_NUMERALS];
+static int ck_a_numerals, ck_a_active;
+
+/* Le lettere legate nel punto della traduzione: quelle dei quantificatori
+ * e, per una divisibilità, -1 per il suo fattore (le lettere sono >= 0). */
+#define CK_A_DEPTH (CK_N_QUANTIFIERS + 1)
+static long long ck_a_letter[CK_A_DEPTH];
+static int ck_a_depth;
+
+/* Le leggi degli interi, con i simboli di 20f, nella notazione di 11. Le
+ * prime otto sono l'anello commutativo con unità; poi x 0 = 0, che ne segue;
+ * nessun divisore dello zero; la cancellazione, che segue dalle due prima;
+ * x - y = 0 solo se x = y, che segue dall'anello; l'ordine stretto e totale;
+ * la somma e il prodotto dei positivi lo rispettano; tra x e x + 1 non c'è
+ * nessun intero. */
+static const char *const ck_a_laws[] = {
+    "(forall x Z (forall y Z (= (add x y) (add y x))))",
+    "(forall x Z (forall y Z (forall z Z (= (add (add x y) z) (add x (add y z))))))",
+    "(forall x Z (= (add x n0) x))",
+    "(forall x Z (= (add x (neg x)) n0))",
+    "(forall x Z (forall y Z (= (mul x y) (mul y x))))",
+    "(forall x Z (forall y Z (forall z Z (= (mul (mul x y) z) (mul x (mul y z))))))",
+    "(forall x Z (= (mul x n1) x))",
+    "(forall x Z (forall y Z (forall z Z (= (mul x (add y z)) (add (mul x y) (mul x z))))))",
+    "(forall x Z (= (mul x n0) n0))",
+    "(forall x Z (forall y Z (implies (= (mul x y) n0) (or (= x n0) (= y n0)))))",
+    "(forall x Z (forall y Z (forall z Z (implies (and (= (mul x y) (mul x z)) (not (= x n0))) (= y z)))))",
+    "(forall x Z (forall y Z (implies (= (add x (neg y)) n0) (= x y))))",
+    "(forall x Z (not (less x x)))",
+    "(forall x Z (forall y Z (forall z Z (implies (and (less x y) (less y z)) (less x z)))))",
+    "(forall x Z (forall y Z (or (less x y) (or (= x y) (less y x)))))",
+    "(forall x Z (forall y Z (forall z Z (implies (less x y) (less (add x z) (add y z))))))",
+    "(forall x Z (forall y Z (implies (and (less n0 x) (less n0 y)) (less n0 (mul x y)))))",
+    "(forall x Z (forall y Z (implies (less x y) (not (less y (add x n1))))))",
+};
+#define CK_A_LAWS ((int)(sizeof ck_a_laws / sizeof *ck_a_laws))
+
+/* Registra il numero v, non negativo, tra quelli della traduzione. */
+static void ck_a_note(long long v) {
+    if (v < 0) v = -v;
+    for (int i = 0; i < ck_a_numerals; i++) if (ck_a_numeral[i] == v) return;
+    if (ck_a_numerals == CK_A_MAX_NUMERALS) { ck_unsupported("troppi numeri diversi in un enunciato sugli interi"); return; }
+    ck_a_numeral[ck_a_numerals++] = v;
+}
+
+/* Registra i numeri che [x in A] scrive. */
+static void ck_a_note_set(const CkNSet *set) {
+    if (set->bounded) ck_a_note(set->low);
+    for (int i = 0; i < set->holes; i++)
+        if (set->hole[i].den == 1) ck_a_note((long long)set->hole[i].num);
+}
+
+/* Registra i numeri che la traduzione di n scrive. L'esponente di una
+ * potenza non è un numero dell'enunciato: dice quante copie. */
+static void ck_a_collect(const CkNNode *n) {
+    if (!n || ck_status != CK_ACCEPTED) return;
+    if (n->kind == CK_N_NUMBER) ck_a_note(n->value);
+    if (n->kind == CK_N_FORALL || n->kind == CK_N_EXISTS || n->kind == CK_N_IN) ck_a_note_set(&n->set);
+    ck_a_collect(n->a);
+    ck_a_collect(n->b);
+}
+
+/* Il termine dell'intero v: nV, o (neg nV) se v è negativo. */
+static const CkNode *ck_a_number(long long v) {
+    long long magnitude = v < 0 ? -v : v;
+    int place = 0;
+    while (place < ck_a_numerals && ck_a_numeral[place] != magnitude) place++;
+    if (place == ck_a_numerals) { ck_reject("un numero della traduzione non è tra quelli raccolti"); place = 0; }
+    const CkNode *term = ck_make(CK_APP, CK_A_NUMERALS + place, NULL, NULL);
+    return v < 0 ? ck_make(CK_APP, CK_A_NEG, term, NULL) : term;
+}
+
+/* La condizione elementare (less a b). */
+static const CkNode *ck_a_less(const CkNode *a, const CkNode *b) {
+    return ck_make(CK_EQ, 0, ck_make(CK_APP, CK_A_LESS, a, b), NULL);
+}
+
+/* La negazione di c. */
+static const CkNode *ck_a_not(const CkNode *c) { return ck_make(CK_NOT, 0, c, NULL); }
+
+/* [t in A], o NULL se A non toglie nessun intero. */
+static const CkNode *ck_a_member(const CkNode *t, const CkNSet *set) {
+    const CkNode *result = NULL, *part;
+    if (set->bounded) {
+        const CkNode *low = ck_a_number(set->low);
+        result = set->strict ? ck_a_less(low, t) : ck_a_not(ck_a_less(t, low));
+    }
+    for (int i = 0; i < set->holes; i++) {
+        if (set->hole[i].den != 1) continue;
+        part = ck_a_not(ck_make(CK_EQ, 0, t, ck_a_number((long long)set->hole[i].num)));
+        result = result ? ck_make(CK_AND, 0, result, part) : part;
+    }
+    return result;
+}
+
+/* La traduzione dell'espressione n. */
+static const CkNode *ck_a_term(const CkNNode *n) {
+    const CkNode *a, *result;
+    if (ck_status != CK_ACCEPTED) return ck_node(CK_TRUE);
+    switch (n->kind) {
+    case CK_N_NUMBER: return ck_a_number(n->value);
+    case CK_N_VAR:
+        /* La più interna con quella lettera, a distanza contata come in 11. */
+        for (int i = ck_a_depth - 1; i >= 0; i--)
+            if (ck_a_letter[i] == n->value) return ck_make(CK_VAR, ck_a_depth - 1 - i, NULL, NULL);
+        ck_reject("una variabile di un enunciato sui numeri non è legata da un quantificatore");
+        return ck_node(CK_TRUE);
+    case CK_N_ADD: return ck_make(CK_APP, CK_A_ADD, ck_a_term(n->a), ck_a_term(n->b));
+    case CK_N_SUB: a = ck_a_term(n->a); return ck_make(CK_APP, CK_A_ADD, a, ck_make(CK_APP, CK_A_NEG, ck_a_term(n->b), NULL));
+    case CK_N_NEG: return ck_make(CK_APP, CK_A_NEG, ck_a_term(n->a), NULL);
+    case CK_N_MUL: return ck_make(CK_APP, CK_A_MUL, ck_a_term(n->a), ck_a_term(n->b));
+    case CK_N_POW:
+        result = a = ck_a_term(n->a);
+        for (long long i = 1; i < n->value; i++) result = ck_make(CK_APP, CK_A_MUL, result, a);
+        return result;
+    default:
+        ck_reject("20f: un'espressione che tra gli interi non si traduce");
+        return ck_node(CK_TRUE);
+    }
+}
+
+/* La traduzione della condizione n. */
+static const CkNode *ck_a_condition(const CkNNode *n) {
+    static const CkKind connective[] = {[CK_N_AND] = CK_AND, [CK_N_OR] = CK_OR, [CK_N_IMPLIES] = CK_IMPLIES, [CK_N_IFF] = CK_IFF};
+    const CkNode *a, *b;
+    if (ck_status != CK_ACCEPTED) return ck_node(CK_TRUE);
+    switch (n->kind) {
+    case CK_N_FORALL: case CK_N_EXISTS: case CK_N_DIVIDES: {
+        if (ck_a_depth == CK_A_DEPTH) { ck_unsupported("troppi quantificatori uno dentro l'altro"); return ck_node(CK_TRUE); }
+        int every = n->kind == CK_N_FORALL;
+        ck_a_letter[ck_a_depth++] = n->kind == CK_N_DIVIDES ? -1 : n->value;
+        if (n->kind == CK_N_DIVIDES) {
+            /* Il divisore e il diviso, sotto il quantificatore del fattore. */
+            a = ck_a_term(n->a);
+            b = ck_make(CK_EQ, 0, ck_a_term(n->b), ck_make(CK_APP, CK_A_MUL, a, ck_make(CK_VAR, 0, NULL, NULL)));
+        } else {
+            a = ck_a_member(ck_make(CK_VAR, 0, NULL, NULL), &n->set);
+            b = ck_a_condition(n->a);
+            if (a) b = ck_make(every ? CK_IMPLIES : CK_AND, 0, a, b);
+        }
+        ck_a_depth--;
+        return ck_make(every ? CK_FORALL : CK_EXISTS, 0, b, NULL);
+    }
+    case CK_N_AND: case CK_N_OR: case CK_N_IMPLIES: case CK_N_IFF:
+        a = ck_a_condition(n->a);
+        return ck_make(connective[n->kind], 0, a, ck_a_condition(n->b));
+    case CK_N_NOT: return ck_a_not(ck_a_condition(n->a));
+    case CK_N_EQ: case CK_N_NEQ:
+        a = ck_a_term(n->a);
+        a = ck_make(CK_EQ, 0, a, ck_a_term(n->b));
+        return n->kind == CK_N_EQ ? a : ck_a_not(a);
+    case CK_N_LESS: a = ck_a_term(n->a); return ck_a_less(a, ck_a_term(n->b));
+    case CK_N_LESSEQ: a = ck_a_term(n->a); return ck_a_not(ck_a_less(ck_a_term(n->b), a));
+    case CK_N_IN:
+        a = ck_a_member(ck_a_term(n->a), &n->set);
+        return a ? a : ck_node(CK_TRUE);
+    default:
+        ck_reject("certificato scritto male: condizione attesa");
+        return ck_node(CK_TRUE);
+    }
+}
+
+/* Dichiara il simbolo name di arity argomenti in Z, con valore in result
+ * (0, cioè Z, o CK_BOOL). */
+static void ck_a_declare(const char *name, int arity, int result) {
+    if (!ck_symbols_reserve((size_t)ck_symbol_count + 1)) return;
+    CkSymbol *y = &ck_symbols[ck_symbol_count++];
+    memset(y, 0, sizeof *y);
+    y->name = name;
+    y->arity = arity;
+    y->result = result;
+}
+
+/* Dichiara Z e i simboli dell'enunciato read, ne scrive la traduzione e
+ * mette le leggi in laws[]. Ritorna la traduzione. */
+static const CkNode *ck_a_translate(const CkNNode *read, const CkNode **laws) {
+    /* Come in ck_check_structure(): ck_structure_clear() libera i vettori
+     * ma non azzera i contatori. */
+    ck_sort_count = ck_symbol_count = ck_declared = ck_bound_count = 0;
+    ck_a_numerals = ck_a_depth = 0;
+    ck_a_note(0);
+    ck_a_note(1);
+    ck_a_collect(read);
+    if (ck_status != CK_ACCEPTED || !ck_sorts_reserve(1)) return NULL;
+    for (int i = 1; i < ck_a_numerals; i++)
+        for (int j = i; j > 0 && ck_a_numeral[j - 1] > ck_a_numeral[j]; j--) {
+            long long swap = ck_a_numeral[j];
+            ck_a_numeral[j] = ck_a_numeral[j - 1];
+            ck_a_numeral[j - 1] = swap;
+        }
+    ck_sorts[0] = (CkSort){.name = "Z", .size = (size_t)-1, .kind = 0, .base = -1, .target = -1, .symbol = -1};
+    ck_sort_count = 1;
+    ck_a_declare("add", 2, 0);
+    ck_a_declare("neg", 1, 0);
+    ck_a_declare("mul", 2, 0);
+    ck_a_declare("less", 2, CK_BOOL);
+    for (int i = 0; i < ck_a_numerals && ck_status == CK_ACCEPTED; i++) {
+        char *name = ck_alloc(24);
+        if (ck_status != CK_ACCEPTED) return NULL;
+        snprintf(name, 24, "n%lld", ck_a_numeral[i]);
+        ck_a_declare(name, 0, 0);
+    }
+    ck_declared = ck_symbol_count;
+    const CkNode *statement = ck_a_condition(read);
+
+    /* Le leggi, lette come un certificato di 11 le leggerebbe. */
+    const char *after = ck_cursor;
+    for (int i = 0; i < CK_A_LAWS && ck_status == CK_ACCEPTED; i++) {
+        ck_cursor = ck_a_laws[i];
+        ck_bound_count = 0;
+        laws[i] = ck_read_condition();
+        ck_skip();
+        if (*ck_cursor) ck_reject("una legge degli interi è scritta male");
+    }
+    ck_cursor = after;
+    return ck_status == CK_ACCEPTED ? statement : NULL;
+}
+
+/* Il valore del termine chiuso t di una clausola di compute. */
+static CkNum ck_a_value(int t) {
+    CkNum zero = ck_num_int(0);
+    if (!ck_r_visit()) return zero;
+    if (t <= 0) { ck_reject("una clausola di compute non ha variabili"); return zero; }
+    CkRTerm term = ck_r.term[t];
+    if (term.symbol >= CK_A_NUMERALS && term.symbol < CK_A_NUMERALS + ck_a_numerals)
+        return ck_num_int(ck_a_numeral[term.symbol - CK_A_NUMERALS]);
+    const int *args = ck_r.argument + term.first;
+    switch (term.symbol) {
+    case CK_A_ADD: return ck_num_add(ck_a_value(args[0]), ck_a_value(args[1]));
+    case CK_A_NEG: return ck_num_neg(ck_a_value(args[0]));
+    case CK_A_MUL: return ck_num_mul(ck_a_value(args[0]), ck_a_value(args[1]));
+    default:
+        ck_reject("in una clausola di compute c'è un termine che non è un conto tra interi");
+        return zero;
+    }
+}
+
+/* step compute (clause ...): la clausola si aggiunge se è vera tra gli
+ * interi, calcolando. */
+static void ck_a_compute(void) {
+    if (!ck_a_active) { ck_reject("compute è un passo dei soli certificati arithmetic (20f)"); return; }
+    CkRClause c = ck_r_read_clause();
+    int holds = 0;
+    for (int i = 0; i < c.count && ck_status == CK_ACCEPTED; i++) {
+        CkRLiteral l = c.literal[i];
+        int truth = 1;    /* (true), e (false) che ne è la negazione */
+        if (l.left && l.right) {
+            CkNum a = ck_a_value(l.left);
+            truth = ck_n_compare(a, ck_a_value(l.right)) == 0;
+        } else if (l.left) {
+            CkRTerm atom = ck_r.term[l.left];
+            if (atom.symbol != CK_A_LESS) { ck_reject("in una clausola di compute c'è un atomo che non è un confronto tra interi"); return; }
+            CkNum a = ck_a_value(ck_r.argument[atom.first]);
+            truth = ck_n_compare(a, ck_a_value(ck_r.argument[atom.first + 1])) < 0;
+        }
+        if (truth != l.negative) holds = 1;
+    }
+    if (ck_status != CK_ACCEPTED) return;
+    if (!holds) { ck_reject("la clausola di compute è falsa tra gli interi"); return; }
+    ck_r_add(c);
+}
+
+/* Legge un certificato arithmetic, dopo la sua intestazione, fino a "end"
+ * compreso: traduce l'enunciato, fa le clausole e segue i passi. Non
+ * controlla che l'ultima clausola sia vuota: lo fa ck_check_arithmetic(). */
+static void ck_a_read(void) {
+    const CkNode *laws[CK_A_LAWS], *statement = NULL;
+    int kind = -1;
+    ck_n_quantifiers = ck_n_bound = 0;
+    ck_a_active = 0;
+    for (;;) {
+        while (isspace((unsigned char)*ck_cursor)) ck_cursor++;
+        if (ck_status != CK_ACCEPTED || ck_word("end")) return;
+        if (kind < 0 && ck_word("kind")) {
+            if (!ck_word("int")) { ck_unsupported("20f ha le leggi dei soli interi"); return; }
+            kind = ck_n_kind = CK_N_INT;
+        } else if (kind >= 0 && !statement && ck_word("statement")) {
+            const CkNNode *read = ck_n_condition(0);
+            if (ck_status == CK_ACCEPTED) statement = ck_a_translate(read, laws);
+        } else if (statement && !ck_r.started && ck_word("clausify")) {
+            ck_r_prepare_clauses(statement, laws, CK_A_LAWS, ck_word("forward"), 1);
+            ck_a_active = 1;
+        } else if (ck_r.started && ck_word("component")) {
+            ck_r_define_component();
+        } else if (ck_r.started && ck_word("complement")) {
+            ck_r_complement_component();
+        } else if (ck_r.started && ck_word("step")) {
+            ck_r_step();
+        } else {
+            ck_reject("certificato scritto male: voce sconosciuta o fuori posto, o \"end\" mancante");
+        }
+    }
+}
+
+/* Controlla un certificato arithmetic, dopo la sua intestazione. */
+static void ck_check_arithmetic(void) {
+    ck_a_read();
+    ck_a_active = 0;
+    if (ck_status != CK_ACCEPTED) return;
+    if (!ck_r.started || !ck_r.clauses || ck_r.clause[ck_r.clauses - 1].count)
+        ck_reject("la refutazione non termina con la clausola vuota");
+}
+
 /* =============================================================================
  * 15. CONTROLLO DI UN CERTIFICATO
  * ============================================================================
@@ -12384,6 +12816,13 @@ static void ck_read_certificate(CkCertificate *cert) {
     if (ck_word("numbers")) {
         cert->checked = 1;
         ck_check_numbers();
+        return;
+    }
+
+    /* Un enunciato sugli interi, dimostrato dalle loro leggi (20f). */
+    if (ck_word("arithmetic")) {
+        cert->checked = 1;
+        ck_check_arithmetic();
         return;
     }
     if (!ck_word("induction")) { ck_reject("certificato scritto male: manca l'intestazione"); return; }
@@ -12581,14 +13020,10 @@ static void ck_verify(const CkCertificate *cert) {
     if (cert->defined && ck_status == CK_ACCEPTED) ck_defined_decide();
 }
 
-/* Controlla il certificato che comincia in *text e porta *text subito dopo
- * il suo "end". Ritorna la risposta, e mette in *why il motivo quando non è
- * CK_ACCEPTED. steps è il budget del ricalcolo sui modelli (ck_eval_limit):
- * quanti elementi i quantificatori possono provare; zero, o meno, chiede
- * quello consueto, CK_MAX_EVAL. È la sola funzione che chi include questo
- * file deve chiamare. */
-static CkAnswer ck_check(const char **text, const char **why, long long steps) {
-    CkCertificate cert;
+/* Prepara il controllo di un certificato che comincia in text, con il
+ * budget steps (vedi ck_check()): libera ciò che il precedente ha lasciato
+ * e azzera lo stato. */
+static void ck_begin(const char *text, long long steps) {
     ck_eval_limit = steps > 0 ? steps : CK_MAX_EVAL;
     ck_model_clear();
     ck_structure_clear();
@@ -12601,7 +13036,29 @@ static CkAnswer ck_check(const char **text, const char **why, long long steps) {
     ck_depth = 0;
     ck_fixed_count = ck_fixing = ck_recording = ck_divisor_count = 0;
     ck_real = 0;
-    ck_cursor = *text;
+    ck_a_active = 0;
+    ck_cursor = text;
+}
+
+/* Libera ciò che il controllo ha preso sullo heap. */
+static void ck_finish(void) {
+    ck_model_clear();
+    ck_structure_clear();
+    ck_r_clear();
+}
+
+/* Controlla il certificato che comincia in *text e porta *text subito dopo
+ * il suo "end". Ritorna la risposta, e mette in *why il motivo quando non è
+ * CK_ACCEPTED. steps è il budget del ricalcolo sui modelli (ck_eval_limit):
+ * quanti elementi i quantificatori possono provare; zero, o meno, chiede
+ * quello consueto, CK_MAX_EVAL. È la sola funzione che chi include questo
+ * file deve chiamare per un controllo. (Chi scrive un certificato
+ * arithmetic, 20f, può volere le clausole da cui il controllo parte: le
+ * trova con ck_begin(), ck_a_read() e ck_finish(), e nessuna risposta di
+ * questo file dipende da come le ha usate.) */
+static CkAnswer ck_check(const char **text, const char **why, long long steps) {
+    CkCertificate cert;
+    ck_begin(*text, steps);
     ck_read_certificate(&cert);
     *text = ck_cursor;
 
@@ -12622,9 +13079,7 @@ static CkAnswer ck_check(const char **text, const char **why, long long steps) {
         ck_verify(&cert);
     }
     *why = ck_reason;
-    ck_model_clear();
-    ck_structure_clear();
-    ck_r_clear();
+    ck_finish();
     return ck_status;
 }
 
