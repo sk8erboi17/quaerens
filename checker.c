@@ -361,8 +361,8 @@ typedef enum { CK_ACCEPTED, CK_REJECTED, CK_UNSUPPORTED } CkAnswer;
 /* L'esito del controllo in corso, e il perché in italiano. Il primo problema
  * incontrato resta: dopo, i conti proseguono con valori qualsiasi e i loro
  * risultati non contano, così le funzioni non devono propagare un codice. */
-static CkAnswer ck_status;
-static const char *ck_reason;
+static _Thread_local CkAnswer ck_status;
+static _Thread_local const char *ck_reason;
 
 /* Annota che il certificato è sbagliato. */
 static void ck_reject(const char *reason) {
@@ -386,8 +386,8 @@ static void ck_unsupported(const char *reason) {
  * insieme, all'inizio del certificato successivo.
  */
 
-static _Alignas(16) char ck_arena[CK_ARENA_BYTES];
-static size_t ck_used;
+static _Thread_local char *ck_arena;   /* CK_ARENA_BYTES, presi dalla memoria al primo uso: uno per thread */
+static _Thread_local size_t ck_used;
 
 /* Ritorna un blocco di bytes byte allineato a 16, oppure, se l'arena è
  * piena, un blocco di riserva di CK_SPARE_BYTES byte dopo aver annotato il
@@ -395,9 +395,9 @@ static size_t ck_used;
  * senza controllare. Chi ne chiede di più deve guardare ck_status prima di
  * scrivere. */
 static void *ck_alloc(size_t bytes) {
-    static _Alignas(16) char spare[CK_SPARE_BYTES];
+    static _Thread_local _Alignas(16) char spare[CK_SPARE_BYTES];
     bytes = (bytes + 15) & ~(size_t)15;
-    if (bytes > CK_ARENA_BYTES - ck_used) {
+    if ((!ck_arena && !(ck_arena = malloc(CK_ARENA_BYTES))) || bytes > CK_ARENA_BYTES - ck_used) {
         ck_unsupported("memoria del verificatore esaurita");
         return spare;
     }
@@ -545,7 +545,7 @@ typedef struct {
 _Static_assert(sizeof(CkTerm) <= CK_SPARE_BYTES, "il blocco di riserva di ck_alloc() deve contenere un termine");
 
 /* L'indeterminata che vale (-1)^n, o -1 se il certificato non la usa. */
-static int ck_sign_var;
+static _Thread_local int ck_sign_var;
 
 /* Confronta i monomi di due termini: negativo, zero o positivo. */
 static int ck_term_cmp(const void *a, const void *b) {
@@ -711,10 +711,10 @@ typedef struct {
 /* I divisori annotati mentre ck_recording è diverso da zero; ck_record_from
  * è il valore di `from` da dare ai prossimi. Servono a stabilire che
  * l'enunciato è definito per ogni n (capitolo 9). */
-static CkDivisor ck_divisors[CK_MAX_DIVISORS];
-static int ck_divisor_count;
-static int ck_recording;
-static long long ck_record_from;
+static _Thread_local CkDivisor ck_divisors[CK_MAX_DIVISORS];
+static _Thread_local int ck_divisor_count;
+static _Thread_local int ck_recording;
+static _Thread_local long long ck_record_from;
 
 /* Annota un divisore. Una costante non si annota: se è zero è già un errore
  * per ck_rat_div(), se non lo è non c'è nulla da stabilire. */
@@ -726,14 +726,14 @@ static void ck_record(CkPoly divisor) {
 
 /* Come vale la variabile di induzione in questo momento (capitolo 8). Sta
  * qui perché una divisione per zero si spiega in modo diverso nel caso base. */
-static char ck_variable;   /* il suo nome */
-static int ck_numeric;     /* 1: vale il numero ck_point; 0: vale n + ck_shift */
-static long long ck_point;
-static long long ck_shift;
+static _Thread_local char ck_variable;   /* il suo nome */
+static _Thread_local int ck_numeric;     /* 1: vale il numero ck_point; 0: vale n + ck_shift */
+static _Thread_local long long ck_point;
+static _Thread_local long long ck_shift;
 
 /* 1 mentre si calcola un certificato del capitolo 13, in cui c'è anche una
  * variabile reale (e ck_variable, se c'è, è l'ordine di una derivata). */
-static int ck_real;
+static _Thread_local int ck_real;
 
 /* Ritorna la frazione che vale il polinomio p. */
 static CkRat ck_rat_poly(CkPoly p) { return (CkRat){p, ck_poly_number(ck_num_int(1))}; }
@@ -884,12 +884,12 @@ struct CkNode {
 _Static_assert(sizeof(CkNode) <= CK_SPARE_BYTES, "il blocco di riserva di ck_alloc() deve contenere un nodo");
 
 /* Il punto del testo in cui si sta leggendo. */
-static const char *ck_cursor;
+static _Thread_local const char *ck_cursor;
 
 /* Quante parentesi sono aperte nell'espressione che si sta leggendo. Ha un
  * tetto perché leggere e calcolare sono funzioni ricorsive: un testo con
  * milioni di parentesi aperte esaurirebbe la pila. */
-static int ck_depth;
+static _Thread_local int ck_depth;
 
 /* Ritorna un nodo nuovo di tipo kind, con gli altri campi a zero. */
 static CkNode *ck_node(CkKind kind) {
@@ -1080,12 +1080,12 @@ typedef struct {
     int stated;
 } CkVar;
 
-static CkVar ck_vars[CK_MAX_VARS];
-static int ck_var_count;
+static _Thread_local CkVar ck_vars[CK_MAX_VARS];
+static _Thread_local int ck_var_count;
 
 /* 1 durante la valutazione di prova, in cui i riferimenti si possono ancora
  * abbassare. */
-static int ck_trial;
+static _Thread_local int ck_trial;
 
 /* Aggiunge un'indeterminata e ne ritorna il numero d'ordine. */
 static int ck_var_new(CkVar v) {
@@ -1168,8 +1168,8 @@ typedef struct {
     const CkNode *formula;
 } CkSequence;
 
-static CkSequence ck_sequences[CK_MAX_SEQUENCES];
-static int ck_sequence_count;
+static _Thread_local CkSequence ck_sequences[CK_MAX_SEQUENCES];
+static _Thread_local int ck_sequence_count;
 
 /* Un indice di somma legato al suo valore mentre si calcola il termine. */
 typedef struct {
@@ -1177,8 +1177,8 @@ typedef struct {
     CkRat value;
 } CkBinding;
 
-static CkBinding ck_env[CK_MAX_ENV];
-static int ck_env_count;
+static _Thread_local CkBinding ck_env[CK_MAX_ENV];
+static _Thread_local int ck_env_count;
 
 /* Un parametro a cui la voce "defined" dà un valore: il nome, il valore
  * com'è scritto e il numero che è. */
@@ -1191,9 +1191,9 @@ typedef struct {
 /* I parametri fissati dal certificato in corso. Valgono i loro numeri solo
  * mentre ck_fixing è diverso da zero; altrimenti restano lettere, perché
  * l'uguaglianza si controlla per tutti i valori dei parametri. */
-static CkFixed ck_fixed[CK_MAX_POINT];
-static int ck_fixed_count;
-static int ck_fixing;
+static _Thread_local CkFixed ck_fixed[CK_MAX_POINT];
+static _Thread_local int ck_fixed_count;
+static _Thread_local int ck_fixing;
 
 /* Con ck_real a 1 (capitolo 13) ck_eval() passa a ck_real_eval() le parole
  * delle funzioni di una variabile reale (exp, sin, cos, atan, root, pi), i
@@ -1366,8 +1366,8 @@ static CkRat ck_eval_power(CkRat base, long long p, long long q) {
 /* I polinomi delle voci "brick" del certificato in corso: i fattori in cui
  * provare a scomporre l'argomento di un logaritmo (8g). Hanno il termine
  * direttivo di coefficiente 1, e si ricalcolano a ogni valutazione. */
-static CkPoly ck_bricks[CK_MAX_BRICKS];
-static int ck_brick_count;
+static _Thread_local CkPoly ck_bricks[CK_MAX_BRICKS];
+static _Thread_local int ck_brick_count;
 
 /* Ritorna p, che non è il polinomio nullo, diviso per il coefficiente del
  * suo termine direttivo; mette quel coefficiente in *lead. */
@@ -1878,7 +1878,7 @@ static void ck_defined_divisors(const CkCertificate *cert) {
  * annulla. Uno che si annulla rende falsa la voce "defined"; uno di cui non
  * si sa dire rende il certificato non controllabile. */
 static void ck_defined_decide(void) {
-    static char text[96];
+    static _Thread_local char text[96];
     ck_fixing = 1;
     for (int i = 0; i < ck_divisor_count && ck_status == CK_ACCEPTED; i++) {
         long long where = 0;
@@ -1947,8 +1947,8 @@ typedef enum { CK_SET_WRONG, CK_SET_ANY, CK_SET_ELEMENTS, CK_SET_FAMILY, CK_SET_
 /* Le lettere dell'enunciato in corso: la lettera ck_set_names[i] è l'insieme
  * di indice i, e la regione r (da 1 a 2^k - 1) è fatta degli elementi che
  * stanno nell'insieme i esattamente quando il bit i di r è 1. */
-static char ck_set_names[4];
-static int ck_set_count;
+static _Thread_local char ck_set_names[4];
+static _Thread_local int ck_set_count;
 
 /* Mette tra le lettere dell'enunciato quelle dell'albero node. */
 static void ck_set_collect(const CkNode *node) {
@@ -2072,7 +2072,7 @@ static int ck_set_truth(const CkNode *node, unsigned alive) {
  * motivo descrive insiemi per cui è falso: un elemento, chiamato con il
  * numero della sua regione, in ogni regione non vuota. */
 static void ck_check_sets(const CkNode *statement) {
-    static char text[256];
+    static _Thread_local char text[256];
     ck_set_count = 0;
     ck_set_collect(statement);
     for (unsigned alive = 0; alive < 1u << ((1u << ck_set_count) - 1) && ck_status == CK_ACCEPTED; alive++) {
@@ -2348,13 +2348,13 @@ typedef struct {
     size_t *table; /* 11a, 11b: valori delle celle sullo heap del modello; NULL se manca. */
 } CkSymbol;
 
-static CkSort *ck_sorts;
-static size_t ck_sort_capacity;
-static int ck_sort_count;
-static CkSymbol *ck_symbols;
-static size_t ck_symbol_capacity;
-static int ck_symbol_count;
-static int ck_declared;  /* i simboli dichiarati: i primi ck_declared di ck_symbols[] */
+static _Thread_local CkSort *ck_sorts;
+static _Thread_local size_t ck_sort_capacity;
+static _Thread_local int ck_sort_count;
+static _Thread_local CkSymbol *ck_symbols;
+static _Thread_local size_t ck_symbol_capacity;
+static _Thread_local int ck_symbol_count;
+static _Thread_local int ck_declared;  /* i simboli dichiarati: i primi ck_declared di ck_symbols[] */
 
 /* Dimensiona gli insiemi dichiarati; ogni nodo conserva indici e i nomi
  * vivono nell'arena, quindi spostare il vettore non invalida riferimenti.
@@ -2379,7 +2379,7 @@ static int ck_symbols_reserve(size_t need) {
  * disponibile, senza un limite sulla cardinalita degli insiemi. */
 typedef struct CkModelBlock CkModelBlock;
 struct CkModelBlock { void *data; CkModelBlock *next; };
-static CkModelBlock *ck_model_blocks;
+static _Thread_local CkModelBlock *ck_model_blocks;
 
 /* Libera le tabelle del certificato precedente, prima di leggerne un altro. */
 static void ck_model_clear(void) {
@@ -2438,9 +2438,9 @@ typedef struct {
     size_t value;
     unsigned char *bits;
 } CkBound;
-static CkBound *ck_bound;
-static size_t ck_bound_capacity;
-static int ck_bound_count;
+static _Thread_local CkBound *ck_bound;
+static _Thread_local size_t ck_bound_capacity;
+static _Thread_local int ck_bound_count;
 
 /* 11h, 11j. Ritorna un nodo nuovo di tipo kind, con valore value e operandi
  * a e b. */
@@ -2457,9 +2457,9 @@ static CkNode *ck_make(CkKind kind, long long value, const CkNode *a, const CkNo
  * semplice. Il vettore e posseduto dal certificato, i nodi ne tengono solo
  * l'indice canonico. Non si impacchettano identificatori in quattro bit. */
 typedef struct { int sort[2][2]; } CkSides;
-static CkSides *ck_sides;
-static size_t ck_sides_capacity;
-static int ck_sides_count;
+static _Thread_local CkSides *ck_sides;
+static _Thread_local size_t ck_sides_capacity;
+static _Thread_local int ck_sides_count;
 
 /* Registra i lati canonici, riusando l'indice quando tutte le componenti
  * coincidono. Cosi l'uguaglianza strutturale dei nodi resta indipendente
@@ -2687,7 +2687,7 @@ static const CkNode *ck_read_condition(void) {
     return node;
 }
 
-static long long ck_tried;
+static _Thread_local long long ck_tried;
 
 /* Quanti elementi i quantificatori possono provare, in tutto, ricalcolando
  * l'enunciato del certificato in corso su un modello: il budget che chi
@@ -2699,7 +2699,7 @@ static long long ck_tried;
  * è "non so controllarlo", mai un sì. Prima era solo la costante: un
  * controesempio di 101 elementi sotto quattro quantificatori, che il motore
  * sa trovare, non si poteva certificare con nessuna opzione. */
-static long long ck_eval_limit = CK_MAX_EVAL;
+static _Thread_local long long ck_eval_limit = CK_MAX_EVAL;
 
 /* Ritorna il valore del termine t nel modello, con depth variabili legate;
  * per una parte legata applicata, 1 se l'argomento sta nella parte. */
@@ -2929,22 +2929,22 @@ typedef struct {
  * elementari), ognuna con gli insiemi dei nomi che vi compaiono (bit i:
  * l'insieme di posto i, 11f); il rappresentante della classe di ogni
  * termine (11e). */
-static CkGround ck_grounds[CK_MAX_GROUND];
-static int ck_ground_count;
-static CkAtom ck_atoms[CK_MAX_ATOMS];
-static int ck_atom_count;
-static const CkNode *ck_formulas[CK_MAX_FORMULAS];
-static unsigned ck_masks[CK_MAX_FORMULAS], ck_pair_masks[CK_MAX_FORMULAS];
-static int ck_formula_count;
-static int ck_rep[CK_MAX_GROUND];
-static long long ck_nodes;
+static _Thread_local CkGround ck_grounds[CK_MAX_GROUND];
+static _Thread_local int ck_ground_count;
+static _Thread_local CkAtom ck_atoms[CK_MAX_ATOMS];
+static _Thread_local int ck_atom_count;
+static _Thread_local const CkNode *ck_formulas[CK_MAX_FORMULAS];
+static _Thread_local unsigned ck_masks[CK_MAX_FORMULAS], ck_pair_masks[CK_MAX_FORMULAS];
+static _Thread_local int ck_formula_count;
+static _Thread_local int ck_rep[CK_MAX_GROUND];
+static _Thread_local long long ck_nodes;
 
 /* 11j. Le coppie di lati delle voci witness equipotent del caso in corso,
  * come bit di insiemi (ck_side_mask()): i nomi di una voce esistono quando i
  * suoi due lati sono vuoti insieme o non vuoti insieme (11f). ck_pair_masks[]
  * dice, per ogni condizione del caso, le coppie dei nomi che nomina. */
-static unsigned ck_pair_side[CK_MAX_PAIRS][2];
-static int ck_pair_count;
+static _Thread_local unsigned ck_pair_side[CK_MAX_PAIRS][2];
+static _Thread_local int ck_pair_count;
 
 /* 11j. Ritorna, come bit, le coppie di ck_pair_side[] dei nomi che compaiono
  * nell'albero t. */
@@ -3344,7 +3344,7 @@ static int ck_find(int t) {
  * in classi diverse le si unisce. Un'unione cambia le firme, e allora il
  * giro ricomincia; finisce quando un giro intero non unisce nulla. */
 static void ck_closure(void) {
-    static int table[2 * CK_MAX_GROUND];
+    static _Thread_local int table[2 * CK_MAX_GROUND];
     unsigned size = 1;
     while (size < 2u * (unsigned)ck_ground_count) size *= 2;
     for (int t = 0; t < ck_ground_count; t++) ck_rep[t] = t;
@@ -3792,7 +3792,7 @@ typedef struct {
     size_t part_cap, schema_cap, equipotence_cap;
     unsigned long long work;
 } CkRState;
-static CkRState ck_r;
+static _Thread_local CkRState ck_r;
 
 /* Libera i depositi posseduti. I letterali e i temporanei nell'arena
  * vengono restituiti col resto del certificato, non cella per cella. */
@@ -4721,8 +4721,8 @@ static void ck_r_step(void) {
 /* Condizioni assunte nei rami del certificato structure. Il vettore
  * possiede le celle; i nodi puntati appartengono all'arena del certificato.
  * L'assenza di un limite ai rami non cambia la regola di copertura 11d. */
-static const CkNode **ck_assumed;
-static size_t ck_assumed_capacity;
+static _Thread_local const CkNode **ck_assumed;
+static _Thread_local size_t ck_assumed_capacity;
 
 /* Libera dichiarazioni, contesti e rami a ogni ingresso/uscita del
  * verificatore. Le parti del modello sono gia liberate dai quantificatori;
@@ -5097,8 +5097,8 @@ static CkUni ck_uni_gcd(CkUni a, CkUni b) {
 }
 
 /* La catena di Sturm dell'ultimo polinomio passato a ck_roots(). */
-static CkUni ck_chain[CK_MAX_DEGREE + 2];
-static int ck_chain_length;
+static _Thread_local CkUni ck_chain[CK_MAX_DEGREE + 2];
+static _Thread_local int ck_chain_length;
 
 /* Ritorna quante radici reali distinte ha p, che non è nullo, tra low e
  * high, che non devono essere sue radici; NULL al posto di low o di high
@@ -5189,8 +5189,8 @@ static int ck_roots(const CkUni *p, const CkNum *low, const CkNum *high) {
  * è il caso di R. */
 
 /* I fattori del certificato in corso, nell'ordine delle voci factor. */
-static CkUni ck_factor[CK_MAX_FACTORS];
-static int ck_factor_count;
+static _Thread_local CkUni ck_factor[CK_MAX_FACTORS];
+static _Thread_local int ck_factor_count;
 
 /* I tre tipi di riga di una tabella. */
 typedef enum { CK_INTERVAL, CK_POINT, CK_ROOT } CkRowKind;
@@ -5209,9 +5209,9 @@ typedef struct {
 
 /* Le righe del certificato in corso; nelle righe dei punti, il segno di ogni
  * fattore (12e). */
-static CkRow ck_rows[2 * CK_MAX_POINTS + 1];
-static int ck_row_count;
-static signed char ck_row_sign[2 * CK_MAX_POINTS + 1][CK_MAX_FACTORS];
+static _Thread_local CkRow ck_rows[2 * CK_MAX_POINTS + 1];
+static _Thread_local int ck_row_count;
+static _Thread_local signed char ck_row_sign[2 * CK_MAX_POINTS + 1][CK_MAX_FACTORS];
 
 /* Ritorna 1 se il polinomio r, non nullo, si annulla nella radice della
  * riga row, una riga root: se il massimo comun divisore di r e del fattore
@@ -5264,16 +5264,16 @@ static int ck_sign_in_row(CkPoly p, int row) {
  * dipende la verità (12d). */
 
 /* La variabile della tabella in corso. */
-static char ck_x;
+static _Thread_local char ck_x;
 
 /* Il confronto in corso: i suoi valori assoluti, i più interni per primi
  * (ck_collect_abs()); i numeratori dei divisori annotati calcolandolo come
  * frazione; ck_nowhere è 1 se si è diviso per la frazione nulla, e allora,
  * con quella scelta dei segni, il confronto non ha valore in nessun punto. */
-static const CkNode *ck_abs[CK_MAX_ABS];
-static int ck_abs_count;
-static CkPoly ck_seen[CK_MAX_SEEN];
-static int ck_seen_count, ck_nowhere;
+static _Thread_local const CkNode *ck_abs[CK_MAX_ABS];
+static _Thread_local int ck_abs_count;
+static _Thread_local CkPoly ck_seen[CK_MAX_SEEN];
+static _Thread_local int ck_seen_count, ck_nowhere;
 
 /* Mette in *k l'esponente e di una potenza, se è un intero scritto: k
  * oppure (neg k). Altrimenti ritorna 0. */
@@ -6027,12 +6027,12 @@ static void ck_check_signs(void) {
  * uguali. */
 
 /* L'unità del certificato in corso, e 1 se la si può ancora allargare. */
-static long long ck_unit;
-static int ck_learning;
+static _Thread_local long long ck_unit;
+static _Thread_local int ck_learning;
 
 /* Il nome della variabile reale del certificato in corso, che è sempre
  * l'indeterminata 0: le catene di Sturm del capitolo 12 la cercano lì. */
-static char ck_dx;
+static _Thread_local char ck_dx;
 
 /* Ritorna l'indeterminata di tipo kind (7g) con argomento base / below e,
  * per una ROOT, indice index (0 per gli altri tipi), creandola se manca. Una
@@ -6106,12 +6106,12 @@ typedef struct {
     int positive, certain;
 } CkCondition;
 
-static CkCondition ck_conditions[CK_MAX_DIVISORS];
-static int ck_condition_count;
+static _Thread_local CkCondition ck_conditions[CK_MAX_DIVISORS];
+static _Thread_local int ck_condition_count;
 
 /* La scelta dei segni dei valori assoluti in corso: il bit i è 1 se
  * l'argomento di ck_abs[i] (12c) è preso negativo (13f). */
-static unsigned ck_abs_pattern;
+static _Thread_local unsigned ck_abs_pattern;
 
 /* Annota che la frazione r deve essere positiva (positive = 1) o diversa da
  * zero. r = N / M è positiva esattamente quando lo è N M, perché M non è
@@ -6262,9 +6262,9 @@ typedef struct {
     long long unit;      /* L */
 } CkRootUnit;
 
-static CkRootUnit ck_root_units[CK_MAX_BRICKS];
-static int ck_root_unit_count;
-static int ck_hinting;  /* 1 mentre si calcolano le voci brick */
+static _Thread_local CkRootUnit ck_root_units[CK_MAX_BRICKS];
+static _Thread_local int ck_root_unit_count;
+static _Thread_local int ck_hinting;  /* 1 mentre si calcolano le voci brick */
 
 /* Ritorna (radice m-esima di u)^power, con u il valore del radicando tree.
  * La radice di un numero razionale che è una potenza m-esima è esatta, con
@@ -6415,8 +6415,8 @@ static CkRat ck_real_eval(const CkNode *node) {
 
 /* Le derivate delle lettere: il bit v di ck_derived dice se ck_dvar[v] è
  * già calcolata. Si ricalcolano a ogni valutazione del certificato. */
-static CkRat ck_dvar[CK_MAX_VARS];
-static unsigned ck_derived;
+static _Thread_local CkRat ck_dvar[CK_MAX_VARS];
+static _Thread_local unsigned ck_derived;
 _Static_assert(CK_MAX_VARS <= 32, "ck_derived ha un bit per ogni indeterminata");
 
 /* Il prototipo è in avanti perché la derivata di una lettera chiede quella
@@ -7169,7 +7169,7 @@ static void ck_check_calculus(int kind) {
 
 /* Il polinomio 1, comune a tutti i coefficienti del certificato in corso:
  * i polinomi non si modificano mai, quindi si possono condividere. */
-static CkPoly ck_one;
+static _Thread_local CkPoly ck_one;
 
 /* Ritorna l'indeterminata CONST b^{1/root} (7h), creandola se manca. */
 static int ck_const_var(char base, long long prime, int root) {
@@ -7614,7 +7614,7 @@ typedef struct {
 } CkSeries;
 
 /* La precisione del lato in corso: l'ordine N del certificato (14d). */
-static int ck_goal;
+static _Thread_local int ck_goal;
 
 /* Ritorna a + b, esponenti in unità 1/D: CK_FLAT se uno dei due lo è. Due
  * esponenti veri non devono mai avvicinarsi a CK_FLAT. */
@@ -8522,9 +8522,9 @@ static CkNear ck_near_power(CkNear v, CkNum q, int odd) {
 
 /* Il limite in corso: la variabile, la sua sostituzione, e 1 mentre si
  * calcola un numero del certificato, in cui la variabile non è ammessa. */
-static char ck_lim_x;
-static CkNear ck_lim_value;
-static int ck_numbers;
+static _Thread_local char ck_lim_x;
+static _Thread_local CkNear ck_lim_value;
+static _Thread_local int ck_numbers;
 
 /* Ritorna il valore di node vicino al punto, dal lato in corso. */
 static CkNear ck_lim_eval(const CkNode *node) {
@@ -8929,7 +8929,7 @@ typedef struct {
 static const CkValue CK_NO_VALUE = {0, {0, 1}, {0, 0, NULL}};
 
 /* Prodotti e confronti tra razionali già contati per il certificato in corso. */
-static long long ck_m_work;
+static _Thread_local long long ck_m_work;
 
 /* Conta amount prodotti o confronti tra razionali. Ritorna 1 se il conto sta
  * ancora nel suo tetto; altrimenti il certificato non si sa controllare, e
@@ -9054,10 +9054,10 @@ static CkValue ck_m_read(void);
 
 /* Il primo testimone non ancora usato, e il punto dell'enunciato da cui la
  * lettura riprende dopo averne letto uno. */
-static const char *ck_m_witness, *ck_m_resume;
+static _Thread_local const char *ck_m_witness, *ck_m_resume;
 
 /* 1 mentre si legge un testimone: lì det, rank e inv non hanno posto. */
-static int ck_m_plain;
+static _Thread_local int ck_m_plain;
 
 /* Legge un intero scritto e lo ritorna; se manca, il certificato è scritto
  * male. */
@@ -9512,14 +9512,14 @@ static CkValue ck_m_read(void) {
 /* Le lettere della voce letters, nell'ordine in cui sono scritte: la
  * lettera ck_m_letter[v] è l'indeterminata v dei polinomi. ck_m_letters a
  * zero vuol dire che il certificato non ne dichiara. */
-static int ck_m_letters;
-static char ck_m_letter[CK_MAX_VARS];
+static _Thread_local int ck_m_letters;
+static _Thread_local char ck_m_letter[CK_MAX_VARS];
 
 /* Il polinomio della voce where (17d), che i valori delle lettere non
  * annullano; il numero 1 se la voce non c'è. Non è mai il polinomio nullo.
  * ck_m_has_where dice se la voce c'è. */
-static CkPoly ck_m_where;
-static int ck_m_has_where;
+static _Thread_local CkPoly ck_m_where;
+static _Thread_local int ck_m_has_where;
 
 /* Il valore di un'espressione con le lettere: un polinomio (rows e cols a
  * zero, il polinomio in at[0]) oppure una matrice di polinomi di rows righe
@@ -10437,8 +10437,8 @@ typedef struct {
     CkRat value;                             /* con un punto: G(P) */
 } CkPartial;
 
-static CkPartial ck_partials[CK_MAX_PARTIALS];
-static int ck_partial_count;
+static _Thread_local CkPartial ck_partials[CK_MAX_PARTIALS];
+static _Thread_local int ck_partial_count;
 
 /* Ritorna il valore di node, in cui i nomi dei primi count termini valgono
  * i termini: il numero G(P) per un termine con un punto, altrimenti la sua
@@ -11100,19 +11100,19 @@ static int ck_ix_poly_equal(CkIxPoly a, CkIxPoly b) {
  * da 1 a d, nel punto che si sta calcolando; il rango del tensore di ogni
  * nome, -1 finché non lo si è incontrato; il lavoro fatto, da confrontare
  * con ck_eval_limit; i numeri della voce metric, o NULL se non c'è. */
-static long long ck_ix_dimension;
-static long long ck_ix_value[CK_IX_LETTERS];
-static int ck_ix_rank[CK_IX_LETTERS];
-static long long ck_ix_steps;
-static const CkNum *ck_ix_metric;
+static _Thread_local long long ck_ix_dimension;
+static _Thread_local long long ck_ix_value[CK_IX_LETTERS];
+static _Thread_local int ck_ix_rank[CK_IX_LETTERS];
+static _Thread_local long long ck_ix_steps;
+static _Thread_local const CkNum *ck_ix_metric;
 
 /* Le voci given: per il nome di ogni tensore dato gli alberi dei suoi
  * elementi, nell'ordine in cui sono scritti, e quanti sono; NULL per un
  * tensore libero. ck_ix_in_given vale 1 mentre ck_ix_scan() guarda un
  * elemento, che non può nominare un tensore dato. */
-static CkIx **ck_ix_given[CK_IX_LETTERS];
-static long long ck_ix_given_count[CK_IX_LETTERS];
-static int ck_ix_in_given;
+static _Thread_local CkIx **ck_ix_given[CK_IX_LETTERS];
+static _Thread_local long long ck_ix_given_count[CK_IX_LETTERS];
+static _Thread_local int ck_ix_in_given;
 
 /* Quanti indici può avere un tensore dato. Il limite serve solo a non
  * contare all'infinito in dimensione 1, dove d^r vale 1 per ogni r. */
@@ -11126,9 +11126,9 @@ static int ck_ix_in_given;
  * inverse si possono usare: c'è la voce, e non si sta guardando un suo
  * elemento. */
 #define CK_IX_MAX_FACTORS 16
-static CkIxPoly ck_ix_factor[CK_IX_MAX_FACTORS];
-static int ck_ix_factors;
-static int ck_ix_has_metric;
+static _Thread_local CkIxPoly ck_ix_factor[CK_IX_MAX_FACTORS];
+static _Thread_local int ck_ix_factors;
+static _Thread_local int ck_ix_has_metric;
 
 /* Un valore del conto: il polinomio num diviso per il prodotto dei fattori
  * della metrica, il fattore di posto k elevato a power[k]. Senza una metrica
@@ -11817,11 +11817,11 @@ typedef struct CkNNode {
  * valore nel punto dell'enunciato che si sta calcolando. */
 #define CK_N_QUANTIFIERS 64
 #define CK_N_DEPTH 200
-static int ck_n_kind, ck_n_quantifiers, ck_n_bound;
-static int ck_n_given[CK_N_QUANTIFIERS];
-static CkNum ck_n_witness[CK_N_QUANTIFIERS];
-static long long ck_n_letter[CK_N_QUANTIFIERS];
-static CkNum ck_n_value[CK_N_QUANTIFIERS];
+static _Thread_local int ck_n_kind, ck_n_quantifiers, ck_n_bound;
+static _Thread_local int ck_n_given[CK_N_QUANTIFIERS];
+static _Thread_local CkNum ck_n_witness[CK_N_QUANTIFIERS];
+static _Thread_local long long ck_n_letter[CK_N_QUANTIFIERS];
+static _Thread_local CkNum ck_n_value[CK_N_QUANTIFIERS];
 
 /* Supera il carattere c, dopo gli spazi; altrimenti respinge. */
 static void ck_n_expect(char c) {
@@ -11886,7 +11886,7 @@ static long long ck_n_variable(void) {
 /* Alloca un nodo dell'albero. Ritorna un nodo vuoto, mai NULL: se la
  * memoria è finita lo stato non è più CK_ACCEPTED e chi chiama si ferma. */
 static CkNNode *ck_n_node(CkNKind kind) {
-    static CkNNode none;
+    static _Thread_local CkNNode none;
     CkNNode *node = ck_alloc(sizeof *node);
     if (!node) { none = (CkNNode){0}; return &none; }
     *node = (CkNNode){0};
@@ -11897,7 +11897,7 @@ static CkNNode *ck_n_node(CkNKind kind) {
 /* 20g: le voci define di un certificato infinite possono scrivere
  * (cases C E F); altrove no. Una condizione sta dentro un'espressione solo
  * lì. */
-static int ck_g_cases;
+static _Thread_local int ck_g_cases;
 static const CkNNode *ck_n_condition(int depth);
 
 /* Legge un'espressione. */
@@ -12448,14 +12448,14 @@ enum { CK_A_ADD, CK_A_NEG, CK_A_MUL, CK_A_LESS, CK_A_NUMERALS };
  * CK_A_NUMERALS + i vale ck_a_numeral[i]. ck_a_active vale uno dopo la
  * riga clausify di un certificato arithmetic, e solo allora compute è un
  * passo. */
-static long long ck_a_numeral[CK_A_MAX_NUMERALS];
-static int ck_a_numerals, ck_a_active;
+static _Thread_local long long ck_a_numeral[CK_A_MAX_NUMERALS];
+static _Thread_local int ck_a_numerals, ck_a_active;
 
 /* Le lettere legate nel punto della traduzione: quelle dei quantificatori
  * e, per una divisibilità, -1 per il suo fattore (le lettere sono >= 0). */
 #define CK_A_DEPTH (CK_N_QUANTIFIERS + 1)
-static long long ck_a_letter[CK_A_DEPTH];
-static int ck_a_depth;
+static _Thread_local long long ck_a_letter[CK_A_DEPTH];
+static _Thread_local int ck_a_depth;
 
 /* Le leggi degli interi, con i simboli di 20f, nella notazione di 11. Le
  * prime otto sono l'anello commutativo con unità; poi x 0 = 0, che ne segue;
@@ -12850,13 +12850,13 @@ static void ck_check_arithmetic(void) {
  * dichiarato, una definizione per simbolo, nell'arena. ck_g_claim è
  * l'affermazione dell'ultimo certificato infinite letto, per chi lo scrive
  * (Proof/IndependentChecker.c la mostra a chi cerca l'interpretazione). */
-static CkNSet *ck_g_set;
-static const CkNNode **ck_g_define;
-static const CkNNode *ck_g_claim;
-static long ck_g_work;
-static int ck_g_witnesses;
-static int ck_g_witness_quantifier[CK_N_QUANTIFIERS];
-static long long ck_g_witness_value[CK_N_QUANTIFIERS];
+static _Thread_local CkNSet *ck_g_set;
+static _Thread_local const CkNNode **ck_g_define;
+static _Thread_local const CkNNode *ck_g_claim;
+static _Thread_local long ck_g_work;
+static _Thread_local int ck_g_witnesses;
+static _Thread_local int ck_g_witness_quantifier[CK_N_QUANTIFIERS];
+static _Thread_local long long ck_g_witness_value[CK_N_QUANTIFIERS];
 
 static CkNNode *ck_g_make(CkNKind kind, const CkNNode *a, const CkNNode *b) {
     CkNNode *node = ck_n_node(kind);
