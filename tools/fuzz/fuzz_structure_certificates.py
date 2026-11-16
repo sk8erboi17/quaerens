@@ -39,6 +39,20 @@ controesempio piccolo non prova che una dimostrazione accettata sia giusta;
 è il limite di questo oracolo.
 
 SUSPECT: un certificato accettato che l'oracolo non sa rileggere.
+UNJUDGED: un certificato accettato su cui l'oracolo ha esaurito i suoi
+passi (STEPS, una valutazione di una condizione o una riga di una tabella
+ciascuno): le interpretazioni da provare crescono come 4 alla numero degli
+insiemi per le tabelle possibili, e un enunciato con molti insiemi o
+quantificatori su parti annidati può chiedere ore. Non è un BUG né un
+SUSPECT: l'oracolo non ha un giudizio, e lo dice. Il riepilogo dice quanti
+sono e il massimo dei passi usati da un certificato giudicato, per vedere
+quanto il limite è lontano. ORACLE_STEPS nell'ambiente lo cambia. Misura
+del 16 novembre, sui 416 certificati scritti dal motore sui documenti di
+set_theory e algebraic_structures, 25 semi da 300 alterazioni: i
+certificati giudicati usano al più 3,6 milioni di passi, tranne alcuni tra
+21 e 39 milioni (da 10 a 98 s, secondo il carico della macchina); il
+limite, 100 milioni, li giudica tutti. Si contano passi e non secondi
+perché il conto non dipende dal carico.
 I file prodotti vanno nella cartella di lavoro, mai nel repository.
 """
 import itertools
@@ -52,6 +66,7 @@ CHECKER, SEED, COUNT, WORK = sys.argv[1], int(sys.argv[2]), int(sys.argv[3]), sy
 rnd = random.Random(SEED)
 sys.setrecursionlimit(20000)
 MAX_MODELS = 20000  # interpretazioni provate, al più, per una scelta delle grandezze
+STEPS = int(os.environ.get("ORACLE_STEPS", "0")) or 100_000_000  # passi dell'oracolo, al più, per un certificato
 KINDS = ("structure", "saturation", "example", "counterexample")
 
 
@@ -82,6 +97,19 @@ class Unreadable(Exception):
     pass
 
 
+class OutOfSteps(Exception):
+    """L'oracolo ha esaurito i suoi passi su un certificato: non lo giudica."""
+
+
+steps = [0]  # passi usati sul certificato in corso
+
+
+def step(n=1):
+    steps[0] += n
+    if steps[0] > STEPS:
+        raise OutOfSteps()
+
+
 DERIVED = {}  # 11h: insieme di parti o di applicazioni -> (tipo, base, valori o None, simbolo)
 NUMBERS = {}  # 11i: insieme dei numeri scritti -> i nomi dei numeri, nel loro ordine
 
@@ -100,6 +128,7 @@ def derived_table(name, size):
     kind, base, target, _ = DERIVED[name]
     n, table = size[base], {}
     for k in range(derived_size(name, size)):
+        step()
         if kind == "parts":
             members = {i for i in range(n) if k >> i & 1}
             for i in range(n):
@@ -162,6 +191,7 @@ def term(t, env, model):
 
 
 def holds(c, env, model, size, symbols):
+    step()
     if c == "true":
         return True
     if isinstance(c, str):
@@ -247,6 +277,7 @@ def counter_model(sorts, symbols, statement):
             top = 2 if result == "bool" else size[result]
             count *= top ** len(keys)
             choices.append([dict(zip(keys, values)) for values in itertools.product(range(top), repeat=len(keys))] if count <= MAX_MODELS else [])
+            step(len(choices[-1]))
         if count > MAX_MODELS or (max(sizes, default=0) == 3 and count > MAX_MODELS // 10):
             continue
         for tables in itertools.product(*choices):
@@ -405,7 +436,9 @@ def random_proof():
 
 
 def judge(text):
-    """Un problema del certificato accettato text, o None se l'oracolo non ne trova."""
+    """Un problema del certificato accettato text, o None se l'oracolo non ne
+    trova. OutOfSteps se esaurisce i suoi passi."""
+    steps[0] = 0
     kind, sorts, symbols, statement, tables = read(text)
     if kind in ("example", "counterexample"):
         model = model_from_tables(sorts, symbols, tables)
@@ -434,7 +467,7 @@ def main():
     if len(answers) != len(mutants) or run.returncode not in (0, 1):
         print("BUG: the checker answered %d of %d certificates (exit %d)\n%s" % (len(answers), len(mutants), run.returncode, run.stderr[-2000:]))
         return
-    stats = {}
+    stats, unjudged, most = {}, 0, 0
     for number, (mutant, answer) in enumerate(zip(mutants, answers), 1):
         verdict = answer.split(". ", 1)[1].split(":")[0]
         stats[verdict] = stats.get(verdict, 0) + 1
@@ -445,9 +478,15 @@ def main():
         except (Unreadable, KeyError, IndexError, ValueError) as error:
             print("SUSPECT %d: accepted, but the oracle cannot read it (%r)\n%s" % (number, error, mutant))
             continue
+        except OutOfSteps:
+            unjudged += 1
+            print("UNJUDGED %d: accepted; the oracle stopped after %d steps without a judgement\n%s" % (number, STEPS, mutant))
+            continue
+        most = max(most, steps[0])
         if problem:
             print("BUG %d: %s\n%s" % (number, problem, mutant))
-    print("seed %d: %d certificates altered from %d, %s" % (SEED, len(mutants), len(certificates), stats))
+    print("seed %d: %d certificates altered from %d, %s; oracle: %d not judged (more than %d steps), at most %d steps for one judged" %
+          (SEED, len(mutants), len(certificates), stats, unjudged, STEPS, most))
 
 
 main()
